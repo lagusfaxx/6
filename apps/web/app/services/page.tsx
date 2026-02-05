@@ -6,6 +6,10 @@ import ClientMap from "../../components/ClientMap";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 
 type Category = { id: string; name: string; kind: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP" };
+function displayCategoryName(name: string) {
+  return name.trim().toLowerCase() === "spas" ? "Cafes" : name;
+}
+
 type CardItem = {
   id: string;
   name: string;
@@ -62,7 +66,7 @@ export default function ServicesPage() {
             }));
             next[c.id] = items;
             items.forEach((i) => {
-              if (i.lat != null && i.lng != null) nextMarkers.push({ id: `${c.id}-${i.id}`, name: i.name, lat: Number(i.lat), lng: Number(i.lng), subtitle: c.name });
+              if (i.lat != null && i.lng != null) nextMarkers.push({ id: `${c.id}-${i.id}`, name: i.name, lat: Number(i.lat), lng: Number(i.lng), subtitle: displayCategoryName(c.name) });
             });
           } else if (c.kind === "ESTABLISHMENT") {
             const res = await apiFetch<{ establishments: any[] }>(`/establishments?${params.toString()}`);
@@ -77,7 +81,7 @@ export default function ServicesPage() {
             }));
             next[c.id] = items;
             items.forEach((i) => {
-              if (i.lat != null && i.lng != null) nextMarkers.push({ id: `${c.id}-${i.id}`, name: i.name, lat: Number(i.lat), lng: Number(i.lng), subtitle: c.name });
+              if (i.lat != null && i.lng != null) nextMarkers.push({ id: `${c.id}-${i.id}`, name: i.name, lat: Number(i.lat), lng: Number(i.lng), subtitle: displayCategoryName(c.name) });
             });
           } else {
             const res = await apiFetch<{ shops: any[] }>(`/shop/sexshops?${params.toString()}`);
@@ -92,7 +96,7 @@ export default function ServicesPage() {
             }));
             next[c.id] = items;
             items.forEach((i) => {
-              if (i.lat != null && i.lng != null) nextMarkers.push({ id: `${c.id}-${i.id}`, name: i.name, lat: Number(i.lat), lng: Number(i.lng), subtitle: c.name });
+              if (i.lat != null && i.lng != null) nextMarkers.push({ id: `${c.id}-${i.id}`, name: i.name, lat: Number(i.lat), lng: Number(i.lng), subtitle: displayCategoryName(c.name) });
             });
           }
         } catch {
@@ -124,7 +128,7 @@ export default function ServicesPage() {
               {grouped[kind].map((cat) => (
                 <div key={cat.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <h3 className="font-semibold">{cat.name}</h3>
+                    <h3 className="font-semibold">{displayCategoryName(cat.name)}</h3>
                     <Link href={kind === "PROFESSIONAL" ? `/profesionales?categoryId=${cat.id}` : kind === "ESTABLISHMENT" ? `/establecimientos?categoryId=${cat.id}` : `/sexshops?categoryId=${cat.id}`} className="text-xs text-white/70 underline">
                       Ver todo
                     </Link>

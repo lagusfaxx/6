@@ -25,24 +25,24 @@ export default function AccountPage() {
       {loading ? (
         <div className="card p-6 text-white/60">Cargando...</div>
       ) : user ? (
-        <>
+        <div className="grid gap-4">
           <div className="card p-6">
-            <div className="text-sm text-white/60">Usuario</div>
-            <div className="mt-1 text-2xl font-semibold">{user.displayName || user.username}</div>
-            <div className="text-sm text-white/50">Perfil: {user.profileType}</div>
+            <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+              <div>
+                <div className="text-sm text-white/60">Usuario</div>
+                <div className="mt-1 text-2xl font-semibold leading-tight">{user.displayName || user.username}</div>
+                <div className="text-sm text-white/50 mt-1">Perfil: {user.profileType}</div>
+              </div>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              {canManageProfile ? (
-                <Link href="/dashboard/services" className="btn-primary">
-                  Gestionar perfil y servicios
-                </Link>
-              ) : (
-                <Link href="/servicios" className="btn-primary">
-                  Explorar servicios
-                </Link>
-              )}
-              <Link href="/chats" className="btn-secondary">Ir a chats</Link>
-              <button onClick={handleLogout} className="btn-secondary">Cerrar sesión</button>
+              <div className="flex flex-wrap gap-2 md:justify-end">
+                {canManageProfile ? (
+                  <Link href="/dashboard/services" className="btn-primary">Gestionar perfil y servicios</Link>
+                ) : (
+                  <Link href="/servicios" className="btn-primary">Explorar servicios</Link>
+                )}
+                <Link href="/chats" className="btn-secondary">Chats</Link>
+                <button onClick={handleLogout} className="btn-secondary">Cerrar sesión</button>
+              </div>
             </div>
           </div>
 
@@ -50,16 +50,18 @@ export default function AccountPage() {
             <div className="card p-6">
               <h2 className="text-lg font-semibold">Panel profesional/comercio</h2>
               <p className="mt-2 text-sm text-white/70">
-                Aquí puedes subir foto de perfil/portada, editar descripción, definir edad/género y publicar servicios o productos según tu tipo de cuenta.
+                Desde aquí gestionas foto de perfil/portada, edad, género, descripción y tus servicios/productos.
               </p>
             </div>
           ) : null}
-        </>
+        </div>
       ) : (
         <div className="card p-6">
           <div className="text-sm text-white/60">No has iniciado sesión</div>
           <h2 className="mt-1 text-xl font-semibold">Accede para guardar favoritos y chatear</h2>
-          <p className="mt-2 text-sm text-white/70">Si solo quieres consumir servicios, crea una cuenta Cliente. Si quieres publicar, usa registro profesional/comercio.</p>
+          <p className="mt-2 text-sm text-white/70">
+            Si solo quieres consumir servicios, crea cuenta Cliente. Si quieres publicar, usa registro profesional/comercio.
+          </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link href="/login" className="btn-primary">Iniciar sesión</Link>
             <Link href="/register" className="btn-secondary">Crear cuenta</Link>

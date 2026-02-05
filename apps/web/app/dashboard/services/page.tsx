@@ -23,19 +23,19 @@ const labelsByProfile: Record<string, { item: string; panel: string; upload: str
     item: "servicio",
     panel: "Panel profesional",
     upload: "Subir fotos del servicio",
-    helper: "Define perfil, fotos, edad y los servicios que ofrecerás (Acompañamiento, Bienestar, Masajes)."
+    helper: "Define perfil, fotos, edad y servicios que ofrecerás."
   },
   ESTABLISHMENT: {
     item: "habitación/servicio",
     panel: "Panel de establecimiento",
     upload: "Subir fotos de habitación",
-    helper: "Publica habitaciones y servicios para solicitudes tipo booking por chat."
+    helper: "Publica habitaciones/servicios para solicitudes tipo booking por chat."
   },
   SHOP: {
-    item: "producto/publicación",
+    item: "producto",
     panel: "Panel de tienda",
     upload: "Subir fotos del producto",
-    helper: "Sube productos con precio y fotos para que clientes armen carro y envíen pedido por chat."
+    helper: "Sube productos con precio para el flujo de carro + envío de pedido por chat."
   }
 };
 
@@ -62,6 +62,12 @@ export default function DashboardServicesPage() {
   const profileType = (user?.profileType ?? "CLIENT") as ProfileType;
   const labels = labelsByProfile[profileType] ?? labelsByProfile.PROFESSIONAL;
 
+  const categoryOptions = useMemo(() => {
+    if (profileType === "PROFESSIONAL") return ["Acompañamiento", "Bienestar", "Masajes"];
+    if (profileType === "ESTABLISHMENT") return ["Motel", "Night Club", "Cafes"];
+    return ["Lencería", "Juguetes", "Lubricantes", "Accesorios"];
+  }, [profileType]);
+
   const [items, setItems] = useState<ServiceItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +75,7 @@ export default function DashboardServicesPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(categoryOptions[0] || "");
   const [price, setPrice] = useState<string>("");
 
   const [displayName, setDisplayName] = useState("");
@@ -78,11 +84,9 @@ export default function DashboardServicesPage() {
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("FEMALE");
 
-  const quickCategories = profileType === "PROFESSIONAL"
-    ? ["Acompañamiento", "Bienestar", "Masajes"]
-    : profileType === "ESTABLISHMENT"
-      ? ["Habitación estándar", "Suite", "Pack noche"]
-      : ["Lencería", "Juguetes", "Lubricantes"];
+  useEffect(() => {
+    setCategory((prev) => (prev ? prev : categoryOptions[0] || ""));
+  }, [categoryOptions]);
 
   async function load(userId: string) {
     setError(null);
@@ -104,7 +108,6 @@ export default function DashboardServicesPage() {
 
   useEffect(() => {
     if (!loading && user?.id) load(user.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user?.id]);
 
   async function create() {
@@ -117,18 +120,17 @@ export default function DashboardServicesPage() {
         body: JSON.stringify({
           title,
           description: description || null,
-          category: category || null,
+          category,
           price: price ? parseInt(price, 10) : null
         })
       });
       setTitle("");
       setDescription("");
-      setCategory("");
       setPrice("");
       if (user?.id) await load(user.id);
-      setOkMessage(`Tu ${labels.item} fue creada correctamente.`);
+      setOkMessage(`Tu ${labels.item} fue creado correctamente.`);
     } catch (e: any) {
-      setError(friendlyErrorMessage(e) || `No se pudo crear la ${labels.item}.`);
+      setError(friendlyErrorMessage(e) || `No se pudo crear el ${labels.item}.`);
     } finally {
       setBusy(false);
     }
@@ -159,7 +161,7 @@ export default function DashboardServicesPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm(`¿Eliminar esta ${labels.item}?`)) return;
+    if (!confirm(`¿Eliminar este ${labels.item}?`)) return;
     setBusy(true);
     setError(null);
     try {
@@ -273,18 +275,20 @@ export default function DashboardServicesPage() {
           <h2 className="text-lg font-semibold">Agregar {labels.item}</h2>
           <div className="mt-3 grid gap-3">
             <input className="input" placeholder={profileType === "SHOP" ? "Nombre del producto" : "Título del servicio"} value={title} onChange={(e) => setTitle(e.target.value)} />
-            <input className="input" placeholder="Categoría" value={category} onChange={(e) => setCategory(e.target.value)} />
-            <div className="flex flex-wrap gap-2">
-              {quickCategories.map((c) => (
-                <button key={c} type="button" className="rounded-lg border border-white/15 px-2 py-1 text-xs hover:bg-white/10" onClick={() => setCategory(c)}>
-                  + {c}
-                </button>
-              ))}
+
+            <div className="grid gap-1">
+              <label className="text-xs text-white/60">Categoría (predefinida)</label>
+              <select className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
+                {categoryOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
+
             <input className="input" placeholder="Precio CLP (opcional)" value={price} onChange={(e) => setPrice(e.target.value)} />
             <textarea className="input min-h-[110px]" placeholder="Descripción" value={description} onChange={(e) => setDescription(e.target.value)} />
             <button
-              disabled={busy || !title.trim()}
+              disabled={busy || !title.trim() || !category}
               onClick={create}
               className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50"
             >

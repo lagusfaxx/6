@@ -46,6 +46,10 @@ function kindLabel(kind: Category["kind"]) {
   return "Tiendas";
 }
 
+function displayCategoryName(name: string) {
+  return name.trim().toLowerCase() === "spas" ? "Cafes" : name;
+}
+
 function kindHref(kind: Category["kind"], categoryId: string) {
   if (kind === "PROFESSIONAL") return `/profesionales?categoryId=${encodeURIComponent(categoryId)}`;
   if (kind === "ESTABLISHMENT") return `/establecimientos?categoryId=${encodeURIComponent(categoryId)}`;
@@ -190,7 +194,7 @@ export default function HomePage() {
                             <Icon className="h-5 w-5 text-white" />
                           </div>
                           <div>
-                            <div className="text-base md:text-3xl font-semibold">{c.name}</div>
+                            <div className="text-base md:text-3xl font-semibold">{displayCategoryName(c.name)}</div>
                           </div>
                         </div>
                         <Sparkles className="h-5 w-5 text-white/80 group-hover:text-white transition" />
