@@ -142,6 +142,8 @@ DO $$ BEGIN
     FOREIGN KEY ("serviceRequestId") REFERENCES "ServiceRequest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "categoryId" uuid;
+
 DO $$ BEGIN
   ALTER TABLE "User" ADD CONSTRAINT "User_categoryId_fkey"
     FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
