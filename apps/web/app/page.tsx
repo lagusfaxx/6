@@ -8,7 +8,7 @@ import { Briefcase, HeartHandshake, Sparkles, Store, Users } from "lucide-react"
 type Category = {
   id: string;
   name: string;
-  kind: "PROFESSIONAL" | "ESTABLISHMENT";
+  kind: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
 };
 
 export default function HomePage() {
@@ -17,8 +17,8 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch<{ categories: Category[] }>("/categories")
-      .then((res) => setCategories(res.categories))
+    apiFetch<Category[]>("/categories")
+      .then((res) => setCategories(Array.isArray(res) ? res : (res as any)?.categories ?? []))
       .catch((err: any) => {
         // Sin sesión, /auth/me puede dar 401 y NO debe romper el Home.
         // Si por alguna razón /categories está protegido, mostramos un estado vacío en vez de error fatal.
@@ -35,16 +35,17 @@ export default function HomePage() {
   const grouped = useMemo(() => {
     return {
       professionals: categories.filter((c) => c.kind === "PROFESSIONAL"),
-      establishments: categories.filter((c) => c.kind === "ESTABLISHMENT")
+      establishments: categories.filter((c) => c.kind === "ESTABLISHMENT"),
+      shops: categories.filter((c) => c.kind === "SHOP")
     };
   }, [categories]);
 
-  const isEmpty = !grouped.professionals.length && !grouped.establishments.length;
+  const isEmpty = !grouped.professionals.length && !grouped.establishments.length && !grouped.shops.length;
   const professionalIcons = [Users, HeartHandshake, Sparkles, Briefcase];
   const establishmentIcons = [Store, Briefcase, Sparkles, Users];
 
   const iconForCategory = (kind: Category["kind"], index: number) => {
-    const list = kind === "PROFESSIONAL" ? professionalIcons : establishmentIcons;
+    const list = kind === "PROFESSIONAL" ? professionalIcons : kind === "ESTABLISHMENT" ? establishmentIcons : establishmentIcons;
     return list[index % list.length];
   };
 
