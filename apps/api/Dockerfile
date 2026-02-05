@@ -27,7 +27,7 @@ COPY packages ./packages
 COPY prisma ./prisma
 COPY apps/api ./apps/api
 RUN cp prisma/schema.clean.prisma prisma/schema.prisma
-RUN pnpm --filter @uzeed/prisma exec prisma generate
+RUN pnpm --filter @uzeed/api exec prisma generate --schema=../../prisma/schema.prisma
 RUN pnpm --filter @uzeed/shared build
 RUN pnpm --filter @uzeed/api build
 
