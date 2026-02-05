@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  UZEED – global styling
+  Purple galaxy background + glassmorphism.
+  Background image: /public/brand/bg.jpg
+*/
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply text-white;
+  background: #070816;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Background image layer */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("/brand/bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.55;
+  filter: saturate(1.15) contrast(1.05);
+  z-index: -2;
+}
+
+/* Soft galaxy overlays */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(1200px 800px at 20% 10%, rgba(168, 85, 247, 0.30), transparent 60%),
+    radial-gradient(900px 700px at 80% 25%, rgba(236, 72, 153, 0.22), transparent 60%),
+    radial-gradient(900px 900px at 50% 90%, rgba(59, 130, 246, 0.12), transparent 60%),
+    linear-gradient(180deg, rgba(7, 8, 22, 0.10), rgba(7, 8, 22, 0.75));
+  z-index: -1;
+}
+
+/* On iOS/Safari, fixed backgrounds can cause flicker and "different" looking pages.
+   Keep the same visuals but avoid fixed positioning on small screens. */
+@media (max-width: 768px) {
+  body::before,
+  body::after {
+    position: absolute;
+  }
+}
+
+/* Make tap highlights less ugly on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Small helper utilities */
+@layer components {
+  /* Legacy classnames used across pages */
+  .card {
+    @apply uzeed-glass-strong rounded-2xl p-6;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/50 outline-none backdrop-blur-xl;
+  }
+
+  .input:focus {
+    @apply border-white/20 ring-2 ring-fuchsia-500/30;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-xl px-5 py-3 font-semibold transition;
+  }
+
+  .btn-primary {
+    @apply btn bg-gradient-to-r from-fuchsia-600 to-violet-600 shadow-[0_12px_30px_rgba(168,85,247,0.20)];
+  }
+
+  .btn-primary:hover {
+    @apply brightness-110;
+  }
+
+  .btn-ghost {
+    @apply btn border border-white/10 bg-white/5;
+  }
+
+  .file-input {
+    @apply block w-full cursor-pointer rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 backdrop-blur-xl;
+  }
+
+  .uzeed-glass {
+    @apply border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.35)];
+  }
+
+  .uzeed-glass-strong {
+    @apply border border-white/10 bg-white/10 backdrop-blur-2xl shadow-[0_18px_50px_rgba(0,0,0,0.45)];
+  }
+
+  .uzeed-pill {
+    @apply rounded-full border border-white/10 bg-white/5 backdrop-blur-xl;
+  }
+}

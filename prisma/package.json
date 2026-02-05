@@ -1,0 +1,19 @@
+{
+  "name": "@uzeed/prisma",
+  "private": true,
+  "prisma": {
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "argon2": "^0.31.2"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  },
+  "scripts": {
+    "generate": "prisma generate --schema=schema.prisma",
+    "migrate:deploy": "prisma migrate deploy --schema=schema.prisma",
+    "db:seed": "prisma db seed --schema=schema.prisma"
+  }
+}
