@@ -32,10 +32,10 @@ export default function DashboardServicesPage() {
   const [category, setCategory] = useState("");
   const [price, setPrice] = useState<string>("");
 
-  async function load() {
+  async function load(userId: string) {
     setError(null);
     try {
-      const res = await apiFetch<{ items: ServiceItem[] }>(`/services/${user.id}/items`);
+      const res = await apiFetch<{ items: ServiceItem[] }>(`/services/${userId}/items`);
       setItems(res?.items ?? []);
     } catch (e) {
       setError("No se pudieron cargar tus servicios.");
@@ -43,7 +43,7 @@ export default function DashboardServicesPage() {
   }
 
   useEffect(() => {
-    if (!loading && user) load();
+    if (!loading && user?.id) load(user.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user?.id]);
 
@@ -64,7 +64,7 @@ export default function DashboardServicesPage() {
       setDescription("");
       setCategory("");
       setPrice("");
-      await load();
+      if (user?.id) await load(user.id);
     } catch (e) {
       setError("No se pudo crear el servicio.");
     } finally {
@@ -78,7 +78,7 @@ export default function DashboardServicesPage() {
     setError(null);
     try {
       await apiFetch(`/services/items/${id}`, { method: "DELETE" });
-      await load();
+      if (user?.id) await load(user.id);
     } catch {
       setError("No se pudo eliminar.");
     } finally {
