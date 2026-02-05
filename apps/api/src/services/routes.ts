@@ -164,6 +164,36 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
       price: price ? Number(price) : null
     }
   });
+
+  if (category) {
+    const clean = String(category).trim().toLowerCase();
+    const kind = me.profileType === "PROFESSIONAL" ? "PROFESSIONAL" : me.profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : "SHOP";
+    const synonym =
+      clean === "motel" ? "moteles" :
+      clean === "cafe" || clean === "cafes" ? "spas" :
+      clean === "acompanamiento" ? "acompañamiento" :
+      clean;
+
+    const cat = await prisma.category.findFirst({
+      where: {
+        kind: kind as any,
+        OR: [
+          { name: { equals: category, mode: "insensitive" } },
+          { name: { equals: synonym, mode: "insensitive" } }
+        ]
+      },
+      select: { id: true, name: true }
+    });
+
+    await prisma.user.update({
+      where: { id: me.id },
+      data: {
+        serviceCategory: category,
+        categoryId: cat?.id ?? me.categoryId
+      }
+    });
+  }
+
   return res.json({ item });
 }));
 

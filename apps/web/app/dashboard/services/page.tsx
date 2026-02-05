@@ -64,7 +64,7 @@ export default function DashboardServicesPage() {
 
   const categoryOptions = useMemo(() => {
     if (profileType === "PROFESSIONAL") return ["Acompañamiento", "Bienestar", "Masajes"];
-    if (profileType === "ESTABLISHMENT") return ["Motel", "Night Club", "Cafes"];
+    if (profileType === "ESTABLISHMENT") return ["Centros privados", "Hoteles", "Cafes"];
     return ["Lencería", "Juguetes", "Lubricantes", "Accesorios"];
   }, [profileType]);
 

@@ -16,7 +16,7 @@ export default function AccountPage() {
   const canManageProfile = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes((user?.profileType || "").toUpperCase());
 
   return (
-    <div className="mx-auto w-full max-w-5xl grid gap-6">
+    <div className="mx-auto w-full max-w-4xl grid gap-4">
       <div className="card p-6">
         <h1 className="text-3xl font-semibold">Cuenta</h1>
         <p className="mt-2 text-sm text-white/70">Gestiona tu sesión, perfil y accesos rápidos.</p>
@@ -27,14 +27,14 @@ export default function AccountPage() {
       ) : user ? (
         <div className="grid gap-4">
           <div className="card p-6">
-            <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+            <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
               <div>
                 <div className="text-sm text-white/60">Usuario</div>
-                <div className="mt-1 text-2xl font-semibold leading-tight">{user.displayName || user.username}</div>
+                <div className="mt-1 text-xl font-semibold leading-tight">{user.displayName || user.username}</div>
                 <div className="text-sm text-white/50 mt-1">Perfil: {user.profileType}</div>
               </div>
 
-              <div className="flex flex-wrap gap-2 md:justify-end">
+              <div className="flex flex-wrap gap-2 md:justify-end md:max-w-[420px]">
                 {canManageProfile ? (
                   <Link href="/dashboard/services" className="btn-primary">Gestionar perfil y servicios</Link>
                 ) : (
