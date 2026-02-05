@@ -16,3 +16,4 @@ if [ -n "$DATABASE_URL" ]; then
 fi
 
 exec "$@"
+
