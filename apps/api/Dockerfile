@@ -29,7 +29,6 @@ COPY --from=deps /app/tsconfig.base.json ./
 COPY packages ./packages
 COPY prisma ./prisma
 COPY apps/api ./apps/api
-# Generate Prisma client during build (NEVER at runtime)
 RUN cp prisma/schema.clean.prisma prisma/schema.prisma
 RUN pnpm --filter @uzeed/prisma exec prisma generate
 RUN pnpm --filter @uzeed/shared build
@@ -39,25 +38,14 @@ RUN pnpm --filter @uzeed/api build
 FROM node:20-bullseye-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-COPY --from=build /pnpm /pnpm
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/packages/shared ./packages/shared
-COPY --from=build /app/packages/shared ./apps/api/node_modules/@uzeed/shared
 COPY --from=build /app/apps/api/dist ./apps/api/dist
-COPY --from=build /app/apps/api/docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x ./docker-entrypoint.sh
+COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 EXPOSE 3001
-ENTRYPOINT ["./docker-entrypoint.sh"]
- && npx prisma --schema prisma/schema.prisma db seed \
- && node apps/api/dist/index.js"
-CMD sh -lc "cd prisma \
- && npx prisma migrate deploy \
- && npx prisma db seed \
- && cd .. \
- && node apps/api/dist/index.js"
-
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD sh -lc "cd prisma && npx prisma migrate deploy && npx prisma db seed && cd .. && node apps/api/dist/index.js"
