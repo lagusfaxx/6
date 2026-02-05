@@ -63,6 +63,7 @@ servicesRouter.get("/services", asyncHandler(async (req, res) => {
         }
         : {})
     },
+    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       displayName: true,

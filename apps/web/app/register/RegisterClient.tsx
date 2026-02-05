@@ -9,8 +9,8 @@ type ProfileType = "CLIENT" | "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
 
 const consumerOption = {
   key: "CLIENT" as ProfileType,
-  title: "👤 Registro Cliente",
-  description: "Solo consume: busca perfiles, guarda favoritos, chatea y solicita servicios.",
+  title: "Registro Cliente",
+  description: "Busca perfiles, guarda favoritos y coordina por chat.",
   icon: User
 };
 
@@ -22,20 +22,20 @@ const businessOptions: Array<{
 }> = [
   {
     key: "PROFESSIONAL",
-    title: "💃 Profesional",
-    description: "Perfil para ofrecer servicios personales con galería y contacto.",
+    title: "Profesional",
+    description: "Ofrece servicios personales con perfil completo, fotos y categorías.",
     icon: Briefcase
   },
   {
     key: "ESTABLISHMENT",
-    title: "🏨 Motel / Night Club",
-    description: "Publica habitaciones y servicios del establecimiento tipo booking.",
+    title: "Motel / Night Club",
+    description: "Publica habitaciones/servicios y recibe solicitudes de reserva tipo booking.",
     icon: Building2
   },
   {
     key: "SHOP",
-    title: "🛒 Tienda",
-    description: "Todo comercio que vende artículos tipo sex shop se registra como Tienda.",
+    title: "Tienda",
+    description: "Comercios que venden artículos tipo sex shop se registran como Tienda.",
     icon: ShoppingBag
   }
 ];

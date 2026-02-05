@@ -18,10 +18,25 @@ type ServiceItem = {
 
 type ProfileType = "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP" | "CREATOR" | "VIEWER" | "CLIENT";
 
-const labelsByProfile: Record<string, { item: string; panel: string; upload: string }> = {
-  PROFESSIONAL: { item: "servicio", panel: "Panel profesional", upload: "Subir fotos del servicio" },
-  ESTABLISHMENT: { item: "habitación/servicio", panel: "Panel de establecimiento", upload: "Subir fotos de la habitación o servicio" },
-  SHOP: { item: "publicación", panel: "Panel de tienda", upload: "Subir fotos del producto/publicación" }
+const labelsByProfile: Record<string, { item: string; panel: string; upload: string; helper: string }> = {
+  PROFESSIONAL: {
+    item: "servicio",
+    panel: "Panel profesional",
+    upload: "Subir fotos del servicio",
+    helper: "Define perfil, fotos, edad y los servicios que ofrecerás (Acompañamiento, Bienestar, Masajes)."
+  },
+  ESTABLISHMENT: {
+    item: "habitación/servicio",
+    panel: "Panel de establecimiento",
+    upload: "Subir fotos de habitación",
+    helper: "Publica habitaciones y servicios para solicitudes tipo booking por chat."
+  },
+  SHOP: {
+    item: "producto/publicación",
+    panel: "Panel de tienda",
+    upload: "Subir fotos del producto",
+    helper: "Sube productos con precio y fotos para que clientes armen carro y envíen pedido por chat."
+  }
 };
 
 function extractAge(source?: string | null) {
@@ -61,6 +76,13 @@ export default function DashboardServicesPage() {
   const [bio, setBio] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
   const [age, setAge] = useState("");
+  const [gender, setGender] = useState("FEMALE");
+
+  const quickCategories = profileType === "PROFESSIONAL"
+    ? ["Acompañamiento", "Bienestar", "Masajes"]
+    : profileType === "ESTABLISHMENT"
+      ? ["Habitación estándar", "Suite", "Pack noche"]
+      : ["Lencería", "Juguetes", "Lubricantes"];
 
   async function load(userId: string) {
     setError(null);
@@ -74,6 +96,7 @@ export default function DashboardServicesPage() {
       setBio(stripAge(meRes?.user?.bio));
       setAge(extractAge(meRes?.user?.bio));
       setServiceDescription(meRes?.user?.serviceDescription ?? "");
+      setGender(meRes?.user?.gender || "FEMALE");
     } catch {
       setError("No se pudieron cargar tus datos del panel.");
     }
@@ -123,7 +146,8 @@ export default function DashboardServicesPage() {
         body: JSON.stringify({
           displayName,
           bio: `${agePrefix}${bio}`.trim(),
-          serviceDescription
+          serviceDescription,
+          gender
         })
       });
       setOkMessage("Perfil actualizado.");
@@ -204,16 +228,16 @@ export default function DashboardServicesPage() {
 
   if (loading) return <div className="p-6 text-white/70">Cargando...</div>;
   if (!user) return <div className="p-6 text-white/70">Debes iniciar sesión.</div>;
-  if (!canManage) return <div className="p-6 text-white/70">Este panel es solo para profesionales, tiendas y moteles/establecimientos.</div>;
+  if (!canManage) return <div className="p-6 text-white/70">Este panel es solo para profesionales, tiendas y establecimientos.</div>;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 text-white">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">{labels.panel}</h1>
-          <p className="text-sm text-white/70">Administra perfil, fotos y {labels.item}s desde un solo lugar.</p>
+          <p className="text-sm text-white/70">{labels.helper}</p>
         </div>
-        <Link href="/dashboard" className="text-sm text-white/70 hover:text-white">Volver</Link>
+        <Link href="/cuenta" className="text-sm text-white/70 hover:text-white">Volver a cuenta</Link>
       </div>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -221,16 +245,21 @@ export default function DashboardServicesPage() {
           <h2 className="text-lg font-semibold">Perfil público</h2>
           <div className="mt-3 grid gap-3">
             <input className="input" placeholder="Nombre visible" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-            <input className="input" type="number" min={18} max={99} placeholder="Edad (solo profesionales)" value={age} onChange={(e) => setAge(e.target.value)} />
+            <select className="input" value={gender} onChange={(e) => setGender(e.target.value)}>
+              <option value="FEMALE">Mujer</option>
+              <option value="MALE">Hombre</option>
+              <option value="OTHER">Otro</option>
+            </select>
+            <input className="input" type="number" min={18} max={99} placeholder="Edad" value={age} onChange={(e) => setAge(e.target.value)} />
             <textarea className="input min-h-[90px]" placeholder="Descripción general" value={bio} onChange={(e) => setBio(e.target.value)} />
             <textarea className="input min-h-[90px]" placeholder="Descripción de servicios" value={serviceDescription} onChange={(e) => setServiceDescription(e.target.value)} />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm hover:bg-black/30 cursor-pointer">
-                📸 Subir foto de perfil
+                Foto de perfil
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadProfileImage("avatar", e)} />
               </label>
               <label className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm hover:bg-black/30 cursor-pointer">
-                🖼️ Subir foto de portada
+                Foto de portada
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadProfileImage("cover", e)} />
               </label>
             </div>
@@ -243,8 +272,15 @@ export default function DashboardServicesPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <h2 className="text-lg font-semibold">Agregar {labels.item}</h2>
           <div className="mt-3 grid gap-3">
-            <input className="input" placeholder="Título" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <input className="input" placeholder="Categoría (opcional)" value={category} onChange={(e) => setCategory(e.target.value)} />
+            <input className="input" placeholder={profileType === "SHOP" ? "Nombre del producto" : "Título del servicio"} value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input className="input" placeholder="Categoría" value={category} onChange={(e) => setCategory(e.target.value)} />
+            <div className="flex flex-wrap gap-2">
+              {quickCategories.map((c) => (
+                <button key={c} type="button" className="rounded-lg border border-white/15 px-2 py-1 text-xs hover:bg-white/10" onClick={() => setCategory(c)}>
+                  + {c}
+                </button>
+              ))}
+            </div>
             <input className="input" placeholder="Precio CLP (opcional)" value={price} onChange={(e) => setPrice(e.target.value)} />
             <textarea className="input min-h-[110px]" placeholder="Descripción" value={description} onChange={(e) => setDescription(e.target.value)} />
             <button
