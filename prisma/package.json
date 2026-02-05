@@ -3,5 +3,12 @@
   "private": true,
   "prisma": {
     "seed": "node seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "argon2": "^0.31.2"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
   }
 }

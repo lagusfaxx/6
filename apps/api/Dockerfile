@@ -20,9 +20,6 @@ FROM base AS build
 WORKDIR /app
 COPY --from=deps /pnpm /pnpm
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/prisma/node_modules ./prisma/node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
-COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=deps /app/package.json ./
 COPY --from=deps /app/pnpm-workspace.yaml ./
 COPY --from=deps /app/tsconfig.base.json ./
@@ -30,7 +27,7 @@ COPY packages ./packages
 COPY prisma ./prisma
 COPY apps/api ./apps/api
 RUN cp prisma/schema.clean.prisma prisma/schema.prisma
-RUN pnpm --filter @uzeed/prisma exec prisma generate
+RUN pnpm --filter @uzeed/prisma exec prisma generate --schema=schema.prisma
 RUN pnpm --filter @uzeed/shared build
 RUN pnpm --filter @uzeed/api build
 
@@ -41,11 +38,10 @@ ENV NODE_ENV=production
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/packages/shared ./packages/shared
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 EXPOSE 3001
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD sh -lc "cd prisma && npx prisma migrate deploy && npx prisma db seed && cd .. && node apps/api/dist/index.js"
+CMD sh -lc "pnpm --filter @uzeed/prisma exec prisma migrate deploy && pnpm --filter @uzeed/prisma exec prisma db seed && node apps/api/dist/index.js"
