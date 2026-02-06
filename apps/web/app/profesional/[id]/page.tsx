@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import { ApiHttpError, apiFetch, resolveMediaUrl } from "../../../lib/api";
+import useMe from "../../../hooks/useMe";
 
 const placeholderGallery = ["/brand/isotipo.png", "/brand/isotipo.png", "/brand/isotipo.png"];
 
@@ -26,10 +26,20 @@ export default function ProfessionalDetailPage() {
   const [professional, setProfessional] = useState<Professional | null>(null);
   const [favorite, setFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const { me } = useMe();
 
   useEffect(() => {
+    setLoading(true);
+    setNotFound(false);
     apiFetch<{ professional: Professional }>(`/professionals/${id}`)
       .then((res) => setProfessional(res.professional))
+      .catch((err) => {
+        if (err instanceof ApiHttpError && err.status === 404) {
+          setNotFound(true);
+        }
+        setProfessional(null);
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -48,7 +58,7 @@ export default function ProfessionalDetailPage() {
   }
 
   if (loading) return <div className="text-white/60">Cargando perfil...</div>;
-  if (!professional) return <div className="text-white/60">No encontramos este profesional.</div>;
+  if (notFound || !professional) return <div className="text-white/60">No encontramos este profesional.</div>;
 
   const gallery = professional.gallery.length
     ? professional.gallery.map((g) => resolveMediaUrl(g.url) || "")
@@ -76,9 +86,18 @@ export default function ProfessionalDetailPage() {
             >
               {favorite ? "♥ Favorito" : "♡ Favorito"}
             </button>
-            <Link href={`/chat/${professional.id}`} className="btn-primary">
+            <button
+              className="btn-primary"
+              onClick={() => {
+                if (!me?.user) {
+                  window.location.href = `/login?next=${encodeURIComponent(`/profesional/${professional.id}`)}`;
+                  return;
+                }
+                window.location.href = `/chat/${professional.id}`;
+              }}
+            >
               Enviar mensaje
-            </Link>
+            </button>
           </div>
         </div>
       </div>

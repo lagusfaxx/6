@@ -51,6 +51,41 @@ function displayCategoryName(category: Category) {
   return category.displayName || category.name;
 }
 
+const categoryPriority: Record<Category["kind"], string[]> = {
+  PROFESSIONAL: ["acompan", "masaj", "vip", "premium"],
+  ESTABLISHMENT: ["motel", "privad", "hotel"],
+  SHOP: ["sex", "juguet", "shop"]
+};
+
+const categoryLimits: Record<Category["kind"], number> = {
+  PROFESSIONAL: 4,
+  ESTABLISHMENT: 2,
+  SHOP: 1
+};
+
+function pickTopCategories(kind: Category["kind"], categories: Category[]) {
+  const filtered = categories.filter((c) => c.kind === kind && !/lenceria/i.test(c.slug || c.name));
+  const prioritized: Category[] = [];
+  const priorities = categoryPriority[kind];
+
+  priorities.forEach((token) => {
+    filtered.forEach((c) => {
+      const haystack = `${c.slug} ${c.name} ${c.displayName}`.toLowerCase();
+      if (haystack.includes(token) && !prioritized.find((p) => p.id === c.id)) {
+        prioritized.push(c);
+      }
+    });
+  });
+
+  filtered.forEach((c) => {
+    if (!prioritized.find((p) => p.id === c.id)) {
+      prioritized.push(c);
+    }
+  });
+
+  return prioritized.slice(0, categoryLimits[kind]);
+}
+
 function kindHref(kind: Category["kind"], categorySlug: string) {
   if (kind === "PROFESSIONAL") return `/profesionales?category=${encodeURIComponent(categorySlug)}`;
   if (kind === "ESTABLISHMENT") return `/establecimientos?category=${encodeURIComponent(categorySlug)}`;
@@ -167,8 +202,7 @@ export default function HomePage() {
 
         <main className="mt-5 grid gap-6">
           {(["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as const).map((kind) => {
-            const limits = { PROFESSIONAL: 3, ESTABLISHMENT: 2, SHOP: 2 };
-            const items = grouped[kind].slice(0, limits[kind]);
+            const items = pickTopCategories(kind, grouped[kind]);
             return (
               <section key={kind}>
                 <div className="mb-3 flex items-center justify-between">

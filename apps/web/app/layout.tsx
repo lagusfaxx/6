@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import './globals.css';
-import 'leaflet/dist/leaflet.css';
+import "./globals.css";
+import "mapbox-gl/dist/mapbox-gl.css";
 import AppShell from '../components/AppShell';
 
 export const metadata: Metadata = { title: 'UZEED', description: 'UZEED' };

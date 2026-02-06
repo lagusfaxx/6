@@ -2,7 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage, resolveMediaUrl } from "../../../lib/api";
 import { Badge } from "../../../components/ui/badge";
@@ -91,6 +91,7 @@ function categoryLabel(category?: { displayName?: string | null; name?: string |
 
 export default function DashboardServicesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { me, loading } = useMe();
   const user = me?.user ?? null;
 
@@ -143,6 +144,15 @@ export default function DashboardServicesPage() {
       setProductCategoryId((prev) => prev || categoryOptions[0].id);
     }
   }, [categoryOptions, profileType]);
+
+  useEffect(() => {
+    const requested = searchParams.get("tab");
+    if (!requested) return;
+    const allowed = ["perfil", "servicios", "productos", "galeria", "ubicacion"];
+    if (allowed.includes(requested)) {
+      setTab(requested);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!loading && user?.id) {

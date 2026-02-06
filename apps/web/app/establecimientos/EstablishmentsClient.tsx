@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "../../lib/api";
-import ClientMap from "../../components/ClientMap";
+import MapboxMap from "../../components/MapboxMap";
 
 type Establishment = {
   id: string;
@@ -95,7 +95,7 @@ export default function EstablishmentsClient() {
           </p>
         </div>
         <div className="p-3">
-          <ClientMap
+          <MapboxMap
             userLocation={location}
             markers={items
               .filter((e) => e.latitude != null && e.longitude != null)
@@ -105,6 +105,7 @@ export default function EstablishmentsClient() {
                 lat: Number(e.latitude),
                 lng: Number(e.longitude),
                 subtitle: e.category?.displayName || e.category?.name || null,
+                href: `/establecimiento/${e.id}`
               }))}
           />
         </div>
