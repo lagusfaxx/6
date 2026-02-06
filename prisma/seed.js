@@ -30,19 +30,44 @@ async function main() {
   await prisma.establishmentReview.deleteMany({ where: { establishment: { name: { startsWith: "Establecimiento" } } } });
   await prisma.establishment.deleteMany({ where: { name: { startsWith: "Establecimiento" } } });
   await prisma.category.deleteMany({
-    where: { name: { in: ["Masajes", "Acompañamiento", "Bienestar", "Spas", "Hoteles", "Centros privados"] } }
+    where: {
+      name: {
+        in: [
+          "Masajes",
+          "Acompañamiento",
+          "Bienestar",
+          "Spas",
+          "Hoteles",
+          "Centros privados",
+          "Moteles",
+          "Night Club",
+          "Club",
+          "Saunas",
+          "Juguetes",
+          "Lubricantes",
+          "Promociones",
+          "Lencería"
+        ]
+      }
+    }
   });
 
-  await prisma.category.createMany({
-    data: [
-      { name: "Masajes", kind: "PROFESSIONAL" },
-      { name: "Acompañamiento", kind: "PROFESSIONAL" },
-      { name: "Bienestar", kind: "PROFESSIONAL" },
-      { name: "Spas", kind: "ESTABLISHMENT" },
-      { name: "Hoteles", kind: "ESTABLISHMENT" },
-      { name: "Centros privados", kind: "ESTABLISHMENT" }
-    ]
-  });
+  const categorySeeds = [
+    { name: "Acompañantes", slug: "acompanantes", displayName: "Acompañantes", kind: "PROFESSIONAL" },
+    { name: "Masajes sensuales", slug: "masajes-sensuales", displayName: "Masajes sensuales", kind: "PROFESSIONAL" },
+    { name: "Experiencias íntimas", slug: "experiencias-intimas", displayName: "Experiencias íntimas", kind: "PROFESSIONAL" },
+    { name: "Servicios VIP", slug: "servicios-vip", displayName: "Servicios VIP", kind: "PROFESSIONAL" },
+    { name: "Moteles", slug: "moteles", displayName: "Moteles", kind: "ESTABLISHMENT" },
+    { name: "Hoteles por hora", slug: "hoteles-por-hora", displayName: "Hoteles por hora", kind: "ESTABLISHMENT" },
+    { name: "Centros privados", slug: "centros-privados", displayName: "Centros privados", kind: "ESTABLISHMENT" },
+    { name: "Espacios exclusivos", slug: "espacios-exclusivos", displayName: "Espacios exclusivos", kind: "ESTABLISHMENT" },
+    { name: "Sex shop", slug: "sex-shop", displayName: "Sex shop", kind: "SHOP" },
+    { name: "Lencería", slug: "lenceria", displayName: "Lencería", kind: "SHOP" },
+    { name: "Juguetes íntimos", slug: "juguetes-intimos", displayName: "Juguetes íntimos", kind: "SHOP" },
+    { name: "Productos premium", slug: "productos-premium", displayName: "Productos premium", kind: "SHOP" }
+  ];
+
+  await prisma.category.createMany({ data: categorySeeds, skipDuplicates: true });
 
   const professionalCategories = await prisma.category.findMany({ where: { kind: "PROFESSIONAL" } });
   const establishmentCategories = await prisma.category.findMany({ where: { kind: "ESTABLISHMENT" } });

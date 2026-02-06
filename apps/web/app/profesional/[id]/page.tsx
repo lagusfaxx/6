@@ -61,7 +61,7 @@ export default function ProfessionalDetailPage() {
           <div>
             <h1 className="text-2xl font-semibold">{professional.name}</h1>
             <div className="mt-1 text-sm text-white/60">
-              {professional.category || "Profesional"} • ⭐ {professional.rating ?? "N/A"}
+              {professional.category || "Experiencia"} • ⭐ {professional.rating ?? "N/A"}
             </div>
             <div className="mt-2 text-xs text-white/50">
               {professional.isOnline ? "Online" : professional.lastSeen ? `Última vez: ${new Date(professional.lastSeen).toLocaleString("es-CL")}` : "Offline"}

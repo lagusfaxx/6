@@ -20,12 +20,12 @@ type Professional = {
   isActive: boolean;
   tier: string | null;
   gender: string | null;
-  category: { id: string; name: string; kind: string } | null;
+  category: { id: string; name: string; displayName?: string | null; kind: string } | null;
 };
 
 export default function ProfessionalsClient() {
   const searchParams = useSearchParams();
-  const categoryId = searchParams.get("categoryId") || "";
+  const category = searchParams.get("category") || "";
 
   const [rangeKm, setRangeKm] = useState("15");
   const [gender, setGender] = useState("");
@@ -44,7 +44,7 @@ export default function ProfessionalsClient() {
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
-    if (categoryId) params.set("categoryId", categoryId);
+    if (category) params.set("category", category);
     if (rangeKm) params.set("rangeKm", rangeKm);
     if (gender) params.set("gender", gender);
     if (tier) params.set("tier", tier);
@@ -53,7 +53,7 @@ export default function ProfessionalsClient() {
       params.set("lng", String(location[1]));
     }
     return params.toString();
-  }, [categoryId, rangeKm, gender, tier, location]);
+  }, [category, rangeKm, gender, tier, location]);
 
   useEffect(() => {
     setLoading(true);
@@ -65,7 +65,7 @@ export default function ProfessionalsClient() {
   return (
     <div className="grid gap-6">
       <div className="card p-6">
-        <h1 className="text-2xl font-semibold">Búsqueda de profesionales</h1>
+        <h1 className="text-2xl font-semibold">Búsqueda de experiencias</h1>
         <p className="mt-2 text-sm text-white/70">
           Filtra por distancia, género y tier. Los perfiles inactivos se muestran atenuados.
         </p>
@@ -121,7 +121,7 @@ export default function ProfessionalsClient() {
                 name: p.name,
                 lat: Number(p.latitude),
                 lng: Number(p.longitude),
-                subtitle: p.category?.name ?? null,
+                subtitle: p.category?.displayName || p.category?.name || null,
               }))}
           />
         </div>
@@ -129,7 +129,7 @@ export default function ProfessionalsClient() {
 
 
       {loading ? (
-        <div className="text-white/60">Cargando profesionales...</div>
+        <div className="text-white/60">Cargando experiencias...</div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {items.map((p) => (
@@ -152,7 +152,7 @@ export default function ProfessionalsClient() {
                 </div>
                 <div>
                   <div className="font-semibold">{p.name}</div>
-                  <div className="text-xs text-white/60">{p.category?.name || "Profesional"}</div>
+                  <div className="text-xs text-white/60">{p.category?.displayName || p.category?.name || "Experiencia"}</div>
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
@@ -163,7 +163,7 @@ export default function ProfessionalsClient() {
             </Link>
           ))}
           {!items.length ? (
-            <div className="card p-6 text-white/60">No encontramos profesionales con estos filtros.</div>
+            <div className="card p-6 text-white/60">No encontramos experiencias con estos filtros.</div>
           ) : null}
         </div>
       )}
