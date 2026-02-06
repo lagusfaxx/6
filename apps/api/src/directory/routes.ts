@@ -131,14 +131,26 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       });
     } catch (error) {
       console.error("[directory/professionals] category lookup failed", {
+        requestId: (req as any).requestId,
+        route: req.originalUrl,
         categoryId,
         categorySlug,
-        error
+        message: (error as Error)?.message
       });
-      return res.json({ professionals: [], category: null, message: "No se pudo resolver la categoría seleccionada." });
+      return res.json({
+        professionals: [],
+        category: null,
+        warning: "category_lookup_failed",
+        message: "No se pudo resolver la categoría seleccionada."
+      });
     }
     if (!categoryRef) {
-      return res.json({ professionals: [], category: null, message: "La categoría seleccionada no existe." });
+      return res.json({
+        professionals: [],
+        category: null,
+        warning: "category_not_found",
+        message: "La categoría seleccionada no existe."
+      });
     }
     where.services = { some: { categoryId: categoryRef.id, isActive: true } };
   } else {
@@ -158,7 +170,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       coverUrl: true,
       latitude: true,
       longitude: true,
-      lastSeenAt: true,
+      lastSeen: true,
       isActive: true,
       tier: true,
       gender: true,
@@ -216,8 +228,8 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       serviceCategory: u.serviceCategory,
       serviceItemCategories: u.services.map((sv) => sv.category || ""),
       serviceItemCategoryIds: u.services.map((sv) => sv.categoryId || "").filter(Boolean),
-      isOnline: isOnline(u.lastSeenAt),
-      lastSeen: u.lastSeenAt ? u.lastSeenAt.toISOString() : null
+      isOnline: isOnline(u.lastSeen),
+      lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null
     };
   });
 
@@ -288,20 +300,20 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
 directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
   const id = String(req.params.id);
   const u = await prisma.user.findUnique({
-    where: { id },
+    where: { id, profileType: "PROFESSIONAL" },
     select: {
       id: true,
       username: true,
       displayName: true,
       avatarUrl: true,
       isActive: true,
-      lastSeenAt: true,
+      lastSeen: true,
       bio: true,
-      category: { select: { id: true, name: true, kind: true } },
-      media: { where: { type: "IMAGE" }, orderBy: { createdAt: "desc" }, take: 12, select: { id: true, url: true, type: true } }
+      category: { select: { id: true, name: true, displayName: true, kind: true } },
+      profileMedia: { where: { type: "IMAGE" }, orderBy: { createdAt: "desc" }, take: 12, select: { id: true, url: true, type: true } }
     }
   });
-  if (!u) return res.status(404).json({ error: "NOT_FOUND" });
+  if (!u) return res.status(404).json({ error: "not_found" });
 
   const reviews = await prisma.professionalReview.findMany({
     where: { serviceRequest: { professionalId: id } },
@@ -318,9 +330,9 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
       isActive: u.isActive,
       rating: rating ? Number(rating.toFixed(2)) : null,
       description: u.bio,
-      isOnline: isOnline(u.lastSeenAt),
-      lastSeen: u.lastSeenAt ? u.lastSeenAt.toISOString() : null,
-      gallery: u.media
+      isOnline: isOnline(u.lastSeen),
+      lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
+      gallery: u.profileMedia
     }
   });
 }));

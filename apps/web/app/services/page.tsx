@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import ClientMap from "../../components/ClientMap";
+import MapboxMap from "../../components/MapboxMap";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 
 type Category = { id: string; name: string; slug: string; displayName: string; kind: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP" };
@@ -18,14 +18,16 @@ type CardItem = {
   image?: string | null;
   lat?: number | null;
   lng?: number | null;
+  tier?: string | null;
 };
 
 export default function ServicesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [location, setLocation] = useState<[number, number] | null>(null);
-  const [cardsByCategory, setCardsByCategory] = useState<Record<string, CardItem[]>>({});
-  const [markers, setMarkers] = useState<Array<{ id: string; name: string; lat: number; lng: number; subtitle?: string | null }>>([]);
-  const [showMap, setShowMap] = useState(false);
+  const [selectedKind, setSelectedKind] = useState<Category["kind"]>("PROFESSIONAL");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [cards, setCards] = useState<CardItem[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -42,73 +44,66 @@ export default function ServicesPage() {
 
   useEffect(() => {
     if (!categories.length) return;
+    const first = categories.find((c) => c.kind === selectedKind);
+    if (first) setSelectedCategory(first.slug || first.id);
+  }, [categories, selectedKind]);
+
+  useEffect(() => {
+    if (!selectedCategory) return;
+    setLoading(true);
     (async () => {
-      const next: Record<string, CardItem[]> = {};
-      const nextMarkers: Array<{ id: string; name: string; lat: number; lng: number; subtitle?: string | null }> = [];
-
-      for (const c of categories) {
-        try {
-          const params = new URLSearchParams({ category: c.slug || c.id });
-          if (location) {
-            params.set("lat", String(location[0]));
-            params.set("lng", String(location[1]));
-          }
-
-          if (c.kind === "PROFESSIONAL") {
-            const res = await apiFetch<{ professionals: any[] }>(`/professionals?${params.toString()}`);
-            const items = (res?.professionals || []).slice(0, 6).map((p) => ({
-              id: p.id,
-              name: p.name,
-              subtitle: p.distance != null ? `~${p.distance.toFixed(1)} km` : "Disponible",
-              href: `/profesional/${p.id}`,
-              image: p.avatarUrl,
-              lat: p.latitude,
-              lng: p.longitude
-            }));
-            next[c.id] = items;
-            items.forEach((i) => {
-              if (i.lat != null && i.lng != null) nextMarkers.push({ id: `${c.id}-${i.id}`, name: i.name, lat: Number(i.lat), lng: Number(i.lng), subtitle: displayCategoryName(c) });
-            });
-          } else if (c.kind === "ESTABLISHMENT") {
-            const res = await apiFetch<{ establishments: any[] }>(`/establishments?${params.toString()}`);
-            const items = (res?.establishments || []).slice(0, 6).map((e) => ({
-              id: e.id,
-              name: e.name,
-              subtitle: e.distance != null ? `~${e.distance.toFixed(1)} km` : e.city || "Lugar",
-              href: `/establecimiento/${e.id}`,
-              image: e.gallery?.[0] || null,
-              lat: e.latitude,
-              lng: e.longitude
-            }));
-            next[c.id] = items;
-            items.forEach((i) => {
-              if (i.lat != null && i.lng != null) nextMarkers.push({ id: `${c.id}-${i.id}`, name: i.name, lat: Number(i.lat), lng: Number(i.lng), subtitle: displayCategoryName(c) });
-            });
-          } else {
-            const res = await apiFetch<{ shops: any[] }>(`/shop/sexshops?${params.toString()}`);
-            const items = (res?.shops || []).slice(0, 6).map((s) => ({
-              id: s.id,
-              name: s.name,
-              subtitle: s.distance != null ? `~${s.distance.toFixed(1)} km` : s.city || "Tienda",
-              href: `/sexshop/${s.username}`,
-              image: s.avatarUrl,
-              lat: s.latitude,
-              lng: s.longitude
-            }));
-            next[c.id] = items;
-            items.forEach((i) => {
-              if (i.lat != null && i.lng != null) nextMarkers.push({ id: `${c.id}-${i.id}`, name: i.name, lat: Number(i.lat), lng: Number(i.lng), subtitle: displayCategoryName(c) });
-            });
-          }
-        } catch {
-          next[c.id] = [];
+      try {
+        const params = new URLSearchParams({ category: selectedCategory });
+        if (location) {
+          params.set("lat", String(location[0]));
+          params.set("lng", String(location[1]));
         }
-      }
 
-      setCardsByCategory(next);
-      setMarkers(nextMarkers);
+        if (selectedKind === "PROFESSIONAL") {
+          const res = await apiFetch<{ professionals: any[] }>(`/professionals?${params.toString()}`);
+          const items = (res?.professionals || []).map((p) => ({
+            id: p.id,
+            name: p.name,
+            subtitle: p.distance != null ? `~${p.distance.toFixed(1)} km` : "Disponible",
+            href: `/profesional/${p.id}`,
+            image: p.avatarUrl,
+            lat: p.latitude,
+            lng: p.longitude,
+            tier: p.tier
+          }));
+          setCards(items);
+        } else if (selectedKind === "ESTABLISHMENT") {
+          const res = await apiFetch<{ establishments: any[] }>(`/establishments?${params.toString()}`);
+          const items = (res?.establishments || []).map((e) => ({
+            id: e.id,
+            name: e.name,
+            subtitle: e.distance != null ? `~${e.distance.toFixed(1)} km` : e.city || "Lugar",
+            href: `/establecimiento/${e.id}`,
+            image: e.gallery?.[0] || null,
+            lat: e.latitude,
+            lng: e.longitude
+          }));
+          setCards(items);
+        } else {
+          const res = await apiFetch<{ shops: any[] }>(`/shop/sexshops?${params.toString()}`);
+          const items = (res?.shops || []).map((s) => ({
+            id: s.id,
+            name: s.name,
+            subtitle: s.distance != null ? `~${s.distance.toFixed(1)} km` : s.city || "Tienda",
+            href: `/sexshop/${s.username}`,
+            image: s.avatarUrl,
+            lat: s.latitude,
+            lng: s.longitude
+          }));
+          setCards(items);
+        }
+      } catch {
+        setCards([]);
+      } finally {
+        setLoading(false);
+      }
     })();
-  }, [categories, location]);
+  }, [selectedKind, selectedCategory, location]);
 
   const grouped = useMemo(() => {
     const map = { PROFESSIONAL: [] as Category[], ESTABLISHMENT: [] as Category[], SHOP: [] as Category[] };
@@ -116,61 +111,110 @@ export default function ServicesPage() {
     return map;
   }, [categories]);
 
+  const selectedCategoryLabel = useMemo(() => {
+    const match = categories.find((c) => (c.slug || c.id) === selectedCategory);
+    return match ? displayCategoryName(match) : "Categoría";
+  }, [categories, selectedCategory]);
+
   return (
     <main className="min-h-[calc(100vh-64px)] px-4 py-8">
       <div className="mx-auto w-full max-w-6xl">
         <h1 className="text-2xl font-semibold tracking-tight">Explorar servicios</h1>
         <p className="mt-2 text-sm text-white/70">Acceso directo a categorías y perfiles activos para búsquedas más específicas.</p>
 
-        {(["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as const).map((kind) => (
-          <section key={kind} className="mt-8">
-            <h2 className="text-lg font-semibold mb-3">{kind === "PROFESSIONAL" ? "Experiencias" : kind === "ESTABLISHMENT" ? "Lugares" : "Tiendas"}</h2>
-            <div className="grid gap-4">
-              {grouped[kind].map((cat) => (
-                <div key={cat.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="font-semibold">{displayCategoryName(cat)}</h3>
-                    <Link href={kind === "PROFESSIONAL" ? `/profesionales?category=${cat.slug || cat.id}` : kind === "ESTABLISHMENT" ? `/establecimientos?category=${cat.slug || cat.id}` : `/sexshops?category=${cat.slug || cat.id}`} className="text-xs text-white/70 underline">
-                      Ver todo
-                    </Link>
-                  </div>
-                  <div className="flex gap-3 overflow-x-auto pb-2">
-                    {(cardsByCategory[cat.id] || []).map((item) => (
-                      <Link key={item.id} href={item.href} className="min-w-[180px] max-w-[180px] rounded-lg border border-white/15 bg-black/20 p-2.5 hover:bg-black/30 transition">
-                        <div className="h-24 overflow-hidden rounded-md border border-white/10 bg-white/5">
-                          {item.image ? <img src={resolveMediaUrl(item.image) || ""} alt={item.name} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-xs text-white/50">Sin imagen</div>}
-                        </div>
-                        <div className="mt-2 text-sm font-medium line-clamp-1">{item.name}</div>
-                        <div className="text-xs text-white/70">{item.subtitle}</div>
-                      </Link>
-                    ))}
-                    {!cardsByCategory[cat.id]?.length ? <div className="text-sm text-white/60">Sin resultados para esta categoría por ahora.</div> : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
-
-        <section className="mt-10 rounded-xl border border-white/10 bg-white/5 p-4">
-          <div className="flex items-center justify-between">
+        <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-base font-semibold">Mapa global de servicios</h2>
-              <p className="text-xs text-white/60 mt-1">Ubicaciones aproximadas para exploración avanzada.</p>
+              <p className="text-xs text-white/60 mt-1">Filtra por tipo y categoría para explorar en el mapa.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowMap((prev) => !prev)}
-              className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
-            >
-              {showMap ? "Ocultar mapa" : "Ver mapa"}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <label className="grid gap-2 text-xs text-white/60">
+                Tipo
+                <select
+                  value={selectedKind}
+                  onChange={(e) => setSelectedKind(e.target.value as Category["kind"])}
+                  className="input"
+                >
+                  <option value="PROFESSIONAL">Experiencias</option>
+                  <option value="ESTABLISHMENT">Lugares</option>
+                  <option value="SHOP">Tiendas</option>
+                </select>
+              </label>
+              <label className="grid gap-2 text-xs text-white/60">
+                Categoría
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="input"
+                >
+                  {grouped[selectedKind].length ? (
+                    grouped[selectedKind].map((cat) => (
+                      <option key={cat.id} value={cat.slug || cat.id}>
+                        {displayCategoryName(cat)}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">Sin categorías disponibles</option>
+                  )}
+                </select>
+              </label>
+            </div>
           </div>
-          {showMap ? (
-            <div className="mt-3">
-              <ClientMap userLocation={location} markers={markers} height={360} />
-            </div>
-          ) : null}
+
+          <div className="mt-4">
+            <MapboxMap
+              userLocation={location}
+              markers={cards
+                .filter((c) => c.lat != null && c.lng != null)
+                .map((c) => ({
+                  id: c.id,
+                  name: c.name,
+                  lat: Number(c.lat),
+                  lng: Number(c.lng),
+                  subtitle: selectedCategoryLabel,
+                  href: c.href,
+                  avatarUrl: c.image,
+                  tier: c.tier
+                }))}
+              height={380}
+            />
+          </div>
+
+          <div className="mt-5">
+            <h3 className="text-sm font-semibold text-white/80">
+              Resultados para {selectedCategoryLabel}
+            </h3>
+            {loading ? (
+              <div className="mt-3 text-white/60">Cargando resultados...</div>
+            ) : cards.length ? (
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {cards.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-white/30"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-white/10">
+                        {item.image ? (
+                          <img src={resolveMediaUrl(item.image) || ""} alt={item.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="grid h-full place-items-center text-xs text-white/50">Sin imagen</div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">{item.name}</div>
+                        <div className="text-xs text-white/70">{item.subtitle}</div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-3 text-sm text-white/60">No encontramos resultados para esta categoría por ahora.</div>
+            )}
+          </div>
         </section>
       </div>
     </main>

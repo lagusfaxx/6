@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
-import ClientMap from "../../components/ClientMap";
+import MapboxMap from "../../components/MapboxMap";
 
 const tiers = ["PREMIUM", "GOLD", "SILVER"] as const;
 
@@ -40,8 +40,9 @@ export default function ProfessionalsClient() {
   const [items, setItems] = useState<Professional[]>([]);
   const [categoryInfo, setCategoryInfo] = useState<CategoryRef | null>(null);
   const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
+  const [categoryWarning, setCategoryWarning] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [showMap, setShowMap] = useState(false);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -66,11 +67,12 @@ export default function ProfessionalsClient() {
 
   useEffect(() => {
     setLoading(true);
-    apiFetch<{ professionals: Professional[]; category: CategoryRef | null; message?: string }>(`/professionals?${queryString}`)
+    apiFetch<{ professionals: Professional[]; category: CategoryRef | null; message?: string; warning?: string }>(`/professionals?${queryString}`)
       .then((res) => {
         setItems(res.professionals);
         setCategoryInfo(res.category || null);
         setCategoryMessage(res.message || null);
+        setCategoryWarning(res.warning || null);
       })
       .finally(() => setLoading(false));
   }, [queryString]);
@@ -137,6 +139,33 @@ export default function ProfessionalsClient() {
         ) : null}
       </div>
 
+      <div className="card p-0 overflow-hidden">
+        <div className="border-b border-white/10 p-5">
+          <h2 className="text-lg font-semibold">Mapa principal</h2>
+          <p className="mt-1 text-xs text-white/60">Ubicaciones aproximadas y perfiles activos disponibles.</p>
+        </div>
+        <div className="p-3">
+          <MapboxMap
+            userLocation={location}
+            focusMarkerId={focusedId}
+            onMarkerFocus={(id) => setFocusedId(id)}
+            markers={items
+              .filter((p) => p.latitude != null && p.longitude != null)
+              .map((p) => ({
+                id: p.id,
+                name: p.name,
+                lat: Number(p.latitude),
+                lng: Number(p.longitude),
+                subtitle: p.category?.displayName || p.category?.name || null,
+                href: `/profesional/${p.id}`,
+                messageHref: `/chat/${p.id}`,
+                avatarUrl: p.avatarUrl,
+                tier: p.tier
+              }))}
+          />
+        </div>
+      </div>
+
       {filtersOpen ? (
         <div className="fixed inset-0 z-50 flex items-end bg-black/60 md:hidden">
           <div className="w-full rounded-t-2xl border border-white/10 bg-[#120b2a] p-5">
@@ -165,75 +194,59 @@ export default function ProfessionalsClient() {
 
       {loading ? (
         <div className="text-white/60">Cargando experiencias...</div>
+      ) : categoryWarning === "category_not_found" ? (
+        <div className="card p-6 text-white/70">
+          <div className="text-lg font-semibold">Categoría no disponible</div>
+          <p className="mt-2 text-sm text-white/60">Prueba con otra categoría o vuelve al listado general.</p>
+          <Link href="/profesionales" className="mt-4 inline-flex rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs text-white/80 hover:bg-white/10">
+            Volver a experiencias
+          </Link>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {items.map((p) => (
-            <Link
+            <div
               key={p.id}
-              href={`/profesional/${p.id}`}
+              onClick={() => setFocusedId(p.id)}
               className={`rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-white/30 ${
                 p.isActive ? "" : "opacity-60 grayscale"
               }`}
             >
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-white/10">
-                  {p.avatarUrl ? (
-                    <img
-                      src={resolveMediaUrl(p.avatarUrl) || ""}
-                      alt={p.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-white/10">
+                    {p.avatarUrl ? (
+                      <img
+                        src={resolveMediaUrl(p.avatarUrl) || ""}
+                        alt={p.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </div>
+                  <div>
+                    <div className="font-semibold">{p.name}</div>
+                    <div className="text-xs text-white/60">{p.category?.displayName || p.category?.name || "Experiencia"}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="font-semibold">{p.name}</div>
-                  <div className="text-xs text-white/60">{p.category?.displayName || p.category?.name || "Experiencia"}</div>
-                </div>
+                <Link
+                  href={`/profesional/${p.id}`}
+                  className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10"
+                >
+                  Ver perfil
+                </Link>
               </div>
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
                 <span>⭐ {p.rating ?? "N/A"}</span>
                 <span>{p.distance ? `${p.distance.toFixed(1)} km` : "Sin distancia"}</span>
                 {p.tier ? <span>{p.tier}</span> : null}
               </div>
-            </Link>
+            </div>
           ))}
           {!items.length ? (
             <div className="card p-6 text-white/60">No encontramos experiencias con estos filtros.</div>
           ) : null}
         </div>
       )}
-
-      <div className="card p-0 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-white/10 p-5">
-          <div>
-            <h2 className="text-lg font-semibold">Mapa</h2>
-            <p className="mt-1 text-xs text-white/60">Ubicaciones aproximadas cuando hay coordenadas disponibles.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowMap((prev) => !prev)}
-            className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
-          >
-            {showMap ? "Ocultar mapa" : "Ver en mapa"}
-          </button>
-        </div>
-        {showMap ? (
-          <div className="p-3">
-            <ClientMap
-              userLocation={location}
-              markers={items
-                .filter((p) => p.latitude != null && p.longitude != null)
-                .map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  lat: Number(p.latitude),
-                  lng: Number(p.longitude),
-                  subtitle: p.category?.displayName || p.category?.name || null
-                }))}
-            />
-          </div>
-        ) : null}
-      </div>
     </div>
   );
 }
