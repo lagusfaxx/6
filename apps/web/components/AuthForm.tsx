@@ -6,6 +6,39 @@ import { apiFetch, friendlyErrorMessage } from "../lib/api";
 
 type Mode = "login" | "register";
 
+function flattenValidation(details: any): string | null {
+  const fieldErrors = details?.fieldErrors as Record<string, string[] | undefined> | undefined;
+  if (!fieldErrors) return null;
+
+  const labels: Record<string, string> = {
+    username: "nombre de usuario",
+    phone: "teléfono",
+    email: "email",
+    password: "contraseña",
+    displayName: "nombre público",
+    gender: "género",
+    profileType: "tipo de perfil",
+    preferenceGender: "preferencia de género",
+    address: "dirección",
+    acceptTerms: "términos y condiciones"
+  };
+
+  const errors = Object.entries(fieldErrors)
+    .flatMap(([key, arr]) => (arr || []).map((msg) => {
+      const f = labels[key] || key;
+      const low = String(msg || "").toLowerCase();
+      if (low.includes("required")) return `Falta completar ${f}.`;
+      if (low.includes("must be accepted")) return "Debes aceptar términos y condiciones.";
+      if (low.includes("invalid email")) return "El email no es válido.";
+      if (low.includes("too small")) return `${f} es demasiado corto.`;
+      if (low.includes("too big")) return `${f} es demasiado largo.`;
+      return `${f}: ${msg}`;
+    }));
+
+  if (!errors.length) return null;
+  return errors.join(" ");
+}
+
 export default function AuthForm({ mode, initialProfileType, lockProfileType }: { mode: Mode; initialProfileType?: string; lockProfileType?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,7 +86,8 @@ export default function AuthForm({ mode, initialProfileType, lockProfileType }: 
       const next = searchParams.get("next");
       router.replace(next || "/");
     } catch (err: any) {
-      setError(friendlyErrorMessage(err) || "Error");
+      const detailed = err?.body?.details ? flattenValidation(err.body.details) : null;
+      setError(detailed || friendlyErrorMessage(err) || "Error");
     } finally {
       setLoading(false);
     }
