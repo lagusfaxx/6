@@ -168,8 +168,6 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       displayName: true,
       avatarUrl: true,
       coverUrl: true,
-      latitude: true,
-      longitude: true,
       lastSeen: true,
       isActive: true,
       tier: true,
@@ -178,7 +176,12 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       birthdate: true,
       serviceCategory: true,
       serviceDescription: true,
-      services: { where: { isActive: true }, select: { category: true, categoryId: true }, take: 25, orderBy: { createdAt: "desc" } },
+      services: {
+        where: { isActive: true },
+        select: { category: true, categoryId: true, latitude: true, longitude: true, address: true },
+        take: 25,
+        orderBy: { createdAt: "desc" }
+      },
       category: { select: { id: true, name: true, displayName: true, slug: true, kind: true } }
     },
     take: 250
@@ -197,10 +200,11 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
   }
 
   const mapped = users.map((u) => {
+    const activeService = u.services[0];
     const avg = counts.get(u.id) ? (ratingByProfessional.get(u.id)! / counts.get(u.id)!) : null;
     const distance =
-      lat != null && lng != null && u.latitude != null && u.longitude != null
-        ? haversineKm(lat, lng, u.latitude, u.longitude)
+      lat != null && lng != null && activeService?.latitude != null && activeService?.longitude != null
+        ? haversineKm(lat, lng, activeService.latitude, activeService.longitude)
         : null;
 
     return {
@@ -209,8 +213,9 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       avatarUrl: u.avatarUrl,
       rating: avg ? Number(avg.toFixed(2)) : null,
       distance,
-      latitude: u.latitude,
-      longitude: u.longitude,
+      latitude: activeService?.latitude ?? null,
+      longitude: activeService?.longitude ?? null,
+      address: activeService?.address ?? null,
       isActive: u.isActive,
       tier: u.tier,
       gender: u.gender,
@@ -271,18 +276,23 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
       username: true,
       displayName: true,
       avatarUrl: true,
-      latitude: true,
-      longitude: true,
       bio: true,
       birthdate: true,
-      createdAt: true
+      createdAt: true,
+      services: {
+        where: { isActive: true },
+        select: { latitude: true, longitude: true },
+        take: 1,
+        orderBy: { createdAt: "desc" }
+      }
     }
   });
 
   const mapped = users.map((u) => {
+    const activeService = u.services[0];
     const distance =
-      lat != null && lng != null && u.latitude != null && u.longitude != null
-        ? haversineKm(lat, lng, u.latitude, u.longitude)
+      lat != null && lng != null && activeService?.latitude != null && activeService?.longitude != null
+        ? haversineKm(lat, lng, activeService.latitude, activeService.longitude)
         : null;
     return {
       id: u.id,

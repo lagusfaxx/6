@@ -126,6 +126,19 @@ body::after {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
+.uzeed-map-marker--incognito {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+.uzeed-map-marker__icon {
+  width: 70%;
+  height: 70%;
+}
+
 .uzeed-map-marker--user {
   width: 18px;
   height: 18px;

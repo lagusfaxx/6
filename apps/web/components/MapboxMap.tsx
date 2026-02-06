@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import mapboxgl from "mapbox-gl";
+import type mapboxgl from "mapbox-gl";
 import { resolveMediaUrl } from "../lib/api";
 
 export type MapMarker = {
@@ -36,6 +36,7 @@ export default function MapboxMap({
   onMarkerFocus
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapboxRef = useRef<typeof mapboxgl | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRefs = useRef<mapboxgl.Marker[]>([]);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
@@ -50,20 +51,31 @@ export default function MapboxMap({
     if (!containerRef.current || mapRef.current) return;
     if (!token) return;
 
-    mapboxgl.accessToken = token;
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: "mapbox://styles/mapbox/dark-v11",
-      center: DEFAULT_CENTER,
-      zoom: 12
-    });
+    let active = true;
 
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
-    mapRef.current = map;
+    (async () => {
+      const mod = await import("mapbox-gl");
+      const mapbox = (mod.default ?? mod) as typeof mapboxgl;
+      if (!active || !containerRef.current) return;
+      mapboxRef.current = mapbox;
+      mapbox.accessToken = token;
+      const map = new mapbox.Map({
+        container: containerRef.current,
+        style: "mapbox://styles/mapbox/dark-v11",
+        center: DEFAULT_CENTER,
+        zoom: 12
+      });
+
+      map.addControl(new mapbox.NavigationControl({ showCompass: false }), "top-right");
+      mapRef.current = map;
+    })();
 
     return () => {
-      map.remove();
-      mapRef.current = null;
+      active = false;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
     };
   }, [token]);
 
@@ -77,21 +89,31 @@ export default function MapboxMap({
 
   useEffect(() => {
     const map = mapRef.current;
+    const mapbox = mapboxRef.current;
     if (!map) return;
 
     markerRefs.current.forEach((marker) => marker.remove());
     markerRefs.current = [];
 
+    if (!mapbox) return;
+
     safeMarkers.forEach((marker) => {
       const el = document.createElement("div");
       el.className = "uzeed-map-marker";
 
-      if (marker.avatarUrl) {
-        const url = resolveMediaUrl(marker.avatarUrl);
-        if (url) {
-          el.style.backgroundImage = `url(${url})`;
-          el.classList.add("uzeed-map-marker--avatar");
-        }
+      const resolvedAvatar = marker.avatarUrl ? resolveMediaUrl(marker.avatarUrl) : null;
+      if (resolvedAvatar) {
+        el.style.backgroundImage = `url(${resolvedAvatar})`;
+        el.classList.add("uzeed-map-marker--avatar");
+      } else {
+        el.classList.add("uzeed-map-marker--incognito");
+        el.innerHTML = `
+          <svg class="uzeed-map-marker__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M20 21a8 8 0 0 0-16 0" stroke="rgba(255,255,255,0.85)" stroke-width="1.7" stroke-linecap="round" />
+            <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" stroke="rgba(255,255,255,0.85)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M4 4l16 16" stroke="rgba(255,255,255,0.45)" stroke-width="1.7" stroke-linecap="round" />
+          </svg>
+        `;
       }
 
       const popupContent = document.createElement("div");
@@ -127,7 +149,7 @@ export default function MapboxMap({
         popupContent.appendChild(actions);
       }
 
-      const popup = new mapboxgl.Popup({ offset: 12, closeButton: false }).setDOMContent(popupContent);
+      const popup = new mapbox.Popup({ offset: 12, closeButton: false }).setDOMContent(popupContent);
 
       el.addEventListener("mouseenter", () => {
         popup.setLngLat([marker.lng, marker.lat]).addTo(map);
@@ -142,7 +164,7 @@ export default function MapboxMap({
         onMarkerFocus?.(marker.id);
       });
 
-      const markerInstance = new mapboxgl.Marker(el).setLngLat([marker.lng, marker.lat]).addTo(map);
+      const markerInstance = new mapbox.Marker(el).setLngLat([marker.lng, marker.lat]).addTo(map);
       markerRefs.current.push(markerInstance);
     });
   }, [safeMarkers, onMarkerFocus]);
@@ -157,6 +179,7 @@ export default function MapboxMap({
 
   useEffect(() => {
     const map = mapRef.current;
+    const mapbox = mapboxRef.current;
     if (!map) return;
 
     if (userMarkerRef.current) {
@@ -165,10 +188,11 @@ export default function MapboxMap({
     }
 
     if (!userLocation) return;
+    if (!mapbox) return;
 
     const el = document.createElement("div");
     el.className = "uzeed-map-marker uzeed-map-marker--user";
-    userMarkerRef.current = new mapboxgl.Marker(el).setLngLat([userLocation[1], userLocation[0]]).addTo(map);
+    userMarkerRef.current = new mapbox.Marker(el).setLngLat([userLocation[1], userLocation[0]]).addTo(map);
   }, [userLocation?.[0], userLocation?.[1]]);
 
   if (!token) {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, API_URL, isAuthError, resolveMediaUrl } from "../../../lib/api";
+import Avatar from "../../../components/Avatar";
 
 type Message = {
   id: string;
@@ -22,7 +23,7 @@ type ChatUser = {
 };
 
 type MeResponse = {
-  user: { id: string; displayName: string | null; username: string } | null;
+  user: { id: string; displayName: string | null; username: string; profileType: string | null } | null;
 };
 
 export default function ChatPage() {
@@ -123,35 +124,31 @@ export default function ChatPage() {
   if (loading) return <div className="text-white/70">Cargando chat...</div>;
   if (error) return <div className="text-red-200">{error}</div>;
 
+  const canRequest = me?.profileType === "CLIENT";
+
   return (
     <div className="grid gap-6">
       <div className="card p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-full bg-white/10 border border-white/10 overflow-hidden">
-            {other?.avatarUrl ? (
-              <img
-                src={resolveMediaUrl(other.avatarUrl) || ""}
-                alt={other.username}
-                className="h-full w-full object-cover"
-              />
-            ) : null}
+            <Avatar src={other?.avatarUrl} alt={other?.username} size={48} />
+            <div>
+              <h1 className="text-lg font-semibold">{other?.displayName || other?.username || "Chat"}</h1>
+              {other ? (
+                <p className="text-xs text-white/60">
+                  @{other.username} • {other.profileType === "SHOP" ? "Tienda" : other.profileType === "ESTABLISHMENT" ? "Lugar" : other.profileType === "PROFESSIONAL" ? "Experiencia" : "Perfil"}
+                  {other.city ? ` • ${other.city}` : ""}
+                </p>
+              ) : (
+                <p className="text-xs text-white/60">Conversación segura para coordinar.</p>
+              )}
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold">{other?.displayName || other?.username || "Chat"}</h1>
-            {other ? (
-              <p className="text-xs text-white/60">
-                @{other.username} • {other.profileType === "SHOP" ? "Tienda" : other.profileType === "ESTABLISHMENT" ? "Lugar" : other.profileType === "PROFESSIONAL" ? "Experiencia" : "Perfil"}
-                {other.city ? ` • ${other.city}` : ""}
-              </p>
-            ) : (
-              <p className="text-xs text-white/60">Conversación segura para coordinar.</p>
-            )}
-          </div>
-          </div>
-          <button onClick={requestService} className="btn-primary" disabled={requesting}>
-            {requesting ? "Solicitando..." : "Solicitar / reservar"}
-          </button>
+          {canRequest ? (
+            <button onClick={requestService} className="btn-primary" disabled={requesting}>
+              {requesting ? "Solicitando..." : "Solicitar / reservar"}
+            </button>
+          ) : null}
         </div>
       </div>
 

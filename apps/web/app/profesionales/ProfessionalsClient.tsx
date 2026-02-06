@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { apiFetch, resolveMediaUrl } from "../../lib/api";
+import { apiFetch } from "../../lib/api";
 import MapboxMap from "../../components/MapboxMap";
+import Avatar from "../../components/Avatar";
 
 const tiers = ["PREMIUM", "GOLD", "SILVER"] as const;
+const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
 
 type Professional = {
   id: string;
@@ -36,7 +38,7 @@ export default function ProfessionalsClient() {
 
   const [rangeKm, setRangeKm] = useState("15");
   const [tier, setTier] = useState("");
-  const [location, setLocation] = useState<[number, number] | null>(null);
+  const [location, setLocation] = useState<[number, number] | null>(DEFAULT_LOCATION);
   const [items, setItems] = useState<Professional[]>([]);
   const [categoryInfo, setCategoryInfo] = useState<CategoryRef | null>(null);
   const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
@@ -46,10 +48,14 @@ export default function ProfessionalsClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setLocation(DEFAULT_LOCATION);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => setLocation([pos.coords.latitude, pos.coords.longitude]),
-      () => null
+      () => setLocation(DEFAULT_LOCATION),
+      { enableHighAccuracy: true, timeout: 6000 }
     );
   }, []);
 
@@ -214,15 +220,7 @@ export default function ProfessionalsClient() {
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-white/10">
-                    {p.avatarUrl ? (
-                      <img
-                        src={resolveMediaUrl(p.avatarUrl) || ""}
-                        alt={p.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
-                  </div>
+                  <Avatar src={p.avatarUrl} alt={p.name} size={48} />
                   <div>
                     <div className="font-semibold">{p.name}</div>
                     <div className="text-xs text-white/60">{p.category?.displayName || p.category?.name || "Experiencia"}</div>

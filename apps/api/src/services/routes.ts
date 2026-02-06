@@ -165,10 +165,19 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
   if (!["SHOP", "PROFESSIONAL", "ESTABLISHMENT"].includes(me.profileType)) {
     return res.status(403).json({ error: "NOT_ALLOWED" });
   }
-  const { title, description, price } = req.body as Record<string, string>;
+  const { title, description, price, address } = req.body as Record<string, string>;
   const categoryId = typeof req.body?.categoryId === "string" ? req.body.categoryId : null;
   const categorySlug = typeof req.body?.categorySlug === "string" ? req.body.categorySlug : null;
   const categoryName = typeof req.body?.category === "string" ? req.body.category : null;
+  const latitude =
+    req.body?.latitude != null && req.body?.latitude !== "" && Number.isFinite(Number(req.body.latitude))
+      ? Number(req.body.latitude)
+      : null;
+  const longitude =
+    req.body?.longitude != null && req.body?.longitude !== "" && Number.isFinite(Number(req.body.longitude))
+      ? Number(req.body.longitude)
+      : null;
+  const isActive = typeof req.body?.isActive === "boolean" ? req.body.isActive : true;
   if (!title) return res.status(400).json({ error: "TITLE_REQUIRED" });
 
   const kind = me.profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : me.profileType === "SHOP" ? "SHOP" : "PROFESSIONAL";
@@ -185,6 +194,13 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
     });
   }
 
+  if (isActive) {
+    await prisma.serviceItem.updateMany({
+      where: { ownerId: me.id, isActive: true },
+      data: { isActive: false }
+    });
+  }
+
   const item = await prisma.serviceItem.create({
     data: {
       ownerId: me.id,
@@ -192,7 +208,11 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
       description,
       category: category.displayName || category.name,
       categoryId: category.id,
-      price: price ? Number(price) : null
+      price: price ? Number(price) : null,
+      address: address || null,
+      latitude,
+      longitude,
+      isActive
     }
   });
 
@@ -206,10 +226,19 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   const item = await prisma.serviceItem.findUnique({ where: { id: req.params.id } });
   if (!item || item.ownerId !== me.id) return res.status(404).json({ error: "NOT_FOUND" });
-  const { title, description, price } = req.body as Record<string, string>;
+  const { title, description, price, address } = req.body as Record<string, string>;
   const categoryId = typeof req.body?.categoryId === "string" ? req.body.categoryId : null;
   const categorySlug = typeof req.body?.categorySlug === "string" ? req.body.categorySlug : null;
   const categoryName = typeof req.body?.category === "string" ? req.body.category : null;
+  const latitude =
+    req.body?.latitude != null && req.body?.latitude !== "" && Number.isFinite(Number(req.body.latitude))
+      ? Number(req.body.latitude)
+      : null;
+  const longitude =
+    req.body?.longitude != null && req.body?.longitude !== "" && Number.isFinite(Number(req.body.longitude))
+      ? Number(req.body.longitude)
+      : null;
+  const nextIsActive = typeof req.body?.isActive === "boolean" ? req.body.isActive : item.isActive;
   const kind = me.profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : me.profileType === "SHOP" ? "SHOP" : "PROFESSIONAL";
   const nextCategory = await findCategoryByRef(prisma, {
     categoryId,
@@ -223,6 +252,13 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
       message: "La categoría seleccionada no existe. Actualiza la página e intenta nuevamente."
     });
   }
+  if (nextIsActive) {
+    await prisma.serviceItem.updateMany({
+      where: { ownerId: me.id, isActive: true, id: { not: item.id } },
+      data: { isActive: false }
+    });
+  }
+
   const updated = await prisma.serviceItem.update({
     where: { id: item.id },
     data: {
@@ -230,7 +266,11 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
       description: description ?? item.description,
       category: nextCategory ? nextCategory.displayName || nextCategory.name : item.category,
       categoryId: nextCategory ? nextCategory.id : item.categoryId,
-      price: price ? Number(price) : item.price
+      price: price ? Number(price) : item.price,
+      address: address ?? item.address,
+      latitude: req.body?.latitude != null ? latitude : item.latitude,
+      longitude: req.body?.longitude != null ? longitude : item.longitude,
+      isActive: nextIsActive
     },
     include: { media: true }
   });

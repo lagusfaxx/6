@@ -231,6 +231,9 @@ model ServiceItem {
   description String?
   category    String?
   price       Int?
+  address     String?
+  latitude    Float?
+  longitude   Float?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
