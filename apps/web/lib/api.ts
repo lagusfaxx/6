@@ -40,6 +40,7 @@ export function resolveMediaUrl(url: string | null | undefined): string | null {
   if (!trimmed) return null;
 
   // Absolute URLs: keep as-is, but avoid mixed-content on https pages.
+  if (trimmed.startsWith("blob:") || trimmed.startsWith("data:")) return trimmed;
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     if (typeof window !== "undefined" && window.location.protocol === "https:") {
       return trimmed.replace(/^http:\/\//, "https://");
@@ -101,9 +102,12 @@ export function friendlyErrorMessage(err: any): string {
   const status = err?.status;
   if (status === 401) return "Inicia sesión para continuar.";
   if (status === 403) return "No tienes permisos para realizar esta acción.";
+  if (err?.body?.message) return err.body.message;
   const detailsMsg = flattenValidation(err?.body?.details);
   if (detailsMsg) return detailsMsg;
   const raw = err?.message || "Ocurrió un error";
+  if (raw === "PROFILE_TYPE_INVALID") return "No pudimos crear tu cuenta: tipo de perfil inválido. Actualiza la página e intenta nuevamente.";
+  if (raw === "CATEGORY_INVALID") return "La categoría seleccionada no existe. Actualiza la página e intenta nuevamente.";
   if (raw === "UNAUTHENTICATED") return "Inicia sesión para continuar.";
   return raw;
 }

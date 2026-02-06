@@ -6,7 +6,6 @@ import { apiFetch, resolveMediaUrl } from "../lib/api";
 import {
   BedDouble,
   Building2,
-  Dumbbell,
   GlassWater,
   Heart,
   Hotel,
@@ -21,6 +20,8 @@ import {
 type Category = {
   id: string;
   name: string;
+  slug: string;
+  displayName: string;
   kind: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
 };
 
@@ -41,19 +42,19 @@ type RecentProfessional = {
 };
 
 function kindLabel(kind: Category["kind"]) {
-  if (kind === "PROFESSIONAL") return "Profesionales";
-  if (kind === "ESTABLISHMENT") return "Establecimientos";
+  if (kind === "PROFESSIONAL") return "Experiencias";
+  if (kind === "ESTABLISHMENT") return "Lugares";
   return "Tiendas";
 }
 
-function displayCategoryName(name: string) {
-  return name.trim().toLowerCase() === "spas" ? "Cafes" : name;
+function displayCategoryName(category: Category) {
+  return category.displayName || category.name;
 }
 
-function kindHref(kind: Category["kind"], categoryId: string) {
-  if (kind === "PROFESSIONAL") return `/profesionales?categoryId=${encodeURIComponent(categoryId)}`;
-  if (kind === "ESTABLISHMENT") return `/establecimientos?categoryId=${encodeURIComponent(categoryId)}`;
-  return `/sexshops?categoryId=${encodeURIComponent(categoryId)}`;
+function kindHref(kind: Category["kind"], categorySlug: string) {
+  if (kind === "PROFESSIONAL") return `/profesionales?category=${encodeURIComponent(categorySlug)}`;
+  if (kind === "ESTABLISHMENT") return `/establecimientos?category=${encodeURIComponent(categorySlug)}`;
+  return `/sexshops?category=${encodeURIComponent(categorySlug)}`;
 }
 
 function ageFromDescription(desc?: string | null): string | null {
@@ -61,22 +62,23 @@ function ageFromDescription(desc?: string | null): string | null {
   return m?.[1] || null;
 }
 
-function categoryIcon(kind: Category["kind"], name: string) {
-  const n = name.toLowerCase();
+function categoryIcon(kind: Category["kind"], slug: string) {
+  const n = slug.toLowerCase();
   if (kind === "PROFESSIONAL") {
-    if (n.includes("masaj")) return Heart;
-    if (n.includes("bienestar")) return Dumbbell;
-    if (n.includes("acompa")) return Users;
+    if (n.includes("masajes")) return Heart;
+    if (n.includes("vip")) return Sparkles;
+    if (n.includes("acompan")) return Users;
     return WandSparkles;
   }
   if (kind === "ESTABLISHMENT") {
     if (n.includes("hotel")) return Hotel;
-    if (n.includes("spa")) return Stethoscope;
-    if (n.includes("privad") || n.includes("motel")) return BedDouble;
+    if (n.includes("privad")) return Stethoscope;
+    if (n.includes("motel")) return BedDouble;
     return Building2;
   }
-  if (n.includes("shop") || n.includes("tienda")) return Store;
-  if (n.includes("club")) return GlassWater;
+  if (n.includes("lenceria")) return Sparkles;
+  if (n.includes("juguetes")) return Heart;
+  if (n.includes("premium")) return GlassWater;
   return Store;
 }
 
@@ -124,7 +126,7 @@ export default function HomePage() {
       .then((res) => {
         const mapped: RecentProfessional[] = (res?.profiles || []).slice(0, 20).map((p) => ({
           id: p.id,
-          name: p.displayName || p.username || "Profesional",
+          name: p.displayName || p.username || "Experiencia",
           avatarUrl: p.avatarUrl || null,
           distance: typeof p.distance === "number" ? p.distance : null,
           description: p.bio || p.serviceDescription || null
@@ -182,11 +184,11 @@ export default function HomePage() {
 
                 <div className="flex flex-col gap-3">
                   {items.length ? items.map((c) => {
-                    const Icon = categoryIcon(c.kind, c.name);
+                    const Icon = categoryIcon(c.kind, c.slug || c.name);
                     return (
                       <Link
                         key={c.id}
-                        href={kindHref(c.kind, c.id)}
+                        href={kindHref(c.kind, c.slug || c.id)}
                         className="group relative overflow-hidden rounded-2xl border border-fuchsia-300/30 bg-gradient-to-r from-[#2c3a8f]/90 to-[#ec3f97]/85 p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:brightness-110 transition"
                       >
                         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,.18),transparent_40%)]" />
@@ -196,7 +198,7 @@ export default function HomePage() {
                               <Icon className="h-4 w-4 text-white" />
                             </div>
                             <div>
-                              <div className="text-lg font-semibold leading-tight">{displayCategoryName(c.name)}</div>
+                              <div className="text-lg font-semibold leading-tight">{displayCategoryName(c)}</div>
                               <div className="text-xs text-white/75">Explorar categoría</div>
                             </div>
                           </div>
@@ -218,7 +220,7 @@ export default function HomePage() {
 
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg md:text-xl font-semibold">Profesionales recién agregadas</h2>
+              <h2 className="text-lg md:text-xl font-semibold">Experiencias recién agregadas</h2>
               <Link href="/profesionales" className="text-xs md:text-sm text-white/80 hover:text-white">Ver todas</Link>
             </div>
 

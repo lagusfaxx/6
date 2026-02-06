@@ -168,9 +168,9 @@ export default function AuthForm({ mode, initialProfileType, lockProfileType }: 
           <div className="relative">
             <select className="input select-dark" value={profileType} onChange={(e) => setProfileType(e.target.value)}>
               <option value="CLIENT">Cliente</option>
-              <option value="PROFESSIONAL">Profesional</option>
-              <option value="ESTABLISHMENT">Establecimiento</option>
-              <option value="SHOP">Sex Shop</option>
+              <option value="PROFESSIONAL">Experiencia</option>
+              <option value="ESTABLISHMENT">Lugar</option>
+              <option value="SHOP">Tienda</option>
             </select>
             <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">▾</span>
           </div>

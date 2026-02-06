@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
+import { findCategoryByRef } from "../lib/categories";
 
 export const directoryRouter = Router();
 
@@ -35,14 +36,18 @@ const categoryAliases: Record<string, string[]> = {
   motel: ["moteles", "centros privados", "centrosprivados"],
   moteles: ["motel", "centros privados", "centrosprivados"],
   centrosprivados: ["centros privados", "motel", "moteles"],
-  spas: ["spa", "cafe", "cafes"],
+  hotelesporhora: ["hoteles", "hotel", "hoteles por hora"],
+  hoteles: ["hotel", "hoteles por hora"],
   spa: ["spas", "cafe", "cafes"],
+  spas: ["spa", "cafe", "cafes"],
   cafe: ["cafes", "spa", "spas"],
   cafes: ["cafe", "spa", "spas"],
   acompanamiento: ["acompanantes", "acompanante", "acompañamiento"],
   acompanantes: ["acompanamiento", "acompanante", "acompañantes"],
-  masaje: ["masajes"],
-  masajes: ["masaje"]
+  masaje: ["masajes", "masajes sensuales"],
+  masajes: ["masaje", "masajes sensuales"],
+  lenceria: ["lencería"],
+  juguetes: ["juguetes intimos", "juguetes íntimos"]
 };
 
 function categoryVariants(value: string | null | undefined) {
@@ -71,6 +76,7 @@ function categoryMatches(categoryName: string | null | undefined, profileCategor
 directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
   const now = new Date();
   const categoryId = typeof req.query.categoryId === "string" ? req.query.categoryId : "";
+  const categorySlug = typeof req.query.categorySlug === "string" ? req.query.categorySlug : typeof req.query.category === "string" ? req.query.category : "";
   const rangeKm = Math.max(1, Math.min(200, Number(req.query.rangeKm || 15)));
   const gender = typeof req.query.gender === "string" ? req.query.gender : "";
   const tier = typeof req.query.tier === "string" ? req.query.tier : "";
@@ -84,9 +90,11 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
     isActive: true,
     OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }]
   };
-  const categoryRef = categoryId
-    ? await prisma.category.findUnique({ where: { id: categoryId }, select: { name: true } })
-    : null;
+  const categoryRef = await findCategoryByRef(prisma, {
+    categoryId: categoryId || null,
+    categorySlug: categorySlug || null,
+    kind: "PROFESSIONAL"
+  });
   if (gender) where.gender = gender;
   if (tier) where.tier = tier;
 
@@ -104,8 +112,8 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       tier: true,
       gender: true,
       serviceCategory: true,
-      services: { select: { category: true }, take: 25, orderBy: { createdAt: "desc" } },
-      category: { select: { id: true, name: true, kind: true } }
+      services: { select: { category: true, categoryId: true }, take: 25, orderBy: { createdAt: "desc" } },
+      category: { select: { id: true, name: true, displayName: true, slug: true, kind: true } }
     },
     take: 250
   });
@@ -148,6 +156,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       category: u.category,
       serviceCategory: u.serviceCategory,
       serviceItemCategories: u.services.map((sv) => sv.category || ""),
+      serviceItemCategoryIds: u.services.map((sv) => sv.categoryId || "").filter(Boolean),
       isOnline: isOnline(u.lastSeenAt),
       lastSeen: u.lastSeenAt ? u.lastSeenAt.toISOString() : null
     };
@@ -155,10 +164,11 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
 
   const filtered = mapped
     .filter((u) => {
-      if (!categoryId) return true;
-      if (u.category?.id === categoryId) return true;
-      if (!categoryRef?.name) return false;
-      return categoryMatches(categoryRef.name, u.serviceCategory, u.serviceItemCategories || []);
+      if (!categoryId && !categorySlug) return true;
+      if (categoryRef?.id && u.category?.id === categoryRef.id) return true;
+      if (categoryRef?.id && u.serviceItemCategoryIds.includes(categoryRef.id)) return true;
+      if (!categoryRef?.displayName && !categoryRef?.name) return false;
+      return categoryMatches(categoryRef.displayName || categoryRef.name, u.serviceCategory, u.serviceItemCategories || []);
     })
     .filter((u) => (lat != null && lng != null && u.distance != null ? u.distance <= rangeKm : true))
     .filter((u) => (minRating != null && u.rating != null ? u.rating >= minRating : true))
@@ -196,7 +206,7 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
       id: u.id,
       name: u.displayName || u.username,
       avatarUrl: u.avatarUrl,
-      category: u.category?.name || null,
+      category: u.category?.displayName || u.category?.name || null,
       isActive: u.isActive,
       rating: rating ? Number(rating.toFixed(2)) : null,
       description: u.bio,
@@ -211,6 +221,7 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
 directoryRouter.get("/establishments", asyncHandler(async (req, res) => {
   const now = new Date();
   const categoryId = typeof req.query.categoryId === "string" ? req.query.categoryId : "";
+  const categorySlug = typeof req.query.categorySlug === "string" ? req.query.categorySlug : typeof req.query.category === "string" ? req.query.category : "";
   const rangeKm = Math.max(1, Math.min(200, Number(req.query.rangeKm || 20)));
   const minRating = req.query.minRating ? Number(req.query.minRating) : null;
 
@@ -222,9 +233,11 @@ directoryRouter.get("/establishments", asyncHandler(async (req, res) => {
     isActive: true,
     OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }]
   };
-  const categoryRef = categoryId
-    ? await prisma.category.findUnique({ where: { id: categoryId }, select: { name: true } })
-    : null;
+  const categoryRef = await findCategoryByRef(prisma, {
+    categoryId: categoryId || null,
+    categorySlug: categorySlug || null,
+    kind: "ESTABLISHMENT"
+  });
 
   const users = await prisma.user.findMany({
     where,
@@ -240,8 +253,8 @@ directoryRouter.get("/establishments", asyncHandler(async (req, res) => {
       longitude: true,
       media: { where: { type: "IMAGE" }, orderBy: { createdAt: "desc" }, take: 6, select: { url: true } },
       serviceCategory: true,
-      services: { select: { category: true }, take: 25, orderBy: { createdAt: "desc" } },
-      category: { select: { id: true, name: true } }
+      services: { select: { category: true, categoryId: true }, take: 25, orderBy: { createdAt: "desc" } },
+      category: { select: { id: true, name: true, displayName: true, slug: true } }
     },
     take: 250
   });
@@ -278,16 +291,18 @@ directoryRouter.get("/establishments", asyncHandler(async (req, res) => {
       gallery: u.media.map((m) => m.url),
       category: u.category,
       serviceCategory: u.serviceCategory,
-      serviceItemCategories: u.services.map((sv) => sv.category || "")
+      serviceItemCategories: u.services.map((sv) => sv.category || ""),
+      serviceItemCategoryIds: u.services.map((sv) => sv.categoryId || "").filter(Boolean)
     };
   });
 
   const filtered = mapped
     .filter((u) => {
-      if (!categoryId) return true;
-      if (u.category?.id === categoryId) return true;
-      if (!categoryRef?.name) return false;
-      return categoryMatches(categoryRef.name, u.serviceCategory, u.serviceItemCategories || []);
+      if (!categoryId && !categorySlug) return true;
+      if (categoryRef?.id && u.category?.id === categoryRef.id) return true;
+      if (categoryRef?.id && u.serviceItemCategoryIds.includes(categoryRef.id)) return true;
+      if (!categoryRef?.displayName && !categoryRef?.name) return false;
+      return categoryMatches(categoryRef.displayName || categoryRef.name, u.serviceCategory, u.serviceItemCategories || []);
     })
     .filter((u) => (lat != null && lng != null && u.distance != null ? u.distance <= rangeKm : true))
     .filter((u) => (minRating != null && u.rating != null ? u.rating >= minRating : true))

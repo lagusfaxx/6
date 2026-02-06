@@ -9,9 +9,15 @@ export const clientRouter = Router();
 clientRouter.get("/categories", async (_req, res, next) => {
   try {
     const categories = await prisma.category.findMany({
-      orderBy: { name: "asc" }
+      orderBy: { displayName: "asc" }
     });
-    return res.json(categories);
+    return res.json(
+      categories.map((c) => ({
+        ...c,
+        displayName: c.displayName || c.name,
+        slug: c.slug || c.name
+      }))
+    );
   } catch (err) {
     return next(err);
   }
@@ -32,4 +38,3 @@ clientRouter.get("/banners", async (_req, res, next) => {
     return next(err);
   }
 });
-
