@@ -72,12 +72,42 @@ function categoryMatches(categoryName: string | null | undefined, profileCategor
   );
 }
 
+function calculateAge(birthdate: Date | null) {
+  if (!birthdate) return null;
+  const now = new Date();
+  let age = now.getFullYear() - birthdate.getFullYear();
+  const m = now.getMonth() - birthdate.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < birthdate.getDate())) {
+    age -= 1;
+  }
+  return age >= 0 ? age : null;
+}
+
+function ageFromLegacyBio(bio?: string | null) {
+  const m = (bio || "").match(/^\[edad:(\d{1,2})\]/i);
+  if (!m) return null;
+  const age = Number(m[1]);
+  return Number.isFinite(age) ? age : null;
+}
+
+function resolveAge(birthdate: Date | null, bio?: string | null) {
+  const fromBirthdate = calculateAge(birthdate);
+  if (fromBirthdate != null) return fromBirthdate;
+  return ageFromLegacyBio(bio);
+}
+
+function parseRangeKm(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(200, parsed));
+}
+
 // ✅ Profesionales
 directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
   const now = new Date();
   const categoryId = typeof req.query.categoryId === "string" ? req.query.categoryId : "";
   const categorySlug = typeof req.query.categorySlug === "string" ? req.query.categorySlug : typeof req.query.category === "string" ? req.query.category : "";
-  const rangeKm = Math.max(1, Math.min(200, Number(req.query.rangeKm || 15)));
+  const rangeKm = parseRangeKm(req.query.rangeKm, 15);
   const gender = typeof req.query.gender === "string" ? req.query.gender : "";
   const tier = typeof req.query.tier === "string" ? req.query.tier : "";
   const minRating = req.query.minRating ? Number(req.query.minRating) : null;
@@ -90,11 +120,29 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
     isActive: true,
     OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }]
   };
-  const categoryRef = await findCategoryByRef(prisma, {
-    categoryId: categoryId || null,
-    categorySlug: categorySlug || null,
-    kind: "PROFESSIONAL"
-  });
+
+  let categoryRef = null;
+  if (categoryId || categorySlug) {
+    try {
+      categoryRef = await findCategoryByRef(prisma, {
+        categoryId: categoryId || null,
+        categorySlug: categorySlug || null,
+        kind: "PROFESSIONAL"
+      });
+    } catch (error) {
+      console.error("[directory/professionals] category lookup failed", {
+        categoryId,
+        categorySlug,
+        error
+      });
+      return res.json({ professionals: [], category: null, message: "No se pudo resolver la categoría seleccionada." });
+    }
+    if (!categoryRef) {
+      return res.json({ professionals: [], category: null, message: "La categoría seleccionada no existe." });
+    }
+    where.services = { some: { categoryId: categoryRef.id } };
+  }
+
   if (gender) where.gender = gender;
   if (tier) where.tier = tier;
 
@@ -111,17 +159,14 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       isActive: true,
       tier: true,
       gender: true,
+      bio: true,
+      birthdate: true,
       serviceCategory: true,
       services: { select: { category: true, categoryId: true }, take: 25, orderBy: { createdAt: "desc" } },
       category: { select: { id: true, name: true, displayName: true, slug: true, kind: true } }
     },
     take: 250
   });
-
-  const ratings = await prisma.professionalReview.groupBy({
-    by: ["serviceRequestId"],
-    _avg: { hearts: true }
-  }).catch(() => []);
 
   // rating promedio por professional via service requests join
   const ratingByProfessional = new Map<string, number>();
@@ -153,6 +198,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       isActive: u.isActive,
       tier: u.tier,
       gender: u.gender,
+      age: resolveAge(u.birthdate, u.bio),
       category: u.category,
       serviceCategory: u.serviceCategory,
       serviceItemCategories: u.services.map((sv) => sv.category || ""),
@@ -174,7 +220,56 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
     .filter((u) => (minRating != null && u.rating != null ? u.rating >= minRating : true))
     .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
 
-  return res.json({ professionals: filtered });
+  return res.json({
+    professionals: filtered,
+    category: categoryRef ? { id: categoryRef.id, name: categoryRef.name, displayName: categoryRef.displayName, slug: categoryRef.slug } : null
+  });
+}));
+
+directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
+  const now = new Date();
+  const limit = Math.max(1, Math.min(12, Number(req.query.limit || 6)));
+  const lat = req.query.lat ? Number(req.query.lat) : null;
+  const lng = req.query.lng ? Number(req.query.lng) : null;
+
+  const users = await prisma.user.findMany({
+    where: {
+      profileType: "PROFESSIONAL",
+      isActive: true,
+      OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
+      services: { some: {} }
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      avatarUrl: true,
+      latitude: true,
+      longitude: true,
+      bio: true,
+      birthdate: true,
+      createdAt: true
+    }
+  });
+
+  const mapped = users.map((u) => {
+    const distance =
+      lat != null && lng != null && u.latitude != null && u.longitude != null
+        ? haversineKm(lat, lng, u.latitude, u.longitude)
+        : null;
+    return {
+      id: u.id,
+      name: u.displayName || u.username,
+      avatarUrl: u.avatarUrl,
+      distance,
+      age: resolveAge(u.birthdate, u.bio),
+      createdAt: u.createdAt.toISOString()
+    };
+  });
+
+  return res.json({ professionals: mapped });
 }));
 
 directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
