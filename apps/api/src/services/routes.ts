@@ -1,3 +1,11 @@
+import { Router } from "express";
+import multer from "multer";
+import path from "path";
+import { prisma } from "../lib/prisma";
+import { config } from "../config";
+import { LocalStorageProvider } from "../lib/storage";
+import { requireAuth } from "../middleware/auth";
+import { isBusinessPlanActive } from "../lib/membership";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 
@@ -27,7 +35,7 @@ const upload = multer({
 function normalizeText(value: string) {
   return value
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase();
 }
@@ -121,17 +129,6 @@ servicesRouter.get("/services", asyncHandler(async (req, res) => {
       serviceDescription: true,
       profileType: true,
       membershipExpiresAt: true,
-      shopTrialEndsAt: true
-    }
-  });
-
-  const enriched = profiles.filter((p) => isBusinessPlanActive(p)).map((p) => {
-    const distance =
-      lat !== null && lng !== null && p.latitude !== null && p.longitude !== null
-        ? haversine(lat, lng, p.latitude, p.longitude)
-        : null;
-    return { ...p, distance };
-@@ -124,117 +175,121 @@ servicesRouter.get("/map", asyncHandler(async (req, res) => {
       shopTrialEndsAt: true
     }
   });
@@ -253,3 +250,6 @@ servicesRouter.post("/services/:userId/rating", requireAuth, asyncHandler(async 
 }));
 
 servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, res) => {
+  // Add your remaining code here if there's more after this line
+  return res.json({ ok: true });
+}));
