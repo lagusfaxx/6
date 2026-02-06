@@ -144,7 +144,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen text-white antialiased">
-      <div className="mx-auto max-w-4xl px-4 py-6">
+      <div className="mx-auto max-w-5xl px-4 py-6">
         <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#5a56a9]/70 via-[#6e5cc0]/50 to-[#ef3f97]/40 p-5 md:p-8">
           <div className="flex items-center gap-3">
             <img src="/brand/isotipo.png" alt="Uzeed" className="h-12 w-12 rounded-2xl border border-white/20 bg-white/10 object-cover" />

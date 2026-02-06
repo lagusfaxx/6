@@ -1,11 +1,3 @@
-import { Router } from "express";
-import { prisma } from "../db";
-import { requireAuth } from "../auth/middleware";
-import { isBusinessPlanActive } from "../lib/subscriptions";
-import multer from "multer";
-import path from "path";
-import { config } from "../config";
-import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 
@@ -30,6 +22,56 @@ const upload = multer({
   }),
   limits: { fileSize: 100 * 1024 * 1024 }
 });
+
+
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+async function ensureUserCategory(userId: string, profileType: string, rawCategory: string | null | undefined, currentCategoryId: string | null | undefined) {
+  if (!rawCategory) return;
+  const category = rawCategory.trim();
+  if (!category) return;
+
+  const kind = profileType === "PROFESSIONAL" ? "PROFESSIONAL" : profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : "SHOP";
+  const normalized = normalizeText(category);
+
+  const aliases: Record<string, string[]> = {
+    motel: ["moteles"],
+    cafes: ["spas", "cafe"],
+    cafe: ["spas", "cafes"],
+    acompanamiento: ["acompañamiento", "acompanantes", "acompañantes"],
+    masajes: ["masaje"],
+    centrosprivados: ["centros privados"],
+  };
+
+  const aliasCandidates = (aliases[normalized.replace(/\s+/g, "")] || []).map((v) => v);
+  const candidates = [category, ...aliasCandidates];
+
+  let cat = await prisma.category.findFirst({
+    where: {
+      kind: kind as any,
+      OR: candidates.map((name) => ({ name: { equals: name, mode: "insensitive" as const } }))
+    },
+    select: { id: true }
+  });
+
+  if (!cat) {
+    cat = await prisma.category.create({ data: { kind: kind as any, name: category }, select: { id: true } });
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      serviceCategory: category,
+      categoryId: cat?.id || currentCategoryId || null
+    }
+  });
+}
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
   const toRad = (n: number) => (n * Math.PI) / 180;
@@ -89,39 +131,7 @@ servicesRouter.get("/services", asyncHandler(async (req, res) => {
         ? haversine(lat, lng, p.latitude, p.longitude)
         : null;
     return { ...p, distance };
-  });
-
-  const sorted = enriched.sort((a, b) => {
-    if (a.distance === null && b.distance === null) return 0;
-    if (a.distance === null) return 1;
-    if (b.distance === null) return -1;
-    return a.distance - b.distance;
-  });
-
-  return res.json({ profiles: sorted });
-}));
-
-servicesRouter.get("/map", asyncHandler(async (req, res) => {
-  const lat = req.query.lat ? Number(req.query.lat) : null;
-  const lng = req.query.lng ? Number(req.query.lng) : null;
-  const types = typeof req.query.types === "string" ? req.query.types.split(",").map((t) => t.trim()) : [];
-
-  const profiles = await prisma.user.findMany({
-    where: {
-      profileType: { in: types.length ? types : ["PROFESSIONAL", "SHOP"] },
-      latitude: { not: null },
-      longitude: { not: null }
-    },
-    select: {
-      id: true,
-      displayName: true,
-      username: true,
-      profileType: true,
-      latitude: true,
-      longitude: true,
-      city: true,
-      serviceCategory: true,
-      membershipExpiresAt: true,
+@@ -124,117 +175,121 @@ servicesRouter.get("/map", asyncHandler(async (req, res) => {
       shopTrialEndsAt: true
     }
   });
@@ -147,7 +157,7 @@ servicesRouter.get("/services/:userId/items", asyncHandler(async (req, res) => {
 }));
 
 servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res) => {
-  const me = await prisma.user.findUnique({ where: { id: req.session.userId! } });
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { id: true, profileType: true, categoryId: true } });
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   if (!["SHOP", "PROFESSIONAL", "ESTABLISHMENT"].includes(me.profileType)) {
     return res.status(403).json({ error: "NOT_ALLOWED" });
@@ -165,40 +175,13 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
     }
   });
 
-  if (category) {
-    const clean = String(category).trim().toLowerCase();
-    const kind = me.profileType === "PROFESSIONAL" ? "PROFESSIONAL" : me.profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : "SHOP";
-    const synonym =
-      clean === "motel" ? "moteles" :
-      clean === "cafe" || clean === "cafes" ? "spas" :
-      clean === "acompanamiento" ? "acompañamiento" :
-      clean;
-
-    const cat = await prisma.category.findFirst({
-      where: {
-        kind: kind as any,
-        OR: [
-          { name: { equals: category, mode: "insensitive" } },
-          { name: { equals: synonym, mode: "insensitive" } }
-        ]
-      },
-      select: { id: true, name: true }
-    });
-
-    await prisma.user.update({
-      where: { id: me.id },
-      data: {
-        serviceCategory: category,
-        categoryId: cat?.id ?? me.categoryId
-      }
-    });
-  }
+  await ensureUserCategory(me.id, me.profileType, category, me.categoryId);
 
   return res.json({ item });
 }));
 
 servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, res) => {
-  const me = await prisma.user.findUnique({ where: { id: req.session.userId! } });
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { id: true, profileType: true, categoryId: true } });
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   const item = await prisma.serviceItem.findUnique({ where: { id: req.params.id } });
   if (!item || item.ownerId !== me.id) return res.status(404).json({ error: "NOT_FOUND" });
@@ -213,11 +196,12 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
     },
     include: { media: true }
   });
+  await ensureUserCategory(me.id, me.profileType, category ?? item.category, me.categoryId);
   return res.json({ item: updated });
 }));
 
 servicesRouter.delete("/services/items/:id", requireAuth, asyncHandler(async (req, res) => {
-  const me = await prisma.user.findUnique({ where: { id: req.session.userId! } });
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { id: true, profileType: true, categoryId: true } });
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   const item = await prisma.serviceItem.findUnique({ where: { id: req.params.id } });
   if (!item || item.ownerId !== me.id) return res.status(404).json({ error: "NOT_FOUND" });
@@ -226,7 +210,7 @@ servicesRouter.delete("/services/items/:id", requireAuth, asyncHandler(async (re
 }));
 
 servicesRouter.post("/services/items/:id/media", requireAuth, upload.array("files", 8), asyncHandler(async (req, res) => {
-  const me = await prisma.user.findUnique({ where: { id: req.session.userId! } });
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { id: true, profileType: true, categoryId: true } });
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   const item = await prisma.serviceItem.findUnique({ where: { id: req.params.id } });
   if (!item || item.ownerId !== me.id) return res.status(404).json({ error: "NOT_FOUND" });
@@ -243,7 +227,7 @@ servicesRouter.post("/services/items/:id/media", requireAuth, upload.array("file
 }));
 
 servicesRouter.delete("/services/items/:id/media/:mediaId", requireAuth, asyncHandler(async (req, res) => {
-  const me = await prisma.user.findUnique({ where: { id: req.session.userId! } });
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { id: true, profileType: true, categoryId: true } });
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   const item = await prisma.serviceItem.findUnique({ where: { id: req.params.id } });
   if (!item || item.ownerId !== me.id) return res.status(404).json({ error: "NOT_FOUND" });
@@ -269,86 +253,3 @@ servicesRouter.post("/services/:userId/rating", requireAuth, asyncHandler(async 
 }));
 
 servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, res) => {
-  const professionalId = typeof req.body?.professionalId === "string" ? req.body.professionalId : null;
-  if (!professionalId) return res.status(400).json({ error: "INVALID_PROFESSIONAL" });
-
-  const request = await prisma.serviceRequest.create({
-    data: {
-      clientId: req.session.userId!,
-      professionalId,
-      status: "PENDIENTE_APROBACION"
-    }
-  });
-  return res.json({ request });
-}));
-
-servicesRouter.get("/services/active", requireAuth, asyncHandler(async (req, res) => {
-  const services = await prisma.serviceRequest.findMany({
-    where: {
-      clientId: req.session.userId!,
-      status: { not: "FINALIZADO" }
-    },
-    include: {
-      professional: {
-        select: {
-          id: true,
-          displayName: true,
-          username: true,
-          avatarUrl: true,
-          category: true,
-          isActive: true
-        }
-      }
-    },
-    orderBy: { createdAt: "desc" }
-  });
-  return res.json({
-    services: services.map((s) => ({
-      id: s.id,
-      status: s.status,
-      createdAt: s.createdAt,
-      professional: {
-        id: s.professional.id,
-        name: s.professional.displayName || s.professional.username,
-        avatarUrl: s.professional.avatarUrl,
-        category: s.professional.category?.name || null,
-        isActive: s.professional.isActive
-      }
-    }))
-  });
-}));
-
-servicesRouter.post("/services/:id/approve", requireAuth, asyncHandler(async (req, res) => {
-  const updated = await prisma.serviceRequest.update({
-    where: { id: req.params.id },
-    data: { status: "ACTIVO" }
-  });
-  return res.json({ service: updated });
-}));
-
-servicesRouter.post("/services/:id/finish", requireAuth, asyncHandler(async (req, res) => {
-  const updated = await prisma.serviceRequest.update({
-    where: { id: req.params.id },
-    data: { status: "PENDIENTE_EVALUACION" }
-  });
-  return res.json({ service: updated });
-}));
-
-servicesRouter.post("/services/:id/review", requireAuth, asyncHandler(async (req, res) => {
-  const hearts = Number(req.body?.hearts);
-  if (!Number.isFinite(hearts) || hearts < 1 || hearts > 5) {
-    return res.status(400).json({ error: "INVALID_RATING" });
-  }
-  const review = await prisma.professionalReview.create({
-    data: {
-      serviceRequestId: req.params.id,
-      hearts,
-      comment: typeof req.body?.comment === "string" ? req.body.comment : null
-    }
-  });
-  await prisma.serviceRequest.update({
-    where: { id: req.params.id },
-    data: { status: "FINALIZADO" }
-  });
-  return res.json({ review });
-}));
