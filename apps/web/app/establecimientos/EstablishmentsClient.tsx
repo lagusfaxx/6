@@ -18,12 +18,12 @@ type Establishment = {
   latitude?: number | null;
   longitude?: number | null;
   gallery: string[];
-  category: { id: string; name: string } | null;
+  category: { id: string; name: string; displayName?: string | null } | null;
 };
 
 export default function EstablishmentsClient() {
   const searchParams = useSearchParams();
-  const categoryId = searchParams.get("categoryId") || "";
+  const category = searchParams.get("category") || "";
 
   const [rangeKm, setRangeKm] = useState("20");
   const [minRating, setMinRating] = useState("4");
@@ -41,7 +41,7 @@ export default function EstablishmentsClient() {
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
-    if (categoryId) params.set("categoryId", categoryId);
+    if (category) params.set("category", category);
     if (rangeKm) params.set("rangeKm", rangeKm);
     if (minRating) params.set("minRating", minRating);
     if (location) {
@@ -49,7 +49,7 @@ export default function EstablishmentsClient() {
       params.set("lng", String(location[1]));
     }
     return params.toString();
-  }, [categoryId, rangeKm, minRating, location]);
+  }, [category, rangeKm, minRating, location]);
 
   useEffect(() => {
     setLoading(true);
@@ -61,7 +61,7 @@ export default function EstablishmentsClient() {
   return (
     <div className="grid gap-6">
       <div className="card p-6">
-        <h1 className="text-2xl font-semibold">Búsqueda de establecimientos</h1>
+        <h1 className="text-2xl font-semibold">Búsqueda de lugares</h1>
         <p className="mt-2 text-sm text-white/70">Filtra por rango y calificación mínima.</p>
         <div className="mt-6 grid gap-3 md:grid-cols-2">
           <label className="grid gap-2 text-xs text-white/60">
@@ -104,7 +104,7 @@ export default function EstablishmentsClient() {
                 name: e.name,
                 lat: Number(e.latitude),
                 lng: Number(e.longitude),
-                subtitle: e.category?.name ?? null,
+                subtitle: e.category?.displayName || e.category?.name || null,
               }))}
           />
         </div>
@@ -112,7 +112,7 @@ export default function EstablishmentsClient() {
 
 
       {loading ? (
-        <div className="text-white/60">Cargando establecimientos...</div>
+        <div className="text-white/60">Cargando lugares...</div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {items.map((e) => (
@@ -129,7 +129,7 @@ export default function EstablishmentsClient() {
                 <div className="text-xs text-white/60">⭐ {e.rating ?? "N/A"}</div>
               </div>
               <p className="mt-3 text-sm text-white/60 line-clamp-2">
-                {e.description || "Establecimiento recomendado para clientes."}
+                {e.description || "Lugar recomendado para clientes."}
               </p>
               <div className="mt-3 text-xs text-white/50">
                 {e.distance ? `${e.distance.toFixed(1)} km` : "Sin distancia"} • {e.address}
@@ -137,7 +137,7 @@ export default function EstablishmentsClient() {
             </Link>
           ))}
           {!items.length ? (
-            <div className="card p-6 text-white/60">No hay establecimientos con estos filtros.</div>
+            <div className="card p-6 text-white/60">No hay lugares con estos filtros.</div>
           ) : null}
         </div>
       )}

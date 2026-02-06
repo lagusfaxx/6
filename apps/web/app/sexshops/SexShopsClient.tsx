@@ -20,7 +20,7 @@ type Shop = {
 
 export default function SexShopsClient() {
   const searchParams = useSearchParams();
-  const categoryId = searchParams.get("categoryId") || "";
+  const category = searchParams.get("category") || "";
   const [rangeKm, setRangeKm] = useState("15");
   const [location, setLocation] = useState<[number, number] | null>(null);
   const [items, setItems] = useState<Shop[]>([]);
@@ -36,14 +36,14 @@ export default function SexShopsClient() {
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
-    if (categoryId) params.set("categoryId", categoryId);
+    if (category) params.set("category", category);
     if (rangeKm) params.set("rangeKm", rangeKm);
     if (location) {
       params.set("lat", String(location[0]));
       params.set("lng", String(location[1]));
     }
     return params.toString();
-  }, [categoryId, rangeKm, location]);
+  }, [category, rangeKm, location]);
 
   useEffect(() => {
     setLoading(true);
@@ -55,7 +55,7 @@ export default function SexShopsClient() {
   return (
     <div className="grid gap-6">
       <div className="card p-6">
-        <h1 className="text-2xl font-semibold">Sex Shops</h1>
+        <h1 className="text-2xl font-semibold">Tiendas</h1>
         <p className="mt-2 text-sm text-white/70">Encuentra tiendas cerca de ti y revisa sus productos.</p>
         <div className="mt-6 grid gap-3 md:grid-cols-3">
           <label className="grid gap-2 text-xs text-white/60">
@@ -81,7 +81,7 @@ export default function SexShopsClient() {
       </div>
 
       {loading ? (
-        <div className="text-white/60">Cargando sex shops...</div>
+        <div className="text-white/60">Cargando tiendas...</div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {items.map((s) => (
@@ -96,13 +96,13 @@ export default function SexShopsClient() {
                 </div>
                 <div>
                   <div className="font-semibold">{s.name}</div>
-                  <div className="text-xs text-white/60">{s.city || s.address || "Sex Shop"}</div>
+                  <div className="text-xs text-white/60">{s.city || s.address || "Tienda"}</div>
                 </div>
               </div>
               <div className="mt-3 text-xs text-white/60">{s.distance ? `${s.distance.toFixed(1)} km` : "Sin distancia"}</div>
             </Link>
           ))}
-          {!items.length ? <div className="card p-6 text-white/60">No encontramos sex shops con estos filtros.</div> : null}
+          {!items.length ? <div className="card p-6 text-white/60">No encontramos tiendas con estos filtros.</div> : null}
         </div>
       )}
     </div>
