@@ -7,7 +7,6 @@ import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import ClientMap from "../../components/ClientMap";
 
 const tiers = ["PREMIUM", "GOLD", "SILVER"] as const;
-const genders = ["FEMALE", "MALE", "OTHER"] as const;
 
 type Professional = {
   id: string;
@@ -20,7 +19,15 @@ type Professional = {
   isActive: boolean;
   tier: string | null;
   gender: string | null;
+  age?: number | null;
   category: { id: string; name: string; displayName?: string | null; kind: string } | null;
+};
+
+type CategoryRef = {
+  id: string;
+  name: string;
+  displayName?: string | null;
+  slug?: string | null;
 };
 
 export default function ProfessionalsClient() {
@@ -28,10 +35,13 @@ export default function ProfessionalsClient() {
   const category = searchParams.get("category") || "";
 
   const [rangeKm, setRangeKm] = useState("15");
-  const [gender, setGender] = useState("");
   const [tier, setTier] = useState("");
   const [location, setLocation] = useState<[number, number] | null>(null);
   const [items, setItems] = useState<Professional[]>([]);
+  const [categoryInfo, setCategoryInfo] = useState<CategoryRef | null>(null);
+  const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,86 +56,111 @@ export default function ProfessionalsClient() {
     const params = new URLSearchParams();
     if (category) params.set("category", category);
     if (rangeKm) params.set("rangeKm", rangeKm);
-    if (gender) params.set("gender", gender);
     if (tier) params.set("tier", tier);
     if (location) {
       params.set("lat", String(location[0]));
       params.set("lng", String(location[1]));
     }
     return params.toString();
-  }, [category, rangeKm, gender, tier, location]);
+  }, [category, rangeKm, tier, location]);
 
   useEffect(() => {
     setLoading(true);
-    apiFetch<{ professionals: Professional[] }>(`/professionals?${queryString}`)
-      .then((res) => setItems(res.professionals))
+    apiFetch<{ professionals: Professional[]; category: CategoryRef | null; message?: string }>(`/professionals?${queryString}`)
+      .then((res) => {
+        setItems(res.professionals);
+        setCategoryInfo(res.category || null);
+        setCategoryMessage(res.message || null);
+      })
       .finally(() => setLoading(false));
   }, [queryString]);
+
+  const displayCategory =
+    categoryInfo?.displayName ||
+    categoryInfo?.name ||
+    (category ? category.replace(/-/g, " ") : "");
+
+  const breadcrumbCategory = displayCategory || "Experiencias";
+  const filtersContent = (
+    <div className="grid gap-3 md:grid-cols-2">
+      <label className="grid gap-2 text-xs text-white/60">
+        Rango (km)
+        <input
+          value={rangeKm}
+          onChange={(e) => setRangeKm(e.target.value)}
+          className="input"
+          type="number"
+          min="1"
+        />
+      </label>
+      <label className="grid gap-2 text-xs text-white/60">
+        Tier
+        <select value={tier} onChange={(e) => setTier(e.target.value)} className="input">
+          <option value="">Todos</option>
+          {tiers.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
 
   return (
     <div className="grid gap-6">
       <div className="card p-6">
-        <h1 className="text-2xl font-semibold">Búsqueda de experiencias</h1>
-        <p className="mt-2 text-sm text-white/70">
-          Filtra por distancia, género y tier. Los perfiles inactivos se muestran atenuados.
-        </p>
-        <div className="mt-6 grid gap-3 md:grid-cols-3">
-          <label className="grid gap-2 text-xs text-white/60">
-            Rango (km)
-            <input
-              value={rangeKm}
-              onChange={(e) => setRangeKm(e.target.value)}
-              className="input"
-              type="number"
-              min="1"
-            />
-          </label>
-          <label className="grid gap-2 text-xs text-white/60">
-            Género
-            <select value={gender} onChange={(e) => setGender(e.target.value)} className="input">
-              <option value="">Todos</option>
-              {genders.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-2 text-xs text-white/60">
-            Tier
-            <select value={tier} onChange={(e) => setTier(e.target.value)} className="input">
-              <option value="">Todos</option>
-              {tiers.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="flex flex-col gap-2">
+          <nav className="text-xs text-white/50">
+            <Link href="/" className="hover:text-white">Home</Link> /{" "}
+            <Link href="/profesionales" className="hover:text-white">Experiencias</Link> /{" "}
+            <span className="text-white/80">{breadcrumbCategory || "Explorar"}</span>
+          </nav>
+          <h1 className="text-2xl font-semibold">{displayCategory || "Experiencias"}</h1>
+          <p className="text-sm text-white/70">Experiencias disponibles cerca de ti.</p>
         </div>
+
+        <div className="mt-4 hidden md:block">{filtersContent}</div>
+        <div className="mt-4 flex items-center gap-3 md:hidden">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(true)}
+            className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs text-white/80 hover:bg-white/10"
+          >
+            Filtrar
+          </button>
+        </div>
+        {categoryMessage ? (
+          <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">
+            {categoryMessage}
+          </div>
+        ) : null}
       </div>
-      <div className="card p-0 overflow-hidden">
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-lg font-semibold">Mapa</h2>
-          <p className="mt-1 text-sm text-white/70">
-            Vista por ubicación. Si autorizas GPS, ordenamos por distancia y centramos el mapa.
-          </p>
+
+      {filtersOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/60 md:hidden">
+          <div className="w-full rounded-t-2xl border border-white/10 bg-[#120b2a] p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-sm font-semibold">Filtros</div>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                className="text-xs text-white/60 hover:text-white"
+              >
+                Cerrar
+              </button>
+            </div>
+            {filtersContent}
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(false)}
+              className="mt-4 w-full rounded-xl bg-white text-black py-2 text-sm font-semibold"
+            >
+              Aplicar filtros
+            </button>
+          </div>
         </div>
-        <div className="p-3">
-          <ClientMap
-            userLocation={location}
-            markers={items
-              .filter((p) => p.latitude != null && p.longitude != null)
-              .map((p) => ({
-                id: p.id,
-                name: p.name,
-                lat: Number(p.latitude),
-                lng: Number(p.longitude),
-                subtitle: p.category?.displayName || p.category?.name || null,
-              }))}
-          />
-        </div>
-      </div>
+      ) : null}
 
 
       {loading ? (
@@ -167,6 +202,38 @@ export default function ProfessionalsClient() {
           ) : null}
         </div>
       )}
+
+      <div className="card p-0 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-white/10 p-5">
+          <div>
+            <h2 className="text-lg font-semibold">Mapa</h2>
+            <p className="mt-1 text-xs text-white/60">Ubicaciones aproximadas cuando hay coordenadas disponibles.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowMap((prev) => !prev)}
+            className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
+          >
+            {showMap ? "Ocultar mapa" : "Ver en mapa"}
+          </button>
+        </div>
+        {showMap ? (
+          <div className="p-3">
+            <ClientMap
+              userLocation={location}
+              markers={items
+                .filter((p) => p.latitude != null && p.longitude != null)
+                .map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  lat: Number(p.latitude),
+                  lng: Number(p.longitude),
+                  subtitle: p.category?.displayName || p.category?.name || null
+                }))}
+            />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

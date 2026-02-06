@@ -192,7 +192,8 @@ profileRouter.put("/profile", requireAuth, asyncHandler(async (req, res) => {
     city,
     latitude,
     longitude,
-    allowFreeMessages
+    allowFreeMessages,
+    birthdate
   } = req.body as Record<string, string | null>;
   const allowedGenders = new Set(["MALE", "FEMALE", "OTHER"]);
   const allowedPrefs = new Set(["MALE", "FEMALE", "ALL", "OTHER"]);
@@ -210,6 +211,27 @@ profileRouter.put("/profile", requireAuth, asyncHandler(async (req, res) => {
   if (!me) return res.status(404).json({ error: "NOT_FOUND" });
   const canSetPrice = me.profileType === "CREATOR";
   const allowFree = allowFreeMessages === "true";
+  let safeBirthdate: Date | null | undefined = undefined;
+  if (birthdate !== undefined) {
+    if (!birthdate) {
+      safeBirthdate = null;
+    } else {
+      const parsed = new Date(birthdate);
+      if (Number.isNaN(parsed.getTime())) {
+        return res.status(400).json({ error: "BIRTHDATE_INVALID", message: "La fecha de nacimiento no es válida." });
+      }
+      const now = new Date();
+      let age = now.getFullYear() - parsed.getFullYear();
+      const m = now.getMonth() - parsed.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < parsed.getDate())) {
+        age -= 1;
+      }
+      if (age < 18) {
+        return res.status(400).json({ error: "BIRTHDATE_UNDERAGE", message: "Debes ser mayor de 18 años." });
+      }
+      safeBirthdate = parsed;
+    }
+  }
   const user = await prisma.user.update({
     where: { id: req.session.userId! },
     data: {
@@ -226,7 +248,8 @@ profileRouter.put("/profile", requireAuth, asyncHandler(async (req, res) => {
       serviceDescription: serviceDescription ?? undefined,
       city: city ?? undefined,
       latitude: latitude ? Number(latitude) : undefined,
-      longitude: longitude ? Number(longitude) : undefined
+      longitude: longitude ? Number(longitude) : undefined,
+      birthdate: safeBirthdate
     }
   });
   return res.json({ user });

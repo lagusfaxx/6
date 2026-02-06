@@ -70,15 +70,19 @@ const labelsByProfile: Record<string, { item: string; panel: string; helper: str
   }
 };
 
-function extractAge(source?: string | null) {
-  const raw = source || "";
-  const m = raw.match(/^\[edad:(\d{1,2})\]\s*/i);
-  return m?.[1] ?? "";
-}
-
 function stripAge(source?: string | null) {
   const raw = source || "";
   return raw.replace(/^\[edad:(\d{1,2})\]\s*/i, "").trim();
+}
+
+function toDateInputValue(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function categoryLabel(category?: { displayName?: string | null; name?: string | null } | null) {
@@ -116,7 +120,7 @@ export default function DashboardServicesPage() {
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
-  const [age, setAge] = useState("");
+  const [birthdate, setBirthdate] = useState("");
   const [gender, setGender] = useState("FEMALE");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
@@ -185,7 +189,7 @@ export default function DashboardServicesPage() {
       setGallery(galleryRes?.media ?? []);
       setDisplayName(meRes?.user?.displayName ?? "");
       setBio(stripAge(meRes?.user?.bio));
-      setAge(extractAge(meRes?.user?.bio));
+      setBirthdate(toDateInputValue(meRes?.user?.birthdate));
       setServiceDescription(meRes?.user?.serviceDescription ?? "");
       setGender(meRes?.user?.gender || "FEMALE");
       setAddress(meRes?.user?.address || "");
@@ -214,17 +218,16 @@ export default function DashboardServicesPage() {
     setBusy(true);
     setError(null);
     try {
-      const normalizedAge = age.trim();
-      const agePrefix = normalizedAge ? `[edad:${normalizedAge}] ` : "";
       await apiFetch("/profile", {
         method: "PUT",
         body: JSON.stringify({
           displayName,
-          bio: `${agePrefix}${bio}`.trim(),
+          bio: bio.trim(),
           serviceDescription,
           gender,
           address,
-          city
+          city,
+          birthdate: birthdate || null
         })
       });
       showToast("Guardado");
@@ -533,8 +536,16 @@ export default function DashboardServicesPage() {
                     </select>
                   </label>
                   <label className="grid gap-2 text-xs text-white/60">
-                    Edad
-                    <input className="input" type="number" min={18} max={99} placeholder="Edad" value={age} onChange={(e) => setAge(e.target.value)} />
+                    Fecha de nacimiento
+                    <input
+                      className="input"
+                      type="date"
+                      value={birthdate}
+                      onChange={(e) => setBirthdate(e.target.value)}
+                      max={new Date().toISOString().split("T")[0]}
+                      required
+                    />
+                    <span className="text-[11px] text-white/50">Debes ser mayor de 18 años.</span>
                   </label>
                 </div>
                 <label className="grid gap-2 text-xs text-white/60">

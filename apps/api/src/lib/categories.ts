@@ -67,6 +67,37 @@ export function resolveCategorySlug(value?: string | null) {
   return legacySlugMap[key] || legacySlugMap[normalized] || slugifyCategory(value);
 }
 
+export async function resolveCategory(
+  prisma: PrismaClient,
+  input?: string | null,
+  kind?: CategoryKind
+) {
+  if (!input) return null;
+  const normalizedInput = normalizeCategoryText(input);
+  if (!normalizedInput) return null;
+
+  const slug = resolveCategorySlug(input);
+  if (slug) {
+    const bySlug = await prisma.category.findFirst({
+      where: {
+        slug: { equals: slug, mode: "insensitive" },
+        ...(kind ? { kind } : {})
+      }
+    });
+    if (bySlug) return bySlug;
+  }
+
+  const categories = await prisma.category.findMany({
+    where: kind ? { kind } : undefined,
+    select: { id: true, name: true, displayName: true, slug: true, kind: true }
+  });
+  const matched = categories.find((category) => {
+    const label = category.displayName || category.name || "";
+    return normalizeCategoryText(label) === normalizedInput;
+  });
+  return matched || null;
+}
+
 export async function findCategoryByRef(
   prisma: PrismaClient,
   {
@@ -85,28 +116,5 @@ export async function findCategoryByRef(
     return prisma.category.findUnique({ where: { id: categoryId } });
   }
 
-  const slug = resolveCategorySlug(categorySlug || categoryName || undefined);
-  if (slug) {
-    const found = await prisma.category.findFirst({
-      where: {
-        slug: { equals: slug, mode: "insensitive" },
-        ...(kind ? { kind } : {})
-      }
-    });
-    if (found) return found;
-  }
-
-  if (categoryName) {
-    return prisma.category.findFirst({
-      where: {
-        ...(kind ? { kind } : {}),
-        OR: [
-          { displayName: { equals: categoryName, mode: "insensitive" } },
-          { name: { equals: categoryName, mode: "insensitive" } }
-        ]
-      }
-    });
-  }
-
-  return null;
+  return resolveCategory(prisma, categorySlug || categoryName || undefined, kind);
 }
