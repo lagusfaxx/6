@@ -144,13 +144,13 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen text-white antialiased">
-      <div className="mx-auto max-w-5xl px-4 py-6">
-        <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#5a56a9]/70 via-[#6e5cc0]/50 to-[#ef3f97]/40 p-5 md:p-8">
+      <div className="mx-auto max-w-4xl px-4 py-5 md:py-6">
+        <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#5a56a9]/70 via-[#6e5cc0]/50 to-[#ef3f97]/40 p-4 md:p-6">
           <div className="flex items-center gap-3">
             <img src="/brand/isotipo.png" alt="Uzeed" className="h-12 w-12 rounded-2xl border border-white/20 bg-white/10 object-cover" />
             <div>
               <div className="text-xs uppercase tracking-[0.2em] text-white/80">Uzeed</div>
-              <h1 className="mt-1 text-2xl md:text-3xl font-semibold">¿Qué estás buscando?</h1>
+              <h1 className="mt-1 text-xl md:text-2xl font-semibold">¿Qué estás buscando?</h1>
             </div>
           </div>
         </section>
@@ -168,14 +168,14 @@ export default function HomePage() {
           </div>
         ) : null}
 
-        <main className="mt-6 grid gap-8">
+        <main className="mt-5 grid gap-6">
           {(["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as const).map((kind) => {
             const items = grouped[kind];
             return (
               <section key={kind}>
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-xl md:text-2xl font-semibold">{kindLabel(kind)}</h2>
-                  <Link className="text-sm md:text-base text-white/80 hover:text-white" href={kind === "PROFESSIONAL" ? "/profesionales" : kind === "ESTABLISHMENT" ? "/establecimientos" : "/sexshops"}>
+                  <h2 className="text-lg md:text-xl font-semibold">{kindLabel(kind)}</h2>
+                  <Link className="text-xs md:text-sm text-white/80 hover:text-white" href={kind === "PROFESSIONAL" ? "/profesionales" : kind === "ESTABLISHMENT" ? "/establecimientos" : "/sexshops"}>
                     Ver todas
                   </Link>
                 </div>
@@ -187,14 +187,14 @@ export default function HomePage() {
                       <Link
                         key={c.id}
                         href={kindHref(c.kind, c.id)}
-                        className="group flex items-center justify-between rounded-2xl border border-fuchsia-300/30 bg-gradient-to-r from-[#2c3a8f]/90 to-[#ec3f97]/85 p-4 shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:brightness-110 transition"
+                        className="group flex items-center justify-between rounded-2xl border border-fuchsia-300/30 bg-gradient-to-r from-[#2c3a8f]/90 to-[#ec3f97]/85 p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:brightness-110 transition"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/30 bg-white/15">
-                            <Icon className="h-5 w-5 text-white" />
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/15">
+                            <Icon className="h-4 w-4 text-white" />
                           </div>
                           <div>
-                            <div className="text-xl md:text-2xl font-semibold">{displayCategoryName(c.name)}</div>
+                            <div className="text-lg md:text-xl font-semibold">{displayCategoryName(c.name)}</div>
                           </div>
                         </div>
                         <Sparkles className="h-5 w-5 text-white/80 group-hover:text-white transition" />
@@ -214,8 +214,8 @@ export default function HomePage() {
 
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-xl md:text-2xl font-semibold">Profesionales recién agregadas</h2>
-              <Link href="/profesionales" className="text-sm md:text-base text-white/80 hover:text-white">Ver todas</Link>
+              <h2 className="text-lg md:text-xl font-semibold">Profesionales recién agregadas</h2>
+              <Link href="/profesionales" className="text-xs md:text-sm text-white/80 hover:text-white">Ver todas</Link>
             </div>
 
             <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">

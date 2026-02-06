@@ -23,6 +23,27 @@ function isOnline(lastSeen: Date | null) {
   return Date.now() - lastSeen.getTime() < 5 * 60 * 1000;
 }
 
+function normalizeCategoryText(value: string | null | undefined) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function categoryMatches(categoryName: string | null | undefined, profileCategory: string | null | undefined, itemCategories: string[]) {
+  const target = normalizeCategoryText(categoryName);
+  if (!target) return false;
+
+  const profile = normalizeCategoryText(profileCategory);
+  if (profile === target || profile.includes(target) || target.includes(profile)) return true;
+
+  return itemCategories.some((name) => {
+    const normalized = normalizeCategoryText(name);
+    return normalized === target || normalized.includes(target) || target.includes(normalized);
+  });
+}
+
 // ✅ Profesionales
 directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
   const now = new Date();
@@ -103,7 +124,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       gender: u.gender,
       category: u.category,
       serviceCategory: u.serviceCategory,
-      serviceItemCategories: u.services.map((sv) => (sv.category || "").toLowerCase()),
+      serviceItemCategories: u.services.map((sv) => sv.category || ""),
       isOnline: isOnline(u.lastSeenAt),
       lastSeen: u.lastSeenAt ? u.lastSeenAt.toISOString() : null
     };
@@ -114,9 +135,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       if (!categoryId) return true;
       if (u.category?.id === categoryId) return true;
       if (!categoryRef?.name) return false;
-      const byProfile = (u.serviceCategory || "").toLowerCase() === categoryRef.name.toLowerCase();
-      const byItems = (u.serviceItemCategories || []).includes(categoryRef.name.toLowerCase());
-      return byProfile || byItems;
+      return categoryMatches(categoryRef.name, u.serviceCategory, u.serviceItemCategories || []);
     })
     .filter((u) => (lat != null && lng != null && u.distance != null ? u.distance <= rangeKm : true))
     .filter((u) => (minRating != null && u.rating != null ? u.rating >= minRating : true))
@@ -236,7 +255,7 @@ directoryRouter.get("/establishments", asyncHandler(async (req, res) => {
       gallery: u.media.map((m) => m.url),
       category: u.category,
       serviceCategory: u.serviceCategory,
-      serviceItemCategories: u.services.map((sv) => (sv.category || "").toLowerCase())
+      serviceItemCategories: u.services.map((sv) => sv.category || "")
     };
   });
 
@@ -245,9 +264,7 @@ directoryRouter.get("/establishments", asyncHandler(async (req, res) => {
       if (!categoryId) return true;
       if (u.category?.id === categoryId) return true;
       if (!categoryRef?.name) return false;
-      const byProfile = (u.serviceCategory || "").toLowerCase() === categoryRef.name.toLowerCase();
-      const byItems = (u.serviceItemCategories || []).includes(categoryRef.name.toLowerCase());
-      return byProfile || byItems;
+      return categoryMatches(categoryRef.name, u.serviceCategory, u.serviceItemCategories || []);
     })
     .filter((u) => (lat != null && lng != null && u.distance != null ? u.distance <= rangeKm : true))
     .filter((u) => (minRating != null && u.rating != null ? u.rating >= minRating : true))
@@ -299,3 +316,4 @@ directoryRouter.get("/establishments/:id", asyncHandler(async (req, res) => {
     }
   });
 }));
+
