@@ -225,6 +225,7 @@ model ServiceItem {
   description String?
   category    String?
   price       Int?
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -140,7 +140,9 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
     if (!categoryRef) {
       return res.json({ professionals: [], category: null, message: "La categoría seleccionada no existe." });
     }
-    where.services = { some: { categoryId: categoryRef.id } };
+    where.services = { some: { categoryId: categoryRef.id, isActive: true } };
+  } else {
+    where.services = { some: { isActive: true } };
   }
 
   if (gender) where.gender = gender;
@@ -153,6 +155,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       username: true,
       displayName: true,
       avatarUrl: true,
+      coverUrl: true,
       latitude: true,
       longitude: true,
       lastSeenAt: true,
@@ -162,7 +165,8 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       bio: true,
       birthdate: true,
       serviceCategory: true,
-      services: { select: { category: true, categoryId: true }, take: 25, orderBy: { createdAt: "desc" } },
+      serviceDescription: true,
+      services: { where: { isActive: true }, select: { category: true, categoryId: true }, take: 25, orderBy: { createdAt: "desc" } },
       category: { select: { id: true, name: true, displayName: true, slug: true, kind: true } }
     },
     take: 250
@@ -199,6 +203,15 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       tier: u.tier,
       gender: u.gender,
       age: resolveAge(u.birthdate, u.bio),
+      serviceSummary: u.serviceDescription || u.serviceCategory || null,
+      primaryPhoto: u.avatarUrl,
+      profile: {
+        id: u.id,
+        username: u.username,
+        displayName: u.displayName,
+        avatarUrl: u.avatarUrl,
+        coverUrl: u.coverUrl || null
+      },
       category: u.category,
       serviceCategory: u.serviceCategory,
       serviceItemCategories: u.services.map((sv) => sv.category || ""),
@@ -237,7 +250,7 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
       profileType: "PROFESSIONAL",
       isActive: true,
       OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
-      services: { some: {} }
+      services: { some: { isActive: true } }
     },
     orderBy: { createdAt: "desc" },
     take: limit,
