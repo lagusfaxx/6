@@ -180,7 +180,7 @@ export default function HomePage() {
                   </Link>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
                   {items.length ? items.map((c) => {
                     const Icon = categoryIcon(c.kind, c.name);
                     return (
