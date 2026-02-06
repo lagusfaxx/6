@@ -66,8 +66,9 @@ export function resolveMediaUrl(url: string | null | undefined): string | null {
   // Uploads are served by the API under /uploads/*
   if (path.startsWith("/uploads/")) return `${base}${path}`;
 
-  // Some records may store bare filenames
-  if (!path.includes("/")) return `${base}/uploads/${trimmed}`;
+  // Some records may store bare filenames (e.g. "avatar.jpg")
+  // Detect this from the original, non-normalized value.
+  if (!trimmed.includes("/")) return `${base}/uploads/${trimmed}`;
 
   return `${base}${path}`;
 }
