@@ -180,7 +180,7 @@ export default function HomePage() {
                   </Link>
                 </div>
 
-                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
+                <div className="flex flex-col gap-3">
                   {items.length ? items.map((c) => {
                     const Icon = categoryIcon(c.kind, c.name);
                     return (
@@ -205,11 +205,11 @@ export default function HomePage() {
                       </Link>
                     );
                   }) : kind === "SHOP" ? (
-                    <Link href="/sexshops" className="rounded-2xl border border-white/15 bg-white/5 p-4 text-white/80 hover:bg-white/10 transition sm:col-span-2">
+                    <Link href="/sexshops" className="rounded-2xl border border-white/15 bg-white/5 p-4 text-white/80 hover:bg-white/10 transition">
                       Aún no hay categorías de tiendas cargadas. Toca aquí para explorar tiendas activas.
                     </Link>
                   ) : (
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70 sm:col-span-2">No hay categorías disponibles.</div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70">No hay categorías disponibles.</div>
                   )}
                 </div>
               </section>
