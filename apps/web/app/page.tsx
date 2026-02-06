@@ -178,10 +178,19 @@ export default function HomePage() {
     <div className="min-h-screen text-white antialiased">
       <div className="mx-auto max-w-4xl px-4 py-5 md:py-6">
         <section className="rounded-3xl border border-white/10 bg-white/5 p-4 md:p-6">
-          <div className="flex items-center gap-3">
-            <img src="/brand/isotipo.png" alt="Uzeed" className="h-12 w-12 rounded-2xl border border-white/20 bg-white/10 object-cover" />
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <img
+                src="/brand/isotipo.png"
+                alt="Uzeed"
+                className="h-16 w-16 md:h-20 md:w-20 rounded-3xl border border-white/20 bg-white/10 object-cover"
+              />
+              <div className="absolute -bottom-2 -right-2 rounded-full bg-fuchsia-500/90 p-1.5 shadow-[0_0_18px_rgba(217,70,239,0.6)]">
+                <MapPin className="h-4 w-4 text-white" />
+              </div>
+            </div>
             <div>
-              <div className="text-xs uppercase tracking-[0.2em] text-white/80">Uzeed</div>
+              <div className="text-xs uppercase tracking-[0.3em] text-white/80">Uzeed</div>
               <h1 className="mt-1 text-xl md:text-2xl font-semibold">¿Qué estás buscando?</h1>
             </div>
           </div>
@@ -257,11 +266,31 @@ export default function HomePage() {
               {recentPros.length ? recentPros.slice(0, 3).map((p) => {
                 return (
                   <Link key={p.id} href={`/profesional/${p.id}`} className="rounded-2xl border border-white/15 bg-white/5 p-3 hover:bg-white/10 transition">
-                    <div className="h-40 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+                    <div className="h-40 overflow-hidden rounded-xl border border-white/10 bg-black/20 flex items-center justify-center">
                       {p.avatarUrl ? (
                         <img src={resolveMediaUrl(p.avatarUrl) || ""} alt={p.name} className="h-full w-full object-cover" />
                       ) : (
-                        <div className="h-full w-full grid place-items-center text-white/50">Sin foto</div>
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path
+                            d="M20 21a8 8 0 0 0-16 0"
+                            stroke="rgba(255,255,255,0.75)"
+                            strokeWidth="1.7"
+                            strokeLinecap="round"
+                          />
+                          <path
+                            d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z"
+                            stroke="rgba(255,255,255,0.75)"
+                            strokeWidth="1.7"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M4 4l16 16"
+                            stroke="rgba(255,255,255,0.35)"
+                            strokeWidth="1.7"
+                            strokeLinecap="round"
+                          />
+                        </svg>
                       )}
                     </div>
                     <div className="mt-3 text-base font-semibold line-clamp-1">{p.name}</div>

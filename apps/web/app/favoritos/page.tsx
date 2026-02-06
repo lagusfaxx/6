@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { apiFetch, isAuthError, resolveMediaUrl } from "../../lib/api";
+import { apiFetch, isAuthError } from "../../lib/api";
+import Avatar from "../../components/Avatar";
 
 type Favorite = {
   id: string;
@@ -57,15 +58,7 @@ export default function FavoritesPage() {
             }`}
           >
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-white/10">
-                {fav.professional.avatarUrl ? (
-                  <img
-                    src={resolveMediaUrl(fav.professional.avatarUrl) || ""}
-                    alt={fav.professional.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : null}
-              </div>
+              <Avatar src={fav.professional.avatarUrl} alt={fav.professional.name} size={48} />
               <div>
                 <div className="font-semibold">{fav.professional.name}</div>
                 <div className="text-xs text-white/60">{fav.professional.category || "Experiencia"}</div>

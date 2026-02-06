@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import MapboxMap from "../../components/MapboxMap";
-import { apiFetch, resolveMediaUrl } from "../../lib/api";
+import { apiFetch } from "../../lib/api";
+import Avatar from "../../components/Avatar";
 
 type Category = { id: string; name: string; slug: string; displayName: string; kind: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP" };
 function displayCategoryName(category: Category) {
@@ -21,19 +22,24 @@ type CardItem = {
   tier?: string | null;
 };
 
+const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
+
 export default function ServicesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [location, setLocation] = useState<[number, number] | null>(null);
+  const [location, setLocation] = useState<[number, number] | null>(DEFAULT_LOCATION);
   const [selectedKind, setSelectedKind] = useState<Category["kind"]>("PROFESSIONAL");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setLocation(DEFAULT_LOCATION);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => setLocation([pos.coords.latitude, pos.coords.longitude]),
-      () => null,
+      () => setLocation(DEFAULT_LOCATION),
       { enableHighAccuracy: true, timeout: 6000 }
     );
   }, []);
@@ -196,13 +202,7 @@ export default function ServicesPage() {
                     className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-white/30"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-white/10">
-                        {item.image ? (
-                          <img src={resolveMediaUrl(item.image) || ""} alt={item.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="grid h-full place-items-center text-xs text-white/50">Sin imagen</div>
-                        )}
-                      </div>
+                      <Avatar src={item.image} alt={item.name} size={48} />
                       <div>
                         <div className="text-sm font-medium">{item.name}</div>
                         <div className="text-xs text-white/70">{item.subtitle}</div>

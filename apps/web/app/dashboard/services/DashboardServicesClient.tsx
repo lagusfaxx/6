@@ -8,6 +8,7 @@ import { apiFetch, friendlyErrorMessage, resolveMediaUrl } from "../../../lib/ap
 import { Badge } from "../../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import Avatar from "../../../components/Avatar";
+import MapboxMap from "../../../components/MapboxMap";
 
 type ServiceMedia = { id: string; url: string; type: "IMAGE" | "VIDEO" };
 
@@ -18,6 +19,10 @@ type ServiceItem = {
   category?: string | null;
   categoryId?: string | null;
   price?: number | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  isActive: boolean;
   createdAt: string;
   media?: ServiceMedia[];
   categoryRel?: { id: string; slug: string; displayName?: string | null; name?: string | null } | null;
@@ -110,6 +115,12 @@ export default function DashboardServicesClient() {
   const [serviceCategoryId, setServiceCategoryId] = useState("");
   const [price, setPrice] = useState<string>("");
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [serviceAddress, setServiceAddress] = useState("");
+  const [serviceLatitude, setServiceLatitude] = useState("");
+  const [serviceLongitude, setServiceLongitude] = useState("");
+  const [serviceIsActive, setServiceIsActive] = useState(true);
+  const [geocodeBusy, setGeocodeBusy] = useState(false);
+  const [geocodeError, setGeocodeError] = useState<string | null>(null);
 
   const [productName, setProductName] = useState("");
   const [productDescription, setProductDescription] = useState("");
@@ -224,6 +235,36 @@ export default function DashboardServicesClient() {
     setToast({ message, tone });
   };
 
+  const geocodeAddress = async () => {
+    if (!serviceAddress.trim()) {
+      setGeocodeError("Ingresa una dirección para buscar en el mapa.");
+      return;
+    }
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+    if (!token) {
+      setGeocodeError("Configura NEXT_PUBLIC_MAPBOX_TOKEN para usar el buscador.");
+      return;
+    }
+    setGeocodeBusy(true);
+    setGeocodeError(null);
+    try {
+      const res = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(serviceAddress)}.json?access_token=${token}&limit=1&language=es`
+      );
+      if (!res.ok) throw new Error("GEOCODE_FAILED");
+      const data = await res.json();
+      const feature = data?.features?.[0];
+      if (!feature?.center) throw new Error("NO_RESULTS");
+      setServiceLongitude(String(feature.center[0]));
+      setServiceLatitude(String(feature.center[1]));
+      if (feature.place_name) setServiceAddress(feature.place_name);
+    } catch {
+      setGeocodeError("No encontramos esa dirección. Ajusta el texto o confirma en el mapa.");
+    } finally {
+      setGeocodeBusy(false);
+    }
+  };
+
   const saveProfile = async () => {
     if (!user) return;
     setBusy(true);
@@ -252,12 +293,28 @@ export default function DashboardServicesClient() {
     if (!user) return;
     setBusy(true);
     setError(null);
+    if (!serviceAddress.trim()) {
+      setError("Debes indicar la dirección del servicio.");
+      setBusy(false);
+      return;
+    }
+    const parsedLat = Number(serviceLatitude);
+    const parsedLng = Number(serviceLongitude);
+    if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) {
+      setError("Debes confirmar la ubicación en el mapa antes de publicar.");
+      setBusy(false);
+      return;
+    }
     try {
       const payload = {
         title,
         description,
         price: price ? Number(price) : null,
-        categoryId: serviceCategoryId
+        categoryId: serviceCategoryId,
+        address: serviceAddress.trim(),
+        latitude: parsedLat,
+        longitude: parsedLng,
+        isActive: serviceIsActive
       };
       if (editingServiceId) {
         await apiFetch(`/services/items/${editingServiceId}`, { method: "PATCH", body: JSON.stringify(payload) });
@@ -270,6 +327,11 @@ export default function DashboardServicesClient() {
       setDescription("");
       setPrice("");
       setEditingServiceId(null);
+      setServiceAddress("");
+      setServiceLatitude("");
+      setServiceLongitude("");
+      setServiceIsActive(true);
+      setGeocodeError(null);
       loadPanel(user.id);
     } catch (err: any) {
       setError(friendlyErrorMessage(err));
@@ -297,6 +359,11 @@ export default function DashboardServicesClient() {
     setDescription(item.description || "");
     setPrice(item.price != null ? String(item.price) : "");
     setServiceCategoryId(item.categoryId || "");
+    setServiceAddress(item.address || "");
+    setServiceLatitude(item.latitude != null ? String(item.latitude) : "");
+    setServiceLongitude(item.longitude != null ? String(item.longitude) : "");
+    setServiceIsActive(item.isActive ?? true);
+    setGeocodeError(null);
     setEditingServiceId(item.id);
     setTab("servicios");
   };
@@ -542,7 +609,12 @@ export default function DashboardServicesClient() {
                   <div key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="font-semibold">{item.title}</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="font-semibold">{item.title}</div>
+                          <Badge className={item.isActive ? "border-emerald-400/40 bg-emerald-500/20 text-emerald-100" : ""}>
+                            {item.isActive ? "Activo" : "Inactivo"}
+                          </Badge>
+                        </div>
                         <div className="text-xs text-white/60">{item.description || "Sin descripción"}</div>
                         <div className="text-xs text-white/50 mt-1">{categoryLabel(item.categoryRel)} · ${item.price ?? "0"}</div>
                       </div>
@@ -570,6 +642,60 @@ export default function DashboardServicesClient() {
                   <textarea className="input min-h-[110px]" value={description} onChange={(e) => setDescription(e.target.value)} />
                 </label>
                 <label className="grid gap-2 text-xs text-white/60">
+                  Dirección
+                  <input
+                    className="input"
+                    value={serviceAddress}
+                    onChange={(e) => setServiceAddress(e.target.value)}
+                    placeholder="Ej: Av. Providencia 1234, Santiago"
+                  />
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={geocodeAddress}
+                    disabled={geocodeBusy}
+                    className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10 disabled:opacity-60"
+                  >
+                    {geocodeBusy ? "Buscando..." : "Buscar dirección en mapa"}
+                  </button>
+                  <span className="text-[11px] text-white/50">Puedes ajustar latitud/longitud manualmente.</span>
+                </div>
+                {geocodeError ? (
+                  <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+                    {geocodeError}
+                  </div>
+                ) : null}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-2 text-xs text-white/60">
+                    Latitud
+                    <input className="input" value={serviceLatitude} onChange={(e) => setServiceLatitude(e.target.value)} />
+                  </label>
+                  <label className="grid gap-2 text-xs text-white/60">
+                    Longitud
+                    <input className="input" value={serviceLongitude} onChange={(e) => setServiceLongitude(e.target.value)} />
+                  </label>
+                </div>
+                {Number.isFinite(Number(serviceLatitude)) && Number.isFinite(Number(serviceLongitude)) ? (
+                  <MapboxMap
+                    markers={[
+                      {
+                        id: "service-location",
+                        name: title || "Servicio",
+                        lat: Number(serviceLatitude),
+                        lng: Number(serviceLongitude),
+                        subtitle: serviceAddress || null
+                      }
+                    ]}
+                    height={220}
+                    className="rounded-xl"
+                  />
+                ) : (
+                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60">
+                    Ingresa la dirección o las coordenadas para previsualizar en el mapa.
+                  </div>
+                )}
+                <label className="grid gap-2 text-xs text-white/60">
                   Categoría
                   <select className="input" value={serviceCategoryId} onChange={(e) => setServiceCategoryId(e.target.value)}>
                     {categoryOptions.map((c) => (
@@ -582,6 +708,15 @@ export default function DashboardServicesClient() {
                 <label className="grid gap-2 text-xs text-white/60">
                   Precio
                   <input className="input" value={price} onChange={(e) => setPrice(e.target.value)} type="number" min="0" />
+                </label>
+                <label className="flex items-center gap-2 text-xs text-white/60">
+                  <input
+                    type="checkbox"
+                    checked={serviceIsActive}
+                    onChange={(e) => setServiceIsActive(e.target.checked)}
+                    className="h-4 w-4 rounded border-white/20 bg-white/10 text-fuchsia-500"
+                  />
+                  Servicio activo (solo uno puede quedar activo)
                 </label>
                 <button disabled={busy} onClick={saveService} className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50">
                   {editingServiceId ? "Guardar cambios" : "Publicar servicio"}
