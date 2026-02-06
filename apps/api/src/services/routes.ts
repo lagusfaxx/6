@@ -8,6 +8,7 @@ import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
+import { findCategoryByRef } from "../lib/categories";
 
 export const servicesRouter = Router();
 
@@ -32,51 +33,13 @@ const upload = multer({
 });
 
 
-function normalizeText(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
-}
-
-async function ensureUserCategory(userId: string, profileType: string, rawCategory: string | null | undefined, currentCategoryId: string | null | undefined) {
-  if (!rawCategory) return;
-  const category = rawCategory.trim();
-  if (!category) return;
-
-  const kind = profileType === "PROFESSIONAL" ? "PROFESSIONAL" : profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : "SHOP";
-  const normalized = normalizeText(category);
-
-  const aliases: Record<string, string[]> = {
-    motel: ["moteles"],
-    cafes: ["spas", "cafe"],
-    cafe: ["spas", "cafes"],
-    acompanamiento: ["acompañamiento", "acompanantes", "acompañantes"],
-    masajes: ["masaje"],
-    centrosprivados: ["centros privados"],
-  };
-
-  const aliasCandidates = (aliases[normalized.replace(/\s+/g, "")] || []).map((v) => v);
-  const candidates = [category, ...aliasCandidates];
-
-  let cat = await prisma.category.findFirst({
-    where: {
-      kind: kind as any,
-      OR: candidates.map((name) => ({ name: { equals: name, mode: "insensitive" as const } }))
-    },
-    select: { id: true }
-  });
-
-  if (!cat) {
-    cat = await prisma.category.create({ data: { kind: kind as any, name: category }, select: { id: true } });
-  }
-
+async function ensureUserCategory(userId: string, categoryId: string | null, displayName: string | null, currentCategoryId: string | null) {
+  if (!categoryId && !displayName) return;
   await prisma.user.update({
     where: { id: userId },
     data: {
-      serviceCategory: category,
-      categoryId: cat?.id || currentCategoryId || null
+      serviceCategory: displayName ?? undefined,
+      categoryId: categoryId || currentCategoryId || null
     }
   });
 }
@@ -191,7 +154,7 @@ servicesRouter.get("/services/:userId/items", asyncHandler(async (req, res) => {
   const items = await prisma.serviceItem.findMany({
     where: { ownerId: req.params.userId },
     orderBy: { createdAt: "desc" },
-    include: { media: true }
+    include: { media: true, categoryRel: { select: { id: true, slug: true, displayName: true, name: true } } }
   });
   return res.json({ items });
 }));
@@ -202,20 +165,38 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
   if (!["SHOP", "PROFESSIONAL", "ESTABLISHMENT"].includes(me.profileType)) {
     return res.status(403).json({ error: "NOT_ALLOWED" });
   }
-  const { title, description, category, price } = req.body as Record<string, string>;
+  const { title, description, price } = req.body as Record<string, string>;
+  const categoryId = typeof req.body?.categoryId === "string" ? req.body.categoryId : null;
+  const categorySlug = typeof req.body?.categorySlug === "string" ? req.body.categorySlug : null;
+  const categoryName = typeof req.body?.category === "string" ? req.body.category : null;
   if (!title) return res.status(400).json({ error: "TITLE_REQUIRED" });
+
+  const kind = me.profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : me.profileType === "SHOP" ? "SHOP" : "PROFESSIONAL";
+  const category = await findCategoryByRef(prisma, {
+    categoryId,
+    categorySlug,
+    categoryName,
+    kind
+  });
+  if (!category) {
+    return res.status(400).json({
+      error: "CATEGORY_INVALID",
+      message: "La categoría seleccionada no existe. Actualiza la página e intenta nuevamente."
+    });
+  }
 
   const item = await prisma.serviceItem.create({
     data: {
       ownerId: me.id,
       title,
       description,
-      category,
+      category: category.displayName || category.name,
+      categoryId: category.id,
       price: price ? Number(price) : null
     }
   });
 
-  await ensureUserCategory(me.id, me.profileType, category, me.categoryId);
+  await ensureUserCategory(me.id, category.id, category.displayName || category.name, me.categoryId);
 
   return res.json({ item });
 }));
@@ -225,18 +206,35 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   const item = await prisma.serviceItem.findUnique({ where: { id: req.params.id } });
   if (!item || item.ownerId !== me.id) return res.status(404).json({ error: "NOT_FOUND" });
-  const { title, description, category, price } = req.body as Record<string, string>;
+  const { title, description, price } = req.body as Record<string, string>;
+  const categoryId = typeof req.body?.categoryId === "string" ? req.body.categoryId : null;
+  const categorySlug = typeof req.body?.categorySlug === "string" ? req.body.categorySlug : null;
+  const categoryName = typeof req.body?.category === "string" ? req.body.category : null;
+  const kind = me.profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : me.profileType === "SHOP" ? "SHOP" : "PROFESSIONAL";
+  const nextCategory = await findCategoryByRef(prisma, {
+    categoryId,
+    categorySlug,
+    categoryName,
+    kind
+  });
+  if ((categoryId || categorySlug || categoryName) && !nextCategory) {
+    return res.status(400).json({
+      error: "CATEGORY_INVALID",
+      message: "La categoría seleccionada no existe. Actualiza la página e intenta nuevamente."
+    });
+  }
   const updated = await prisma.serviceItem.update({
     where: { id: item.id },
     data: {
       title: title || item.title,
       description: description ?? item.description,
-      category: category ?? item.category,
+      category: nextCategory ? nextCategory.displayName || nextCategory.name : item.category,
+      categoryId: nextCategory ? nextCategory.id : item.categoryId,
       price: price ? Number(price) : item.price
     },
     include: { media: true }
   });
-  await ensureUserCategory(me.id, me.profileType, category ?? item.category, me.categoryId);
+  await ensureUserCategory(me.id, updated.categoryId, updated.category ?? null, me.categoryId);
   return res.json({ item: updated });
 }));
 

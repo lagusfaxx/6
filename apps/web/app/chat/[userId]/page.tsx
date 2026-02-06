@@ -141,7 +141,7 @@ export default function ChatPage() {
             <h1 className="text-lg font-semibold">{other?.displayName || other?.username || "Chat"}</h1>
             {other ? (
               <p className="text-xs text-white/60">
-                @{other.username} • {other.profileType === "SHOP" ? "Tienda" : other.profileType === "ESTABLISHMENT" ? "Establecimiento" : other.profileType === "PROFESSIONAL" ? "Profesional" : "Perfil"}
+                @{other.username} • {other.profileType === "SHOP" ? "Tienda" : other.profileType === "ESTABLISHMENT" ? "Lugar" : other.profileType === "PROFESSIONAL" ? "Experiencia" : "Perfil"}
                 {other.city ? ` • ${other.city}` : ""}
               </p>
             ) : (

@@ -107,7 +107,7 @@ export default function DashboardPage() {
               disabled={busy !== null}
               className="px-4 py-2 rounded-xl bg-white text-black font-medium disabled:opacity-60"
             >
-              {busy === "professional" ? "Redirigiendo a Khipu..." : "Pagar plan Profesional"}
+              {busy === "professional" ? "Redirigiendo a Khipu..." : "Pagar plan Experiencia"}
             </button>
           ) : null}
 
@@ -117,7 +117,7 @@ export default function DashboardPage() {
               disabled={busy !== null}
               className="px-4 py-2 rounded-xl bg-white text-black font-medium disabled:opacity-60"
             >
-              {busy === "shop" ? "Redirigiendo a Khipu..." : "Pagar plan Establecimiento"}
+              {busy === "shop" ? "Redirigiendo a Khipu..." : "Pagar plan Tienda"}
             </button>
           ) : null}
 

@@ -2,8 +2,35 @@ import { Router } from "express";
 import { prisma } from "../db";
 import { requireAuth } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
+import { findCategoryByRef } from "../lib/categories";
+import multer from "multer";
+import path from "path";
+import { config } from "../config";
+import { LocalStorageProvider } from "../storage/localStorageProvider";
+import { validateUploadedFile } from "../lib/uploads";
 
 export const shopRouter = Router();
+
+const storageProvider = new LocalStorageProvider({
+  baseDir: config.storageDir,
+  publicPathPrefix: `${config.apiUrl.replace(/\/$/, "")}/uploads`
+});
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: async (_req, _file, cb) => {
+      await storageProvider.ensureBaseDir();
+      cb(null, config.storageDir);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || "";
+      const safeBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, "");
+      const name = `${Date.now()}-${safeBase}${ext}`;
+      cb(null, name);
+    }
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 }
+});
 
 function normalizeCategoryText(value: string | null | undefined) {
   return (value || "")
@@ -17,14 +44,18 @@ const categoryAliases: Record<string, string[]> = {
   motel: ["moteles", "centros privados", "centrosprivados"],
   moteles: ["motel", "centros privados", "centrosprivados"],
   centrosprivados: ["centros privados", "motel", "moteles"],
+  hotelesporhora: ["hoteles", "hotel", "hoteles por hora"],
+  hoteles: ["hotel", "hoteles por hora"],
   spas: ["spa", "cafe", "cafes"],
   spa: ["spas", "cafe", "cafes"],
   cafe: ["cafes", "spa", "spas"],
   cafes: ["cafe", "spa", "spas"],
   acompanamiento: ["acompanantes", "acompanante", "acompañamiento"],
   acompanantes: ["acompanamiento", "acompanante", "acompañantes"],
-  masaje: ["masajes"],
-  masajes: ["masaje"]
+  masaje: ["masajes", "masajes sensuales"],
+  masajes: ["masaje", "masajes sensuales"],
+  lenceria: ["lencería"],
+  juguetes: ["juguetes intimos", "juguetes íntimos"]
 };
 
 function categoryVariants(value: string | null | undefined) {
@@ -56,6 +87,7 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
   const lat = req.query.lat ? Number(req.query.lat) : null;
   const lng = req.query.lng ? Number(req.query.lng) : null;
   const categoryId = typeof req.query.categoryId === "string" ? req.query.categoryId : "";
+  const categorySlug = typeof req.query.categorySlug === "string" ? req.query.categorySlug : typeof req.query.category === "string" ? req.query.category : "";
 
   const where: any = {
     profileType: "SHOP",
@@ -67,9 +99,11 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
     ]
   };
 
-  const categoryRef = categoryId
-    ? await prisma.category.findUnique({ where: { id: categoryId }, select: { id: true, name: true } })
-    : null;
+  const categoryRef = await findCategoryByRef(prisma, {
+    categoryId: categoryId || null,
+    categorySlug: categorySlug || null,
+    kind: "SHOP"
+  });
 
 
   const shops = await prisma.user.findMany({
@@ -84,8 +118,9 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
       latitude: true,
       longitude: true,
       serviceCategory: true,
-      services: { select: { category: true }, take: 25, orderBy: { createdAt: "desc" } },
-      category: { select: { id: true, name: true } }
+      services: { select: { category: true, categoryId: true }, take: 25, orderBy: { createdAt: "desc" } },
+      products: { select: { categoryId: true }, where: { isActive: true }, take: 25, orderBy: { createdAt: "desc" } },
+      category: { select: { id: true, name: true, displayName: true, slug: true } }
     },
     take: 200
   });
@@ -116,15 +151,18 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
       distance,
       category: s.category,
       serviceCategory: s.serviceCategory,
-      serviceItemCategories: s.services.map((sv) => sv.category || "")
+      serviceItemCategories: s.services.map((sv) => sv.category || ""),
+      serviceItemCategoryIds: s.services.map((sv) => sv.categoryId || "").filter(Boolean),
+      productCategoryIds: s.products.map((p) => p.categoryId || "").filter(Boolean)
     };
   });
 
   const categoryFiltered = mapped.filter((s) => {
-    if (!categoryId) return true;
-    if (s.category?.id === categoryId) return true;
-    if (!categoryRef?.name) return false;
-    return categoryMatches(categoryRef.name, s.serviceCategory, s.serviceItemCategories || []);
+    if (!categoryId && !categorySlug) return true;
+    if (categoryRef?.id && s.category?.id === categoryRef.id) return true;
+    if (categoryRef?.id && (s.serviceItemCategoryIds.includes(categoryRef.id) || s.productCategoryIds.includes(categoryRef.id))) return true;
+    if (!categoryRef?.displayName && !categoryRef?.name) return false;
+    return categoryMatches(categoryRef.displayName || categoryRef.name, s.serviceCategory, s.serviceItemCategories || []);
   });
 
   const filtered = lat != null && lng != null
@@ -132,16 +170,29 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
       .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9))
     : categoryFiltered;
 
-  return res.json({ shops: filtered.map(({ category, serviceCategory, serviceItemCategories, ...shop }) => shop) });
+  return res.json({
+    shops: filtered.map(({ category, serviceCategory, serviceItemCategories, serviceItemCategoryIds, productCategoryIds, ...shop }) => shop)
+  });
 }));
 
 // ✅ PUBLIC: productos de un sex-shop
 shopRouter.get("/sexshops/:shopId/products", asyncHandler(async (req, res) => {
   const shopId = String(req.params.shopId);
+  const categoryId = typeof req.query.categoryId === "string" ? req.query.categoryId : "";
+  const categorySlug = typeof req.query.categorySlug === "string" ? req.query.categorySlug : typeof req.query.category === "string" ? req.query.category : "";
+  const categoryRef = await findCategoryByRef(prisma, {
+    categoryId: categoryId || null,
+    categorySlug: categorySlug || null,
+    kind: "SHOP"
+  });
   const products = await prisma.product.findMany({
-    where: { shopId, isActive: true },
+    where: {
+      shopId,
+      isActive: true,
+      ...(categoryRef?.id ? { categoryId: categoryRef.id } : {})
+    },
     orderBy: { createdAt: "desc" },
-    include: { media: { orderBy: { pos: "asc" } } }
+    include: { media: { orderBy: { pos: "asc" } }, category: { select: { id: true, slug: true, displayName: true, name: true } } }
   });
   return res.json({ products });
 }));
@@ -155,7 +206,7 @@ shopRouter.get("/products", requireAuth, asyncHandler(async (req, res) => {
   const products = await prisma.product.findMany({
     where: { shopId: userId },
     orderBy: { createdAt: "desc" },
-    include: { media: { orderBy: { pos: "asc" } } }
+    include: { media: { orderBy: { pos: "asc" } }, category: { select: { id: true, slug: true, displayName: true, name: true } } }
   });
   return res.json({ products });
 }));
@@ -170,9 +221,17 @@ shopRouter.post("/products", requireAuth, asyncHandler(async (req, res) => {
   const stock = Number(req.body?.stock || 0);
   const description = req.body?.description ? String(req.body.description) : null;
   const mediaUrls = Array.isArray(req.body?.mediaUrls) ? req.body.mediaUrls.map(String) : [];
+  const categoryId = typeof req.body?.categoryId === "string" ? req.body.categoryId : null;
+  const categorySlug = typeof req.body?.categorySlug === "string" ? req.body.categorySlug : null;
+  const categoryName = typeof req.body?.category === "string" ? req.body.category : null;
 
   if (!name || name.length < 2) return res.status(400).json({ error: "NAME_REQUIRED" });
   if (!Number.isFinite(price) || price < 0) return res.status(400).json({ error: "PRICE_INVALID" });
+
+  const category = await findCategoryByRef(prisma, { categoryId, categorySlug, categoryName, kind: "SHOP" });
+  if (!category) {
+    return res.status(400).json({ error: "CATEGORY_INVALID", message: "Selecciona una categoría válida." });
+  }
 
   const product = await prisma.product.create({
     data: {
@@ -181,11 +240,12 @@ shopRouter.post("/products", requireAuth, asyncHandler(async (req, res) => {
       description,
       price: Math.round(price),
       stock: Math.max(0, Math.round(stock)),
+      categoryId: category.id,
       media: {
         create: mediaUrls.slice(0, 10).map((url: string, idx: number) => ({ url, pos: idx }))
       }
     },
-    include: { media: true }
+    include: { media: true, category: { select: { id: true, slug: true, displayName: true, name: true } } }
   });
 
   return res.json({ product });
@@ -203,9 +263,44 @@ shopRouter.patch("/products/:id", requireAuth, asyncHandler(async (req, res) => 
   if (req.body?.price != null) data.price = Math.round(Number(req.body.price));
   if (req.body?.stock != null) data.stock = Math.max(0, Math.round(Number(req.body.stock)));
   if (req.body?.isActive != null) data.isActive = Boolean(req.body.isActive);
+  if (req.body?.categoryId || req.body?.categorySlug || req.body?.category) {
+    const category = await findCategoryByRef(prisma, {
+      categoryId: typeof req.body?.categoryId === "string" ? req.body.categoryId : null,
+      categorySlug: typeof req.body?.categorySlug === "string" ? req.body.categorySlug : null,
+      categoryName: typeof req.body?.category === "string" ? req.body.category : null,
+      kind: "SHOP"
+    });
+    if (!category) {
+      return res.status(400).json({ error: "CATEGORY_INVALID", message: "Selecciona una categoría válida." });
+    }
+    data.categoryId = category.id;
+  }
 
-  const updated = await prisma.product.update({ where: { id }, data, include: { media: true } });
+  const updated = await prisma.product.update({
+    where: { id },
+    data,
+    include: { media: true, category: { select: { id: true, slug: true, displayName: true, name: true } } }
+  });
   return res.json({ product: updated });
+}));
+
+shopRouter.post("/products/:id/media", requireAuth, upload.array("files", 8), asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const id = String(req.params.id);
+  const product = await prisma.product.findUnique({ where: { id }, select: { shopId: true } });
+  if (!product || product.shopId !== userId) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const files = (req.files as Express.Multer.File[]) ?? [];
+  if (!files.length) return res.status(400).json({ error: "NO_FILES" });
+  const media = [];
+  let pos = 0;
+  for (const file of files) {
+    await validateUploadedFile(file, "image-or-video");
+    const url = storageProvider.publicUrl(file.filename);
+    media.push(await prisma.productMedia.create({ data: { productId: id, url, pos } }));
+    pos += 1;
+  }
+  return res.json({ media });
 }));
 
 shopRouter.delete("/products/:id", requireAuth, asyncHandler(async (req, res) => {

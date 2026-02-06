@@ -12,9 +12,33 @@ function addDays(base: Date, days: number): Date {
   return d;
 }
 
+function normalizeProfileType(input: string) {
+  const value = input.trim().toUpperCase();
+  if (value.includes("MOTEL") || value.includes("NIGHT") || value.includes("ESTABLEC")) return "ESTABLISHMENT";
+  if (value.includes("TIENDA") || value.includes("SHOP") || value.includes("SEX")) return "SHOP";
+  if (value.includes("PROFESIONAL") || value.includes("EXPERIENCIA")) return "PROFESSIONAL";
+  if (value.includes("CLIENT")) return "CLIENT";
+  return value;
+}
+
 authRouter.post("/register", asyncHandler(async (req, res) => {
-  const parsed = registerInputSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.flatten() });
+  const payload = { ...req.body } as Record<string, any>;
+  if (typeof payload.profileType === "string") {
+    payload.profileType = normalizeProfileType(payload.profileType);
+  }
+  const parsed = registerInputSchema.safeParse(payload);
+  if (!parsed.success) {
+    const profileTypeIssue = parsed.error.issues.find((issue) => issue.path.includes("profileType"));
+    if (profileTypeIssue) {
+      console.error("[auth/register] invalid profileType", {
+        profileType: payload.profileType,
+        email: payload.email,
+        username: payload.username
+      });
+      return res.status(400).json({ error: "PROFILE_TYPE_INVALID", message: "Tipo de perfil inválido. Actualiza la página e intenta nuevamente." });
+    }
+    return res.status(400).json({ error: "VALIDATION", details: parsed.error.flatten() });
+  }
 
   const { email, password, displayName, username, phone, gender, profileType, preferenceGender, address } = parsed.data;
   const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
@@ -23,35 +47,41 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
 
   const passwordHash = await argon2.hash(password);
   const shopTrialEndsAt = profileType === "SHOP" ? addDays(new Date(), 30) : null;
-  const user = await prisma.user.create({
-    data: {
-      email,
-      username,
-      phone,
-      gender,
-      preferenceGender: preferenceGender || null,
-      profileType,
-      address,
-      termsAcceptedAt: new Date(),
-      membershipExpiresAt: profileType === "CLIENT" ? null : addDays(new Date(), 30),
-      passwordHash,
-      displayName: displayName || null,
-      shopTrialEndsAt,
-      subscriptionPrice: profileType === "CREATOR" || profileType === "PROFESSIONAL" ? 2500 : null,
-      role: "USER"
-    },
-    select: {
-      id: true,
-      email: true,
-      displayName: true,
-      role: true,
-      membershipExpiresAt: true,
-      username: true,
-      profileType: true,
-      gender: true,
-      preferenceGender: true
-    }
-  });
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        email,
+        username,
+        phone,
+        gender,
+        preferenceGender: preferenceGender || null,
+        profileType,
+        address,
+        termsAcceptedAt: new Date(),
+        membershipExpiresAt: profileType === "CLIENT" ? null : addDays(new Date(), 30),
+        passwordHash,
+        displayName: displayName || null,
+        shopTrialEndsAt,
+        subscriptionPrice: profileType === "CREATOR" || profileType === "PROFESSIONAL" ? 2500 : null,
+        role: "USER"
+      },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        role: true,
+        membershipExpiresAt: true,
+        username: true,
+        profileType: true,
+        gender: true,
+        preferenceGender: true
+      }
+    });
+  } catch (err) {
+    console.error("[auth/register] create failed", { email, username, profileType, error: err });
+    throw err;
+  }
 
   req.session.userId = user.id;
   req.session.role = user.role;

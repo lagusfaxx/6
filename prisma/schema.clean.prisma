@@ -215,6 +215,7 @@ model ProfileSubscription {
 model ServiceItem {
   id          String   @id @default(uuid()) @db.Uuid
   ownerId     String   @db.Uuid
+  categoryId  String?  @db.Uuid
   title       String
   description String?
   category    String?
@@ -222,8 +223,9 @@ model ServiceItem {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  media ServiceMedia[]
+  owner        User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  categoryRel  Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  media        ServiceMedia[]
 }
 
 model ProfileMedia {
@@ -302,11 +304,14 @@ model ServiceRating {
 model Category {
   id             String          @id @default(uuid()) @db.Uuid
   name           String
+  slug           String          @unique
+  displayName    String
   kind           CategoryKind
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   professionals  User[]
   establishments Establishment[]
+  serviceItems   ServiceItem[]
 }
 
 model Establishment {

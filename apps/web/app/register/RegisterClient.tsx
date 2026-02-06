@@ -22,14 +22,14 @@ const businessOptions: Array<{
 }> = [
   {
     key: "PROFESSIONAL",
-    title: "Profesional",
-    description: "Ofrece servicios personales con perfil completo, fotos y categorías.",
+    title: "Experiencia",
+    description: "Ofrece experiencias con perfil completo, fotos y categorías.",
     icon: Briefcase
   },
   {
     key: "ESTABLISHMENT",
-    title: "Motel / Night Club",
-    description: "Publica habitaciones/servicios y recibe solicitudes de reserva tipo booking.",
+    title: "Lugar (Motel / Night Club)",
+    description: "Publica habitaciones u ofertas y recibe solicitudes de reserva por chat.",
     icon: Building2
   },
   {
@@ -55,7 +55,7 @@ export default function RegisterClient() {
       <h1 className="text-2xl font-semibold">Crear cuenta</h1>
       <p className="mt-2 text-sm text-white/60">
         {step === "choose"
-          ? "Separamos el registro en Cliente y Registro Profesional/Comercio para que cada perfil tenga opciones lógicas y útiles."
+          ? "Separamos el registro en Cliente y Registro Experiencia/Lugar/Tienda para que cada perfil tenga opciones lógicas y útiles."
           : `Registrándote como: ${selected?.title ?? profileType}`}
       </p>
 
