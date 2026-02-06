@@ -185,7 +185,18 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
   });
   if (!u) return res.status(404).json({ error: "NOT_FOUND" });
 
-@@ -144,105 +200,117 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
+  const reviews = await prisma.professionalReview.findMany({
+    where: { serviceRequest: { professionalId: id } },
+    select: { hearts: true }
+  });
+  const rating = reviews.length ? reviews.reduce((a, r) => a + r.hearts, 0) / reviews.length : null;
+
+  return res.json({
+    professional: {
+      id: u.id,
+      name: u.displayName || u.username,
+      avatarUrl: u.avatarUrl,
+      category: u.category?.name || null,
       isActive: u.isActive,
       rating: rating ? Number(rating.toFixed(2)) : null,
       description: u.bio,
@@ -303,3 +314,28 @@ directoryRouter.get("/establishments/:id", asyncHandler(async (req, res) => {
       motelRooms: { where: { isActive: true }, orderBy: { createdAt: "desc" } },
       motelPacks: { where: { isActive: true }, orderBy: { createdAt: "desc" } },
       motelPromotions: { where: { isActive: true }, orderBy: { createdAt: "desc" } }
+    }
+  });
+  if (!u) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const reviews = await prisma.establishmentReview.findMany({ where: { establishmentId: id }, select: { stars: true } });
+  const rating = reviews.length ? reviews.reduce((a, r) => a + r.stars, 0) / reviews.length : null;
+
+  return res.json({
+    establishment: {
+      id: u.id,
+      name: u.displayName || u.username,
+      city: u.city,
+      address: u.address,
+      phone: u.phone,
+      description: u.bio,
+      avatarUrl: u.avatarUrl,
+      coverUrl: u.coverUrl,
+      gallery: u.media.map((m) => m.url),
+      rating: rating ? Number(rating.toFixed(2)) : null,
+      rooms: u.motelRooms,
+      packs: u.motelPacks,
+      promotions: u.motelPromotions
+    }
+  });
+}));
