@@ -11,6 +11,7 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
   const rangeKm = Math.max(1, Math.min(200, Number(req.query.rangeKm || 15)));
   const lat = req.query.lat ? Number(req.query.lat) : null;
   const lng = req.query.lng ? Number(req.query.lng) : null;
+  const categoryId = typeof req.query.categoryId === "string" ? req.query.categoryId : "";
 
   const where: any = {
     profileType: "SHOP",
@@ -21,6 +22,8 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
       { membershipExpiresAt: null }
     ]
   };
+
+  if (categoryId) where.categoryId = categoryId;
 
   const shops = await prisma.user.findMany({
     where,

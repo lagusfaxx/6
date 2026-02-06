@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
@@ -24,6 +24,8 @@ type Profile = {
   bio: string | null;
 };
 
+type CartItem = { id: string; name: string; price: number; qty: number };
+
 export default function SexShopProfileClient() {
   const params = useParams<{ username: string }>();
   const username = params?.username as string;
@@ -31,13 +33,15 @@ export default function SexShopProfileClient() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [shopId, setShopId] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  
   useEffect(() => {
     setLoading(true);
-    apiFetch<any>(`/profile/profiles/${username}`)
-      .then(async (p) => {
+    apiFetch<any>(`/profiles/${username}`)
+      .then(async (res) => {
+        const p = res?.profile;
+        if (!p?.id) return;
         setShopId(p.id);
         setProfile({
           id: p.id,
@@ -54,9 +58,28 @@ export default function SexShopProfileClient() {
       .finally(() => setLoading(false));
   }, [username]);
 
+  const total = useMemo(() => cart.reduce((acc, c) => acc + c.price * c.qty, 0), [cart]);
+
+  function addToCart(p: Product) {
+    setCart((prev) => {
+      const found = prev.find((i) => i.id === p.id);
+      if (found) return prev.map((i) => (i.id === p.id ? { ...i, qty: i.qty + 1 } : i));
+      return [...prev, { id: p.id, name: p.name, price: p.price, qty: 1 }];
+    });
+  }
+
+  function removeFromCart(id: string) {
+    setCart((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  function chatDraftFromCart() {
+    if (!cart.length) return "Hola, me interesa un producto de tu tienda.";
+    const lines = cart.map((c) => `- ${c.name} x${c.qty} ($${(c.price * c.qty).toLocaleString("es-CL")})`).join("\n");
+    return `Hola, quiero enviar este pedido:\n${lines}\nTotal referencial: $${total.toLocaleString("es-CL")}\n(Coordinemos entrega y pago por aquí).`;
+  }
 
   if (loading) return <div className="text-white/60">Cargando...</div>;
-  if (!profile) return <div className="card p-6 text-white/60">No encontramos el sex shop.</div>;
+  if (!profile) return <div className="card p-6 text-white/60">No encontramos la tienda.</div>;
 
   return (
     <div className="grid gap-6">
@@ -82,9 +105,36 @@ export default function SexShopProfileClient() {
             <Link href={`/chat/${shopId}`} className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:border-white/30">
               Chatear
             </Link>
+            {cart.length ? (
+              <Link
+                href={`/chat/${shopId}?draft=${encodeURIComponent(chatDraftFromCart())}`}
+                className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold"
+              >
+                Enviar pedido por chat
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>
+
+      {cart.length ? (
+        <div className="card p-6">
+          <h2 className="text-lg font-semibold">Carro de compra (solo Tiendas)</h2>
+          <div className="mt-3 grid gap-2">
+            {cart.map((c) => (
+              <div key={c.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                <div className="text-sm">{c.name} x{c.qty}</div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-white/80">${(c.price * c.qty).toLocaleString("es-CL")}</span>
+                  <button onClick={() => removeFromCart(c.id)} className="text-xs text-white/70 underline">Quitar</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 text-sm text-white/80">Total referencial: ${total.toLocaleString("es-CL")}</div>
+          <p className="mt-2 text-xs text-white/60">Uzeed no intermedia pagos ni entregas. Todo se coordina directamente por chat.</p>
+        </div>
+      ) : null}
 
       <div className="card p-6">
         <h2 className="text-lg font-semibold">Productos</h2>
@@ -101,13 +151,16 @@ export default function SexShopProfileClient() {
                 <div className="font-semibold">{p.name}</div>
                 {p.description ? <div className="mt-1 text-sm text-white/60">{p.description}</div> : null}
                 <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
-                  <span>💰 ${p.price.toLocaleString("es-CL")}</span>
-                  <span>📦 Stock: {p.stock}</span>
+                  <span>Precio: ${p.price.toLocaleString("es-CL")}</span>
+                  <span>Stock: {p.stock}</span>
                 </div>
+                <button onClick={() => addToCart(p)} className="mt-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm hover:bg-white/20">
+                  + Agregar al carro
+                </button>
               </div>
             );
           })}
-          {!products.length ? <div className="text-white/60">Este sex shop aún no tiene productos publicados.</div> : null}
+          {!products.length ? <div className="text-white/60">Esta tienda aún no tiene productos publicados.</div> : null}
         </div>
       </div>
     </div>
