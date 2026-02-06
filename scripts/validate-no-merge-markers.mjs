@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const markerChecks = [
@@ -20,12 +21,46 @@ const markerChecks = [
   },
 ];
 
-const listedFiles = spawnSync('git', ['ls-files', '-z'], { encoding: 'utf8' });
-if (listedFiles.status !== 0) {
-  throw new Error(listedFiles.stderr || `git ls-files failed with status ${listedFiles.status}`);
+const skipDirs = new Set(['.git', 'node_modules', 'dist', '.next', '.turbo']);
+
+function listFilesFromGit() {
+  const listedFiles = spawnSync('git', ['ls-files', '-z'], { encoding: 'utf8' });
+
+  if (listedFiles.status === 0) {
+    return listedFiles.stdout.split('\0').filter(Boolean);
+  }
+
+  return null;
 }
 
-const files = listedFiles.stdout.split('\0').filter(Boolean);
+function listFilesFromFs(rootDir) {
+  const files = [];
+  const stack = [rootDir];
+
+  while (stack.length > 0) {
+    const currentDir = stack.pop();
+    const entries = readdirSync(currentDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = join(currentDir, entry.name);
+
+      if (entry.isDirectory()) {
+        if (!skipDirs.has(entry.name)) {
+          stack.push(fullPath);
+        }
+        continue;
+      }
+
+      if (entry.isFile()) {
+        files.push(relative(rootDir, fullPath));
+      }
+    }
+  }
+
+  return files;
+}
+
+const files = listFilesFromGit() ?? listFilesFromFs(process.cwd());
 const findings = [];
 
 for (const filePath of files) {
@@ -57,7 +92,7 @@ for (const filePath of files) {
 }
 
 if (findings.length > 0) {
-  console.error('Found unresolved merge/diff markers in tracked files:\n');
+  console.error('Found unresolved merge/diff markers in scanned files:\n');
 
   for (const finding of findings) {
     console.error(`- ${finding.filePath}:${finding.lineNumber} (${finding.description})`);
@@ -67,4 +102,4 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-console.log('No unresolved merge or diff markers detected in tracked files.');
+console.log('No unresolved merge or diff markers detected in scanned files.');
