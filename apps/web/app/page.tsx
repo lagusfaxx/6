@@ -222,11 +222,11 @@ export default function HomePage() {
               <Link href="/profesionales" className="text-xs md:text-sm text-white/80 hover:text-white">Ver todas</Link>
             </div>
 
-            <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
-              {recentPros.length ? recentPros.map((p) => {
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {recentPros.length ? recentPros.slice(0, 3).map((p) => {
                 const age = ageFromDescription(p.description);
                 return (
-                  <Link key={p.id} href={`/profesional/${p.id}`} className="min-w-[240px] max-w-[240px] rounded-2xl border border-white/15 bg-white/5 p-3 hover:bg-white/10 transition">
+                  <Link key={p.id} href={`/profesional/${p.id}`} className="rounded-2xl border border-white/15 bg-white/5 p-3 hover:bg-white/10 transition">
                     <div className="h-40 overflow-hidden rounded-xl border border-white/10 bg-black/20">
                       {p.avatarUrl ? (
                         <img src={resolveMediaUrl(p.avatarUrl) || ""} alt={p.name} className="h-full w-full object-cover" />
@@ -245,7 +245,7 @@ export default function HomePage() {
                   </Link>
                 );
               }) : (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70">Aún no hay perfiles recientes para mostrar.</div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70 xl:col-span-3">Aún no hay perfiles recientes para mostrar.</div>
               )}
             </div>
           </section>
