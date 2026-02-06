@@ -29,6 +29,7 @@ COPY --from=deps /app/tsconfig.base.json ./
 COPY packages ./packages
 COPY prisma ./prisma
 COPY apps/api ./apps/api
+COPY scripts ./scripts
 RUN cp prisma/schema.clean.prisma prisma/schema.prisma
 RUN pnpm --filter @uzeed/prisma run generate
 RUN pnpm --filter @uzeed/shared build
