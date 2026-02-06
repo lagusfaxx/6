@@ -38,7 +38,7 @@ type RecentProfessional = {
   name: string;
   avatarUrl: string | null;
   distance: number | null;
-  description: string | null;
+  age: number | null;
 };
 
 function kindLabel(kind: Category["kind"]) {
@@ -55,11 +55,6 @@ function kindHref(kind: Category["kind"], categorySlug: string) {
   if (kind === "PROFESSIONAL") return `/profesionales?category=${encodeURIComponent(categorySlug)}`;
   if (kind === "ESTABLISHMENT") return `/establecimientos?category=${encodeURIComponent(categorySlug)}`;
   return `/sexshops?category=${encodeURIComponent(categorySlug)}`;
-}
-
-function ageFromDescription(desc?: string | null): string | null {
-  const m = (desc || "").match(/^\[edad:(\d{1,2})\]/i);
-  return m?.[1] || null;
 }
 
 function categoryIcon(kind: Category["kind"], slug: string) {
@@ -117,19 +112,19 @@ export default function HomePage() {
 
   useEffect(() => {
     const params = new URLSearchParams();
-    params.set("types", "PROFESSIONAL");
     if (location) {
       params.set("lat", String(location[0]));
       params.set("lng", String(location[1]));
     }
-    apiFetch<{ profiles: any[] }>(`/services?${params.toString()}`)
+    params.set("limit", "6");
+    apiFetch<{ professionals: any[] }>(`/professionals/recent?${params.toString()}`)
       .then((res) => {
-        const mapped: RecentProfessional[] = (res?.profiles || []).slice(0, 20).map((p) => ({
+        const mapped: RecentProfessional[] = (res?.professionals || []).map((p) => ({
           id: p.id,
-          name: p.displayName || p.username || "Experiencia",
+          name: p.name || "Experiencia",
           avatarUrl: p.avatarUrl || null,
           distance: typeof p.distance === "number" ? p.distance : null,
-          description: p.bio || p.serviceDescription || null
+          age: typeof p.age === "number" ? p.age : null
         }));
         setRecentPros(mapped);
       })
@@ -147,7 +142,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen text-white antialiased">
       <div className="mx-auto max-w-4xl px-4 py-5 md:py-6">
-        <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#5a56a9]/70 via-[#6e5cc0]/50 to-[#ef3f97]/40 p-4 md:p-6">
+        <section className="rounded-3xl border border-white/10 bg-white/5 p-4 md:p-6">
           <div className="flex items-center gap-3">
             <img src="/brand/isotipo.png" alt="Uzeed" className="h-12 w-12 rounded-2xl border border-white/20 bg-white/10 object-cover" />
             <div>
@@ -172,7 +167,8 @@ export default function HomePage() {
 
         <main className="mt-5 grid gap-6">
           {(["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as const).map((kind) => {
-            const items = grouped[kind];
+            const limits = { PROFESSIONAL: 3, ESTABLISHMENT: 2, SHOP: 2 };
+            const items = grouped[kind].slice(0, limits[kind]);
             return (
               <section key={kind}>
                 <div className="mb-3 flex items-center justify-between">
@@ -189,9 +185,8 @@ export default function HomePage() {
                       <Link
                         key={c.id}
                         href={kindHref(c.kind, c.slug || c.id)}
-                        className="group relative overflow-hidden rounded-2xl border border-fuchsia-300/30 bg-gradient-to-r from-[#2c3a8f]/90 to-[#ec3f97]/85 p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:brightness-110 transition"
+                        className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3.5 hover:bg-white/10 transition"
                       >
-                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,.18),transparent_40%)]" />
                         <div className="relative flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/15">
@@ -226,7 +221,6 @@ export default function HomePage() {
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {recentPros.length ? recentPros.slice(0, 3).map((p) => {
-                const age = ageFromDescription(p.description);
                 return (
                   <Link key={p.id} href={`/profesional/${p.id}`} className="rounded-2xl border border-white/15 bg-white/5 p-3 hover:bg-white/10 transition">
                     <div className="h-40 overflow-hidden rounded-xl border border-white/10 bg-black/20">
@@ -238,7 +232,7 @@ export default function HomePage() {
                     </div>
                     <div className="mt-3 text-base font-semibold line-clamp-1">{p.name}</div>
                     <div className="mt-1 text-xs text-white/70">
-                      {age ? `${age} años` : "Edad no indicada"}
+                      {p.age ? `${p.age} años` : "Edad no indicada"}
                     </div>
                     <div className="mt-1 flex items-center gap-1 text-xs text-white/70">
                       <MapPin className="h-3.5 w-3.5" />
@@ -247,7 +241,9 @@ export default function HomePage() {
                   </Link>
                 );
               }) : (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70 xl:col-span-3">Aún no hay perfiles recientes para mostrar.</div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70 xl:col-span-3">
+                  Aún no hay experiencias recién agregadas. Vuelve más tarde para descubrir nuevas opciones.
+                </div>
               )}
             </div>
           </section>

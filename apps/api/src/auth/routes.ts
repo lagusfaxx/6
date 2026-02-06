@@ -152,7 +152,8 @@ authRouter.get("/me", asyncHandler(async (req, res) => {
       city: true,
       latitude: true,
       longitude: true,
-      allowFreeMessages: true
+      allowFreeMessages: true,
+      birthdate: true
     }
   });
   if (!user) return res.json({ user: null });

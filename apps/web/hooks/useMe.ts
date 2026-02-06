@@ -16,6 +16,7 @@ type MeUser = {
   gender?: string | null;
   preferenceGender?: string | null;
   address?: string | null;
+  birthdate?: string | null;
 };
 
 export default function useMe() {
