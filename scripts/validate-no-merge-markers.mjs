@@ -1,52 +1,69 @@
+import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const checks = [
+const markerChecks = [
   {
     description: 'git conflict start marker',
-    pattern: '^<<<<<<<\\s+',
+    regex: /^<<<<<<<\s+/m,
   },
   {
     description: 'git conflict separator marker',
-    pattern: '^=======$',
+    regex: /^=======$/m,
   },
   {
     description: 'git conflict end marker',
-    pattern: '^>>>>>>>\\s+',
+    regex: /^>>>>>>>\s+/m,
   },
   {
     description: 'unresolved diff hunk header',
-    pattern: '^@@\\s+-[0-9,]+\\s+\\+[0-9,]+\\s+@@',
+    regex: /^@@\s+-\d+(?:,\d+)?\s+\+\d+(?:,\d+)?\s+@@/m,
   },
 ];
 
-let hasError = false;
-
-for (const check of checks) {
-  const result = spawnSync(
-    'git',
-    ['grep', '-n', '--cached', '--full-name', '--line-number', '-I', '-E', check.pattern, '--', '.'],
-    { encoding: 'utf8' },
-  );
-
-  if (result.status === 0) {
-    const output = result.stdout.trim();
-    if (output.length > 0) {
-      hasError = true;
-      console.error(`\nFound ${check.description}:`);
-      console.error(output);
-    }
-    continue;
-  }
-
-  if (result.status === 1) {
-    continue;
-  }
-
-  throw new Error(result.stderr || `git grep failed with status ${result.status}`);
+const listedFiles = spawnSync('git', ['ls-files', '-z'], { encoding: 'utf8' });
+if (listedFiles.status !== 0) {
+  throw new Error(listedFiles.stderr || `git ls-files failed with status ${listedFiles.status}`);
 }
 
-if (hasError) {
-  console.error('\nAborting because unresolved merge/diff markers were found in tracked files.');
+const files = listedFiles.stdout.split('\0').filter(Boolean);
+const findings = [];
+
+for (const filePath of files) {
+  let content;
+
+  try {
+    content = readFileSync(filePath, 'utf8');
+  } catch {
+    // Skip files that are not valid UTF-8 text.
+    continue;
+  }
+
+  const lines = content.split('\n');
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+
+    for (const check of markerChecks) {
+      if (check.regex.test(line)) {
+        findings.push({
+          description: check.description,
+          filePath,
+          lineNumber: index + 1,
+          line,
+        });
+      }
+    }
+  }
+}
+
+if (findings.length > 0) {
+  console.error('Found unresolved merge/diff markers in tracked files:\n');
+
+  for (const finding of findings) {
+    console.error(`- ${finding.filePath}:${finding.lineNumber} (${finding.description})`);
+    console.error(`  ${finding.line}`);
+  }
+
   process.exit(1);
 }
 
