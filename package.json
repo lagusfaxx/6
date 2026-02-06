@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "pnpm -r build",
+    "check:markers": "node scripts/validate-no-merge-markers.mjs",
     "dev": "pnpm -r dev",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
