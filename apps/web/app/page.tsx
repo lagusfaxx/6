@@ -180,32 +180,36 @@ export default function HomePage() {
                   </Link>
                 </div>
 
-                <div className="grid gap-3">
+                <div className="grid grid-cols-1 gap-3 min-[460px]:grid-cols-2">
                   {items.length ? items.map((c) => {
                     const Icon = categoryIcon(c.kind, c.name);
                     return (
                       <Link
                         key={c.id}
                         href={kindHref(c.kind, c.id)}
-                        className="group flex items-center justify-between rounded-2xl border border-fuchsia-300/30 bg-gradient-to-r from-[#2c3a8f]/90 to-[#ec3f97]/85 p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:brightness-110 transition"
+                        className="group relative overflow-hidden rounded-2xl border border-fuchsia-300/30 bg-gradient-to-r from-[#2c3a8f]/90 to-[#ec3f97]/85 p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:brightness-110 transition"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/15">
-                            <Icon className="h-4 w-4 text-white" />
+                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,.18),transparent_40%)]" />
+                        <div className="relative flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/15">
+                              <Icon className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <div className="text-lg font-semibold leading-tight">{displayCategoryName(c.name)}</div>
+                              <div className="text-xs text-white/75">Explorar categoría</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-lg md:text-xl font-semibold">{displayCategoryName(c.name)}</div>
-                          </div>
+                          <Sparkles className="h-5 w-5 shrink-0 text-white/80 group-hover:text-white transition" />
                         </div>
-                        <Sparkles className="h-5 w-5 text-white/80 group-hover:text-white transition" />
                       </Link>
                     );
                   }) : kind === "SHOP" ? (
-                    <Link href="/sexshops" className="rounded-2xl border border-white/15 bg-white/5 p-4 text-white/80 hover:bg-white/10 transition">
+                    <Link href="/sexshops" className="rounded-2xl border border-white/15 bg-white/5 p-4 text-white/80 hover:bg-white/10 transition sm:col-span-2">
                       Aún no hay categorías de tiendas cargadas. Toca aquí para explorar tiendas activas.
                     </Link>
                   ) : (
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70">No hay categorías disponibles.</div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70 sm:col-span-2">No hay categorías disponibles.</div>
                   )}
                 </div>
               </section>
