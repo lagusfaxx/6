@@ -114,6 +114,7 @@ model User {
   avatarUrl           String?
   coverUrl            String?
   bio                 String?
+  birthdate           DateTime?
   serviceCategory     String?
   serviceDescription  String?
   subscriptionPrice   Int?              @default(2500)
