@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import ClientMap from "../../components/ClientMap";
 
@@ -18,6 +19,8 @@ type Shop = {
 };
 
 export default function SexShopsClient() {
+  const searchParams = useSearchParams();
+  const categoryId = searchParams.get("categoryId") || "";
   const [rangeKm, setRangeKm] = useState("15");
   const [location, setLocation] = useState<[number, number] | null>(null);
   const [items, setItems] = useState<Shop[]>([]);
@@ -33,13 +36,14 @@ export default function SexShopsClient() {
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
+    if (categoryId) params.set("categoryId", categoryId);
     if (rangeKm) params.set("rangeKm", rangeKm);
     if (location) {
       params.set("lat", String(location[0]));
       params.set("lng", String(location[1]));
     }
     return params.toString();
-  }, [rangeKm, location]);
+  }, [categoryId, rangeKm, location]);
 
   useEffect(() => {
     setLoading(true);

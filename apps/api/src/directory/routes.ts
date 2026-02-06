@@ -31,17 +31,40 @@ function normalizeCategoryText(value: string | null | undefined) {
     .toLowerCase();
 }
 
+const categoryAliases: Record<string, string[]> = {
+  motel: ["moteles", "centros privados", "centrosprivados"],
+  moteles: ["motel", "centros privados", "centrosprivados"],
+  centrosprivados: ["centros privados", "motel", "moteles"],
+  spas: ["spa", "cafe", "cafes"],
+  spa: ["spas", "cafe", "cafes"],
+  cafe: ["cafes", "spa", "spas"],
+  cafes: ["cafe", "spa", "spas"],
+  acompanamiento: ["acompanantes", "acompanante", "acompañamiento"],
+  acompanantes: ["acompanamiento", "acompanante", "acompañantes"],
+  masaje: ["masajes"],
+  masajes: ["masaje"]
+};
+
+function categoryVariants(value: string | null | undefined) {
+  const normalized = normalizeCategoryText(value).replace(/\s+/g, "");
+  if (!normalized) return [] as string[];
+  const aliases = (categoryAliases[normalized] || []).map((a) => normalizeCategoryText(a).replace(/\s+/g, ""));
+  return Array.from(new Set([normalized, ...aliases]));
+}
+
 function categoryMatches(categoryName: string | null | undefined, profileCategory: string | null | undefined, itemCategories: string[]) {
-  const target = normalizeCategoryText(categoryName);
-  if (!target) return false;
+  const targetVariants = categoryVariants(categoryName);
+  if (!targetVariants.length) return false;
 
-  const profile = normalizeCategoryText(profileCategory);
-  if (profile === target || profile.includes(target) || target.includes(profile)) return true;
+  const values = [profileCategory, ...itemCategories].map((v) => categoryVariants(v));
 
-  return itemCategories.some((name) => {
-    const normalized = normalizeCategoryText(name);
-    return normalized === target || normalized.includes(target) || target.includes(normalized);
-  });
+  return values.some((variants) =>
+    variants.some((candidate) =>
+      targetVariants.some((target) =>
+        candidate === target || candidate.includes(target) || target.includes(candidate)
+      )
+    )
+  );
 }
 
 // ✅ Profesionales
@@ -162,18 +185,7 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
   });
   if (!u) return res.status(404).json({ error: "NOT_FOUND" });
 
-  const reviews = await prisma.professionalReview.findMany({
-    where: { serviceRequest: { professionalId: id } },
-    select: { hearts: true }
-  });
-  const rating = reviews.length ? reviews.reduce((a, r) => a + r.hearts, 0) / reviews.length : null;
-
-  return res.json({
-    professional: {
-      id: u.id,
-      name: u.displayName || u.username,
-      avatarUrl: u.avatarUrl,
-      category: u.category?.name || null,
+@@ -144,105 +200,117 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
       isActive: u.isActive,
       rating: rating ? Number(rating.toFixed(2)) : null,
       description: u.bio,
@@ -291,29 +303,3 @@ directoryRouter.get("/establishments/:id", asyncHandler(async (req, res) => {
       motelRooms: { where: { isActive: true }, orderBy: { createdAt: "desc" } },
       motelPacks: { where: { isActive: true }, orderBy: { createdAt: "desc" } },
       motelPromotions: { where: { isActive: true }, orderBy: { createdAt: "desc" } }
-    }
-  });
-  if (!u) return res.status(404).json({ error: "NOT_FOUND" });
-
-  const reviews = await prisma.establishmentReview.findMany({ where: { establishmentId: id }, select: { stars: true } });
-  const rating = reviews.length ? reviews.reduce((a, r) => a + r.stars, 0) / reviews.length : null;
-
-  return res.json({
-    establishment: {
-      id: u.id,
-      name: u.displayName || u.username,
-      city: u.city,
-      address: u.address,
-      phone: u.phone,
-      description: u.bio,
-      avatarUrl: u.avatarUrl,
-      coverUrl: u.coverUrl,
-      gallery: u.media.map((m) => m.url),
-      rating: rating ? Number(rating.toFixed(2)) : null,
-      rooms: u.motelRooms,
-      packs: u.motelPacks,
-      promotions: u.motelPromotions
-    }
-  });
-}));
-
