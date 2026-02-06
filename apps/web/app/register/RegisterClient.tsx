@@ -7,34 +7,35 @@ import { Briefcase, Building2, ShoppingBag, User } from "lucide-react";
 
 type ProfileType = "CLIENT" | "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
 
-const options: Array<{
+const consumerOption = {
+  key: "CLIENT" as ProfileType,
+  title: "Registro Cliente",
+  description: "Busca perfiles, guarda favoritos y coordina por chat.",
+  icon: User
+};
+
+const businessOptions: Array<{
   key: ProfileType;
   title: string;
   description: string;
   icon: any;
 }> = [
   {
-    key: "CLIENT",
-    title: "👤 Cliente",
-    description: "Busca profesionales y establecimientos, chatea, solicita servicios y califica",
-    icon: User
-  },
-  {
     key: "PROFESSIONAL",
-    title: "💃 Profesional",
-    description: "Ofrece servicios, gestiona perfil, ubicación, galería, precios y contactos",
+    title: "Profesional",
+    description: "Ofrece servicios personales con perfil completo, fotos y categorías.",
     icon: Briefcase
   },
   {
     key: "ESTABLISHMENT",
-    title: "🏨 Establecimiento / Motel / Night Club",
-    description: "Publica habitaciones, packs, promociones y recibe solicitudes",
+    title: "Motel / Night Club",
+    description: "Publica habitaciones/servicios y recibe solicitudes de reserva tipo booking.",
     icon: Building2
   },
   {
     key: "SHOP",
-    title: "🛒 Sex Shop",
-    description: "Publica productos con foto, precio, stock y descripción",
+    title: "Tienda",
+    description: "Comercios que venden artículos tipo sex shop se registran como Tienda.",
     icon: ShoppingBag
   }
 ];
@@ -43,7 +44,10 @@ export default function RegisterClient() {
   const [step, setStep] = useState<"choose" | "form">("choose");
   const [profileType, setProfileType] = useState<ProfileType>("CLIENT");
 
-  const selected = useMemo(() => options.find((o) => o.key === profileType), [profileType]);
+  const selected = useMemo(() => {
+    if (profileType === "CLIENT") return consumerOption;
+    return businessOptions.find((o) => o.key === profileType);
+  }, [profileType]);
 
   return (
     <div className="max-w-xl mx-auto card p-8 relative overflow-hidden">
@@ -51,41 +55,67 @@ export default function RegisterClient() {
       <h1 className="text-2xl font-semibold">Crear cuenta</h1>
       <p className="mt-2 text-sm text-white/60">
         {step === "choose"
-          ? "Primero elige tu tipo de perfil. Esto define cómo funciona toda la app (no es decorativo)."
+          ? "Separamos el registro en Cliente y Registro Profesional/Comercio para que cada perfil tenga opciones lógicas y útiles."
           : `Registrándote como: ${selected?.title ?? profileType}`}
       </p>
 
       {step === "choose" ? (
-        <div className="mt-6 grid gap-3">
-          {options.map((opt) => {
-            const Icon = opt.icon;
-            const active = opt.key === profileType;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setProfileType(opt.key)}
-                className={`text-left rounded-2xl border p-5 transition ${
-                  active ? "border-white/40 bg-white/10" : "border-white/10 bg-white/5 hover:border-white/25"
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-xl border border-white/10 bg-white/10 flex items-center justify-center">
-                    <Icon className="h-5 w-5 text-white/80" />
-                  </div>
-                  <div className="grid gap-1">
-                    <div className="font-semibold">{opt.title}</div>
-                    <div className="text-sm text-white/60">{opt.description}</div>
-                  </div>
+        <div className="mt-6 grid gap-4">
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+            <div className="mb-2 text-xs uppercase tracking-wide text-white/50">Registro consumidor</div>
+            <button
+              type="button"
+              onClick={() => setProfileType("CLIENT")}
+              className={`w-full text-left rounded-2xl border p-5 transition ${
+                profileType === "CLIENT" ? "border-white/40 bg-white/10" : "border-white/10 bg-white/5 hover:border-white/25"
+              }`}
+            >
+              <div className="flex items-start gap-4">
+                <div className="h-10 w-10 rounded-xl border border-white/10 bg-white/10 flex items-center justify-center">
+                  <User className="h-5 w-5 text-white/80" />
                 </div>
-              </button>
-            );
-          })}
+                <div className="grid gap-1">
+                  <div className="font-semibold">{consumerOption.title}</div>
+                  <div className="text-sm text-white/60">{consumerOption.description}</div>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
+            <div className="mb-2 text-xs uppercase tracking-wide text-white/50">Registro profesional / comercio</div>
+            <div className="grid gap-3">
+              {businessOptions.map((opt) => {
+                const Icon = opt.icon;
+                const active = opt.key === profileType;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setProfileType(opt.key)}
+                    className={`text-left rounded-2xl border p-5 transition ${
+                      active ? "border-white/40 bg-white/10" : "border-white/10 bg-white/5 hover:border-white/25"
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="h-10 w-10 rounded-xl border border-white/10 bg-white/10 flex items-center justify-center">
+                        <Icon className="h-5 w-5 text-white/80" />
+                      </div>
+                      <div className="grid gap-1">
+                        <div className="font-semibold">{opt.title}</div>
+                        <div className="text-sm text-white/60">{opt.description}</div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <button
             type="button"
             onClick={() => setStep("form")}
-            className="mt-2 rounded-2xl bg-white text-black font-semibold py-3 hover:bg-white/90 transition"
+            className="mt-1 rounded-2xl bg-white text-black font-semibold py-3 hover:bg-white/90 transition"
           >
             Continuar
           </button>
@@ -98,7 +128,7 @@ export default function RegisterClient() {
             onClick={() => setStep("choose")}
             className="mt-4 text-sm text-white/60 underline"
           >
-            Cambiar tipo de perfil
+            Cambiar tipo de registro
           </button>
         </div>
       )}

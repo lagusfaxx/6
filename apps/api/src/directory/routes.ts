@@ -40,7 +40,9 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
     isActive: true,
     OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }]
   };
-  if (categoryId) where.categoryId = categoryId;
+  const categoryRef = categoryId
+    ? await prisma.category.findUnique({ where: { id: categoryId }, select: { name: true } })
+    : null;
   if (gender) where.gender = gender;
   if (tier) where.tier = tier;
 
@@ -57,6 +59,8 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       isActive: true,
       tier: true,
       gender: true,
+      serviceCategory: true,
+      services: { select: { category: true }, take: 25, orderBy: { createdAt: "desc" } },
       category: { select: { id: true, name: true, kind: true } }
     },
     take: 250
@@ -98,12 +102,22 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       tier: u.tier,
       gender: u.gender,
       category: u.category,
+      serviceCategory: u.serviceCategory,
+      serviceItemCategories: u.services.map((sv) => (sv.category || "").toLowerCase()),
       isOnline: isOnline(u.lastSeenAt),
       lastSeen: u.lastSeenAt ? u.lastSeenAt.toISOString() : null
     };
   });
 
   const filtered = mapped
+    .filter((u) => {
+      if (!categoryId) return true;
+      if (u.category?.id === categoryId) return true;
+      if (!categoryRef?.name) return false;
+      const byProfile = (u.serviceCategory || "").toLowerCase() === categoryRef.name.toLowerCase();
+      const byItems = (u.serviceItemCategories || []).includes(categoryRef.name.toLowerCase());
+      return byProfile || byItems;
+    })
     .filter((u) => (lat != null && lng != null && u.distance != null ? u.distance <= rangeKm : true))
     .filter((u) => (minRating != null && u.rating != null ? u.rating >= minRating : true))
     .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
@@ -166,7 +180,9 @@ directoryRouter.get("/establishments", asyncHandler(async (req, res) => {
     isActive: true,
     OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }]
   };
-  if (categoryId) where.categoryId = categoryId;
+  const categoryRef = categoryId
+    ? await prisma.category.findUnique({ where: { id: categoryId }, select: { name: true } })
+    : null;
 
   const users = await prisma.user.findMany({
     where,
@@ -181,6 +197,8 @@ directoryRouter.get("/establishments", asyncHandler(async (req, res) => {
       latitude: true,
       longitude: true,
       media: { where: { type: "IMAGE" }, orderBy: { createdAt: "desc" }, take: 6, select: { url: true } },
+      serviceCategory: true,
+      services: { select: { category: true }, take: 25, orderBy: { createdAt: "desc" } },
       category: { select: { id: true, name: true } }
     },
     take: 250
@@ -216,11 +234,21 @@ directoryRouter.get("/establishments", asyncHandler(async (req, res) => {
       latitude: u.latitude,
       longitude: u.longitude,
       gallery: u.media.map((m) => m.url),
-      category: u.category
+      category: u.category,
+      serviceCategory: u.serviceCategory,
+      serviceItemCategories: u.services.map((sv) => (sv.category || "").toLowerCase())
     };
   });
 
   const filtered = mapped
+    .filter((u) => {
+      if (!categoryId) return true;
+      if (u.category?.id === categoryId) return true;
+      if (!categoryRef?.name) return false;
+      const byProfile = (u.serviceCategory || "").toLowerCase() === categoryRef.name.toLowerCase();
+      const byItems = (u.serviceItemCategories || []).includes(categoryRef.name.toLowerCase());
+      return byProfile || byItems;
+    })
     .filter((u) => (lat != null && lng != null && u.distance != null ? u.distance <= rangeKm : true))
     .filter((u) => (minRating != null && u.rating != null ? u.rating >= minRating : true))
     .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
