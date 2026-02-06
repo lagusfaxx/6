@@ -72,6 +72,15 @@ export function resolveMediaUrl(url: string | null | undefined): string | null {
   return `${base}${path}`;
 }
 
+
+function flattenValidation(details: any): string | null {
+  const fieldErrors = details?.fieldErrors as Record<string, string[] | undefined> | undefined;
+  if (!fieldErrors) return null;
+  const messages = Object.values(fieldErrors).flatMap((arr) => arr || []);
+  if (!messages.length) return null;
+  return messages.join(" ");
+}
+
 export class ApiHttpError extends Error {
   status: number;
   body: any;
@@ -91,6 +100,8 @@ export function friendlyErrorMessage(err: any): string {
   const status = err?.status;
   if (status === 401) return "Inicia sesión para continuar.";
   if (status === 403) return "No tienes permisos para realizar esta acción.";
+  const detailsMsg = flattenValidation(err?.body?.details);
+  if (detailsMsg) return detailsMsg;
   const raw = err?.message || "Ocurrió un error";
   if (raw === "UNAUTHENTICATED") return "Inicia sesión para continuar.";
   return raw;

@@ -31,6 +31,56 @@ const upload = multer({
   limits: { fileSize: 100 * 1024 * 1024 }
 });
 
+
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+async function ensureUserCategory(userId: string, profileType: string, rawCategory: string | null | undefined, currentCategoryId: string | null | undefined) {
+  if (!rawCategory) return;
+  const category = rawCategory.trim();
+  if (!category) return;
+
+  const kind = profileType === "PROFESSIONAL" ? "PROFESSIONAL" : profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : "SHOP";
+  const normalized = normalizeText(category);
+
+  const aliases: Record<string, string[]> = {
+    motel: ["moteles"],
+    cafes: ["spas", "cafe"],
+    cafe: ["spas", "cafes"],
+    acompanamiento: ["acompañamiento", "acompanantes", "acompañantes"],
+    masajes: ["masaje"],
+    centrosprivados: ["centros privados"],
+  };
+
+  const aliasCandidates = (aliases[normalized.replace(/\s+/g, "")] || []).map((v) => v);
+  const candidates = [category, ...aliasCandidates];
+
+  let cat = await prisma.category.findFirst({
+    where: {
+      kind: kind as any,
+      OR: candidates.map((name) => ({ name: { equals: name, mode: "insensitive" as const } }))
+    },
+    select: { id: true }
+  });
+
+  if (!cat) {
+    cat = await prisma.category.create({ data: { kind: kind as any, name: category }, select: { id: true } });
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      serviceCategory: category,
+      categoryId: cat?.id || currentCategoryId || null
+    }
+  });
+}
+
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
   const toRad = (n: number) => (n * Math.PI) / 180;
   const R = 6371;
@@ -63,6 +113,7 @@ servicesRouter.get("/services", asyncHandler(async (req, res) => {
         }
         : {})
     },
+    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       displayName: true,
@@ -146,9 +197,9 @@ servicesRouter.get("/services/:userId/items", asyncHandler(async (req, res) => {
 }));
 
 servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res) => {
-  const me = await prisma.user.findUnique({ where: { id: req.session.userId! } });
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { id: true, profileType: true, categoryId: true } });
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
-  if (!["SHOP", "PROFESSIONAL"].includes(me.profileType)) {
+  if (!["SHOP", "PROFESSIONAL", "ESTABLISHMENT"].includes(me.profileType)) {
     return res.status(403).json({ error: "NOT_ALLOWED" });
   }
   const { title, description, category, price } = req.body as Record<string, string>;
@@ -163,11 +214,14 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
       price: price ? Number(price) : null
     }
   });
+
+  await ensureUserCategory(me.id, me.profileType, category, me.categoryId);
+
   return res.json({ item });
 }));
 
 servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, res) => {
-  const me = await prisma.user.findUnique({ where: { id: req.session.userId! } });
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { id: true, profileType: true, categoryId: true } });
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   const item = await prisma.serviceItem.findUnique({ where: { id: req.params.id } });
   if (!item || item.ownerId !== me.id) return res.status(404).json({ error: "NOT_FOUND" });
@@ -182,11 +236,12 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
     },
     include: { media: true }
   });
+  await ensureUserCategory(me.id, me.profileType, category ?? item.category, me.categoryId);
   return res.json({ item: updated });
 }));
 
 servicesRouter.delete("/services/items/:id", requireAuth, asyncHandler(async (req, res) => {
-  const me = await prisma.user.findUnique({ where: { id: req.session.userId! } });
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { id: true, profileType: true, categoryId: true } });
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   const item = await prisma.serviceItem.findUnique({ where: { id: req.params.id } });
   if (!item || item.ownerId !== me.id) return res.status(404).json({ error: "NOT_FOUND" });
@@ -195,7 +250,7 @@ servicesRouter.delete("/services/items/:id", requireAuth, asyncHandler(async (re
 }));
 
 servicesRouter.post("/services/items/:id/media", requireAuth, upload.array("files", 8), asyncHandler(async (req, res) => {
-  const me = await prisma.user.findUnique({ where: { id: req.session.userId! } });
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { id: true, profileType: true, categoryId: true } });
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   const item = await prisma.serviceItem.findUnique({ where: { id: req.params.id } });
   if (!item || item.ownerId !== me.id) return res.status(404).json({ error: "NOT_FOUND" });
@@ -212,7 +267,7 @@ servicesRouter.post("/services/items/:id/media", requireAuth, upload.array("file
 }));
 
 servicesRouter.delete("/services/items/:id/media/:mediaId", requireAuth, asyncHandler(async (req, res) => {
-  const me = await prisma.user.findUnique({ where: { id: req.session.userId! } });
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { id: true, profileType: true, categoryId: true } });
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   const item = await prisma.serviceItem.findUnique({ where: { id: req.params.id } });
   if (!item || item.ownerId !== me.id) return res.status(404).json({ error: "NOT_FOUND" });

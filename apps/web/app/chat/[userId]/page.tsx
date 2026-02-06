@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, API_URL, isAuthError, resolveMediaUrl } from "../../../lib/api";
 
 type Message = {
@@ -28,6 +28,7 @@ type MeResponse = {
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const pathname = usePathname() || "/chats";
   const userId = String(params.userId || "");
   const [me, setMe] = useState<MeResponse["user"] | null>(null);
@@ -64,6 +65,13 @@ export default function ChatPage() {
       })
       .finally(() => setLoading(false));
   }, [pathname, router, userId]);
+
+
+  useEffect(() => {
+    const draft = searchParams.get("draft");
+    if (draft && !body) setBody(draft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
@@ -133,7 +141,7 @@ export default function ChatPage() {
             <h1 className="text-lg font-semibold">{other?.displayName || other?.username || "Chat"}</h1>
             {other ? (
               <p className="text-xs text-white/60">
-                @{other.username} • {other.profileType === "SHOP" ? "Negocio" : other.profileType === "PROFESSIONAL" ? "Profesional" : "Creadora"}
+                @{other.username} • {other.profileType === "SHOP" ? "Tienda" : other.profileType === "ESTABLISHMENT" ? "Establecimiento" : other.profileType === "PROFESSIONAL" ? "Profesional" : "Perfil"}
                 {other.city ? ` • ${other.city}` : ""}
               </p>
             ) : (
@@ -142,7 +150,7 @@ export default function ChatPage() {
           </div>
           </div>
           <button onClick={requestService} className="btn-primary" disabled={requesting}>
-            {requesting ? "Solicitando..." : "Solicitar servicio"}
+            {requesting ? "Solicitando..." : "Solicitar / reservar"}
           </button>
         </div>
       </div>
