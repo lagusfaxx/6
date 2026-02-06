@@ -183,17 +183,20 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
       media: { where: { type: "IMAGE" }, orderBy: { createdAt: "desc" }, take: 12, select: { id: true, url: true, type: true } }
     }
   });
-  if (!u) return res.status(404).json({ error: "NOT_FOUND" });
+  if (!u) {
+  return res.status(404).json({ error: "NOT_FOUND" });
+}
 
-@@ -144,105 +200,117 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
-      isActive: u.isActive,
-      rating: rating ? Number(rating.toFixed(2)) : null,
-      description: u.bio,
-      isOnline: isOnline(u.lastSeenAt),
-      lastSeen: u.lastSeenAt ? u.lastSeenAt.toISOString() : null,
-      gallery: u.media
-    }
-  });
+return res.json({
+  professional: {
+    isActive: u.isActive,
+    rating: rating ? Number(rating.toFixed(2)) : null,
+    description: u.bio,
+    isOnline: isOnline(u.lastSeenAt),
+    lastSeen: u.lastSeenAt ? u.lastSeenAt.toISOString() : null,
+    gallery: u.media,
+  },
+});
 }));
 
 // ✅ Establecimientos
