@@ -26,6 +26,16 @@ export default function AccountPage() {
           ? "Tienda"
           : "Cliente";
 
+  const publicProfileUrl = user
+    ? profileType === "PROFESSIONAL"
+      ? `/profesional/${user.id}`
+      : profileType === "ESTABLISHMENT"
+        ? `/establecimiento/${user.id}`
+        : profileType === "SHOP"
+          ? `/sexshop/${user.username}`
+          : "/"
+    : "/";
+
   return (
     <div className="mx-auto w-full max-w-5xl grid gap-6">
       <div className="card p-6">
@@ -38,44 +48,45 @@ export default function AccountPage() {
       ) : user ? (
         <div className="grid gap-6">
           <div className="card p-6">
-            <div className="grid gap-4 md:grid-cols-[auto_1fr_auto] md:items-center">
-              <Avatar src={user.avatarUrl} alt={user.displayName || user.username} size={72} className="border-white/20" />
+            <div className="grid gap-6 md:grid-cols-[auto_1fr] md:items-center">
+              <Avatar src={user.avatarUrl} alt={user.displayName || user.username} size={88} className="border-white/20" />
               <div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="text-xl font-semibold leading-tight">{user.displayName || user.username}</div>
+                  <div className="text-2xl font-semibold leading-tight">{user.displayName || user.username}</div>
                   <Badge>{profileLabel}</Badge>
                 </div>
                 <div className="mt-1 text-sm text-white/60">@{user.username}</div>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap md:justify-end">
-                {canManageProfile ? (
-                  <Link href="/dashboard/services" className="btn-primary w-full sm:w-auto">Gestionar perfil</Link>
-                ) : (
-                  <Link href="/servicios" className="btn-primary w-full sm:w-auto">Explorar servicios</Link>
-                )}
-                {profileType === "PROFESSIONAL" ? (
-                  <Link href="/dashboard/services" className="btn-secondary w-full sm:w-auto">Gestionar servicios</Link>
-                ) : null}
-                {profileType === "SHOP" ? (
-                  <Link href="/dashboard/services" className="btn-secondary w-full sm:w-auto">Gestionar productos</Link>
-                ) : null}
-                {profileType === "ESTABLISHMENT" ? (
-                  <Link href="/dashboard/services" className="btn-secondary w-full sm:w-auto">Gestionar habitaciones/ofertas</Link>
-                ) : null}
-                <Link href="/chats" className="btn-secondary w-full sm:w-auto">Chats</Link>
-                <button onClick={handleLogout} className="btn-secondary w-full sm:w-auto">Cerrar sesión</button>
+                <p className="mt-2 text-sm text-white/70">Vista previa de tu cuenta pública y accesos rápidos.</p>
               </div>
             </div>
           </div>
 
-          {canManageProfile ? (
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold">Panel profesional y comercio</h2>
-              <p className="mt-2 text-sm text-white/70">
-                Administra tu perfil público, servicios o productos, galería y ubicación con feedback inmediato.
-              </p>
+          <div className="card p-6">
+            <h2 className="text-lg font-semibold">Accesos rápidos</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {canManageProfile ? (
+                <>
+                  <Link href={publicProfileUrl} className="btn-ghost w-full">Perfil público</Link>
+                  <Link href="/dashboard/services?tab=servicios" className="btn-ghost w-full">
+                    Servicios
+                  </Link>
+                  {profileType === "SHOP" ? (
+                    <Link href="/dashboard/services?tab=productos" className="btn-ghost w-full">Productos</Link>
+                  ) : null}
+                  <Link href="/dashboard/services?tab=galeria" className="btn-ghost w-full">
+                    Galería
+                  </Link>
+                  <Link href="/dashboard/services?tab=ubicacion" className="btn-ghost w-full">
+                    Ubicación
+                  </Link>
+                </>
+              ) : (
+                <Link href="/servicios" className="btn-ghost w-full">Explorar servicios</Link>
+              )}
+              <Link href="/chats" className="btn-ghost w-full">Chats</Link>
+              <button onClick={handleLogout} className="btn-ghost w-full">Cerrar sesión</button>
             </div>
-          ) : null}
+          </div>
         </div>
       ) : (
         <div className="card p-6">

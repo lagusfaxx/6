@@ -108,3 +108,67 @@ body::after {
     @apply rounded-full border border-white/10 bg-white/5 backdrop-blur-xl;
   }
 }
+
+.uzeed-map-marker {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), rgba(168, 85, 247, 0.9));
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.2);
+  cursor: pointer;
+}
+
+.uzeed-map-marker--avatar {
+  background-size: cover;
+  background-position: center;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.uzeed-map-marker--user {
+  width: 18px;
+  height: 18px;
+  background: #38bdf8;
+  box-shadow: 0 0 0 6px rgba(56, 189, 248, 0.2);
+}
+
+.uzeed-map-popup {
+  color: #111;
+  font-family: inherit;
+  min-width: 160px;
+}
+
+.uzeed-map-popup__title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.uzeed-map-popup__subtitle {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.uzeed-map-popup__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.uzeed-map-popup__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #111827;
+  color: #fff;
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.uzeed-map-popup__btn--ghost {
+  background: rgba(17, 24, 39, 0.15);
+  color: #111827;
+  border: 1px solid rgba(17, 24, 39, 0.2);
+}

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
-import ClientMap from "../../components/ClientMap";
+import MapboxMap from "../../components/MapboxMap";
 
 type Shop = {
   id: string;
@@ -71,11 +71,19 @@ export default function SexShopsClient() {
           <p className="mt-1 text-sm text-white/70">Pins reales desde la base de datos.</p>
         </div>
         <div className="p-3">
-          <ClientMap
+          <MapboxMap
             userLocation={location}
             markers={items
               .filter((s) => s.latitude != null && s.longitude != null)
-              .map((s) => ({ id: s.id, name: s.name, lat: Number(s.latitude), lng: Number(s.longitude), subtitle: s.city || null }))}
+              .map((s) => ({
+                id: s.id,
+                name: s.name,
+                lat: Number(s.latitude),
+                lng: Number(s.longitude),
+                subtitle: s.city || null,
+                href: `/sexshop/${s.username}`,
+                avatarUrl: s.avatarUrl
+              }))}
           />
         </div>
       </div>
