@@ -9,6 +9,7 @@ type MeUser = {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
+  coverUrl?: string | null;
   profileType: string | null;
   role?: string | null;
   membershipExpiresAt?: string | null;
