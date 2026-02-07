@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 import { findCategoryByRef } from "../lib/categories";
+import { obfuscateLocation } from "../lib/locationPrivacy";
 
 export const directoryRouter = Router();
 
@@ -178,7 +179,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       serviceDescription: true,
       services: {
         where: { isActive: true },
-        select: { category: true, categoryId: true, latitude: true, longitude: true, address: true },
+        select: { category: true, categoryId: true, latitude: true, longitude: true, locality: true, approxAreaM: true },
         take: 25,
         orderBy: { createdAt: "desc" }
       },
@@ -206,6 +207,8 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       lat != null && lng != null && activeService?.latitude != null && activeService?.longitude != null
         ? haversineKm(lat, lng, activeService.latitude, activeService.longitude)
         : null;
+    const areaRadius = activeService?.approxAreaM ?? 600;
+    const obfuscated = obfuscateLocation(activeService?.latitude, activeService?.longitude, `professional:${u.id}`, areaRadius);
 
     return {
       id: u.id,
@@ -213,9 +216,10 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       avatarUrl: u.avatarUrl,
       rating: avg ? Number(avg.toFixed(2)) : null,
       distance,
-      latitude: activeService?.latitude ?? null,
-      longitude: activeService?.longitude ?? null,
-      address: activeService?.address ?? null,
+      latitude: obfuscated.latitude,
+      longitude: obfuscated.longitude,
+      locality: activeService?.locality || u.city || null,
+      approxAreaM: areaRadius,
       isActive: u.isActive,
       tier: u.tier,
       gender: u.gender,
@@ -316,9 +320,14 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
       username: true,
       displayName: true,
       avatarUrl: true,
+      coverUrl: true,
       isActive: true,
       lastSeen: true,
       bio: true,
+      gender: true,
+      birthdate: true,
+      serviceDescription: true,
+      serviceCategory: true,
       category: { select: { id: true, name: true, displayName: true, kind: true } },
       profileMedia: { where: { type: "IMAGE" }, orderBy: { createdAt: "desc" }, take: 12, select: { id: true, url: true, type: true } }
     }
@@ -336,10 +345,14 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
       id: u.id,
       name: u.displayName || u.username,
       avatarUrl: u.avatarUrl,
+      coverUrl: u.coverUrl,
       category: u.category?.displayName || u.category?.name || null,
       isActive: u.isActive,
       rating: rating ? Number(rating.toFixed(2)) : null,
       description: u.bio,
+      age: resolveAge(u.birthdate, u.bio),
+      gender: u.gender,
+      serviceSummary: u.serviceDescription || u.serviceCategory || null,
       isOnline: isOnline(u.lastSeen),
       lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
       gallery: u.profileMedia

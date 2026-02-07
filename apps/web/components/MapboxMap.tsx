@@ -10,10 +10,15 @@ export type MapMarker = {
   lat: number;
   lng: number;
   subtitle?: string | null;
+  locality?: string | null;
+  age?: number | null;
+  gender?: string | null;
+  description?: string | null;
   href?: string | null;
   messageHref?: string | null;
   avatarUrl?: string | null;
   tier?: string | null;
+  areaRadiusM?: number | null;
 };
 
 type MapboxMapProps = {
@@ -23,9 +28,58 @@ type MapboxMapProps = {
   className?: string;
   focusMarkerId?: string | null;
   onMarkerFocus?: (id: string) => void;
+  rangeKm?: number | null;
 };
 
 const DEFAULT_CENTER: [number, number] = [-33.45, -70.66];
+
+function hashString(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash << 5) - hash + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash >>> 0;
+}
+
+function mulberry32(a: number) {
+  return () => {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function jitterPoint(lat: number, lng: number, radiusM: number, seed: string) {
+  const rand = mulberry32(hashString(seed));
+  const distance = radiusM * 0.6 * rand();
+  const angle = rand() * Math.PI * 2;
+  const earth = 111320;
+  const dLat = (distance * Math.cos(angle)) / earth;
+  const dLng = (distance * Math.sin(angle)) / (earth * Math.cos((lat * Math.PI) / 180));
+  return [lat + dLat, lng + dLng] as [number, number];
+}
+
+function circleFeature(lat: number, lng: number, radiusM: number): GeoJSON.Feature<GeoJSON.Polygon> {
+  const steps = 64;
+  const earth = 111320;
+  const coords = [];
+  for (let i = 0; i <= steps; i += 1) {
+    const angle = (i / steps) * Math.PI * 2;
+    const dLat = (radiusM * Math.cos(angle)) / earth;
+    const dLng = (radiusM * Math.sin(angle)) / (earth * Math.cos((lat * Math.PI) / 180));
+    coords.push([lng + dLng, lat + dLat]);
+  }
+  return {
+    type: "Feature",
+    geometry: {
+      type: "Polygon",
+      coordinates: [coords]
+    },
+    properties: {}
+  };
+}
 
 export default function MapboxMap({
   markers,
@@ -33,7 +87,8 @@ export default function MapboxMap({
   height = 380,
   className,
   focusMarkerId,
-  onMarkerFocus
+  onMarkerFocus,
+  rangeKm
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapboxRef = useRef<typeof mapboxgl | null>(null);
@@ -45,6 +100,16 @@ export default function MapboxMap({
   const safeMarkers = useMemo(
     () => (markers || []).filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lng)).slice(0, 200),
     [markers]
+  );
+  const displayMarkers = useMemo(
+    () =>
+      safeMarkers.map((marker) => {
+        const radius = marker.areaRadiusM ?? 0;
+        if (!radius) return { ...marker, displayLat: marker.lat, displayLng: marker.lng };
+        const [jLat, jLng] = jitterPoint(marker.lat, marker.lng, radius, `marker:${marker.id}`);
+        return { ...marker, displayLat: jLat, displayLng: jLng };
+      }),
+    [safeMarkers]
   );
 
   useEffect(() => {
@@ -68,6 +133,14 @@ export default function MapboxMap({
 
       map.addControl(new mapbox.NavigationControl({ showCompass: false }), "top-right");
       mapRef.current = map;
+      map.on("moveend", () => {
+        const center = map.getCenter();
+        try {
+          localStorage.setItem("uzeed:lastLocation", JSON.stringify({ lat: center.lat, lng: center.lng }));
+        } catch {
+          // ignore storage issues
+        }
+      });
     })();
 
     return () => {
@@ -83,9 +156,9 @@ export default function MapboxMap({
     const map = mapRef.current;
     if (!map) return;
 
-    const target = userLocation || (safeMarkers[0] ? [safeMarkers[0].lat, safeMarkers[0].lng] as [number, number] : DEFAULT_CENTER);
+    const target = userLocation || (displayMarkers[0] ? [displayMarkers[0].displayLat, displayMarkers[0].displayLng] as [number, number] : DEFAULT_CENTER);
     map.jumpTo({ center: [target[1], target[0]], zoom: userLocation ? 13 : 11.5 });
-  }, [userLocation?.[0], userLocation?.[1], safeMarkers]);
+  }, [userLocation?.[0], userLocation?.[1], displayMarkers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -97,7 +170,7 @@ export default function MapboxMap({
 
     if (!mapbox) return;
 
-    safeMarkers.forEach((marker) => {
+    displayMarkers.forEach((marker) => {
       const el = document.createElement("div");
       el.className = "uzeed-map-marker";
 
@@ -124,11 +197,27 @@ export default function MapboxMap({
       title.textContent = marker.name;
       popupContent.appendChild(title);
 
-      if (marker.tier || marker.subtitle) {
+      const metadata = [marker.subtitle, marker.locality].filter(Boolean).join(" · ");
+      if (marker.tier || metadata) {
         const subtitle = document.createElement("div");
         subtitle.className = "uzeed-map-popup__subtitle";
-        subtitle.textContent = [marker.tier, marker.subtitle].filter(Boolean).join(" · ");
+        subtitle.textContent = [marker.tier, metadata].filter(Boolean).join(" · ");
         popupContent.appendChild(subtitle);
+      }
+
+      if (marker.age || marker.gender) {
+        const meta = document.createElement("div");
+        meta.className = "uzeed-map-popup__meta";
+        const genderLabel = marker.gender === "FEMALE" ? "Mujer" : marker.gender === "MALE" ? "Hombre" : marker.gender ? "Otro" : "";
+        meta.textContent = [marker.age ? `${marker.age} años` : null, genderLabel].filter(Boolean).join(" · ");
+        popupContent.appendChild(meta);
+      }
+
+      if (marker.description) {
+        const desc = document.createElement("div");
+        desc.className = "uzeed-map-popup__desc";
+        desc.textContent = marker.description;
+        popupContent.appendChild(desc);
       }
 
       if (marker.href) {
@@ -152,7 +241,7 @@ export default function MapboxMap({
       const popup = new mapbox.Popup({ offset: 12, closeButton: false }).setDOMContent(popupContent);
 
       el.addEventListener("mouseenter", () => {
-        popup.setLngLat([marker.lng, marker.lat]).addTo(map);
+        popup.setLngLat([marker.displayLng, marker.displayLat]).addTo(map);
       });
       el.addEventListener("mouseleave", () => {
         popup.remove();
@@ -164,18 +253,85 @@ export default function MapboxMap({
         onMarkerFocus?.(marker.id);
       });
 
-      const markerInstance = new mapbox.Marker(el).setLngLat([marker.lng, marker.lat]).addTo(map);
+      const markerInstance = new mapbox.Marker(el).setLngLat([marker.displayLng, marker.displayLat]).addTo(map);
       markerRefs.current.push(markerInstance);
     });
-  }, [safeMarkers, onMarkerFocus]);
+  }, [displayMarkers, onMarkerFocus]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const update = () => {
+      const sourceId = "uzeed-marker-areas";
+      const data: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
+        type: "FeatureCollection",
+        features: displayMarkers
+          .filter((m) => (m.areaRadiusM ?? 0) > 0)
+          .map((m) => circleFeature(m.lat, m.lng, m.areaRadiusM ?? 600))
+      };
+      const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
+      if (!source) {
+        map.addSource(sourceId, { type: "geojson", data });
+        map.addLayer({
+          id: `${sourceId}-fill`,
+          type: "fill",
+          source: sourceId,
+          paint: {
+            "fill-color": "rgba(168,85,247,0.18)",
+            "fill-outline-color": "rgba(168,85,247,0.35)"
+          }
+        });
+      } else {
+        source.setData(data as any);
+      }
+    };
+    if (!map.isStyleLoaded()) {
+      map.once("load", update);
+    } else {
+      update();
+    }
+  }, [displayMarkers]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !userLocation || !rangeKm) return;
+    const update = () => {
+      const sourceId = "uzeed-user-range";
+      const radiusM = Math.max(1, rangeKm) * 1000;
+      const data: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
+        type: "FeatureCollection",
+        features: [circleFeature(userLocation[0], userLocation[1], radiusM)]
+      };
+      const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
+      if (!source) {
+        map.addSource(sourceId, { type: "geojson", data });
+        map.addLayer({
+          id: `${sourceId}-fill`,
+          type: "fill",
+          source: sourceId,
+          paint: {
+            "fill-color": "rgba(56,189,248,0.15)",
+            "fill-outline-color": "rgba(56,189,248,0.35)"
+          }
+        });
+      } else {
+        source.setData(data as any);
+      }
+    };
+    if (!map.isStyleLoaded()) {
+      map.once("load", update);
+    } else {
+      update();
+    }
+  }, [userLocation?.[0], userLocation?.[1], rangeKm]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !focusMarkerId) return;
-    const target = safeMarkers.find((m) => m.id === focusMarkerId);
+    const target = displayMarkers.find((m) => m.id === focusMarkerId);
     if (!target) return;
-    map.flyTo({ center: [target.lng, target.lat], zoom: 13, essential: true });
-  }, [focusMarkerId, safeMarkers]);
+    map.flyTo({ center: [target.displayLng, target.displayLat], zoom: 13, essential: true });
+  }, [focusMarkerId, displayMarkers]);
 
   useEffect(() => {
     const map = mapRef.current;

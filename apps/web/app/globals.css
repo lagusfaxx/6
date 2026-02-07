@@ -162,6 +162,19 @@ body::after {
   opacity: 0.7;
 }
 
+.uzeed-map-popup__meta {
+  font-size: 11px;
+  opacity: 0.65;
+  margin-top: 4px;
+}
+
+.uzeed-map-popup__desc {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 6px;
+  max-width: 220px;
+}
+
 .uzeed-map-popup__actions {
   display: flex;
   gap: 6px;
@@ -184,4 +197,24 @@ body::after {
   background: rgba(17, 24, 39, 0.15);
   color: #111827;
   border: 1px solid rgba(17, 24, 39, 0.2);
+}
+
+@keyframes uzeed-spin-slow {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.uzeed-hero-logo {
+  animation: uzeed-spin-slow 16s ease-in-out infinite;
+}
+
+.uzeed-hero-logo:hover {
+  animation-play-state: paused;
 }
