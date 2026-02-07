@@ -254,7 +254,10 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
       }
     });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") {
+    if (
+      (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") ||
+      error instanceof Prisma.PrismaClientValidationError
+    ) {
       item = await prisma.serviceItem.create({
         data: {
           ownerId: me.id,
@@ -364,7 +367,10 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
       include: { media: true }
     });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") {
+    if (
+      (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") ||
+      error instanceof Prisma.PrismaClientValidationError
+    ) {
       updated = await prisma.serviceItem.update({
         where: { id: item.id },
         data: {
@@ -566,3 +572,4 @@ servicesRouter.post("/services/:id/review", requireAuth, asyncHandler(async (req
   });
   return res.json({ review });
 }));
+

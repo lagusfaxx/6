@@ -37,20 +37,44 @@ export function useMapLocation(fallback: Location) {
   }, []);
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setResolved(true);
+      return;
+    }
+    let settled = false;
+    const handleResolved = () => {
+      if (!settled) {
+        settled = true;
+        setResolved(true);
+      }
+    };
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const next: Location = [pos.coords.latitude, pos.coords.longitude];
+        setLocation(next);
+        storeLocation(next);
+        handleResolved();
+      },
+      () => {
+        setLocation((prev) => prev || fallback);
+        handleResolved();
+      },
+      { enableHighAccuracy: true, timeout: 6000 }
+    );
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const next: Location = [pos.coords.latitude, pos.coords.longitude];
         setLocation(next);
         storeLocation(next);
-        setResolved(true);
+        handleResolved();
       },
       () => {
         setLocation((prev) => prev || fallback);
-        setResolved(true);
+        handleResolved();
       },
       { enableHighAccuracy: true, timeout: 6000 }
     );
+    return () => navigator.geolocation.clearWatch(watchId);
   }, [fallback]);
 
   useEffect(() => {
@@ -59,3 +83,4 @@ export function useMapLocation(fallback: Location) {
 
   return { location, setLocation, resolved };
 }
+

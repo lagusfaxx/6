@@ -22,6 +22,7 @@ type CardItem = {
   lng?: number | null;
   tier?: string | null;
   areaRadiusM?: number | null;
+  distance?: number | null;
 };
 
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
@@ -66,9 +67,10 @@ export default function ServicesPage() {
             lat: p.latitude,
             lng: p.longitude,
             tier: p.tier,
-            areaRadiusM: p.approxAreaM ?? 600
+            areaRadiusM: p.approxAreaM ?? 600,
+            distance: p.distance ?? null
           }));
-          setCards(items);
+          setCards(items.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9)));
         } else if (selectedKind === "ESTABLISHMENT") {
           const res = await apiFetch<{ establishments: any[] }>(`/establishments?${params.toString()}`);
           const items = (res?.establishments || []).map((e) => ({
@@ -78,9 +80,10 @@ export default function ServicesPage() {
             href: `/establecimiento/${e.id}`,
             image: e.gallery?.[0] || null,
             lat: e.latitude,
-            lng: e.longitude
+            lng: e.longitude,
+            distance: e.distance ?? null
           }));
-          setCards(items);
+          setCards(items.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9)));
         } else {
           const res = await apiFetch<{ shops: any[] }>(`/shop/sexshops?${params.toString()}`);
           const items = (res?.shops || []).map((s) => ({
@@ -90,9 +93,10 @@ export default function ServicesPage() {
             href: `/sexshop/${s.username}`,
             image: s.avatarUrl,
             lat: s.latitude,
-            lng: s.longitude
+            lng: s.longitude,
+            distance: s.distance ?? null
           }));
-          setCards(items);
+          setCards(items.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9)));
         }
       } catch {
         setCards([]);
@@ -169,12 +173,12 @@ export default function ServicesPage() {
                   name: c.name,
                   lat: Number(c.lat),
                   lng: Number(c.lng),
-                subtitle: selectedCategoryLabel,
-                href: c.href,
-                avatarUrl: c.image,
-                tier: c.tier,
-                areaRadiusM: c.areaRadiusM ?? undefined
-              }))}
+                  subtitle: selectedCategoryLabel,
+                  href: c.href,
+                  avatarUrl: c.image,
+                  tier: c.tier,
+                  areaRadiusM: c.areaRadiusM ?? undefined
+                }))}
               height={380}
             />
           </div>
