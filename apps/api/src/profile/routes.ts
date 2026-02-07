@@ -209,6 +209,14 @@ profileRouter.put("/profile", requireAuth, asyncHandler(async (req, res) => {
     select: { profileType: true }
   });
   if (!me) return res.status(404).json({ error: "NOT_FOUND" });
+  if (me.profileType === "PROFESSIONAL" && bio !== undefined) {
+    if (!bio || bio.trim().length < 20) {
+      return res.status(400).json({
+        error: "BIO_REQUIRED",
+        message: "La descripción del perfil debe tener al menos 20 caracteres."
+      });
+    }
+  }
   const canSetPrice = me.profileType === "CREATOR";
   const allowFree = allowFreeMessages === "true";
   let safeBirthdate: Date | null | undefined = undefined;

@@ -5,6 +5,7 @@ import Link from "next/link";
 import MapboxMap from "../../components/MapboxMap";
 import { apiFetch } from "../../lib/api";
 import Avatar from "../../components/Avatar";
+import { useMapLocation } from "../../hooks/useMapLocation";
 
 type Category = { id: string; name: string; slug: string; displayName: string; kind: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP" };
 function displayCategoryName(category: Category) {
@@ -20,29 +21,19 @@ type CardItem = {
   lat?: number | null;
   lng?: number | null;
   tier?: string | null;
+  areaRadiusM?: number | null;
+  distance?: number | null;
 };
 
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
 
 export default function ServicesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [location, setLocation] = useState<[number, number] | null>(DEFAULT_LOCATION);
+  const { location } = useMapLocation(DEFAULT_LOCATION);
   const [selectedKind, setSelectedKind] = useState<Category["kind"]>("PROFESSIONAL");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocation(DEFAULT_LOCATION);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setLocation([pos.coords.latitude, pos.coords.longitude]),
-      () => setLocation(DEFAULT_LOCATION),
-      { enableHighAccuracy: true, timeout: 6000 }
-    );
-  }, []);
 
   useEffect(() => {
     apiFetch<Category[]>("/categories").then((res) => setCategories(Array.isArray(res) ? res : [])).catch(() => setCategories([]));
@@ -75,9 +66,11 @@ export default function ServicesPage() {
             image: p.avatarUrl,
             lat: p.latitude,
             lng: p.longitude,
-            tier: p.tier
+            tier: p.tier,
+            areaRadiusM: p.approxAreaM ?? 600,
+            distance: p.distance ?? null
           }));
-          setCards(items);
+          setCards(items.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9)));
         } else if (selectedKind === "ESTABLISHMENT") {
           const res = await apiFetch<{ establishments: any[] }>(`/establishments?${params.toString()}`);
           const items = (res?.establishments || []).map((e) => ({
@@ -87,9 +80,10 @@ export default function ServicesPage() {
             href: `/establecimiento/${e.id}`,
             image: e.gallery?.[0] || null,
             lat: e.latitude,
-            lng: e.longitude
+            lng: e.longitude,
+            distance: e.distance ?? null
           }));
-          setCards(items);
+          setCards(items.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9)));
         } else {
           const res = await apiFetch<{ shops: any[] }>(`/shop/sexshops?${params.toString()}`);
           const items = (res?.shops || []).map((s) => ({
@@ -99,9 +93,10 @@ export default function ServicesPage() {
             href: `/sexshop/${s.username}`,
             image: s.avatarUrl,
             lat: s.latitude,
-            lng: s.longitude
+            lng: s.longitude,
+            distance: s.distance ?? null
           }));
-          setCards(items);
+          setCards(items.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9)));
         }
       } catch {
         setCards([]);
@@ -178,11 +173,12 @@ export default function ServicesPage() {
                   name: c.name,
                   lat: Number(c.lat),
                   lng: Number(c.lng),
-                  subtitle: selectedCategoryLabel,
-                  href: c.href,
-                  avatarUrl: c.image,
-                  tier: c.tier
-                }))}
+                subtitle: selectedCategoryLabel,
+                href: c.href,
+                avatarUrl: c.image,
+                tier: c.tier,
+                areaRadiusM: c.areaRadiusM ?? undefined
+              }))}
               height={380}
             />
           </div>
