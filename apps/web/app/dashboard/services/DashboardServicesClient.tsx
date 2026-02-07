@@ -80,7 +80,7 @@ const labelsByProfile: Record<string, { item: string; panel: string; helper: str
 
 function stripAge(source?: string | null) {
   const raw = source || "";
-  return raw.replace(/^\\[edad:(\\d{1,2})\\]\\s*/i, "").trim();
+  return raw.replace(/^\[edad:(\d{1,2})\]\s*/i, "").trim();
 }
 
 function toDateInputValue(value?: string | null) {
