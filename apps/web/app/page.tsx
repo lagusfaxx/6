@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
+import { useMapLocation } from "../hooks/useMapLocation";
 import {
   BedDouble,
   Building2,
@@ -116,17 +117,11 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
-  const [location, setLocation] = useState<[number, number] | null>(null);
+  const { location, resolved } = useMapLocation([-33.45, -70.66]);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setLocation([pos.coords.latitude, pos.coords.longitude]),
-      () => null,
-      { enableHighAccuracy: true, timeout: 6000 }
-    );
-  }, []);
+  const [recentError, setRecentError] = useState<string | null>(null);
+  const [recentLoading, setRecentLoading] = useState(false);
+  const [recentQuery, setRecentQuery] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -146,25 +141,35 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (!resolved) return;
     const params = new URLSearchParams();
     if (location) {
       params.set("lat", String(location[0]));
       params.set("lng", String(location[1]));
     }
     params.set("limit", "6");
-    apiFetch<{ professionals: any[] }>(`/professionals/recent?${params.toString()}`)
-      .then((res) => {
-        const mapped: RecentProfessional[] = (res?.professionals || []).map((p) => ({
-          id: p.id,
-          name: p.name || "Experiencia",
-          avatarUrl: p.avatarUrl || null,
-          distance: typeof p.distance === "number" ? p.distance : null,
-          age: typeof p.age === "number" ? p.age : null
-        }));
-        setRecentPros(mapped);
-      })
-      .catch(() => null);
-  }, [location]);
+    const query = params.toString();
+    if (recentQuery === query) return;
+    setRecentQuery(query);
+    setRecentLoading(true);
+    setRecentError(null);
+    const timer = setTimeout(() => {
+      apiFetch<{ professionals: any[] }>(`/professionals/recent?${query}`)
+        .then((res) => {
+          const mapped: RecentProfessional[] = (res?.professionals || []).map((p) => ({
+            id: p.id,
+            name: p.name || "Experiencia",
+            avatarUrl: p.avatarUrl || null,
+            distance: typeof p.distance === "number" ? p.distance : null,
+            age: typeof p.age === "number" ? p.age : null
+          }));
+          setRecentPros(mapped);
+        })
+        .catch(() => setRecentError("No se pudieron cargar experiencias recientes."))
+        .finally(() => setRecentLoading(false));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [location, resolved, recentQuery]);
 
   const grouped = useMemo(() => {
     const by = { PROFESSIONAL: [] as Category[], ESTABLISHMENT: [] as Category[], SHOP: [] as Category[] };
@@ -177,21 +182,28 @@ export default function HomePage() {
   return (
     <div className="min-h-screen text-white antialiased">
       <div className="mx-auto max-w-4xl px-4 py-5 md:py-6">
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-4 md:p-6">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <img
-                src="/brand/isotipo.png"
-                alt="Uzeed"
-                className="h-16 w-16 md:h-20 md:w-20 rounded-3xl border border-white/20 bg-white/10 object-cover"
-              />
-              <div className="absolute -bottom-2 -right-2 rounded-full bg-fuchsia-500/90 p-1.5 shadow-[0_0_18px_rgba(217,70,239,0.6)]">
-                <MapPin className="h-4 w-4 text-white" />
+        <section className="rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between text-center md:text-left">
+            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-5">
+              <div className="relative">
+                <img
+                  src="/brand/isotipo.png"
+                  alt="Uzeed"
+                  className="h-20 w-20 md:h-24 md:w-24 lg:h-28 lg:w-28 rounded-[28px] border border-white/20 bg-white/10 object-cover"
+                />
+                <div className="absolute -bottom-3 -right-3 rounded-full bg-fuchsia-500/90 p-2 shadow-[0_0_22px_rgba(217,70,239,0.6)]">
+                  <MapPin className="h-4 w-4 text-white" />
+                </div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-[0.35em] text-white/80">Uzeed</div>
+                <h1 className="mt-2 text-2xl md:text-3xl font-semibold">¿Qué estás buscando?</h1>
+                <p className="mt-2 text-sm text-white/70">Explora experiencias, lugares y tiendas con ubicación aproximada.</p>
               </div>
             </div>
-            <div>
-              <div className="text-xs uppercase tracking-[0.3em] text-white/80">Uzeed</div>
-              <h1 className="mt-1 text-xl md:text-2xl font-semibold">¿Qué estás buscando?</h1>
+            <div className="flex flex-wrap gap-3 justify-center md:justify-start">
+              <Link href="/servicios" className="btn-primary">Explorar servicios</Link>
+              <Link href="/profesionales" className="btn-secondary">Ver experiencias</Link>
             </div>
           </div>
         </section>
@@ -262,6 +274,12 @@ export default function HomePage() {
               <Link href="/profesionales" className="text-xs md:text-sm text-white/80 hover:text-white">Ver todas</Link>
             </div>
 
+            {recentError ? (
+              <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-white/80 xl:col-span-3">
+                {recentError}
+              </div>
+            ) : null}
+
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {recentPros.length ? recentPros.slice(0, 3).map((p) => {
                 return (
@@ -303,7 +321,11 @@ export default function HomePage() {
                     </div>
                   </Link>
                 );
-              }) : (
+              }) : recentLoading ? (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70 xl:col-span-3">
+                  Cargando experiencias recientes...
+                </div>
+              ) : (
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70 xl:col-span-3">
                   Aún no hay experiencias recién agregadas. Vuelve más tarde para descubrir nuevas opciones.
                 </div>

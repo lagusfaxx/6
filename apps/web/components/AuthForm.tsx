@@ -17,6 +17,8 @@ function flattenValidation(details: any): string | null {
     password: "contraseña",
     displayName: "nombre público",
     gender: "género",
+    birthdate: "edad",
+    bio: "descripción",
     profileType: "tipo de perfil",
     preferenceGender: "preferencia de género",
     address: "dirección",
@@ -39,7 +41,17 @@ function flattenValidation(details: any): string | null {
   return errors.join(" ");
 }
 
-export default function AuthForm({ mode, initialProfileType, lockProfileType }: { mode: Mode; initialProfileType?: string; lockProfileType?: boolean }) {
+export default function AuthForm({
+  mode,
+  initialProfileType,
+  lockProfileType,
+  onSuccess
+}: {
+  mode: Mode;
+  initialProfileType?: string;
+  lockProfileType?: boolean;
+  onSuccess?: (data: any) => { redirect?: string | null } | void;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -47,6 +59,8 @@ export default function AuthForm({ mode, initialProfileType, lockProfileType }: 
   const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState("FEMALE");
+  const [birthdate, setBirthdate] = useState("");
+  const [bio, setBio] = useState("");
   const [profileType, setProfileType] = useState(initialProfileType || "CLIENT");
   const [preferenceGender, setPreferenceGender] = useState("ALL");
   const [address, setAddress] = useState("");
@@ -62,7 +76,7 @@ export default function AuthForm({ mode, initialProfileType, lockProfileType }: 
 
     try {
       if (mode === "register") {
-        await apiFetch("/auth/register", {
+        const res = await apiFetch("/auth/register", {
           method: "POST",
           body: JSON.stringify({
             email,
@@ -70,13 +84,20 @@ export default function AuthForm({ mode, initialProfileType, lockProfileType }: 
             displayName,
             username,
             phone,
-            gender,
+            gender: profileType === "PROFESSIONAL" ? gender : undefined,
             profileType,
-            preferenceGender,
+            preferenceGender: profileType === "CLIENT" ? preferenceGender : undefined,
             address,
-            acceptTerms
+            acceptTerms,
+            birthdate: birthdate || undefined,
+            bio: bio || undefined
           })
         });
+        const override = onSuccess?.(res);
+        const next = searchParams.get("next");
+        const redirectTo = override && "redirect" in override ? override.redirect : next || "/";
+        if (redirectTo) router.replace(redirectTo);
+        return;
       } else {
         await apiFetch("/auth/login", {
           method: "POST",
@@ -148,7 +169,7 @@ export default function AuthForm({ mode, initialProfileType, lockProfileType }: 
         </div>
       ) : null}
 
-      {mode === "register" ? (
+      {mode === "register" && profileType === "PROFESSIONAL" ? (
         <div className="grid gap-2">
           <label className="text-sm text-white/70">Género</label>
           <div className="relative">
@@ -177,7 +198,7 @@ export default function AuthForm({ mode, initialProfileType, lockProfileType }: 
         </div>
       ) : null}
 
-      {mode === "register" ? (
+      {mode === "register" && profileType === "CLIENT" ? (
         <div className="grid gap-2">
           <label className="text-sm text-white/70">Preferencia de género</label>
           <div className="relative">
@@ -189,6 +210,36 @@ export default function AuthForm({ mode, initialProfileType, lockProfileType }: 
             </select>
             <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">▾</span>
           </div>
+        </div>
+      ) : null}
+
+      {mode === "register" && profileType === "PROFESSIONAL" ? (
+        <div className="grid gap-2">
+          <label className="text-sm text-white/70">Fecha de nacimiento</label>
+          <input
+            className="input"
+            value={birthdate}
+            onChange={(e) => setBirthdate(e.target.value)}
+            type="date"
+            required
+            max={new Date().toISOString().split("T")[0]}
+          />
+          <p className="text-xs text-white/50">Debes ser mayor de 18 años.</p>
+        </div>
+      ) : null}
+
+      {mode === "register" && (profileType === "PROFESSIONAL" || profileType === "ESTABLISHMENT" || profileType === "SHOP") ? (
+        <div className="grid gap-2">
+          <label className="text-sm text-white/70">
+            {profileType === "PROFESSIONAL" ? "Descripción del perfil" : "Descripción comercial"}
+          </label>
+          <textarea
+            className="input min-h-[110px]"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder={profileType === "PROFESSIONAL" ? "Describe tu experiencia en pocas líneas." : "Describe tu negocio (opcional)."}
+            required={profileType === "PROFESSIONAL"}
+          />
         </div>
       ) : null}
 

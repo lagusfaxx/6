@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, API_URL, isAuthError, resolveMediaUrl } from "../../../lib/api";
 import Avatar from "../../../components/Avatar";
+import { Paperclip, X } from "lucide-react";
 
 type Message = {
   id: string;
@@ -37,9 +38,11 @@ export default function ChatPage() {
   const [other, setOther] = useState<ChatUser | null>(null);
   const [body, setBody] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [requesting, setRequesting] = useState(false);
+  const [activeRequest, setActiveRequest] = useState<{ id: string; status: string } | null>(null);
 
   async function load() {
     const [meResp, msgResp] = await Promise.all([
@@ -49,6 +52,18 @@ export default function ChatPage() {
     setMe(meResp.user);
     setMessages(msgResp.messages);
     setOther(msgResp.other);
+    if (meResp.user?.profileType === "CLIENT") {
+      apiFetch<{ services: { id: string; status: string; professional: { id: string } }[] }>("/services/active")
+        .then((res) => {
+          const match = res.services.find((s) => s.professional.id === userId);
+          setActiveRequest(match ? { id: match.id, status: match.status } : null);
+        })
+        .catch(() => setActiveRequest(null));
+    } else if (meResp.user?.profileType === "PROFESSIONAL") {
+      apiFetch<{ request: { id: string; status: string } | null }>(`/services/requests/with/${userId}`)
+        .then((res) => setActiveRequest(res.request ? { id: res.request.id, status: res.request.status } : null))
+        .catch(() => setActiveRequest(null));
+    }
   }
 
   useEffect(() => {
@@ -93,6 +108,7 @@ export default function ChatPage() {
         const payload = (await res.json()) as { message: Message };
         setMessages((prev) => [...prev, payload.message]);
         setAttachment(null);
+        setAttachmentPreview(null);
       }
       if (body.trim()) {
         const msg = await apiFetch<{ message: Message }>(`/messages/${userId}`, {
@@ -110,10 +126,11 @@ export default function ChatPage() {
   async function requestService() {
     setRequesting(true);
     try {
-      await apiFetch("/services/request", {
+      const res = await apiFetch<{ request: { id: string; status: string } }>("/services/request", {
         method: "POST",
         body: JSON.stringify({ professionalId: userId })
       });
+      setActiveRequest(res.request ? { id: res.request.id, status: res.request.status } : { id: "pending", status: "PENDIENTE_APROBACION" });
     } catch (e: any) {
       setError(e?.message || "No se pudo solicitar el servicio");
     } finally {
@@ -121,10 +138,31 @@ export default function ChatPage() {
     }
   }
 
+  async function approveRequest() {
+    if (!activeRequest) return;
+    try {
+      await apiFetch(`/services/${activeRequest.id}/approve`, { method: "POST" });
+      setActiveRequest({ ...activeRequest, status: "ACTIVO" });
+    } catch (e: any) {
+      setError(e?.message || "No se pudo aprobar la solicitud");
+    }
+  }
+
+  async function rejectRequest() {
+    if (!activeRequest) return;
+    try {
+      await apiFetch(`/services/${activeRequest.id}/reject`, { method: "POST" });
+      setActiveRequest({ ...activeRequest, status: "RECHAZADO" });
+    } catch (e: any) {
+      setError(e?.message || "No se pudo rechazar la solicitud");
+    }
+  }
+
   if (loading) return <div className="text-white/70">Cargando chat...</div>;
   if (error) return <div className="text-red-200">{error}</div>;
 
-  const canRequest = me?.profileType === "CLIENT";
+  const canRequest = me?.profileType === "CLIENT" && !activeRequest;
+  const canManageRequest = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "PENDIENTE_APROBACION";
 
   return (
     <div className="grid gap-6">
@@ -148,6 +186,15 @@ export default function ChatPage() {
             <button onClick={requestService} className="btn-primary" disabled={requesting}>
               {requesting ? "Solicitando..." : "Solicitar / reservar"}
             </button>
+          ) : canManageRequest ? (
+            <div className="flex flex-wrap gap-2">
+              <button onClick={approveRequest} className="btn-primary">Aceptar solicitud</button>
+              <button onClick={rejectRequest} className="btn-secondary">Rechazar</button>
+            </div>
+          ) : activeRequest ? (
+            <span className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs text-white/70">
+              Solicitud {activeRequest.status === "ACTIVO" ? "activa" : activeRequest.status === "RECHAZADO" ? "rechazada" : "pendiente"}
+            </span>
           ) : null}
         </div>
       </div>
@@ -178,6 +225,23 @@ export default function ChatPage() {
           {!messages.length ? <div className="text-white/50">Aún no hay mensajes.</div> : null}
         </div>
 
+        {attachmentPreview ? (
+          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+            <img src={attachmentPreview} alt="Adjunto" className="h-16 w-16 rounded-xl object-cover" />
+            <div className="flex-1 text-xs text-white/70">{attachment?.name}</div>
+            <button
+              type="button"
+              onClick={() => {
+                setAttachment(null);
+                setAttachmentPreview(null);
+              }}
+              className="rounded-full border border-white/15 bg-white/5 p-2 text-white/70 hover:bg-white/10"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
+
         <form onSubmit={send} className="mt-4 flex flex-wrap gap-3 items-center">
           <input
             className="input flex-1"
@@ -185,12 +249,26 @@ export default function ChatPage() {
             value={body}
             onChange={(e) => setBody(e.target.value)}
           />
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setAttachment(e.target.files?.[0] || null)}
-            className="text-xs text-white/70"
-          />
+          <label className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80 hover:bg-white/10 cursor-pointer">
+            <Paperclip className="h-4 w-4" />
+            Adjuntar
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setAttachment(file);
+                if (!file) {
+                  setAttachmentPreview(null);
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => setAttachmentPreview(String(reader.result || ""));
+                reader.readAsDataURL(file);
+              }}
+            />
+          </label>
           <button className="btn-primary">Enviar</button>
         </form>
       </div>

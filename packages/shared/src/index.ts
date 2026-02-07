@@ -18,11 +18,25 @@ export const registerInputSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
   displayName: z.string().min(2).max(50).optional(),
-  gender: Genders,
+  gender: Genders.optional(),
   profileType: ProfileTypes,
   preferenceGender: PreferenceGenders.optional(),
   address: z.string().min(6).max(200),
-  acceptTerms: z.boolean().refine((v) => v === true, "Terms must be accepted")
+  acceptTerms: z.boolean().refine((v) => v === true, "Terms must be accepted"),
+  birthdate: z.string().optional(),
+  bio: z.string().max(1000).optional()
+}).superRefine((data, ctx) => {
+  if (data.profileType === "PROFESSIONAL") {
+    if (!data.gender) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["gender"], message: "required" });
+    }
+    if (!data.birthdate) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["birthdate"], message: "required" });
+    }
+    if (!data.bio || data.bio.trim().length < 20) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["bio"], message: "required" });
+    }
+  }
 });
 export type RegisterInput = z.infer<typeof registerInputSchema>;
 
