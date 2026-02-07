@@ -5,6 +5,7 @@ import Link from "next/link";
 import MapboxMap from "../../components/MapboxMap";
 import { apiFetch } from "../../lib/api";
 import Avatar from "../../components/Avatar";
+import { useMapLocation } from "../../hooks/useMapLocation";
 
 type Category = { id: string; name: string; slug: string; displayName: string; kind: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP" };
 function displayCategoryName(category: Category) {
@@ -20,29 +21,18 @@ type CardItem = {
   lat?: number | null;
   lng?: number | null;
   tier?: string | null;
+  areaRadiusM?: number | null;
 };
 
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
 
 export default function ServicesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [location, setLocation] = useState<[number, number] | null>(DEFAULT_LOCATION);
+  const { location } = useMapLocation(DEFAULT_LOCATION);
   const [selectedKind, setSelectedKind] = useState<Category["kind"]>("PROFESSIONAL");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocation(DEFAULT_LOCATION);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setLocation([pos.coords.latitude, pos.coords.longitude]),
-      () => setLocation(DEFAULT_LOCATION),
-      { enableHighAccuracy: true, timeout: 6000 }
-    );
-  }, []);
 
   useEffect(() => {
     apiFetch<Category[]>("/categories").then((res) => setCategories(Array.isArray(res) ? res : [])).catch(() => setCategories([]));
@@ -75,7 +65,8 @@ export default function ServicesPage() {
             image: p.avatarUrl,
             lat: p.latitude,
             lng: p.longitude,
-            tier: p.tier
+            tier: p.tier,
+            areaRadiusM: p.approxAreaM ?? 600
           }));
           setCards(items);
         } else if (selectedKind === "ESTABLISHMENT") {
@@ -178,11 +169,12 @@ export default function ServicesPage() {
                   name: c.name,
                   lat: Number(c.lat),
                   lng: Number(c.lng),
-                  subtitle: selectedCategoryLabel,
-                  href: c.href,
-                  avatarUrl: c.image,
-                  tier: c.tier
-                }))}
+                subtitle: selectedCategoryLabel,
+                href: c.href,
+                avatarUrl: c.image,
+                tier: c.tier,
+                areaRadiusM: c.areaRadiusM ?? undefined
+              }))}
               height={380}
             />
           </div>

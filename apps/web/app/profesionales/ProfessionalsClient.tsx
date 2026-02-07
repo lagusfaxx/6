@@ -6,6 +6,8 @@ import Link from "next/link";
 import { apiFetch } from "../../lib/api";
 import MapboxMap from "../../components/MapboxMap";
 import Avatar from "../../components/Avatar";
+import { useMapLocation } from "../../hooks/useMapLocation";
+import useMe from "../../hooks/useMe";
 
 const tiers = ["PREMIUM", "GOLD", "SILVER"] as const;
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
@@ -18,10 +20,13 @@ type Professional = {
   distance: number | null;
   latitude?: number | null;
   longitude?: number | null;
+  locality?: string | null;
+  approxAreaM?: number | null;
   isActive: boolean;
   tier: string | null;
   gender: string | null;
   age?: number | null;
+  serviceSummary?: string | null;
   category: { id: string; name: string; displayName?: string | null; kind: string } | null;
 };
 
@@ -38,7 +43,7 @@ export default function ProfessionalsClient() {
 
   const [rangeKm, setRangeKm] = useState("15");
   const [tier, setTier] = useState("");
-  const [location, setLocation] = useState<[number, number] | null>(DEFAULT_LOCATION);
+  const { location } = useMapLocation(DEFAULT_LOCATION);
   const [items, setItems] = useState<Professional[]>([]);
   const [categoryInfo, setCategoryInfo] = useState<CategoryRef | null>(null);
   const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
@@ -46,18 +51,7 @@ export default function ProfessionalsClient() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocation(DEFAULT_LOCATION);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setLocation([pos.coords.latitude, pos.coords.longitude]),
-      () => setLocation(DEFAULT_LOCATION),
-      { enableHighAccuracy: true, timeout: 6000 }
-    );
-  }, []);
+  const { me } = useMe();
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -163,11 +157,17 @@ export default function ProfessionalsClient() {
                 lat: Number(p.latitude),
                 lng: Number(p.longitude),
                 subtitle: p.category?.displayName || p.category?.name || null,
+                locality: p.locality || null,
+                age: p.age ?? null,
+                gender: p.gender ?? null,
+                description: p.serviceSummary || null,
                 href: `/profesional/${p.id}`,
-                messageHref: `/chat/${p.id}`,
+                messageHref: me?.user ? `/chat/${p.id}` : null,
                 avatarUrl: p.avatarUrl,
-                tier: p.tier
+                tier: p.tier,
+                areaRadiusM: p.approxAreaM ?? 600
               }))}
+            rangeKm={Number(rangeKm) || 15}
           />
         </div>
       </div>
@@ -236,8 +236,14 @@ export default function ProfessionalsClient() {
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
                 <span>⭐ {p.rating ?? "N/A"}</span>
                 <span>{p.distance ? `${p.distance.toFixed(1)} km` : "Sin distancia"}</span>
+                {p.locality ? <span>{p.locality}</span> : null}
+                {p.age ? <span>{p.age} años</span> : null}
+                {p.gender ? <span>{p.gender === "FEMALE" ? "Mujer" : p.gender === "MALE" ? "Hombre" : "Otro"}</span> : null}
                 {p.tier ? <span>{p.tier}</span> : null}
               </div>
+              {p.serviceSummary ? (
+                <p className="mt-3 text-xs text-white/70 line-clamp-2">{p.serviceSummary}</p>
+              ) : null}
             </div>
           ))}
           {!items.length ? (

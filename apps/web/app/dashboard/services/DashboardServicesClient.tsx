@@ -22,6 +22,9 @@ type ServiceItem = {
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  locality?: string | null;
+  approxAreaM?: number | null;
+  locationVerified?: boolean;
   isActive: boolean;
   createdAt: string;
   media?: ServiceMedia[];
@@ -118,6 +121,9 @@ export default function DashboardServicesClient() {
   const [serviceAddress, setServiceAddress] = useState("");
   const [serviceLatitude, setServiceLatitude] = useState("");
   const [serviceLongitude, setServiceLongitude] = useState("");
+  const [serviceLocality, setServiceLocality] = useState("");
+  const [serviceApproxArea, setServiceApproxArea] = useState("600");
+  const [serviceVerified, setServiceVerified] = useState(false);
   const [serviceIsActive, setServiceIsActive] = useState(true);
   const [geocodeBusy, setGeocodeBusy] = useState(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
@@ -258,6 +264,14 @@ export default function DashboardServicesClient() {
       setServiceLongitude(String(feature.center[0]));
       setServiceLatitude(String(feature.center[1]));
       if (feature.place_name) setServiceAddress(feature.place_name);
+      const contexts: Array<{ id: string; text: string }> = feature.context || [];
+      const locality =
+        contexts.find((c) => c.id.includes("neighborhood"))?.text ||
+        contexts.find((c) => c.id.includes("locality"))?.text ||
+        contexts.find((c) => c.id.includes("place"))?.text ||
+        "";
+      setServiceLocality(locality);
+      setServiceVerified(true);
     } catch {
       setGeocodeError("No encontramos esa dirección. Ajusta el texto o confirma en el mapa.");
     } finally {
@@ -293,8 +307,8 @@ export default function DashboardServicesClient() {
     if (!user) return;
     setBusy(true);
     setError(null);
-    if (!serviceAddress.trim()) {
-      setError("Debes indicar la dirección del servicio.");
+    if (!serviceAddress.trim() || !serviceVerified) {
+      setError("Debes confirmar la ubicación en el mapa antes de publicar.");
       setBusy(false);
       return;
     }
@@ -311,9 +325,12 @@ export default function DashboardServicesClient() {
         description,
         price: price ? Number(price) : null,
         categoryId: serviceCategoryId,
-        address: serviceAddress.trim(),
+        addressLabel: serviceAddress.trim(),
         latitude: parsedLat,
         longitude: parsedLng,
+        locality: serviceLocality || null,
+        approxAreaM: Number(serviceApproxArea) || null,
+        locationVerified: true,
         isActive: serviceIsActive
       };
       if (editingServiceId) {
@@ -330,6 +347,9 @@ export default function DashboardServicesClient() {
       setServiceAddress("");
       setServiceLatitude("");
       setServiceLongitude("");
+      setServiceLocality("");
+      setServiceApproxArea("600");
+      setServiceVerified(false);
       setServiceIsActive(true);
       setGeocodeError(null);
       loadPanel(user.id);
@@ -362,6 +382,9 @@ export default function DashboardServicesClient() {
     setServiceAddress(item.address || "");
     setServiceLatitude(item.latitude != null ? String(item.latitude) : "");
     setServiceLongitude(item.longitude != null ? String(item.longitude) : "");
+    setServiceLocality(item.locality || "");
+    setServiceApproxArea(item.approxAreaM != null ? String(item.approxAreaM) : "600");
+    setServiceVerified(Boolean(item.locationVerified || (item.latitude != null && item.longitude != null)));
     setServiceIsActive(item.isActive ?? true);
     setGeocodeError(null);
     setEditingServiceId(item.id);
@@ -646,7 +669,10 @@ export default function DashboardServicesClient() {
                   <input
                     className="input"
                     value={serviceAddress}
-                    onChange={(e) => setServiceAddress(e.target.value)}
+                    onChange={(e) => {
+                      setServiceAddress(e.target.value);
+                      setServiceVerified(false);
+                    }}
                     placeholder="Ej: Av. Providencia 1234, Santiago"
                   />
                 </label>
@@ -659,24 +685,24 @@ export default function DashboardServicesClient() {
                   >
                     {geocodeBusy ? "Buscando..." : "Buscar dirección en mapa"}
                   </button>
-                  <span className="text-[11px] text-white/50">Puedes ajustar latitud/longitud manualmente.</span>
+                  <span className="text-[11px] text-white/50">Debes confirmar la ubicación con el buscador.</span>
                 </div>
                 {geocodeError ? (
                   <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
                     {geocodeError}
                   </div>
                 ) : null}
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-2 text-xs text-white/60">
-                    Latitud
-                    <input className="input" value={serviceLatitude} onChange={(e) => setServiceLatitude(e.target.value)} />
-                  </label>
-                  <label className="grid gap-2 text-xs text-white/60">
-                    Longitud
-                    <input className="input" value={serviceLongitude} onChange={(e) => setServiceLongitude(e.target.value)} />
-                  </label>
-                </div>
-                {Number.isFinite(Number(serviceLatitude)) && Number.isFinite(Number(serviceLongitude)) ? (
+                <label className="grid gap-2 text-xs text-white/60">
+                  Área aproximada
+                  <select className="input" value={serviceApproxArea} onChange={(e) => setServiceApproxArea(e.target.value)}>
+                    <option value="300">300 m</option>
+                    <option value="450">450 m</option>
+                    <option value="600">600 m</option>
+                    <option value="800">800 m</option>
+                  </select>
+                  <span className="text-[11px] text-white/50">La ubicación se muestra como área aproximada.</span>
+                </label>
+                {serviceVerified && Number.isFinite(Number(serviceLatitude)) && Number.isFinite(Number(serviceLongitude)) ? (
                   <MapboxMap
                     markers={[
                       {
@@ -684,7 +710,8 @@ export default function DashboardServicesClient() {
                         name: title || "Servicio",
                         lat: Number(serviceLatitude),
                         lng: Number(serviceLongitude),
-                        subtitle: serviceAddress || null
+                        subtitle: serviceLocality || serviceAddress || null,
+                        areaRadiusM: Number(serviceApproxArea) || 600
                       }
                     ]}
                     height={220}
@@ -692,7 +719,7 @@ export default function DashboardServicesClient() {
                   />
                 ) : (
                   <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60">
-                    Ingresa la dirección o las coordenadas para previsualizar en el mapa.
+                    Busca y confirma la dirección para previsualizar en el mapa.
                   </div>
                 )}
                 <label className="grid gap-2 text-xs text-white/60">
@@ -718,9 +745,12 @@ export default function DashboardServicesClient() {
                   />
                   Servicio activo (solo uno puede quedar activo)
                 </label>
-                <button disabled={busy} onClick={saveService} className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50">
+                <button disabled={busy || !serviceVerified} onClick={saveService} className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50">
                   {editingServiceId ? "Guardar cambios" : "Publicar servicio"}
                 </button>
+                {!serviceVerified ? (
+                  <div className="text-[11px] text-amber-200">Confirma la dirección en el mapa para habilitar la publicación.</div>
+                ) : null}
               </div>
             </div>
           </TabsContent>

@@ -40,7 +40,7 @@ export default function AccountPage() {
     <div className="mx-auto w-full max-w-5xl grid gap-6">
       <div className="card p-6">
         <h1 className="text-3xl font-semibold">Cuenta</h1>
-        <p className="mt-2 text-sm text-white/70">Gestiona tu sesión, accesos y paneles desde aquí.</p>
+        <p className="mt-2 text-sm text-white/70">Resumen de tu perfil y accesos principales.</p>
       </div>
 
       {loading ? (
@@ -49,26 +49,37 @@ export default function AccountPage() {
         <div className="grid gap-6">
           <div className="card p-6">
             <div className="grid gap-6 md:grid-cols-[auto_1fr] md:items-center">
-              <Avatar src={user.avatarUrl} alt={user.displayName || user.username} size={88} className="border-white/20" />
-              <div>
+              <Avatar src={user.avatarUrl} alt={user.displayName || user.username} size={96} className="border-white/20" />
+              <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="text-2xl font-semibold leading-tight">{user.displayName || user.username}</div>
                   <Badge>{profileLabel}</Badge>
                 </div>
-                <div className="mt-1 text-sm text-white/60">@{user.username}</div>
-                <p className="mt-2 text-sm text-white/70">Vista previa de tu cuenta pública y accesos rápidos.</p>
+                <div className="text-sm text-white/60">@{user.username}</div>
+                <p className="text-sm text-white/70">
+                  {canManageProfile ? "Vista previa de tu perfil público y accesos principales." : "Resumen de tu cuenta y accesos principales."}
+                </p>
+                {canManageProfile ? (
+                  <Link href={publicProfileUrl} className="btn-primary w-fit">
+                    Ver mi perfil público
+                  </Link>
+                ) : (
+                  <Link href="/servicios" className="btn-primary w-fit">
+                    Explorar servicios
+                  </Link>
+                )}
               </div>
             </div>
           </div>
 
           <div className="card p-6">
-            <h2 className="text-lg font-semibold">Accesos rápidos</h2>
+            <h2 className="text-lg font-semibold">Accesos principales</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {canManageProfile ? (
                 <>
-                  <Link href={publicProfileUrl} className="btn-ghost w-full">Perfil público</Link>
+                  <Link href="/dashboard/services?tab=perfil" className="btn-ghost w-full">Editar perfil</Link>
                   <Link href="/dashboard/services?tab=servicios" className="btn-ghost w-full">
-                    Servicios
+                    Gestionar servicio
                   </Link>
                   {profileType === "SHOP" ? (
                     <Link href="/dashboard/services?tab=productos" className="btn-ghost w-full">Productos</Link>
@@ -79,11 +90,15 @@ export default function AccountPage() {
                   <Link href="/dashboard/services?tab=ubicacion" className="btn-ghost w-full">
                     Ubicación
                   </Link>
+                  <Link href="/chats" className="btn-ghost w-full">Chats</Link>
                 </>
               ) : (
-                <Link href="/servicios" className="btn-ghost w-full">Explorar servicios</Link>
+                <>
+                  <Link href="/favoritos" className="btn-ghost w-full">Favoritos</Link>
+                  <Link href="/servicios" className="btn-ghost w-full">Solicitudes</Link>
+                  <Link href="/chats" className="btn-ghost w-full">Chats</Link>
+                </>
               )}
-              <Link href="/chats" className="btn-ghost w-full">Chats</Link>
               <button onClick={handleLogout} className="btn-ghost w-full">Cerrar sesión</button>
             </div>
           </div>

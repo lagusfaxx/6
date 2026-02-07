@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db";
+import { Prisma } from "@prisma/client";
 import { requireAuth } from "../auth/middleware";
 import { isBusinessPlanActive } from "../lib/subscriptions";
 import multer from "multer";
@@ -9,6 +10,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 import { findCategoryByRef } from "../lib/categories";
+import { obfuscateLocation } from "../lib/locationPrivacy";
 
 export const servicesRouter = Router();
 
@@ -84,7 +86,6 @@ servicesRouter.get("/services", asyncHandler(async (req, res) => {
       avatarUrl: true,
       coverUrl: true,
       bio: true,
-      address: true,
       city: true,
       latitude: true,
       longitude: true,
@@ -101,7 +102,14 @@ servicesRouter.get("/services", asyncHandler(async (req, res) => {
       lat !== null && lng !== null && p.latitude !== null && p.longitude !== null
         ? haversine(lat, lng, p.latitude, p.longitude)
         : null;
-    return { ...p, distance };
+    const obfuscated = obfuscateLocation(p.latitude, p.longitude, `services:${p.id}`, 700);
+    return {
+      ...p,
+      latitude: obfuscated.latitude,
+      longitude: obfuscated.longitude,
+      locality: p.city || null,
+      distance
+    };
   });
 
   const sorted = enriched.sort((a, b) => {
@@ -144,7 +152,14 @@ servicesRouter.get("/map", asyncHandler(async (req, res) => {
       lat !== null && lng !== null && p.latitude !== null && p.longitude !== null
         ? haversine(lat, lng, p.latitude, p.longitude)
         : null;
-    return { ...p, distance };
+    const obfuscated = obfuscateLocation(p.latitude, p.longitude, `map:${p.id}`, 700);
+    return {
+      ...p,
+      latitude: obfuscated.latitude,
+      longitude: obfuscated.longitude,
+      locality: p.city || null,
+      distance
+    };
   });
 
   return res.json({ profiles: enriched });
@@ -165,7 +180,18 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
   if (!["SHOP", "PROFESSIONAL", "ESTABLISHMENT"].includes(me.profileType)) {
     return res.status(403).json({ error: "NOT_ALLOWED" });
   }
-  const { title, description, price, address } = req.body as Record<string, string>;
+  const { title, description, price } = req.body as Record<string, string>;
+  const addressLabel =
+    typeof req.body?.addressLabel === "string"
+      ? req.body.addressLabel
+      : typeof req.body?.address === "string"
+        ? req.body.address
+        : null;
+  const locality = typeof req.body?.locality === "string" ? req.body.locality : null;
+  const approxAreaM =
+    req.body?.approxAreaM != null && Number.isFinite(Number(req.body.approxAreaM))
+      ? Math.max(200, Math.min(1200, Number(req.body.approxAreaM)))
+      : null;
   const categoryId = typeof req.body?.categoryId === "string" ? req.body.categoryId : null;
   const categorySlug = typeof req.body?.categorySlug === "string" ? req.body.categorySlug : null;
   const categoryName = typeof req.body?.category === "string" ? req.body.category : null;
@@ -178,7 +204,14 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
       ? Number(req.body.longitude)
       : null;
   const isActive = typeof req.body?.isActive === "boolean" ? req.body.isActive : true;
+  const locationVerified = req.body?.locationVerified === true;
   if (!title) return res.status(400).json({ error: "TITLE_REQUIRED" });
+  if (!locationVerified || !addressLabel || latitude == null || longitude == null) {
+    return res.status(400).json({
+      error: "LOCATION_NOT_VERIFIED",
+      message: "Debes confirmar la dirección en el mapa antes de publicar."
+    });
+  }
 
   const kind = me.profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : me.profileType === "SHOP" ? "SHOP" : "PROFESSIONAL";
   const category = await findCategoryByRef(prisma, {
@@ -201,20 +234,45 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
     });
   }
 
-  const item = await prisma.serviceItem.create({
-    data: {
-      ownerId: me.id,
-      title,
-      description,
-      category: category.displayName || category.name,
-      categoryId: category.id,
-      price: price ? Number(price) : null,
-      address: address || null,
-      latitude,
-      longitude,
-      isActive
+  let item;
+  try {
+    item = await prisma.serviceItem.create({
+      data: {
+        ownerId: me.id,
+        title,
+        description,
+        category: category.displayName || category.name,
+        categoryId: category.id,
+        price: price ? Number(price) : null,
+        address: addressLabel || null,
+        latitude,
+        longitude,
+        locality: locality || null,
+        approxAreaM,
+        locationVerified,
+        isActive
+      }
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") {
+      item = await prisma.serviceItem.create({
+        data: {
+          ownerId: me.id,
+          title,
+          description,
+          category: category.displayName || category.name,
+          categoryId: category.id,
+          price: price ? Number(price) : null,
+          address: addressLabel || null,
+          latitude,
+          longitude,
+          isActive
+        }
+      });
+    } else {
+      throw error;
     }
-  });
+  }
 
   await ensureUserCategory(me.id, category.id, category.displayName || category.name, me.categoryId);
 
@@ -226,7 +284,18 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
   if (!me) return res.status(404).json({ error: "USER_NOT_FOUND" });
   const item = await prisma.serviceItem.findUnique({ where: { id: req.params.id } });
   if (!item || item.ownerId !== me.id) return res.status(404).json({ error: "NOT_FOUND" });
-  const { title, description, price, address } = req.body as Record<string, string>;
+  const { title, description, price } = req.body as Record<string, string>;
+  const addressLabel =
+    typeof req.body?.addressLabel === "string"
+      ? req.body.addressLabel
+      : typeof req.body?.address === "string"
+        ? req.body.address
+        : null;
+  const locality = typeof req.body?.locality === "string" ? req.body.locality : null;
+  const approxAreaM =
+    req.body?.approxAreaM != null && Number.isFinite(Number(req.body.approxAreaM))
+      ? Math.max(200, Math.min(1200, Number(req.body.approxAreaM)))
+      : null;
   const categoryId = typeof req.body?.categoryId === "string" ? req.body.categoryId : null;
   const categorySlug = typeof req.body?.categorySlug === "string" ? req.body.categorySlug : null;
   const categoryName = typeof req.body?.category === "string" ? req.body.category : null;
@@ -239,6 +308,7 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
       ? Number(req.body.longitude)
       : null;
   const nextIsActive = typeof req.body?.isActive === "boolean" ? req.body.isActive : item.isActive;
+  const locationVerified = req.body?.locationVerified === true;
   const kind = me.profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : me.profileType === "SHOP" ? "SHOP" : "PROFESSIONAL";
   const nextCategory = await findCategoryByRef(prisma, {
     categoryId,
@@ -258,22 +328,62 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
       data: { isActive: false }
     });
   }
+  const wantsLocationUpdate =
+    req.body?.locationVerified != null ||
+    req.body?.latitude != null ||
+    req.body?.longitude != null ||
+    req.body?.addressLabel != null ||
+    req.body?.address != null ||
+    req.body?.locality != null ||
+    req.body?.approxAreaM != null;
+  if (wantsLocationUpdate && (!locationVerified || !addressLabel || latitude == null || longitude == null)) {
+    return res.status(400).json({
+      error: "LOCATION_NOT_VERIFIED",
+      message: "Debes confirmar la dirección en el mapa antes de publicar."
+    });
+  }
 
-  const updated = await prisma.serviceItem.update({
-    where: { id: item.id },
-    data: {
-      title: title || item.title,
-      description: description ?? item.description,
-      category: nextCategory ? nextCategory.displayName || nextCategory.name : item.category,
-      categoryId: nextCategory ? nextCategory.id : item.categoryId,
-      price: price ? Number(price) : item.price,
-      address: address ?? item.address,
-      latitude: req.body?.latitude != null ? latitude : item.latitude,
-      longitude: req.body?.longitude != null ? longitude : item.longitude,
-      isActive: nextIsActive
-    },
-    include: { media: true }
-  });
+  let updated;
+  try {
+    updated = await prisma.serviceItem.update({
+      where: { id: item.id },
+      data: {
+        title: title || item.title,
+        description: description ?? item.description,
+        category: nextCategory ? nextCategory.displayName || nextCategory.name : item.category,
+        categoryId: nextCategory ? nextCategory.id : item.categoryId,
+        price: price ? Number(price) : item.price,
+        address: wantsLocationUpdate ? addressLabel ?? item.address : item.address,
+        latitude: wantsLocationUpdate ? latitude : item.latitude,
+        longitude: wantsLocationUpdate ? longitude : item.longitude,
+        locality: wantsLocationUpdate ? locality ?? item.locality : item.locality,
+        approxAreaM: wantsLocationUpdate ? approxAreaM ?? item.approxAreaM : item.approxAreaM,
+        locationVerified: wantsLocationUpdate ? locationVerified : item.locationVerified,
+        isActive: nextIsActive
+      },
+      include: { media: true }
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") {
+      updated = await prisma.serviceItem.update({
+        where: { id: item.id },
+        data: {
+          title: title || item.title,
+          description: description ?? item.description,
+          category: nextCategory ? nextCategory.displayName || nextCategory.name : item.category,
+          categoryId: nextCategory ? nextCategory.id : item.categoryId,
+          price: price ? Number(price) : item.price,
+          address: wantsLocationUpdate ? addressLabel ?? item.address : item.address,
+          latitude: wantsLocationUpdate ? latitude : item.latitude,
+          longitude: wantsLocationUpdate ? longitude : item.longitude,
+          isActive: nextIsActive
+        },
+        include: { media: true }
+      });
+    } else {
+      throw error;
+    }
+  }
   await ensureUserCategory(me.id, updated.categoryId, updated.category ?? null, me.categoryId);
   return res.json({ item: updated });
 }));
@@ -334,6 +444,16 @@ servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, r
   const professionalId = typeof req.body?.professionalId === "string" ? req.body.professionalId : null;
   if (!professionalId) return res.status(400).json({ error: "INVALID_PROFESSIONAL" });
 
+  const existing = await prisma.serviceRequest.findFirst({
+    where: {
+      clientId: req.session.userId!,
+      professionalId,
+      status: { notIn: ["FINALIZADO", "RECHAZADO"] }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+  if (existing) return res.json({ request: existing });
+
   const request = await prisma.serviceRequest.create({
     data: {
       clientId: req.session.userId!,
@@ -348,7 +468,7 @@ servicesRouter.get("/services/active", requireAuth, asyncHandler(async (req, res
   const services = await prisma.serviceRequest.findMany({
     where: {
       clientId: req.session.userId!,
-      status: { not: "FINALIZADO" }
+      status: { notIn: ["FINALIZADO", "RECHAZADO"] }
     },
     include: {
       professional: {
@@ -380,10 +500,42 @@ servicesRouter.get("/services/active", requireAuth, asyncHandler(async (req, res
   });
 }));
 
+servicesRouter.get("/services/requests/with/:clientId", requireAuth, asyncHandler(async (req, res) => {
+  const service = await prisma.serviceRequest.findFirst({
+    where: {
+      clientId: req.params.clientId,
+      professionalId: req.session.userId!
+    },
+    orderBy: { createdAt: "desc" },
+    include: {
+      client: { select: { id: true, displayName: true, username: true } }
+    }
+  });
+  return res.json({ request: service });
+}));
+
 servicesRouter.post("/services/:id/approve", requireAuth, asyncHandler(async (req, res) => {
+  const current = await prisma.serviceRequest.findUnique({ where: { id: req.params.id } });
+  if (!current) return res.status(404).json({ error: "NOT_FOUND" });
+  if (current.professionalId !== req.session.userId) {
+    return res.status(403).json({ error: "NOT_ALLOWED" });
+  }
   const updated = await prisma.serviceRequest.update({
     where: { id: req.params.id },
     data: { status: "ACTIVO" }
+  });
+  return res.json({ service: updated });
+}));
+
+servicesRouter.post("/services/:id/reject", requireAuth, asyncHandler(async (req, res) => {
+  const current = await prisma.serviceRequest.findUnique({ where: { id: req.params.id } });
+  if (!current) return res.status(404).json({ error: "NOT_FOUND" });
+  if (current.professionalId !== req.session.userId) {
+    return res.status(403).json({ error: "NOT_ALLOWED" });
+  }
+  const updated = await prisma.serviceRequest.update({
+    where: { id: req.params.id },
+    data: { status: "RECHAZADO" }
   });
   return res.json({ service: updated });
 }));
