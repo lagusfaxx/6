@@ -83,3 +83,4 @@ export function useMapLocation(fallback: Location) {
 
   return { location, setLocation, resolved };
 }
+

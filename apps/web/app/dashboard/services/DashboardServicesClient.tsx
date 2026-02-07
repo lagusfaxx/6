@@ -78,45 +78,43 @@ const labelsByProfile: Record<string, { item: string; panel: string; helper: str
   }
 };
 
-function stripAge(source?: string | null) {
-  const raw = source || "";
-  return raw.replace(/^\\[edad:(\\d{1,2})\\]\\s*/i, "").trim();
-}
+const fallbackImages = [
+  "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1200&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=1200&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=1200&auto=format&fit=crop"
+];
 
 function toDateInputValue(value?: string | null) {
   if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  try {
+    const d = new Date(value);
+    return d.toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+}
+
+function stripAge(value?: string | null) {
+  return (value || "").replace(/^\[edad:\d{1,2}\]/i, "").trim();
 }
 
 function categoryLabel(category?: { displayName?: string | null; name?: string | null } | null) {
-  return category?.displayName || category?.name || "Sin categoría";
+  return category?.displayName || category?.name || "Categoría";
 }
 
 export default function DashboardServicesClient() {
+  const { me: user, loading } = useMe();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { me, loading } = useMe();
-  const user = me?.user ?? null;
-
-  const [tab, setTab] = useState("perfil");
+  const [tab, setTab] = useState("servicios");
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<ServiceItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [gallery, setGallery] = useState<ProfileMedia[]>([]);
-
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(null);
-
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
   const [serviceCategoryId, setServiceCategoryId] = useState("");
-  const [price, setPrice] = useState<string>("");
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [serviceAddress, setServiceAddress] = useState("");
   const [serviceLatitude, setServiceLatitude] = useState("");
@@ -147,6 +145,10 @@ export default function DashboardServicesClient() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
+
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
 
   const profileType = (user?.profileType ?? "CLIENT") as ProfileType;
   const labels = labelsByProfile[profileType] ?? labelsByProfile.PROFESSIONAL;
@@ -793,113 +795,3 @@ export default function DashboardServicesClient() {
                 {!products.length ? <div className="text-sm text-white/60">Aún no tienes productos publicados.</div> : null}
               </div>
             </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
-              <h2 className="text-lg font-semibold">{editingProductId ? "Editar producto" : "Nuevo producto"}</h2>
-              <p className="mt-1 text-xs text-white/60">Completa los datos para publicar.</p>
-              <div className="mt-4 grid gap-3">
-                <label className="grid gap-2 text-xs text-white/60">
-                  Nombre
-                  <input className="input" value={productName} onChange={(e) => setProductName(e.target.value)} />
-                </label>
-                <label className="grid gap-2 text-xs text-white/60">
-                  Descripción
-                  <textarea className="input min-h-[110px]" value={productDescription} onChange={(e) => setProductDescription(e.target.value)} />
-                </label>
-                <label className="grid gap-2 text-xs text-white/60">
-                  Categoría
-                  <select className="input" value={productCategoryId} onChange={(e) => setProductCategoryId(e.target.value)}>
-                    {categoryOptions.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.displayName || c.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-2 text-xs text-white/60">
-                    Precio
-                    <input className="input" value={productPrice} onChange={(e) => setProductPrice(e.target.value)} type="number" min="0" />
-                  </label>
-                  <label className="grid gap-2 text-xs text-white/60">
-                    Stock
-                    <input className="input" value={productStock} onChange={(e) => setProductStock(e.target.value)} type="number" min="0" />
-                  </label>
-                </div>
-                <button disabled={busy} onClick={saveProduct} className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50">
-                  {editingProductId ? "Guardar cambios" : "Publicar producto"}
-                </button>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="galeria" className="mt-5">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">Galería</h2>
-                  <p className="text-xs text-white/60">Fotos visibles en tu perfil público.</p>
-                </div>
-                <label className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 cursor-pointer inline-flex">
-                  Subir fotos
-                  <input type="file" accept="image/*" className="hidden" multiple onChange={uploadGallery} />
-                </label>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {gallery.map((g) => (
-                  <div key={g.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                    <div className="h-36 overflow-hidden rounded-xl border border-white/10">
-                      <img src={resolveMediaUrl(g.url) || ""} alt="Galería" className="h-full w-full object-cover" />
-                    </div>
-                    <button onClick={() => removeGalleryItem(g.id)} className="mt-3 text-xs text-white/70 underline">
-                      Eliminar
-                    </button>
-                  </div>
-                ))}
-                {!gallery.length ? <div className="text-sm text-white/60">Aún no tienes fotos en tu galería.</div> : null}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="ubicacion" className="mt-5">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
-              <h2 className="text-lg font-semibold">Ubicación</h2>
-              <p className="text-xs text-white/60">Actualiza tu dirección y ciudad.</p>
-              <div className="mt-4 grid gap-3">
-                <label className="grid gap-2 text-xs text-white/60">
-                  Dirección
-                  <input className="input" value={address} onChange={(e) => setAddress(e.target.value)} />
-                </label>
-                <label className="grid gap-2 text-xs text-white/60">
-                  Ciudad
-                  <input className="input" value={city} onChange={(e) => setCity(e.target.value)} />
-                </label>
-                <button disabled={busy} onClick={saveProfile} className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50">
-                  Guardar ubicación
-                </button>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-
-      {error ? <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-100">{error}</div> : null}
-
-      {toast ? (
-        <div className={`mt-4 rounded-xl border px-4 py-2 text-sm ${toast.tone === "success" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100" : "border-red-400/40 bg-red-500/10 text-red-100"}`}>
-          {toast.message}
-        </div>
-      ) : null}
-
-      {profileType === "VIEWER" ? (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="font-medium">¿Quieres publicar?</div>
-          <div className="text-sm text-white/70 mt-1">Cambia tu tipo de perfil o inicia publicación desde el dashboard.</div>
-          <button onClick={startPublish} className="mt-3 rounded-xl bg-white text-black px-4 py-2 font-semibold">
-            Ir al dashboard
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}

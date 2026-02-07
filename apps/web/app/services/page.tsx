@@ -173,12 +173,12 @@ export default function ServicesPage() {
                   name: c.name,
                   lat: Number(c.lat),
                   lng: Number(c.lng),
-                subtitle: selectedCategoryLabel,
-                href: c.href,
-                avatarUrl: c.image,
-                tier: c.tier,
-                areaRadiusM: c.areaRadiusM ?? undefined
-              }))}
+                  subtitle: selectedCategoryLabel,
+                  href: c.href,
+                  avatarUrl: c.image,
+                  tier: c.tier,
+                  areaRadiusM: c.areaRadiusM ?? undefined
+                }))}
               height={380}
             />
           </div>

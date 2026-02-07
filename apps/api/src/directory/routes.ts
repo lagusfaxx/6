@@ -18,60 +18,21 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 function isOnline(lastSeen: Date | null) {
   if (!lastSeen) return false;
-  return Date.now() - lastSeen.getTime() < 5 * 60 * 1000;
+  return Date.now() - lastSeen.getTime() <= 1000 * 60 * 7;
 }
 
-function normalizeCategoryText(value: string | null | undefined) {
-  return (value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
-}
-
-const categoryAliases: Record<string, string[]> = {
-  motel: ["moteles", "centros privados", "centrosprivados"],
-  moteles: ["motel", "centros privados", "centrosprivados"],
-  centrosprivados: ["centros privados", "motel", "moteles"],
-  hotelesporhora: ["hoteles", "hotel", "hoteles por hora"],
-  hoteles: ["hotel", "hoteles por hora"],
-  spa: ["spas", "cafe", "cafes"],
-  spas: ["spa", "cafe", "cafes"],
-  cafe: ["cafes", "spa", "spas"],
-  cafes: ["cafe", "spa", "spas"],
-  acompanamiento: ["acompanantes", "acompanante", "acompañamiento"],
-  acompanantes: ["acompanamiento", "acompanante", "acompañantes"],
-  masaje: ["masajes", "masajes sensuales"],
-  masajes: ["masaje", "masajes sensuales"],
-  lenceria: ["lencería"],
-  juguetes: ["juguetes intimos", "juguetes íntimos"]
-};
-
-function categoryVariants(value: string | null | undefined) {
-  const normalized = normalizeCategoryText(value).replace(/\s+/g, "");
-  if (!normalized) return [] as string[];
-  const aliases = (categoryAliases[normalized] || []).map((a) => normalizeCategoryText(a).replace(/\s+/g, ""));
-  return Array.from(new Set([normalized, ...aliases]));
-}
-
-function categoryMatches(categoryName: string | null | undefined, profileCategory: string | null | undefined, itemCategories: string[]) {
-  const targetVariants = categoryVariants(categoryName);
-  if (!targetVariants.length) return false;
-
-  const values = [profileCategory, ...itemCategories].map((v) => categoryVariants(v));
-
-  return values.some((variants) =>
-    variants.some((candidate) =>
-      targetVariants.some((target) =>
-        candidate === target || candidate.includes(target) || target.includes(candidate)
-      )
-    )
-  );
+function categoryMatches(categoryName: string, profileCategory?: string | null, services?: string[]) {
+  const normalized = (categoryName || "").toLowerCase();
+  if (!normalized) return false;
+  if ((profileCategory || "").toLowerCase().includes(normalized)) return true;
+  if ((services || []).some((c) => (c || "").toLowerCase().includes(normalized))) return true;
+  return false;
 }
 
 function calculateAge(birthdate: Date | null) {
@@ -364,8 +325,7 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
       name: u.displayName || u.username,
       avatarUrl: u.avatarUrl,
       distance,
-      age: resolveAge(u.birthdate, u.bio),
-      createdAt: u.createdAt.toISOString()
+      age: resolveAge(u.birthdate, u.bio)
     };
   });
 
@@ -373,188 +333,56 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
 }));
 
 directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
-  const id = String(req.params.id);
-  const u = await prisma.user.findUnique({
-    where: { id, profileType: "PROFESSIONAL" },
+  const user = await prisma.user.findUnique({
+    where: { id: req.params.id },
     select: {
       id: true,
       username: true,
       displayName: true,
       avatarUrl: true,
       coverUrl: true,
-      isActive: true,
-      lastSeen: true,
       bio: true,
+      city: true,
       gender: true,
       birthdate: true,
+      isActive: true,
+      lastSeen: true,
+      serviceCategory: true,
       serviceDescription: true,
-      serviceCategory: true,
-      category: { select: { id: true, name: true, displayName: true, kind: true } },
-      profileMedia: { where: { type: "IMAGE" }, orderBy: { createdAt: "desc" }, take: 12, select: { id: true, url: true, type: true } }
+      services: {
+        where: { isActive: true },
+        select: { category: true, categoryId: true, latitude: true, longitude: true, locality: true, approxAreaM: true },
+        take: 1,
+        orderBy: { createdAt: "desc" }
+      },
+      category: { select: { id: true, name: true, displayName: true, slug: true, kind: true } }
     }
   });
-  if (!u) return res.status(404).json({ error: "not_found" });
 
-  const reviews = await prisma.professionalReview.findMany({
-    where: { serviceRequest: { professionalId: id } },
-    select: { hearts: true }
-  });
-  const rating = reviews.length ? reviews.reduce((a, r) => a + r.hearts, 0) / reviews.length : null;
+  if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const activeService = user.services[0];
+  const areaRadius = activeService?.approxAreaM ?? 600;
+  const obfuscated = obfuscateLocation(activeService?.latitude, activeService?.longitude, `professional:${user.id}`, areaRadius);
 
   return res.json({
-    professional: {
-      id: u.id,
-      name: u.displayName || u.username,
-      avatarUrl: u.avatarUrl,
-      coverUrl: u.coverUrl,
-      category: u.category?.displayName || u.category?.name || null,
-      isActive: u.isActive,
-      rating: rating ? Number(rating.toFixed(2)) : null,
-      description: u.bio,
-      age: resolveAge(u.birthdate, u.bio),
-      gender: u.gender,
-      serviceSummary: u.serviceDescription || u.serviceCategory || null,
-      isOnline: isOnline(u.lastSeen),
-      lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
-      gallery: u.profileMedia
-    }
-  });
-}));
-
-// ✅ Establecimientos
-directoryRouter.get("/establishments", asyncHandler(async (req, res) => {
-  const now = new Date();
-  const categoryId = typeof req.query.categoryId === "string" ? req.query.categoryId : "";
-  const categorySlug = typeof req.query.categorySlug === "string" ? req.query.categorySlug : typeof req.query.category === "string" ? req.query.category : "";
-  const rangeKm = Math.max(1, Math.min(200, Number(req.query.rangeKm || 20)));
-  const minRating = req.query.minRating ? Number(req.query.minRating) : null;
-
-  const lat = req.query.lat ? Number(req.query.lat) : null;
-  const lng = req.query.lng ? Number(req.query.lng) : null;
-
-  const where: any = {
-    profileType: "ESTABLISHMENT",
-    isActive: true,
-    OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }]
-  };
-  const categoryRef = await findCategoryByRef(prisma, {
-    categoryId: categoryId || null,
-    categorySlug: categorySlug || null,
-    kind: "ESTABLISHMENT"
-  });
-
-  const users = await prisma.user.findMany({
-    where,
-    select: {
-      id: true,
-      username: true,
-      displayName: true,
-      city: true,
-      address: true,
-      phone: true,
-      bio: true,
-      latitude: true,
-      longitude: true,
-      media: { where: { type: "IMAGE" }, orderBy: { createdAt: "desc" }, take: 6, select: { url: true } },
-      serviceCategory: true,
-      services: { select: { category: true, categoryId: true }, take: 25, orderBy: { createdAt: "desc" } },
-      category: { select: { id: true, name: true, displayName: true, slug: true } }
-    },
-    take: 250
-  });
-
-  const reviews = await prisma.establishmentReview.findMany({
-    select: { stars: true, establishmentId: true }
-  });
-
-  const sum = new Map<string, number>();
-  const cnt = new Map<string, number>();
-  for (const r of reviews) {
-    sum.set(r.establishmentId, (sum.get(r.establishmentId) || 0) + r.stars);
-    cnt.set(r.establishmentId, (cnt.get(r.establishmentId) || 0) + 1);
-  }
-
-  const mapped = users.map((u) => {
-    const rating = cnt.get(u.id) ? sum.get(u.id)! / cnt.get(u.id)! : null;
-    const distance =
-      lat != null && lng != null && u.latitude != null && u.longitude != null
-        ? haversineKm(lat, lng, u.latitude, u.longitude)
-        : null;
-
-    return {
-      id: u.id,
-      name: u.displayName || u.username,
-      city: u.city,
-      address: u.address,
-      phone: u.phone,
-      description: u.bio,
-      rating: rating ? Number(rating.toFixed(2)) : null,
-      distance,
-      latitude: u.latitude,
-      longitude: u.longitude,
-      gallery: u.media.map((m) => m.url),
-      category: u.category,
-      serviceCategory: u.serviceCategory,
-      serviceItemCategories: u.services.map((sv) => sv.category || ""),
-      serviceItemCategoryIds: u.services.map((sv) => sv.categoryId || "").filter(Boolean)
-    };
-  });
-
-  const filtered = mapped
-    .filter((u) => {
-      if (!categoryId && !categorySlug) return true;
-      if (categoryRef?.id && u.category?.id === categoryRef.id) return true;
-      if (categoryRef?.id && u.serviceItemCategoryIds.includes(categoryRef.id)) return true;
-      if (!categoryRef?.displayName && !categoryRef?.name) return false;
-      return categoryMatches(categoryRef.displayName || categoryRef.name, u.serviceCategory, u.serviceItemCategories || []);
-    })
-    .filter((u) => (lat != null && lng != null && u.distance != null ? u.distance <= rangeKm : true))
-    .filter((u) => (minRating != null && u.rating != null ? u.rating >= minRating : true))
-    .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
-
-  return res.json({ establishments: filtered });
-}));
-
-directoryRouter.get("/establishments/:id", asyncHandler(async (req, res) => {
-  const id = String(req.params.id);
-  const u = await prisma.user.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      username: true,
-      displayName: true,
-      city: true,
-      address: true,
-      phone: true,
-      bio: true,
-      avatarUrl: true,
-      coverUrl: true,
-      media: { where: { type: "IMAGE" }, orderBy: { createdAt: "desc" }, take: 12, select: { url: true } },
-      motelRooms: { where: { isActive: true }, orderBy: { createdAt: "desc" } },
-      motelPacks: { where: { isActive: true }, orderBy: { createdAt: "desc" } },
-      motelPromotions: { where: { isActive: true }, orderBy: { createdAt: "desc" } }
-    }
-  });
-  if (!u) return res.status(404).json({ error: "NOT_FOUND" });
-
-  const reviews = await prisma.establishmentReview.findMany({ where: { establishmentId: id }, select: { stars: true } });
-  const rating = reviews.length ? reviews.reduce((a, r) => a + r.stars, 0) / reviews.length : null;
-
-  return res.json({
-    establishment: {
-      id: u.id,
-      name: u.displayName || u.username,
-      city: u.city,
-      address: u.address,
-      phone: u.phone,
-      description: u.bio,
-      avatarUrl: u.avatarUrl,
-      coverUrl: u.coverUrl,
-      gallery: u.media.map((m) => m.url),
-      rating: rating ? Number(rating.toFixed(2)) : null,
-      rooms: u.motelRooms,
-      packs: u.motelPacks,
-      promotions: u.motelPromotions
-    }
+    id: user.id,
+    name: user.displayName || user.username,
+    avatarUrl: user.avatarUrl,
+    coverUrl: user.coverUrl || null,
+    bio: user.bio,
+    city: user.city,
+    gender: user.gender,
+    age: resolveAge(user.birthdate, user.bio),
+    latitude: obfuscated.latitude,
+    longitude: obfuscated.longitude,
+    locality: activeService?.locality || user.city || null,
+    approxAreaM: areaRadius,
+    isActive: user.isActive,
+    serviceDescription: user.serviceDescription,
+    serviceCategory: user.serviceCategory,
+    category: user.category,
+    isOnline: isOnline(user.lastSeen),
+    lastSeen: user.lastSeen ? user.lastSeen.toISOString() : null
   });
 }));
