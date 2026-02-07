@@ -40,13 +40,30 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
     return res.status(400).json({ error: "VALIDATION", details: parsed.error.flatten() });
   }
 
-  const { email, password, displayName, username, phone, gender, profileType, preferenceGender, address } = parsed.data;
+  const { email, password, displayName, username, phone, gender, profileType, preferenceGender, address, birthdate, bio } = parsed.data;
   const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
   if (existing?.email === email) return res.status(409).json({ error: "EMAIL_IN_USE" });
   if (existing?.username === username) return res.status(409).json({ error: "USERNAME_IN_USE" });
 
   const passwordHash = await argon2.hash(password);
   const shopTrialEndsAt = profileType === "SHOP" ? addDays(new Date(), 30) : null;
+  let safeBirthdate: Date | null = null;
+  if (birthdate) {
+    const parsedBirthdate = new Date(birthdate);
+    if (Number.isNaN(parsedBirthdate.getTime())) {
+      return res.status(400).json({ error: "BIRTHDATE_INVALID", message: "La fecha de nacimiento no es válida." });
+    }
+    const now = new Date();
+    let age = now.getFullYear() - parsedBirthdate.getFullYear();
+    const m = now.getMonth() - parsedBirthdate.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < parsedBirthdate.getDate())) {
+      age -= 1;
+    }
+    if (age < 18) {
+      return res.status(400).json({ error: "BIRTHDATE_UNDERAGE", message: "Debes ser mayor de 18 años." });
+    }
+    safeBirthdate = parsedBirthdate;
+  }
   let user;
   try {
     user = await prisma.user.create({
@@ -54,7 +71,7 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
         email,
         username,
         phone,
-        gender,
+        gender: gender || null,
         preferenceGender: preferenceGender || null,
         profileType,
         address,
@@ -62,6 +79,8 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
         membershipExpiresAt: profileType === "CLIENT" ? null : addDays(new Date(), 30),
         passwordHash,
         displayName: displayName || null,
+        bio: bio || null,
+        birthdate: safeBirthdate,
         shopTrialEndsAt,
         subscriptionPrice: profileType === "CREATOR" || profileType === "PROFESSIONAL" ? 2500 : null,
         role: "USER"

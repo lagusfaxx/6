@@ -39,6 +39,7 @@ enum ServiceRequestStatus {
   ACTIVO
   PENDIENTE_EVALUACION
   FINALIZADO
+  RECHAZADO
 }
 
 enum Gender {
@@ -234,6 +235,9 @@ model ServiceItem {
   address     String?
   latitude    Float?
   longitude   Float?
+  locality    String?
+  approxAreaM Int?
+  locationVerified Boolean  @default(false)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

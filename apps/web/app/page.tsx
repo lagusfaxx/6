@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
+import { useMapLocation } from "../hooks/useMapLocation";
 import {
   BedDouble,
   Building2,
@@ -116,17 +117,8 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
-  const [location, setLocation] = useState<[number, number] | null>(null);
+  const { location } = useMapLocation([-33.45, -70.66]);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setLocation([pos.coords.latitude, pos.coords.longitude]),
-      () => null,
-      { enableHighAccuracy: true, timeout: 6000 }
-    );
-  }, []);
 
   useEffect(() => {
     (async () => {
@@ -177,21 +169,28 @@ export default function HomePage() {
   return (
     <div className="min-h-screen text-white antialiased">
       <div className="mx-auto max-w-4xl px-4 py-5 md:py-6">
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-4 md:p-6">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <img
-                src="/brand/isotipo.png"
-                alt="Uzeed"
-                className="h-16 w-16 md:h-20 md:w-20 rounded-3xl border border-white/20 bg-white/10 object-cover"
-              />
-              <div className="absolute -bottom-2 -right-2 rounded-full bg-fuchsia-500/90 p-1.5 shadow-[0_0_18px_rgba(217,70,239,0.6)]">
-                <MapPin className="h-4 w-4 text-white" />
+        <section className="rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-5">
+              <div className="relative">
+                <img
+                  src="/brand/isotipo.png"
+                  alt="Uzeed"
+                  className="uzeed-hero-logo h-16 w-16 md:h-24 md:w-24 lg:h-28 lg:w-28 rounded-[28px] border border-white/20 bg-white/10 object-cover"
+                />
+                <div className="absolute -bottom-3 -right-3 rounded-full bg-fuchsia-500/90 p-2 shadow-[0_0_22px_rgba(217,70,239,0.6)]">
+                  <MapPin className="h-4 w-4 text-white" />
+                </div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-[0.35em] text-white/80">Uzeed</div>
+                <h1 className="mt-2 text-2xl md:text-3xl font-semibold">¿Qué estás buscando?</h1>
+                <p className="mt-2 text-sm text-white/70">Explora experiencias, lugares y tiendas con ubicación aproximada.</p>
               </div>
             </div>
-            <div>
-              <div className="text-xs uppercase tracking-[0.3em] text-white/80">Uzeed</div>
-              <h1 className="mt-1 text-xl md:text-2xl font-semibold">¿Qué estás buscando?</h1>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/servicios" className="btn-primary">Explorar servicios</Link>
+              <Link href="/profesionales" className="btn-secondary">Ver experiencias</Link>
             </div>
           </div>
         </section>

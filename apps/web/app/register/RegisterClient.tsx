@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import AuthForm from "../../components/AuthForm";
 import Link from "next/link";
 import { Briefcase, Building2, ShoppingBag, User } from "lucide-react";
+import { API_URL } from "../../lib/api";
+import Avatar from "../../components/Avatar";
 
 type ProfileType = "CLIENT" | "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
 
@@ -41,8 +43,10 @@ const businessOptions: Array<{
 ];
 
 export default function RegisterClient() {
-  const [step, setStep] = useState<"choose" | "form">("choose");
+  const [step, setStep] = useState<"choose" | "form" | "photo">("choose");
   const [profileType, setProfileType] = useState<ProfileType>("CLIENT");
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const selected = useMemo(() => {
     if (profileType === "CLIENT") return consumerOption;
@@ -120,9 +124,20 @@ export default function RegisterClient() {
             Continuar
           </button>
         </div>
-      ) : (
+      ) : step === "form" ? (
         <div className="mt-6">
-          <AuthForm mode="register" initialProfileType={profileType} lockProfileType />
+          <AuthForm
+            mode="register"
+            initialProfileType={profileType}
+            lockProfileType
+            onSuccess={() => {
+              if (profileType !== "CLIENT") {
+                setStep("photo");
+                return { redirect: null };
+              }
+              return { redirect: "/" };
+            }}
+          />
           <button
             type="button"
             onClick={() => setStep("choose")}
@@ -130,6 +145,49 @@ export default function RegisterClient() {
           >
             Cambiar tipo de registro
           </button>
+        </div>
+      ) : (
+        <div className="mt-6 grid gap-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <h2 className="text-lg font-semibold">Foto de perfil</h2>
+            <p className="mt-1 text-sm text-white/60">Puedes subir una foto ahora o más tarde desde tu panel.</p>
+            <div className="mt-4 flex items-center gap-4">
+              <Avatar src={avatarPreview} alt="Vista previa" size={72} className="border-white/20" />
+              <label className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 cursor-pointer inline-flex">
+                {uploading ? "Subiendo..." : "Subir foto"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const form = new FormData();
+                    form.append("file", file);
+                    setUploading(true);
+                    try {
+                      const res = await fetch(`${API_URL}/profile/avatar`, {
+                        method: "POST",
+                        credentials: "include",
+                        body: form
+                      });
+                      if (!res.ok) throw new Error("UPLOAD_FAILED");
+                      const data = await res.json();
+                      setAvatarPreview(data?.avatarUrl || null);
+                    } catch {
+                      setAvatarPreview(null);
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/cuenta" className="btn-primary">Continuar</Link>
+            <Link href="/cuenta" className="btn-secondary">Omitir por ahora</Link>
+          </div>
         </div>
       )}
 
