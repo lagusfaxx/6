@@ -255,12 +255,23 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") {
-      return res.status(409).json({
-        error: "DB_SCHEMA_MISMATCH",
-        message: "La base de datos necesita migraciones antes de guardar ubicaciones verificadas."
+      item = await prisma.serviceItem.create({
+        data: {
+          ownerId: me.id,
+          title,
+          description,
+          category: category.displayName || category.name,
+          categoryId: category.id,
+          price: price ? Number(price) : null,
+          address: addressLabel || null,
+          latitude,
+          longitude,
+          isActive
+        }
       });
+    } else {
+      throw error;
     }
-    throw error;
   }
 
   await ensureUserCategory(me.id, category.id, category.displayName || category.name, me.categoryId);
@@ -354,12 +365,24 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") {
-      return res.status(409).json({
-        error: "DB_SCHEMA_MISMATCH",
-        message: "La base de datos necesita migraciones antes de guardar ubicaciones verificadas."
+      updated = await prisma.serviceItem.update({
+        where: { id: item.id },
+        data: {
+          title: title || item.title,
+          description: description ?? item.description,
+          category: nextCategory ? nextCategory.displayName || nextCategory.name : item.category,
+          categoryId: nextCategory ? nextCategory.id : item.categoryId,
+          price: price ? Number(price) : item.price,
+          address: wantsLocationUpdate ? addressLabel ?? item.address : item.address,
+          latitude: wantsLocationUpdate ? latitude : item.latitude,
+          longitude: wantsLocationUpdate ? longitude : item.longitude,
+          isActive: nextIsActive
+        },
+        include: { media: true }
       });
+    } else {
+      throw error;
     }
-    throw error;
   }
   await ensureUserCategory(me.id, updated.categoryId, updated.category ?? null, me.categoryId);
   return res.json({ item: updated });

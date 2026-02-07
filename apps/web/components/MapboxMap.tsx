@@ -156,8 +156,14 @@ export default function MapboxMap({
     const map = mapRef.current;
     if (!map) return;
 
-    const target = userLocation || (displayMarkers[0] ? [displayMarkers[0].displayLat, displayMarkers[0].displayLng] as [number, number] : DEFAULT_CENTER);
-    map.jumpTo({ center: [target[1], target[0]], zoom: userLocation ? 13 : 11.5 });
+    const target =
+      userLocation || (displayMarkers[0] ? [displayMarkers[0].displayLat, displayMarkers[0].displayLng] as [number, number] : DEFAULT_CENTER);
+    const run = () => map.flyTo({ center: [target[1], target[0]], zoom: userLocation ? 13 : 11.5, essential: true });
+    if (!map.isStyleLoaded()) {
+      map.once("load", run);
+    } else {
+      run();
+    }
   }, [userLocation?.[0], userLocation?.[1], displayMarkers]);
 
   useEffect(() => {

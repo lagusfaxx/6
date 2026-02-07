@@ -29,6 +29,7 @@ function storeLocation(location: Location) {
 
 export function useMapLocation(fallback: Location) {
   const [location, setLocation] = useState<Location | null>(() => readStoredLocation() || fallback);
+  const [resolved, setResolved] = useState(false);
 
   useEffect(() => {
     const stored = readStoredLocation();
@@ -42,9 +43,11 @@ export function useMapLocation(fallback: Location) {
         const next: Location = [pos.coords.latitude, pos.coords.longitude];
         setLocation(next);
         storeLocation(next);
+        setResolved(true);
       },
       () => {
         setLocation((prev) => prev || fallback);
+        setResolved(true);
       },
       { enableHighAccuracy: true, timeout: 6000 }
     );
@@ -54,5 +57,5 @@ export function useMapLocation(fallback: Location) {
     if (location) storeLocation(location);
   }, [location]);
 
-  return { location, setLocation };
+  return { location, setLocation, resolved };
 }
