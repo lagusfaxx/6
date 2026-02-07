@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db";
+import { Prisma } from "@prisma/client";
 import { asyncHandler } from "../lib/asyncHandler";
 import { findCategoryByRef } from "../lib/categories";
 import { obfuscateLocation } from "../lib/locationPrivacy";
@@ -161,32 +162,89 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
   if (gender) where.gender = gender;
   if (tier) where.tier = tier;
 
-  const users = await prisma.user.findMany({
-    where,
-    select: {
-      id: true,
-      username: true,
-      displayName: true,
-      avatarUrl: true,
-      coverUrl: true,
-      lastSeen: true,
-      isActive: true,
-      tier: true,
-      gender: true,
-      bio: true,
-      birthdate: true,
-      serviceCategory: true,
-      serviceDescription: true,
-      services: {
-        where: { isActive: true },
-        select: { category: true, categoryId: true, latitude: true, longitude: true, locality: true, approxAreaM: true },
-        take: 25,
-        orderBy: { createdAt: "desc" }
+  let users: Array<{
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    coverUrl: string | null;
+    lastSeen: Date | null;
+    isActive: boolean;
+    tier: string | null;
+    gender: string | null;
+    bio: string | null;
+    birthdate: Date | null;
+    serviceCategory: string | null;
+    serviceDescription: string | null;
+    services: Array<{
+      category: string | null;
+      categoryId: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      locality?: string | null;
+      approxAreaM?: number | null;
+    }>;
+    category: { id: string; name: string; displayName: string | null; slug: string; kind: string } | null;
+  }> = [];
+  try {
+    users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        coverUrl: true,
+        lastSeen: true,
+        isActive: true,
+        tier: true,
+        gender: true,
+        bio: true,
+        birthdate: true,
+        serviceCategory: true,
+        serviceDescription: true,
+        services: {
+          where: { isActive: true },
+          select: { category: true, categoryId: true, latitude: true, longitude: true, locality: true, approxAreaM: true },
+          take: 25,
+          orderBy: { createdAt: "desc" }
+        },
+        category: { select: { id: true, name: true, displayName: true, slug: true, kind: true } }
       },
-      category: { select: { id: true, name: true, displayName: true, slug: true, kind: true } }
-    },
-    take: 250
-  });
+      take: 250
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") {
+      users = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          avatarUrl: true,
+          coverUrl: true,
+          lastSeen: true,
+          isActive: true,
+          tier: true,
+          gender: true,
+          bio: true,
+          birthdate: true,
+          serviceCategory: true,
+          serviceDescription: true,
+          services: {
+            where: { isActive: true },
+            select: { category: true, categoryId: true, latitude: true, longitude: true },
+            take: 25,
+            orderBy: { createdAt: "desc" }
+          },
+          category: { select: { id: true, name: true, displayName: true, slug: true, kind: true } }
+        },
+        take: 250
+      });
+    } else {
+      throw error;
+    }
+  }
 
   // rating promedio por professional via service requests join
   const ratingByProfessional = new Map<string, number>();

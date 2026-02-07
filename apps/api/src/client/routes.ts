@@ -29,7 +29,11 @@ clientRouter.get("/categories", async (_req, res, next) => {
  */
 clientRouter.get("/banners", async (_req, res, next) => {
   try {
-    const banners = await prisma.banner.findMany({
+    const bannerClient = (prisma as any).banner;
+    if (!bannerClient?.findMany) {
+      return res.json({ banners: [] });
+    }
+    const banners = await bannerClient.findMany({
       where: { isActive: true },
       orderBy: [{ position: "asc" }, { sortOrder: "asc" }, { createdAt: "desc" }]
     });

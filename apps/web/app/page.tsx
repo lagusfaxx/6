@@ -176,7 +176,7 @@ export default function HomePage() {
                 <img
                   src="/brand/isotipo.png"
                   alt="Uzeed"
-                  className="uzeed-hero-logo h-20 w-20 md:h-28 md:w-28 rounded-[32px] border border-white/20 bg-white/10 object-cover"
+                  className="uzeed-hero-logo h-16 w-16 md:h-24 md:w-24 lg:h-28 lg:w-28 rounded-[28px] border border-white/20 bg-white/10 object-cover"
                 />
                 <div className="absolute -bottom-3 -right-3 rounded-full bg-fuchsia-500/90 p-2 shadow-[0_0_22px_rgba(217,70,239,0.6)]">
                   <MapPin className="h-4 w-4 text-white" />
