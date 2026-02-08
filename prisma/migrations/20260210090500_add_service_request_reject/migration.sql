@@ -1,0 +1,1 @@
+ALTER TYPE "ServiceRequestStatus" ADD VALUE IF NOT EXISTS 'RECHAZADO';
