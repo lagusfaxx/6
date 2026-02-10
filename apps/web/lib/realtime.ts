@@ -15,9 +15,17 @@ export function connectRealtime(handler: Handler) {
     try {
       es = new EventSource(url, { withCredentials: true } as any);
 
-      es.addEventListener("hello", () => {
-        // no-op
+      es.addEventListener("hello", (e: MessageEvent) => {
+        try {
+          handler({ type: "hello", data: JSON.parse(String(e.data || "{}")) });
+        } catch {
+          handler({ type: "hello", data: null });
+        }
       });
+
+      es.onopen = () => {
+        handler({ type: "connected", data: { ok: true } });
+      };
 
       es.addEventListener("message", (e: MessageEvent) => {
         try {
@@ -35,9 +43,16 @@ export function connectRealtime(handler: Handler) {
         }
       });
 
-      es.addEventListener("ping", () => {});
+      es.addEventListener("ping", (e: MessageEvent) => {
+        try {
+          handler({ type: "ping", data: JSON.parse(String(e.data || "{}")) });
+        } catch {
+          handler({ type: "ping", data: null });
+        }
+      });
 
       es.onerror = () => {
+        handler({ type: "disconnected", data: null });
         // Reconnect with backoff
         es?.close();
         es = null;

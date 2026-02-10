@@ -39,6 +39,8 @@ enum ServiceRequestStatus {
   ACTIVO
   PENDIENTE_EVALUACION
   FINALIZADO
+  RECHAZADO
+  CANCELADO_CLIENTE
 }
 
 enum Gender {
@@ -354,12 +356,19 @@ model Favorite {
 }
 
 model ServiceRequest {
-  id             String               @id @default(uuid()) @db.Uuid
-  clientId       String               @db.Uuid
-  professionalId String               @db.Uuid
-  status         ServiceRequestStatus @default(PENDIENTE_APROBACION)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  id                    String               @id @default(uuid()) @db.Uuid
+  clientId              String               @db.Uuid
+  professionalId        String               @db.Uuid
+  status                ServiceRequestStatus @default(PENDIENTE_APROBACION)
+  requestedDate         String?
+  requestedTime         String?
+  agreedLocation        String?
+  clientComment         String?
+  professionalPriceClp  Int?
+  professionalDurationM Int?
+  professionalComment   String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
 
   client       User                @relation("ClientRequests", fields: [clientId], references: [id], onDelete: Cascade)
   professional User                @relation("ProfessionalRequests", fields: [professionalId], references: [id], onDelete: Cascade)

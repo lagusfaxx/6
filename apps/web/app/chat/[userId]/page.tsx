@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, API_URL, isAuthError, resolveMediaUrl } from "../../../lib/api";
 import { connectRealtime } from "../../../lib/realtime";
@@ -22,11 +23,37 @@ type ChatUser = {
   avatarUrl: string | null;
   profileType: string;
   city: string | null;
+  phone?: string | null;
+};
+
+type ServiceRequest = {
+  id: string;
+  status: string;
+  requestedDate?: string | null;
+  requestedTime?: string | null;
+  agreedLocation?: string | null;
+  clientComment?: string | null;
+  professionalPriceClp?: number | null;
+  professionalDurationM?: number | null;
+  professionalComment?: string | null;
+  contactUnlocked?: boolean;
+  client?: { id: string; displayName?: string | null; username: string; phone?: string | null };
+  professional?: { id: string; displayName?: string | null; username: string; phone?: string | null };
 };
 
 type MeResponse = {
   user: { id: string; displayName: string | null; username: string; profileType: string | null } | null;
 };
+
+function statusLabel(status: string) {
+  if (status === "PENDIENTE_APROBACION") return "pendiente de revisión";
+  if (status === "APROBADO") return "propuesta enviada";
+  if (status === "ACTIVO") return "confirmada";
+  if (status === "FINALIZADO") return "servicio terminado";
+  if (status === "RECHAZADO") return "rechazada";
+  if (status === "CANCELADO_CLIENTE") return "cancelada por cliente";
+  return status.toLowerCase();
+}
 
 export default function ChatPage() {
   const params = useParams();
@@ -34,6 +61,7 @@ export default function ChatPage() {
   const searchParams = useSearchParams();
   const pathname = usePathname() || "/chats";
   const userId = String(params.userId || "");
+
   const [me, setMe] = useState<MeResponse["user"] | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [other, setOther] = useState<ChatUser | null>(null);
@@ -42,9 +70,45 @@ export default function ChatPage() {
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [activeRequest, setActiveRequest] = useState<ServiceRequest | null>(null);
   const [requesting, setRequesting] = useState(false);
-  const [activeRequest, setActiveRequest] = useState<{ id: string; status: string } | null>(null);
-  const [incomingNotice, setIncomingNotice] = useState<string | null>(null);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [requestDate, setRequestDate] = useState("");
+  const [requestTime, setRequestTime] = useState("");
+  const [requestLocation, setRequestLocation] = useState("");
+  const [requestComment, setRequestComment] = useState("");
+
+  const [proposalPrice, setProposalPrice] = useState("");
+  const [proposalDuration, setProposalDuration] = useState("60");
+  const [proposalComment, setProposalComment] = useState("");
+  const [proposalSubmitting, setProposalSubmitting] = useState(false);
+  const [lastRealtimeAt, setLastRealtimeAt] = useState(0);
+  const fallbackStepsMs = [2000, 5000, 10000, 20000] as const;
+  const fallbackStepRef = useRef(0);
+  const fallbackInFlightRef = useRef(false);
+
+  async function loadServiceState(profile: MeResponse["user"] | null) {
+    if (!profile) {
+      setActiveRequest(null);
+      return;
+    }
+
+    if (profile.profileType === "CLIENT") {
+      const res = await apiFetch<{ services: ServiceRequest[] }>("/services/active");
+      const match = res.services.find((service) => service.professional?.id === userId);
+      setActiveRequest(match || null);
+      return;
+    }
+
+    if (profile.profileType === "PROFESSIONAL") {
+      const res = await apiFetch<{ request: ServiceRequest | null }>(`/services/requests/with/${userId}`);
+      setActiveRequest(res.request || null);
+      return;
+    }
+
+    setActiveRequest(null);
+  }
 
   async function load() {
     const [meResp, msgResp] = await Promise.all([
@@ -54,18 +118,7 @@ export default function ChatPage() {
     setMe(meResp.user);
     setMessages(msgResp.messages);
     setOther(msgResp.other);
-    if (meResp.user?.profileType === "CLIENT") {
-      apiFetch<{ services: { id: string; status: string; professional: { id: string } }[] }>("/services/active")
-        .then((res) => {
-          const match = res.services.find((s) => s.professional.id === userId);
-          setActiveRequest(match ? { id: match.id, status: match.status } : null);
-        })
-        .catch(() => setActiveRequest(null));
-    } else if (meResp.user?.profileType === "PROFESSIONAL") {
-      apiFetch<{ request: { id: string; status: string } | null }>(`/services/requests/with/${userId}`)
-        .then((res) => setActiveRequest(res.request ? { id: res.request.id, status: res.request.status } : null))
-        .catch(() => setActiveRequest(null));
-    }
+    await loadServiceState(meResp.user);
   }
 
   useEffect(() => {
@@ -84,48 +137,79 @@ export default function ChatPage() {
       .finally(() => setLoading(false));
   }, [pathname, router, userId]);
 
-
   useEffect(() => {
     const draft = searchParams.get("draft");
     if (draft && !body) setBody(draft);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-
   async function refreshConversationSilently() {
     try {
       const msgResp = await apiFetch<{ messages: Message[]; other: ChatUser }>(`/messages/${userId}`);
       setMessages(msgResp.messages);
       setOther(msgResp.other);
-
-      if (me?.profileType === "CLIENT") {
-        const res = await apiFetch<{ services: { id: string; status: string; professional: { id: string } }[] }>("/services/active");
-        const match = res.services.find((service) => service.professional.id === userId);
-        setActiveRequest(match ? { id: match.id, status: match.status } : null);
-      } else if (me?.profileType === "PROFESSIONAL") {
-        const res = await apiFetch<{ request: { id: string; status: string } | null }>(`/services/requests/with/${userId}`);
-        setActiveRequest(res.request ? { id: res.request.id, status: res.request.status } : null);
-      }
+      await loadServiceState(me);
     } catch {
-      // Silent refresh to keep chat updated without interrupting the user
+      // silent polling
     }
   }
 
+  useEffect(() => {
+    const disconnect = connectRealtime((event) => {
+      if (["connected", "hello", "ping", "message", "service_request"].includes(event.type)) {
+        fallbackStepRef.current = 0;
+        setLastRealtimeAt(Date.now());
+      }
+      if (event.type === "message" || event.type === "service_request") {
+        refreshConversationSilently();
+      }
+    });
 
+    return () => disconnect();
+  }, [userId, me?.profileType]);
 
   useEffect(() => {
-    let inFlight = false;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    const timer = setInterval(() => {
-      if (inFlight) return;
-      inFlight = true;
-      refreshConversationSilently().finally(() => {
-        inFlight = false;
-      });
-    }, 2000);
+    const schedule = (delayMs: number) => {
+      timer = setTimeout(tick, delayMs);
+    };
 
-    return () => clearInterval(timer);
-  }, [userId, me?.profileType]);
+    const tick = () => {
+      if (cancelled) return;
+
+      const realtimeRecentlyActive = Date.now() - lastRealtimeAt < 6000;
+      if (realtimeRecentlyActive) {
+        fallbackStepRef.current = 0;
+        schedule(fallbackStepsMs[0]);
+        return;
+      }
+
+      if (fallbackInFlightRef.current) {
+        const currentDelay = fallbackStepsMs[Math.min(fallbackStepRef.current, fallbackStepsMs.length - 1)];
+        schedule(currentDelay);
+        return;
+      }
+
+      fallbackInFlightRef.current = true;
+      refreshConversationSilently()
+        .finally(() => {
+          fallbackInFlightRef.current = false;
+          fallbackStepRef.current = Math.min(fallbackStepRef.current + 1, fallbackStepsMs.length - 1);
+          const nextDelay = fallbackStepsMs[fallbackStepRef.current];
+          schedule(nextDelay);
+        });
+    };
+
+    schedule(fallbackStepsMs[Math.min(fallbackStepRef.current, fallbackStepsMs.length - 1)]);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [userId, me?.profileType, lastRealtimeAt]);
+
   async function send(e: React.FormEvent) {
     e.preventDefault();
     if (!body.trim() && !attachment) return;
@@ -160,14 +244,30 @@ export default function ChatPage() {
     }
   }
 
-  async function requestService() {
+  async function submitServiceRequest(e: React.FormEvent) {
+    e.preventDefault();
+    if (!requestDate || !requestTime || !requestLocation.trim()) {
+      setError("Debes completar fecha, hora y ubicación acordada.");
+      return;
+    }
     setRequesting(true);
     try {
-      const res = await apiFetch<{ request: { id: string; status: string } }>("/services/request", {
+      const res = await apiFetch<{ request: ServiceRequest }>("/services/request", {
         method: "POST",
-        body: JSON.stringify({ professionalId: userId })
+        body: JSON.stringify({
+          professionalId: userId,
+          date: requestDate,
+          time: requestTime,
+          location: requestLocation,
+          comment: requestComment
+        })
       });
-      setActiveRequest(res.request ? { id: res.request.id, status: res.request.status } : { id: "pending", status: "PENDIENTE_APROBACION" });
+      setActiveRequest(res.request || null);
+      setRequestModalOpen(false);
+      setRequestDate("");
+      setRequestTime("");
+      setRequestLocation("");
+      setRequestComment("");
     } catch (e: any) {
       setError(e?.message || "No se pudo solicitar el servicio");
     } finally {
@@ -175,31 +275,89 @@ export default function ChatPage() {
     }
   }
 
-  async function approveRequest() {
+  async function submitProposal(e: React.FormEvent) {
+    e.preventDefault();
     if (!activeRequest) return;
+    setProposalSubmitting(true);
     try {
-      await apiFetch(`/services/${activeRequest.id}/approve`, { method: "POST" });
-      setActiveRequest({ ...activeRequest, status: "ACTIVO" });
+      const res = await apiFetch<{ service: ServiceRequest }>(`/services/${activeRequest.id}/approve`, {
+        method: "POST",
+        body: JSON.stringify({
+          priceClp: Number(proposalPrice),
+          durationMinutes: Number(proposalDuration),
+          professionalComment: proposalComment
+        })
+      });
+      setActiveRequest(res.service || null);
+      setProposalPrice("");
+      setProposalDuration("60");
+      setProposalComment("");
     } catch (e: any) {
-      setError(e?.message || "No se pudo aprobar la solicitud");
+      setError(e?.message || "No se pudo enviar la propuesta");
+    } finally {
+      setProposalSubmitting(false);
     }
   }
 
   async function rejectRequest() {
     if (!activeRequest) return;
     try {
-      await apiFetch(`/services/${activeRequest.id}/reject`, { method: "POST" });
-      setActiveRequest({ ...activeRequest, status: "RECHAZADO" });
+      const res = await apiFetch<{ service: ServiceRequest }>(`/services/${activeRequest.id}/reject`, { method: "POST" });
+      setActiveRequest(res.service || null);
     } catch (e: any) {
       setError(e?.message || "No se pudo rechazar la solicitud");
     }
   }
 
+  async function confirmProposal() {
+    if (!activeRequest) return;
+    try {
+      const res = await apiFetch<{ service: ServiceRequest }>(`/services/${activeRequest.id}/client-confirm`, { method: "POST" });
+      setActiveRequest(res.service || null);
+      await loadServiceState(me);
+    } catch (e: any) {
+      setError(e?.message || "No se pudo confirmar la solicitud");
+    }
+  }
+
+  async function cancelProposal() {
+    if (!activeRequest) return;
+    try {
+      const res = await apiFetch<{ service: ServiceRequest }>(`/services/${activeRequest.id}/client-cancel`, { method: "POST" });
+      setActiveRequest(res.service || null);
+    } catch (e: any) {
+      setError(e?.message || "No se pudo cancelar la solicitud");
+    }
+  }
+
+  async function finishService() {
+    if (!activeRequest) return;
+    try {
+      const res = await apiFetch<{ service: ServiceRequest }>(`/services/${activeRequest.id}/finish`, { method: "POST" });
+      setActiveRequest(res.service || null);
+    } catch (e: any) {
+      setError(e?.message || "No se pudo finalizar el servicio");
+    }
+  }
+
+  const contactPhone = useMemo(() => {
+    if (!activeRequest) return null;
+    if (!(activeRequest.status === "ACTIVO" || activeRequest.status === "FINALIZADO")) return null;
+    if (me?.profileType === "CLIENT") return activeRequest.professional?.phone || null;
+    if (me?.profileType === "PROFESSIONAL") return activeRequest.client?.phone || null;
+    return null;
+  }, [activeRequest, me?.profileType]);
+
   if (loading) return <div className="text-white/70">Cargando chat...</div>;
   if (error) return <div className="text-red-200">{error}</div>;
 
-  const canRequest = me?.profileType === "CLIENT" && !activeRequest;
-  const canManageRequest = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "PENDIENTE_APROBACION";
+  const canCreateRequest = me?.profileType === "CLIENT" && !activeRequest;
+  const waitingProfessional = me?.profileType === "CLIENT" && activeRequest?.status === "PENDIENTE_APROBACION";
+  const canConfirmProposal = me?.profileType === "CLIENT" && activeRequest?.status === "APROBADO";
+
+  const canReviewPendingRequest = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "PENDIENTE_APROBACION";
+  const waitingClientConfirm = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "APROBADO";
+  const canFinishService = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "ACTIVO";
 
   return (
     <div className="grid gap-6">
@@ -219,21 +377,82 @@ export default function ChatPage() {
               )}
             </div>
           </div>
-          {canRequest ? (
-            <button onClick={requestService} className="btn-primary" disabled={requesting}>
+
+          {canCreateRequest ? (
+            <button onClick={() => setRequestModalOpen(true)} className="btn-primary" disabled={requesting}>
               {requesting ? "Solicitando..." : "Solicitar servicio"}
             </button>
-          ) : canManageRequest ? (
-            <div className="flex flex-wrap gap-2">
-              <button onClick={approveRequest} className="btn-primary">Aceptar solicitud</button>
-              <button onClick={rejectRequest} className="btn-secondary">Rechazar</button>
-            </div>
           ) : activeRequest ? (
             <span className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs text-white/70">
-              Solicitud {activeRequest.status === "ACTIVO" ? "activa" : activeRequest.status === "RECHAZADO" ? "rechazada" : "pendiente"}
+              Solicitud {statusLabel(activeRequest.status)}
             </span>
           ) : null}
         </div>
+
+        {activeRequest ? (
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
+            <div className="grid gap-1 text-xs text-white/70">
+              <div><span className="text-white/50">Fecha:</span> {activeRequest.requestedDate || "-"}</div>
+              <div><span className="text-white/50">Hora:</span> {activeRequest.requestedTime || "-"}</div>
+              <div><span className="text-white/50">Ubicación acordada:</span> {activeRequest.agreedLocation || "-"}</div>
+              {activeRequest.clientComment ? <div><span className="text-white/50">Comentario cliente:</span> {activeRequest.clientComment}</div> : null}
+              {activeRequest.professionalPriceClp != null ? <div><span className="text-white/50">Valor:</span> ${Number(activeRequest.professionalPriceClp).toLocaleString("es-CL")} CLP</div> : null}
+              {activeRequest.professionalDurationM != null ? <div><span className="text-white/50">Duración:</span> {activeRequest.professionalDurationM} min</div> : null}
+              {activeRequest.professionalComment ? <div><span className="text-white/50">Nota profesional:</span> {activeRequest.professionalComment}</div> : null}
+            </div>
+
+            {canConfirmProposal ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button onClick={confirmProposal} className="btn-primary">Confirmar solicitud</button>
+                <button onClick={cancelProposal} className="btn-secondary">Cancelar</button>
+              </div>
+            ) : null}
+
+            {canFinishService ? (
+              <div className="mt-4">
+                <button onClick={finishService} className="btn-primary">Servicio terminado</button>
+              </div>
+            ) : null}
+
+            {waitingProfessional ? <p className="mt-3 text-xs text-white/60">Tu solicitud está pendiente de revisión por la profesional.</p> : null}
+            {waitingClientConfirm ? <p className="mt-3 text-xs text-white/60">Propuesta enviada. Esperando confirmación del cliente.</p> : null}
+
+            {contactPhone ? (
+              <p className="mt-3 text-xs text-green-300">Contacto liberado: {contactPhone}</p>
+            ) : (activeRequest.status === "APROBADO" ? (
+              <p className="mt-3 text-xs text-amber-300">El teléfono se libera solo cuando el cliente confirma la propuesta.</p>
+            ) : null)}
+          </div>
+        ) : null}
+
+        {canReviewPendingRequest ? (
+          <form onSubmit={submitProposal} className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 grid gap-3">
+            <div className="text-sm font-medium">Responder solicitud</div>
+            <div className="grid gap-2 md:grid-cols-2">
+              <label className="grid gap-1 text-xs text-white/70">
+                Valor (CLP)
+                <input className="input" inputMode="numeric" value={proposalPrice} onChange={(e) => setProposalPrice(e.target.value)} placeholder="Ej: 50000" />
+              </label>
+              <label className="grid gap-1 text-xs text-white/70">
+                Duración
+                <select className="input" value={proposalDuration} onChange={(e) => setProposalDuration(e.target.value)}>
+                  <option value="30">30 minutos</option>
+                  <option value="60">60 minutos</option>
+                  <option value="90">90 minutos</option>
+                  <option value="120">120 minutos</option>
+                </select>
+              </label>
+            </div>
+            <label className="grid gap-1 text-xs text-white/70">
+              Nota adicional (opcional)
+              <textarea className="input min-h-20" value={proposalComment} onChange={(e) => setProposalComment(e.target.value)} placeholder="Información adicional para el cliente" />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button className="btn-primary" disabled={proposalSubmitting}>{proposalSubmitting ? "Enviando..." : "Aceptar y enviar propuesta"}</button>
+              <button type="button" onClick={rejectRequest} className="btn-secondary">Rechazar</button>
+            </div>
+          </form>
+        ) : null}
       </div>
 
       <div className="card p-6">
@@ -244,18 +463,14 @@ export default function ChatPage() {
             return (
               <div
                 key={m.id}
-                className={`rounded-xl px-4 py-3 text-sm ${
-                  m.fromId === me?.id ? "bg-purple-500/20 text-white ml-auto" : "bg-white/5 text-white/80"
-                }`}
+                className={`rounded-xl px-4 py-3 text-sm ${m.fromId === me?.id ? "bg-purple-500/20 text-white ml-auto" : "bg-white/5 text-white/80"}`}
               >
                 {isImage && imageUrl ? (
                   <img src={imageUrl} alt="Adjunto" className="max-w-[220px] rounded-lg border border-white/10" />
                 ) : (
                   <div>{m.body}</div>
                 )}
-                <div className="mt-1 text-[10px] text-white/40">
-                  {new Date(m.createdAt).toLocaleString("es-CL")}
-                </div>
+                <div className="mt-1 text-[10px] text-white/40">{new Date(m.createdAt).toLocaleString("es-CL")}</div>
               </div>
             );
           })}
@@ -266,26 +481,14 @@ export default function ChatPage() {
           <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
             <img src={attachmentPreview} alt="Adjunto" className="h-16 w-16 rounded-xl object-cover" />
             <div className="flex-1 text-xs text-white/70">{attachment?.name}</div>
-            <button
-              type="button"
-              onClick={() => {
-                setAttachment(null);
-                setAttachmentPreview(null);
-              }}
-              className="rounded-full border border-white/15 bg-white/5 p-2 text-white/70 hover:bg-white/10"
-            >
+            <button type="button" onClick={() => { setAttachment(null); setAttachmentPreview(null); }} className="rounded-full border border-white/15 bg-white/5 p-2 text-white/70 hover:bg-white/10">
               <X className="h-4 w-4" />
             </button>
           </div>
         ) : null}
 
         <form onSubmit={send} className="mt-4 flex flex-wrap gap-3 items-center">
-          <input
-            className="input flex-1"
-            placeholder="Escribe tu mensaje..."
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-          />
+          <input className="input flex-1" placeholder="Escribe tu mensaje..." value={body} onChange={(e) => setBody(e.target.value)} />
           <label className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80 hover:bg-white/10 cursor-pointer">
             <Paperclip className="h-4 w-4" />
             Adjuntar
@@ -309,6 +512,58 @@ export default function ChatPage() {
           <button className="btn-primary">Enviar</button>
         </form>
       </div>
+
+      {requestModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#2a1245] p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">Solicitar servicio</h2>
+                <p className="mt-1 text-xs text-white/60">Completa fecha, hora y ubicación acordada para enviar la solicitud.</p>
+              </div>
+              <button type="button" onClick={() => setRequestModalOpen(false)} className="rounded-full border border-white/20 p-2 text-white/70 hover:bg-white/10">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={submitServiceRequest} className="mt-4 grid gap-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="grid gap-1 text-xs text-white/70">
+                  Fecha
+                  <input type="date" className="input" value={requestDate} onChange={(e) => setRequestDate(e.target.value)} required />
+                </label>
+                <label className="grid gap-1 text-xs text-white/70">
+                  Hora
+                  <input type="time" className="input" value={requestTime} onChange={(e) => setRequestTime(e.target.value)} required />
+                </label>
+              </div>
+
+              <label className="grid gap-1 text-xs text-white/70">
+                Ubicación acordada (texto libre)
+                <input className="input" value={requestLocation} onChange={(e) => setRequestLocation(e.target.value)} placeholder="Ej: Metro Los Leones, Providencia" required />
+              </label>
+
+              <label className="grid gap-1 text-xs text-white/70">
+                Comentario adicional (opcional)
+                <textarea className="input min-h-20" value={requestComment} onChange={(e) => setRequestComment(e.target.value)} placeholder="Detalles que ayuden a coordinar" />
+              </label>
+
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white/70">
+                <div className="font-medium text-white/80">Accesos directos (informativo)</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Link href="/establecimientos" className="rounded-full border border-white/15 px-3 py-1 hover:bg-white/10">Moteles / lugares</Link>
+                  <Link href="/sexshops" className="rounded-full border border-white/15 px-3 py-1 hover:bg-white/10">Servicios complementarios</Link>
+                </div>
+              </div>
+
+              <div className="mt-1 flex justify-end gap-2">
+                <button type="button" onClick={() => setRequestModalOpen(false)} className="btn-secondary">Cancelar</button>
+                <button className="btn-primary" disabled={requesting}>{requesting ? "Enviando..." : "Enviar solicitud"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

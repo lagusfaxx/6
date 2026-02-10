@@ -526,7 +526,17 @@ servicesRouter.post("/services/:userId/rating", requireAuth, asyncHandler(async 
 
 servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, res) => {
   const professionalId = typeof req.body?.professionalId === "string" ? req.body.professionalId : null;
+  const requestedDate = typeof req.body?.date === "string" ? req.body.date.trim() : "";
+  const requestedTime = typeof req.body?.time === "string" ? req.body.time.trim() : "";
+  const agreedLocation = typeof req.body?.location === "string" ? req.body.location.trim() : "";
+  const clientComment = typeof req.body?.comment === "string" ? req.body.comment.trim() : "";
+
   if (!professionalId) return res.status(400).json({ error: "INVALID_PROFESSIONAL" });
+  if (!requestedDate || !requestedTime || !agreedLocation) {
+    return res.status(400).json({ error: "MISSING_REQUEST_FIELDS" });
+  }
+
+  const activeStatuses = ["PENDIENTE_APROBACION", "APROBADO", "ACTIVO", "PENDIENTE_EVALUACION"] as const;
 
   const activeStatuses = ["PENDIENTE_APROBACION", "APROBADO", "ACTIVO", "PENDIENTE_EVALUACION"] as const;
 
@@ -544,10 +554,18 @@ servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, r
     data: {
       clientId: req.session.userId!,
       professionalId,
-      status: "PENDIENTE_APROBACION"
+      status: "PENDIENTE_APROBACION",
+      requestedDate,
+      requestedTime,
+      agreedLocation,
+      clientComment: clientComment || null
+    },
+    include: {
+      client: { select: { id: true, displayName: true, username: true, phone: true } },
+      professional: { select: { id: true, displayName: true, username: true, phone: true } }
     }
   });
-  // Realtime push to professional
+
   sendToUser(professionalId, "service_request", { request });
   sendToUser(req.session.userId!, "service_request", { request });
   return res.json({ request });
@@ -569,7 +587,8 @@ servicesRouter.get("/services/active", requireAuth, asyncHandler(async (req, res
           username: true,
           avatarUrl: true,
           category: true,
-          isActive: true
+          isActive: true,
+          phone: true
         }
       }
     },
@@ -580,66 +599,177 @@ servicesRouter.get("/services/active", requireAuth, asyncHandler(async (req, res
       id: s.id,
       status: s.status,
       createdAt: s.createdAt,
+      requestedDate: s.requestedDate,
+      requestedTime: s.requestedTime,
+      agreedLocation: s.agreedLocation,
+      clientComment: s.clientComment,
+      professionalPriceClp: s.professionalPriceClp,
+      professionalDurationM: s.professionalDurationM,
+      professionalComment: s.professionalComment,
+      contactUnlocked: s.status === "ACTIVO" || s.status === "FINALIZADO",
       professional: {
         id: s.professional.id,
         name: s.professional.displayName || s.professional.username,
         avatarUrl: s.professional.avatarUrl,
         category: s.professional.category?.name || null,
-        isActive: s.professional.isActive
+        isActive: s.professional.isActive,
+        phone: s.status === "ACTIVO" || s.status === "FINALIZADO" ? s.professional.phone : null
       }
     }))
   });
 }));
 
-servicesRouter.get("/services/requests/with/:clientId", requireAuth, asyncHandler(async (req, res) => {
+servicesRouter.get("/services/requests/with/:otherUserId", requireAuth, asyncHandler(async (req, res) => {
+  const myUserId = req.session.userId!;
+  const otherUserId = req.params.otherUserId;
+
   const service = await prisma.serviceRequest.findFirst({
     where: {
-      clientId: req.params.clientId,
-      professionalId: req.session.userId!
+      OR: [
+        { clientId: myUserId, professionalId: otherUserId },
+        { clientId: otherUserId, professionalId: myUserId }
+      ]
     },
     orderBy: { createdAt: "desc" },
     include: {
-      client: { select: { id: true, displayName: true, username: true } }
+      client: { select: { id: true, displayName: true, username: true, phone: true } },
+      professional: { select: { id: true, displayName: true, username: true, phone: true } }
     }
   });
   return res.json({ request: service });
 }));
 
 servicesRouter.post("/services/:id/approve", requireAuth, asyncHandler(async (req, res) => {
-  const current = await prisma.serviceRequest.findUnique({ where: { id: req.params.id } });
-  if (!current) return res.status(404).json({ error: "NOT_FOUND" });
-  if (current.professionalId !== req.session.userId) {
-    return res.status(403).json({ error: "NOT_ALLOWED" });
-  }
-  const updated = await prisma.serviceRequest.update({
-    where: { id: req.params.id },
-    data: { status: "ACTIVO" }
+  const id = req.params.id;
+  const professionalId = req.session.userId!;
+
+  const priceClp = Number(req.body?.priceClp);
+  const durationMinutes = Number(req.body?.durationMinutes);
+  const professionalComment = typeof req.body?.professionalComment === "string" ? req.body.professionalComment.trim() : "";
+
+  if (!Number.isFinite(priceClp) || priceClp <= 0) return res.status(400).json({ error: "INVALID_PRICE_CLP" });
+  if (![30, 60, 90, 120].includes(durationMinutes)) return res.status(400).json({ error: "INVALID_DURATION_MINUTES" });
+
+  const transition = await prisma.serviceRequest.updateMany({
+    where: {
+      id,
+      professionalId,
+      status: "PENDIENTE_APROBACION"
+    },
+    data: {
+      status: "APROBADO",
+      professionalPriceClp: Math.round(priceClp),
+      professionalDurationM: durationMinutes,
+      professionalComment: professionalComment || null
+    }
   });
-  sendToUser(updated.clientId, "service_request", { request: updated });
-  sendToUser(updated.professionalId, "service_request", { request: updated });
+
+  if (transition.count === 0) return res.status(400).json({ error: "INVALID_STATE" });
+
+  const updated = await prisma.serviceRequest.findUnique({
+    where: { id },
+    include: {
+      client: { select: { id: true, displayName: true, username: true, phone: true } },
+      professional: { select: { id: true, displayName: true, username: true, phone: true } }
+    }
+  });
+
+  if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+
   sendToUser(updated.clientId, "service_request", { request: updated });
   sendToUser(updated.professionalId, "service_request", { request: updated });
   return res.json({ service: updated });
 }));
 
 servicesRouter.post("/services/:id/reject", requireAuth, asyncHandler(async (req, res) => {
-  const current = await prisma.serviceRequest.findUnique({ where: { id: req.params.id } });
-  if (!current) return res.status(404).json({ error: "NOT_FOUND" });
-  if (current.professionalId !== req.session.userId) {
-    return res.status(403).json({ error: "NOT_ALLOWED" });
-  }
-  const updated = await prisma.serviceRequest.update({
-    where: { id: req.params.id },
+  const id = req.params.id;
+  const professionalId = req.session.userId!;
+
+  const transition = await prisma.serviceRequest.updateMany({
+    where: {
+      id,
+      professionalId,
+      status: { in: ["PENDIENTE_APROBACION", "APROBADO"] }
+    },
     data: { status: "RECHAZADO" }
   });
+
+  if (transition.count === 0) return res.status(400).json({ error: "INVALID_STATE" });
+
+  const updated = await prisma.serviceRequest.findUnique({ where: { id } });
+  if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+
+  sendToUser(updated.clientId, "service_request", { request: updated });
+  sendToUser(updated.professionalId, "service_request", { request: updated });
+  return res.json({ service: updated });
+}));
+
+servicesRouter.post("/services/:id/client-confirm", requireAuth, asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const clientId = req.session.userId!;
+
+  const transition = await prisma.serviceRequest.updateMany({
+    where: {
+      id,
+      clientId,
+      status: "APROBADO"
+    },
+    data: { status: "ACTIVO" }
+  });
+
+  if (transition.count === 0) return res.status(400).json({ error: "INVALID_STATE" });
+
+  const updated = await prisma.serviceRequest.findUnique({ where: { id } });
+  if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+
+  sendToUser(updated.clientId, "service_request", { request: updated });
+  sendToUser(updated.professionalId, "service_request", { request: updated });
+  return res.json({ service: updated });
+}));
+
+servicesRouter.post("/services/:id/client-cancel", requireAuth, asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const clientId = req.session.userId!;
+
+  const transition = await prisma.serviceRequest.updateMany({
+    where: {
+      id,
+      clientId,
+      status: "APROBADO"
+    },
+    data: { status: "CANCELADO_CLIENTE" }
+  });
+
+  if (transition.count === 0) return res.status(400).json({ error: "INVALID_STATE" });
+
+  const updated = await prisma.serviceRequest.findUnique({ where: { id } });
+  if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+
+  sendToUser(updated.clientId, "service_request", { request: updated });
+  sendToUser(updated.professionalId, "service_request", { request: updated });
   return res.json({ service: updated });
 }));
 
 servicesRouter.post("/services/:id/finish", requireAuth, asyncHandler(async (req, res) => {
-  const updated = await prisma.serviceRequest.update({
-    where: { id: req.params.id },
-    data: { status: "PENDIENTE_EVALUACION" }
+  const id = req.params.id;
+  const professionalId = req.session.userId!;
+
+  const transition = await prisma.serviceRequest.updateMany({
+    where: {
+      id,
+      professionalId,
+      status: "ACTIVO"
+    },
+    data: { status: "FINALIZADO" }
   });
+
+  if (transition.count === 0) return res.status(400).json({ error: "INVALID_STATE" });
+
+  const updated = await prisma.serviceRequest.findUnique({ where: { id } });
+  if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+
+  sendToUser(updated.clientId, "service_request", { request: updated });
+  sendToUser(updated.professionalId, "service_request", { request: updated });
   return res.json({ service: updated });
 }));
 
