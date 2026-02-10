@@ -94,16 +94,16 @@ export default function TopHeader() {
 
   return (
     <header className="fixed left-0 right-0 top-0 z-50 md:left-[240px]">
-      <div className="mx-2 mt-2 rounded-2xl border border-white/20 bg-black/55 px-3 py-2 shadow-[0_12px_38px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:mx-4 md:mt-3 md:rounded-3xl md:px-5 md:py-3">
-        <div className="flex min-h-[58px] items-center justify-between md:min-h-[68px]">
-          <Link href="/" className="flex items-center gap-3.5">
+      <div className="w-full border-b border-white/10 bg-transparent px-3 py-2 backdrop-blur-[10px] md:px-5 md:py-2.5">
+        <div className="flex min-h-[56px] items-center justify-between md:min-h-[64px]">
+          <Link href="/" className="flex items-center gap-3">
             <img
               src="/brand/isotipo-new.png"
               alt="UZEED"
-              className="h-14 w-14 object-contain drop-shadow-[0_8px_24px_rgba(168,85,247,0.45)] md:h-16 md:w-16"
+              className="h-[52px] w-[52px] object-contain drop-shadow-[0_6px_20px_rgba(168,85,247,0.55)] md:h-14 md:w-14"
             />
             <div className="min-w-0">
-              <div className="text-2xl font-black leading-none text-white drop-shadow-[0_6px_18px_rgba(168,85,247,0.65)] md:text-[2rem]">UZEED</div>
+              <div className="text-[32px] font-semibold leading-none tracking-tight text-white drop-shadow-[0_4px_14px_rgba(168,85,247,0.48)] md:text-[36px]">Uzeed</div>
             </div>
           </Link>
 
