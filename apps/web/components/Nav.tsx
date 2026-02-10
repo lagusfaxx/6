@@ -21,19 +21,7 @@ export default function Nav() {
   return (
     <>
       <aside className="hidden md:flex h-screen sticky top-0 w-[240px] shrink-0 flex-col border-r border-white/10 bg-black/40 backdrop-blur">
-        <div className="px-5 py-6">
-          <Link href="/" className="flex items-center gap-3">
-            <img
-              src="/brand/isotipo.png"
-              alt="Cliente"
-              className="h-10 w-10 rounded-2xl border border-white/10 bg-white/5 object-cover"
-            />
-            <div>
-              <div className="text-sm font-semibold tracking-[0.2em] text-white/90">CLIENTE</div>
-              <div className="text-xs text-white/50">Directorio & servicios</div>
-            </div>
-          </Link>
-        </div>
+        <div className="px-5 py-4" />
         <nav className="px-3">
           <div className="grid gap-2">
             {navItems.map((item) => {

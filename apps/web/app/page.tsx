@@ -207,25 +207,9 @@ export default function HomePage() {
       <div className="mx-auto max-w-4xl px-4 py-5 md:py-6">
         <section className="rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8">
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between text-center md:text-left">
-            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-5">
-              <div className="relative">
-                <img
-                  src="/brand/isotipo-new.png"
-                  alt="Uzeed"
-                  className="h-20 w-20 md:h-24 md:w-24 lg:h-28 lg:w-28 rounded-[28px] border border-white/15 bg-transparent object-contain drop-shadow-[0_12px_30px_rgba(168,85,247,0.22)]"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.display = "none";
-                  }}
-                />
-                <div className="absolute -bottom-3 -right-3 rounded-full bg-fuchsia-500/90 p-2 shadow-[0_0_22px_rgba(217,70,239,0.6)]">
-                  <MapPin className="h-4 w-4 text-white" />
-                </div>
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-[0.35em] text-white/80">Uzeed</div>
-                <h1 className="mt-2 text-2xl md:text-3xl font-semibold">¿Qué estás buscando?</h1>
-                <p className="mt-2 text-sm text-white/70">Explora experiencias, lugares y tiendas cerca de ti.</p>
-              </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-semibold">¿Qué estás buscando?</h1>
+              <p className="mt-2 text-sm text-white/70">Explora experiencias, lugares y tiendas cerca de ti.</p>
             </div>
             <div className="flex flex-wrap gap-3 justify-center md:justify-start">
               {/* Keep buttons tap-friendly but not oversized on mobile */}
