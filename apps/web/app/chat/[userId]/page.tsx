@@ -91,6 +91,41 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+
+  async function refreshConversationSilently() {
+    try {
+      const msgResp = await apiFetch<{ messages: Message[]; other: ChatUser }>(`/messages/${userId}`);
+      setMessages(msgResp.messages);
+      setOther(msgResp.other);
+
+      if (me?.profileType === "CLIENT") {
+        const res = await apiFetch<{ services: { id: string; status: string; professional: { id: string } }[] }>("/services/active");
+        const match = res.services.find((service) => service.professional.id === userId);
+        setActiveRequest(match ? { id: match.id, status: match.status } : null);
+      } else if (me?.profileType === "PROFESSIONAL") {
+        const res = await apiFetch<{ request: { id: string; status: string } | null }>(`/services/requests/with/${userId}`);
+        setActiveRequest(res.request ? { id: res.request.id, status: res.request.status } : null);
+      }
+    } catch {
+      // Silent refresh to keep chat updated without interrupting the user
+    }
+  }
+
+
+
+  useEffect(() => {
+    let inFlight = false;
+
+    const timer = setInterval(() => {
+      if (inFlight) return;
+      inFlight = true;
+      refreshConversationSilently().finally(() => {
+        inFlight = false;
+      });
+    }, 2000);
+
+    return () => clearInterval(timer);
+  }, [userId, me?.profileType]);
   async function send(e: React.FormEvent) {
     e.preventDefault();
     if (!body.trim() && !attachment) return;
