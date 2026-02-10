@@ -211,7 +211,6 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
   });
 
   const enriched = items
-    .filter((s) => isBusinessPlanActive(s.owner as any))
     .map((s) => {
       const distance =
         lat !== null && lng !== null && s.latitude !== null && s.longitude !== null
@@ -529,11 +528,13 @@ servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, r
   const professionalId = typeof req.body?.professionalId === "string" ? req.body.professionalId : null;
   if (!professionalId) return res.status(400).json({ error: "INVALID_PROFESSIONAL" });
 
+  const activeStatuses = ["PENDIENTE_APROBACION", "APROBADO", "ACTIVO", "PENDIENTE_EVALUACION"] as const;
+
   const existing = await prisma.serviceRequest.findFirst({
     where: {
       clientId: req.session.userId!,
       professionalId,
-      status: { notIn: ["FINALIZADO", "RECHAZADO"] }
+      status: { in: activeStatuses }
     },
     orderBy: { createdAt: "desc" }
   });
@@ -553,10 +554,12 @@ servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, r
 }));
 
 servicesRouter.get("/services/active", requireAuth, asyncHandler(async (req, res) => {
+  const activeStatuses = ["PENDIENTE_APROBACION", "APROBADO", "ACTIVO", "PENDIENTE_EVALUACION"] as const;
+
   const services = await prisma.serviceRequest.findMany({
     where: {
       clientId: req.session.userId!,
-      status: { notIn: ["FINALIZADO", "RECHAZADO"] }
+      status: { in: activeStatuses }
     },
     include: {
       professional: {
