@@ -211,7 +211,6 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
   });
 
   const enriched = items
-    .filter((s) => isBusinessPlanActive(s.owner as any))
     .map((s) => {
       const distance =
         lat !== null && lng !== null && s.latitude !== null && s.longitude !== null
