@@ -538,6 +538,8 @@ servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, r
 
   const activeStatuses = ["PENDIENTE_APROBACION", "APROBADO", "ACTIVO", "PENDIENTE_EVALUACION"] as const;
 
+  const activeStatuses = ["PENDIENTE_APROBACION", "APROBADO", "ACTIVO", "PENDIENTE_EVALUACION"] as const;
+
   const existing = await prisma.serviceRequest.findFirst({
     where: {
       clientId: req.session.userId!,
