@@ -1,0 +1,10 @@
+ALTER TYPE "ServiceRequestStatus" ADD VALUE IF NOT EXISTS 'CANCELADO_CLIENTE';
+
+ALTER TABLE "ServiceRequest"
+  ADD COLUMN IF NOT EXISTS "requestedDate" TEXT,
+  ADD COLUMN IF NOT EXISTS "requestedTime" TEXT,
+  ADD COLUMN IF NOT EXISTS "agreedLocation" TEXT,
+  ADD COLUMN IF NOT EXISTS "clientComment" TEXT,
+  ADD COLUMN IF NOT EXISTS "professionalPriceClp" INTEGER,
+  ADD COLUMN IF NOT EXISTS "professionalDurationM" INTEGER,
+  ADD COLUMN IF NOT EXISTS "professionalComment" TEXT;

@@ -152,15 +152,10 @@ export default function ProfessionalDetailPage() {
                 <button
                   className="btn-primary"
                   onClick={() => {
-                    apiFetch("/services/request", {
-                      method: "POST",
-                      body: JSON.stringify({ professionalId: professional.id })
-                    })
-                      .then((res: any) => setActiveRequest(res.request || { id: "pending", status: "PENDIENTE_APROBACION" }))
-                      .catch(() => null);
+                    window.location.href = `/chat/${professional.id}`;
                   }}
                 >
-                  Solicitar / reservar
+                  Solicitar / reservar en chat
                 </button>
               ) : null}
               {canRequest && activeRequest ? (
