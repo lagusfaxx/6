@@ -173,7 +173,7 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
       id: true, username: true, displayName: true, city: true, address: true,
       latitude: true, longitude: true, coverUrl: true,
       category: { select: { slug: true, displayName: true, name: true } },
-      media: { where: { type: "IMAGE" }, take: 4, orderBy: { createdAt: "desc" }, select: { url: true } }
+      profileMedia: { where: { type: "IMAGE" }, take: 4, orderBy: { createdAt: "desc" }, select: { url: true } }
     },
     take: 300
   });
@@ -244,7 +244,7 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
       rating: reviewMap.get(u.id)?.rating ? Number((reviewMap.get(u.id)?.rating || 0).toFixed(2)) : null,
       reviewsCount: reviewMap.get(u.id)?.reviews || 0,
       fromPrice,
-      coverUrl: u.coverUrl || u.media[0]?.url || null,
+      coverUrl: u.coverUrl || u.profileMedia[0]?.url || null,
       tags: Array.from(tags).slice(0, 5),
       hasPromo: motelPromotionsCount > 0,
       category: isHotel ? "HOTEL" : "MOTEL",
@@ -278,7 +278,7 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
       select: {
         id: true, username: true, displayName: true, address: true, city: true, phone: true,
         bio: true, serviceDescription: true, coverUrl: true, avatarUrl: true, latitude: true, longitude: true,
-        media: { where: { type: "IMAGE" }, take: 16, orderBy: { createdAt: "desc" }, select: { url: true } }
+        profileMedia: { where: { type: "IMAGE" }, take: 16, orderBy: { createdAt: "desc" }, select: { url: true } }
       }
     })
     : null;
@@ -295,7 +295,7 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
     select: {
       id: true, username: true, displayName: true, address: true, city: true, phone: true,
       bio: true, serviceDescription: true, coverUrl: true, avatarUrl: true, latitude: true, longitude: true,
-      media: { where: { type: "IMAGE" }, take: 16, orderBy: { createdAt: "desc" }, select: { url: true } }
+      profileMedia: { where: { type: "IMAGE" }, take: 16, orderBy: { createdAt: "desc" }, select: { url: true } }
     }
   });
   if (!u) return res.status(404).json({ error: "NOT_FOUND" });
@@ -311,7 +311,7 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
   const latitude = u.latitude ?? -33.4489;
   const longitude = u.longitude ?? -70.6693;
 
-  return res.json({ establishment: { id: u.id, name: u.displayName || u.username, address: u.address, city: u.city, phone: u.phone, rules: u.bio, schedule: u.serviceDescription, coverUrl: u.coverUrl, avatarUrl: u.avatarUrl, latitude, longitude, rating, reviewsCount: reviews[0]?._count._all || 0, gallery: u.media.map((m) => m.url), rooms, promotions } });
+  return res.json({ establishment: { id: u.id, name: u.displayName || u.username, address: u.address, city: u.city, phone: u.phone, rules: u.bio, schedule: u.serviceDescription, coverUrl: u.coverUrl, avatarUrl: u.avatarUrl, latitude, longitude, rating, reviewsCount: reviews[0]?._count._all || 0, gallery: u.profileMedia.map((m) => m.url), rooms, promotions } });
 }));
 
 motelRouter.post("/motels/:id/bookings", asyncHandler(async (req, res) => {
@@ -675,4 +675,3 @@ motelRouter.delete("/motel/dashboard/promotions/:id", asyncHandler(async (req, r
   const rows = await prisma.$queryRawUnsafe<any[]>(`DELETE FROM "MotelPromotion" WHERE id = $1::uuid AND "establishmentId" = $2::uuid RETURNING id`, String(req.params.id), req.session.userId!);
   return res.json({ ok: true, deleted: rows.length });
 }));
-
