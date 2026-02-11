@@ -47,7 +47,6 @@ export default function MotelDashboardPage() {
     address: "",
     latitude: "",
     longitude: "",
-    addressLastChangedAt: null as string | null,
   });
 
   const [roomForm, setRoomForm] = useState<any>({ name: "", roomType: "Normal", location: "", description: "", amenities: "", photoUrls: [], price3h: "", price6h: "", priceNight: "" });
@@ -73,7 +72,6 @@ export default function MotelDashboardPage() {
         address: next.profile?.address || "",
         latitude: next.profile?.latitude != null ? String(next.profile.latitude) : "",
         longitude: next.profile?.longitude != null ? String(next.profile.longitude) : "",
-        addressLastChangedAt: next.profile?.addressLastChangedAt || null,
       });
     } catch (e: any) {
       setError(friendlyErrorMessage(e));
@@ -110,11 +108,6 @@ export default function MotelDashboardPage() {
       setMsg("Ubicación actualizada.");
       await load();
     } catch (e: any) {
-      if (e?.message === "ADDRESS_LOCKED" && e?.body?.nextEditAt) {
-        const nextDate = new Date(e.body.nextEditAt).toLocaleDateString("es-CL");
-        setMsg(`Podrás volver a editar la dirección el ${nextDate}.`);
-        return;
-      }
       setMsg(friendlyErrorMessage(e));
     }
   }
@@ -248,10 +241,9 @@ export default function MotelDashboardPage() {
       {tab === "location" ? (
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="card p-4 space-y-2">
-            <label className="text-xs text-white/70">Dirección (editable cada 60 días)</label>
+            <label className="text-xs text-white/70">Dirección</label>
             <input className="input" value={profileDraft.address} onChange={(e) => setProfileDraft((p) => ({ ...p, address: e.target.value }))} />
             <div className="grid grid-cols-2 gap-2"><input className="input" value={profileDraft.latitude} onChange={(e) => setProfileDraft((p) => ({ ...p, latitude: e.target.value }))} /><input className="input" value={profileDraft.longitude} onChange={(e) => setProfileDraft((p) => ({ ...p, longitude: e.target.value }))} /></div>
-            <div className="text-xs text-white/60">Último cambio de dirección: {formatDate(profileDraft.addressLastChangedAt)}</div>
             <div className="flex gap-2"><button className="btn-secondary" disabled={geocodeBusy} onClick={geocodeProfileAddress}>{geocodeBusy ? "Buscando..." : "Buscar en mapa"}</button><button className="btn-primary" onClick={saveLocation}>Guardar ubicación</button></div>
           </div>
           <div className="card p-3">{hasCoords ? <MapboxMap markers={[{ id: data.profile.id, name: "Establecimiento", lat: draftLat, lng: draftLng, subtitle: profileDraft.address || "" }]} userLocation={[draftLat, draftLng]} height={340} /> : <div className="h-[340px] rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center">Sin coordenadas</div>}</div>
