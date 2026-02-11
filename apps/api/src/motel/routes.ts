@@ -9,6 +9,7 @@ export const motelRouter = Router();
 let schemaReady = false;
 async function ensureMotelSchema() {
   if (schemaReady) return;
+
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "MotelBooking" (
       "id" UUID PRIMARY KEY,
@@ -24,32 +25,28 @@ async function ensureMotelSchema() {
       "rejectNote" TEXT NULL,
       "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
       "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS "MotelBooking_establishmentId_idx" ON "MotelBooking" ("establishmentId");
-    CREATE INDEX IF NOT EXISTS "MotelBooking_clientId_idx" ON "MotelBooking" ("clientId");
+    )
   `);
 
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "roomType" TEXT;
-    ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "price3h" INTEGER;
-    ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "price6h" INTEGER;
-    ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "priceNight" INTEGER;
-    ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "amenities" TEXT[] DEFAULT ARRAY[]::TEXT[];
-    ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "photoUrls" TEXT[] DEFAULT ARRAY[]::TEXT[];
-  `);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MotelBooking_establishmentId_idx" ON "MotelBooking" ("establishmentId")`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "MotelBooking_clientId_idx" ON "MotelBooking" ("clientId")`);
 
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE "MotelPromotion" ADD COLUMN IF NOT EXISTS "discountClp" INTEGER;
-    ALTER TABLE "MotelPromotion" ADD COLUMN IF NOT EXISTS "roomId" UUID;
-  `);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "roomType" TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "price3h" INTEGER`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "price6h" INTEGER`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "priceNight" INTEGER`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "amenities" TEXT[] DEFAULT ARRAY[]::TEXT[]`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelRoom" ADD COLUMN IF NOT EXISTS "photoUrls" TEXT[] DEFAULT ARRAY[]::TEXT[]`);
 
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "rejectReason" TEXT;
-    ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "rejectNote" TEXT;
-  `);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelPromotion" ADD COLUMN IF NOT EXISTS "discountClp" INTEGER`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelPromotion" ADD COLUMN IF NOT EXISTS "roomId" UUID`);
+
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "rejectReason" TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "rejectNote" TEXT`);
 
   schemaReady = true;
 }
+
 
 function isMotelOwner(user: any) {
   if (!user) return false;
