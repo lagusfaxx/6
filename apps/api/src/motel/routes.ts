@@ -675,3 +675,4 @@ motelRouter.delete("/motel/dashboard/promotions/:id", asyncHandler(async (req, r
   const rows = await prisma.$queryRawUnsafe<any[]>(`DELETE FROM "MotelPromotion" WHERE id = $1::uuid AND "establishmentId" = $2::uuid RETURNING id`, String(req.params.id), req.session.userId!);
   return res.json({ ok: true, deleted: rows.length });
 }));
+
