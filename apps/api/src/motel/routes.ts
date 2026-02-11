@@ -334,7 +334,7 @@ motelRouter.post("/motels/:id/bookings", asyncHandler(async (req, res) => {
   const bookingId = randomUUID();
   const rows = await prisma.$queryRawUnsafe<any[]>(`INSERT INTO "MotelBooking" ("id", "establishmentId", "roomId", "clientId", "status", "durationType", "priceClp", "startAt", "note") VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'PENDIENTE', $5, $6, $7, $8) RETURNING *`, bookingId, establishmentId, fallbackRoom.id, clientId, durationType, priceClp, startAt, note);
   const booking = rows[0];
-  await prisma.notification.create({ data: { userId: establishmentId, type: "SERVICE_PUBLISHED", title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}` } });
+  await prisma.notification.create({ data: { userId: establishmentId, type: "SERVICE_PUBLISHED", data: { title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}`, durationType, bookingId: booking.id } } });
   sendToUser(establishmentId, "booking:new", { bookingId: booking.id });
 
   const roomName = fallbackRoom.name || "Habitación";
@@ -372,7 +372,7 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
   const rejectNote = req.body?.rejectNote != null ? String(req.body.rejectNote).slice(0, 300) : null;
 
   let nextStatus: string | null = null;
-  if (isOwner && action === "ACCEPT" && booking.status === "PENDIENTE") nextStatus = "CONFIRMADA";
+  if (isOwner && action === "ACCEPT" && booking.status === "PENDIENTE") nextStatus = "ACEPTADA";
   if (isOwner && action === "REJECT" && booking.status === "PENDIENTE") {
     if (!["CERRADO", "SIN_HABITACIONES", "OTRO"].includes(rejectReason)) {
       return res.status(400).json({ error: "REJECT_REASON_REQUIRED" });
@@ -382,8 +382,9 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
     }
     nextStatus = "RECHAZADA";
   }
+  if (isClient && action === "CONFIRM" && booking.status === "ACEPTADA") nextStatus = "CONFIRMADA";
   if (isOwner && action === "FINISH" && booking.status === "CONFIRMADA") nextStatus = "FINALIZADA";
-  if (isClient && action === "CANCEL" && ["PENDIENTE", "CONFIRMADA"].includes(booking.status)) nextStatus = "CANCELADA_CLIENTE";
+  if (isClient && action === "CANCEL" && ["PENDIENTE", "ACEPTADA", "CONFIRMADA"].includes(booking.status)) nextStatus = "CANCELADA";
   if (!nextStatus) return res.status(400).json({ error: "INVALID_TRANSITION" });
 
   const updatedRows = await prisma.$queryRawUnsafe<any[]>(
@@ -401,15 +402,18 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
   );
   const updated = updatedRows[0];
   const notifyUserId = isOwner ? booking.clientId : booking.establishmentId;
-  await prisma.notification.create({ data: { userId: notifyUserId, type: "SERVICE_PUBLISHED", title: "Actualización de reserva", body: `Estado: ${nextStatus}` } });
+  await prisma.notification.create({ data: { userId: notifyUserId, type: "SERVICE_PUBLISHED", data: { title: "Actualización de reserva", body: `Estado: ${nextStatus}`, status: nextStatus, bookingId: updated.id } } });
   sendToUser(notifyUserId, "booking:update", { bookingId: updated.id, status: nextStatus, rejectReason: updated.rejectReason, rejectNote: updated.rejectNote });
 
-  if (isOwner && nextStatus === "CONFIRMADA") {
-    await sendBookingMessage(booking.establishmentId, booking.clientId, `✅ Reserva confirmada para ${updated.durationType}. Nos vemos en ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "horario por confirmar"}.`);
+  if (isOwner && nextStatus === "ACEPTADA") {
+    await sendBookingMessage(booking.establishmentId, booking.clientId, `✅ Tu reserva fue aceptada. Precio final: $${Number(updated.priceClp || 0).toLocaleString("es-CL")}. Debes confirmarla para activarla.`);
   }
   if (isOwner && nextStatus === "RECHAZADA") {
     const reasonText = rejectReason === "CERRADO" ? "Local cerrado" : rejectReason === "SIN_HABITACIONES" ? "Sin habitaciones" : `Otro motivo: ${rejectNote}`;
     await sendBookingMessage(booking.establishmentId, booking.clientId, `❌ Reserva rechazada. Motivo: ${reasonText}.`);
+  }
+  if (isClient && nextStatus === "CONFIRMADA") {
+    await sendBookingMessage(booking.clientId, booking.establishmentId, `✅ El cliente confirmó la reserva para ${updated.durationType}. Inicio: ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "por confirmar"}.`);
   }
 
   return res.json({ booking: updated });

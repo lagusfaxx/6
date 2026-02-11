@@ -204,7 +204,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
         serviceDescription: true,
         services: {
           where: { isActive: true },
-          select: { category: true, categoryId: true, latitude: true, longitude: true, locality: true, approxAreaM: true },
+          select: { category: true, categoryId: true, latitude: true, longitude: true },
           take: 25,
           orderBy: { createdAt: "desc" }
         },
@@ -267,7 +267,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       lat != null && lng != null && activeService?.latitude != null && activeService?.longitude != null
         ? haversineKm(lat, lng, activeService.latitude, activeService.longitude)
         : null;
-    const areaRadius = activeService?.approxAreaM ?? 600;
+    const areaRadius = 600;
     const obfuscated = obfuscateLocation(activeService?.latitude, activeService?.longitude, `professional:${u.id}`, areaRadius);
 
     return {
@@ -278,7 +278,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       distance,
       latitude: obfuscated.latitude,
       longitude: obfuscated.longitude,
-      locality: activeService?.locality || u.city || null,
+      locality: u.city || null,
       approxAreaM: areaRadius,
       isActive: u.isActive,
       tier: u.tier,
