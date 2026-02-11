@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
 
 type Dashboard = { profile: any; rooms: any[]; promotions: any[]; bookings: any[] };
 type RejectState = Record<string, { reason: "CERRADO" | "SIN_HABITACIONES" | "OTRO"; note: string }>;
+type TabKey = "overview" | "profile" | "location" | "rooms" | "promos" | "bookings";
 
 const emptyRoom = {
   name: "",
@@ -24,26 +27,51 @@ const emptyPromo = {
   discountClp: "",
 };
 
+const tabs: Array<{ key: TabKey; label: string }> = [
+  { key: "overview", label: "Resumen" },
+  { key: "profile", label: "Perfil" },
+  { key: "location", label: "Ubicación" },
+  { key: "rooms", label: "Habitaciones" },
+  { key: "promos", label: "Promociones" },
+  { key: "bookings", label: "Reservas" },
+];
+
 export default function MotelDashboardPage() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"profile" | "rooms" | "promos" | "bookings">("profile");
+  const [tab, setTab] = useState<TabKey>("overview");
   const [msg, setMsg] = useState<string | null>(null);
   const [rejectByBooking, setRejectByBooking] = useState<RejectState>({});
   const [roomForm, setRoomForm] = useState(emptyRoom);
   const [promoForm, setPromoForm] = useState(emptyPromo);
+  const [geocodeBusy, setGeocodeBusy] = useState(false);
+  const [geocodeError, setGeocodeError] = useState<string | null>(null);
 
-  const profileForm = useMemo(() => ({
-    displayName: data?.profile?.displayName || "",
-    address: data?.profile?.address || "",
-    city: data?.profile?.city || "",
-    phone: data?.profile?.phone || "",
-    schedule: data?.profile?.schedule || "",
-    rules: data?.profile?.rules || "",
-  }), [data?.profile]);
+  const profileForm = useMemo(
+    () => ({
+      displayName: data?.profile?.displayName || "",
+      address: data?.profile?.address || "",
+      city: data?.profile?.city || "",
+      phone: data?.profile?.phone || "",
+      schedule: data?.profile?.schedule || "",
+      rules: data?.profile?.rules || "",
+      latitude: data?.profile?.latitude != null ? String(data?.profile?.latitude) : "",
+      longitude: data?.profile?.longitude != null ? String(data?.profile?.longitude) : "",
+    }),
+    [data?.profile]
+  );
   const [profileDraft, setProfileDraft] = useState(profileForm);
   useEffect(() => setProfileDraft(profileForm), [profileForm]);
+
+  useEffect(() => {
+    const requested = String(searchParams.get("tab") || "").toLowerCase();
+    const allowed: TabKey[] = ["overview", "profile", "location", "rooms", "promos", "bookings"];
+    if (requested && (allowed as string[]).includes(requested)) {
+      setTab(requested as TabKey);
+    }
+  }, [searchParams]);
 
   const load = async () => {
     setError(null);
@@ -58,7 +86,9 @@ export default function MotelDashboardPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   if (loading) return <div className="text-white/70">Cargando panel motel...</div>;
 
@@ -95,6 +125,41 @@ export default function MotelDashboardPage() {
     await load();
   }
 
+  async function geocodeProfileAddress() {
+    const address = profileDraft.address.trim();
+    if (!address) {
+      setGeocodeError("Ingresa una dirección para ubicar en el mapa.");
+      return;
+    }
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+    if (!token) {
+      setGeocodeError("Falta NEXT_PUBLIC_MAPBOX_TOKEN para buscar la dirección en el mapa.");
+      return;
+    }
+    setGeocodeBusy(true);
+    setGeocodeError(null);
+    try {
+      const res = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${token}&limit=1&language=es`
+      );
+      if (!res.ok) throw new Error("GEOCODE_FAILED");
+      const payload = await res.json();
+      const first = payload?.features?.[0];
+      if (!first?.center?.length) throw new Error("NO_RESULTS");
+      setProfileDraft((prev) => ({
+        ...prev,
+        longitude: String(first.center[0]),
+        latitude: String(first.center[1]),
+        address: first.place_name || prev.address,
+      }));
+      setMsg("Dirección vinculada al mapa. Guarda los cambios para persistir coordenadas.");
+    } catch {
+      setGeocodeError("No pudimos geocodificar la dirección. Revisa el texto e intenta nuevamente.");
+    } finally {
+      setGeocodeBusy(false);
+    }
+  }
+
   async function createRoom() {
     await apiFetch("/motel/dashboard/rooms", {
       method: "POST",
@@ -125,24 +190,142 @@ export default function MotelDashboardPage() {
     await load();
   }
 
+  const draftLat = Number(profileDraft.latitude);
+  const draftLng = Number(profileDraft.longitude);
+  const hasCoords = Number.isFinite(draftLat) && Number.isFinite(draftLng);
+
   return (
     <div className="space-y-4">
-      <div className="card p-4">
-        <h1 className="text-2xl font-semibold">Panel Motel/Hotel</h1>
-        <p className="text-sm text-white/70 mt-1">Administra perfil, habitaciones, promociones y reservas de tu establecimiento.</p>
-        <div className="mt-3 flex flex-wrap gap-2">{(["profile", "rooms", "promos", "bookings"] as const).map((t) => <button key={t} className={`px-3 py-1 rounded-full border ${tab === t ? "border-fuchsia-300 bg-fuchsia-500/20" : "border-white/20"}`} onClick={() => setTab(t)}>{t}</button>)}</div>
+      <div className="card p-5 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Dashboard Motel/Hotel</h1>
+            <p className="text-sm text-white/70 mt-1">Panel operativo unificado para perfil, habitaciones, promociones, reservas y ubicación.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/establecimiento/${data.profile.id}`} className="btn-primary">Ver perfil público</Link>
+            <Link href="/chats" className="btn-secondary">Mensajes</Link>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm">
+            <div className="text-white/60">Habitaciones</div>
+            <div className="text-xl font-semibold">{data.rooms.length}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm">
+            <div className="text-white/60">Promociones</div>
+            <div className="text-xl font-semibold">{data.promotions.length}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm">
+            <div className="text-white/60">Reservas pendientes</div>
+            <div className="text-xl font-semibold">{data.bookings.filter((b) => b.status === "PENDIENTE").length}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm">
+            <div className="text-white/60">Reservas confirmadas</div>
+            <div className="text-xl font-semibold">{data.bookings.filter((b) => b.status === "CONFIRMADA").length}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-sm">
+            <div className="text-white/60">Ubicación</div>
+            <div className="text-xl font-semibold">{hasCoords ? "Verificada" : "Pendiente"}</div>
+          </div>
+        </div>
+
+        <div className="mt-2 flex flex-wrap gap-2">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              className={`px-3 py-1.5 rounded-full border text-sm ${tab === t.key ? "border-fuchsia-300 bg-fuchsia-500/20" : "border-white/20 text-white/75"}`}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
+
       {msg ? <div className="card p-3 text-sm">{msg}</div> : null}
+
+      {tab === "overview" ? (
+        <div className="grid gap-3 lg:grid-cols-3">
+          <button className="card p-4 text-left" onClick={() => setTab("bookings")}>
+            <div className="text-sm text-white/60">Módulo</div>
+            <h3 className="mt-1 font-semibold">Reservas</h3>
+            <p className="text-sm text-white/70 mt-1">Gestiona confirmaciones, rechazos y finalización de estadías.</p>
+          </button>
+          <button className="card p-4 text-left" onClick={() => setTab("rooms")}>
+            <div className="text-sm text-white/60">Módulo</div>
+            <h3 className="mt-1 font-semibold">Habitaciones</h3>
+            <p className="text-sm text-white/70 mt-1">Crea y organiza catálogo de habitaciones, amenidades y tarifas.</p>
+          </button>
+          <button className="card p-4 text-left" onClick={() => setTab("promos")}>
+            <div className="text-sm text-white/60">Módulo</div>
+            <h3 className="mt-1 font-semibold">Promociones</h3>
+            <p className="text-sm text-white/70 mt-1">Configura descuentos por porcentaje o monto fijo para impulsar reservas.</p>
+          </button>
+          <button className="card p-4 text-left" onClick={() => setTab("profile")}>
+            <div className="text-sm text-white/60">Módulo</div>
+            <h3 className="mt-1 font-semibold">Perfil comercial</h3>
+            <p className="text-sm text-white/70 mt-1">Actualiza nombre visible, contacto, reglas y horarios del establecimiento.</p>
+          </button>
+          <button className="card p-4 text-left" onClick={() => setTab("location")}>
+            <div className="text-sm text-white/60">Módulo</div>
+            <h3 className="mt-1 font-semibold">Ubicación</h3>
+            <p className="text-sm text-white/70 mt-1">Dirección + mapa sincronizados para una ubicación precisa.</p>
+          </button>
+        </div>
+      ) : null}
 
       {tab === "profile" ? (
         <div className="card p-4 grid gap-3 md:grid-cols-2">
-          {Object.keys(profileDraft).map((key) => (
+          {(["displayName", "city", "phone", "schedule", "rules"] as const).map((key) => (
             <label key={key} className="grid gap-1 text-xs text-white/70">{key}
-              <input className="input" value={(profileDraft as any)[key]} onChange={(e) => setProfileDraft((prev) => ({ ...prev, [key]: e.target.value }))} />
+              <input className="input" value={profileDraft[key]} onChange={(e) => setProfileDraft((prev) => ({ ...prev, [key]: e.target.value }))} />
             </label>
           ))}
+          <label className="grid gap-1 text-xs text-white/70 md:col-span-2">address
+            <input className="input" value={profileDraft.address} onChange={(e) => setProfileDraft((prev) => ({ ...prev, address: e.target.value }))} />
+          </label>
           <div className="md:col-span-2">
             <button className="btn-primary" onClick={saveProfile}>Guardar perfil</button>
+          </div>
+        </div>
+      ) : null}
+
+      {tab === "location" ? (
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="card p-4 space-y-3">
+            <h3 className="font-semibold">Ubicación integrada</h3>
+            <p className="text-sm text-white/70">Edita dirección, obtén coordenadas y guarda todo desde este módulo.</p>
+            <label className="grid gap-1 text-xs text-white/70">Dirección
+              <input className="input" value={profileDraft.address} onChange={(e) => setProfileDraft((prev) => ({ ...prev, address: e.target.value }))} />
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="grid gap-1 text-xs text-white/70">Latitud
+                <input className="input" value={profileDraft.latitude} onChange={(e) => setProfileDraft((prev) => ({ ...prev, latitude: e.target.value }))} />
+              </label>
+              <label className="grid gap-1 text-xs text-white/70">Longitud
+                <input className="input" value={profileDraft.longitude} onChange={(e) => setProfileDraft((prev) => ({ ...prev, longitude: e.target.value }))} />
+              </label>
+            </div>
+            {geocodeError ? <div className="text-xs text-rose-300">{geocodeError}</div> : null}
+            <div className="flex flex-wrap gap-2">
+              <button className="btn-secondary" disabled={geocodeBusy} onClick={geocodeProfileAddress}>{geocodeBusy ? "Buscando..." : "Buscar en mapa"}</button>
+              <button className="btn-primary" onClick={saveProfile}>Guardar ubicación</button>
+            </div>
+          </div>
+          <div className="card p-3">
+            {hasCoords ? (
+              <MapboxMap
+                markers={[{ id: data.profile.id, name: profileDraft.displayName || "Establecimiento", lat: draftLat, lng: draftLng, subtitle: profileDraft.address || "" }]}
+                userLocation={[draftLat, draftLng]}
+                height={340}
+              />
+            ) : (
+              <div className="h-[340px] rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center text-sm text-white/60 px-4 text-center">
+                Aún no hay coordenadas válidas. Usa “Buscar en mapa” para vincular dirección y ubicación.
+              </div>
+            )}
           </div>
         </div>
       ) : null}
@@ -152,7 +335,11 @@ export default function MotelDashboardPage() {
           <div className="card p-4 space-y-2">
             <h3 className="font-semibold">Nueva habitación</h3>
             <input className="input" placeholder="Nombre" value={roomForm.name} onChange={(e) => setRoomForm((f) => ({ ...f, name: e.target.value }))} />
-            <select className="input" value={roomForm.roomType} onChange={(e) => setRoomForm((f) => ({ ...f, roomType: e.target.value }))}><option>Normal</option><option>Jacuzzi</option><option>Premium</option><option>Temática</option></select>
+            <select className="input" value={roomForm.roomType} onChange={(e) => setRoomForm((f) => ({ ...f, roomType: e.target.value }))}>
+              <option>Normal</option>
+              <option>Jacuzzi</option>
+              <option>Premium</option>
+            </select>
             <textarea className="input min-h-24" placeholder="Descripción" value={roomForm.description} onChange={(e) => setRoomForm((f) => ({ ...f, description: e.target.value }))} />
             <input className="input" placeholder="Amenidades separadas por coma" value={roomForm.amenities} onChange={(e) => setRoomForm((f) => ({ ...f, amenities: e.target.value }))} />
             <div className="grid grid-cols-3 gap-2">

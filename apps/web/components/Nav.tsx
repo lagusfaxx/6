@@ -22,9 +22,12 @@ export default function Nav() {
   const ptype = String(me?.user?.profileType || "").toUpperCase();
   const isMotelProfile = ptype === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
 
-  const dynamicItems = navItems.filter((item) => (isMotelProfile ? item.href !== "/servicios" : true));
+  const dynamicItems = navItems.filter((item) => {
+    if (!isMotelProfile) return true;
+    return item.href !== "/servicios" && item.href !== "/favoritos";
+  });
   if (isMotelProfile) {
-    dynamicItems.splice(3, 0, { href: "/dashboard/motel", label: "Panel Motel", icon: Hotel, protected: true } as any);
+    dynamicItems.splice(2, 0, { href: "/dashboard/motel", label: "Dashboard", icon: Hotel, protected: true } as any);
   }
 
   return (

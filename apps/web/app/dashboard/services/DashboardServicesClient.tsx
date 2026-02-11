@@ -149,6 +149,8 @@ export default function DashboardServicesClient() {
   const [coverUploading, setCoverUploading] = useState(false);
 
   const profileType = (user?.profileType ?? "CLIENT") as ProfileType;
+  const role = String(user?.role || "").toUpperCase();
+  const isMotelProfile = profileType === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
   const labels = labelsByProfile[profileType] ?? labelsByProfile.PROFESSIONAL;
   const canManage = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(profileType);
 
@@ -532,6 +534,21 @@ export default function DashboardServicesClient() {
   if (loading) return <div className="p-6 text-white/70">Cargando...</div>;
   if (!user) return <div className="p-6 text-white/70">Debes iniciar sesión.</div>;
   if (!canManage) return <div className="p-6 text-white/70">Este panel es solo para experiencias, lugares y tiendas.</div>;
+  if (isMotelProfile) {
+    return (
+      <div className="card p-6 space-y-3">
+        <h1 className="text-xl font-semibold">Gestión centralizada en Panel Motel</h1>
+        <p className="text-sm text-white/70">
+          Tu perfil está configurado como Motel/Hotel. Para mantener un flujo coherente, toda la administración
+          de perfil, habitaciones, reservas, promociones y ubicación se realiza desde el panel dedicado.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dashboard/motel" className="btn-primary">Ir al Panel Motel</Link>
+          <Link href="/cuenta" className="btn-secondary">Volver a cuenta</Link>
+        </div>
+      </div>
+    );
+  }
 
   const tabs = [
     { key: "perfil", label: "Perfil público" },
@@ -547,7 +564,7 @@ export default function DashboardServicesClient() {
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold">{labels.panel}</h1>
-            <Badge>{profileType === "PROFESSIONAL" ? "Experiencia" : profileType === "ESTABLISHMENT" ? "Lugar" : "Tienda"}</Badge>
+            <Badge>{profileType === "PROFESSIONAL" ? "Experiencia" : profileType === "SHOP" ? "Tienda" : "Proveedor"}</Badge>
           </div>
           <p className="text-sm text-white/70">{labels.helper}</p>
         </div>
