@@ -56,6 +56,10 @@ function isMotelOwner(user: any) {
   return profileType === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "").trim());
+}
+
 async function sendBookingMessage(fromId: string, toId: string, text: string) {
   const body = String(text || "").trim();
   if (!body) return;
@@ -157,7 +161,10 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
   const lng = req.query.lng ? Number(req.query.lng) : null;
 
   const users = await prisma.user.findMany({
-    where: { profileType: "ESTABLISHMENT", isActive: true },
+    where: {
+      isActive: true,
+      profileType: "ESTABLISHMENT"
+    },
     select: {
       id: true, username: true, displayName: true, city: true, address: true,
       latitude: true, longitude: true, coverUrl: true,
@@ -249,9 +256,26 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
 
 motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
   await ensureMotelSchema();
-  const id = String(req.params.id);
-  const u = await prisma.user.findUnique({
-    where: { id },
+  const rawId = String(req.params.id || "").trim();
+  const byId = isUuid(rawId)
+    ? await prisma.user.findFirst({
+      where: {
+        id: rawId,
+        profileType: "ESTABLISHMENT"
+      },
+      select: {
+        id: true, username: true, displayName: true, address: true, city: true, phone: true,
+        bio: true, serviceDescription: true, coverUrl: true, avatarUrl: true, latitude: true, longitude: true,
+        media: { where: { type: "IMAGE" }, take: 16, orderBy: { createdAt: "desc" }, select: { url: true } }
+      }
+    })
+    : null;
+
+  const u = byId || await prisma.user.findFirst({
+    where: {
+      username: rawId,
+      profileType: "ESTABLISHMENT"
+    },
     select: {
       id: true, username: true, displayName: true, address: true, city: true, phone: true,
       bio: true, serviceDescription: true, coverUrl: true, avatarUrl: true, latitude: true, longitude: true,
@@ -260,6 +284,7 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
   });
   if (!u) return res.status(404).json({ error: "NOT_FOUND" });
 
+  const id = u.id;
   const [rooms, promotions] = await Promise.all([
     listRooms(id, true),
     listPromotions(id, true)
@@ -384,7 +409,7 @@ motelRouter.get("/motel/dashboard", asyncHandler(async (req, res) => {
     prisma.$queryRawUnsafe<any[]>(`SELECT b.*, u."displayName" as "clientName", u."username" as "clientUsername", r."name" as "roomName" FROM "MotelBooking" b LEFT JOIN "User" u ON u.id = b."clientId" LEFT JOIN "MotelRoom" r ON r.id = b."roomId" WHERE b."establishmentId" = $1::uuid ORDER BY b."createdAt" DESC LIMIT 200`, userId)
   ]);
 
-  return res.json({ profile: { id: user.id, displayName: user.displayName, address: user.address, phone: user.phone, city: user.city, latitude: user.latitude, longitude: user.longitude, coverUrl: user.coverUrl, avatarUrl: user.avatarUrl, rules: user.bio, schedule: user.serviceDescription }, rooms, promotions, bookings });
+  return res.json({ profile: { id: user.id, username: user.username, displayName: user.displayName, address: user.address, phone: user.phone, city: user.city, latitude: user.latitude, longitude: user.longitude, coverUrl: user.coverUrl, avatarUrl: user.avatarUrl, rules: user.bio, schedule: user.serviceDescription }, rooms, promotions, bookings });
 }));
 
 motelRouter.put("/motel/dashboard/profile", asyncHandler(async (req, res) => {
