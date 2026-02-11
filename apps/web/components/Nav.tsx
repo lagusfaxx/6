@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, Home, MessageCircle, Briefcase, User } from "lucide-react";
+import { Heart, Home, MessageCircle, Briefcase, User, Hotel } from "lucide-react";
 import useMe from "../hooks/useMe";
 
 const navItems = [
@@ -18,13 +18,22 @@ export default function Nav() {
   const { me } = useMe();
   const isAuthed = Boolean(me?.user?.id);
 
+  const role = String(me?.user?.role || "").toUpperCase();
+  const ptype = String(me?.user?.profileType || "").toUpperCase();
+  const isMotelProfile = ptype === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
+
+  const dynamicItems = navItems.filter((item) => (isMotelProfile ? item.href !== "/servicios" : true));
+  if (isMotelProfile) {
+    dynamicItems.splice(3, 0, { href: "/dashboard/motel", label: "Panel Motel", icon: Hotel, protected: true } as any);
+  }
+
   return (
     <>
       <aside className="hidden md:flex h-screen sticky top-0 w-[240px] shrink-0 flex-col border-r border-white/10 bg-black/40 backdrop-blur">
         <div className="px-5 py-4" />
         <nav className="px-3">
           <div className="grid gap-2">
-            {navItems.map((item) => {
+            {dynamicItems.map((item) => {
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = item.icon;
               const href = item.protected && !isAuthed
@@ -54,8 +63,8 @@ export default function Nav() {
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-black/50 backdrop-blur-2xl"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="mx-auto grid max-w-[520px] grid-cols-5 px-3 py-2">
-          {navItems.map((item) => {
+        <div className="mx-auto grid max-w-[520px] px-3 py-2" style={{ gridTemplateColumns: `repeat(${dynamicItems.length}, minmax(0, 1fr))` }}>
+          {dynamicItems.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
             const href = item.protected && !isAuthed

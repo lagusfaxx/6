@@ -17,6 +17,7 @@ const PUBLIC_PREFIXES = [
   "/auth",              // login/register/me (me puede dar 401, ok)
   "/categories",        // ✅ HOME necesita esto sin sesión
   "/professionals",     // ✅ directorio público (solo GET)
+  "/motels",            // ✅ hospedaje público
   "/webhooks/khipu"     // webhooks deben entrar sin sesión
 ];
 

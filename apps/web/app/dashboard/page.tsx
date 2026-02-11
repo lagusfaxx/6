@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useMe from "../../hooks/useMe";
 import { apiFetch } from "../../lib/api";
@@ -56,6 +56,11 @@ export default function DashboardPage() {
   const isShop = user.profileType === "SHOP";
   const isViewer = user.profileType === "VIEWER";
   const isAdmin = (user.role ?? "").toUpperCase() === "ADMIN";
+  const isMotel = (user.profileType ?? "").toUpperCase() === "ESTABLISHMENT" || ["MOTEL", "MOTEL_OWNER"].includes((user.role ?? "").toUpperCase());
+
+  useEffect(() => {
+    if (isMotel) window.location.href = "/dashboard/motel";
+  }, [isMotel]);
 
   return (
     <div className="p-6 text-white max-w-3xl">
