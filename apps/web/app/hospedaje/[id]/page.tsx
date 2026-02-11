@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { MapPin, Star } from "lucide-react";
+import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
 
 type Room = {
@@ -17,6 +18,20 @@ type Room = {
   price6h?: number;
   priceNight?: number;
   roomType?: string;
+  location?: string | null;
+};
+
+type Promotion = {
+  id: string;
+  title: string;
+  description?: string;
+  discountPercent?: number | null;
+  discountClp?: number | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  isActive?: boolean;
+  roomId?: string | null;
+  roomIds?: string[];
 };
 
 type Detail = {
@@ -29,9 +44,15 @@ type Detail = {
   schedule?: string | null;
   rating?: number | null;
   reviewsCount?: number;
+  isOpen?: boolean;
+  operationalStatusUpdatedAt?: string | null;
+  coverUrl?: string | null;
+  avatarUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   gallery: string[];
   rooms: Room[];
-  promotions: any[];
+  promotions: Promotion[];
 };
 
 export default function HospedajeDetailPage() {
@@ -48,33 +69,55 @@ export default function HospedajeDetailPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch<{ establishment: Detail }>(`/motels/${id}`)
-      .then((r) => setData(r.establishment))
-      .finally(() => setLoading(false));
+    apiFetch<{ establishment: Detail }>(`/motels/${id}`).then((r) => setData(r.establishment)).finally(() => setLoading(false));
   }, [id]);
 
   const selectedRoom = useMemo(() => data?.rooms.find((r) => r.id === roomId) || data?.rooms[0], [data, roomId]);
-  const selectedPrice = durationType === "6H"
+
+  const activePromos = useMemo(() => {
+    const now = Date.now();
+    return (data?.promotions || []).filter((p) => {
+      if (p.isActive === false) return false;
+      const starts = p.startsAt ? new Date(p.startsAt).getTime() : null;
+      const ends = p.endsAt ? new Date(p.endsAt).getTime() : null;
+      if (starts && starts > now) return false;
+      if (ends && ends < now) return false;
+      return true;
+    });
+  }, [data?.promotions]);
+
+  const promoForRoom = useMemo(() => {
+    if (!selectedRoom) return null;
+    return activePromos.find((p) => p.roomId === selectedRoom.id || (p.roomIds || []).includes(selectedRoom.id)) || null;
+  }, [activePromos, selectedRoom]);
+
+  const basePrice = durationType === "6H"
     ? Number((selectedRoom as any)?.price6h || selectedRoom?.price || 0)
     : durationType === "NIGHT"
       ? Number((selectedRoom as any)?.priceNight || selectedRoom?.price || 0)
       : Number((selectedRoom as any)?.price3h || selectedRoom?.price || 0);
 
+  const discountedPrice = useMemo(() => {
+    if (!promoForRoom) return basePrice;
+    if (promoForRoom.discountPercent) return Math.max(0, Math.round(basePrice * (1 - promoForRoom.discountPercent / 100)));
+    if (promoForRoom.discountClp) return Math.max(0, basePrice - Number(promoForRoom.discountClp));
+    return basePrice;
+  }, [promoForRoom, basePrice]);
+
   const gallery = useMemo(() => {
     if (!data) return ["/brand/splash.jpg"];
-    return data.gallery.length ? data.gallery : (selectedRoom?.photoUrls?.length ? selectedRoom.photoUrls : ["/brand/splash.jpg"]);
+    const roomGallery = selectedRoom?.photoUrls?.length ? selectedRoom.photoUrls : [];
+    const out = [data.coverUrl, ...roomGallery, ...data.gallery].filter(Boolean) as string[];
+    return out.length ? out : ["/brand/splash.jpg"];
   }, [data, selectedRoom]);
 
   const reserve = async () => {
-    if (!data) return;
+    if (!data || !selectedRoom) return;
     setBusy(true);
     setMsg(null);
     try {
-      await apiFetch(`/motels/${data.id}/bookings`, {
-        method: "POST",
-        body: JSON.stringify({ roomId: selectedRoom?.id, durationType, startAt: startAt || null, note: note || null }),
-      });
-      setMsg("Reserva enviada con éxito. Estado inicial: PENDIENTE.");
+      await apiFetch(`/motels/${data.id}/bookings`, { method: "POST", body: JSON.stringify({ roomId: selectedRoom.id, durationType, startAt: startAt || null, note: note || null }) });
+      setMsg("Solicitud enviada. Paso final: ve al chat para coordinar y esperar aceptación profesional.");
     } catch {
       setMsg("No pudimos crear la reserva. Inicia sesión y vuelve a intentar.");
     } finally {
@@ -86,58 +129,68 @@ export default function HospedajeDetailPage() {
   if (!data) return <div className="text-white/70">No encontramos este hospedaje.</div>;
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-3xl border border-fuchsia-300/20 bg-gradient-to-br from-[#2e0a4c] via-[#23063a] to-[#150222] p-4 md:p-5 shadow-[0_20px_60px_rgba(137,47,255,0.28)]">
-        <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-          <div>
-            <div className="overflow-hidden rounded-2xl border border-white/20">
-              <img src={resolveMediaUrl(gallery[galleryIndex]) || "/brand/splash.jpg"} alt={data.name} className="h-72 w-full object-cover" />
-            </div>
-            <div className="mt-2 flex gap-2 overflow-auto pb-1">{gallery.slice(0, 8).map((g, i) => <button key={`${g}-${i}`} onClick={() => setGalleryIndex(i)} className={`h-14 w-20 shrink-0 overflow-hidden rounded-lg border ${galleryIndex === i ? "border-fuchsia-300" : "border-white/20"}`}><img src={resolveMediaUrl(g) || "/brand/splash.jpg"} alt="miniatura" className="h-full w-full object-cover" /></button>)}</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/15 bg-white/5 p-4">
-            <h1 className="text-3xl font-semibold">{data.name}</h1>
-            <div className="mt-2 flex items-center gap-2 text-white/85"><Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />{data.rating ?? "N/A"} · {data.reviewsCount ?? 0} reviews</div>
-            <div className="mt-2 flex gap-2 text-sm text-white/75"><MapPin className="h-4 w-4 mt-0.5" />{data.address}, {data.city}</div>
-            <div className="mt-3 rounded-xl border border-white/15 bg-black/20 p-3 text-sm text-white/80">Horario: {data.schedule || "24/7"}<br />Reglas: {data.rules || "Confirmar reglas al reservar"}</div>
-            <div className="mt-3 flex items-end justify-between rounded-xl border border-fuchsia-300/25 bg-fuchsia-500/15 p-3">
+    <div className="space-y-5">
+      <section className="rounded-3xl overflow-hidden border border-white/15 bg-white/5">
+        <div className="relative">
+          <img src={resolveMediaUrl(gallery[galleryIndex]) || "/brand/splash.jpg"} alt={data.name} className="h-72 w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+          <div className="absolute left-4 right-4 bottom-4 flex items-end justify-between gap-3">
+            <div className="flex items-end gap-3">
+              <img src={resolveMediaUrl(data.avatarUrl) || "/brand/isotipo.png"} alt="perfil" className="h-20 w-20 rounded-2xl border-2 border-white/50 object-cover" />
               <div>
-                <div className="text-xs text-fuchsia-100/70">Precio seleccionado</div>
-                <div className="text-2xl font-semibold text-fuchsia-100">${selectedPrice.toLocaleString("es-CL")}</div>
+                <h1 className="text-3xl font-semibold">{data.name}</h1>
+                <div className="text-sm text-white/80 flex items-center gap-1"><MapPin className="h-4 w-4" />{data.address}, {data.city}</div>
+                <div className="text-sm text-white/90 flex items-center gap-1"><Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />{data.rating ?? "N/A"} · {data.reviewsCount ?? 0} reseñas</div>
+                <div className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-xs ${data.isOpen ? "border-emerald-300/40 bg-emerald-500/20" : "border-rose-300/40 bg-rose-500/20"}`}>{data.isOpen ? "Abierto ahora" : "Cerrado"}</div>
               </div>
-              <button onClick={reserve} disabled={busy} className="btn-primary">{busy ? "Enviando..." : "Reservar"}</button>
             </div>
+            <button onClick={reserve} disabled={busy} className="btn-primary">{busy ? "Enviando..." : "Reservar"}</button>
           </div>
         </div>
+        <div className="p-3 flex gap-2 overflow-auto">{gallery.slice(0, 10).map((g, i) => <button key={`${g}-${i}`} onClick={() => setGalleryIndex(i)} className={`h-16 w-24 rounded-lg overflow-hidden border ${galleryIndex === i ? "border-fuchsia-300" : "border-white/20"}`}><img src={resolveMediaUrl(g) || "/brand/splash.jpg"} className="h-full w-full object-cover" alt="miniatura" /></button>)}</div>
       </section>
 
-      <section className="rounded-3xl border border-white/10 bg-white/5 p-4">
-        <div className="mb-3 flex flex-wrap gap-2">{["3H", "6H", "NIGHT"].map((d) => <button key={d} onClick={() => setDurationType(d)} className={`rounded-full px-3 py-1.5 text-sm border ${durationType === d ? "border-fuchsia-300 bg-fuchsia-500/25" : "border-white/20 bg-white/5"}`}>{d === "NIGHT" ? "Noche" : d.toLowerCase()}</button>)}</div>
-        <div className="grid gap-3 md:grid-cols-2">
-          {data.rooms.map((r) => (
-            <div key={r.id} className={`rounded-2xl border p-3 ${selectedRoom?.id === r.id ? "border-fuchsia-300/60 bg-fuchsia-500/10" : "border-white/10 bg-white/5"}`}>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="font-semibold">{r.name}</div>
-                  <div className="text-xs text-white/70">{r.roomType || "Normal"} · {(r.amenities || []).join(" · ") || "Amenidades por confirmar"}</div>
-                </div>
-                <button onClick={() => setRoomId(r.id)} className="btn-secondary text-xs">Ver habitaciones</button>
-              </div>
-              <div className="mt-2 text-sm text-white/80">3h ${Number((r as any).price3h || r.price || 0).toLocaleString("es-CL")} · 6h ${Number((r as any).price6h || r.price || 0).toLocaleString("es-CL")} · Noche ${Number((r as any).priceNight || r.price || 0).toLocaleString("es-CL")}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <section className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+        <div className="space-y-4">
+          <div className="card p-4">
+            <h2 className="font-semibold text-lg">Servicios y descripción</h2>
+            <p className="text-sm text-white/75 mt-2">{data.rules || "Sin reglas adicionales."}</p>
+            <p className="text-sm text-white/75 mt-2">Horario: {data.schedule || "24/7"}</p>
+          </div>
 
-      <section className="rounded-3xl border border-white/10 bg-white/5 p-4">
-        <h2 className="font-semibold text-lg">Completar reserva</h2>
-        <div className="mt-2 grid gap-2 md:grid-cols-3">
-          <input className="input" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
-          <input className="input" value={note} placeholder="Comentario opcional" onChange={(e) => setNote(e.target.value)} />
-          <button onClick={reserve} disabled={busy} className="btn-primary">{busy ? "Enviando..." : "Confirmar reserva"}</button>
+          <div className="card p-4">
+            <h2 className="font-semibold text-lg">Habitaciones</h2>
+            <div className="mt-3 space-y-2">{data.rooms.map((r) => {
+              const promo = activePromos.find((p) => p.roomId === r.id || (p.roomIds || []).includes(r.id));
+              const roomBase = Number((durationType === "6H" ? (r as any).price6h : durationType === "NIGHT" ? (r as any).priceNight : (r as any).price3h) || r.price || 0);
+              const roomFinal = promo?.discountPercent ? Math.round(roomBase * (1 - promo.discountPercent / 100)) : promo?.discountClp ? Math.max(0, roomBase - Number(promo.discountClp)) : roomBase;
+              return <div key={r.id} className={`rounded-2xl border p-3 ${selectedRoom?.id === r.id ? "border-fuchsia-300/60 bg-fuchsia-500/10" : "border-white/10 bg-white/5"}`}>
+                <div className="flex justify-between gap-2"><div><div className="font-semibold">{r.name}</div><div className="text-xs text-white/70">{r.description || "Sin descripción"}</div><div className="text-xs text-white/60">{r.location || "Ubicación no especificada"}</div></div><button onClick={() => setRoomId(r.id)} className="btn-secondary text-xs">Seleccionar</button></div>
+                <div className="mt-2 text-sm text-white/85">3h ${Number((r as any).price3h || r.price || 0).toLocaleString("es-CL")} · 6h ${Number((r as any).price6h || r.price || 0).toLocaleString("es-CL")} · Noche ${Number((r as any).priceNight || r.price || 0).toLocaleString("es-CL")}</div>
+                {promo ? <div className="mt-2 text-sm"><span className="mr-2 rounded-full border border-rose-300/40 bg-rose-500/20 px-2 py-0.5 text-rose-100">Oferta {promo.discountPercent ? `-${promo.discountPercent}%` : ""}</span><span className="line-through text-white/50">${roomBase.toLocaleString("es-CL")}</span><span className="ml-2 font-semibold text-fuchsia-200">${roomFinal.toLocaleString("es-CL")}</span></div> : null}
+              </div>;
+            })}</div>
+          </div>
+
+          <div className="card p-4">
+            <h2 className="font-semibold text-lg">Promociones activas</h2>
+            {(activePromos.length ? activePromos : []).map((p) => <div key={p.id} className="mt-2 rounded-xl border border-white/10 bg-white/5 p-3 text-sm"><div className="font-medium">{p.title}</div><div className="text-white/70">{p.description}</div><div className="text-xs text-white/60">Vigencia: {p.startsAt ? new Date(p.startsAt).toLocaleDateString("es-CL") : "hoy"} - {p.endsAt ? new Date(p.endsAt).toLocaleDateString("es-CL") : "sin fecha"}</div></div>)}
+            {!activePromos.length ? <div className="text-sm text-white/60 mt-2">No hay promociones activas.</div> : null}
+          </div>
         </div>
-        {msg ? <div className="mt-2 space-y-2 text-sm text-white/85"><div>{msg}</div><Link className="inline-flex rounded-xl border border-fuchsia-300/30 bg-fuchsia-500/15 px-3 py-2 text-fuchsia-100" href={`/chat/${data.id}`}>Ir al chat con el hotel/motel</Link></div> : null}
+
+        <div className="space-y-4">
+          <div className="card p-4">
+            <div className="text-xs text-white/60">Flujo de reserva</div>
+            <ol className="mt-2 text-sm text-white/80 space-y-1"><li>1. Selecciona habitación.</li><li>2. Selecciona tramo.</li><li>3. Revisa precio final.</li><li>4. Confirma y envía.</li><li>5. Sigue por chat y espera confirmación.</li></ol>
+            <div className="mt-3 flex flex-wrap gap-2">{["3H", "6H", "NIGHT"].map((d) => <button key={d} onClick={() => setDurationType(d)} className={`rounded-full px-3 py-1.5 text-sm border ${durationType === d ? "border-fuchsia-300 bg-fuchsia-500/25" : "border-white/20 bg-white/5"}`}>{d === "NIGHT" ? "Noche" : d.toLowerCase()}</button>)}</div>
+            <div className="mt-3 rounded-xl border border-fuchsia-300/25 bg-fuchsia-500/10 p-3"><div className="text-xs text-fuchsia-100/80">Precio final</div>{promoForRoom ? <div className="text-sm text-white/60 line-through">${basePrice.toLocaleString("es-CL")}</div> : null}<div className="text-2xl font-semibold text-fuchsia-100">${discountedPrice.toLocaleString("es-CL")}</div></div>
+            <div className="mt-3 grid gap-2"><input className="input" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} /><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Comentario para recepción" /><button className="btn-primary" disabled={busy} onClick={reserve}>{busy ? "Enviando..." : "Confirmar reserva"}</button></div>
+            {msg ? <div className="mt-2 text-sm">{msg}<div><Link className="underline text-fuchsia-200" href={`/chat/${data.id}`}>Ir al chat</Link></div></div> : null}
+          </div>
+
+          <div className="card p-4"><h3 className="font-semibold">Ubicación</h3><p className="text-sm text-white/75">{data.address}, {data.city} · Estado: Ubicación verificada.</p>{data.latitude != null && data.longitude != null ? <div className="mt-2"><MapboxMap markers={[{ id: data.id, name: data.name, lat: Number(data.latitude), lng: Number(data.longitude), subtitle: data.address }]} userLocation={[Number(data.latitude), Number(data.longitude)]} height={220} /></div> : null}</div>
+        </div>
       </section>
     </div>
   );
