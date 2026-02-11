@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useMe from "../../hooks/useMe";
 import Link from "next/link";
 import MapboxMap from "../../components/MapboxMap";
 import { apiFetch } from "../../lib/api";
@@ -25,6 +26,18 @@ const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
 
 export default function ServicesPage() {
   const { location } = useMapLocation(DEFAULT_LOCATION);
+
+  const { me, loading: meLoading } = useMe();
+  const role = String(me?.user?.role || "").toUpperCase();
+  const ptype = String(me?.user?.profileType || "").toUpperCase();
+  const isMotel = ptype === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
+
+  useEffect(() => {
+    if (meLoading) return;
+    if (isMotel) {
+      window.location.href = "/dashboard/motel";
+    }
+  }, [isMotel, meLoading]);
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(false);
 
