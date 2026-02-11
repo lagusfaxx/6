@@ -334,7 +334,7 @@ motelRouter.post("/motels/:id/bookings", asyncHandler(async (req, res) => {
   const bookingId = randomUUID();
   const rows = await prisma.$queryRawUnsafe<any[]>(`INSERT INTO "MotelBooking" ("id", "establishmentId", "roomId", "clientId", "status", "durationType", "priceClp", "startAt", "note") VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'PENDIENTE', $5, $6, $7, $8) RETURNING *`, bookingId, establishmentId, fallbackRoom.id, clientId, durationType, priceClp, startAt, note);
   const booking = rows[0];
-  await prisma.notification.create({ data: { userId: establishmentId, type: "SERVICE_PUBLISHED", title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}` } });
+  await prisma.notification.create({ data: { userId: establishmentId, type: "SERVICE_PUBLISHED", data: { title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}`, durationType, bookingId: booking.id } } });
   sendToUser(establishmentId, "booking:new", { bookingId: booking.id });
 
   const roomName = fallbackRoom.name || "Habitación";
@@ -402,7 +402,7 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
   );
   const updated = updatedRows[0];
   const notifyUserId = isOwner ? booking.clientId : booking.establishmentId;
-  await prisma.notification.create({ data: { userId: notifyUserId, type: "SERVICE_PUBLISHED", title: "Actualización de reserva", body: `Estado: ${nextStatus}` } });
+  await prisma.notification.create({ data: { userId: notifyUserId, type: "SERVICE_PUBLISHED", data: { title: "Actualización de reserva", body: `Estado: ${nextStatus}`, status: nextStatus, bookingId: updated.id } } });
   sendToUser(notifyUserId, "booking:update", { bookingId: updated.id, status: nextStatus, rejectReason: updated.rejectReason, rejectNote: updated.rejectNote });
 
   if (isOwner && nextStatus === "ACEPTADA") {
