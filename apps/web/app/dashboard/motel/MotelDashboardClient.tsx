@@ -202,7 +202,7 @@ export default function MotelDashboardPage() {
             <p className="text-sm text-white/70">Gestiona publicación, disponibilidad, tarifas y reservas.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href={`/hospedaje/${data.profile.id}?preview=true`} className="btn-primary">Ver perfil público</Link>
+            <Link href={`/hospedaje/${data.profile.username || data.profile.id}?preview=true`} className="btn-primary">Ver perfil público</Link>
             <Link href="/chats" className="btn-secondary">Mensajes</Link>
             <button className="btn-secondary" onClick={logout}>Cerrar sesión</button>
           </div>
