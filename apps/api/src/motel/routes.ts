@@ -49,14 +49,12 @@ async function ensureMotelSchema() {
   schemaReady = true;
 }
 
-
 function isMotelOwner(user: any) {
   if (!user) return false;
   const role = String(user.role || "").toUpperCase();
   const profileType = String(user.profileType || "").toUpperCase();
   return profileType === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
 }
-
 
 async function sendBookingMessage(fromId: string, toId: string, text: string) {
   const body = String(text || "").trim();
@@ -428,8 +426,8 @@ motelRouter.post("/motel/dashboard/rooms", asyncHandler(async (req, res) => {
     photoUrls: parseStringArray(req.body?.photoUrls),
     price3h: Number(req.body?.price3h || 0),
     price6h: Number(req.body?.price6h || 0),
-    priceNight: Number(req.body?.priceNight || 0)
-    ,location: req.body?.location ? String(req.body.location) : null
+    priceNight: Number(req.body?.priceNight || 0),
+    location: req.body?.location ? String(req.body.location) : null
   } as any;
 
   const delegate = motelRoomDelegate();
