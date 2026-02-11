@@ -14,7 +14,7 @@ function addDays(base: Date, days: number): Date {
 
 function normalizeProfileType(input: string) {
   const value = input.trim().toUpperCase();
-  if (value.includes("MOTEL") || value.includes("NIGHT") || value.includes("ESTABLEC")) return "ESTABLISHMENT";
+  if (value.includes("MOTEL") || value.includes("HOTEL") || value.includes("NIGHT") || value.includes("ESTABLEC")) return "ESTABLISHMENT";
   if (value.includes("TIENDA") || value.includes("SHOP") || value.includes("SEX")) return "SHOP";
   if (value.includes("PROFESIONAL") || value.includes("EXPERIENCIA")) return "PROFESSIONAL";
   if (value.includes("CLIENT")) return "CLIENT";
