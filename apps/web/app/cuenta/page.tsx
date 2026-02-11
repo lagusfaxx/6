@@ -16,6 +16,8 @@ export default function AccountPage() {
   };
 
   const profileType = (user?.profileType || "").toUpperCase();
+  const role = (user?.role || "").toUpperCase();
+  const isMotelProfile = profileType === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
   const canManageProfile = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
   const profileLabel =
     profileType === "PROFESSIONAL"
@@ -77,19 +79,35 @@ export default function AccountPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {canManageProfile ? (
                 <>
-                  <Link href="/dashboard/services?tab=perfil" className="btn-ghost w-full">Editar perfil</Link>
-                  <Link href="/dashboard/services?tab=servicios" className="btn-ghost w-full">
-                    Gestionar servicio
-                  </Link>
-                  {profileType === "SHOP" ? (
+                  {isMotelProfile ? (
+                    <>
+                      <Link href="/dashboard/motel" className="btn-ghost w-full">Ir al Dashboard Motel</Link>
+                      <Link href="/dashboard/motel?tab=bookings" className="btn-ghost w-full">Reservas</Link>
+                      <Link href="/dashboard/motel?tab=rooms" className="btn-ghost w-full">Habitaciones</Link>
+                      <Link href="/dashboard/motel?tab=promos" className="btn-ghost w-full">Promociones</Link>
+                      <Link href="/dashboard/motel?tab=location" className="btn-ghost w-full">Ubicación</Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link href="/dashboard/services?tab=perfil" className="btn-ghost w-full">Editar perfil</Link>
+                      <Link href="/dashboard/services?tab=servicios" className="btn-ghost w-full">
+                        Gestionar servicio
+                      </Link>
+                    </>
+                  )}
+                  {profileType === "SHOP" && !isMotelProfile ? (
                     <Link href="/dashboard/services?tab=productos" className="btn-ghost w-full">Productos</Link>
                   ) : null}
-                  <Link href="/dashboard/services?tab=galeria" className="btn-ghost w-full">
-                    Galería
-                  </Link>
-                  <Link href="/dashboard/services?tab=ubicacion" className="btn-ghost w-full">
-                    Ubicación
-                  </Link>
+                  {!isMotelProfile ? (
+                    <>
+                      <Link href="/dashboard/services?tab=galeria" className="btn-ghost w-full">
+                        Galería
+                      </Link>
+                      <Link href="/dashboard/services?tab=ubicacion" className="btn-ghost w-full">
+                        Ubicación
+                      </Link>
+                    </>
+                  ) : null}
                   <Link href="/chats" className="btn-ghost w-full">Chats</Link>
                 </>
               ) : (
