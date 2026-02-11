@@ -46,6 +46,11 @@ async function ensureMotelSchema() {
   await prisma.$executeRawUnsafe(`ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "rejectReason" TEXT`);
   await prisma.$executeRawUnsafe(`ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "rejectNote" TEXT`);
 
+  await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "addressLastChangedAt" TIMESTAMP`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isPublished" BOOLEAN NOT NULL DEFAULT true`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isOpen" BOOLEAN NOT NULL DEFAULT true`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "operationalStatusUpdatedAt" TIMESTAMP`);
+
   schemaReady = true;
 }
 
@@ -163,6 +168,7 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
     select: {
       id: true, username: true, displayName: true, city: true, address: true,
       latitude: true, longitude: true, coverUrl: true,
+      isPublished: true, isOpen: true, operationalStatusUpdatedAt: true,
       category: { select: { slug: true, displayName: true, name: true } },
       media: { where: { type: "IMAGE" }, take: 4, orderBy: { createdAt: "desc" }, select: { url: true } }
     },
@@ -234,11 +240,17 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
       coverUrl: u.coverUrl || u.media[0]?.url || null,
       tags: Array.from(tags).slice(0, 5),
       hasPromo: motelPromotionsCount > 0,
-      category: isHotel ? "HOTEL" : "MOTEL"
+      category: isHotel ? "HOTEL" : "MOTEL",
+      isOpen: Boolean((u as any).isOpen ?? true),
+      operationalStatusUpdatedAt: (u as any).operationalStatusUpdatedAt || null,
+      isPublished: Boolean((u as any).isPublished ?? true)
     };
   })
   .filter((u) => (category === "hotel" ? u.category === "HOTEL" : category === "motel" ? u.category === "MOTEL" : true))
   .filter((u) => (search ? `${u.city} ${u.address} ${u.name}`.toLowerCase().includes(search) : true))
+  .filter((u) => u.isPublished)
+  .filter((u) => u.latitude != null && u.longitude != null)
+  .filter((u) => Number(u.fromPrice || 0) > 0)
   .filter((u) => (u.distance != null ? u.distance <= rangeKm : true))
   .filter((u) => (onlyPromos ? u.hasPromo : true))
   .filter((u) => (priceMax ? u.fromPrice <= priceMax : true))
@@ -255,7 +267,7 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
     where: { id },
     select: {
       id: true, username: true, displayName: true, address: true, city: true, phone: true,
-      bio: true, serviceDescription: true, coverUrl: true, avatarUrl: true, latitude: true, longitude: true,
+      bio: true, serviceDescription: true, coverUrl: true, avatarUrl: true, latitude: true, longitude: true, isOpen: true, operationalStatusUpdatedAt: true,
       media: { where: { type: "IMAGE" }, take: 16, orderBy: { createdAt: "desc" }, select: { url: true } }
     }
   });
@@ -269,7 +281,7 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
   const reviews = await prisma.establishmentReview.groupBy({ by: ["establishmentId"], where: { establishmentId: id }, _avg: { stars: true }, _count: { _all: true } });
   const rating = reviews[0]?._avg.stars ? Number((reviews[0]._avg.stars || 0).toFixed(2)) : null;
 
-  return res.json({ establishment: { id: u.id, name: u.displayName || u.username, address: u.address, city: u.city, phone: u.phone, rules: u.bio, schedule: u.serviceDescription, coverUrl: u.coverUrl, avatarUrl: u.avatarUrl, latitude: u.latitude, longitude: u.longitude, rating, reviewsCount: reviews[0]?._count._all || 0, gallery: u.media.map((m) => m.url), rooms, promotions } });
+  return res.json({ establishment: { id: u.id, name: u.displayName || u.username, address: u.address, city: u.city, phone: u.phone, rules: u.bio, schedule: u.serviceDescription, coverUrl: u.coverUrl, avatarUrl: u.avatarUrl, latitude: u.latitude, longitude: u.longitude, isOpen: Boolean((u as any).isOpen ?? true), operationalStatusUpdatedAt: (u as any).operationalStatusUpdatedAt || null, rating, reviewsCount: reviews[0]?._count._all || 0, gallery: u.media.map((m) => m.url), rooms, promotions } });
 }));
 
 motelRouter.post("/motels/:id/bookings", asyncHandler(async (req, res) => {
@@ -385,18 +397,34 @@ motelRouter.get("/motel/dashboard", asyncHandler(async (req, res) => {
     prisma.$queryRawUnsafe<any[]>(`SELECT b.*, u."displayName" as "clientName", u."username" as "clientUsername", r."name" as "roomName" FROM "MotelBooking" b LEFT JOIN "User" u ON u.id = b."clientId" LEFT JOIN "MotelRoom" r ON r.id = b."roomId" WHERE b."establishmentId" = $1::uuid ORDER BY b."createdAt" DESC LIMIT 200`, userId)
   ]);
 
-  return res.json({ profile: { id: user.id, displayName: user.displayName, address: user.address, phone: user.phone, city: user.city, latitude: user.latitude, longitude: user.longitude, coverUrl: user.coverUrl, avatarUrl: user.avatarUrl, rules: user.bio, schedule: user.serviceDescription }, rooms, promotions, bookings });
+  return res.json({ profile: { id: user.id, displayName: user.displayName, address: user.address, phone: user.phone, city: user.city, latitude: user.latitude, longitude: user.longitude, coverUrl: user.coverUrl, avatarUrl: user.avatarUrl, rules: user.bio, schedule: user.serviceDescription, isOpen: Boolean((user as any).isOpen ?? true), isPublished: Boolean((user as any).isPublished ?? true), operationalStatusUpdatedAt: (user as any).operationalStatusUpdatedAt || null, addressLastChangedAt: (user as any).addressLastChangedAt || null }, rooms, promotions, bookings });
 }));
 
 motelRouter.put("/motel/dashboard/profile", asyncHandler(async (req, res) => {
+  await ensureMotelSchema();
   const user = (req as any).user;
   if (!isMotelOwner(user)) return res.status(403).json({ error: "FORBIDDEN" });
+
+  const current = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { address: true, addressLastChangedAt: true } as any });
+  if (!current) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const nextAddress = req.body?.address != null ? String(req.body.address).trim() : undefined;
+  const currentAddress = String((current as any).address || "").trim();
+  const addressChanged = nextAddress != null && nextAddress && nextAddress !== currentAddress;
+  if (addressChanged && (current as any).addressLastChangedAt) {
+    const nextAllowedAt = new Date((current as any).addressLastChangedAt);
+    nextAllowedAt.setDate(nextAllowedAt.getDate() + 60);
+    if (nextAllowedAt.getTime() > Date.now()) {
+      return res.status(400).json({ error: "ADDRESS_LOCKED", nextEditAt: nextAllowedAt.toISOString() });
+    }
+  }
 
   const updated = await prisma.user.update({
     where: { id: req.session.userId! },
     data: {
       displayName: req.body?.displayName != null ? String(req.body.displayName) : user.displayName,
-      address: req.body?.address != null ? String(req.body.address) : user.address,
+      address: nextAddress != null ? nextAddress : user.address,
+      addressLastChangedAt: addressChanged ? new Date() : (current as any).addressLastChangedAt,
       city: req.body?.city != null ? String(req.body.city) : user.city,
       phone: req.body?.phone != null ? String(req.body.phone) : user.phone,
       latitude: req.body?.latitude != null ? Number(req.body.latitude) : user.latitude,
@@ -404,8 +432,11 @@ motelRouter.put("/motel/dashboard/profile", asyncHandler(async (req, res) => {
       coverUrl: req.body?.coverUrl !== undefined ? (req.body.coverUrl ? String(req.body.coverUrl) : null) : user.coverUrl,
       avatarUrl: req.body?.avatarUrl !== undefined ? (req.body.avatarUrl ? String(req.body.avatarUrl) : null) : user.avatarUrl,
       bio: req.body?.rules != null ? String(req.body.rules) : user.bio,
-      serviceDescription: req.body?.schedule != null ? String(req.body.schedule) : user.serviceDescription
-    }
+      serviceDescription: req.body?.schedule != null ? String(req.body.schedule) : user.serviceDescription,
+      isPublished: req.body?.isPublished != null ? Boolean(req.body.isPublished) : (user as any).isPublished,
+      isOpen: req.body?.isOpen != null ? Boolean(req.body.isOpen) : (user as any).isOpen,
+      operationalStatusUpdatedAt: req.body?.isOpen != null ? new Date() : (user as any).operationalStatusUpdatedAt
+    } as any
   });
 
   return res.json({ profile: updated });

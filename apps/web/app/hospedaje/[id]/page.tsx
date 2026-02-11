@@ -44,6 +44,8 @@ type Detail = {
   schedule?: string | null;
   rating?: number | null;
   reviewsCount?: number;
+  isOpen?: boolean;
+  operationalStatusUpdatedAt?: string | null;
   coverUrl?: string | null;
   avatarUrl?: string | null;
   latitude?: number | null;
@@ -139,6 +141,7 @@ export default function HospedajeDetailPage() {
                 <h1 className="text-3xl font-semibold">{data.name}</h1>
                 <div className="text-sm text-white/80 flex items-center gap-1"><MapPin className="h-4 w-4" />{data.address}, {data.city}</div>
                 <div className="text-sm text-white/90 flex items-center gap-1"><Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />{data.rating ?? "N/A"} · {data.reviewsCount ?? 0} reseñas</div>
+                <div className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-xs ${data.isOpen ? "border-emerald-300/40 bg-emerald-500/20" : "border-rose-300/40 bg-rose-500/20"}`}>{data.isOpen ? "Abierto ahora" : "Cerrado"}</div>
               </div>
             </div>
             <button onClick={reserve} disabled={busy} className="btn-primary">{busy ? "Enviando..." : "Reservar"}</button>
