@@ -20,8 +20,6 @@ const legacySlugMap: Record<string, string> = {
   hotel: "hoteles-por-hora",
   hoteles: "hoteles-por-hora",
   "hotelesporhora": "hoteles-por-hora",
-  "centrosprivados": "centros-privados",
-  "centros privados": "centros-privados",
   "espaciosexclusivos": "espacios-exclusivos",
   "espacios exclusivos": "espacios-exclusivos",
   "nightclub": "espacios-exclusivos",

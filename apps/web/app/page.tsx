@@ -13,7 +13,6 @@ import {
   MapPin,
   Sparkles,
   Store,
-  Stethoscope,
   Users,
   WandSparkles
 } from "lucide-react";
@@ -44,7 +43,7 @@ type RecentProfessional = {
 
 function kindLabel(kind: Category["kind"]) {
   if (kind === "PROFESSIONAL") return "Experiencias";
-  if (kind === "ESTABLISHMENT") return "Lugares";
+  if (kind === "ESTABLISHMENT") return "Hospedaje";
   return "Tiendas";
 }
 
@@ -54,7 +53,7 @@ function displayCategoryName(category: Category) {
 
 const categoryPriority: Record<Category["kind"], string[]> = {
   PROFESSIONAL: ["acompan", "masaj", "vip", "premium"],
-  ESTABLISHMENT: ["motel", "privad", "hotel"],
+  ESTABLISHMENT: ["motel", "hotel"],
   SHOP: ["sex", "juguet", "shop"]
 };
 
@@ -89,7 +88,7 @@ function pickTopCategories(kind: Category["kind"], categories: Category[]) {
 
 function kindHref(kind: Category["kind"], categorySlug: string) {
   if (kind === "PROFESSIONAL") return `/profesionales?category=${encodeURIComponent(categorySlug)}`;
-  if (kind === "ESTABLISHMENT") return `/establecimientos?category=${encodeURIComponent(categorySlug)}`;
+  if (kind === "ESTABLISHMENT") return `/hospedaje?category=${encodeURIComponent(categorySlug)}`;
   return `/sexshops?category=${encodeURIComponent(categorySlug)}`;
 }
 
@@ -103,8 +102,7 @@ function categoryIcon(kind: Category["kind"], slug: string) {
   }
   if (kind === "ESTABLISHMENT") {
     if (n.includes("hotel")) return Hotel;
-    if (n.includes("privad")) return Stethoscope;
-    if (n.includes("motel")) return BedDouble;
+        if (n.includes("motel")) return BedDouble;
     return Building2;
   }
   if (n.includes("lenceria")) return Sparkles;
@@ -239,13 +237,35 @@ export default function HomePage() {
               <section key={kind}>
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-lg md:text-xl font-semibold">{kindLabel(kind)}</h2>
-                  <Link className="text-xs md:text-sm text-white/80 hover:text-white" href={kind === "PROFESSIONAL" ? "/profesionales" : kind === "ESTABLISHMENT" ? "/establecimientos" : "/sexshops"}>
+                  <Link className="text-xs md:text-sm text-white/80 hover:text-white" href={kind === "PROFESSIONAL" ? "/profesionales" : kind === "ESTABLISHMENT" ? "/hospedaje" : "/sexshops"}>
                     Ver todas
                   </Link>
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  {items.length ? items.map((c) => {
+                  {kind === "ESTABLISHMENT" ? ([{ id: "motel", displayName: "Moteles", slug: "motel", kind: "ESTABLISHMENT" }, { id: "hotel", displayName: "Hoteles", slug: "hotel", kind: "ESTABLISHMENT" }] as any[]).map((c) => {
+                    const Icon = categoryIcon(c.kind, c.slug || c.name);
+                    return (
+                      <Link
+                        key={c.id}
+                        href="/hospedaje"
+                        className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3.5 hover:bg-white/10 transition"
+                      >
+                        <div className="relative flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/15">
+                              <Icon className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <div className="text-lg font-semibold leading-tight">{displayCategoryName(c)}</div>
+                              <div className="text-xs text-white/75">Explorar categoría</div>
+                            </div>
+                          </div>
+                          <Sparkles className="h-5 w-5 shrink-0 text-white/80 group-hover:text-white transition" />
+                        </div>
+                      </Link>
+                    );
+                  }) : items.length ? items.map((c) => {
                     const Icon = categoryIcon(c.kind, c.slug || c.name);
                     return (
                       <Link

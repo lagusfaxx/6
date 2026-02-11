@@ -29,6 +29,7 @@ import { KhipuError } from "./khipu/client";
 import { statsRouter } from "./stats/routes";
 import { clientRouter } from "./client/routes";
 import { shopRouter } from "./shop/routes";
+import { motelRouter } from "./motel/routes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 
@@ -165,6 +166,7 @@ app.use("/", khipuRouter);
 app.use("/", profileRouter);
 app.use("/", directoryRouter);
 app.use("/", servicesRouter);
+app.use("/", motelRouter);
 app.use("/", messagesRouter);
 app.use("/", creatorRouter);
 app.use("/", billingRouter);

@@ -30,8 +30,8 @@ const businessOptions: Array<{
   },
   {
     key: "ESTABLISHMENT",
-    title: "Lugar (Motel / Night Club)",
-    description: "Publica habitaciones u ofertas y recibe solicitudes de reserva por chat.",
+    title: "Motel / Hotel",
+    description: "Administra habitaciones, promociones y reservas desde el Panel Motel.",
     icon: Building2
   },
   {
@@ -132,6 +132,7 @@ export default function RegisterClient() {
             lockProfileType
             onSuccess={() => {
               if (profileType !== "CLIENT") {
+                if (profileType === "ESTABLISHMENT") return { redirect: "/dashboard/motel" };
                 setStep("photo");
                 return { redirect: null };
               }
