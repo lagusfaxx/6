@@ -163,7 +163,11 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
   const users = await prisma.user.findMany({
     where: {
       isActive: true,
-      profileType: "ESTABLISHMENT"
+      OR: [
+        { profileType: "ESTABLISHMENT" },
+        { serviceCategory: { contains: "motel", mode: "insensitive" } },
+        { serviceCategory: { contains: "hotel", mode: "insensitive" } }
+      ]
     },
     select: {
       id: true, username: true, displayName: true, city: true, address: true,
@@ -177,10 +181,10 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
   const establishmentIds = users.map((u) => u.id);
   const [roomRows, promoRows] = await Promise.all([
     establishmentIds.length
-      ? prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "MotelRoom" WHERE "establishmentId" = ANY($1::uuid[]) AND "isActive" = true`, establishmentIds)
+      ? prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "MotelRoom" WHERE "establishmentId" = ANY($1::uuid[]) AND "isActive" = true`, establishmentIds).catch(() => [] as any[])
       : Promise.resolve([] as any[]),
     establishmentIds.length
-      ? prisma.$queryRawUnsafe<any[]>(`SELECT id, "establishmentId" FROM "MotelPromotion" WHERE "establishmentId" = ANY($1::uuid[]) AND "isActive" = true`, establishmentIds)
+      ? prisma.$queryRawUnsafe<any[]>(`SELECT id, "establishmentId" FROM "MotelPromotion" WHERE "establishmentId" = ANY($1::uuid[]) AND "isActive" = true`, establishmentIds).catch(() => [] as any[])
       : Promise.resolve([] as any[])
   ]);
 
@@ -196,8 +200,8 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
     promoMap.set(row.establishmentId, (promoMap.get(row.establishmentId) || 0) + 1);
   });
 
-  const reviewRows = await prisma.establishmentReview.groupBy({ by: ["establishmentId"], _avg: { stars: true }, _count: { _all: true } });
-  const reviewMap = new Map(reviewRows.map((r) => [r.establishmentId, { rating: r._avg.stars ?? null, reviews: r._count._all }]));
+  const reviewRows = await prisma.establishmentReview.groupBy({ by: ["establishmentId"], _avg: { stars: true }, _count: { _all: true } }).catch(() => [] as any[]);
+  const reviewMap = new Map(reviewRows.map((r: any) => [r.establishmentId, { rating: r._avg?.stars ?? null, reviews: r._count?._all || 0 }]));
 
   const toDistance = (aLat: number, aLng: number, bLat: number, bLng: number) => {
     const R = 6371;
@@ -210,9 +214,13 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
   };
 
   const mapped = users.map((u) => {
+    const fallbackLat = -33.4489;
+    const fallbackLng = -70.6693;
+    const safeLat = u.latitude ?? fallbackLat;
+    const safeLng = u.longitude ?? fallbackLng;
     const categoryName = `${u.category?.slug || ""} ${u.category?.displayName || ""} ${u.category?.name || ""}`.toLowerCase();
     const isHotel = categoryName.includes("hotel");
-    const distance = lat != null && lng != null && u.latitude != null && u.longitude != null ? toDistance(lat, lng, u.latitude, u.longitude) : null;
+    const distance = lat != null && lng != null ? toDistance(lat, lng, safeLat, safeLng) : null;
     const motelRooms = roomMap.get(u.id) || [];
     const motelPromotionsCount = promoMap.get(u.id) || 0;
     const firstRoom = motelRooms[0] as any;
@@ -230,8 +238,8 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
       name: u.displayName || u.username,
       address: u.address,
       city: u.city,
-      latitude: u.latitude,
-      longitude: u.longitude,
+      latitude: safeLat,
+      longitude: safeLng,
       distance,
       rating: reviewMap.get(u.id)?.rating ? Number((reviewMap.get(u.id)?.rating || 0).toFixed(2)) : null,
       reviewsCount: reviewMap.get(u.id)?.reviews || 0,
@@ -261,7 +269,11 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
     ? await prisma.user.findFirst({
       where: {
         id: rawId,
-        profileType: "ESTABLISHMENT"
+        OR: [
+          { profileType: "ESTABLISHMENT" },
+          { serviceCategory: { contains: "motel", mode: "insensitive" } },
+          { serviceCategory: { contains: "hotel", mode: "insensitive" } }
+        ]
       },
       select: {
         id: true, username: true, displayName: true, address: true, city: true, phone: true,
@@ -274,7 +286,11 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
   const u = byId || await prisma.user.findFirst({
     where: {
       username: rawId,
-      profileType: "ESTABLISHMENT"
+      OR: [
+        { profileType: "ESTABLISHMENT" },
+        { serviceCategory: { contains: "motel", mode: "insensitive" } },
+        { serviceCategory: { contains: "hotel", mode: "insensitive" } }
+      ]
     },
     select: {
       id: true, username: true, displayName: true, address: true, city: true, phone: true,
@@ -286,14 +302,16 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
 
   const id = u.id;
   const [rooms, promotions] = await Promise.all([
-    listRooms(id, true),
-    listPromotions(id, true)
+    listRooms(id, true).catch(() => [] as any[]),
+    listPromotions(id, true).catch(() => [] as any[])
   ]);
 
-  const reviews = await prisma.establishmentReview.groupBy({ by: ["establishmentId"], where: { establishmentId: id }, _avg: { stars: true }, _count: { _all: true } });
+  const reviews = await prisma.establishmentReview.groupBy({ by: ["establishmentId"], where: { establishmentId: id }, _avg: { stars: true }, _count: { _all: true } }).catch(() => [] as any[]);
   const rating = reviews[0]?._avg.stars ? Number((reviews[0]._avg.stars || 0).toFixed(2)) : null;
+  const latitude = u.latitude ?? -33.4489;
+  const longitude = u.longitude ?? -70.6693;
 
-  return res.json({ establishment: { id: u.id, name: u.displayName || u.username, address: u.address, city: u.city, phone: u.phone, rules: u.bio, schedule: u.serviceDescription, coverUrl: u.coverUrl, avatarUrl: u.avatarUrl, latitude: u.latitude, longitude: u.longitude, rating, reviewsCount: reviews[0]?._count._all || 0, gallery: u.media.map((m) => m.url), rooms, promotions } });
+  return res.json({ establishment: { id: u.id, name: u.displayName || u.username, address: u.address, city: u.city, phone: u.phone, rules: u.bio, schedule: u.serviceDescription, coverUrl: u.coverUrl, avatarUrl: u.avatarUrl, latitude, longitude, rating, reviewsCount: reviews[0]?._count._all || 0, gallery: u.media.map((m) => m.url), rooms, promotions } });
 }));
 
 motelRouter.post("/motels/:id/bookings", asyncHandler(async (req, res) => {
@@ -657,3 +675,4 @@ motelRouter.delete("/motel/dashboard/promotions/:id", asyncHandler(async (req, r
   const rows = await prisma.$queryRawUnsafe<any[]>(`DELETE FROM "MotelPromotion" WHERE id = $1::uuid AND "establishmentId" = $2::uuid RETURNING id`, String(req.params.id), req.session.userId!);
   return res.json({ ok: true, deleted: rows.length });
 }));
+

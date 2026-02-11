@@ -21,6 +21,29 @@ function normalizeProfileType(input: string) {
   return value;
 }
 
+async function geocodeAddress(address: string) {
+  const token = process.env.MAPBOX_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  if (!token || !address.trim()) return null;
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${token}&limit=1&language=es`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const payload = await response.json();
+    const first = payload?.features?.[0];
+    if (!first?.center || first.center.length < 2) return null;
+    const city = Array.isArray(first.context)
+      ? String(first.context.find((c: any) => String(c.id || "").startsWith("place."))?.text || "").trim() || null
+      : null;
+    return {
+      longitude: Number(first.center[0]),
+      latitude: Number(first.center[1]),
+      city
+    };
+  } catch {
+    return null;
+  }
+}
+
 authRouter.post("/register", asyncHandler(async (req, res) => {
   const payload = { ...req.body } as Record<string, any>;
   if (typeof payload.profileType === "string") {
@@ -47,6 +70,10 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
 
   const passwordHash = await argon2.hash(password);
   const shopTrialEndsAt = profileType === "SHOP" ? addDays(new Date(), 30) : null;
+  const isLodgingProfile = profileType === "ESTABLISHMENT";
+  const geocoded = isLodgingProfile ? await geocodeAddress(address || "") : null;
+  const fallbackLat = -33.4489;
+  const fallbackLng = -70.6693;
   let safeBirthdate: Date | null = null;
   if (birthdate) {
     const parsedBirthdate = new Date(birthdate);
@@ -75,6 +102,9 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
         preferenceGender: preferenceGender || null,
         profileType,
         address,
+        city: geocoded?.city || null,
+        latitude: isLodgingProfile ? Number(geocoded?.latitude ?? fallbackLat) : null,
+        longitude: isLodgingProfile ? Number(geocoded?.longitude ?? fallbackLng) : null,
         termsAcceptedAt: new Date(),
         membershipExpiresAt: profileType === "CLIENT" ? null : addDays(new Date(), 30),
         passwordHash,
