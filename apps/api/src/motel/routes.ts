@@ -163,10 +163,7 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
   const users = await prisma.user.findMany({
     where: {
       isActive: true,
-      OR: [
-        { profileType: "ESTABLISHMENT" },
-        { role: { in: ["MOTEL", "MOTEL_OWNER"] as any } }
-      ]
+      profileType: "ESTABLISHMENT"
     },
     select: {
       id: true, username: true, displayName: true, city: true, address: true,
@@ -264,7 +261,7 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
     ? await prisma.user.findFirst({
       where: {
         id: rawId,
-        OR: [{ profileType: "ESTABLISHMENT" }, { role: { in: ["MOTEL", "MOTEL_OWNER"] as any } }]
+        profileType: "ESTABLISHMENT"
       },
       select: {
         id: true, username: true, displayName: true, address: true, city: true, phone: true,
@@ -277,7 +274,7 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
   const u = byId || await prisma.user.findFirst({
     where: {
       username: rawId,
-      OR: [{ profileType: "ESTABLISHMENT" }, { role: { in: ["MOTEL", "MOTEL_OWNER"] as any } }]
+      profileType: "ESTABLISHMENT"
     },
     select: {
       id: true, username: true, displayName: true, address: true, city: true, phone: true,
