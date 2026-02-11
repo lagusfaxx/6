@@ -35,9 +35,8 @@ function normalizeCategoryText(value: string | null | undefined) {
 }
 
 const categoryAliases: Record<string, string[]> = {
-  motel: ["moteles", "centros privados", "centrosprivados"],
-  moteles: ["motel", "centros privados", "centrosprivados"],
-  centrosprivados: ["centros privados", "motel", "moteles"],
+  motel: ["moteles"],
+  moteles: ["motel"],
   hotelesporhora: ["hoteles", "hotel", "hoteles por hora"],
   hoteles: ["hotel", "hoteles por hora"],
   spa: ["spas", "cafe", "cafes"],
