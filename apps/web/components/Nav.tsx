@@ -18,11 +18,13 @@ export default function Nav() {
   const { me } = useMe();
   const isAuthed = Boolean(me?.user?.id);
 
-  const dynamicItems = [...navItems];
   const role = String(me?.user?.role || "").toUpperCase();
   const ptype = String(me?.user?.profileType || "").toUpperCase();
-  if (ptype === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER") {
-    dynamicItems.splice(4, 0, { href: "/dashboard/motel", label: "Panel Motel", icon: Hotel, protected: true } as any);
+  const isMotelProfile = ptype === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
+
+  const dynamicItems = navItems.filter((item) => (isMotelProfile ? item.href !== "/servicios" : true));
+  if (isMotelProfile) {
+    dynamicItems.splice(3, 0, { href: "/dashboard/motel", label: "Panel Motel", icon: Hotel, protected: true } as any);
   }
 
   return (
@@ -61,7 +63,7 @@ export default function Nav() {
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-black/50 backdrop-blur-2xl"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="mx-auto grid max-w-[520px] grid-cols-5 px-3 py-2">
+        <div className="mx-auto grid max-w-[520px] px-3 py-2" style={{ gridTemplateColumns: `repeat(${dynamicItems.length}, minmax(0, 1fr))` }}>
           {dynamicItems.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;

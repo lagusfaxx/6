@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { MapPin, Star } from "lucide-react";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
@@ -136,7 +137,7 @@ export default function HospedajeDetailPage() {
           <input className="input" value={note} placeholder="Comentario opcional" onChange={(e) => setNote(e.target.value)} />
           <button onClick={reserve} disabled={busy} className="btn-primary">{busy ? "Enviando..." : "Confirmar reserva"}</button>
         </div>
-        {msg ? <div className="mt-2 text-sm text-white/85">{msg}</div> : null}
+        {msg ? <div className="mt-2 space-y-2 text-sm text-white/85"><div>{msg}</div><Link className="inline-flex rounded-xl border border-fuchsia-300/30 bg-fuchsia-500/15 px-3 py-2 text-fuchsia-100" href={`/chat/${data.id}`}>Ir al chat con el hotel/motel</Link></div> : null}
       </section>
     </div>
   );

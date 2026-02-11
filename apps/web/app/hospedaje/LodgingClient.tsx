@@ -5,6 +5,7 @@ import Link from "next/link";
 import { MapPin, Sparkles, Star } from "lucide-react";
 import MapboxMap from "../../components/MapboxMap";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
+import { useMapLocation } from "../../hooks/useMapLocation";
 
 type Item = {
   id: string;
@@ -26,20 +27,13 @@ const roomTypeTags = ["", "Normal", "Jacuzzi", "Premium", "Temática"];
 export default function LodgingClient() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const [location, setLocation] = useState<[number, number] | null>(null);
+  const { location } = useMapLocation([-33.45, -70.66]);
 
   const [filters, setFilters] = useState({
     duration: "3H",
     roomType: "",
     onlyPromos: false,
   });
-
-  useEffect(() => {
-    navigator.geolocation?.getCurrentPosition(
-      (pos) => setLocation([pos.coords.latitude, pos.coords.longitude]),
-      () => null,
-    );
-  }, []);
 
   const query = useMemo(() => {
     const p = new URLSearchParams();

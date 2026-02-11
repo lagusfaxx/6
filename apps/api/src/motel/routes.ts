@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -10,7 +11,7 @@ async function ensureMotelSchema() {
   if (schemaReady) return;
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "MotelBooking" (
-      "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      "id" UUID PRIMARY KEY,
       "establishmentId" UUID NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
       "roomId" UUID NULL REFERENCES "MotelRoom"("id") ON DELETE SET NULL,
       "clientId" UUID NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
@@ -19,6 +20,8 @@ async function ensureMotelSchema() {
       "priceClp" INTEGER NOT NULL,
       "startAt" TIMESTAMP NULL,
       "note" TEXT NULL,
+      "rejectReason" TEXT NULL,
+      "rejectNote" TEXT NULL,
       "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
       "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
     );
@@ -40,6 +43,11 @@ async function ensureMotelSchema() {
     ALTER TABLE "MotelPromotion" ADD COLUMN IF NOT EXISTS "roomId" UUID;
   `);
 
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "rejectReason" TEXT;
+    ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "rejectNote" TEXT;
+  `);
+
   schemaReady = true;
 }
 
@@ -48,6 +56,21 @@ function isMotelOwner(user: any) {
   const role = String(user.role || "").toUpperCase();
   const profileType = String(user.profileType || "").toUpperCase();
   return profileType === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
+}
+
+
+async function sendBookingMessage(fromId: string, toId: string, text: string) {
+  const body = String(text || "").trim();
+  if (!body) return;
+  const message = await prisma.message.create({ data: { fromId, toId, body } });
+  await prisma.notification.create({
+    data: {
+      userId: toId,
+      type: "MESSAGE_RECEIVED",
+      data: { fromId, messageId: message.id }
+    }
+  });
+  sendToUser(toId, "message", { message });
 }
 
 function parseStringArray(value: unknown): string[] {
@@ -174,10 +197,15 @@ motelRouter.post("/motels/:id/bookings", asyncHandler(async (req, res) => {
   const fallbackAny = fallbackRoom as any;
   const priceClp = durationType === "6H" ? Number(fallbackAny.price6h || fallbackRoom.price) : durationType === "NIGHT" ? Number(fallbackAny.priceNight || fallbackRoom.price) : Number(fallbackAny.price3h || fallbackRoom.price);
 
-  const rows = await prisma.$queryRawUnsafe<any[]>(`INSERT INTO "MotelBooking" ("establishmentId", "roomId", "clientId", "status", "durationType", "priceClp", "startAt", "note") VALUES ($1, $2, $3, 'PENDIENTE', $4, $5, $6, $7) RETURNING *`, establishmentId, fallbackRoom.id, clientId, durationType, priceClp, startAt, note);
+  const bookingId = randomUUID();
+  const rows = await prisma.$queryRawUnsafe<any[]>(`INSERT INTO "MotelBooking" ("id", "establishmentId", "roomId", "clientId", "status", "durationType", "priceClp", "startAt", "note") VALUES ($1, $2, $3, $4, 'PENDIENTE', $5, $6, $7, $8) RETURNING *`, bookingId, establishmentId, fallbackRoom.id, clientId, durationType, priceClp, startAt, note);
   const booking = rows[0];
   await prisma.notification.create({ data: { userId: establishmentId, type: "SERVICE_PUBLISHED", title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}` } });
   sendToUser(establishmentId, "booking:new", { bookingId: booking.id });
+
+  const roomName = fallbackRoom.name || "Habitación";
+  const startLabel = startAt ? new Date(startAt).toLocaleString("es-CL") : "por confirmar";
+  await sendBookingMessage(clientId, establishmentId, `Nueva solicitud de reserva\n• Duración: ${durationType}\n• Habitación: ${roomName}\n• Fecha/Hora: ${startLabel}\n• Monto: $${Number(priceClp || 0).toLocaleString("es-CL")}\n${note ? `• Comentario: ${note}` : ""}`);
 
   return res.json({ booking });
 }));
@@ -206,18 +234,49 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
 
   const isOwner = isMotelOwner(user) && booking.establishmentId === userId;
   const isClient = booking.clientId === userId;
+  const rejectReason = String(req.body?.rejectReason || "").toUpperCase();
+  const rejectNote = req.body?.rejectNote != null ? String(req.body.rejectNote).slice(0, 300) : null;
+
   let nextStatus: string | null = null;
   if (isOwner && action === "ACCEPT" && booking.status === "PENDIENTE") nextStatus = "CONFIRMADA";
-  if (isOwner && action === "REJECT" && booking.status === "PENDIENTE") nextStatus = "RECHAZADA";
+  if (isOwner && action === "REJECT" && booking.status === "PENDIENTE") {
+    if (!["CERRADO", "SIN_HABITACIONES", "OTRO"].includes(rejectReason)) {
+      return res.status(400).json({ error: "REJECT_REASON_REQUIRED" });
+    }
+    if (rejectReason === "OTRO" && !rejectNote) {
+      return res.status(400).json({ error: "REJECT_NOTE_REQUIRED" });
+    }
+    nextStatus = "RECHAZADA";
+  }
   if (isOwner && action === "FINISH" && booking.status === "CONFIRMADA") nextStatus = "FINALIZADA";
   if (isClient && action === "CANCEL" && ["PENDIENTE", "CONFIRMADA"].includes(booking.status)) nextStatus = "CANCELADA_CLIENTE";
   if (!nextStatus) return res.status(400).json({ error: "INVALID_TRANSITION" });
 
-  const updatedRows = await prisma.$queryRawUnsafe<any[]>(`UPDATE "MotelBooking" SET "status" = $1, "updatedAt" = NOW() WHERE id = $2 RETURNING *`, nextStatus, id);
+  const updatedRows = await prisma.$queryRawUnsafe<any[]>(
+    `UPDATE "MotelBooking"
+     SET "status" = $1,
+         "rejectReason" = CASE WHEN $1 = 'RECHAZADA' THEN $3 ELSE "rejectReason" END,
+         "rejectNote" = CASE WHEN $1 = 'RECHAZADA' THEN $4 ELSE "rejectNote" END,
+         "updatedAt" = NOW()
+     WHERE id = $2
+     RETURNING *`,
+    nextStatus,
+    id,
+    rejectReason || null,
+    rejectNote || null
+  );
   const updated = updatedRows[0];
   const notifyUserId = isOwner ? booking.clientId : booking.establishmentId;
   await prisma.notification.create({ data: { userId: notifyUserId, type: "SERVICE_PUBLISHED", title: "Actualización de reserva", body: `Estado: ${nextStatus}` } });
-  sendToUser(notifyUserId, "booking:update", { bookingId: updated.id, status: nextStatus });
+  sendToUser(notifyUserId, "booking:update", { bookingId: updated.id, status: nextStatus, rejectReason: updated.rejectReason, rejectNote: updated.rejectNote });
+
+  if (isOwner && nextStatus === "CONFIRMADA") {
+    await sendBookingMessage(booking.establishmentId, booking.clientId, `✅ Reserva confirmada para ${updated.durationType}. Nos vemos en ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "horario por confirmar"}.`);
+  }
+  if (isOwner && nextStatus === "RECHAZADA") {
+    const reasonText = rejectReason === "CERRADO" ? "Local cerrado" : rejectReason === "SIN_HABITACIONES" ? "Sin habitaciones" : `Otro motivo: ${rejectNote}`;
+    await sendBookingMessage(booking.establishmentId, booking.clientId, `❌ Reserva rechazada. Motivo: ${reasonText}.`);
+  }
 
   return res.json({ booking: updated });
 }));
