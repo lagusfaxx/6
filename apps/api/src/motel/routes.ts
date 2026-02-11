@@ -372,7 +372,7 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
   const rejectNote = req.body?.rejectNote != null ? String(req.body.rejectNote).slice(0, 300) : null;
 
   let nextStatus: string | null = null;
-  if (isOwner && action === "ACCEPT" && booking.status === "PENDIENTE") nextStatus = "CONFIRMADA";
+  if (isOwner && action === "ACCEPT" && booking.status === "PENDIENTE") nextStatus = "ACEPTADA";
   if (isOwner && action === "REJECT" && booking.status === "PENDIENTE") {
     if (!["CERRADO", "SIN_HABITACIONES", "OTRO"].includes(rejectReason)) {
       return res.status(400).json({ error: "REJECT_REASON_REQUIRED" });
@@ -382,8 +382,9 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
     }
     nextStatus = "RECHAZADA";
   }
+  if (isClient && action === "CONFIRM" && booking.status === "ACEPTADA") nextStatus = "CONFIRMADA";
   if (isOwner && action === "FINISH" && booking.status === "CONFIRMADA") nextStatus = "FINALIZADA";
-  if (isClient && action === "CANCEL" && ["PENDIENTE", "CONFIRMADA"].includes(booking.status)) nextStatus = "CANCELADA_CLIENTE";
+  if (isClient && action === "CANCEL" && ["PENDIENTE", "ACEPTADA", "CONFIRMADA"].includes(booking.status)) nextStatus = "CANCELADA";
   if (!nextStatus) return res.status(400).json({ error: "INVALID_TRANSITION" });
 
   const updatedRows = await prisma.$queryRawUnsafe<any[]>(
@@ -404,12 +405,15 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
   await prisma.notification.create({ data: { userId: notifyUserId, type: "SERVICE_PUBLISHED", title: "Actualización de reserva", body: `Estado: ${nextStatus}` } });
   sendToUser(notifyUserId, "booking:update", { bookingId: updated.id, status: nextStatus, rejectReason: updated.rejectReason, rejectNote: updated.rejectNote });
 
-  if (isOwner && nextStatus === "CONFIRMADA") {
-    await sendBookingMessage(booking.establishmentId, booking.clientId, `✅ Reserva confirmada para ${updated.durationType}. Nos vemos en ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "horario por confirmar"}.`);
+  if (isOwner && nextStatus === "ACEPTADA") {
+    await sendBookingMessage(booking.establishmentId, booking.clientId, `✅ Tu reserva fue aceptada. Precio final: $${Number(updated.priceClp || 0).toLocaleString("es-CL")}. Debes confirmarla para activarla.`);
   }
   if (isOwner && nextStatus === "RECHAZADA") {
     const reasonText = rejectReason === "CERRADO" ? "Local cerrado" : rejectReason === "SIN_HABITACIONES" ? "Sin habitaciones" : `Otro motivo: ${rejectNote}`;
     await sendBookingMessage(booking.establishmentId, booking.clientId, `❌ Reserva rechazada. Motivo: ${reasonText}.`);
+  }
+  if (isClient && nextStatus === "CONFIRMADA") {
+    await sendBookingMessage(booking.clientId, booking.establishmentId, `✅ El cliente confirmó la reserva para ${updated.durationType}. Inicio: ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "por confirmar"}.`);
   }
 
   return res.json({ booking: updated });
