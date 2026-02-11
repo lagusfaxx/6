@@ -93,7 +93,7 @@ async function listRooms(establishmentId: string, onlyActive = false) {
   }
 
   return prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM "MotelRoom" WHERE "establishmentId" = $1 ${onlyActive ? 'AND "isActive" = true' : ""} ORDER BY "createdAt" DESC`,
+    `SELECT * FROM "MotelRoom" WHERE "establishmentId" = $1::uuid ${onlyActive ? 'AND "isActive" = true' : ""} ORDER BY "createdAt" DESC`,
     establishmentId
   );
 }
@@ -108,7 +108,7 @@ async function listPromotions(establishmentId: string, onlyActive = false) {
   }
 
   return prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM "MotelPromotion" WHERE "establishmentId" = $1 ${onlyActive ? 'AND "isActive" = true' : ""} ORDER BY "createdAt" DESC`,
+    `SELECT * FROM "MotelPromotion" WHERE "establishmentId" = $1::uuid ${onlyActive ? 'AND "isActive" = true' : ""} ORDER BY "createdAt" DESC`,
     establishmentId
   );
 }
@@ -125,7 +125,7 @@ async function findRoomForBooking(establishmentId: string, roomId?: string | nul
 
   if (roomId) {
     const exact = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM "MotelRoom" WHERE id = $1 AND "establishmentId" = $2 AND "isActive" = true LIMIT 1`,
+      `SELECT * FROM "MotelRoom" WHERE id = $1::uuid AND "establishmentId" = $2::uuid AND "isActive" = true LIMIT 1`,
       roomId,
       establishmentId
     );
@@ -133,7 +133,7 @@ async function findRoomForBooking(establishmentId: string, roomId?: string | nul
   }
 
   const fallback = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM "MotelRoom" WHERE "establishmentId" = $1 AND "isActive" = true ORDER BY "createdAt" ASC LIMIT 1`,
+    `SELECT * FROM "MotelRoom" WHERE "establishmentId" = $1::uuid AND "isActive" = true ORDER BY "createdAt" ASC LIMIT 1`,
     establishmentId
   );
   return fallback[0] || null;
@@ -283,7 +283,7 @@ motelRouter.post("/motels/:id/bookings", asyncHandler(async (req, res) => {
   const priceClp = durationType === "6H" ? Number(fallbackAny.price6h || fallbackRoom.price) : durationType === "NIGHT" ? Number(fallbackAny.priceNight || fallbackRoom.price) : Number(fallbackAny.price3h || fallbackRoom.price);
 
   const bookingId = randomUUID();
-  const rows = await prisma.$queryRawUnsafe<any[]>(`INSERT INTO "MotelBooking" ("id", "establishmentId", "roomId", "clientId", "status", "durationType", "priceClp", "startAt", "note") VALUES ($1, $2, $3, $4, 'PENDIENTE', $5, $6, $7, $8) RETURNING *`, bookingId, establishmentId, fallbackRoom.id, clientId, durationType, priceClp, startAt, note);
+  const rows = await prisma.$queryRawUnsafe<any[]>(`INSERT INTO "MotelBooking" ("id", "establishmentId", "roomId", "clientId", "status", "durationType", "priceClp", "startAt", "note") VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'PENDIENTE', $5, $6, $7, $8) RETURNING *`, bookingId, establishmentId, fallbackRoom.id, clientId, durationType, priceClp, startAt, note);
   const booking = rows[0];
   await prisma.notification.create({ data: { userId: establishmentId, type: "SERVICE_PUBLISHED", title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}` } });
   sendToUser(establishmentId, "booking:new", { bookingId: booking.id });
@@ -301,7 +301,7 @@ motelRouter.get("/motel/bookings", asyncHandler(async (req, res) => {
   if (!userId) return res.status(401).json({ error: "UNAUTHENTICATED" });
   const isOwner = isMotelOwner((req as any).user);
 
-  const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT b.*, u."displayName" as "clientName", u."username" as "clientUsername", r."name" as "roomName" FROM "MotelBooking" b LEFT JOIN "User" u ON u.id = b."clientId" LEFT JOIN "MotelRoom" r ON r.id = b."roomId" WHERE ${isOwner ? 'b."establishmentId" = $1' : 'b."clientId" = $1'} ORDER BY b."createdAt" DESC LIMIT 300`, userId);
+  const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT b.*, u."displayName" as "clientName", u."username" as "clientUsername", r."name" as "roomName" FROM "MotelBooking" b LEFT JOIN "User" u ON u.id = b."clientId" LEFT JOIN "MotelRoom" r ON r.id = b."roomId" WHERE ${isOwner ? 'b."establishmentId" = $1::uuid' : 'b."clientId" = $1::uuid'} ORDER BY b."createdAt" DESC LIMIT 300`, userId);
   return res.json({ bookings: rows });
 }));
 
@@ -313,7 +313,7 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
   const id = String(req.params.id);
   const action = String(req.body?.action || "").toUpperCase();
 
-  const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "MotelBooking" WHERE id = $1 LIMIT 1`, id);
+  const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "MotelBooking" WHERE id = $1::uuid LIMIT 1`, id);
   const booking = rows[0];
   if (!booking) return res.status(404).json({ error: "NOT_FOUND" });
 
@@ -343,7 +343,7 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
          "rejectReason" = CASE WHEN $1 = 'RECHAZADA' THEN $3 ELSE "rejectReason" END,
          "rejectNote" = CASE WHEN $1 = 'RECHAZADA' THEN $4 ELSE "rejectNote" END,
          "updatedAt" = NOW()
-     WHERE id = $2
+     WHERE id = $2::uuid
      RETURNING *`,
     nextStatus,
     id,
@@ -375,7 +375,7 @@ motelRouter.get("/motel/dashboard", asyncHandler(async (req, res) => {
   const [rooms, promotions, bookings] = await Promise.all([
     listRooms(userId),
     listPromotions(userId),
-    prisma.$queryRawUnsafe<any[]>(`SELECT b.*, u."displayName" as "clientName", u."username" as "clientUsername", r."name" as "roomName" FROM "MotelBooking" b LEFT JOIN "User" u ON u.id = b."clientId" LEFT JOIN "MotelRoom" r ON r.id = b."roomId" WHERE b."establishmentId" = $1 ORDER BY b."createdAt" DESC LIMIT 200`, userId)
+    prisma.$queryRawUnsafe<any[]>(`SELECT b.*, u."displayName" as "clientName", u."username" as "clientUsername", r."name" as "roomName" FROM "MotelBooking" b LEFT JOIN "User" u ON u.id = b."clientId" LEFT JOIN "MotelRoom" r ON r.id = b."roomId" WHERE b."establishmentId" = $1::uuid ORDER BY b."createdAt" DESC LIMIT 200`, userId)
   ]);
 
   return res.json({ profile: { id: user.id, displayName: user.displayName, address: user.address, phone: user.phone, city: user.city, latitude: user.latitude, longitude: user.longitude, coverUrl: user.coverUrl, rules: user.bio, schedule: user.serviceDescription }, rooms, promotions, bookings });
@@ -427,7 +427,7 @@ motelRouter.post("/motel/dashboard/rooms", asyncHandler(async (req, res) => {
   }
 
   const rows = await prisma.$queryRawUnsafe<any[]>(
-    `INSERT INTO "MotelRoom" ("id", "establishmentId", "name", "description", "price", "roomType", "amenities", "photoUrls", "price3h", "price6h", "priceNight", "isActive", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7::text[], $8::text[], $9, $10, $11, true, NOW(), NOW()) RETURNING *`,
+    `INSERT INTO "MotelRoom" ("id", "establishmentId", "name", "description", "price", "roomType", "amenities", "photoUrls", "price3h", "price6h", "priceNight", "isActive", "createdAt", "updatedAt") VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::text[], $8::text[], $9, $10, $11, true, NOW(), NOW()) RETURNING *`,
     randomUUID(),
     data.establishmentId,
     data.name,
@@ -484,7 +484,7 @@ motelRouter.put("/motel/dashboard/rooms/:id", asyncHandler(async (req, res) => {
       "priceNight" = COALESCE($11, "priceNight"),
       "isActive" = COALESCE($12, "isActive"),
       "updatedAt" = NOW()
-    WHERE id = $1 AND "establishmentId" = $2
+    WHERE id = $1::uuid AND "establishmentId" = $2::uuid
     RETURNING id`,
     String(req.params.id),
     req.session.userId!,
@@ -527,7 +527,7 @@ motelRouter.post("/motel/dashboard/promotions", asyncHandler(async (req, res) =>
   }
 
   const rows = await prisma.$queryRawUnsafe<any[]>(
-    `INSERT INTO "MotelPromotion" ("id", "establishmentId", "title", "description", "discountPercent", "discountClp", "startsAt", "endsAt", "isActive", "roomId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()) RETURNING *`,
+    `INSERT INTO "MotelPromotion" ("id", "establishmentId", "title", "description", "discountPercent", "discountClp", "startsAt", "endsAt", "isActive", "roomId", "createdAt", "updatedAt") VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10::uuid, NOW(), NOW()) RETURNING *`,
     randomUUID(),
     data.establishmentId,
     data.title,
@@ -579,7 +579,7 @@ motelRouter.put("/motel/dashboard/promotions/:id", asyncHandler(async (req, res)
       "isActive" = COALESCE($9, "isActive"),
       "roomId" = COALESCE($10, "roomId"),
       "updatedAt" = NOW()
-    WHERE id = $1 AND "establishmentId" = $2
+    WHERE id = $1::uuid AND "establishmentId" = $2::uuid
     RETURNING id`,
     String(req.params.id),
     req.session.userId!,
