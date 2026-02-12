@@ -119,7 +119,7 @@ export default function ChatPage() {
     }
 
     if (profile.profileType === "PROFESSIONAL") {
-      const res = await apiFetch<{ request: ServiceRequest | null }>(`/services/requests/with/${userId}`);
+      const res = await apiFetch<{ request: ServiceRequest | null }>(/services/requests/with/${userId});
       setActiveRequest(res.request || null);
       return;
     }
@@ -133,7 +133,7 @@ export default function ChatPage() {
       return;
     }
     try {
-      const res = await apiFetch<{ booking: MotelBooking | null }>(`/motel/bookings/with/${userId}`);
+      const res = await apiFetch<{ booking: MotelBooking | null }>(/motel/bookings/with/${userId});
       setActiveBooking(res.booking || null);
     } catch {
       setActiveBooking(null);
@@ -143,7 +143,7 @@ export default function ChatPage() {
   async function load() {
     const [meResp, msgResp] = await Promise.all([
       apiFetch<MeResponse>("/auth/me"),
-      apiFetch<{ messages: Message[]; other: ChatUser }>(`/messages/${userId}`)
+      apiFetch<{ messages: Message[]; other: ChatUser }>(/messages/${userId})
     ]);
     setMe(meResp.user);
     setMessages(msgResp.messages);
@@ -155,7 +155,7 @@ export default function ChatPage() {
     load()
       .catch((e: any) => {
         if (isAuthError(e)) {
-          router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+          router.replace(/login?next=${encodeURIComponent(pathname)});
           return;
         }
         if (e?.status === 403) {
@@ -175,7 +175,7 @@ export default function ChatPage() {
 
   async function refreshConversationSilently() {
     try {
-      const msgResp = await apiFetch<{ messages: Message[]; other: ChatUser }>(`/messages/${userId}`);
+      const msgResp = await apiFetch<{ messages: Message[]; other: ChatUser }>(/messages/${userId});
       setMessages(msgResp.messages);
       setOther(msgResp.other);
       await Promise.all([loadServiceState(me), loadBookingState(me)]);
@@ -193,7 +193,7 @@ export default function ChatPage() {
         payload.rejectReason = "OTRO";
         payload.rejectNote = "No disponible";
       }
-      const res = await apiFetch<{ booking: MotelBooking }>(`/motel/bookings/${activeBooking.id}/action`, {
+      const res = await apiFetch<{ booking: MotelBooking }>(/motel/bookings/${activeBooking.id}/action, {
         method: "POST",
         body: JSON.stringify(payload)
       });
@@ -269,14 +269,14 @@ export default function ChatPage() {
       if (attachment) {
         const form = new FormData();
         form.append("file", attachment);
-        const res = await fetch(`${API_URL}/messages/${userId}/attachment`, {
+        const res = await fetch(${API_URL}/messages/${userId}/attachment, {
           method: "POST",
           credentials: "include",
           body: form
         });
         if (!res.ok) {
           const t = await res.text().catch(() => "");
-          throw new Error(`ATTACHMENT_FAILED ${res.status}: ${t}`);
+          throw new Error(ATTACHMENT_FAILED ${res.status}: ${t});
         }
         const payload = (await res.json()) as { message: Message };
         setMessages((prev) => [...prev, payload.message]);
@@ -284,7 +284,7 @@ export default function ChatPage() {
         setAttachmentPreview(null);
       }
       if (body.trim()) {
-        const msg = await apiFetch<{ message: Message }>(`/messages/${userId}`, {
+        const msg = await apiFetch<{ message: Message }>(/messages/${userId}, {
           method: "POST",
           body: JSON.stringify({ body })
         });
@@ -332,7 +332,7 @@ export default function ChatPage() {
     if (!activeRequest) return;
     setProposalSubmitting(true);
     try {
-      const res = await apiFetch<{ service: ServiceRequest }>(`/services/${activeRequest.id}/approve`, {
+      const res = await apiFetch<{ service: ServiceRequest }>(/services/${activeRequest.id}/approve, {
         method: "POST",
         body: JSON.stringify({
           priceClp: Number(proposalPrice),
@@ -354,7 +354,7 @@ export default function ChatPage() {
   async function rejectRequest() {
     if (!activeRequest) return;
     try {
-      const res = await apiFetch<{ service: ServiceRequest }>(`/services/${activeRequest.id}/reject`, { method: "POST" });
+      const res = await apiFetch<{ service: ServiceRequest }>(/services/${activeRequest.id}/reject, { method: "POST" });
       setActiveRequest(res.service || null);
     } catch (e: any) {
       setError(e?.message || "No se pudo rechazar la solicitud");
@@ -364,7 +364,7 @@ export default function ChatPage() {
   async function confirmProposal() {
     if (!activeRequest) return;
     try {
-      const res = await apiFetch<{ service: ServiceRequest }>(`/services/${activeRequest.id}/client-confirm`, { method: "POST" });
+      const res = await apiFetch<{ service: ServiceRequest }>(/services/${activeRequest.id}/client-confirm, { method: "POST" });
       setActiveRequest(res.service || null);
       await loadServiceState(me);
     } catch (e: any) {
@@ -375,7 +375,7 @@ export default function ChatPage() {
   async function cancelProposal() {
     if (!activeRequest) return;
     try {
-      const res = await apiFetch<{ service: ServiceRequest }>(`/services/${activeRequest.id}/client-cancel`, { method: "POST" });
+      const res = await apiFetch<{ service: ServiceRequest }>(/services/${activeRequest.id}/client-cancel, { method: "POST" });
       setActiveRequest(res.service || null);
     } catch (e: any) {
       setError(e?.message || "No se pudo cancelar la solicitud");
@@ -385,7 +385,7 @@ export default function ChatPage() {
   async function finishService() {
     if (!activeRequest) return;
     try {
-      const res = await apiFetch<{ service: ServiceRequest }>(`/services/${activeRequest.id}/finish`, { method: "POST" });
+      const res = await apiFetch<{ service: ServiceRequest }>(/services/${activeRequest.id}/finish, { method: "POST" });
       setActiveRequest(res.service || null);
     } catch (e: any) {
       setError(e?.message || "No se pudo finalizar el servicio");
@@ -413,7 +413,7 @@ export default function ChatPage() {
   const isMotelOwnerChat = String(me?.profileType || "").toUpperCase() === "ESTABLISHMENT";
   const isClientChat = !isMotelOwnerChat && String(other?.profileType || "").toUpperCase() === "ESTABLISHMENT";
   const hasMotelBooking = Boolean(activeBooking);
-  const bookingMapsLink = activeBooking ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([activeBooking.establishmentAddress || "", activeBooking.establishmentCity || ""].join(" ").trim() || "motel")}` : "";
+  const bookingMapsLink = activeBooking ? https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([activeBooking.establishmentAddress || "", activeBooking.establishmentCity || ""].join(" ").trim() || "motel")} : "";
 
   return (
     <div className="grid gap-6">
@@ -426,7 +426,7 @@ export default function ChatPage() {
               {other ? (
                 <p className="text-xs text-white/60">
                   @{other.username} • {other.profileType === "SHOP" ? "Tienda" : other.profileType === "ESTABLISHMENT" ? "Lugar" : other.profileType === "PROFESSIONAL" ? "Experiencia" : "Perfil"}
-                  {other.city ? ` • ${other.city}` : ""}
+                  {other.city ?  • ${other.city} : ""}
                 </p>
               ) : (
                 <p className="text-xs text-white/60">Conversación segura para coordinar.</p>
@@ -543,7 +543,7 @@ export default function ChatPage() {
             return (
               <div
                 key={m.id}
-                className={`rounded-xl px-4 py-3 text-sm ${m.fromId === me?.id ? "bg-purple-500/20 text-white ml-auto" : "bg-white/5 text-white/80"}`}
+                className={rounded-xl px-4 py-3 text-sm ${m.fromId === me?.id ? "bg-purple-500/20 text-white ml-auto" : "bg-white/5 text-white/80"}}
               >
                 {isImage && imageUrl ? (
                   <img src={imageUrl} alt="Adjunto" className="max-w-[220px] rounded-lg border border-white/10" />
@@ -646,4 +646,4 @@ export default function ChatPage() {
       ) : null}
     </div>
   );
-}
+} 
