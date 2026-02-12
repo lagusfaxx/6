@@ -378,19 +378,36 @@ motelRouter.get("/motel/bookings/with/:userId", asyncHandler(async (req, res) =>
   const otherId = String(req.params.userId || "");
   if (!isUuid(otherId)) return res.status(400).json({ error: "INVALID_TARGET" });
 
-  const rows = await prisma.$queryRawUnsafe<any[]>(
+  const relationRows = await prisma.$queryRawUnsafe<any[]>(
     `SELECT b.*, r."name" as "roomName", e."displayName" as "establishmentName", e."address" as "establishmentAddress", e."city" as "establishmentCity", e."latitude" as "establishmentLat", e."longitude" as "establishmentLng"
      FROM "MotelBooking" b
      LEFT JOIN "MotelRoom" r ON r.id = b."roomId"
      LEFT JOIN "User" e ON e.id = b."establishmentId"
      WHERE (b."establishmentId" = $1::uuid AND b."clientId" = $2::uuid) OR (b."establishmentId" = $2::uuid AND b."clientId" = $1::uuid)
      ORDER BY b."createdAt" DESC
-     LIMIT 1`,
+     LIMIT 50`,
     userId,
     otherId
   );
 
-  return res.json({ booking: rows[0] || null });
+  const meAsClient = relationRows.find((b) => b.clientId === userId);
+  const meAsOwner = relationRows.find((b) => b.establishmentId === userId);
+
+  let booking: any = null;
+  if (meAsClient) {
+    booking = relationRows.find((b) => b.clientId === userId && b.status === "ACEPTADA")
+      || relationRows.find((b) => b.clientId === userId && b.status === "PENDIENTE")
+      || relationRows.find((b) => b.clientId === userId && b.status === "CONFIRMADA")
+      || relationRows.find((b) => b.clientId === userId)
+      || null;
+  } else if (meAsOwner) {
+    booking = relationRows.find((b) => b.establishmentId === userId && b.status === "PENDIENTE")
+      || relationRows.find((b) => b.establishmentId === userId && b.status === "CONFIRMADA")
+      || relationRows.find((b) => b.establishmentId === userId)
+      || null;
+  }
+
+  return res.json({ booking });
 }));
 
 motelRouter.get("/motel/bookings", asyncHandler(async (req, res) => {
@@ -752,4 +769,3 @@ motelRouter.delete("/motel/dashboard/promotions/:id", asyncHandler(async (req, r
   const rows = await prisma.$queryRawUnsafe<any[]>(`DELETE FROM "MotelPromotion" WHERE id = $1::uuid AND "establishmentId" = $2::uuid RETURNING id`, String(req.params.id), req.session.userId!);
   return res.json({ ok: true, deleted: rows.length });
 }));
-
