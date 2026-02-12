@@ -464,15 +464,11 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
     await sendBookingMessage(booking.establishmentId, booking.clientId, `❌ Reserva rechazada. Motivo: ${reasonText}.`);
   }
   if (isClient && nextStatus === "CONFIRMADA") {
-<<<<<<< codex/fix-reservation-flow-on-dashboard-de16y9
     const establishment = await prisma.user.findUnique({ where: { id: booking.establishmentId }, select: { displayName: true, address: true, city: true, latitude: true, longitude: true } });
     const mapsLink = mapsLinkFrom(establishment?.address, establishment?.city, establishment?.displayName || "Motel");
     const code = updated.confirmationCode || "SIN-CODIGO";
     await sendBookingMessage(booking.clientId, booking.establishmentId, `✅ El cliente confirmó la reserva para ${updated.durationType}. Código: ${code}. Inicio: ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "por confirmar"}.`);
     await sendBookingMessage(booking.establishmentId, booking.clientId, `🎫 Reserva confirmada\n• Código: ${code}\n• Estado: CONFIRMADA\n• Monto final: $${Number(updated.priceClp || 0).toLocaleString("es-CL")}\n• Inicio: ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "por confirmar"}\n• Dirección: ${(establishment?.address || "Dirección por confirmar")}${establishment?.city ? `, ${establishment.city}` : ""}\n• Google Maps: ${mapsLink}`);
-=======
-    await sendBookingMessage(booking.clientId, booking.establishmentId, `✅ El cliente confirmó la reserva para ${updated.durationType}. Inicio: ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "por confirmar"}.`);
->>>>>>> main
   }
 
   return res.json({ booking: updated });
@@ -756,3 +752,4 @@ motelRouter.delete("/motel/dashboard/promotions/:id", asyncHandler(async (req, r
   const rows = await prisma.$queryRawUnsafe<any[]>(`DELETE FROM "MotelPromotion" WHERE id = $1::uuid AND "establishmentId" = $2::uuid RETURNING id`, String(req.params.id), req.session.userId!);
   return res.json({ ok: true, deleted: rows.length });
 }));
+
