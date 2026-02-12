@@ -64,8 +64,14 @@ export default function HospedajeDetailPage() {
   const [durationType, setDurationType] = useState((sp.get("duration") || "3H").toUpperCase());
   const [roomId, setRoomId] = useState<string>("");
   const [galleryIndex, setGalleryIndex] = useState(0);
-  const [startDate, setStartDate] = useState("");
-  const [startTime, setStartTime] = useState("");
+  const [startDate, setStartDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
+  const [startTime, setStartTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  });
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
