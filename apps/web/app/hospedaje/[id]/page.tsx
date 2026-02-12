@@ -239,7 +239,7 @@ export default function HospedajeDetailPage() {
                 <label className="grid gap-1 text-xs text-white/70">
                   Fecha de reserva
                   <input
-                    className="input"
+                    className="input text-center [color-scheme:dark]"
                     type="date"
                     value={startDate}
                     min={minStartDate}
@@ -250,7 +250,7 @@ export default function HospedajeDetailPage() {
                 <label className="grid gap-1 text-xs text-white/70">
                   Hora de reserva
                   <input
-                    className="input"
+                    className="input text-center [color-scheme:dark]"
                     type="time"
                     value={startTime}
                     min={startDate === minStartDate ? minStartTime : undefined}
