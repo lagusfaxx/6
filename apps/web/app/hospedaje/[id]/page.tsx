@@ -234,30 +234,28 @@ export default function HospedajeDetailPage() {
           <div className="card p-4">
             <div className="mt-3 flex flex-wrap gap-2">{["3H", "6H", "NIGHT"].map((d) => <button key={d} onClick={() => setDurationType(d)} className={`rounded-full px-3 py-1.5 text-sm border ${durationType === d ? "border-fuchsia-300 bg-fuchsia-500/25" : "border-white/20 bg-white/5"}`}>{d === "NIGHT" ? "Noche" : d.toLowerCase()}</button>)}</div>
             <div className="mt-3 rounded-xl border border-fuchsia-300/25 bg-fuchsia-500/10 p-3"><div className="text-xs text-fuchsia-100/80">Precio final</div>{promoForRoom ? <div className="text-sm text-white/60 line-through">${basePrice.toLocaleString("es-CL")}</div> : null}<div className="text-2xl font-semibold text-fuchsia-100">${discountedPrice.toLocaleString("es-CL")}</div></div>
-            <div className="mt-3 grid gap-2">
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="grid gap-1 text-xs text-white/70">
-                  Fecha de reserva
-                  <input
-                    className="input w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-300/50 [color-scheme:dark]"
-                    type="date"
-                    value={startDate}
-                    min={minStartDate}
-                    aria-label="Fecha de reserva"
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1 text-xs text-white/70">
-                  Hora de reserva
-                  <input
-                    className="input w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-300/50 [color-scheme:dark]"
-                    type="time"
-                    value={startTime}
-                    min={startDate === minStartDate ? minStartTime : undefined}
-                    aria-label="Hora de reserva"
-                    onChange={(e) => setStartTime(e.target.value)}
-                  />
-                </label>
+            <div className="mt-3 grid gap-3">
+              <div>
+                <label className="block text-xs text-white/70 mb-1.5">Fecha de reserva</label>
+                <input
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white text-base text-center focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-300/50 [color-scheme:dark]"
+                  type="date"
+                  value={startDate}
+                  min={minStartDate}
+                  aria-label="Fecha de reserva"
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-white/70 mb-1.5">Hora de reserva</label>
+                <input
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white text-base text-center focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-300/50 [color-scheme:dark]"
+                  type="time"
+                  value={startTime}
+                  min={startDate === minStartDate ? minStartTime : undefined}
+                  aria-label="Hora de reserva"
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
               </div>
               <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Comentario para recepción" />
               <button className="btn-primary" disabled={busy} onClick={reserve}>{busy ? "Enviando..." : "Confirmar reserva"}</button>
