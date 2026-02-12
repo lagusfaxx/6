@@ -52,6 +52,7 @@ export default function MotelDashboardPage() {
   const [tab, setTab] = useState<TabKey>("overview");
   const [msg, setMsg] = useState<string | null>(null);
   const [bookingBusyId, setBookingBusyId] = useState<string | null>(null);
+  const [agendaDate, setAgendaDate] = useState(new Date().toISOString().slice(0, 10));
   const [geocodeBusy, setGeocodeBusy] = useState(false);
   const [uploadingAsset, setUploadingAsset] = useState<"cover" | "avatar" | "room" | null>(null);
 
@@ -203,13 +204,21 @@ export default function MotelDashboardPage() {
     await load();
   }
 
-  async function applyBookingAction(bookingId: string, action: "ACCEPT" | "REJECT" | "FINISH") {
+  async function applyBookingAction(bookingId: string, action: "ACCEPT" | "REJECT" | "FINISH" | "DELETE") {
     setBookingBusyId(bookingId);
     try {
-      const payload: Record<string, any> = { action };
-      if (action === "REJECT") payload.rejectReason = "OTRO";
-      await apiFetch(`/motel/bookings/${bookingId}/action`, { method: "POST", body: JSON.stringify(payload) });
-      setMsg(action === "ACCEPT" ? "Reserva aceptada. Esperando confirmación del cliente." : action === "REJECT" ? "Reserva rechazada." : "Reserva finalizada.");
+      if (action === "DELETE") {
+        await apiFetch(`/motel/bookings/${bookingId}`, { method: "DELETE" });
+        setMsg("Reserva eliminada.");
+      } else {
+        const payload: Record<string, any> = { action };
+        if (action === "REJECT") {
+          payload.rejectReason = "OTRO";
+          payload.rejectNote = "No disponible";
+        }
+        await apiFetch(`/motel/bookings/${bookingId}/action`, { method: "POST", body: JSON.stringify(payload) });
+        setMsg(action === "ACCEPT" ? "Reserva aceptada. Esperando confirmación del cliente." : action === "REJECT" ? "Reserva rechazada." : "Reserva finalizada.");
+      }
       await load();
     } catch (e: any) {
       setMsg(friendlyErrorMessage(e));
@@ -225,6 +234,9 @@ export default function MotelDashboardPage() {
   const draftLng = Number(profileDraft.longitude);
   const hasCoords = Number.isFinite(draftLat) && Number.isFinite(draftLng);
   const pendingBookings = data.bookings.filter((b) => b.status === "PENDIENTE").length;
+  const agendaItems = data.bookings
+    .filter((b) => (b.startAt ? new Date(b.startAt).toISOString().slice(0, 10) === agendaDate : false))
+    .sort((a, b) => new Date(a.startAt || 0).getTime() - new Date(b.startAt || 0).getTime());
 
   function bookingStatusLabel(status?: string | null) {
     const s = String(status || "").toUpperCase();
@@ -341,17 +353,42 @@ export default function MotelDashboardPage() {
                   </div>
                   <div className="mt-2 grid gap-1 text-white/80 md:grid-cols-2">
                     <div>Inicio: {formatDateTime(b.startAt)}</div>
-                    <div>Precio sugerido: {formatMoney(b.priceClp)}</div>
+                    <div>
+                      Precio total: {b.basePriceClp && Number(b.basePriceClp) > Number(b.priceClp || 0) ? <><span className="line-through text-white/50 mr-1">{formatMoney(b.basePriceClp)}</span><span>{formatMoney(b.priceClp)}</span></> : formatMoney(b.priceClp)}
+                    </div>
+                    {b.confirmationCode ? <div>Código: <b>{b.confirmationCode}</b></div> : null}
+                    {Number(b.discountClp || 0) > 0 ? <div>Descuento: -{formatMoney(b.discountClp)}</div> : null}
                     <div className="md:col-span-2">Comentario: {b.note || "Sin comentario"}</div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {b.status === "PENDIENTE" ? <button className="btn-primary" disabled={isBusy} onClick={() => applyBookingAction(b.id, "ACCEPT")}>{isBusy ? "Procesando..." : "Aceptar"}</button> : null}
                     {b.status === "PENDIENTE" ? <button className="btn-secondary" disabled={isBusy} onClick={() => applyBookingAction(b.id, "REJECT")}>{isBusy ? "Procesando..." : "Rechazar"}</button> : null}
                     {b.status === "CONFIRMADA" ? <button className="btn-secondary" disabled={isBusy} onClick={() => applyBookingAction(b.id, "FINISH")}>{isBusy ? "Procesando..." : "Marcar finalizada"}</button> : null}
+                    <button className="btn-secondary" disabled={isBusy} onClick={() => applyBookingAction(b.id, "DELETE")}>{isBusy ? "Procesando..." : "Eliminar"}</button>
                   </div>
                 </div>
               );
             })}
+          </div>
+
+          <div className="card p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="font-medium">Agenda diaria</div>
+              <input type="date" className="input max-w-44" value={agendaDate} onChange={(e) => setAgendaDate(e.target.value)} />
+            </div>
+            <div className="mt-3 space-y-2 text-sm">
+              {!agendaItems.length ? <div className="text-white/60">Sin reservas para esta fecha.</div> : null}
+              {agendaItems.map((b) => (
+                <div key={`agenda-${b.id}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>{new Date(b.startAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })} · <b>{b.clientName || b.clientUsername || "Cliente"}</b></div>
+                    <span className="text-xs rounded-full border border-white/20 px-2 py-1">{bookingStatusLabel(b.status)}</span>
+                  </div>
+                  <div className="mt-1 text-white/75">Código: {b.confirmationCode || "-"} · Habitación: {b.roomName || "Habitación"}</div>
+                  <div className="mt-1 text-white/80">Total: {b.basePriceClp && Number(b.basePriceClp) > Number(b.priceClp || 0) ? <><span className="line-through text-white/50 mr-1">{formatMoney(b.basePriceClp)}</span><span>{formatMoney(b.priceClp)}</span></> : formatMoney(b.priceClp)}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       ) : null}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { MapPin, Star } from "lucide-react";
 import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
@@ -57,6 +57,7 @@ type Detail = {
 
 export default function HospedajeDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const sp = useSearchParams();
   const [data, setData] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,7 +118,7 @@ export default function HospedajeDetailPage() {
     setMsg(null);
     try {
       await apiFetch(`/motels/${data.id}/bookings`, { method: "POST", body: JSON.stringify({ roomId: selectedRoom.id, durationType, startAt: startAt || null, note: note || null }) });
-      setMsg("Solicitud enviada. Paso final: ve al chat para coordinar y esperar aceptación profesional.");
+      router.push(`/chat/${data.id}`);
     } catch {
       setMsg("No pudimos crear la reserva. Inicia sesión y vuelve a intentar.");
     } finally {
