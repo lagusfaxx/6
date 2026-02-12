@@ -64,8 +64,14 @@ export default function HospedajeDetailPage() {
   const [durationType, setDurationType] = useState((sp.get("duration") || "3H").toUpperCase());
   const [roomId, setRoomId] = useState<string>("");
   const [galleryIndex, setGalleryIndex] = useState(0);
-  const [startDate, setStartDate] = useState("");
-  const [startTime, setStartTime] = useState("");
+  const [startDate, setStartDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
+  const [startTime, setStartTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  });
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -202,7 +208,7 @@ export default function HospedajeDetailPage() {
 
       <section className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-4">
-          <div className="card p-4">
+          <div className="card overflow-hidden p-4">
             <h2 className="font-semibold text-lg">Servicios y descripción</h2>
             <p className="text-sm text-white/75 mt-2">{data.rules || "Sin reglas adicionales."}</p>
             <p className="text-sm text-white/75 mt-2">Horario: {data.schedule || "24/7"}</p>
@@ -225,15 +231,15 @@ export default function HospedajeDetailPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="card p-4">
+          <div className="card overflow-hidden p-4">
             <div className="mt-3 flex flex-wrap gap-2">{["3H", "6H", "NIGHT"].map((d) => <button key={d} onClick={() => setDurationType(d)} className={`rounded-full px-3 py-1.5 text-sm border ${durationType === d ? "border-fuchsia-300 bg-fuchsia-500/25" : "border-white/20 bg-white/5"}`}>{d === "NIGHT" ? "Noche" : d.toLowerCase()}</button>)}</div>
             <div className="mt-3 rounded-xl border border-fuchsia-300/25 bg-fuchsia-500/10 p-3"><div className="text-xs text-fuchsia-100/80">Precio final</div>{promoForRoom ? <div className="text-sm text-white/60 line-through">${basePrice.toLocaleString("es-CL")}</div> : null}<div className="text-2xl font-semibold text-fuchsia-100">${discountedPrice.toLocaleString("es-CL")}</div></div>
             <div className="mt-3 grid gap-2">
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="grid gap-1 text-xs text-white/70">
+              <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="grid min-w-0 gap-1 text-xs text-white/70">
                   Fecha de reserva
                   <input
-                    className="input"
+                    className="input min-w-0"
                     type="date"
                     value={startDate}
                     min={minStartDate}
@@ -241,10 +247,10 @@ export default function HospedajeDetailPage() {
                     onChange={(e) => setStartDate(e.target.value)}
                   />
                 </label>
-                <label className="grid gap-1 text-xs text-white/70">
+                <label className="grid min-w-0 gap-1 text-xs text-white/70">
                   Hora de reserva
                   <input
-                    className="input"
+                    className="input min-w-0"
                     type="time"
                     value={startTime}
                     min={startDate === minStartDate ? minStartTime : undefined}

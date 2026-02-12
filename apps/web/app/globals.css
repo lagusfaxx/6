@@ -253,6 +253,8 @@ input[type="date"].input,
 input[type="time"].input,
 input[type="datetime-local"].input {
   color-scheme: dark;
+  min-width: 0;
+  max-width: 100%;
 }
 
 input[type="date"].input::-webkit-calendar-picker-indicator,
