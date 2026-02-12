@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { MapPin, Star } from "lucide-react";
 import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
@@ -57,6 +57,7 @@ type Detail = {
 
 export default function HospedajeDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const sp = useSearchParams();
   const [data, setData] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,7 +118,7 @@ export default function HospedajeDetailPage() {
     setMsg(null);
     try {
       await apiFetch(`/motels/${data.id}/bookings`, { method: "POST", body: JSON.stringify({ roomId: selectedRoom.id, durationType, startAt: startAt || null, note: note || null }) });
-      setMsg("Solicitud enviada. Paso final: ve al chat para coordinar y esperar aceptación profesional.");
+      router.push(`/chat/${data.id}`);
     } catch {
       setMsg("No pudimos crear la reserva. Inicia sesión y vuelve a intentar.");
     } finally {
@@ -172,17 +173,10 @@ export default function HospedajeDetailPage() {
             })}</div>
           </div>
 
-          <div className="card p-4">
-            <h2 className="font-semibold text-lg">Promociones activas</h2>
-            {(activePromos.length ? activePromos : []).map((p) => <div key={p.id} className="mt-2 rounded-xl border border-white/10 bg-white/5 p-3 text-sm"><div className="font-medium">{p.title}</div><div className="text-white/70">{p.description}</div><div className="text-xs text-white/60">Vigencia: {p.startsAt ? new Date(p.startsAt).toLocaleDateString("es-CL") : "hoy"} - {p.endsAt ? new Date(p.endsAt).toLocaleDateString("es-CL") : "sin fecha"}</div></div>)}
-            {!activePromos.length ? <div className="text-sm text-white/60 mt-2">No hay promociones activas.</div> : null}
-          </div>
         </div>
 
         <div className="space-y-4">
           <div className="card p-4">
-            <div className="text-xs text-white/60">Flujo de reserva</div>
-            <ol className="mt-2 text-sm text-white/80 space-y-1"><li>1. Selecciona habitación.</li><li>2. Selecciona tramo.</li><li>3. Revisa precio final.</li><li>4. Confirma y envía.</li><li>5. Sigue por chat y espera confirmación.</li></ol>
             <div className="mt-3 flex flex-wrap gap-2">{["3H", "6H", "NIGHT"].map((d) => <button key={d} onClick={() => setDurationType(d)} className={`rounded-full px-3 py-1.5 text-sm border ${durationType === d ? "border-fuchsia-300 bg-fuchsia-500/25" : "border-white/20 bg-white/5"}`}>{d === "NIGHT" ? "Noche" : d.toLowerCase()}</button>)}</div>
             <div className="mt-3 rounded-xl border border-fuchsia-300/25 bg-fuchsia-500/10 p-3"><div className="text-xs text-fuchsia-100/80">Precio final</div>{promoForRoom ? <div className="text-sm text-white/60 line-through">${basePrice.toLocaleString("es-CL")}</div> : null}<div className="text-2xl font-semibold text-fuchsia-100">${discountedPrice.toLocaleString("es-CL")}</div></div>
             <div className="mt-3 grid gap-2"><input className="input" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} /><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Comentario para recepción" /><button className="btn-primary" disabled={busy} onClick={reserve}>{busy ? "Enviando..." : "Confirmar reserva"}</button></div>

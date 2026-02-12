@@ -45,6 +45,9 @@ async function ensureMotelSchema() {
 
   await prisma.$executeRawUnsafe(`ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "rejectReason" TEXT`);
   await prisma.$executeRawUnsafe(`ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "rejectNote" TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "basePriceClp" INTEGER`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "discountClp" INTEGER`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "MotelBooking" ADD COLUMN IF NOT EXISTS "confirmationCode" TEXT`);
 
   schemaReady = true;
 }
@@ -146,6 +149,28 @@ async function findRoomForBooking(establishmentId: string, roomId?: string | nul
     establishmentId
   );
   return fallback[0] || null;
+}
+
+function randomConfirmationCode() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function mapsLinkFrom(address?: string | null, city?: string | null, fallback?: string | null) {
+  const raw = [address || "", city || ""].join(" ").trim() || String(fallback || "Ubicación");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(raw)}`;
+}
+
+async function resolveBookingPrice(establishmentId: string, roomId: string, durationType: string, basePriceClp: number) {
+  const promos = await listPromotions(establishmentId, true).catch(() => [] as any[]);
+  const promo = promos.find((p: any) => p.roomId === roomId || (Array.isArray(p.roomIds) && p.roomIds.includes(roomId)));
+  if (!promo) return { basePriceClp, discountClp: 0, finalPriceClp: basePriceClp };
+  const discount = promo.discountPercent
+    ? Math.round(basePriceClp * (Number(promo.discountPercent) / 100))
+    : promo.discountClp
+      ? Number(promo.discountClp)
+      : 0;
+  const finalPriceClp = Math.max(0, basePriceClp - Math.max(0, discount));
+  return { basePriceClp, discountClp: Math.max(0, basePriceClp - finalPriceClp), finalPriceClp };
 }
 
 motelRouter.get("/motels", asyncHandler(async (req, res) => {
@@ -329,17 +354,58 @@ motelRouter.post("/motels/:id/bookings", asyncHandler(async (req, res) => {
   if (!fallbackRoom) return res.status(400).json({ error: "NO_ROOMS" });
 
   const fallbackAny = fallbackRoom as any;
-  const priceClp = durationType === "6H" ? Number(fallbackAny.price6h || fallbackRoom.price) : durationType === "NIGHT" ? Number(fallbackAny.priceNight || fallbackRoom.price) : Number(fallbackAny.price3h || fallbackRoom.price);
+  const basePriceClp = durationType === "6H" ? Number(fallbackAny.price6h || fallbackRoom.price) : durationType === "NIGHT" ? Number(fallbackAny.priceNight || fallbackRoom.price) : Number(fallbackAny.price3h || fallbackRoom.price);
+  const priced = await resolveBookingPrice(establishmentId, fallbackRoom.id, durationType, basePriceClp);
 
   const bookingId = randomUUID();
-  const rows = await prisma.$queryRawUnsafe<any[]>(`INSERT INTO "MotelBooking" ("id", "establishmentId", "roomId", "clientId", "status", "durationType", "priceClp", "startAt", "note") VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'PENDIENTE', $5, $6, $7, $8) RETURNING *`, bookingId, establishmentId, fallbackRoom.id, clientId, durationType, priceClp, startAt, note);
+  const rows = await prisma.$queryRawUnsafe<any[]>(`INSERT INTO "MotelBooking" ("id", "establishmentId", "roomId", "clientId", "status", "durationType", "priceClp", "basePriceClp", "discountClp", "startAt", "note") VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'PENDIENTE', $5, $6, $7, $8, $9, $10) RETURNING *`, bookingId, establishmentId, fallbackRoom.id, clientId, durationType, priced.finalPriceClp, priced.basePriceClp, priced.discountClp, startAt, note);
   const booking = rows[0];
-  await prisma.notification.create({ data: { userId: establishmentId, type: "SERVICE_PUBLISHED", title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}` } });
+  await prisma.notification.create({ data: { userId: establishmentId, type: "SERVICE_PUBLISHED", data: { title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}`, durationType, bookingId: booking.id } } });
   sendToUser(establishmentId, "booking:new", { bookingId: booking.id });
 
   const roomName = fallbackRoom.name || "Habitación";
   const startLabel = startAt ? new Date(startAt).toLocaleString("es-CL") : "por confirmar";
-  await sendBookingMessage(clientId, establishmentId, `Nueva solicitud de reserva\n• Duración: ${durationType}\n• Habitación: ${roomName}\n• Fecha/Hora: ${startLabel}\n• Monto: $${Number(priceClp || 0).toLocaleString("es-CL")}\n${note ? `• Comentario: ${note}` : ""}`);
+  const discountLine = priced.discountClp > 0 ? `\n• Descuento: -$${Number(priced.discountClp || 0).toLocaleString("es-CL")}` : "";
+  await sendBookingMessage(clientId, establishmentId, `Nueva solicitud de reserva\n• Duración: ${durationType}\n• Habitación: ${roomName}\n• Fecha/Hora: ${startLabel}\n• Monto final: $${Number(priced.finalPriceClp || 0).toLocaleString("es-CL")}${discountLine}\n${note ? `• Comentario: ${note}` : ""}`);
+
+  return res.json({ booking });
+}));
+
+motelRouter.get("/motel/bookings/with/:userId", asyncHandler(async (req, res) => {
+  await ensureMotelSchema();
+  const userId = req.session.userId;
+  if (!userId) return res.status(401).json({ error: "UNAUTHENTICATED" });
+  const otherId = String(req.params.userId || "");
+  if (!isUuid(otherId)) return res.status(400).json({ error: "INVALID_TARGET" });
+
+  const relationRows = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT b.*, r."name" as "roomName", e."displayName" as "establishmentName", e."address" as "establishmentAddress", e."city" as "establishmentCity", e."latitude" as "establishmentLat", e."longitude" as "establishmentLng"
+     FROM "MotelBooking" b
+     LEFT JOIN "MotelRoom" r ON r.id = b."roomId"
+     LEFT JOIN "User" e ON e.id = b."establishmentId"
+     WHERE (b."establishmentId" = $1::uuid AND b."clientId" = $2::uuid) OR (b."establishmentId" = $2::uuid AND b."clientId" = $1::uuid)
+     ORDER BY b."createdAt" DESC
+     LIMIT 50`,
+    userId,
+    otherId
+  );
+
+  const meAsClient = relationRows.find((b) => b.clientId === userId);
+  const meAsOwner = relationRows.find((b) => b.establishmentId === userId);
+
+  let booking: any = null;
+  if (meAsClient) {
+    booking = relationRows.find((b) => b.clientId === userId && b.status === "ACEPTADA")
+      || relationRows.find((b) => b.clientId === userId && b.status === "PENDIENTE")
+      || relationRows.find((b) => b.clientId === userId && b.status === "CONFIRMADA")
+      || relationRows.find((b) => b.clientId === userId)
+      || null;
+  } else if (meAsOwner) {
+    booking = relationRows.find((b) => b.establishmentId === userId && b.status === "PENDIENTE")
+      || relationRows.find((b) => b.establishmentId === userId && b.status === "CONFIRMADA")
+      || relationRows.find((b) => b.establishmentId === userId)
+      || null;
+  }
 
   return res.json({ booking });
 }));
@@ -372,7 +438,7 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
   const rejectNote = req.body?.rejectNote != null ? String(req.body.rejectNote).slice(0, 300) : null;
 
   let nextStatus: string | null = null;
-  if (isOwner && action === "ACCEPT" && booking.status === "PENDIENTE") nextStatus = "CONFIRMADA";
+  if (isOwner && action === "ACCEPT" && booking.status === "PENDIENTE") nextStatus = "ACEPTADA";
   if (isOwner && action === "REJECT" && booking.status === "PENDIENTE") {
     if (!["CERRADO", "SIN_HABITACIONES", "OTRO"].includes(rejectReason)) {
       return res.status(400).json({ error: "REJECT_REASON_REQUIRED" });
@@ -382,8 +448,9 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
     }
     nextStatus = "RECHAZADA";
   }
+  if (isClient && action === "CONFIRM" && booking.status === "ACEPTADA") nextStatus = "CONFIRMADA";
   if (isOwner && action === "FINISH" && booking.status === "CONFIRMADA") nextStatus = "FINALIZADA";
-  if (isClient && action === "CANCEL" && ["PENDIENTE", "CONFIRMADA"].includes(booking.status)) nextStatus = "CANCELADA_CLIENTE";
+  if (isClient && action === "CANCEL" && ["PENDIENTE", "ACEPTADA", "CONFIRMADA"].includes(booking.status)) nextStatus = "CANCELADA";
   if (!nextStatus) return res.status(400).json({ error: "INVALID_TRANSITION" });
 
   const updatedRows = await prisma.$queryRawUnsafe<any[]>(
@@ -391,28 +458,55 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
      SET "status" = $1,
          "rejectReason" = CASE WHEN $1 = 'RECHAZADA' THEN $3 ELSE "rejectReason" END,
          "rejectNote" = CASE WHEN $1 = 'RECHAZADA' THEN $4 ELSE "rejectNote" END,
+         "confirmationCode" = CASE WHEN $1 = 'CONFIRMADA' AND COALESCE("confirmationCode", '') = '' THEN $5 ELSE "confirmationCode" END,
          "updatedAt" = NOW()
      WHERE id = $2::uuid
      RETURNING *`,
     nextStatus,
     id,
     rejectReason || null,
-    rejectNote || null
+    rejectNote || null,
+    randomConfirmationCode()
   );
   const updated = updatedRows[0];
   const notifyUserId = isOwner ? booking.clientId : booking.establishmentId;
-  await prisma.notification.create({ data: { userId: notifyUserId, type: "SERVICE_PUBLISHED", title: "Actualización de reserva", body: `Estado: ${nextStatus}` } });
+  await prisma.notification.create({ data: { userId: notifyUserId, type: "SERVICE_PUBLISHED", data: { title: "Actualización de reserva", body: `Estado: ${nextStatus}`, status: nextStatus, bookingId: updated.id } } });
   sendToUser(notifyUserId, "booking:update", { bookingId: updated.id, status: nextStatus, rejectReason: updated.rejectReason, rejectNote: updated.rejectNote });
 
-  if (isOwner && nextStatus === "CONFIRMADA") {
-    await sendBookingMessage(booking.establishmentId, booking.clientId, `✅ Reserva confirmada para ${updated.durationType}. Nos vemos en ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "horario por confirmar"}.`);
+  if (isOwner && nextStatus === "ACEPTADA") {
+    await sendBookingMessage(booking.establishmentId, booking.clientId, `✅ Tu reserva fue aceptada. Precio final: $${Number(updated.priceClp || 0).toLocaleString("es-CL")}. Debes confirmarla para activarla.`);
   }
   if (isOwner && nextStatus === "RECHAZADA") {
     const reasonText = rejectReason === "CERRADO" ? "Local cerrado" : rejectReason === "SIN_HABITACIONES" ? "Sin habitaciones" : `Otro motivo: ${rejectNote}`;
     await sendBookingMessage(booking.establishmentId, booking.clientId, `❌ Reserva rechazada. Motivo: ${reasonText}.`);
   }
+  if (isClient && nextStatus === "CONFIRMADA") {
+    const establishment = await prisma.user.findUnique({ where: { id: booking.establishmentId }, select: { displayName: true, address: true, city: true, latitude: true, longitude: true } });
+    const mapsLink = mapsLinkFrom(establishment?.address, establishment?.city, establishment?.displayName || "Motel");
+    const code = updated.confirmationCode || "SIN-CODIGO";
+    await sendBookingMessage(booking.clientId, booking.establishmentId, `✅ El cliente confirmó la reserva para ${updated.durationType}. Código: ${code}. Inicio: ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "por confirmar"}.`);
+    await sendBookingMessage(booking.establishmentId, booking.clientId, `🎫 Reserva confirmada\n• Código: ${code}\n• Estado: CONFIRMADA\n• Monto final: $${Number(updated.priceClp || 0).toLocaleString("es-CL")}\n• Inicio: ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "por confirmar"}\n• Dirección: ${(establishment?.address || "Dirección por confirmar")}${establishment?.city ? `, ${establishment.city}` : ""}\n• Google Maps: ${mapsLink}`);
+  }
 
   return res.json({ booking: updated });
+}));
+
+motelRouter.delete("/motel/bookings/:id", asyncHandler(async (req, res) => {
+  await ensureMotelSchema();
+  const userId = req.session.userId;
+  if (!userId) return res.status(401).json({ error: "UNAUTHENTICATED" });
+  const user = (req as any).user;
+  const id = String(req.params.id);
+  const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT * FROM "MotelBooking" WHERE id = $1::uuid LIMIT 1`, id);
+  const booking = rows[0];
+  if (!booking) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const isOwner = isMotelOwner(user) && booking.establishmentId === userId;
+  const isClient = booking.clientId === userId;
+  if (!isOwner && !isClient) return res.status(403).json({ error: "FORBIDDEN" });
+
+  const deleted = await prisma.$queryRawUnsafe<any[]>(`DELETE FROM "MotelBooking" WHERE id = $1::uuid RETURNING id`, id);
+  return res.json({ ok: true, deleted: deleted.length });
 }));
 
 motelRouter.get("/motel/dashboard", asyncHandler(async (req, res) => {
