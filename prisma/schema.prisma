@@ -153,7 +153,24 @@ model User {
   motelPromotions         MotelPromotion[] @relation("MotelPromotions")
   establishmentReviewsFor EstablishmentReview[] @relation("EstablishmentReviewsFor")
   establishmentReviewsBy  EstablishmentReview[] @relation("EstablishmentReviewsBy")
+  pushSubscriptions      PushSubscription[]
 }
+
+model PushSubscription {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 
 model Post {
   id        String   @id @default(uuid()) @db.Uuid

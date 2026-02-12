@@ -26,3 +26,19 @@ docker compose -f docker-compose.dev.yml up --build
 
 ## Deploy
 Ver `docs/COOLIFY.md`
+
+## PWA + Push notifications (iOS/Android)
+1) Genera claves VAPID:
+```bash
+npx web-push generate-vapid-keys
+```
+2) Configura en `.env`:
+- `VAPID_SUBJECT`
+- `VAPID_PUBLIC_KEY`
+- `VAPID_PRIVATE_KEY`
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (mismo valor que `VAPID_PUBLIC_KEY`)
+3) Ejecuta migraciones para crear `PushSubscription`:
+```bash
+pnpm --filter prisma prisma migrate deploy
+```
+4) iOS: las notificaciones push web funcionan cuando el usuario instala la app desde Safari ("Añadir a pantalla de inicio") y acepta permisos.

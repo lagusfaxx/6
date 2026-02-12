@@ -2,8 +2,40 @@ import { Router } from "express";
 import { prisma } from "../db";
 import { requireAuth } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
+import { removePushSubscription, savePushSubscription, sendPushToUsers } from "./push";
 
 export const notificationsRouter = Router();
+
+
+notificationsRouter.post("/notifications/push/subscribe", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const subscription = req.body?.subscription;
+
+  await savePushSubscription(prisma as any, userId, subscription, req.get("user-agent"));
+  return res.json({ ok: true });
+}));
+
+notificationsRouter.post("/notifications/push/unsubscribe", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const endpoint = String(req.body?.endpoint || "").trim();
+  if (!endpoint) return res.status(400).json({ error: "ENDPOINT_REQUIRED" });
+
+  const removed = await removePushSubscription(prisma as any, userId, endpoint);
+  return res.json({ ok: true, removed: removed.count });
+}));
+
+notificationsRouter.post("/notifications/push/test", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+
+  await sendPushToUsers(prisma as any, [userId], {
+    title: "Notificación de prueba",
+    body: "Push habilitado correctamente en UZEED",
+    data: { url: "/" },
+    tag: "push-test"
+  });
+
+  return res.json({ ok: true });
+}));
 
 notificationsRouter.get("/notifications", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.session.userId!;

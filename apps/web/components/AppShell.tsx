@@ -4,6 +4,7 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import Nav from "./Nav";
 import TopHeader from "./TopHeader";
+import PushNotificationsManager from "./PushNotificationsManager";
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
@@ -44,6 +45,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="relative flex-1">
         <TopHeader />
+        <PushNotificationsManager />
         {/* padding-bottom con safe-area para que no se “corte” en iPhone */}
         <main className="flex-1 px-4 pt-[84px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[96px] md:pb-6">
           {children}
