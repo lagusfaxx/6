@@ -212,7 +212,7 @@ export default function ChatPage() {
         fallbackStepRef.current = 0;
         setLastRealtimeAt(Date.now());
       }
-      if (event.type === "message" || event.type === "service_request") {
+      if (["message", "service_request", "booking:new", "booking:update"].includes(event.type)) {
         refreshConversationSilently();
       }
     });

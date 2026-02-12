@@ -173,6 +173,19 @@ async function resolveBookingPrice(establishmentId: string, roomId: string, dura
   return { basePriceClp, discountClp: Math.max(0, basePriceClp - finalPriceClp), finalPriceClp };
 }
 
+async function getBookingWithDetails(bookingId: string) {
+  const rows = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT b.*, r."name" as "roomName", e."displayName" as "establishmentName", e."address" as "establishmentAddress", e."city" as "establishmentCity", e."latitude" as "establishmentLat", e."longitude" as "establishmentLng"
+     FROM "MotelBooking" b
+     LEFT JOIN "MotelRoom" r ON r.id = b."roomId"
+     LEFT JOIN "User" e ON e.id = b."establishmentId"
+     WHERE b.id = $1::uuid
+     LIMIT 1`,
+    bookingId
+  );
+  return rows[0] || null;
+}
+
 motelRouter.get("/motels", asyncHandler(async (req, res) => {
   await ensureMotelSchema();
   const category = String(req.query.category || "").toLowerCase();
@@ -395,14 +408,14 @@ motelRouter.get("/motel/bookings/with/:userId", asyncHandler(async (req, res) =>
 
   let booking: any = null;
   if (meAsClient) {
-    booking = relationRows.find((b) => b.clientId === userId && b.status === "ACEPTADA")
+    booking = relationRows.find((b) => b.clientId === userId && b.status === "CONFIRMADA")
+      || relationRows.find((b) => b.clientId === userId && b.status === "ACEPTADA")
       || relationRows.find((b) => b.clientId === userId && b.status === "PENDIENTE")
-      || relationRows.find((b) => b.clientId === userId && b.status === "CONFIRMADA")
       || relationRows.find((b) => b.clientId === userId)
       || null;
   } else if (meAsOwner) {
-    booking = relationRows.find((b) => b.establishmentId === userId && b.status === "PENDIENTE")
-      || relationRows.find((b) => b.establishmentId === userId && b.status === "CONFIRMADA")
+    booking = relationRows.find((b) => b.establishmentId === userId && b.status === "CONFIRMADA")
+      || relationRows.find((b) => b.establishmentId === userId && b.status === "PENDIENTE")
       || relationRows.find((b) => b.establishmentId === userId)
       || null;
   }
@@ -482,13 +495,18 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
   }
   if (isClient && nextStatus === "CONFIRMADA") {
     const establishment = await prisma.user.findUnique({ where: { id: booking.establishmentId }, select: { displayName: true, address: true, city: true, latitude: true, longitude: true } });
+    const room = booking.roomId
+      ? await prisma.$queryRawUnsafe<any[]>(`SELECT "name" FROM "MotelRoom" WHERE id = $1::uuid LIMIT 1`, booking.roomId).then((rows) => rows[0] || null)
+      : null;
     const mapsLink = mapsLinkFrom(establishment?.address, establishment?.city, establishment?.displayName || "Motel");
     const code = updated.confirmationCode || "SIN-CODIGO";
+    const roomLabel = room?.name || "Habitación";
     await sendBookingMessage(booking.clientId, booking.establishmentId, `✅ El cliente confirmó la reserva para ${updated.durationType}. Código: ${code}. Inicio: ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "por confirmar"}.`);
-    await sendBookingMessage(booking.establishmentId, booking.clientId, `🎫 Reserva confirmada\n• Código: ${code}\n• Estado: CONFIRMADA\n• Monto final: $${Number(updated.priceClp || 0).toLocaleString("es-CL")}\n• Inicio: ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "por confirmar"}\n• Dirección: ${(establishment?.address || "Dirección por confirmar")}${establishment?.city ? `, ${establishment.city}` : ""}\n• Google Maps: ${mapsLink}`);
+    await sendBookingMessage(booking.establishmentId, booking.clientId, `🎫 Reserva confirmada\n• Código: ${code}\n• Estado: CONFIRMADA\n• Habitación asignada: ${roomLabel}\n• Monto final: $${Number(updated.priceClp || 0).toLocaleString("es-CL")}\n• Inicio: ${updated.startAt ? new Date(updated.startAt).toLocaleString("es-CL") : "por confirmar"}\n• Dirección: ${(establishment?.address || "Dirección por confirmar")}${establishment?.city ? `, ${establishment.city}` : ""}\n• Google Maps: ${mapsLink}`);
   }
 
-  return res.json({ booking: updated });
+  const bookingWithDetails = await getBookingWithDetails(updated.id);
+  return res.json({ booking: bookingWithDetails || updated });
 }));
 
 motelRouter.delete("/motel/bookings/:id", asyncHandler(async (req, res) => {
