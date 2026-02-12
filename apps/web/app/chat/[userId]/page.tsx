@@ -95,6 +95,8 @@ export default function ChatPage() {
   const [requestTime, setRequestTime] = useState("");
   const [requestLocation, setRequestLocation] = useState("");
   const [requestComment, setRequestComment] = useState("");
+  const today = new Date();
+  const minRequestDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   const [proposalPrice, setProposalPrice] = useState("");
   const [proposalDuration, setProposalDuration] = useState("60");
@@ -300,6 +302,10 @@ export default function ChatPage() {
     e.preventDefault();
     if (!requestDate || !requestTime || !requestLocation.trim()) {
       setError("Debes completar fecha, hora y ubicación acordada.");
+      return;
+    }
+    if (requestDate < minRequestDate) {
+      setError("La fecha de la solicitud debe ser desde hoy en adelante.");
       return;
     }
     setRequesting(true);
@@ -610,7 +616,7 @@ export default function ChatPage() {
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="grid gap-1 text-xs text-white/70">
                   Fecha
-                  <input type="date" className="input" value={requestDate} onChange={(e) => setRequestDate(e.target.value)} required />
+                  <input type="date" className="input" value={requestDate} min={minRequestDate} aria-label="Fecha de solicitud" onChange={(e) => setRequestDate(e.target.value)} required />
                 </label>
                 <label className="grid gap-1 text-xs text-white/70">
                   Hora
