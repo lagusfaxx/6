@@ -248,3 +248,15 @@ select.input optgroup {
   background-color: #0b0b1b;
   color: #ffffff;
 }
+
+input[type="date"].input,
+input[type="time"].input,
+input[type="datetime-local"].input {
+  color-scheme: dark;
+}
+
+input[type="date"].input::-webkit-calendar-picker-indicator,
+input[type="time"].input::-webkit-calendar-picker-indicator,
+input[type="datetime-local"].input::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.9);
+}

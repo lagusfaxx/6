@@ -69,6 +69,9 @@ export default function HospedajeDetailPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  const now = new Date();
+  const minStartAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
   useEffect(() => {
     apiFetch<{ establishment: Detail }>(`/motels/${id}`).then((r) => setData(r.establishment)).finally(() => setLoading(false));
   }, [id]);
@@ -114,6 +117,13 @@ export default function HospedajeDetailPage() {
 
   const reserve = async () => {
     if (!data || !selectedRoom) return;
+    if (startAt) {
+      const selectedStart = new Date(startAt);
+      if (Number.isNaN(selectedStart.getTime()) || selectedStart.getTime() < Date.now()) {
+        setMsg("La fecha de reserva debe ser desde ahora en adelante.");
+        return;
+      }
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -131,24 +141,62 @@ export default function HospedajeDetailPage() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-3xl overflow-hidden border border-white/15 bg-white/5">
+      <section className="overflow-hidden rounded-3xl border border-white/15 bg-white/5">
         <div className="relative">
-          <img src={resolveMediaUrl(gallery[galleryIndex]) || "/brand/splash.jpg"} alt={data.name} className="h-72 w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-          <div className="absolute left-4 right-4 bottom-4 flex items-end justify-between gap-3">
+          <img
+            src={resolveMediaUrl(gallery[galleryIndex]) || "/brand/splash.jpg"}
+            alt=""
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = "/brand/splash.jpg";
+            }}
+            className="h-56 w-full object-cover sm:h-64 md:h-72"
+          />
+          <div className="absolute inset-0 hidden bg-gradient-to-t from-black/70 to-transparent md:block" />
+
+          <div className="space-y-3 p-4 md:hidden">
+            <div className="flex items-start gap-3">
+              <img
+                src={resolveMediaUrl(data.avatarUrl) || "/brand/isotipo.png"}
+                alt=""
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/brand/isotipo.png";
+                }}
+                className="h-16 w-16 shrink-0 rounded-2xl border-2 border-white/50 object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl font-semibold leading-tight">{data.name}</h1>
+                <div className="mt-1 flex items-start gap-1 text-sm text-white/80"><MapPin className="mt-0.5 h-4 w-4 shrink-0" /><span className="break-words">{data.address}, {data.city}</span></div>
+                <div className="mt-1 flex items-center gap-1 text-sm text-white/90"><Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />{data.rating ?? "N/A"} · {data.reviewsCount ?? 0} reseñas</div>
+                <div className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-xs ${data.isOpen ? "border-emerald-300/40 bg-emerald-500/20" : "border-rose-300/40 bg-rose-500/20"}`}>{data.isOpen ? "Abierto ahora" : "Cerrado"}</div>
+              </div>
+            </div>
+            <button onClick={reserve} disabled={busy} className="btn-primary w-full">{busy ? "Enviando..." : "Reservar"}</button>
+          </div>
+
+          <div className="absolute bottom-4 left-4 right-4 hidden items-end justify-between gap-3 md:flex">
             <div className="flex items-end gap-3">
-              <img src={resolveMediaUrl(data.avatarUrl) || "/brand/isotipo.png"} alt="perfil" className="h-20 w-20 rounded-2xl border-2 border-white/50 object-cover" />
+              <img
+                src={resolveMediaUrl(data.avatarUrl) || "/brand/isotipo.png"}
+                alt="perfil"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/brand/isotipo.png";
+                }}
+                className="h-20 w-20 rounded-2xl border-2 border-white/50 object-cover"
+              />
               <div>
                 <h1 className="text-3xl font-semibold">{data.name}</h1>
-                <div className="text-sm text-white/80 flex items-center gap-1"><MapPin className="h-4 w-4" />{data.address}, {data.city}</div>
-                <div className="text-sm text-white/90 flex items-center gap-1"><Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />{data.rating ?? "N/A"} · {data.reviewsCount ?? 0} reseñas</div>
+                <div className="flex items-center gap-1 text-sm text-white/80"><MapPin className="h-4 w-4" />{data.address}, {data.city}</div>
+                <div className="flex items-center gap-1 text-sm text-white/90"><Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />{data.rating ?? "N/A"} · {data.reviewsCount ?? 0} reseñas</div>
                 <div className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-xs ${data.isOpen ? "border-emerald-300/40 bg-emerald-500/20" : "border-rose-300/40 bg-rose-500/20"}`}>{data.isOpen ? "Abierto ahora" : "Cerrado"}</div>
               </div>
             </div>
             <button onClick={reserve} disabled={busy} className="btn-primary">{busy ? "Enviando..." : "Reservar"}</button>
           </div>
         </div>
-        <div className="p-3 flex gap-2 overflow-auto">{gallery.slice(0, 10).map((g, i) => <button key={`${g}-${i}`} onClick={() => setGalleryIndex(i)} className={`h-16 w-24 rounded-lg overflow-hidden border ${galleryIndex === i ? "border-fuchsia-300" : "border-white/20"}`}><img src={resolveMediaUrl(g) || "/brand/splash.jpg"} className="h-full w-full object-cover" alt="miniatura" /></button>)}</div>
+        <div className="flex gap-2 overflow-auto p-3">{gallery.slice(0, 10).map((g, i) => <button key={`${g}-${i}`} onClick={() => setGalleryIndex(i)} className={`h-16 w-24 shrink-0 overflow-hidden rounded-lg border ${galleryIndex === i ? "border-fuchsia-300" : "border-white/20"}`}><img src={resolveMediaUrl(g) || "/brand/splash.jpg"} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/brand/splash.jpg"; }} className="h-full w-full object-cover" alt="" /></button>)}</div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
@@ -179,7 +227,21 @@ export default function HospedajeDetailPage() {
           <div className="card p-4">
             <div className="mt-3 flex flex-wrap gap-2">{["3H", "6H", "NIGHT"].map((d) => <button key={d} onClick={() => setDurationType(d)} className={`rounded-full px-3 py-1.5 text-sm border ${durationType === d ? "border-fuchsia-300 bg-fuchsia-500/25" : "border-white/20 bg-white/5"}`}>{d === "NIGHT" ? "Noche" : d.toLowerCase()}</button>)}</div>
             <div className="mt-3 rounded-xl border border-fuchsia-300/25 bg-fuchsia-500/10 p-3"><div className="text-xs text-fuchsia-100/80">Precio final</div>{promoForRoom ? <div className="text-sm text-white/60 line-through">${basePrice.toLocaleString("es-CL")}</div> : null}<div className="text-2xl font-semibold text-fuchsia-100">${discountedPrice.toLocaleString("es-CL")}</div></div>
-            <div className="mt-3 grid gap-2"><input className="input" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} /><input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Comentario para recepción" /><button className="btn-primary" disabled={busy} onClick={reserve}>{busy ? "Enviando..." : "Confirmar reserva"}</button></div>
+            <div className="mt-3 grid gap-2">
+              <label className="grid gap-1 text-xs text-white/70">
+                Fecha y hora de reserva
+                <input
+                  className="input"
+                  type="datetime-local"
+                  value={startAt}
+                  min={minStartAt}
+                  aria-label="Fecha y hora de reserva"
+                  onChange={(e) => setStartAt(e.target.value)}
+                />
+              </label>
+              <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Comentario para recepción" />
+              <button className="btn-primary" disabled={busy} onClick={reserve}>{busy ? "Enviando..." : "Confirmar reserva"}</button>
+            </div>
             {msg ? <div className="mt-2 text-sm">{msg}<div><Link className="underline text-fuchsia-200" href={`/chat/${data.id}`}>Ir al chat</Link></div></div> : null}
           </div>
 
