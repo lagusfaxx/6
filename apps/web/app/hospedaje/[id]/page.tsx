@@ -64,13 +64,15 @@ export default function HospedajeDetailPage() {
   const [durationType, setDurationType] = useState((sp.get("duration") || "3H").toUpperCase());
   const [roomId, setRoomId] = useState<string>("");
   const [galleryIndex, setGalleryIndex] = useState(0);
-  const [startAt, setStartAt] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   const now = new Date();
-  const minStartAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const minStartDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const minStartTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
   useEffect(() => {
     apiFetch<{ establishment: Detail }>(`/motels/${id}`).then((r) => setData(r.establishment)).finally(() => setLoading(false));
@@ -117,6 +119,7 @@ export default function HospedajeDetailPage() {
 
   const reserve = async () => {
     if (!data || !selectedRoom) return;
+    const startAt = startDate && startTime ? `${startDate}T${startTime}` : null;
     if (startAt) {
       const selectedStart = new Date(startAt);
       if (Number.isNaN(selectedStart.getTime()) || selectedStart.getTime() < Date.now()) {
@@ -127,7 +130,7 @@ export default function HospedajeDetailPage() {
     setBusy(true);
     setMsg(null);
     try {
-      await apiFetch(`/motels/${data.id}/bookings`, { method: "POST", body: JSON.stringify({ roomId: selectedRoom.id, durationType, startAt: startAt || null, note: note || null }) });
+      await apiFetch(`/motels/${data.id}/bookings`, { method: "POST", body: JSON.stringify({ roomId: selectedRoom.id, durationType, startAt, note: note || null }) });
       router.push(`/chat/${data.id}`);
     } catch {
       setMsg("No pudimos crear la reserva. Inicia sesión y vuelve a intentar.");
@@ -172,7 +175,6 @@ export default function HospedajeDetailPage() {
                 <div className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-xs ${data.isOpen ? "border-emerald-300/40 bg-emerald-500/20" : "border-rose-300/40 bg-rose-500/20"}`}>{data.isOpen ? "Abierto ahora" : "Cerrado"}</div>
               </div>
             </div>
-            <button onClick={reserve} disabled={busy} className="btn-primary w-full">{busy ? "Enviando..." : "Reservar"}</button>
           </div>
 
           <div className="absolute bottom-4 left-4 right-4 hidden items-end justify-between gap-3 md:flex">
@@ -193,7 +195,6 @@ export default function HospedajeDetailPage() {
                 <div className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-xs ${data.isOpen ? "border-emerald-300/40 bg-emerald-500/20" : "border-rose-300/40 bg-rose-500/20"}`}>{data.isOpen ? "Abierto ahora" : "Cerrado"}</div>
               </div>
             </div>
-            <button onClick={reserve} disabled={busy} className="btn-primary">{busy ? "Enviando..." : "Reservar"}</button>
           </div>
         </div>
         <div className="flex gap-2 overflow-auto p-3">{gallery.slice(0, 10).map((g, i) => <button key={`${g}-${i}`} onClick={() => setGalleryIndex(i)} className={`h-16 w-24 shrink-0 overflow-hidden rounded-lg border ${galleryIndex === i ? "border-fuchsia-300" : "border-white/20"}`}><img src={resolveMediaUrl(g) || "/brand/splash.jpg"} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/brand/splash.jpg"; }} className="h-full w-full object-cover" alt="" /></button>)}</div>
@@ -228,17 +229,30 @@ export default function HospedajeDetailPage() {
             <div className="mt-3 flex flex-wrap gap-2">{["3H", "6H", "NIGHT"].map((d) => <button key={d} onClick={() => setDurationType(d)} className={`rounded-full px-3 py-1.5 text-sm border ${durationType === d ? "border-fuchsia-300 bg-fuchsia-500/25" : "border-white/20 bg-white/5"}`}>{d === "NIGHT" ? "Noche" : d.toLowerCase()}</button>)}</div>
             <div className="mt-3 rounded-xl border border-fuchsia-300/25 bg-fuchsia-500/10 p-3"><div className="text-xs text-fuchsia-100/80">Precio final</div>{promoForRoom ? <div className="text-sm text-white/60 line-through">${basePrice.toLocaleString("es-CL")}</div> : null}<div className="text-2xl font-semibold text-fuchsia-100">${discountedPrice.toLocaleString("es-CL")}</div></div>
             <div className="mt-3 grid gap-2">
-              <label className="grid gap-1 text-xs text-white/70">
-                Fecha y hora de reserva
-                <input
-                  className="input"
-                  type="datetime-local"
-                  value={startAt}
-                  min={minStartAt}
-                  aria-label="Fecha y hora de reserva"
-                  onChange={(e) => setStartAt(e.target.value)}
-                />
-              </label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="grid gap-1 text-xs text-white/70">
+                  Fecha de reserva
+                  <input
+                    className="input"
+                    type="date"
+                    value={startDate}
+                    min={minStartDate}
+                    aria-label="Fecha de reserva"
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </label>
+                <label className="grid gap-1 text-xs text-white/70">
+                  Hora de reserva
+                  <input
+                    className="input"
+                    type="time"
+                    value={startTime}
+                    min={startDate === minStartDate ? minStartTime : undefined}
+                    aria-label="Hora de reserva"
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
+                </label>
+              </div>
               <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Comentario para recepción" />
               <button className="btn-primary" disabled={busy} onClick={reserve}>{busy ? "Enviando..." : "Confirmar reserva"}</button>
             </div>

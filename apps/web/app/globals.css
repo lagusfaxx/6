@@ -260,3 +260,9 @@ input[type="time"].input::-webkit-calendar-picker-indicator,
 input[type="datetime-local"].input::-webkit-calendar-picker-indicator {
   filter: invert(1) opacity(0.9);
 }
+
+input[type="date"].input::-webkit-datetime-edit,
+input[type="time"].input::-webkit-datetime-edit,
+input[type="datetime-local"].input::-webkit-datetime-edit {
+  color: #ffffff;
+}
