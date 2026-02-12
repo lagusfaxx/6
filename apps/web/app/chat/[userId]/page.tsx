@@ -41,6 +41,21 @@ type ServiceRequest = {
   professional?: { id: string; displayName?: string | null; username: string; phone?: string | null };
 };
 
+type MotelBooking = {
+  id: string;
+  status: string;
+  durationType: string;
+  startAt?: string | null;
+  note?: string | null;
+  priceClp?: number | null;
+  basePriceClp?: number | null;
+  discountClp?: number | null;
+  confirmationCode?: string | null;
+  roomName?: string | null;
+  establishmentAddress?: string | null;
+  establishmentCity?: string | null;
+};
+
 type MeResponse = {
   user: { id: string; displayName: string | null; username: string; profileType: string | null } | null;
 };
@@ -72,6 +87,8 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [activeRequest, setActiveRequest] = useState<ServiceRequest | null>(null);
+  const [activeBooking, setActiveBooking] = useState<MotelBooking | null>(null);
+  const [bookingBusy, setBookingBusy] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [requestDate, setRequestDate] = useState("");
@@ -110,6 +127,19 @@ export default function ChatPage() {
     setActiveRequest(null);
   }
 
+  async function loadBookingState(profile: MeResponse["user"] | null) {
+    if (!profile || !["CLIENT", "ESTABLISHMENT"].includes(String(profile.profileType || "").toUpperCase())) {
+      setActiveBooking(null);
+      return;
+    }
+    try {
+      const res = await apiFetch<{ booking: MotelBooking | null }>(`/motel/bookings/with/${userId}`);
+      setActiveBooking(res.booking || null);
+    } catch {
+      setActiveBooking(null);
+    }
+  }
+
   async function load() {
     const [meResp, msgResp] = await Promise.all([
       apiFetch<MeResponse>("/auth/me"),
@@ -118,7 +148,7 @@ export default function ChatPage() {
     setMe(meResp.user);
     setMessages(msgResp.messages);
     setOther(msgResp.other);
-    await loadServiceState(meResp.user);
+    await Promise.all([loadServiceState(meResp.user), loadBookingState(meResp.user)]);
   }
 
   useEffect(() => {
@@ -148,9 +178,31 @@ export default function ChatPage() {
       const msgResp = await apiFetch<{ messages: Message[]; other: ChatUser }>(`/messages/${userId}`);
       setMessages(msgResp.messages);
       setOther(msgResp.other);
-      await loadServiceState(me);
+      await Promise.all([loadServiceState(me), loadBookingState(me)]);
     } catch {
       // silent polling
+    }
+  }
+
+  async function applyBookingAction(action: "ACCEPT" | "REJECT" | "CONFIRM" | "CANCEL" | "FINISH") {
+    if (!activeBooking) return;
+    setBookingBusy(true);
+    try {
+      const payload: Record<string, any> = { action };
+      if (action === "REJECT") {
+        payload.rejectReason = "OTRO";
+        payload.rejectNote = "No disponible";
+      }
+      const res = await apiFetch<{ booking: MotelBooking }>(`/motel/bookings/${activeBooking.id}/action`, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      setActiveBooking(res.booking || null);
+      await refreshConversationSilently();
+    } catch (e: any) {
+      setError(e?.message || "No se pudo actualizar la reserva");
+    } finally {
+      setBookingBusy(false);
     }
   }
 
@@ -358,6 +410,10 @@ export default function ChatPage() {
   const canReviewPendingRequest = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "PENDIENTE_APROBACION";
   const waitingClientConfirm = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "APROBADO";
   const canFinishService = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "ACTIVO";
+  const isMotelOwnerChat = String(me?.profileType || "").toUpperCase() === "ESTABLISHMENT";
+  const isClientChat = String(me?.profileType || "").toUpperCase() === "CLIENT";
+  const hasMotelBooking = Boolean(activeBooking);
+  const bookingMapsLink = activeBooking ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([activeBooking.establishmentAddress || "", activeBooking.establishmentCity || ""].join(" ").trim() || "motel")}` : "";
 
   return (
     <div className="grid gap-6">
@@ -388,6 +444,30 @@ export default function ChatPage() {
             </span>
           ) : null}
         </div>
+
+        {hasMotelBooking ? (
+          <div className="mt-4 rounded-xl border border-fuchsia-300/30 bg-fuchsia-500/10 p-4 text-sm text-white/85">
+            <div className="font-medium">Reserva motel/hotel</div>
+            <div className="mt-2 grid gap-1 text-xs text-white/70">
+              <div><span className="text-white/50">Habitación:</span> {activeBooking?.roomName || "Habitación"}</div>
+              <div><span className="text-white/50">Tramo:</span> {activeBooking?.durationType || "3H"}</div>
+              <div><span className="text-white/50">Inicio:</span> {activeBooking?.startAt ? new Date(activeBooking.startAt).toLocaleString("es-CL") : "por confirmar"}</div>
+              {activeBooking?.basePriceClp && activeBooking.basePriceClp > Number(activeBooking.priceClp || 0) ? <div><span className="text-white/50">Precio base:</span> <span className="line-through">${Number(activeBooking.basePriceClp).toLocaleString("es-CL")}</span></div> : null}
+              <div><span className="text-white/50">Monto final:</span> ${Number(activeBooking?.priceClp || 0).toLocaleString("es-CL")}</div>
+              {Number(activeBooking?.discountClp || 0) > 0 ? <div><span className="text-white/50">Descuento:</span> -${Number(activeBooking?.discountClp || 0).toLocaleString("es-CL")}</div> : null}
+              {activeBooking?.confirmationCode ? <div><span className="text-white/50">Código:</span> <b>{activeBooking.confirmationCode}</b></div> : null}
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {isMotelOwnerChat && activeBooking?.status === "PENDIENTE" ? <button className="btn-primary" disabled={bookingBusy} onClick={() => applyBookingAction("ACCEPT")}>{bookingBusy ? "Procesando..." : "Aceptar"}</button> : null}
+              {isMotelOwnerChat && activeBooking?.status === "PENDIENTE" ? <button className="btn-secondary" disabled={bookingBusy} onClick={() => applyBookingAction("REJECT")}>{bookingBusy ? "Procesando..." : "Rechazar"}</button> : null}
+              {isClientChat && activeBooking?.status === "ACEPTADA" ? <button className="btn-primary" disabled={bookingBusy} onClick={() => applyBookingAction("CONFIRM")}>{bookingBusy ? "Procesando..." : "Confirmar reserva"}</button> : null}
+              {isClientChat && ["PENDIENTE", "ACEPTADA", "CONFIRMADA"].includes(String(activeBooking?.status || "")) ? <button className="btn-secondary" disabled={bookingBusy} onClick={() => applyBookingAction("CANCEL")}>{bookingBusy ? "Procesando..." : "Cancelar"}</button> : null}
+              {isMotelOwnerChat && activeBooking?.status === "CONFIRMADA" ? <button className="btn-secondary" disabled={bookingBusy} onClick={() => applyBookingAction("FINISH")}>{bookingBusy ? "Procesando..." : "Finalizar"}</button> : null}
+              {activeBooking?.status === "CONFIRMADA" ? <a href={bookingMapsLink} target="_blank" rel="noreferrer" className="btn-secondary">Ver en Google Maps</a> : null}
+            </div>
+          </div>
+        ) : null}
 
         {activeRequest ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
