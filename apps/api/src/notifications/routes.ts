@@ -7,6 +7,11 @@ import { removePushSubscription, savePushSubscription, sendPushToUsers } from ".
 export const notificationsRouter = Router();
 
 
+notificationsRouter.get("/notifications/push/public-key", requireAuth, asyncHandler(async (_req, res) => {
+  const publicKey = String(process.env.VAPID_PUBLIC_KEY || "").trim();
+  return res.json({ publicKey });
+}));
+
 notificationsRouter.post("/notifications/push/subscribe", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.session.userId!;
   const subscription = req.body?.subscription;
