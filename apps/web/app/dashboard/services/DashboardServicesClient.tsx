@@ -860,6 +860,23 @@ export default function DashboardServicesClient() {
           </TabsContent>
 
           <TabsContent value="productos" className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 lg:col-span-2">
+              <h2 className="text-lg font-semibold">Categorías de tu tienda</h2>
+              <p className="mt-1 text-xs text-white/60">Créalas y adminístralas por separado antes de asignarlas a tus productos.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <input className="input sm:min-w-[280px]" placeholder="Ej: Juguetes premium" value={newShopCategory} onChange={(e) => setNewShopCategory(e.target.value)} />
+                <button type="button" onClick={createShopCategory} className="btn-secondary">Crear categoría</button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {shopCategories.map((cat) => (
+                  <button key={cat.id} type="button" onClick={() => removeShopCategory(cat.id)} className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/80">
+                    {cat.name} ✕
+                  </button>
+                ))}
+                {!shopCategories.length ? <div className="text-xs text-white/50">Aún no has creado categorías para tu tienda.</div> : null}
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
               <h2 className="text-lg font-semibold">Productos activos</h2>
               <p className="mt-1 text-xs text-white/60">{labels.listTitle}</p>
@@ -891,20 +908,6 @@ export default function DashboardServicesClient() {
               <h2 className="text-lg font-semibold">{editingProductId ? "Editar producto" : "Nuevo producto"}</h2>
               <p className="mt-1 text-xs text-white/60">Completa los datos para publicar.</p>
               <div className="mt-4 grid gap-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div className="text-xs text-white/60">Categorías de tu tienda</div>
-                  <div className="mt-2 flex gap-2">
-                    <input className="input" placeholder="Ej: Juguetes premium" value={newShopCategory} onChange={(e) => setNewShopCategory(e.target.value)} />
-                    <button type="button" onClick={createShopCategory} className="btn-secondary">Crear</button>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {shopCategories.map((cat) => (
-                      <button key={cat.id} type="button" onClick={() => removeShopCategory(cat.id)} className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/80">
-                        {cat.name} ✕
-                      </button>
-                    ))}
-                  </div>
-                </div>
                 <label className="grid gap-2 text-xs text-white/60">
                   Nombre
                   <input className="input" value={productName} onChange={(e) => setProductName(e.target.value)} />
