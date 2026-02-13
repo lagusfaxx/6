@@ -1,0 +1,396 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ProfileType {
+  CLIENT
+  VIEWER
+  CREATOR
+  PROFESSIONAL
+  ESTABLISHMENT
+  SHOP
+}
+
+enum CategoryKind {
+  PROFESSIONAL
+  ESTABLISHMENT
+  SHOP
+}
+
+enum ProfessionalTier {
+  PREMIUM
+  GOLD
+  SILVER
+}
+
+enum ServiceRequestStatus {
+  PENDIENTE_APROBACION
+  APROBADO
+  ACTIVO
+  PENDIENTE_EVALUACION
+  FINALIZADO
+  RECHAZADO
+  CANCELADO_CLIENTE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum PreferenceGender {
+  MALE
+  FEMALE
+  ALL
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFYING
+  PAID
+  FAILED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum PostType {
+  IMAGE
+  VIDEO
+}
+
+enum NotificationType {
+  SUBSCRIPTION_STARTED
+  SUBSCRIPTION_RENEWED
+  MESSAGE_RECEIVED
+  POST_PUBLISHED
+  SERVICE_PUBLISHED
+}
+
+enum PaymentIntentPurpose {
+  CREATOR_SUBSCRIPTION
+  SHOP_PLAN
+}
+
+enum PaymentIntentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+}
+
+model User {
+  id                  String            @id @default(uuid()) @db.Uuid
+  email               String            @unique
+  username            String            @unique
+  passwordHash        String
+  displayName         String?
+  phone               String?
+  gender              Gender?
+  preferenceGender    PreferenceGender?
+  profileType         ProfileType       @default(VIEWER)
+  address             String?
+  city                String?
+  latitude            Float?
+  longitude           Float?
+  categoryId          String?           @db.Uuid
+  isActive            Boolean           @default(true)
+  tier                ProfessionalTier?
+  isOnline            Boolean           @default(false)
+  lastSeen            DateTime?
+  avatarUrl           String?
+  coverUrl            String?
+  bio                 String?
+  birthdate           DateTime?
+  serviceCategory     String?
+  serviceDescription  String?
+  subscriptionPrice   Int?              @default(2500)
+  shopTrialEndsAt     DateTime?
+  termsAcceptedAt     DateTime?
+  allowFreeMessages   Boolean           @default(false)
+  role                Role              @default(USER)
+  membershipExpiresAt DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  posts                    Post[]
+  payments                 Payment[]
+  subscriptions            KhipuSubscription[]
+  profileSubscriptions     ProfileSubscription[] @relation("ProfileSubscriptions")
+  profileSubscriptionsByMe ProfileSubscription[] @relation("ProfileSubscriber")
+  services                 ServiceItem[]
+  profileMedia             ProfileMedia[]
+  paymentIntents           PaymentIntent[]     @relation("SubscriberPaymentIntents")
+  profilePaymentIntents    PaymentIntent[]     @relation("ProfilePaymentIntents")
+  sentMessages             Message[]           @relation("SentMessages")
+  receivedMessages         Message[]           @relation("ReceivedMessages")
+  receivedRatings          ServiceRating[]     @relation("ProfileRatings")
+  givenRatings             ServiceRating[]     @relation("GivenRatings")
+  notifications            Notification[]
+  category                 Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  favorites                Favorite[]          @relation("FavoritesByUser")
+  favoritedBy              Favorite[]          @relation("FavoritesForProfessional")
+  clientRequests           ServiceRequest[]    @relation("ClientRequests")
+  professionalRequests     ServiceRequest[]    @relation("ProfessionalRequests")
+}
+
+model Post {
+  id          String   @id @default(uuid()) @db.Uuid
+  authorId    String?  @db.Uuid
+  title       String
+  body        String
+  isPublic    Boolean  @default(false)
+  price       Int      @default(0)
+  type        PostType @default(IMAGE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  media  Media[]
+}
+
+model Media {
+  id        String    @id @default(uuid()) @db.Uuid
+  postId    String    @db.Uuid
+  type      MediaType
+  url       String
+  createdAt DateTime  @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  userId            String        @db.Uuid
+  subscriptionId    String?       @db.Uuid
+  provider          String        @default("khipu")
+  providerPaymentId String        @unique
+  transactionId     String        @unique
+  status            PaymentStatus @default(PENDING)
+  amount            Int
+  currency          String        @default("CLP")
+  paidAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription KhipuSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+}
+
+model KhipuSubscription {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  subscriptionId String   @unique
+  status         String
+  redirectUrl    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments Payment[]
+}
+
+model ProfileSubscription {
+  id           String   @id @default(uuid()) @db.Uuid
+  subscriberId String   @db.Uuid
+  profileId    String   @db.Uuid
+  status       String   @default("ACTIVE")
+  price        Int
+  startedAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  subscriber User @relation("ProfileSubscriber", fields: [subscriberId], references: [id], onDelete: Cascade)
+  profile    User @relation("ProfileSubscriptions", fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriberId, profileId])
+}
+
+model ServiceItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  ownerId     String   @db.Uuid
+  categoryId  String?  @db.Uuid
+  title       String
+  description String?
+  category    String?
+  price       Int?
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner        User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  categoryRel  Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  media        ServiceMedia[]
+}
+
+model ProfileMedia {
+  id        String    @id @default(uuid()) @db.Uuid
+  ownerId   String    @db.Uuid
+  type      MediaType
+  url       String
+  createdAt DateTime  @default(now())
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+
+model ServiceMedia {
+  id            String    @id @default(uuid()) @db.Uuid
+  serviceItemId String    @db.Uuid
+  type          MediaType
+  url           String
+  createdAt     DateTime  @default(now())
+
+  serviceItem ServiceItem @relation(fields: [serviceItemId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PaymentIntent {
+  id               String               @id @default(uuid()) @db.Uuid
+  subscriberId     String               @db.Uuid
+  profileId        String?              @db.Uuid
+  purpose          PaymentIntentPurpose
+  status           PaymentIntentStatus  @default(PENDING)
+  amount           Int
+  providerPaymentId String?
+  paymentUrl       String?
+  paidAt           DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  subscriber User @relation("SubscriberPaymentIntents", fields: [subscriberId], references: [id], onDelete: Cascade)
+  profile    User? @relation("ProfilePaymentIntents", fields: [profileId], references: [id], onDelete: SetNull)
+}
+
+model Message {
+  id        String   @id @default(uuid()) @db.Uuid
+  fromId    String   @db.Uuid
+  toId      String   @db.Uuid
+  body      String
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  from User @relation("SentMessages", fields: [fromId], references: [id], onDelete: Cascade)
+  to   User @relation("ReceivedMessages", fields: [toId], references: [id], onDelete: Cascade)
+}
+
+model ServiceRating {
+  id        String   @id @default(uuid()) @db.Uuid
+  profileId String   @db.Uuid
+  raterId   String   @db.Uuid
+  rating    Int
+  createdAt DateTime @default(now())
+
+  profile User @relation("ProfileRatings", fields: [profileId], references: [id], onDelete: Cascade)
+  rater   User @relation("GivenRatings", fields: [raterId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, raterId])
+}
+
+model Category {
+  id             String          @id @default(uuid()) @db.Uuid
+  name           String
+  slug           String          @unique
+  displayName    String
+  kind           CategoryKind
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  professionals  User[]
+  establishments Establishment[]
+  serviceItems   ServiceItem[]
+}
+
+model Establishment {
+  id          String               @id @default(uuid()) @db.Uuid
+  categoryId  String               @db.Uuid
+  name        String
+  city        String
+  address     String
+  phone       String
+  description String?
+  latitude    Float?
+  longitude   Float?
+  galleryUrls String[]             @default([])
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  category Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  reviews  EstablishmentReview[]
+}
+
+model Favorite {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  professionalId String   @db.Uuid
+  createdAt      DateTime @default(now())
+
+  user         User @relation("FavoritesByUser", fields: [userId], references: [id], onDelete: Cascade)
+  professional User @relation("FavoritesForProfessional", fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, professionalId])
+}
+
+model ServiceRequest {
+  id                    String               @id @default(uuid()) @db.Uuid
+  clientId              String               @db.Uuid
+  professionalId        String               @db.Uuid
+  status                ServiceRequestStatus @default(PENDIENTE_APROBACION)
+  requestedDate         String?
+  requestedTime         String?
+  agreedLocation        String?
+  clientComment         String?
+  professionalPriceClp  Int?
+  professionalDurationM Int?
+  professionalComment   String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  client       User                @relation("ClientRequests", fields: [clientId], references: [id], onDelete: Cascade)
+  professional User                @relation("ProfessionalRequests", fields: [professionalId], references: [id], onDelete: Cascade)
+  review       ProfessionalReview?
+}
+
+model ProfessionalReview {
+  id               String   @id @default(uuid()) @db.Uuid
+  serviceRequestId String   @unique @db.Uuid
+  hearts           Int
+  comment          String?
+  createdAt        DateTime @default(now())
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+}
+
+model EstablishmentReview {
+  id              String   @id @default(uuid()) @db.Uuid
+  establishmentId String   @db.Uuid
+  stars           Int
+  comment         String?
+  createdAt       DateTime @default(now())
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+}
