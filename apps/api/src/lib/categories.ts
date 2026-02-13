@@ -49,6 +49,10 @@ export function normalizeCategoryText(value: string) {
     .toLowerCase();
 }
 
+function compactCategoryText(value: string) {
+  return normalizeCategoryText(value).replace(/[^a-z0-9]/g, "");
+}
+
 export function slugifyCategory(value: string) {
   return normalizeCategoryText(value)
     .replace(/[^a-z0-9\s-]/g, "")
@@ -72,6 +76,7 @@ export async function resolveCategory(
 ) {
   if (!input) return null;
   const normalizedInput = normalizeCategoryText(input);
+  const compactInput = compactCategoryText(input);
   if (!normalizedInput) return null;
 
   const slug = resolveCategorySlug(input);
@@ -91,7 +96,11 @@ export async function resolveCategory(
   });
   const matched = categories.find((category) => {
     const label = category.displayName || category.name || "";
-    return normalizeCategoryText(label) === normalizedInput;
+    return (
+      normalizeCategoryText(label) === normalizedInput ||
+      compactCategoryText(label) === compactInput ||
+      compactCategoryText(category.slug || "") === compactInput
+    );
   });
   return matched || null;
 }
