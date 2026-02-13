@@ -65,7 +65,11 @@ const categoryAliases: Record<string, string[]> = {
   masaje: ["masajes", "masajes sensuales"],
   masajes: ["masaje", "masajes sensuales"],
   lenceria: ["lencería"],
-  juguetes: ["juguetes intimos", "juguetes íntimos"]
+  juguetes: ["juguetes intimos", "juguetes íntimos"],
+  sexshop: ["sex-shop", "sex shop", "shop", "tienda"],
+  shop: ["sex-shop", "sexshop", "sex shop", "tienda"],
+  "sex-shop": ["sexshop", "shop", "sex shop", "tienda"],
+  "sexshop": ["sex-shop", "shop", "sex shop", "tienda"]
 };
 
 function categoryVariants(value: string | null | undefined) {
@@ -210,7 +214,8 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
 
   const categoryFiltered = mapped.filter((s) => {
     if (!categoryId && !categorySlug) return true;
-    if (categoryRef?.slug === "sex-shop") return true;
+    // Accept any sex-shop variant
+    if (categoryRef?.slug === "sex-shop" || categoryRef?.slug === "shop" || categoryRef?.slug === "sexshop") return true;
     if (categoryRef?.id && s.category?.id === categoryRef.id) return true;
     if (categoryRef?.id && (s.serviceItemCategoryIds.includes(categoryRef.id) || s.productCategoryIds.includes(categoryRef.id))) return true;
     if (!categoryRef?.displayName && !categoryRef?.name) return false;
