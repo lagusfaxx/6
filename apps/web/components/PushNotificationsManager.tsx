@@ -50,18 +50,29 @@ export default function PushNotificationsManager() {
   const [pushError, setPushError] = useState<string | null>(null);
 
   async function subscribePush({ requestPermission }: { requestPermission: boolean }) {
-    if (!PUBLIC_VAPID_KEY) return false;
-    if (!("Notification" in window) || !("PushManager" in window)) return false;
+    if (!PUBLIC_VAPID_KEY) {
+      return { ok: false as const, reason: "missing_vapid" as const };
+    }
+    if (!("Notification" in window) || !("PushManager" in window)) {
+      return { ok: false as const, reason: "unsupported" as const };
+    }
 
     const registration = await registerServiceWorker();
-    if (!registration) return false;
+    if (!registration) {
+      return { ok: false as const, reason: "service_worker_unavailable" as const };
+    }
 
     let permission = Notification.permission;
     if (permission === "default" && requestPermission) {
       permission = await Notification.requestPermission();
     }
 
-    if (permission !== "granted") return false;
+    if (permission !== "granted") {
+      return {
+        ok: false as const,
+        reason: permission === "denied" ? ("permission_denied" as const) : ("permission_not_granted" as const)
+      };
+    }
 
     const existingSubscription = await registration.pushManager.getSubscription();
     const subscription =
@@ -76,7 +87,7 @@ export default function PushNotificationsManager() {
       body: JSON.stringify({ subscription })
     });
 
-    return true;
+    return { ok: true as const };
   }
 
   useEffect(() => {
@@ -108,8 +119,8 @@ export default function PushNotificationsManager() {
         const standalone = isStandalonePwa();
         const canAskInBackground = !ios || !standalone;
 
-        const ok = await subscribePush({ requestPermission: canAskInBackground });
-        if (!cancelled && ok) {
+        const result = await subscribePush({ requestPermission: canAskInBackground });
+        if (!cancelled && result.ok) {
           setShowIosEnablePush(false);
           setPushError(null);
         }
@@ -179,10 +190,14 @@ export default function PushNotificationsManager() {
                 setActivatingPush(true);
                 setPushError(null);
                 try {
-                  const ok = await subscribePush({ requestPermission: true });
-                  if (!ok) {
-                    if (Notification.permission === "denied") {
+                  const result = await subscribePush({ requestPermission: true });
+                  if (!result.ok) {
+                    if (result.reason === "permission_denied") {
                       setPushError("Notificaciones bloqueadas en iOS. Habilítalas en Configuración > Notificaciones.");
+                    } else if (result.reason === "unsupported" || result.reason === "service_worker_unavailable") {
+                      setPushError("Este navegador no soporta push en iOS. Ábrelo en Safari e instala la app en pantalla de inicio.");
+                    } else if (result.reason === "missing_vapid") {
+                      setPushError("Push no está configurado en este entorno. Intenta nuevamente más tarde.");
                     } else {
                       setPushError("No se pudo activar push. Intenta nuevamente.");
                     }
