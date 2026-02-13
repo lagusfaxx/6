@@ -47,6 +47,17 @@ async function ensureUserCategory(userId: string, categoryId: string | null, dis
   });
 }
 
+
+async function createServiceNotification(userId: string, title: string, body: string, data: Record<string, any>) {
+  await prisma.notification.create({
+    data: {
+      userId,
+      type: "SERVICE_PUBLISHED",
+      data: { title, body, ...data }
+    }
+  });
+}
+
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
   const toRad = (n: number) => (n * Math.PI) / 180;
   const R = 6371;
@@ -563,6 +574,13 @@ servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, r
       professional: { select: { id: true, displayName: true, username: true, phone: true } }
     }
   });
+
+  await createServiceNotification(
+    professionalId,
+    "Nuevo servicio solicitado",
+    "Recibiste una nueva solicitud de servicio.",
+    { url: `/dashboard/services?request=${request.id}`, requestId: request.id, status: request.status }
+  );
 
   sendToUser(professionalId, "service_request", { request });
   sendToUser(req.session.userId!, "service_request", { request });
