@@ -151,6 +151,10 @@ export default function DashboardServicesClient() {
   const [city, setCity] = useState("");
   const [profileLatitude, setProfileLatitude] = useState("");
   const [profileLongitude, setProfileLongitude] = useState("");
+  const [profileLocationVerified, setProfileLocationVerified] = useState(false);
+  const [profileGeocodeBusy, setProfileGeocodeBusy] = useState(false);
+  const [profileGeocodeError, setProfileGeocodeError] = useState<string | null>(null);
+  const [lastProfileGeocoded, setLastProfileGeocoded] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -236,8 +240,11 @@ export default function DashboardServicesClient() {
       setGender(meRes?.user?.gender || "FEMALE");
       setAddress(meRes?.user?.address || "");
       setCity(meRes?.user?.city || "");
-      setProfileLatitude(meRes?.user?.latitude != null ? String(meRes?.user?.latitude) : "");
-      setProfileLongitude(meRes?.user?.longitude != null ? String(meRes?.user?.longitude) : "");
+      const loadedLatitude = meRes?.user?.latitude != null ? String(meRes?.user?.latitude) : "";
+      const loadedLongitude = meRes?.user?.longitude != null ? String(meRes?.user?.longitude) : "";
+      setProfileLatitude(loadedLatitude);
+      setProfileLongitude(loadedLongitude);
+      setProfileLocationVerified(Boolean(loadedLatitude && loadedLongitude));
 
       if (profileType !== "SHOP") {
         setItems(serviceRes?.items ?? []);
@@ -300,6 +307,52 @@ export default function DashboardServicesClient() {
     }
   };
 
+
+  const geocodeProfileAddress = async (override?: string, silent = false) => {
+    const addressQuery = (override ?? address).trim();
+    if (!addressQuery) {
+      if (!silent) setProfileGeocodeError("Ingresa una dirección para buscar en el mapa.");
+      return;
+    }
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+    if (!token) {
+      if (!silent) setProfileGeocodeError("Configura NEXT_PUBLIC_MAPBOX_TOKEN para usar el buscador.");
+      return;
+    }
+
+    setProfileGeocodeBusy(true);
+    if (!silent) setProfileGeocodeError(null);
+    try {
+      const res = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(addressQuery)}.json?access_token=${token}&limit=1&language=es`
+      );
+      if (!res.ok) throw new Error("GEOCODE_FAILED");
+      const data = await res.json();
+      const feature = data?.features?.[0];
+      if (!feature?.center) throw new Error("NO_RESULTS");
+
+      setProfileLongitude(String(feature.center[0]));
+      setProfileLatitude(String(feature.center[1]));
+      if (feature.place_name) setAddress(feature.place_name);
+
+      const contexts: Array<{ id: string; text: string }> = feature.context || [];
+      const locality =
+        contexts.find((c) => c.id.includes("neighborhood"))?.text ||
+        contexts.find((c) => c.id.includes("locality"))?.text ||
+        contexts.find((c) => c.id.includes("place"))?.text ||
+        "";
+      if (locality) setCity(locality);
+
+      setProfileLocationVerified(true);
+      setProfileGeocodeError(null);
+      setLastProfileGeocoded(addressQuery);
+    } catch {
+      if (!silent) setProfileGeocodeError("No encontramos esa dirección. Ajusta el texto o intenta nuevamente.");
+    } finally {
+      setProfileGeocodeBusy(false);
+    }
+  };
+
   useEffect(() => {
     const trimmed = serviceAddress.trim();
     if (!trimmed) return;
@@ -311,10 +364,34 @@ export default function DashboardServicesClient() {
     return () => clearTimeout(timer);
   }, [serviceAddress, lastGeocoded]);
 
+  useEffect(() => {
+    const trimmed = address.trim();
+    if (!trimmed || trimmed.length < 6) return;
+    if (trimmed === lastProfileGeocoded) return;
+    const timer = setTimeout(() => {
+      geocodeProfileAddress(trimmed, true);
+    }, 550);
+    return () => clearTimeout(timer);
+  }, [address, lastProfileGeocoded]);
+
   const saveProfile = async () => {
     if (!user) return;
     setBusy(true);
     setError(null);
+    if (profileType === "SHOP") {
+      if (!address.trim() || !profileLocationVerified) {
+        setError("Debes confirmar la ubicación en el mapa para tu tienda.");
+        setBusy(false);
+        return;
+      }
+      const parsedLat = Number(profileLatitude);
+      const parsedLng = Number(profileLongitude);
+      if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) {
+        setError("Debes confirmar la ubicación en el mapa para tu tienda.");
+        setBusy(false);
+        return;
+      }
+    }
     try {
       const payload: Record<string, any> = {
         displayName,
@@ -979,7 +1056,14 @@ export default function DashboardServicesClient() {
               <div className="mt-4 grid gap-3">
                 <label className="grid gap-2 text-xs text-white/60">
                   Dirección
-                  <input className="input" value={address} onChange={(e) => setAddress(e.target.value)} />
+                  <input
+                    className="input"
+                    value={address}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      if (profileType === "SHOP") setProfileLocationVerified(false);
+                    }}
+                  />
                 </label>
                 <label className="grid gap-2 text-xs text-white/60">
                   Ciudad
@@ -988,13 +1072,68 @@ export default function DashboardServicesClient() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-2 text-xs text-white/60">
                     Latitud
-                    <input className="input" value={profileLatitude} onChange={(e) => setProfileLatitude(e.target.value)} placeholder="-33.45" />
+                    <input
+                      className="input"
+                      value={profileLatitude}
+                      onChange={(e) => {
+                        setProfileLatitude(e.target.value);
+                        if (profileType === "SHOP") setProfileLocationVerified(false);
+                      }}
+                      placeholder="-33.45"
+                    />
                   </label>
                   <label className="grid gap-2 text-xs text-white/60">
                     Longitud
-                    <input className="input" value={profileLongitude} onChange={(e) => setProfileLongitude(e.target.value)} placeholder="-70.66" />
+                    <input
+                      className="input"
+                      value={profileLongitude}
+                      onChange={(e) => {
+                        setProfileLongitude(e.target.value);
+                        if (profileType === "SHOP") setProfileLocationVerified(false);
+                      }}
+                      placeholder="-70.66"
+                    />
                   </label>
                 </div>
+                {profileType === "SHOP" ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => geocodeProfileAddress()}
+                        disabled={profileGeocodeBusy}
+                        className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10 disabled:opacity-60"
+                      >
+                        {profileGeocodeBusy ? "Buscando..." : "Verificar dirección en mapa"}
+                      </button>
+                      <span className="text-[11px] text-white/50">Buscamos automáticamente mientras escribes.</span>
+                    </div>
+                    {profileGeocodeError ? (
+                      <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+                        {profileGeocodeError}
+                      </div>
+                    ) : null}
+                    {profileLocationVerified && Number.isFinite(Number(profileLatitude)) && Number.isFinite(Number(profileLongitude)) ? (
+                      <MapboxMap
+                        markers={[
+                          {
+                            id: "profile-location",
+                            name: displayName || user?.username || "Tienda",
+                            lat: Number(profileLatitude),
+                            lng: Number(profileLongitude),
+                            subtitle: city || address || null
+                          }
+                        ]}
+                        height={220}
+                        className="rounded-xl"
+                      />
+                    ) : (
+                      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60">
+                        Verifica la dirección en el mapa para que tu tienda aparezca correctamente en búsquedas por categoría y mapa.
+                      </div>
+                    )}
+                  </>
+                ) : null}
                 <button disabled={busy} onClick={saveProfile} className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50">
                   Guardar ubicación
                 </button>

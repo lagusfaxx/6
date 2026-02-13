@@ -210,6 +210,7 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
 
   const categoryFiltered = mapped.filter((s) => {
     if (!categoryId && !categorySlug) return true;
+    if (categoryRef?.slug === "sex-shop") return true;
     if (categoryRef?.id && s.category?.id === categoryRef.id) return true;
     if (categoryRef?.id && (s.serviceItemCategoryIds.includes(categoryRef.id) || s.productCategoryIds.includes(categoryRef.id))) return true;
     if (!categoryRef?.displayName && !categoryRef?.name) return false;
@@ -244,7 +245,7 @@ shopRouter.get("/sexshops/:shopId/products", asyncHandler(async (req, res) => {
       isActive: true,
       ...(shopCategoryId ? { shopCategoryId } : {}),
       ...(shopCategorySlug ? { shopCategory: { slug: shopCategorySlug } } : {}),
-      ...(categoryRef?.id ? { categoryId: categoryRef.id } : {})
+      ...(categoryRef?.id && categoryRef.slug !== "sex-shop" ? { categoryId: categoryRef.id } : {})
     },
     orderBy: { createdAt: "desc" },
     include: {
