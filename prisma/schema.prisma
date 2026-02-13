@@ -148,6 +148,7 @@ model User {
   clientRequests           ServiceRequest[]      @relation("ClientRequests")
   professionalRequests     ServiceRequest[]      @relation("ProfessionalRequests")
   products                Product[] @relation("ShopProducts")
+  shopCategories         ShopCategory[]
   motelRooms              MotelRoom[] @relation("MotelRooms")
   motelPacks              MotelPack[] @relation("MotelPacks")
   motelPromotions         MotelPromotion[] @relation("MotelPromotions")
@@ -425,6 +426,7 @@ model Product {
   id          String   @id @default(uuid()) @db.Uuid
   shopId      String   @db.Uuid
   categoryId  String?  @db.Uuid
+  shopCategoryId String? @db.Uuid
   name        String
   description String?
   price       Int
@@ -435,7 +437,23 @@ model Product {
 
   shop      User           @relation("ShopProducts", fields: [shopId], references: [id], onDelete: Cascade)
   category  Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  shopCategory ShopCategory? @relation(fields: [shopCategoryId], references: [id], onDelete: SetNull)
   media     ProductMedia[]
+}
+
+model ShopCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  shopId    String   @db.Uuid
+  name      String
+  slug      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shop      User     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  products  Product[]
+
+  @@unique([shopId, slug])
+  @@index([shopId])
 }
 
 model ProductMedia {

@@ -32,6 +32,17 @@ const upload = multer({
   limits: { fileSize: 100 * 1024 * 1024 }
 });
 
+function slugifyShopCategory(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
 function normalizeCategoryText(value: string | null | undefined) {
   return (value || "")
     .normalize("NFD")
@@ -79,6 +90,49 @@ function categoryMatches(categoryName: string | null | undefined, profileCategor
   );
 }
 
+shopRouter.get("/categories", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const me = await prisma.user.findUnique({ where: { id: userId }, select: { profileType: true } });
+  if (!me || me.profileType !== "SHOP") return res.status(403).json({ error: "NOT_SHOP" });
+
+  const categories = await prisma.shopCategory.findMany({
+    where: { shopId: userId },
+    orderBy: [{ createdAt: "asc" }]
+  });
+  return res.json({ categories });
+}));
+
+shopRouter.post("/categories", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const me = await prisma.user.findUnique({ where: { id: userId }, select: { profileType: true } });
+  if (!me || me.profileType !== "SHOP") return res.status(403).json({ error: "NOT_SHOP" });
+
+  const name = String(req.body?.name || "").trim();
+  if (name.length < 2) return res.status(400).json({ error: "NAME_REQUIRED" });
+
+  const slug = slugifyShopCategory(name);
+  if (!slug) return res.status(400).json({ error: "NAME_REQUIRED" });
+
+  const category = await prisma.shopCategory.upsert({
+    where: { shopId_slug: { shopId: userId, slug } },
+    update: { name },
+    create: { shopId: userId, name, slug }
+  });
+
+  return res.json({ category });
+}));
+
+shopRouter.delete("/categories/:id", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const id = String(req.params.id);
+  const category = await prisma.shopCategory.findFirst({ where: { id, shopId: userId }, select: { id: true } });
+  if (!category) return res.status(404).json({ error: "NOT_FOUND" });
+
+  await prisma.product.updateMany({ where: { shopId: userId, shopCategoryId: id }, data: { shopCategoryId: null } });
+  await prisma.shopCategory.delete({ where: { id } });
+  return res.json({ ok: true });
+}));
+
 // ✅ PUBLIC: listar sex-shops (para Home / mapa)
 shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
   const now = new Date();
@@ -93,7 +147,6 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
     isActive: true,
     OR: [
       { membershipExpiresAt: { gt: now } },
-      // en dev puede venir null; si quieres forzar pago, comenta esta línea
       { membershipExpiresAt: null }
     ]
   };
@@ -124,7 +177,6 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
     take: 200
   });
 
-  // distancia aproximada (Haversine)
   const toRad = (v: number) => (v * Math.PI) / 180;
   function distKm(aLat: number, aLng: number, bLat: number, bLng: number) {
     const R = 6371;
@@ -177,6 +229,8 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
 // ✅ PUBLIC: productos de un sex-shop
 shopRouter.get("/sexshops/:shopId/products", asyncHandler(async (req, res) => {
   const shopId = String(req.params.shopId);
+  const shopCategoryId = typeof req.query.shopCategoryId === "string" ? req.query.shopCategoryId : "";
+  const shopCategorySlug = typeof req.query.shopCategorySlug === "string" ? req.query.shopCategorySlug : "";
   const categoryId = typeof req.query.categoryId === "string" ? req.query.categoryId : "";
   const categorySlug = typeof req.query.categorySlug === "string" ? req.query.categorySlug : typeof req.query.category === "string" ? req.query.category : "";
   const categoryRef = await findCategoryByRef(prisma, {
@@ -188,10 +242,16 @@ shopRouter.get("/sexshops/:shopId/products", asyncHandler(async (req, res) => {
     where: {
       shopId,
       isActive: true,
+      ...(shopCategoryId ? { shopCategoryId } : {}),
+      ...(shopCategorySlug ? { shopCategory: { slug: shopCategorySlug } } : {}),
       ...(categoryRef?.id ? { categoryId: categoryRef.id } : {})
     },
     orderBy: { createdAt: "desc" },
-    include: { media: { orderBy: { pos: "asc" } }, category: { select: { id: true, slug: true, displayName: true, name: true } } }
+    include: {
+      media: { orderBy: { pos: "asc" } },
+      category: { select: { id: true, slug: true, displayName: true, name: true } },
+      shopCategory: { select: { id: true, slug: true, name: true } }
+    }
   });
   return res.json({ products });
 }));
@@ -205,7 +265,11 @@ shopRouter.get("/products", requireAuth, asyncHandler(async (req, res) => {
   const products = await prisma.product.findMany({
     where: { shopId: userId },
     orderBy: { createdAt: "desc" },
-    include: { media: { orderBy: { pos: "asc" } }, category: { select: { id: true, slug: true, displayName: true, name: true } } }
+    include: {
+      media: { orderBy: { pos: "asc" } },
+      category: { select: { id: true, slug: true, displayName: true, name: true } },
+      shopCategory: { select: { id: true, slug: true, name: true } }
+    }
   });
   return res.json({ products });
 }));
@@ -220,17 +284,16 @@ shopRouter.post("/products", requireAuth, asyncHandler(async (req, res) => {
   const stock = Number(req.body?.stock || 0);
   const description = req.body?.description ? String(req.body.description) : null;
   const mediaUrls = Array.isArray(req.body?.mediaUrls) ? req.body.mediaUrls.map(String) : [];
-  const categoryId = typeof req.body?.categoryId === "string" ? req.body.categoryId : null;
-  const categorySlug = typeof req.body?.categorySlug === "string" ? req.body.categorySlug : null;
-  const categoryName = typeof req.body?.category === "string" ? req.body.category : null;
+  const shopCategoryId = typeof req.body?.shopCategoryId === "string" ? req.body.shopCategoryId : null;
 
   if (!name || name.length < 2) return res.status(400).json({ error: "NAME_REQUIRED" });
   if (!Number.isFinite(price) || price < 0) return res.status(400).json({ error: "PRICE_INVALID" });
 
-  const category = await findCategoryByRef(prisma, { categoryId, categorySlug, categoryName, kind: "SHOP" });
-  if (!category) {
-    return res.status(400).json({ error: "CATEGORY_INVALID", message: "Selecciona una categoría válida." });
+  if (!shopCategoryId) {
+    return res.status(400).json({ error: "CATEGORY_INVALID", message: "Debes elegir una categoría creada por tu tienda." });
   }
+  const shopCategory = await prisma.shopCategory.findFirst({ where: { id: shopCategoryId, shopId: userId }, select: { id: true } });
+  if (!shopCategory) return res.status(400).json({ error: "CATEGORY_INVALID", message: "Categoría de tienda inválida." });
 
   const product = await prisma.product.create({
     data: {
@@ -239,12 +302,16 @@ shopRouter.post("/products", requireAuth, asyncHandler(async (req, res) => {
       description,
       price: Math.round(price),
       stock: Math.max(0, Math.round(stock)),
-      categoryId: category.id,
+      shopCategoryId,
       media: {
         create: mediaUrls.slice(0, 10).map((url: string, idx: number) => ({ url, pos: idx }))
       }
     },
-    include: { media: true, category: { select: { id: true, slug: true, displayName: true, name: true } } }
+    include: {
+      media: true,
+      category: { select: { id: true, slug: true, displayName: true, name: true } },
+      shopCategory: { select: { id: true, slug: true, name: true } }
+    }
   });
 
   return res.json({ product });
@@ -262,23 +329,25 @@ shopRouter.patch("/products/:id", requireAuth, asyncHandler(async (req, res) => 
   if (req.body?.price != null) data.price = Math.round(Number(req.body.price));
   if (req.body?.stock != null) data.stock = Math.max(0, Math.round(Number(req.body.stock)));
   if (req.body?.isActive != null) data.isActive = Boolean(req.body.isActive);
-  if (req.body?.categoryId || req.body?.categorySlug || req.body?.category) {
-    const category = await findCategoryByRef(prisma, {
-      categoryId: typeof req.body?.categoryId === "string" ? req.body.categoryId : null,
-      categorySlug: typeof req.body?.categorySlug === "string" ? req.body.categorySlug : null,
-      categoryName: typeof req.body?.category === "string" ? req.body.category : null,
-      kind: "SHOP"
-    });
-    if (!category) {
-      return res.status(400).json({ error: "CATEGORY_INVALID", message: "Selecciona una categoría válida." });
+  if (req.body?.shopCategoryId !== undefined) {
+    const shopCategoryId = req.body?.shopCategoryId ? String(req.body.shopCategoryId) : null;
+    if (shopCategoryId) {
+      const category = await prisma.shopCategory.findFirst({ where: { id: shopCategoryId, shopId: userId }, select: { id: true } });
+      if (!category) {
+        return res.status(400).json({ error: "CATEGORY_INVALID", message: "Categoría de tienda inválida." });
+      }
     }
-    data.categoryId = category.id;
+    data.shopCategoryId = shopCategoryId;
   }
 
   const updated = await prisma.product.update({
     where: { id },
     data,
-    include: { media: true, category: { select: { id: true, slug: true, displayName: true, name: true } } }
+    include: {
+      media: true,
+      category: { select: { id: true, slug: true, displayName: true, name: true } },
+      shopCategory: { select: { id: true, slug: true, name: true } }
+    }
   });
   return res.json({ product: updated });
 }));
@@ -291,8 +360,9 @@ shopRouter.post("/products/:id/media", requireAuth, upload.array("files", 8), as
 
   const files = (req.files as Express.Multer.File[]) ?? [];
   if (!files.length) return res.status(400).json({ error: "NO_FILES" });
+  const lastPos = await prisma.productMedia.findFirst({ where: { productId: id }, orderBy: { pos: "desc" }, select: { pos: true } });
   const media = [];
-  let pos = 0;
+  let pos = (lastPos?.pos ?? -1) + 1;
   for (const file of files) {
     await validateUploadedFile(file, "image-or-video");
     const url = storageProvider.publicUrl(file.filename);
@@ -300,6 +370,15 @@ shopRouter.post("/products/:id/media", requireAuth, upload.array("files", 8), as
     pos += 1;
   }
   return res.json({ media });
+}));
+
+shopRouter.delete("/products/media/:mediaId", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const mediaId = String(req.params.mediaId);
+  const media = await prisma.productMedia.findUnique({ where: { id: mediaId }, include: { product: { select: { shopId: true } } } });
+  if (!media || media.product.shopId !== userId) return res.status(404).json({ error: "NOT_FOUND" });
+  await prisma.productMedia.delete({ where: { id: mediaId } });
+  return res.json({ ok: true });
 }));
 
 shopRouter.delete("/products/:id", requireAuth, asyncHandler(async (req, res) => {

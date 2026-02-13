@@ -422,7 +422,7 @@ export default function ChatPage() {
   if (loading) return <div className="text-white/70">Cargando chat...</div>;
   if (error) return <div className="text-red-200">{error}</div>;
 
-  const canCreateRequest = me?.profileType === "CLIENT" && !activeRequest;
+  const canCreateRequest = me?.profileType === "CLIENT" && other?.profileType === "PROFESSIONAL" && !activeRequest;
   const waitingProfessional = me?.profileType === "CLIENT" && activeRequest?.status === "PENDIENTE_APROBACION";
   const canConfirmProposal = me?.profileType === "CLIENT" && activeRequest?.status === "APROBADO";
 

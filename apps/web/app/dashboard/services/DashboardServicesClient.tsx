@@ -43,7 +43,10 @@ type Product = {
   createdAt: string;
   media?: ProductMedia[];
   category?: { id: string; slug: string; displayName?: string | null; name?: string | null } | null;
+  shopCategory?: { id: string; slug: string; name: string } | null;
 };
+
+type ShopCategory = { id: string; name: string; slug: string };
 
 type ProfileMedia = { id: string; url: string; type: string };
 
@@ -105,6 +108,7 @@ export default function DashboardServicesClient() {
 
   const [tab, setTab] = useState("perfil");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [shopCategories, setShopCategories] = useState<ShopCategory[]>([]);
   const [items, setItems] = useState<ServiceItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [gallery, setGallery] = useState<ProfileMedia[]>([]);
@@ -135,6 +139,8 @@ export default function DashboardServicesClient() {
   const [productPrice, setProductPrice] = useState<string>("");
   const [productStock, setProductStock] = useState<string>("0");
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [newShopCategory, setNewShopCategory] = useState("");
+  const [uploadingProductId, setUploadingProductId] = useState<string | null>(null);
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
@@ -143,6 +149,8 @@ export default function DashboardServicesClient() {
   const [gender, setGender] = useState("FEMALE");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
+  const [profileLatitude, setProfileLatitude] = useState("");
+  const [profileLongitude, setProfileLongitude] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -161,7 +169,7 @@ export default function DashboardServicesClient() {
     if (!categoryOptions.length) return;
     setServiceCategoryId((prev) => prev || categoryOptions[0].id);
     if (profileType === "SHOP") {
-      setProductCategoryId((prev) => prev || categoryOptions[0].id);
+      setProductCategoryId("");
     }
   }, [categoryOptions, profileType]);
 
@@ -201,6 +209,7 @@ export default function DashboardServicesClient() {
       }
       if (profileType === "SHOP") {
         requests.push(apiFetch<{ products: Product[] }>("/shop/products"));
+        requests.push(apiFetch<{ categories: ShopCategory[] }>("/shop/categories"));
       }
 
       const results = await Promise.all(requests);
@@ -208,6 +217,7 @@ export default function DashboardServicesClient() {
       const galleryRes = results[1];
       let serviceRes: { items: ServiceItem[] } | undefined;
       let productRes: { products: Product[] } | undefined;
+      let shopCategoryRes: { categories: ShopCategory[] } | undefined;
       let idx = 2;
       if (profileType !== "SHOP") {
         serviceRes = results[idx] as { items: ServiceItem[] };
@@ -215,6 +225,8 @@ export default function DashboardServicesClient() {
       }
       if (profileType === "SHOP") {
         productRes = results[idx] as { products: Product[] };
+        idx += 1;
+        shopCategoryRes = results[idx] as { categories: ShopCategory[] };
       }
       setGallery(galleryRes?.media ?? []);
       setDisplayName(meRes?.user?.displayName ?? "");
@@ -224,12 +236,15 @@ export default function DashboardServicesClient() {
       setGender(meRes?.user?.gender || "FEMALE");
       setAddress(meRes?.user?.address || "");
       setCity(meRes?.user?.city || "");
+      setProfileLatitude(meRes?.user?.latitude != null ? String(meRes?.user?.latitude) : "");
+      setProfileLongitude(meRes?.user?.longitude != null ? String(meRes?.user?.longitude) : "");
 
       if (profileType !== "SHOP") {
         setItems(serviceRes?.items ?? []);
       }
       if (profileType === "SHOP") {
         setProducts(productRes?.products ?? []);
+        setShopCategories(shopCategoryRes?.categories ?? []);
       }
     } catch {
       setError("No se pudieron cargar tus datos del panel.");
@@ -307,7 +322,9 @@ export default function DashboardServicesClient() {
         serviceDescription,
         gender,
         address,
-        city
+        city,
+        latitude: profileLatitude ? Number(profileLatitude) : null,
+        longitude: profileLongitude ? Number(profileLongitude) : null
       };
       if (birthdate) payload.birthdate = birthdate;
       await apiFetch("/profile", { method: "PATCH", body: JSON.stringify(payload) });
@@ -482,7 +499,7 @@ export default function DashboardServicesClient() {
         description: productDescription,
         price: productPrice ? Number(productPrice) : 0,
         stock: productStock ? Number(productStock) : 0,
-        categoryId: productCategoryId,
+        shopCategoryId: productCategoryId,
         isActive: true
       };
       if (editingProductId) {
@@ -524,9 +541,63 @@ export default function DashboardServicesClient() {
     setProductDescription(item.description || "");
     setProductPrice(String(item.price || ""));
     setProductStock(String(item.stock || ""));
-    setProductCategoryId(item.category?.id || "");
+    setProductCategoryId(item.shopCategory?.id || "");
     setEditingProductId(item.id);
     setTab("productos");
+  };
+
+  const createShopCategory = async () => {
+    if (!newShopCategory.trim()) return;
+    try {
+      await apiFetch("/shop/categories", { method: "POST", body: JSON.stringify({ name: newShopCategory.trim() }) });
+      setNewShopCategory("");
+      if (user?.id) loadPanel(user.id);
+      showToast("Categoría creada.");
+    } catch (err: any) {
+      setError(friendlyErrorMessage(err));
+    }
+  };
+
+  const removeShopCategory = async (id: string) => {
+    try {
+      await apiFetch(`/shop/categories/${id}`, { method: "DELETE" });
+      if (user?.id) loadPanel(user.id);
+      showToast("Categoría eliminada.");
+    } catch (err: any) {
+      setError(friendlyErrorMessage(err));
+    }
+  };
+
+  const uploadProductMedia = async (productId: string, event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files?.length) return;
+    const form = new FormData();
+    Array.from(files).forEach((file) => form.append("files", file));
+    setUploadingProductId(productId);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/shop/products/${productId}/media`, {
+        method: "POST",
+        credentials: "include",
+        body: form
+      });
+      if (!res.ok) throw new Error("UPLOAD_FAILED");
+      if (user?.id) loadPanel(user.id);
+      showToast("Fotos del producto actualizadas.");
+    } catch {
+      setError("No se pudieron subir las fotos del producto.");
+    } finally {
+      setUploadingProductId(null);
+    }
+  };
+
+  const removeProductMedia = async (mediaId: string) => {
+    try {
+      await apiFetch(`/shop/products/media/${mediaId}`, { method: "DELETE" });
+      if (user?.id) loadPanel(user.id);
+      showToast("Foto eliminada del producto.");
+    } catch {
+      setError("No se pudo eliminar la foto.");
+    }
   };
 
   const startPublish = () => router.push("/dashboard");
@@ -757,9 +828,10 @@ export default function DashboardServicesClient() {
                 <label className="grid gap-2 text-xs text-white/60">
                   Categoría
                   <select className="input" value={serviceCategoryId} onChange={(e) => setServiceCategoryId(e.target.value)}>
-                    {categoryOptions.map((c) => (
+                    <option value="">Selecciona una categoría de tu tienda</option>
+                    {shopCategories.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.displayName || c.name}
+                        {c.name}
                       </option>
                     ))}
                   </select>
@@ -798,9 +870,13 @@ export default function DashboardServicesClient() {
                       <div>
                         <div className="font-semibold">{item.name}</div>
                         <div className="text-xs text-white/60">{item.description || "Sin descripción"}</div>
-                        <div className="text-xs text-white/50 mt-1">{categoryLabel(item.category)} · ${item.price} · Stock {item.stock}</div>
+                        <div className="text-xs text-white/50 mt-1">{item.shopCategory?.name || "Sin categoría"} · ${item.price} · Stock {item.stock}</div>
                       </div>
                       <div className="flex flex-wrap gap-2">
+                        <label className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80 cursor-pointer">
+                          {uploadingProductId === item.id ? "Subiendo..." : "Subir fotos"}
+                          <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => uploadProductMedia(item.id, e)} />
+                        </label>
                         <button onClick={() => startEditProduct(item)} className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80">Editar</button>
                         <button onClick={() => removeProduct(item.id)} className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80">Eliminar</button>
                       </div>
@@ -815,6 +891,20 @@ export default function DashboardServicesClient() {
               <h2 className="text-lg font-semibold">{editingProductId ? "Editar producto" : "Nuevo producto"}</h2>
               <p className="mt-1 text-xs text-white/60">Completa los datos para publicar.</p>
               <div className="mt-4 grid gap-3">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="text-xs text-white/60">Categorías de tu tienda</div>
+                  <div className="mt-2 flex gap-2">
+                    <input className="input" placeholder="Ej: Juguetes premium" value={newShopCategory} onChange={(e) => setNewShopCategory(e.target.value)} />
+                    <button type="button" onClick={createShopCategory} className="btn-secondary">Crear</button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {shopCategories.map((cat) => (
+                      <button key={cat.id} type="button" onClick={() => removeShopCategory(cat.id)} className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/80">
+                        {cat.name} ✕
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <label className="grid gap-2 text-xs text-white/60">
                   Nombre
                   <input className="input" value={productName} onChange={(e) => setProductName(e.target.value)} />
@@ -826,9 +916,10 @@ export default function DashboardServicesClient() {
                 <label className="grid gap-2 text-xs text-white/60">
                   Categoría
                   <select className="input" value={productCategoryId} onChange={(e) => setProductCategoryId(e.target.value)}>
-                    {categoryOptions.map((c) => (
+                    <option value="">Selecciona una categoría de tu tienda</option>
+                    {shopCategories.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.displayName || c.name}
+                        {c.name}
                       </option>
                     ))}
                   </select>
@@ -891,6 +982,16 @@ export default function DashboardServicesClient() {
                   Ciudad
                   <input className="input" value={city} onChange={(e) => setCity(e.target.value)} />
                 </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-2 text-xs text-white/60">
+                    Latitud
+                    <input className="input" value={profileLatitude} onChange={(e) => setProfileLatitude(e.target.value)} placeholder="-33.45" />
+                  </label>
+                  <label className="grid gap-2 text-xs text-white/60">
+                    Longitud
+                    <input className="input" value={profileLongitude} onChange={(e) => setProfileLongitude(e.target.value)} placeholder="-70.66" />
+                  </label>
+                </div>
                 <button disabled={busy} onClick={saveProfile} className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50">
                   Guardar ubicación
                 </button>
