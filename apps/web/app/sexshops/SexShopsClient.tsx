@@ -21,7 +21,7 @@ type Shop = {
 
 export default function SexShopsClient() {
   const searchParams = useSearchParams();
-  const category = searchParams.get("category") || "";
+  const category = searchParams.get("category") || "shop"; // Default to 'shop' category
   const [rangeKm, setRangeKm] = useState("15");
   const [location, setLocation] = useState<[number, number] | null>([-33.45, -70.66]);
   const [items, setItems] = useState<Shop[]>([]);
