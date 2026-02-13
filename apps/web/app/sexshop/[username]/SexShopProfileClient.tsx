@@ -233,9 +233,23 @@ export default function SexShopProfileClient() {
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/20 via-violet-500/10 to-black" />
+          <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/30 via-violet-600/20 to-purple-900/40">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(168,85,247,0.15),transparent_50%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_60%,rgba(217,70,239,0.15),transparent_50%)]" />
+          </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+        
+        {/* Logo/Avatar */}
+        {profile.avatarUrl && (
+          <div className="absolute left-6 top-6 md:left-8 md:top-8">
+            <img 
+              src={resolveMediaUrl(profile.avatarUrl) ?? undefined} 
+              alt={`${profile.name} logo`}
+              className="h-16 w-16 rounded-2xl border-2 border-white/20 bg-black/40 object-cover shadow-2xl backdrop-blur-sm md:h-20 md:w-20"
+            />
+          </div>
+        )}
         
         <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
           <div className="mx-auto max-w-5xl">
@@ -250,22 +264,12 @@ export default function SexShopProfileClient() {
               {profile.name}
             </h1>
             
-            <p className="mb-4 flex items-center gap-2 text-sm text-white/80">
+            <p className="flex items-center gap-2 text-sm text-white/80">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               Entrega discreta · Respuesta rápida
             </p>
-            
-            <Link 
-              href={`/establecimiento/${username}`} 
-              className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-medium text-white backdrop-blur-md transition-all hover:bg-white/20"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Ver perfil del local
-            </Link>
           </div>
         </div>
       </section>
