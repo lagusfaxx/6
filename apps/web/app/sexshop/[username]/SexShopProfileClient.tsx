@@ -12,6 +12,7 @@ type Product = {
   price: number;
   stock: number;
   media: { id: string; url: string; pos: number }[];
+  shopCategory?: { id: string; slug: string; name: string } | null;
 };
 
 type Profile = {
@@ -24,7 +25,7 @@ type Profile = {
   bio: string | null;
 };
 
-type CartItem = { id: string; name: string; price: number; qty: number };
+type CartItem = { id: string; name: string; price: number; qty: number; category: string };
 
 export default function SexShopProfileClient() {
   const params = useParams<{ username: string }>();
@@ -60,11 +61,22 @@ export default function SexShopProfileClient() {
 
   const total = useMemo(() => cart.reduce((acc, c) => acc + c.price * c.qty, 0), [cart]);
 
+  const groupedProducts = useMemo(() => {
+    const groups: Record<string, Product[]> = {};
+    for (const product of products) {
+      const key = product.shopCategory?.name || "General";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(product);
+    }
+    return Object.entries(groups);
+  }, [products]);
+
   function addToCart(p: Product) {
+    const category = p.shopCategory?.name || "General";
     setCart((prev) => {
       const found = prev.find((i) => i.id === p.id);
       if (found) return prev.map((i) => (i.id === p.id ? { ...i, qty: i.qty + 1 } : i));
-      return [...prev, { id: p.id, name: p.name, price: p.price, qty: 1 }];
+      return [...prev, { id: p.id, name: p.name, price: p.price, qty: 1, category }];
     });
   }
 
@@ -119,55 +131,55 @@ export default function SexShopProfileClient() {
 
       {cart.length ? (
         <div className="card p-6">
-          <h2 className="text-lg font-semibold">Carro de compra (solo Tiendas)</h2>
-          <div className="mt-3 grid gap-2">
+          <h2 className="text-lg font-semibold">Carro de compra</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             {cart.map((c) => (
-              <div key={c.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                <div className="text-sm">{c.name} x{c.qty}</div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-white/80">${(c.price * c.qty).toLocaleString("es-CL")}</span>
-                  <button onClick={() => removeFromCart(c.id)} className="text-xs text-white/70 underline">Quitar</button>
+              <div key={c.id} className="rounded-2xl border border-fuchsia-300/20 bg-gradient-to-br from-fuchsia-500/10 to-white/5 p-4">
+                <div className="text-xs text-fuchsia-100/80">{c.category}</div>
+                <div className="mt-1 font-medium">{c.name}</div>
+                <div className="mt-2 flex items-center justify-between text-sm text-white/80">
+                  <span>x{c.qty}</span>
+                  <span>${(c.price * c.qty).toLocaleString("es-CL")}</span>
                 </div>
+                <button onClick={() => removeFromCart(c.id)} className="mt-3 text-xs text-white/70 underline">Quitar</button>
               </div>
             ))}
           </div>
-          <div className="mt-3 text-sm text-white/80">Total referencial: ${total.toLocaleString("es-CL")}</div>
-          <p className="mt-2 text-xs text-white/60">Uzeed no intermedia pagos ni entregas. Todo se coordina directamente por chat.</p>
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/85">Total referencial: ${total.toLocaleString("es-CL")}</div>
         </div>
       ) : null}
 
       <div className="card p-6">
         <h2 className="text-lg font-semibold">Productos</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          {products.map((p) => {
-            const img = p.media?.[0]?.url ? resolveMediaUrl(p.media[0].url) : null;
-            return (
-              <div key={p.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                {img ? (
-                  <div className="relative mb-4 aspect-[4/3] overflow-hidden rounded-xl border border-white/10 bg-black/20">
-                    <img
-                      src={img ?? undefined}
-                      alt={p.name}
-                      className="absolute inset-0 h-full w-full object-cover"
-                      onError={(e) => {
-                        const el = e.currentTarget as HTMLImageElement;
-                        el.style.display = "none";
-                      }}
-                    />
-                  </div>
-                ) : null}
-                <div className="font-semibold">{p.name}</div>
-                {p.description ? <div className="mt-1 text-sm text-white/60">{p.description}</div> : null}
-                <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
-                  <span>Precio: ${p.price.toLocaleString("es-CL")}</span>
-                  <span>Stock: {p.stock}</span>
-                </div>
-                <button onClick={() => addToCart(p)} className="mt-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm hover:bg-white/20">
-                  + Agregar al carro
-                </button>
+        <div className="mt-4 grid gap-6">
+          {groupedProducts.map(([categoryName, items]) => (
+            <div key={categoryName} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <h3 className="text-base font-semibold">{categoryName}</h3>
+              <div className="mt-3 grid gap-4 md:grid-cols-2">
+                {items.map((p) => {
+                  const img = p.media?.[0]?.url ? resolveMediaUrl(p.media[0].url) : null;
+                  return (
+                    <div key={p.id} className="rounded-2xl border border-white/10 bg-black/20 p-5">
+                      {img ? (
+                        <div className="relative mb-4 aspect-[4/3] overflow-hidden rounded-xl border border-white/10 bg-black/20">
+                          <img src={img ?? undefined} alt={p.name} className="absolute inset-0 h-full w-full object-cover" />
+                        </div>
+                      ) : null}
+                      <div className="font-semibold">{p.name}</div>
+                      {p.description ? <div className="mt-1 text-sm text-white/60">{p.description}</div> : null}
+                      <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
+                        <span>Precio: ${p.price.toLocaleString("es-CL")}</span>
+                        <span>Stock: {p.stock}</span>
+                      </div>
+                      <button onClick={() => addToCart(p)} className="mt-3 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm hover:bg-white/20">
+                        + Agregar al carro
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
           {!products.length ? <div className="text-white/60">Esta tienda aún no tiene productos publicados.</div> : null}
         </div>
       </div>
