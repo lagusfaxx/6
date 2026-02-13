@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type mapboxgl from "mapbox-gl";
 import { resolveMediaUrl } from "../lib/api";
 
@@ -97,6 +97,7 @@ export default function MapboxMap({
   const markerRefs = useRef<mapboxgl.Marker[]>([]);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const didInitialCenterRef = useRef(false);
+  const [mapInitialized, setMapInitialized] = useState(false);
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
   const safeMarkers = useMemo(
@@ -135,6 +136,7 @@ export default function MapboxMap({
 
       map.addControl(new mapbox.NavigationControl({ showCompass: false }), "top-right");
       mapRef.current = map;
+      setMapInitialized(true);
       map.on("moveend", () => {
         const center = map.getCenter();
         try {
@@ -379,7 +381,7 @@ export default function MapboxMap({
     const el = document.createElement("div");
     el.className = "uzeed-map-marker uzeed-map-marker--user";
     userMarkerRef.current = new mapbox.Marker(el).setLngLat([userLocation[1], userLocation[0]]).addTo(map);
-  }, [userLocation?.[0], userLocation?.[1]]);
+  }, [mapInitialized, userLocation?.[0], userLocation?.[1]]);
 
   if (!token) {
     return (
