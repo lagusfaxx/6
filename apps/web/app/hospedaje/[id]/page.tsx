@@ -263,7 +263,7 @@ export default function HospedajeDetailPage() {
             {msg ? <div className="mt-2 text-sm">{msg}<div><Link className="underline text-fuchsia-200" href={`/chat/${data.id}`}>Ir al chat</Link></div></div> : null}
           </div>
 
-          <div className="card p-4"><h3 className="font-semibold">Ubicación</h3><p className="text-sm text-white/75">{data.address}, {data.city} · Estado: Ubicación verificada.</p>{data.latitude != null && data.longitude != null ? <div className="mt-2"><MapboxMap markers={[{ id: data.id, name: data.name, lat: Number(data.latitude), lng: Number(data.longitude), subtitle: data.address }]} userLocation={[Number(data.latitude), Number(data.longitude)]} height={220} /></div> : null}</div>
+          <div className="card p-4"><h3 className="font-semibold">Ubicación</h3><p className="text-sm text-white/75">{data.address}, {data.city} · Estado: Ubicación verificada.</p>{data.latitude != null && data.longitude != null ? <div className="mt-2"><MapboxMap markers={[{ id: data.id, name: data.name, lat: Number(data.latitude), lng: Number(data.longitude), subtitle: data.address }]} height={220} /></div> : null}</div>
         </div>
       </section>
     </div>

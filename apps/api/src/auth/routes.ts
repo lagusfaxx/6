@@ -6,6 +6,15 @@ import { asyncHandler } from "../lib/asyncHandler";
 
 export const authRouter = Router();
 
+function persistSession(req: any): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.save((err: unknown) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+}
+
 function addDays(base: Date, days: number): Date {
   const d = new Date(base.getTime());
   d.setUTCDate(d.getUTCDate() + days);
@@ -134,6 +143,7 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
 
   req.session.userId = user.id;
   req.session.role = user.role;
+  await persistSession(req);
   return res.json({
     user: { ...user, membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null }
   });
@@ -152,6 +162,7 @@ authRouter.post("/login", asyncHandler(async (req, res) => {
 
   req.session.userId = user.id;
   req.session.role = user.role;
+  await persistSession(req);
 
   return res.json({
     user: {
