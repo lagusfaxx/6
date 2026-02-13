@@ -5,6 +5,7 @@ import useMe from "../hooks/useMe";
 import { apiFetch } from "../lib/api";
 
 const PUBLIC_VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
+const IOS_INSTALL_HINT_KEY = "uzeed:ios-install-hint-dismissed";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -20,14 +21,11 @@ async function registerServiceWorker() {
   return registration;
 }
 
-function isLikelyMobileDevice() {
-  const ua = navigator.userAgent || "";
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-}
-
 function isIosDevice() {
   const ua = navigator.userAgent || "";
-  return /iPhone|iPad|iPod/i.test(ua);
+  const isClassicIos = /iPhone|iPad|iPod/i.test(ua);
+  const isIpadOsDesktopUa = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+  return isClassicIos || isIpadOsDesktopUa;
 }
 
 function isStandalonePwa() {
@@ -36,16 +34,26 @@ function isStandalonePwa() {
   return Boolean(mediaStandalone || iosStandalone);
 }
 
+function wasIosInstallHintDismissed() {
+  try {
+    return window.localStorage.getItem(IOS_INSTALL_HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export default function PushNotificationsManager() {
   const { me, loading } = useMe();
   const [showInstallHint, setShowInstallHint] = useState(false);
 
   useEffect(() => {
     if (!("window" in globalThis)) return;
-    if (!isLikelyMobileDevice()) return;
+    if (!isIosDevice() || isStandalonePwa() || wasIosInstallHintDismissed()) {
+      setShowInstallHint(false);
+      return;
+    }
 
-    const mustInstallOnIos = isIosDevice() && !isStandalonePwa();
-    setShowInstallHint(mustInstallOnIos);
+    setShowInstallHint(true);
   }, []);
 
   useEffect(() => {
@@ -90,8 +98,35 @@ export default function PushNotificationsManager() {
   if (!showInstallHint) return null;
 
   return (
-    <div className="mx-4 mt-2 rounded-xl border border-white/15 bg-black/40 px-3 py-2 text-xs text-white/85 md:hidden">
-      Para recibir notificaciones en iPhone: abre en Safari y usa <strong>Compartir → Añadir a pantalla de inicio</strong>.
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-4 md:items-center">
+      <div className="w-full max-w-md rounded-2xl border border-white/20 bg-[#12021f] p-4 text-sm text-white shadow-2xl">
+        <h3 className="text-base font-semibold">Instala UZEED en iPhone</h3>
+        <p className="mt-2 text-white/80">
+          Para habilitar notificaciones en iOS debes instalar la app PWA:
+        </p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-white/80">
+          <li>Abre este sitio en Safari.</li>
+          <li>Toca el botón <strong>Compartir</strong>.</li>
+          <li>Selecciona <strong>Añadir a pantalla de inicio</strong>.</li>
+          <li>Abre la app instalada y acepta notificaciones.</li>
+        </ol>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            className="rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 hover:bg-white/20"
+            onClick={() => {
+              try {
+                window.localStorage.setItem(IOS_INSTALL_HINT_KEY, "1");
+              } catch {
+                // ignore
+              }
+              setShowInstallHint(false);
+            }}
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -302,7 +302,7 @@ export default function MotelDashboardPage() {
             <div className="grid grid-cols-2 gap-2"><input className="input" value={profileDraft.latitude} onChange={(e) => setProfileDraft((p) => ({ ...p, latitude: e.target.value }))} /><input className="input" value={profileDraft.longitude} onChange={(e) => setProfileDraft((p) => ({ ...p, longitude: e.target.value }))} /></div>
             <div className="flex gap-2"><button className="btn-secondary" disabled={geocodeBusy} onClick={geocodeProfileAddress}>{geocodeBusy ? "Buscando..." : "Buscar en mapa"}</button><button className="btn-primary" onClick={saveLocation}>Guardar ubicación</button></div>
           </div>
-          <div className="card p-3">{hasCoords ? <MapboxMap markers={[{ id: data.profile.id, name: "Establecimiento", lat: draftLat, lng: draftLng, subtitle: profileDraft.address || "" }]} userLocation={[draftLat, draftLng]} height={340} /> : <div className="h-[340px] rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center">Sin coordenadas</div>}</div>
+          <div className="card p-3">{hasCoords ? <MapboxMap markers={[{ id: data.profile.id, name: "Establecimiento", lat: draftLat, lng: draftLng, subtitle: profileDraft.address || "" }]} height={340} /> : <div className="h-[340px] rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center">Sin coordenadas</div>}</div>
         </div>
       ) : null}
 
