@@ -8,6 +8,10 @@ import { connectRealtime } from "../../../lib/realtime";
 import Avatar from "../../../components/Avatar";
 import { Paperclip, X } from "lucide-react";
 
+function normalizePhoneForWhatsApp(phone: string) {
+  return phone.replace(/[^\d+]/g, "").replace(/^\+/, "");
+}
+
 type Message = {
   id: string;
   fromId: string;
@@ -406,6 +410,15 @@ export default function ChatPage() {
     return null;
   }, [activeRequest, me?.profileType]);
 
+  const professionalWhatsAppLink = useMemo(() => {
+    if (me?.profileType !== "CLIENT") return null;
+    const professionalPhone = activeRequest?.professional?.phone;
+    if (!professionalPhone) return null;
+    const normalizedPhone = normalizePhoneForWhatsApp(professionalPhone);
+    if (!normalizedPhone) return null;
+    return `https://wa.me/${normalizedPhone}`;
+  }, [activeRequest?.professional?.phone, me?.profileType]);
+
   if (loading) return <div className="text-white/70">Cargando chat...</div>;
   if (error) return <div className="text-red-200">{error}</div>;
 
@@ -504,7 +517,22 @@ export default function ChatPage() {
             {waitingClientConfirm ? <p className="mt-3 text-xs text-white/60">Propuesta enviada. Esperando confirmación del cliente.</p> : null}
 
             {contactPhone ? (
-              <p className="mt-3 text-xs text-green-300">Contacto liberado: {contactPhone}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <p className="text-xs text-green-300">Contacto liberado: {contactPhone}</p>
+                {professionalWhatsAppLink ? (
+                  <a
+                    href={professionalWhatsAppLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Abrir WhatsApp del profesional"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-300/40 bg-emerald-500/20 text-emerald-300 transition hover:bg-emerald-500/35"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden="true">
+                      <path d="M19.05 4.91A9.82 9.82 0 0 0 12.06 2a9.93 9.93 0 0 0-8.61 14.89L2 22l5.26-1.38A10 10 0 0 0 12.04 22h.01A9.94 9.94 0 0 0 22 12.08a9.8 9.8 0 0 0-2.95-7.17Zm-7 .99a8.12 8.12 0 0 1 8.11 8.1 8.13 8.13 0 0 1-8.11 8.11 8.28 8.28 0 0 1-4.13-1.13l-.3-.18-3.12.82.83-3.04-.2-.31a8.12 8.12 0 0 1 6.92-12.37Zm4.45 9.95c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.34-1.67-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.79-.2-.47-.4-.41-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.1.15 1.52.09.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.03.14-1.14-.06-.11-.22-.17-.46-.29Z" />
+                    </svg>
+                  </a>
+                ) : null}
+              </div>
             ) : (activeRequest.status === "APROBADO" ? (
               <p className="mt-3 text-xs text-amber-300">El teléfono se libera solo cuando el cliente confirma la propuesta.</p>
             ) : null)}
