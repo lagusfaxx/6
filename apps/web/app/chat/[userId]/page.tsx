@@ -6,7 +6,22 @@ import { useParams, usePathname, useRouter, useSearchParams } from "next/navigat
 import { apiFetch, API_URL, isAuthError, resolveMediaUrl } from "../../../lib/api";
 import { connectRealtime } from "../../../lib/realtime";
 import Avatar from "../../../components/Avatar";
-import { Paperclip, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  Image as ImageIcon,
+  MapPin,
+  Paperclip,
+  Phone,
+  Send,
+  X,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Hotel,
+  DollarSign,
+} from "lucide-react";
 
 function normalizePhoneForWhatsApp(phone: string) {
   return phone.replace(/[^\d+]/g, "").replace(/^\+/, "");
@@ -65,13 +80,44 @@ type MeResponse = {
 };
 
 function statusLabel(status: string) {
-  if (status === "PENDIENTE_APROBACION") return "pendiente de revisión";
-  if (status === "APROBADO") return "propuesta enviada";
-  if (status === "ACTIVO") return "confirmada";
-  if (status === "FINALIZADO") return "servicio terminado";
-  if (status === "RECHAZADO") return "rechazada";
-  if (status === "CANCELADO_CLIENTE") return "cancelada por cliente";
+  if (status === "PENDIENTE_APROBACION") return "Pendiente";
+  if (status === "APROBADO") return "Propuesta enviada";
+  if (status === "ACTIVO") return "Confirmada";
+  if (status === "FINALIZADO") return "Finalizado";
+  if (status === "RECHAZADO") return "Rechazada";
+  if (status === "CANCELADO_CLIENTE") return "Cancelada";
   return status.toLowerCase();
+}
+
+function statusColor(status: string) {
+  if (status === "ACTIVO") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+  if (status === "APROBADO") return "text-amber-400 bg-amber-500/10 border-amber-500/20";
+  if (status === "PENDIENTE_APROBACION") return "text-blue-400 bg-blue-500/10 border-blue-500/20";
+  if (status === "FINALIZADO") return "text-white/50 bg-white/5 border-white/10";
+  if (status === "RECHAZADO" || status === "CANCELADO_CLIENTE") return "text-red-400 bg-red-500/10 border-red-500/20";
+  return "text-white/50 bg-white/5 border-white/10";
+}
+
+function profileLabel(type: string) {
+  if (type === "PROFESSIONAL") return "Experiencia";
+  if (type === "SHOP") return "Tienda";
+  if (type === "ESTABLISHMENT") return "Lugar";
+  return "Perfil";
+}
+
+function formatTime(dateStr: string) {
+  return new Date(dateStr).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (d.toDateString() === today.toDateString()) return "Hoy";
+  if (d.toDateString() === yesterday.toDateString()) return "Ayer";
+  return d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
 }
 
 export default function ChatPage() {
@@ -110,6 +156,21 @@ export default function ChatPage() {
   const fallbackStepsMs = [2000, 5000, 10000, 20000] as const;
   const fallbackStepRef = useRef(0);
   const fallbackInFlightRef = useRef(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  function scrollToBottom(smooth = true) {
+    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "instant" });
+  }
+
+  useEffect(() => {
+    scrollToBottom(false);
+  }, [loading]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages.length]);
 
   async function loadServiceState(profile: MeResponse["user"] | null) {
     if (!profile) {
@@ -419,13 +480,9 @@ export default function ChatPage() {
     return `https://wa.me/${normalizedPhone}`;
   }, [activeRequest?.professional?.phone, me?.profileType]);
 
-  if (loading) return <div className="text-white/70">Cargando chat...</div>;
-  if (error) return <div className="text-red-200">{error}</div>;
-
   const canCreateRequest = me?.profileType === "CLIENT" && other?.profileType === "PROFESSIONAL" && !activeRequest;
   const waitingProfessional = me?.profileType === "CLIENT" && activeRequest?.status === "PENDIENTE_APROBACION";
   const canConfirmProposal = me?.profileType === "CLIENT" && activeRequest?.status === "APROBADO";
-
   const canReviewPendingRequest = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "PENDIENTE_APROBACION";
   const waitingClientConfirm = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "APROBADO";
   const canFinishService = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "ACTIVO";
@@ -434,250 +491,478 @@ export default function ChatPage() {
   const hasMotelBooking = Boolean(activeBooking);
   const bookingMapsLink = activeBooking ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([activeBooking.establishmentAddress || "", activeBooking.establishmentCity || ""].join(" ").trim() || "motel")}` : "";
 
+  // Group messages by date
+  const groupedMessages = useMemo(() => {
+    const groups: { date: string; messages: Message[] }[] = [];
+    let currentDate = "";
+    for (const m of messages) {
+      const d = new Date(m.createdAt).toDateString();
+      if (d !== currentDate) {
+        currentDate = d;
+        groups.push({ date: m.createdAt, messages: [m] });
+      } else {
+        groups[groups.length - 1].messages.push(m);
+      }
+    }
+    return groups;
+  }, [messages]);
+
+  /* ── Loading ── */
+  if (loading) {
+    return (
+      <div className="mx-auto flex h-[70vh] w-full max-w-3xl flex-col">
+        <div className="flex items-center gap-3 p-4">
+          <div className="h-10 w-10 animate-pulse rounded-full bg-white/10" />
+          <div className="space-y-2">
+            <div className="h-4 w-32 animate-pulse rounded bg-white/10" />
+            <div className="h-3 w-20 animate-pulse rounded bg-white/[0.06]" />
+          </div>
+        </div>
+        <div className="flex-1 space-y-3 p-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className={`flex ${i % 2 === 0 ? "justify-end" : ""}`}>
+              <div className={`h-12 animate-pulse rounded-2xl bg-white/[0.06] ${i % 2 === 0 ? "w-2/5" : "w-3/5"}`} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto w-full max-w-3xl">
+        <div className="flex items-center gap-3 p-4">
+          <Link href="/chat" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <span className="text-sm text-white/70">Volver</span>
+        </div>
+        <div className="mx-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-6">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
+            <p className="text-sm text-red-200">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid gap-6">
-      <div className="card p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <Avatar src={other?.avatarUrl} alt={other?.username} size={48} />
-            <div>
-              <h1 className="text-lg font-semibold">{other?.displayName || other?.username || "Chat"}</h1>
-              {other ? (
-                <p className="text-xs text-white/60">
-                  @{other.username} • {other.profileType === "SHOP" ? "Tienda" : other.profileType === "ESTABLISHMENT" ? "Lugar" : other.profileType === "PROFESSIONAL" ? "Experiencia" : "Perfil"}
-                  {other.city ? ` • ${other.city}` : ""}
-                </p>
-              ) : (
-                <p className="text-xs text-white/60">Conversación segura para coordinar.</p>
+    <div className="mx-auto flex h-[calc(100vh-80px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-black/20 backdrop-blur-xl md:h-[80vh]">
+      {/* ── Header ── */}
+      <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.08] bg-white/[0.03] px-4 py-3">
+        <Link
+          href="/chat"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-white/60 transition hover:bg-white/10 hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+
+        <Avatar src={other?.avatarUrl} alt={other?.username} size={40} />
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-semibold">
+              {other?.displayName || other?.username || "Chat"}
+            </span>
+            {other && (
+              <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-white/40">
+                {profileLabel(other.profileType)}
+              </span>
+            )}
+          </div>
+          <p className="truncate text-xs text-white/40">
+            @{other?.username}{other?.city ? ` · ${other.city}` : ""}
+          </p>
+        </div>
+
+        {/* Request button or status */}
+        <div className="flex shrink-0 items-center gap-2">
+          {canCreateRequest && (
+            <button
+              onClick={() => setRequestModalOpen(true)}
+              className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-xs font-semibold transition hover:brightness-110"
+              disabled={requesting}
+            >
+              Solicitar
+            </button>
+          )}
+          {activeRequest && (
+            <span className={`rounded-full border px-3 py-1 text-[11px] font-medium ${statusColor(activeRequest.status)}`}>
+              {statusLabel(activeRequest.status)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Service request / booking cards ── */}
+      {(hasMotelBooking || activeRequest) && (
+        <div className="shrink-0 space-y-2 border-b border-white/[0.06] bg-white/[0.02] px-4 py-3">
+          {/* Motel booking card */}
+          {hasMotelBooking && (
+            <div className="rounded-xl border border-fuchsia-500/20 bg-gradient-to-r from-fuchsia-500/[0.08] to-violet-500/[0.05] p-3">
+              <div className="flex items-center gap-2">
+                <Hotel className="h-4 w-4 text-fuchsia-400" />
+                <span className="text-xs font-semibold text-fuchsia-300">Reserva motel/hotel</span>
+              </div>
+              <div className="mt-2 grid gap-1 text-[11px] text-white/60">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white/40">Habitación:</span> {activeBooking?.roomName || "Habitación"}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white/40">Tramo:</span> {activeBooking?.durationType || "3H"}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white/40">Inicio:</span> {activeBooking?.startAt ? new Date(activeBooking.startAt).toLocaleString("es-CL") : "por confirmar"}
+                </div>
+                {activeBooking?.basePriceClp && activeBooking.basePriceClp > Number(activeBooking.priceClp || 0) && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-white/40">Base:</span> <span className="line-through">${Number(activeBooking.basePriceClp).toLocaleString("es-CL")}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <DollarSign className="h-3 w-3 text-white/40" />
+                  <span className="font-medium text-white/80">${Number(activeBooking?.priceClp || 0).toLocaleString("es-CL")}</span>
+                  {Number(activeBooking?.discountClp || 0) > 0 && (
+                    <span className="text-emerald-400">(-${Number(activeBooking?.discountClp || 0).toLocaleString("es-CL")})</span>
+                  )}
+                </div>
+                {activeBooking?.confirmationCode && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-white/40">Código:</span>
+                    <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white/90">{activeBooking.confirmationCode}</span>
+                  </div>
+                )}
+              </div>
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {isMotelOwnerChat && activeBooking?.status === "PENDIENTE" && (
+                  <>
+                    <button className="rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-[11px] font-semibold transition hover:brightness-110" disabled={bookingBusy} onClick={() => applyBookingAction("ACCEPT")}>{bookingBusy ? "..." : "Aceptar"}</button>
+                    <button className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 transition hover:bg-white/10" disabled={bookingBusy} onClick={() => applyBookingAction("REJECT")}>{bookingBusy ? "..." : "Rechazar"}</button>
+                  </>
+                )}
+                {isClientChat && activeBooking?.status === "ACEPTADA" && (
+                  <button className="rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-[11px] font-semibold transition hover:brightness-110" disabled={bookingBusy} onClick={() => applyBookingAction("CONFIRM")}>{bookingBusy ? "..." : "Confirmar"}</button>
+                )}
+                {isClientChat && ["PENDIENTE", "ACEPTADA", "CONFIRMADA"].includes(String(activeBooking?.status || "")) && (
+                  <button className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 transition hover:bg-white/10" disabled={bookingBusy} onClick={() => applyBookingAction("CANCEL")}>{bookingBusy ? "..." : "Cancelar"}</button>
+                )}
+                {isMotelOwnerChat && activeBooking?.status === "CONFIRMADA" && (
+                  <button className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 transition hover:bg-white/10" disabled={bookingBusy} onClick={() => applyBookingAction("FINISH")}>{bookingBusy ? "..." : "Finalizar"}</button>
+                )}
+                {activeBooking?.status === "CONFIRMADA" && (
+                  <a href={bookingMapsLink} target="_blank" rel="noreferrer" className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 transition hover:bg-white/10">
+                    <MapPin className="mr-1 inline h-3 w-3" />Maps
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Service request card */}
+          {activeRequest && (
+            <div className={`rounded-xl border p-3 ${statusColor(activeRequest.status)}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold">Solicitud de servicio</span>
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusColor(activeRequest.status)}`}>
+                  {statusLabel(activeRequest.status)}
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                <div className="flex items-center gap-1.5 text-white/60">
+                  <Calendar className="h-3 w-3 text-white/40" />
+                  {activeRequest.requestedDate || "-"}
+                </div>
+                <div className="flex items-center gap-1.5 text-white/60">
+                  <Clock className="h-3 w-3 text-white/40" />
+                  {activeRequest.requestedTime || "-"}
+                </div>
+                <div className="col-span-2 flex items-center gap-1.5 text-white/60">
+                  <MapPin className="h-3 w-3 shrink-0 text-white/40" />
+                  <span className="truncate">{activeRequest.agreedLocation || "-"}</span>
+                </div>
+                {activeRequest.clientComment && (
+                  <div className="col-span-2 text-white/50">"{activeRequest.clientComment}"</div>
+                )}
+                {activeRequest.professionalPriceClp != null && (
+                  <div className="flex items-center gap-1.5 text-white/70">
+                    <DollarSign className="h-3 w-3 text-white/40" />
+                    ${Number(activeRequest.professionalPriceClp).toLocaleString("es-CL")}
+                  </div>
+                )}
+                {activeRequest.professionalDurationM != null && (
+                  <div className="text-white/60">{activeRequest.professionalDurationM} min</div>
+                )}
+                {activeRequest.professionalComment && (
+                  <div className="col-span-2 text-white/50">Nota: "{activeRequest.professionalComment}"</div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {canConfirmProposal && (
+                  <>
+                    <button onClick={confirmProposal} className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-[11px] font-semibold transition hover:brightness-110">
+                      <CheckCircle2 className="h-3 w-3" /> Confirmar
+                    </button>
+                    <button onClick={cancelProposal} className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 transition hover:bg-white/10">Cancelar</button>
+                  </>
+                )}
+                {canFinishService && (
+                  <button onClick={finishService} className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-[11px] font-semibold transition hover:brightness-110">
+                    <CheckCircle2 className="h-3 w-3" /> Servicio terminado
+                  </button>
+                )}
+              </div>
+
+              {waitingProfessional && (
+                <p className="mt-2 text-[11px] text-white/40">Pendiente de revisión por la profesional.</p>
+              )}
+              {waitingClientConfirm && (
+                <p className="mt-2 text-[11px] text-white/40">Propuesta enviada. Esperando confirmación del cliente.</p>
+              )}
+
+              {/* Contact phone */}
+              {contactPhone && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Phone className="h-3 w-3 text-emerald-400" />
+                  <span className="text-[11px] text-emerald-300">{contactPhone}</span>
+                  {professionalWhatsAppLink && (
+                    <a
+                      href={professionalWhatsAppLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/15 text-emerald-300 transition hover:bg-emerald-500/30"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true">
+                        <path d="M19.05 4.91A9.82 9.82 0 0 0 12.06 2a9.93 9.93 0 0 0-8.61 14.89L2 22l5.26-1.38A10 10 0 0 0 12.04 22h.01A9.94 9.94 0 0 0 22 12.08a9.8 9.8 0 0 0-2.95-7.17Zm-7 .99a8.12 8.12 0 0 1 8.11 8.1 8.13 8.13 0 0 1-8.11 8.11 8.28 8.28 0 0 1-4.13-1.13l-.3-.18-3.12.82.83-3.04-.2-.31a8.12 8.12 0 0 1 6.92-12.37Zm4.45 9.95c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.34-1.67-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.79-.2-.47-.4-.41-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.1.15 1.52.09.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.03.14-1.14-.06-.11-.22-.17-.46-.29Z" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
+              )}
+              {!contactPhone && activeRequest.status === "APROBADO" && (
+                <p className="mt-2 text-[11px] text-amber-400/70">El teléfono se libera al confirmar la propuesta.</p>
               )}
             </div>
-          </div>
+          )}
 
-          {canCreateRequest ? (
-            <button onClick={() => setRequestModalOpen(true)} className="btn-primary" disabled={requesting}>
-              {requesting ? "Solicitando..." : "Solicitar servicio"}
-            </button>
-          ) : activeRequest ? (
-            <span className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs text-white/70">
-              Solicitud {statusLabel(activeRequest.status)}
-            </span>
-          ) : null}
+          {/* Professional review form */}
+          {canReviewPendingRequest && (
+            <form onSubmit={submitProposal} className="rounded-xl border border-violet-500/20 bg-violet-500/[0.06] p-3">
+              <div className="mb-2 text-xs font-semibold text-violet-300">Responder solicitud</div>
+              <div className="grid gap-2 md:grid-cols-2">
+                <label className="grid gap-1 text-[11px] text-white/50">
+                  Valor (CLP)
+                  <input className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20" inputMode="numeric" value={proposalPrice} onChange={(e) => setProposalPrice(e.target.value)} placeholder="Ej: 50000" />
+                </label>
+                <label className="grid gap-1 text-[11px] text-white/50">
+                  Duración
+                  <select className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20" value={proposalDuration} onChange={(e) => setProposalDuration(e.target.value)} style={{ colorScheme: "dark" }}>
+                    <option value="30">30 min</option>
+                    <option value="60">60 min</option>
+                    <option value="90">90 min</option>
+                    <option value="120">120 min</option>
+                  </select>
+                </label>
+              </div>
+              <label className="mt-2 grid gap-1 text-[11px] text-white/50">
+                Nota (opcional)
+                <textarea className="min-h-[3rem] rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20" value={proposalComment} onChange={(e) => setProposalComment(e.target.value)} placeholder="Info adicional" />
+              </label>
+              <div className="mt-2 flex gap-1.5">
+                <button className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-[11px] font-semibold transition hover:brightness-110" disabled={proposalSubmitting}>
+                  <CheckCircle2 className="h-3 w-3" /> {proposalSubmitting ? "Enviando..." : "Aceptar y enviar"}
+                </button>
+                <button type="button" onClick={rejectRequest} className="flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 transition hover:bg-white/10">
+                  <XCircle className="h-3 w-3" /> Rechazar
+                </button>
+              </div>
+            </form>
+          )}
         </div>
+      )}
 
-        {hasMotelBooking ? (
-          <div className="mt-4 rounded-xl border border-fuchsia-300/30 bg-fuchsia-500/10 p-4 text-sm text-white/85">
-            <div className="font-medium">Reserva motel/hotel</div>
-            <div className="mt-2 grid gap-1 text-xs text-white/70">
-              <div><span className="text-white/50">Habitación:</span> {activeBooking?.roomName || "Habitación"}</div>
-              <div><span className="text-white/50">Tramo:</span> {activeBooking?.durationType || "3H"}</div>
-              <div><span className="text-white/50">Inicio:</span> {activeBooking?.startAt ? new Date(activeBooking.startAt).toLocaleString("es-CL") : "por confirmar"}</div>
-              {activeBooking?.basePriceClp && activeBooking.basePriceClp > Number(activeBooking.priceClp || 0) ? <div><span className="text-white/50">Precio base:</span> <span className="line-through">${Number(activeBooking.basePriceClp).toLocaleString("es-CL")}</span></div> : null}
-              <div><span className="text-white/50">Monto final:</span> ${Number(activeBooking?.priceClp || 0).toLocaleString("es-CL")}</div>
-              {Number(activeBooking?.discountClp || 0) > 0 ? <div><span className="text-white/50">Descuento:</span> -${Number(activeBooking?.discountClp || 0).toLocaleString("es-CL")}</div> : null}
-              {activeBooking?.confirmationCode ? <div><span className="text-white/50">Código:</span> <b>{activeBooking.confirmationCode}</b></div> : null}
+      {/* ── Messages ── */}
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
+        {!messages.length ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-white/[0.08] bg-gradient-to-br from-fuchsia-500/10 to-violet-500/10">
+              <Send className="h-5 w-5 text-white/30" />
             </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {isMotelOwnerChat && activeBooking?.status === "PENDIENTE" ? <button className="btn-primary" disabled={bookingBusy} onClick={() => applyBookingAction("ACCEPT")}>{bookingBusy ? "Procesando..." : "Aceptar"}</button> : null}
-              {isMotelOwnerChat && activeBooking?.status === "PENDIENTE" ? <button className="btn-secondary" disabled={bookingBusy} onClick={() => applyBookingAction("REJECT")}>{bookingBusy ? "Procesando..." : "Rechazar"}</button> : null}
-              {isClientChat && activeBooking?.status === "ACEPTADA" ? <button className="btn-primary" disabled={bookingBusy} onClick={() => applyBookingAction("CONFIRM")}>{bookingBusy ? "Procesando..." : "Confirmar reserva"}</button> : null}
-              {isClientChat && ["PENDIENTE", "ACEPTADA", "CONFIRMADA"].includes(String(activeBooking?.status || "")) ? <button className="btn-secondary" disabled={bookingBusy} onClick={() => applyBookingAction("CANCEL")}>{bookingBusy ? "Procesando..." : "Cancelar"}</button> : null}
-              {isMotelOwnerChat && activeBooking?.status === "CONFIRMADA" ? <button className="btn-secondary" disabled={bookingBusy} onClick={() => applyBookingAction("FINISH")}>{bookingBusy ? "Procesando..." : "Finalizar"}</button> : null}
-              {activeBooking?.status === "CONFIRMADA" ? <a href={bookingMapsLink} target="_blank" rel="noreferrer" className="btn-secondary">Ver en Google Maps</a> : null}
-            </div>
+            <p className="text-xs text-white/40">Inicia la conversación</p>
           </div>
-        ) : null}
+        ) : (
+          <div className="space-y-1">
+            {groupedMessages.map((group) => (
+              <div key={group.date}>
+                {/* Date separator */}
+                <div className="my-4 flex items-center justify-center">
+                  <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-[10px] text-white/35">
+                    {formatDate(group.date)}
+                  </span>
+                </div>
 
-        {activeRequest ? (
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
-            <div className="grid gap-1 text-xs text-white/70">
-              <div><span className="text-white/50">Fecha:</span> {activeRequest.requestedDate || "-"}</div>
-              <div><span className="text-white/50">Hora:</span> {activeRequest.requestedTime || "-"}</div>
-              <div><span className="text-white/50">Ubicación acordada:</span> {activeRequest.agreedLocation || "-"}</div>
-              {activeRequest.clientComment ? <div><span className="text-white/50">Comentario cliente:</span> {activeRequest.clientComment}</div> : null}
-              {activeRequest.professionalPriceClp != null ? <div><span className="text-white/50">Valor:</span> ${Number(activeRequest.professionalPriceClp).toLocaleString("es-CL")} CLP</div> : null}
-              {activeRequest.professionalDurationM != null ? <div><span className="text-white/50">Duración:</span> {activeRequest.professionalDurationM} min</div> : null}
-              {activeRequest.professionalComment ? <div><span className="text-white/50">Nota profesional:</span> {activeRequest.professionalComment}</div> : null}
-            </div>
+                {group.messages.map((m, idx) => {
+                  const isMine = m.fromId === me?.id;
+                  const isImage = m.body.startsWith("ATTACHMENT_IMAGE:");
+                  const imageUrl = isImage ? resolveMediaUrl(m.body.replace("ATTACHMENT_IMAGE:", "")) : null;
+                  const prevMsg = idx > 0 ? group.messages[idx - 1] : null;
+                  const sameAuthor = prevMsg?.fromId === m.fromId;
 
-            {canConfirmProposal ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button onClick={confirmProposal} className="btn-primary">Confirmar solicitud</button>
-                <button onClick={cancelProposal} className="btn-secondary">Cancelar</button>
+                  return (
+                    <div
+                      key={m.id}
+                      className={`flex ${isMine ? "justify-end" : "justify-start"} ${sameAuthor ? "mt-0.5" : "mt-2"}`}
+                    >
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+                          isMine
+                            ? "rounded-br-md bg-gradient-to-br from-fuchsia-600/80 to-violet-600/80 text-white"
+                            : "rounded-bl-md border border-white/[0.08] bg-white/[0.06] text-white/85"
+                        }`}
+                      >
+                        {isImage && imageUrl ? (
+                          <img
+                            src={imageUrl}
+                            alt="Adjunto"
+                            className="max-w-[240px] rounded-xl"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                        )}
+                        <div className={`mt-0.5 text-right text-[10px] ${isMine ? "text-white/50" : "text-white/30"}`}>
+                          {formatTime(m.createdAt)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ) : null}
-
-            {canFinishService ? (
-              <div className="mt-4">
-                <button onClick={finishService} className="btn-primary">Servicio terminado</button>
-              </div>
-            ) : null}
-
-            {waitingProfessional ? <p className="mt-3 text-xs text-white/60">Tu solicitud está pendiente de revisión por la profesional.</p> : null}
-            {waitingClientConfirm ? <p className="mt-3 text-xs text-white/60">Propuesta enviada. Esperando confirmación del cliente.</p> : null}
-
-            {contactPhone ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <p className="text-xs text-green-300">Contacto liberado: {contactPhone}</p>
-                {professionalWhatsAppLink ? (
-                  <a
-                    href={professionalWhatsAppLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Abrir WhatsApp del profesional"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-300/40 bg-emerald-500/20 text-emerald-300 transition hover:bg-emerald-500/35"
-                  >
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden="true">
-                      <path d="M19.05 4.91A9.82 9.82 0 0 0 12.06 2a9.93 9.93 0 0 0-8.61 14.89L2 22l5.26-1.38A10 10 0 0 0 12.04 22h.01A9.94 9.94 0 0 0 22 12.08a9.8 9.8 0 0 0-2.95-7.17Zm-7 .99a8.12 8.12 0 0 1 8.11 8.1 8.13 8.13 0 0 1-8.11 8.11 8.28 8.28 0 0 1-4.13-1.13l-.3-.18-3.12.82.83-3.04-.2-.31a8.12 8.12 0 0 1 6.92-12.37Zm4.45 9.95c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.34-1.67-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.79-.2-.47-.4-.41-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.1.15 1.52.09.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.03.14-1.14-.06-.11-.22-.17-.46-.29Z" />
-                    </svg>
-                  </a>
-                ) : null}
-              </div>
-            ) : (activeRequest.status === "APROBADO" ? (
-              <p className="mt-3 text-xs text-amber-300">El teléfono se libera solo cuando el cliente confirma la propuesta.</p>
-            ) : null)}
+            ))}
           </div>
-        ) : null}
-
-        {canReviewPendingRequest ? (
-          <form onSubmit={submitProposal} className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 grid gap-3">
-            <div className="text-sm font-medium">Responder solicitud</div>
-            <div className="grid gap-2 md:grid-cols-2">
-              <label className="grid gap-1 text-xs text-white/70">
-                Valor (CLP)
-                <input className="input" inputMode="numeric" value={proposalPrice} onChange={(e) => setProposalPrice(e.target.value)} placeholder="Ej: 50000" />
-              </label>
-              <label className="grid gap-1 text-xs text-white/70">
-                Duración
-                <select className="input" value={proposalDuration} onChange={(e) => setProposalDuration(e.target.value)}>
-                  <option value="30">30 minutos</option>
-                  <option value="60">60 minutos</option>
-                  <option value="90">90 minutos</option>
-                  <option value="120">120 minutos</option>
-                </select>
-              </label>
-            </div>
-            <label className="grid gap-1 text-xs text-white/70">
-              Nota adicional (opcional)
-              <textarea className="input min-h-20" value={proposalComment} onChange={(e) => setProposalComment(e.target.value)} placeholder="Información adicional para el cliente" />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button className="btn-primary" disabled={proposalSubmitting}>{proposalSubmitting ? "Enviando..." : "Aceptar y enviar propuesta"}</button>
-              <button type="button" onClick={rejectRequest} className="btn-secondary">Rechazar</button>
-            </div>
-          </form>
-        ) : null}
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
-      <div className="card p-6">
-        <div className="grid gap-3 max-h-[420px] overflow-y-auto pr-2">
-          {messages.map((m) => {
-            const isImage = m.body.startsWith("ATTACHMENT_IMAGE:");
-            const imageUrl = isImage ? resolveMediaUrl(m.body.replace("ATTACHMENT_IMAGE:", "")) : null;
-            return (
-              <div
-                key={m.id}
-                className={`rounded-xl px-4 py-3 text-sm ${m.fromId === me?.id ? "bg-purple-500/20 text-white ml-auto" : "bg-white/5 text-white/80"}`}
-              >
-                {isImage && imageUrl ? (
-                  <img src={imageUrl} alt="Adjunto" className="max-w-[220px] rounded-lg border border-white/10" />
-                ) : (
-                  <div>{m.body}</div>
-                )}
-                <div className="mt-1 text-[10px] text-white/40">{new Date(m.createdAt).toLocaleString("es-CL")}</div>
-              </div>
-            );
-          })}
-          {!messages.length ? <div className="text-white/50">Aún no hay mensajes.</div> : null}
-        </div>
-
-        {attachmentPreview ? (
-          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
-            <img src={attachmentPreview} alt="Adjunto" className="h-16 w-16 rounded-xl object-cover" />
-            <div className="flex-1 text-xs text-white/70">{attachment?.name}</div>
-            <button type="button" onClick={() => { setAttachment(null); setAttachmentPreview(null); }} className="rounded-full border border-white/15 bg-white/5 p-2 text-white/70 hover:bg-white/10">
-              <X className="h-4 w-4" />
+      {/* ── Attachment preview ── */}
+      {attachmentPreview && (
+        <div className="shrink-0 border-t border-white/[0.06] bg-white/[0.02] px-4 py-2">
+          <div className="flex items-center gap-3">
+            <img src={attachmentPreview} alt="Adjunto" className="h-14 w-14 rounded-xl object-cover" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs text-white/60">{attachment?.name}</p>
+              <p className="text-[10px] text-white/35">{attachment?.size ? `${(attachment.size / 1024).toFixed(0)} KB` : ""}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setAttachment(null); setAttachmentPreview(null); }}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/50 transition hover:bg-white/10"
+            >
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
-        ) : null}
+        </div>
+      )}
 
-        <form onSubmit={send} className="mt-4 flex flex-wrap gap-3 items-center">
-          <input className="input flex-1" placeholder="Escribe tu mensaje..." value={body} onChange={(e) => setBody(e.target.value)} />
-          <label className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80 hover:bg-white/10 cursor-pointer">
-            <Paperclip className="h-4 w-4" />
-            Adjuntar
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null;
-                setAttachment(file);
-                if (!file) {
-                  setAttachmentPreview(null);
-                  return;
-                }
-                const reader = new FileReader();
-                reader.onload = () => setAttachmentPreview(String(reader.result || ""));
-                reader.readAsDataURL(file);
-              }}
-            />
-          </label>
-          <button className="btn-primary">Enviar</button>
-        </form>
-      </div>
+      {/* ── Input bar ── */}
+      <form onSubmit={send} className="flex shrink-0 items-end gap-2 border-t border-white/[0.08] bg-white/[0.03] px-3 py-3">
+        <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-white/40 transition hover:bg-white/10 hover:text-white/70">
+          <Paperclip className="h-4.5 w-4.5" />
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null;
+              setAttachment(file);
+              if (!file) {
+                setAttachmentPreview(null);
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => setAttachmentPreview(String(reader.result || ""));
+              reader.readAsDataURL(file);
+            }}
+          />
+        </label>
+        <input
+          className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 outline-none transition focus:border-white/20 focus:ring-1 focus:ring-fuchsia-500/20"
+          placeholder="Escribe un mensaje..."
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+        />
+        <button
+          type="submit"
+          disabled={!body.trim() && !attachment}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white transition hover:brightness-110 disabled:opacity-30 disabled:hover:brightness-100"
+        >
+          <Send className="h-4 w-4" />
+        </button>
+      </form>
 
-      {requestModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#2a1245] p-5">
+      {/* ── Request modal ── */}
+      {requestModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-white/[0.08] bg-[#1a0e2e] p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold">Solicitar servicio</h2>
-                <p className="mt-1 text-xs text-white/60">Completa fecha, hora y ubicación acordada para enviar la solicitud.</p>
+                <h2 className="text-base font-semibold">Solicitar servicio</h2>
+                <p className="mt-1 text-xs text-white/50">Completa los datos para coordinar.</p>
               </div>
-              <button type="button" onClick={() => setRequestModalOpen(false)} className="rounded-full border border-white/20 p-2 text-white/70 hover:bg-white/10">
+              <button
+                type="button"
+                onClick={() => setRequestModalOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-white/50 transition hover:bg-white/10 hover:text-white"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <form onSubmit={submitServiceRequest} className="mt-4 grid gap-3">
               <div className="grid gap-3 md:grid-cols-2">
-                <label className="grid gap-1 text-xs text-white/70">
-                  Fecha
-                  <input type="date" className="input" value={requestDate} min={minRequestDate} aria-label="Fecha de solicitud" onChange={(e) => setRequestDate(e.target.value)} required />
+                <label className="grid gap-1 text-[11px] text-white/50">
+                  <div className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Fecha</div>
+                  <input type="date" className="input" value={requestDate} min={minRequestDate} onChange={(e) => setRequestDate(e.target.value)} required />
                 </label>
-                <label className="grid gap-1 text-xs text-white/70">
-                  Hora
+                <label className="grid gap-1 text-[11px] text-white/50">
+                  <div className="flex items-center gap-1"><Clock className="h-3 w-3" /> Hora</div>
                   <input type="time" className="input" value={requestTime} onChange={(e) => setRequestTime(e.target.value)} required />
                 </label>
               </div>
 
-              <label className="grid gap-1 text-xs text-white/70">
-                Ubicación acordada (texto libre)
+              <label className="grid gap-1 text-[11px] text-white/50">
+                <div className="flex items-center gap-1"><MapPin className="h-3 w-3" /> Ubicación acordada</div>
                 <input className="input" value={requestLocation} onChange={(e) => setRequestLocation(e.target.value)} placeholder="Ej: Metro Los Leones, Providencia" required />
               </label>
 
-              <label className="grid gap-1 text-xs text-white/70">
+              <label className="grid gap-1 text-[11px] text-white/50">
                 Comentario adicional (opcional)
-                <textarea className="input min-h-20" value={requestComment} onChange={(e) => setRequestComment(e.target.value)} placeholder="Detalles que ayuden a coordinar" />
+                <textarea className="input min-h-[3.5rem]" value={requestComment} onChange={(e) => setRequestComment(e.target.value)} placeholder="Detalles para coordinar" />
               </label>
 
-              <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white/70">
-                <div className="font-medium text-white/80">Accesos directos (informativo)</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Link href="/establecimientos" className="rounded-full border border-white/15 px-3 py-1 hover:bg-white/10">Moteles / lugares</Link>
-                  <Link href="/sexshops" className="rounded-full border border-white/15 px-3 py-1 hover:bg-white/10">Servicios complementarios</Link>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 text-[11px] text-white/50">
+                <div className="mb-2 font-medium text-white/60">Accesos rápidos</div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Link href="/establecimientos" className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] transition hover:bg-white/10">Moteles / lugares</Link>
+                  <Link href="/sexshops" className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] transition hover:bg-white/10">Servicios</Link>
                 </div>
               </div>
 
-              <div className="mt-1 flex justify-end gap-2">
-                <button type="button" onClick={() => setRequestModalOpen(false)} className="btn-secondary">Cancelar</button>
-                <button className="btn-primary" disabled={requesting}>{requesting ? "Enviando..." : "Enviar solicitud"}</button>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setRequestModalOpen(false)} className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs text-white/80 transition hover:bg-white/10">
+                  Cancelar
+                </button>
+                <button className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-xs font-semibold transition hover:brightness-110" disabled={requesting}>
+                  {requesting ? "Enviando..." : "Enviar solicitud"}
+                </button>
               </div>
             </form>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
