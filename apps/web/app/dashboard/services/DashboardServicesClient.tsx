@@ -707,37 +707,42 @@ export default function DashboardServicesClient() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 text-white">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold">{labels.panel}</h1>
-            <Badge>{profileType === "PROFESSIONAL" ? "Experiencia" : profileType === "SHOP" ? "Tienda" : "Proveedor"}</Badge>
+    <div className="mx-auto w-full max-w-5xl space-y-6 text-white">
+      {/* Header */}
+      <div className="card p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-semibold">{labels.panel}</h1>
+              <Badge>{profileType === "PROFESSIONAL" ? "Experiencia" : profileType === "SHOP" ? "Tienda" : "Proveedor"}</Badge>
+            </div>
+            <p className="mt-1 text-sm text-white/60">{labels.helper}</p>
           </div>
-          <p className="text-sm text-white/70">{labels.helper}</p>
+          <Link href="/cuenta" className="btn-ghost w-fit text-sm">Volver a cuenta</Link>
         </div>
-        <Link href="/cuenta" className="text-sm text-white/70 hover:text-white">Volver a cuenta</Link>
       </div>
 
-      <div className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-4">
+      {/* Tabs panel */}
+      <div className="card p-5 sm:p-6">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="flex flex-wrap">
+          <TabsList className="flex flex-wrap gap-1">
             {tabs.map((t) => (
               <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>
             ))}
           </TabsList>
 
-          <TabsContent value="perfil" className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+          {/* ── Perfil ── */}
+          <TabsContent value="perfil" className="mt-6 space-y-5">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6">
               <h2 className="text-lg font-semibold">Perfil público</h2>
               <p className="mt-1 text-xs text-white/60">Información visible para clientes y buscadores.</p>
-              <div className="mt-4 grid gap-3">
-                <label className="grid gap-2 text-xs text-white/60">
+              <div className="mt-5 grid gap-4">
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Nombre visible
                   <input className="input" placeholder="Nombre visible" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
                 </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-2 text-xs text-white/60">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="grid gap-1.5 text-xs font-medium text-white/60">
                     Género
                     <select className="input" value={gender} onChange={(e) => setGender(e.target.value)}>
                       <option value="FEMALE">Mujer</option>
@@ -745,7 +750,7 @@ export default function DashboardServicesClient() {
                       <option value="OTHER">Otro</option>
                     </select>
                   </label>
-                  <label className="grid gap-2 text-xs text-white/60">
+                  <label className="grid gap-1.5 text-xs font-medium text-white/60">
                     Fecha de nacimiento
                     <input
                       className="input"
@@ -755,46 +760,46 @@ export default function DashboardServicesClient() {
                       max={new Date().toISOString().split("T")[0]}
                       required
                     />
-                    <span className="text-[11px] text-white/50">Debes ser mayor de 18 años.</span>
+                    <span className="text-[11px] text-white/40">Debes ser mayor de 18 años.</span>
                   </label>
                 </div>
-                <label className="grid gap-2 text-xs text-white/60">
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Descripción general
-                  <textarea className="input min-h-[110px]" placeholder="Descripción" value={bio} onChange={(e) => setBio(e.target.value)} />
+                  <textarea className="input min-h-[100px]" placeholder="Descripción" value={bio} onChange={(e) => setBio(e.target.value)} />
                 </label>
-                <label className="grid gap-2 text-xs text-white/60">
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Descripción de servicios
-                  <textarea className="input min-h-[110px]" placeholder="Describe tu oferta" value={serviceDescription} onChange={(e) => setServiceDescription(e.target.value)} />
+                  <textarea className="input min-h-[100px]" placeholder="Describe tu oferta" value={serviceDescription} onChange={(e) => setServiceDescription(e.target.value)} />
                 </label>
-                <button disabled={busy} onClick={saveProfile} className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50">
+                <button disabled={busy} onClick={saveProfile} className="btn-primary w-full sm:w-fit">
                   Guardar perfil
                 </button>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6">
               <h2 className="text-lg font-semibold">Imagen de perfil y portada</h2>
               <p className="mt-1 text-xs text-white/60">Actualiza tus imágenes con vista previa inmediata.</p>
-              <div className="mt-4 grid gap-4">
+              <div className="mt-5 grid gap-5">
                 <div className="flex items-center gap-4">
-                  <Avatar src={avatarPreview || user.avatarUrl} alt={user.displayName || user.username} size={64} />
+                  <Avatar src={avatarPreview || user.avatarUrl} alt={user.displayName || user.username} size={72} />
                   <div>
-                    <label className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 cursor-pointer inline-flex">
+                    <label className="btn-secondary cursor-pointer text-sm">
                       {avatarUploading ? "Subiendo..." : "Subir foto de perfil"}
                       <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadProfileImage("avatar", e)} />
                     </label>
-                    <div className="mt-1 text-xs text-white/50">Formato recomendado: JPG o PNG.</div>
+                    <div className="mt-1.5 text-xs text-white/40">JPG o PNG recomendado.</div>
                   </div>
                 </div>
                 <div>
-                  <div className="h-32 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                  <div className="h-36 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
                     {coverPreview || user.coverUrl ? (
                       <img src={resolveMediaUrl(coverPreview || user.coverUrl) ?? undefined} alt="Portada" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="grid h-full place-items-center text-xs text-white/50">Sube una portada</div>
+                      <div className="grid h-full place-items-center text-xs text-white/40">Sube una imagen de portada</div>
                     )}
                   </div>
-                  <label className="mt-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 cursor-pointer inline-flex">
+                  <label className="mt-3 btn-secondary cursor-pointer text-sm inline-flex">
                     {coverUploading ? "Subiendo..." : "Subir portada"}
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadProfileImage("cover", e)} />
                   </label>
@@ -803,48 +808,68 @@ export default function DashboardServicesClient() {
             </div>
           </TabsContent>
 
-          <TabsContent value="servicios" className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+          {/* ── Servicios ── */}
+          <TabsContent value="servicios" className="mt-6 space-y-5">
+            {/* Active services list */}
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6">
               <h2 className="text-lg font-semibold">Servicios activos</h2>
               <p className="mt-1 text-xs text-white/60">{labels.listTitle}</p>
               <div className="mt-4 grid gap-3">
                 {items.map((item) => (
                   <div key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <div className="font-semibold">{item.title}</div>
+                          <span className="font-semibold">{item.title}</span>
                           <Badge className={item.isActive ? "border-emerald-400/40 bg-emerald-500/20 text-emerald-100" : ""}>
                             {item.isActive ? "Activo" : "Inactivo"}
                           </Badge>
                         </div>
-                        <div className="text-xs text-white/60">{item.description || "Sin descripción"}</div>
-                        <div className="text-xs text-white/50 mt-1">{categoryLabel(item.categoryRel)} · ${item.price ?? "0"}</div>
+                        <p className="mt-1 text-xs text-white/60 line-clamp-2">{item.description || "Sin descripción"}</p>
+                        <p className="mt-1 text-xs text-white/50">{categoryLabel(item.categoryRel)} · ${item.price ?? "0"}</p>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button onClick={() => startEditService(item)} className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80">Editar</button>
-                        <button onClick={() => removeService(item.id)} className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80">Eliminar</button>
+                      <div className="flex gap-2">
+                        <button onClick={() => startEditService(item)} className="btn-ghost px-3 py-1.5 text-xs">Editar</button>
+                        <button onClick={() => removeService(item.id)} className="btn-ghost px-3 py-1.5 text-xs text-red-300 hover:text-red-200">Eliminar</button>
                       </div>
                     </div>
                   </div>
                 ))}
-                {!items.length ? <div className="text-sm text-white/60">Aún no tienes servicios publicados.</div> : null}
+                {!items.length && <p className="py-4 text-center text-sm text-white/50">Aún no tienes servicios publicados.</p>}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+            {/* New / edit service form */}
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6">
               <h2 className="text-lg font-semibold">{editingServiceId ? "Editar servicio" : "Nuevo servicio"}</h2>
               <p className="mt-1 text-xs text-white/60">Completa los datos para publicar.</p>
-              <div className="mt-4 grid gap-3">
-                <label className="grid gap-2 text-xs text-white/60">
+              <div className="mt-5 grid gap-4">
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Título del servicio
                   <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
                 </label>
-                <label className="grid gap-2 text-xs text-white/60">
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Descripción
-                  <textarea className="input min-h-[110px]" value={description} onChange={(e) => setDescription(e.target.value)} />
+                  <textarea className="input min-h-[100px]" value={description} onChange={(e) => setDescription(e.target.value)} />
                 </label>
-                <label className="grid gap-2 text-xs text-white/60">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="grid gap-1.5 text-xs font-medium text-white/60">
+                    Categoría
+                    <select className="input" value={serviceCategoryId} onChange={(e) => setServiceCategoryId(e.target.value)}>
+                      <option value="">Selecciona una categoría</option>
+                      {categoryOptions.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.displayName || c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1.5 text-xs font-medium text-white/60">
+                    Precio
+                    <input className="input" value={price} onChange={(e) => setPrice(e.target.value)} type="number" min="0" />
+                  </label>
+                </div>
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Dirección
                   <input
                     className="input"
@@ -861,18 +886,18 @@ export default function DashboardServicesClient() {
                     type="button"
                     onClick={() => geocodeAddress()}
                     disabled={geocodeBusy}
-                    className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10 disabled:opacity-60"
+                    className="btn-ghost px-3 py-1.5 text-xs"
                   >
                     {geocodeBusy ? "Buscando..." : "Reintentar búsqueda"}
                   </button>
-                  <span className="text-[11px] text-white/50">Buscamos automáticamente mientras escribes.</span>
+                  <span className="text-[11px] text-white/40">Buscamos automáticamente mientras escribes.</span>
                 </div>
-                {geocodeError ? (
+                {geocodeError && (
                   <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
                     {geocodeError}
                   </div>
-                ) : null}
-                <label className="grid gap-2 text-xs text-white/60">
+                )}
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Área aproximada
                   <select className="input" value={serviceApproxArea} onChange={(e) => setServiceApproxArea(e.target.value)}>
                     <option value="300">300 m</option>
@@ -880,7 +905,7 @@ export default function DashboardServicesClient() {
                     <option value="600">600 m</option>
                     <option value="800">800 m</option>
                   </select>
-                  <span className="text-[11px] text-white/50">La ubicación se muestra como área aproximada.</span>
+                  <span className="text-[11px] text-white/40">La ubicación se muestra como área aproximada.</span>
                 </label>
                 {serviceVerified && Number.isFinite(Number(serviceLatitude)) && Number.isFinite(Number(serviceLongitude)) ? (
                   <MapboxMap
@@ -898,25 +923,10 @@ export default function DashboardServicesClient() {
                     className="rounded-xl"
                   />
                 ) : (
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60">
+                  <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs text-white/50 text-center">
                     Busca y confirma la dirección para previsualizar en el mapa.
                   </div>
                 )}
-                <label className="grid gap-2 text-xs text-white/60">
-                  Categoría
-                  <select className="input" value={serviceCategoryId} onChange={(e) => setServiceCategoryId(e.target.value)}>
-                    <option value="">Selecciona una categoría de tu tienda</option>
-                    {shopCategories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-2 text-xs text-white/60">
-                  Precio
-                  <input className="input" value={price} onChange={(e) => setPrice(e.target.value)} type="number" min="0" />
-                </label>
                 <label className="flex items-center gap-2 text-xs text-white/60">
                   <input
                     type="checkbox"
@@ -926,74 +936,78 @@ export default function DashboardServicesClient() {
                   />
                   Servicio activo (solo uno puede quedar activo)
                 </label>
-                <button disabled={busy || !serviceVerified} onClick={saveService} className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50">
+                <button disabled={busy || !serviceVerified} onClick={saveService} className="btn-primary w-full sm:w-fit">
                   {editingServiceId ? "Guardar cambios" : "Publicar servicio"}
                 </button>
-                {!serviceVerified ? (
-                  <div className="text-[11px] text-amber-200">Confirma la dirección en el mapa para habilitar la publicación.</div>
-                ) : null}
+                {!serviceVerified && (
+                  <p className="text-[11px] text-amber-200">Confirma la dirección en el mapa para habilitar la publicación.</p>
+                )}
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="productos" className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 lg:col-span-2">
+          {/* ── Productos ── */}
+          <TabsContent value="productos" className="mt-6 space-y-5">
+            {/* Shop categories */}
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6">
               <h2 className="text-lg font-semibold">Categorías de tu tienda</h2>
-              <p className="mt-1 text-xs text-white/60">Créalas y adminístralas por separado antes de asignarlas a tus productos.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <input className="input sm:min-w-[280px]" placeholder="Ej: Juguetes premium" value={newShopCategory} onChange={(e) => setNewShopCategory(e.target.value)} />
-                <button type="button" onClick={createShopCategory} className="btn-secondary">Crear categoría</button>
+              <p className="mt-1 text-xs text-white/60">Créalas y adminístralas antes de asignarlas a tus productos.</p>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <input className="input flex-1" placeholder="Ej: Juguetes premium" value={newShopCategory} onChange={(e) => setNewShopCategory(e.target.value)} />
+                <button type="button" onClick={createShopCategory} className="btn-secondary w-full sm:w-auto whitespace-nowrap">Crear categoría</button>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {shopCategories.map((cat) => (
-                  <button key={cat.id} type="button" onClick={() => removeShopCategory(cat.id)} className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/80">
+                  <button key={cat.id} type="button" onClick={() => removeShopCategory(cat.id)} className="uzeed-pill px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition">
                     {cat.name} ✕
                   </button>
                 ))}
-                {!shopCategories.length ? <div className="text-xs text-white/50">Aún no has creado categorías para tu tienda.</div> : null}
+                {!shopCategories.length && <p className="text-xs text-white/40">Aún no has creado categorías para tu tienda.</p>}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+            {/* Products list */}
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6">
               <h2 className="text-lg font-semibold">Productos activos</h2>
               <p className="mt-1 text-xs text-white/60">{labels.listTitle}</p>
               <div className="mt-4 grid gap-3">
                 {products.map((item) => (
                   <div key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
                         <div className="font-semibold">{item.name}</div>
-                        <div className="text-xs text-white/60">{item.description || "Sin descripción"}</div>
-                        <div className="text-xs text-white/50 mt-1">{item.shopCategory?.name || "Sin categoría"} · ${item.price} · Stock {item.stock}</div>
+                        <p className="mt-1 text-xs text-white/60 line-clamp-2">{item.description || "Sin descripción"}</p>
+                        <p className="mt-1 text-xs text-white/50">{item.shopCategory?.name || "Sin categoría"} · ${item.price} · Stock {item.stock}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <label className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80 cursor-pointer">
+                        <label className="btn-ghost px-3 py-1.5 text-xs cursor-pointer">
                           {uploadingProductId === item.id ? "Subiendo..." : "Subir fotos"}
                           <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => uploadProductMedia(item.id, e)} />
                         </label>
-                        <button onClick={() => startEditProduct(item)} className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80">Editar</button>
-                        <button onClick={() => removeProduct(item.id)} className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80">Eliminar</button>
+                        <button onClick={() => startEditProduct(item)} className="btn-ghost px-3 py-1.5 text-xs">Editar</button>
+                        <button onClick={() => removeProduct(item.id)} className="btn-ghost px-3 py-1.5 text-xs text-red-300 hover:text-red-200">Eliminar</button>
                       </div>
                     </div>
                   </div>
                 ))}
-                {!products.length ? <div className="text-sm text-white/60">Aún no tienes productos publicados.</div> : null}
+                {!products.length && <p className="py-4 text-center text-sm text-white/50">Aún no tienes productos publicados.</p>}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+            {/* New / edit product form */}
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6">
               <h2 className="text-lg font-semibold">{editingProductId ? "Editar producto" : "Nuevo producto"}</h2>
               <p className="mt-1 text-xs text-white/60">Completa los datos para publicar.</p>
-              <div className="mt-4 grid gap-3">
-                <label className="grid gap-2 text-xs text-white/60">
+              <div className="mt-5 grid gap-4">
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Nombre
                   <input className="input" value={productName} onChange={(e) => setProductName(e.target.value)} />
                 </label>
-                <label className="grid gap-2 text-xs text-white/60">
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Descripción
-                  <textarea className="input min-h-[110px]" value={productDescription} onChange={(e) => setProductDescription(e.target.value)} />
+                  <textarea className="input min-h-[100px]" value={productDescription} onChange={(e) => setProductDescription(e.target.value)} />
                 </label>
-                <label className="grid gap-2 text-xs text-white/60">
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Categoría
                   <select className="input" value={productCategoryId} onChange={(e) => setProductCategoryId(e.target.value)}>
                     <option value="">Selecciona una categoría de tu tienda</option>
@@ -1004,57 +1018,59 @@ export default function DashboardServicesClient() {
                     ))}
                   </select>
                 </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-2 text-xs text-white/60">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="grid gap-1.5 text-xs font-medium text-white/60">
                     Precio
                     <input className="input" value={productPrice} onChange={(e) => setProductPrice(e.target.value)} type="number" min="0" />
                   </label>
-                  <label className="grid gap-2 text-xs text-white/60">
+                  <label className="grid gap-1.5 text-xs font-medium text-white/60">
                     Stock
                     <input className="input" value={productStock} onChange={(e) => setProductStock(e.target.value)} type="number" min="0" />
                   </label>
                 </div>
-                <button disabled={busy} onClick={saveProduct} className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50">
+                <button disabled={busy} onClick={saveProduct} className="btn-primary w-full sm:w-fit">
                   {editingProductId ? "Guardar cambios" : "Publicar producto"}
                 </button>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="galeria" className="mt-5">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          {/* ── Galería ── */}
+          <TabsContent value="galeria" className="mt-6">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold">Galería</h2>
                   <p className="text-xs text-white/60">Fotos visibles en tu perfil público.</p>
                 </div>
-                <label className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 cursor-pointer inline-flex">
+                <label className="btn-secondary cursor-pointer text-sm w-fit">
                   Subir fotos
                   <input type="file" accept="image/*" className="hidden" multiple onChange={uploadGallery} />
                 </label>
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-5 grid gap-3 grid-cols-2 sm:grid-cols-3">
                 {gallery.map((g) => (
-                  <div key={g.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                    <div className="h-36 overflow-hidden rounded-xl border border-white/10">
+                  <div key={g.id} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                    <div className="aspect-square overflow-hidden">
                       <img src={resolveMediaUrl(g.url) ?? undefined} alt="Galería" className="h-full w-full object-cover" />
                     </div>
-                    <button onClick={() => removeGalleryItem(g.id)} className="mt-3 text-xs text-white/70 underline">
+                    <button onClick={() => removeGalleryItem(g.id)} className="absolute bottom-0 inset-x-0 bg-black/60 py-2 text-center text-xs text-white/80 opacity-0 group-hover:opacity-100 transition">
                       Eliminar
                     </button>
                   </div>
                 ))}
-                {!gallery.length ? <div className="text-sm text-white/60">Aún no tienes fotos en tu galería.</div> : null}
               </div>
+              {!gallery.length && <p className="mt-4 text-center text-sm text-white/50">Aún no tienes fotos en tu galería.</p>}
             </div>
           </TabsContent>
 
-          <TabsContent value="ubicacion" className="mt-5">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+          {/* ── Ubicación ── */}
+          <TabsContent value="ubicacion" className="mt-6">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6">
               <h2 className="text-lg font-semibold">Ubicación</h2>
               <p className="text-xs text-white/60">Actualiza tu dirección y ciudad.</p>
-              <div className="mt-4 grid gap-3">
-                <label className="grid gap-2 text-xs text-white/60">
+              <div className="mt-5 grid gap-4">
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Dirección
                   <input
                     className="input"
@@ -1065,12 +1081,12 @@ export default function DashboardServicesClient() {
                     }}
                   />
                 </label>
-                <label className="grid gap-2 text-xs text-white/60">
+                <label className="grid gap-1.5 text-xs font-medium text-white/60">
                   Ciudad
                   <input className="input" value={city} onChange={(e) => setCity(e.target.value)} />
                 </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-2 text-xs text-white/60">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="grid gap-1.5 text-xs font-medium text-white/60">
                     Latitud
                     <input
                       className="input"
@@ -1082,7 +1098,7 @@ export default function DashboardServicesClient() {
                       placeholder="-33.45"
                     />
                   </label>
-                  <label className="grid gap-2 text-xs text-white/60">
+                  <label className="grid gap-1.5 text-xs font-medium text-white/60">
                     Longitud
                     <input
                       className="input"
@@ -1095,24 +1111,24 @@ export default function DashboardServicesClient() {
                     />
                   </label>
                 </div>
-                {profileType === "SHOP" ? (
+                {profileType === "SHOP" && (
                   <>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => geocodeProfileAddress()}
                         disabled={profileGeocodeBusy}
-                        className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10 disabled:opacity-60"
+                        className="btn-ghost px-3 py-1.5 text-xs"
                       >
                         {profileGeocodeBusy ? "Buscando..." : "Verificar dirección en mapa"}
                       </button>
-                      <span className="text-[11px] text-white/50">Buscamos automáticamente mientras escribes.</span>
+                      <span className="text-[11px] text-white/40">Buscamos automáticamente mientras escribes.</span>
                     </div>
-                    {profileGeocodeError ? (
+                    {profileGeocodeError && (
                       <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
                         {profileGeocodeError}
                       </div>
-                    ) : null}
+                    )}
                     {profileLocationVerified && Number.isFinite(Number(profileLatitude)) && Number.isFinite(Number(profileLongitude)) ? (
                       <MapboxMap
                         markers={[
@@ -1128,13 +1144,13 @@ export default function DashboardServicesClient() {
                         className="rounded-xl"
                       />
                     ) : (
-                      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60">
-                        Verifica la dirección en el mapa para que tu tienda aparezca correctamente en búsquedas por categoría y mapa.
+                      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs text-white/50 text-center">
+                        Verifica la dirección en el mapa para que tu tienda aparezca correctamente.
                       </div>
                     )}
                   </>
-                ) : null}
-                <button disabled={busy} onClick={saveProfile} className="rounded-xl bg-white/15 px-4 py-2 font-semibold hover:bg-white/20 disabled:opacity-50">
+                )}
+                <button disabled={busy} onClick={saveProfile} className="btn-primary w-full sm:w-fit">
                   Guardar ubicación
                 </button>
               </div>
@@ -1143,23 +1159,23 @@ export default function DashboardServicesClient() {
         </Tabs>
       </div>
 
-      {error ? <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-100">{error}</div> : null}
+      {error && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-100">{error}</div>}
 
-      {toast ? (
-        <div className={`mt-4 rounded-xl border px-4 py-2 text-sm ${toast.tone === "success" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100" : "border-red-400/40 bg-red-500/10 text-red-100"}`}>
+      {toast && (
+        <div className={`rounded-xl border px-4 py-3 text-sm ${toast.tone === "success" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100" : "border-red-400/40 bg-red-500/10 text-red-100"}`}>
           {toast.message}
         </div>
-      ) : null}
+      )}
 
-      {profileType === "VIEWER" ? (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="font-medium">¿Quieres publicar?</div>
-          <div className="text-sm text-white/70 mt-1">Cambia tu tipo de perfil o inicia publicación desde el dashboard.</div>
-          <button onClick={startPublish} className="mt-3 rounded-xl bg-white text-black px-4 py-2 font-semibold">
+      {profileType === "VIEWER" && (
+        <div className="card p-6">
+          <p className="font-medium">¿Quieres publicar?</p>
+          <p className="mt-1 text-sm text-white/60">Cambia tu tipo de perfil o inicia publicación desde el dashboard.</p>
+          <button onClick={startPublish} className="btn-primary mt-4">
             Ir al dashboard
           </button>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
