@@ -6,6 +6,8 @@ import Link from "next/link";
 import { apiFetch } from "../../lib/api";
 import MapboxMap from "../../components/MapboxMap";
 import Avatar from "../../components/Avatar";
+import StarRating from "../../components/StarRating";
+import SkeletonCard from "../../components/SkeletonCard";
 import { useMapLocation } from "../../hooks/useMapLocation";
 import useMe from "../../hooks/useMe";
 
@@ -200,7 +202,11 @@ export default function ProfessionalsClient() {
 
 
       {loading ? (
-        <div className="text-white/60">Cargando experiencias...</div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       ) : categoryWarning === "category_not_found" ? (
         <div className="card p-6 text-white/70">
           <div className="text-lg font-semibold">Categoría no disponible</div>
@@ -215,7 +221,7 @@ export default function ProfessionalsClient() {
             <div
               key={p.id}
               onClick={() => setFocusedId(p.id)}
-              className={`rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-white/30 ${
+              className={`rounded-2xl border border-white/10 bg-white/5 p-5 transition-all duration-200 hover:border-fuchsia-400/30 hover:shadow-lg hover:shadow-fuchsia-500/5 ${
                 p.isActive ? "" : "opacity-60 grayscale"
               }`}
             >
@@ -229,18 +235,18 @@ export default function ProfessionalsClient() {
                 </div>
                 <Link
                   href={`/profesional/${p.id}`}
-                  className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80 hover:bg-white/10"
+                  className="rounded-full border border-white/15 bg-gradient-to-br from-fuchsia-600/20 to-violet-600/20 px-3 py-1 text-xs text-white/80 hover:from-fuchsia-600/30 hover:to-violet-600/30 transition-all"
                 >
                   Ver perfil
                 </Link>
               </div>
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
-                <span>⭐ {p.rating ?? "N/A"}</span>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-white/60">
+                <StarRating rating={p.rating} size={12} />
                 <span>{p.distance ? `${p.distance.toFixed(1)} km` : "Sin distancia"}</span>
                 {p.locality ? <span>{p.locality}</span> : null}
                 {p.age ? <span>{p.age} años</span> : null}
                 {p.gender ? <span>{p.gender === "FEMALE" ? "Mujer" : p.gender === "MALE" ? "Hombre" : "Otro"}</span> : null}
-                {p.tier ? <span>{p.tier}</span> : null}
+                {p.tier ? <span className="rounded-full border border-yellow-400/30 bg-yellow-500/10 px-2 py-0.5 text-yellow-200">{p.tier}</span> : null}
               </div>
               {p.serviceSummary ? (
                 <p className="mt-3 text-xs text-white/70 line-clamp-2">{p.serviceSummary}</p>

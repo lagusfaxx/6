@@ -221,8 +221,8 @@ export default function HomePage() {
           variants={fadeUp}
           className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8"
         >
-          {/* Animated gradient background */}
-          <div className="absolute inset-0 -z-10 bg-gradient-to-br from-fuchsia-500/10 via-violet-500/5 to-transparent opacity-50 animate-pulse" />
+          {/* Subtle gradient background (no pulse) */}
+          <div className="absolute inset-0 -z-10 bg-gradient-to-br from-fuchsia-500/10 via-violet-500/5 to-transparent" />
 
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between text-center md:text-left">
             <div>
@@ -268,54 +268,52 @@ export default function HomePage() {
                   {kind === "ESTABLISHMENT" ? ([{ id: "motel", displayName: "Moteles", slug: "motel", kind: "ESTABLISHMENT" }, { id: "hotel", displayName: "Hoteles", slug: "hotel", kind: "ESTABLISHMENT" }] as any[]).map((c) => {
                     const Icon = categoryIcon(c.kind, c.slug || c.name);
                     return (
-                      <motion.div key={c.id} whileHover={{ scale: 1.02, y: -2 }} transition={{ duration: 0.2 }}>
-                        <Link
-                          href="/hospedaje"
-                          className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3.5 hover:bg-white/10 hover:border-fuchsia-400/30 transition block"
-                        >
-                          {/* Gradient on hover */}
-                          <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/0 to-violet-500/0 group-hover:from-fuchsia-500/5 group-hover:to-violet-500/5 transition-all duration-300" />
+                      <Link
+                        key={c.id}
+                        href="/hospedaje"
+                        className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3.5 transition-all duration-200 hover:bg-white/10 hover:border-fuchsia-400/30 hover:-translate-y-0.5"
+                      >
+                        {/* Gradient on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/0 to-violet-500/0 group-hover:from-fuchsia-500/5 group-hover:to-violet-500/5 transition-all duration-300" />
 
-                          <div className="relative flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-gradient-to-br from-white/20 to-white/10 shadow-lg group-hover:shadow-fuchsia-500/20">
-                                <Icon className="h-4 w-4 text-white" />
-                              </div>
-                              <div>
-                                <div className="text-lg font-semibold leading-tight">{displayCategoryName(c)}</div>
-                                <div className="text-xs text-white/75">Explorar categoría</div>
-                              </div>
+                        <div className="relative flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-gradient-to-br from-white/20 to-white/10 shadow-lg group-hover:shadow-fuchsia-500/20 transition-shadow">
+                              <Icon className="h-4 w-4 text-white" />
                             </div>
-                            <Sparkles className="h-5 w-5 shrink-0 text-white/60 group-hover:text-fuchsia-400 transition" />
+                            <div>
+                              <div className="text-lg font-semibold leading-tight">{displayCategoryName(c)}</div>
+                              <div className="text-xs text-white/75">Explorar categoría</div>
+                            </div>
                           </div>
-                        </Link>
-                      </motion.div>
+                          <Sparkles className="h-5 w-5 shrink-0 text-white/60 group-hover:text-fuchsia-400 transition-colors" />
+                        </div>
+                      </Link>
                     );
                   }) : items.length ? items.map((c) => {
                     const Icon = categoryIcon(c.kind, c.slug || c.name);
                     return (
-                      <motion.div key={c.id} whileHover={{ scale: 1.02, y: -2 }} transition={{ duration: 0.2 }}>
-                        <Link
-                          href={kindHref(c.kind, c.slug || c.id)}
-                          className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3.5 hover:bg-white/10 hover:border-fuchsia-400/30 transition block"
-                        >
-                          {/* Gradient on hover */}
-                          <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/0 to-violet-500/0 group-hover:from-fuchsia-500/5 group-hover:to-violet-500/5 transition-all duration-300" />
+                      <Link
+                        key={c.id}
+                        href={kindHref(c.kind, c.slug || c.id)}
+                        className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3.5 transition-all duration-200 hover:bg-white/10 hover:border-fuchsia-400/30 hover:-translate-y-0.5"
+                      >
+                        {/* Gradient on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/0 to-violet-500/0 group-hover:from-fuchsia-500/5 group-hover:to-violet-500/5 transition-all duration-300" />
 
-                          <div className="relative flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-gradient-to-br from-white/20 to-white/10 shadow-lg group-hover:shadow-fuchsia-500/20">
-                                <Icon className="h-4 w-4 text-white" />
-                              </div>
-                              <div>
-                                <div className="text-lg font-semibold leading-tight">{displayCategoryName(c)}</div>
-                                <div className="text-xs text-white/75">Explorar categoría</div>
-                              </div>
+                        <div className="relative flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-gradient-to-br from-white/20 to-white/10 shadow-lg group-hover:shadow-fuchsia-500/20 transition-shadow">
+                              <Icon className="h-4 w-4 text-white" />
                             </div>
-                            <Sparkles className="h-5 w-5 shrink-0 text-white/60 group-hover:text-fuchsia-400 transition" />
+                            <div>
+                              <div className="text-lg font-semibold leading-tight">{displayCategoryName(c)}</div>
+                              <div className="text-xs text-white/75">Explorar categoría</div>
+                            </div>
                           </div>
-                        </Link>
-                      </motion.div>
+                          <Sparkles className="h-5 w-5 shrink-0 text-white/60 group-hover:text-fuchsia-400 transition-colors" />
+                        </div>
+                      </Link>
                     );
                   }) : kind === "SHOP" ? (
                     <Link href="/sexshops" className="rounded-2xl border border-white/15 bg-white/5 p-4 text-white/80 hover:bg-white/10 transition">
@@ -349,48 +347,46 @@ export default function HomePage() {
               {recentPros.length ? recentPros.slice(0, 3).map((p) => {
                 const href = `/profesional/${p.id}`;
                 return (
-                  <motion.div key={p.id} whileHover={{ y: -4 }} transition={{ duration: 0.2 }}>
-                    <Link
-                      href={href}
-                      className="block min-w-0 rounded-2xl border border-white/15 bg-white/5 p-3 hover:bg-white/10 hover:border-fuchsia-400/30 transition group"
-                    >
-                      <div className="h-40 overflow-hidden rounded-xl border border-white/10 bg-black/20 flex items-center justify-center">
-                        {p.avatarUrl ? (
-                          <img
-                            src={resolveMediaUrl(p.avatarUrl) ?? undefined}
-                            alt={p.name}
-                            className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
-                            onError={(e) => {
-                              const img = e.currentTarget as HTMLImageElement;
-                              img.onerror = null;
-                              img.src = "/brand/isotipo-new.png";
-                              img.className = "h-20 w-20 opacity-60";
-                            }}
-                          />
-                        ) : (
-                          <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-60" />
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                      <div className="mt-3 text-base font-semibold line-clamp-1">{p.name}</div>
-                      <div className="mt-1 text-xs text-white/70">
-                        {p.age ? `${p.age} años` : "Edad no indicada"}
-                      </div>
-                      <div className="mt-1 flex items-center gap-1 text-xs text-white/70">
-                        <MapPin className="h-3.5 w-3.5" />
-                        {p.distance != null ? `~${p.distance.toFixed(1)} km` : "Distancia no disponible"}
-                      </div>
-                    </Link>
-                  </motion.div>
+                  <Link
+                    key={p.id}
+                    href={href}
+                    className="group block min-w-0 rounded-2xl border border-white/15 bg-white/5 p-3 transition-all duration-200 hover:bg-white/10 hover:border-fuchsia-400/30 hover:-translate-y-1"
+                  >
+                    <div className="relative h-40 overflow-hidden rounded-xl border border-white/10 bg-black/20 flex items-center justify-center">
+                      {p.avatarUrl ? (
+                        <img
+                          src={resolveMediaUrl(p.avatarUrl) ?? undefined}
+                          alt={p.name}
+                          className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                          onError={(e) => {
+                            const img = e.currentTarget as HTMLImageElement;
+                            img.onerror = null;
+                            img.src = "/brand/isotipo-new.png";
+                            img.className = "h-20 w-20 opacity-60";
+                          }}
+                        />
+                      ) : (
+                        <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-60" />
+                      )}
+                    </div>
+                    <div className="mt-3 text-base font-semibold line-clamp-1">{p.name}</div>
+                    <div className="mt-1 text-xs text-white/70">
+                      {p.age ? `${p.age} años` : "Edad no indicada"}
+                    </div>
+                    <div className="mt-1 flex items-center gap-1 text-xs text-white/70">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {p.distance != null ? `~${p.distance.toFixed(1)} km` : "Distancia no disponible"}
+                    </div>
+                  </Link>
                 );
               }) : recentLoading ? (
-                <div className="xl:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="col-span-full grid grid-cols-2 md:grid-cols-3 gap-3">
                   {[1, 2, 3].map((i) => (
                     <SkeletonCard key={i} />
                   ))}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70 xl:col-span-3">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70 col-span-full">
                   Aún no hay experiencias recién agregadas. Vuelve más tarde para descubrir nuevas opciones.
                 </div>
               )}
@@ -401,3 +397,4 @@ export default function HomePage() {
     </div>
   );
 }
+

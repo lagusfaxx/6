@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { MapPin, Star } from "lucide-react";
+import { MapPin } from "lucide-react";
 import MapboxMap from "../../components/MapboxMap";
+import StarRating from "../../components/StarRating";
+import SkeletonCard from "../../components/SkeletonCard";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import { useMapLocation } from "../../hooks/useMapLocation";
 
@@ -73,17 +75,28 @@ export default function LodgingClient() {
 
         <div className="rounded-3xl border border-white/10 bg-white/5 p-3">
           <div className="space-y-3 max-h-[70vh] overflow-auto pr-1">
-            {loading ? <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70">Cargando hospedajes...</div> : items.map((e) => (
-              <Link key={e.id} href={`/hospedaje/${e.id}`} className="group block rounded-2xl border border-white/15 bg-gradient-to-b from-white/10 to-white/5 p-3 hover:border-fuchsia-300/40">
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <SkeletonCard key={i} className="h-32" />
+                ))}
+              </div>
+            ) : items.map((e) => (
+              <Link key={e.id} href={`/hospedaje/${e.id}`} className="group block rounded-2xl border border-white/15 bg-gradient-to-b from-white/10 to-white/5 p-3 transition-all duration-200 hover:border-fuchsia-300/40 hover:shadow-lg hover:shadow-fuchsia-500/5">
                 <div className="flex gap-3">
-                  <img src={resolveMediaUrl(e.coverUrl) || "/brand/isotipo-new.png"} alt={e.name} className="h-24 w-28 rounded-xl border border-white/10 object-cover" />
+                  <div className="relative overflow-hidden rounded-xl">
+                    <img src={resolveMediaUrl(e.coverUrl) || "/brand/isotipo-new.png"} alt={e.name} className="h-24 w-28 border border-white/10 object-cover transition-transform duration-300 group-hover:scale-105" />
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-2xl font-semibold leading-tight">{e.name}</div>
-                    <div className="mt-1 text-sm text-white/85">Desde ${e.fromPrice.toLocaleString("es-CL")}</div>
+                    <div className="truncate text-2xl font-semibold leading-tight group-hover:text-fuchsia-100 transition-colors">{e.name}</div>
+                    <div className="mt-1 text-sm font-medium text-fuchsia-200">Desde ${e.fromPrice.toLocaleString("es-CL")}</div>
                     <div className="mt-1 flex items-center gap-2 text-xs text-white/70"><MapPin className="h-3.5 w-3.5" />{e.distance != null ? `${e.distance.toFixed(1)} km` : e.address}</div>
-                    <div className="text-xs text-white/70 inline-flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" /> {e.rating ?? "N/A"} ({e.reviewsCount})</div>
+                    <div className="mt-0.5 inline-flex items-center gap-1 text-xs text-white/70">
+                      <StarRating rating={e.rating} size={12} />
+                      <span className="text-white/50">({e.reviewsCount})</span>
+                    </div>
                     <div className="mt-2 flex items-center justify-between">
-                      <span className={`rounded-full border px-2 py-0.5 text-[11px] ${e.isOpen ? "border-emerald-300/40 bg-emerald-500/20" : "border-rose-300/40 bg-rose-500/20"}`}>{e.isOpen ? "Abierto ahora" : "Cerrado"}</span>
+                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${e.isOpen ? "border-emerald-300/40 bg-emerald-500/20 text-emerald-100" : "border-rose-300/40 bg-rose-500/20 text-rose-100"}`}>{e.isOpen ? "Abierto ahora" : "Cerrado"}</span>
                       <span className="btn-primary text-sm">Reservar</span>
                     </div>
                   </div>
