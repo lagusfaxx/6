@@ -2,11 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { motion } from "framer-motion";
 import { ApiHttpError, apiFetch, resolveMediaUrl } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 import Avatar from "../../../components/Avatar";
+import StarRating from "../../../components/StarRating";
+import GalleryCounter from "../../../components/GalleryCounter";
+import SkeletonCard from "../../../components/SkeletonCard";
 
 const placeholderGallery = ["/brand/isotipo.png", "/brand/isotipo.png", "/brand/isotipo.png"];
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 14 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.08, duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+  }),
+};
 
 type Professional = {
   id: string;
@@ -81,7 +94,15 @@ export default function ProfessionalDetailPage() {
       .catch(() => setActiveRequest(null));
   }, [me?.user, professional]);
 
-  if (loading) return <div className="text-white/60">Cargando perfil...</div>;
+  if (loading) {
+    return (
+      <div className="grid gap-6">
+        <SkeletonCard className="h-80" />
+        <SkeletonCard className="h-64" />
+        <SkeletonCard className="h-40" />
+      </div>
+    );
+  }
   if (notFound || !professional) return <div className="text-white/60">No encontramos este profesional.</div>;
 
   const gallery = professional.gallery.length
@@ -127,17 +148,47 @@ export default function ProfessionalDetailPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               <h1 className="text-2xl font-semibold">{professional.name}</h1>
-              <div className="mt-1 text-sm text-white/60">
-                {professional.category || "Experiencia"} • ⭐ {professional.rating ?? "N/A"}
+              <div className="mt-1 flex items-center gap-2 text-sm text-white/60">
+                <span>{professional.category || "Experiencia"}</span>
+                <span>•</span>
+                <StarRating rating={professional.rating} size={14} />
               </div>
               <div className="mt-2 text-xs text-white/50">
                 {professional.isOnline ? "Disponible ahora" : professional.lastSeen ? `Última vez: ${new Date(professional.lastSeen).toLocaleString("es-CL")}` : "Sin actividad reciente"}
               </div>
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
-                {professional.age ? <span>{professional.age} años</span> : null}
-                {genderLabel ? <span>{genderLabel}</span> : null}
-                {professional.serviceSummary ? <span>{professional.serviceSummary}</span> : null}
-              </div>
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                className="mt-3 flex flex-wrap gap-2"
+              >
+                {professional.age && (
+                  <motion.span
+                    custom={0}
+                    variants={fadeUp}
+                    className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/80"
+                  >
+                    {professional.age} años
+                  </motion.span>
+                )}
+                {genderLabel && (
+                  <motion.span
+                    custom={1}
+                    variants={fadeUp}
+                    className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/80"
+                  >
+                    {genderLabel}
+                  </motion.span>
+                )}
+                {professional.serviceSummary && (
+                  <motion.span
+                    custom={2}
+                    variants={fadeUp}
+                    className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/80"
+                  >
+                    {professional.serviceSummary}
+                  </motion.span>
+                )}
+              </motion.div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -181,17 +232,30 @@ export default function ProfessionalDetailPage() {
       </div>
 
       <div className="card p-6">
-        <h2 className="text-lg font-semibold">Galería</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Galería</h2>
+          <GalleryCounter count={gallery.length} />
+        </div>
         <div className="mt-4 grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {gallery.map((url, idx) => (
-            <button
+            <motion.button
               type="button"
               key={`${url}-${idx}`}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: idx * 0.05, duration: 0.3 }}
+              whileHover={{ scale: 1.05 }}
               onClick={() => setLightbox(url)}
-              className="group h-40 overflow-hidden rounded-2xl border border-white/10 bg-white/5"
+              className="group relative h-40 overflow-hidden rounded-2xl border border-white/10 bg-white/5"
             >
-              <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover transition group-hover:scale-105" />
-            </button>
+              <img
+                src={url}
+                alt={`Galería ${idx + 1}`}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+            </motion.button>
           ))}
         </div>
       </div>

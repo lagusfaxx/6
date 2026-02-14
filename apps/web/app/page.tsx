@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import { useMapLocation } from "../hooks/useMapLocation";
+import SkeletonCard from "../components/SkeletonCard";
 import {
   BedDouble,
   Building2,
@@ -111,6 +113,15 @@ function categoryIcon(kind: Category["kind"], slug: string) {
   return Store;
 }
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 14 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.08, duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+  }),
+};
+
 export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -203,10 +214,21 @@ export default function HomePage() {
     // Use dvh to avoid iOS Safari 100vh issues + prevent accidental horizontal overflow.
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
       <div className="mx-auto max-w-4xl px-4 py-5 md:py-6">
-        <section className="rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8">
+        <motion.section
+          initial="hidden"
+          animate="visible"
+          custom={0}
+          variants={fadeUp}
+          className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 md:p-8"
+        >
+          {/* Animated gradient background */}
+          <div className="absolute inset-0 -z-10 bg-gradient-to-br from-fuchsia-500/10 via-violet-500/5 to-transparent opacity-50 animate-pulse" />
+
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between text-center md:text-left">
             <div>
-              <h1 className="text-2xl md:text-3xl font-semibold">¿Qué estás buscando?</h1>
+              <h1 className="text-2xl md:text-3xl font-semibold bg-gradient-to-r from-white via-fuchsia-100 to-white bg-clip-text text-transparent">
+                ¿Qué estás buscando?
+              </h1>
               <p className="mt-2 text-sm text-white/70">Explora experiencias, lugares y tiendas cerca de ti.</p>
             </div>
             <div className="flex flex-wrap gap-3 justify-center md:justify-start">
@@ -215,7 +237,7 @@ export default function HomePage() {
               <Link href="/profesionales" className="btn-secondary text-sm md:text-base">Ver experiencias</Link>
             </div>
           </div>
-        </section>
+        </motion.section>
 
         {error ? <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-100">{error}</div> : null}
 
@@ -246,46 +268,54 @@ export default function HomePage() {
                   {kind === "ESTABLISHMENT" ? ([{ id: "motel", displayName: "Moteles", slug: "motel", kind: "ESTABLISHMENT" }, { id: "hotel", displayName: "Hoteles", slug: "hotel", kind: "ESTABLISHMENT" }] as any[]).map((c) => {
                     const Icon = categoryIcon(c.kind, c.slug || c.name);
                     return (
-                      <Link
-                        key={c.id}
-                        href="/hospedaje"
-                        className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3.5 hover:bg-white/10 transition"
-                      >
-                        <div className="relative flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/15">
-                              <Icon className="h-4 w-4 text-white" />
+                      <motion.div key={c.id} whileHover={{ scale: 1.02, y: -2 }} transition={{ duration: 0.2 }}>
+                        <Link
+                          href="/hospedaje"
+                          className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3.5 hover:bg-white/10 hover:border-fuchsia-400/30 transition block"
+                        >
+                          {/* Gradient on hover */}
+                          <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/0 to-violet-500/0 group-hover:from-fuchsia-500/5 group-hover:to-violet-500/5 transition-all duration-300" />
+
+                          <div className="relative flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-gradient-to-br from-white/20 to-white/10 shadow-lg group-hover:shadow-fuchsia-500/20">
+                                <Icon className="h-4 w-4 text-white" />
+                              </div>
+                              <div>
+                                <div className="text-lg font-semibold leading-tight">{displayCategoryName(c)}</div>
+                                <div className="text-xs text-white/75">Explorar categoría</div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="text-lg font-semibold leading-tight">{displayCategoryName(c)}</div>
-                              <div className="text-xs text-white/75">Explorar categoría</div>
-                            </div>
+                            <Sparkles className="h-5 w-5 shrink-0 text-white/60 group-hover:text-fuchsia-400 transition" />
                           </div>
-                          <Sparkles className="h-5 w-5 shrink-0 text-white/80 group-hover:text-white transition" />
-                        </div>
-                      </Link>
+                        </Link>
+                      </motion.div>
                     );
                   }) : items.length ? items.map((c) => {
                     const Icon = categoryIcon(c.kind, c.slug || c.name);
                     return (
-                      <Link
-                        key={c.id}
-                        href={kindHref(c.kind, c.slug || c.id)}
-                        className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3.5 hover:bg-white/10 transition"
-                      >
-                        <div className="relative flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/15">
-                              <Icon className="h-4 w-4 text-white" />
+                      <motion.div key={c.id} whileHover={{ scale: 1.02, y: -2 }} transition={{ duration: 0.2 }}>
+                        <Link
+                          href={kindHref(c.kind, c.slug || c.id)}
+                          className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3.5 hover:bg-white/10 hover:border-fuchsia-400/30 transition block"
+                        >
+                          {/* Gradient on hover */}
+                          <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/0 to-violet-500/0 group-hover:from-fuchsia-500/5 group-hover:to-violet-500/5 transition-all duration-300" />
+
+                          <div className="relative flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-gradient-to-br from-white/20 to-white/10 shadow-lg group-hover:shadow-fuchsia-500/20">
+                                <Icon className="h-4 w-4 text-white" />
+                              </div>
+                              <div>
+                                <div className="text-lg font-semibold leading-tight">{displayCategoryName(c)}</div>
+                                <div className="text-xs text-white/75">Explorar categoría</div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="text-lg font-semibold leading-tight">{displayCategoryName(c)}</div>
-                              <div className="text-xs text-white/75">Explorar categoría</div>
-                            </div>
+                            <Sparkles className="h-5 w-5 shrink-0 text-white/60 group-hover:text-fuchsia-400 transition" />
                           </div>
-                          <Sparkles className="h-5 w-5 shrink-0 text-white/80 group-hover:text-white transition" />
-                        </div>
-                      </Link>
+                        </Link>
+                      </motion.div>
                     );
                   }) : kind === "SHOP" ? (
                     <Link href="/sexshops" className="rounded-2xl border border-white/15 bg-white/5 p-4 text-white/80 hover:bg-white/10 transition">
@@ -319,41 +349,45 @@ export default function HomePage() {
               {recentPros.length ? recentPros.slice(0, 3).map((p) => {
                 const href = `/profesional/${p.id}`;
                 return (
-                  <Link
-                    key={p.id}
-                    href={href}
-                    className="min-w-0 rounded-2xl border border-white/15 bg-white/5 p-3 hover:bg-white/10 transition"
-                  >
-                    <div className="h-40 overflow-hidden rounded-xl border border-white/10 bg-black/20 flex items-center justify-center">
-                      {p.avatarUrl ? (
-                        <img
-                          src={resolveMediaUrl(p.avatarUrl) ?? undefined}
-                          alt={p.name}
-                          className="h-full w-full object-contain"
-                          onError={(e) => {
-                            const img = e.currentTarget as HTMLImageElement;
-                            img.onerror = null;
-                            img.src = "/brand/isotipo-new.png";
-                            img.className = "h-20 w-20 opacity-60";
-                          }}
-                        />
-                      ) : (
-                        <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-60" />
-                      )}
-                    </div>
-                    <div className="mt-3 text-base font-semibold line-clamp-1">{p.name}</div>
-                    <div className="mt-1 text-xs text-white/70">
-                      {p.age ? `${p.age} años` : "Edad no indicada"}
-                    </div>
-                    <div className="mt-1 flex items-center gap-1 text-xs text-white/70">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {p.distance != null ? `~${p.distance.toFixed(1)} km` : "Distancia no disponible"}
-                    </div>
-                  </Link>
+                  <motion.div key={p.id} whileHover={{ y: -4 }} transition={{ duration: 0.2 }}>
+                    <Link
+                      href={href}
+                      className="block min-w-0 rounded-2xl border border-white/15 bg-white/5 p-3 hover:bg-white/10 hover:border-fuchsia-400/30 transition group"
+                    >
+                      <div className="h-40 overflow-hidden rounded-xl border border-white/10 bg-black/20 flex items-center justify-center">
+                        {p.avatarUrl ? (
+                          <img
+                            src={resolveMediaUrl(p.avatarUrl) ?? undefined}
+                            alt={p.name}
+                            className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
+                            onError={(e) => {
+                              const img = e.currentTarget as HTMLImageElement;
+                              img.onerror = null;
+                              img.src = "/brand/isotipo-new.png";
+                              img.className = "h-20 w-20 opacity-60";
+                            }}
+                          />
+                        ) : (
+                          <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-60" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <div className="mt-3 text-base font-semibold line-clamp-1">{p.name}</div>
+                      <div className="mt-1 text-xs text-white/70">
+                        {p.age ? `${p.age} años` : "Edad no indicada"}
+                      </div>
+                      <div className="mt-1 flex items-center gap-1 text-xs text-white/70">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {p.distance != null ? `~${p.distance.toFixed(1)} km` : "Distancia no disponible"}
+                      </div>
+                    </Link>
+                  </motion.div>
                 );
               }) : recentLoading ? (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70 xl:col-span-3">
-                  Cargando experiencias recientes...
+                <div className="xl:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[1, 2, 3].map((i) => (
+                    <SkeletonCard key={i} />
+                  ))}
                 </div>
               ) : (
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/70 xl:col-span-3">
