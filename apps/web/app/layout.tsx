@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import "./globals.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import AppShell from '../components/AppShell';
+import SplashScreen from '../components/SplashScreen';
 
 export const metadata: Metadata = {
   title: 'UZEED',
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body className="min-h-screen text-white antialiased">
+        <SplashScreen />
         <AppShell>{children}</AppShell>
       </body>
     </html>
