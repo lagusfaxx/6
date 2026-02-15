@@ -25,6 +25,16 @@ export default function DashboardPage() {
     return !Number.isNaN(d.getTime()) && d.getTime() > Date.now();
   }, [user?.membershipExpiresAt]);
 
+  const isProfessional = user?.profileType === "PROFESSIONAL";
+  const isShop = user?.profileType === "SHOP";
+  const isViewer = user?.profileType === "VIEWER";
+  const isAdmin = (user?.role ?? "").toUpperCase() === "ADMIN";
+  const isMotel = (user?.profileType ?? "").toUpperCase() === "ESTABLISHMENT" || ["MOTEL", "MOTEL_OWNER"].includes((user?.role ?? "").toUpperCase());
+
+  useEffect(() => {
+    if (isMotel) window.location.href = "/dashboard/motel";
+  }, [isMotel]);
+
   const startPlan = async (kind: "professional" | "shop") => {
     setError(null);
     setBusy(kind);
@@ -51,16 +61,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  const isProfessional = user.profileType === "PROFESSIONAL";
-  const isShop = user.profileType === "SHOP";
-  const isViewer = user.profileType === "VIEWER";
-  const isAdmin = (user.role ?? "").toUpperCase() === "ADMIN";
-  const isMotel = (user.profileType ?? "").toUpperCase() === "ESTABLISHMENT" || ["MOTEL", "MOTEL_OWNER"].includes((user.role ?? "").toUpperCase());
-
-  useEffect(() => {
-    if (isMotel) window.location.href = "/dashboard/motel";
-  }, [isMotel]);
 
   return (
     <div className="p-6 text-white max-w-3xl">
