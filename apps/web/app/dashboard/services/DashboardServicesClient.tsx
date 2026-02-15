@@ -642,6 +642,24 @@ export default function DashboardServicesClient() {
       </div>
     );
   }
+  if (profileType === "SHOP") {
+    return (
+      <div className="editor-card p-6 space-y-3 mx-auto max-w-xl mt-8">
+        <h1 className="text-xl font-semibold">Gestion centralizada en Panel Tienda</h1>
+        <p className="text-sm text-white/60">
+          Tu perfil esta configurado como Tienda. Toda la administracion se realiza desde el panel dedicado.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dashboard/shop" className="btn-primary">
+            Ir al Panel Tienda
+          </Link>
+          <Link href="/cuenta" className="btn-secondary">
+            Volver a cuenta
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   /* ─── Context value with all callbacks ─── */
   const contextValue: DashboardFormContextValue & Record<string, any> = {
