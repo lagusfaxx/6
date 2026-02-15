@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { apiFetch, friendlyErrorMessage } from "../lib/api";
 
 type Mode = "login" | "register";
@@ -52,7 +52,6 @@ export default function AuthForm({
   lockProfileType?: boolean;
   onSuccess?: (data: any) => { redirect?: string | null } | void;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -96,7 +95,7 @@ export default function AuthForm({
         const override = onSuccess?.(res);
         const next = searchParams.get("next");
         const redirectTo = override && "redirect" in override ? override.redirect : next || "/";
-        if (redirectTo) router.replace(redirectTo);
+        if (redirectTo) window.location.replace(redirectTo);
         return;
       } else {
         await apiFetch("/auth/login", {
@@ -105,7 +104,7 @@ export default function AuthForm({
         });
       }
       const next = searchParams.get("next");
-      router.replace(next || "/");
+      window.location.replace(next || "/");
     } catch (err: any) {
       const detailed = err?.body?.details ? flattenValidation(err.body.details) : null;
       setError(detailed || friendlyErrorMessage(err) || "Error");
