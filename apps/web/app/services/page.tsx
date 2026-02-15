@@ -232,11 +232,11 @@ export default function ServicesPage() {
 
         {/* Loading skeleton */}
         {loading && (
-          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
-                <div className="aspect-[4/3] sm:aspect-[16/10] bg-white/[0.04]" />
-                <div className="space-y-2 p-3 sm:p-4">
+                <div className="aspect-[16/11] sm:aspect-[16/10] bg-white/[0.04]" />
+                <div className="space-y-2 p-2 sm:p-4">
                   <div className="h-4 w-2/3 rounded bg-white/[0.06]" />
                   <div className="h-3 w-1/3 rounded bg-white/[0.04]" />
                 </div>
@@ -274,7 +274,7 @@ export default function ServicesPage() {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-2 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((s) => {
                 const img = s.media?.[0]?.url ? resolveMediaUrl(s.media[0].url) : null;
                 const href = ownerHref(s.owner);
@@ -285,7 +285,7 @@ export default function ServicesPage() {
                     className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
                   >
                     {/* Image or avatar header */}
-                    <div className="relative aspect-[4/3] sm:aspect-[16/10] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                    <div className="relative aspect-[16/11] sm:aspect-[16/10] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
                       {img ? (
                         <img
                           src={img}
@@ -313,14 +313,14 @@ export default function ServicesPage() {
 
                       {/* Distance badge */}
                       {s.distance != null && (
-                        <div className="absolute right-2 top-2 sm:right-3 sm:top-3 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] text-white/80 backdrop-blur-xl">
+                        <div className="absolute right-1.5 top-1.5 sm:right-3 sm:top-3 flex items-center gap-0.5 sm:gap-1 rounded-full border border-white/10 bg-black/50 px-1.5 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[11px] text-white/80 backdrop-blur-xl">
                           📍 {s.distance.toFixed(1)} km
                         </div>
                       )}
 
                       {/* Type badge */}
-                      <div className="absolute left-2 top-2 sm:left-3 sm:top-3">
-                        <span className={`rounded-full border px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] font-medium backdrop-blur-xl ${
+                      <div className="absolute left-1.5 top-1.5 sm:left-3 sm:top-3">
+                        <span className={`rounded-full border px-1.5 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[10px] font-medium backdrop-blur-xl ${
                           s.owner?.profileType === "PROFESSIONAL"
                             ? "border-fuchsia-400/30 bg-fuchsia-500/20 text-fuchsia-200"
                             : s.owner?.profileType === "ESTABLISHMENT"
@@ -332,31 +332,31 @@ export default function ServicesPage() {
                       </div>
 
                       {/* Bottom overlay */}
-                      <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+                      <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-4">
                         <h3 className="text-xs sm:text-sm font-semibold leading-tight line-clamp-2">{s.title || "Servicio"}</h3>
                       </div>
                     </div>
 
                     {/* Card body */}
-                    <div className="p-3 sm:p-4">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 overflow-hidden rounded-lg bg-white/[0.06]">
+                    <div className="p-2 sm:p-4">
+                      <div className="flex items-center gap-1.5 sm:gap-3">
+                        <div className="h-6 w-6 sm:h-8 sm:w-8 shrink-0 overflow-hidden rounded-lg bg-white/[0.06]">
                           {s.owner?.avatarUrl ? (
                             <img src={resolveMediaUrl(s.owner.avatarUrl) ?? undefined} className="h-full w-full object-cover" alt="" />
                           ) : (
-                            <div className="flex h-full items-center justify-center text-xs text-white/20">👤</div>
+                            <div className="flex h-full items-center justify-center text-[10px] sm:text-xs text-white/20">👤</div>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-xs sm:text-sm font-medium">{s.owner?.displayName || s.owner?.username || "Profesional"}</div>
-                          <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-white/50">
+                          <div className="truncate text-[11px] sm:text-sm font-medium">{s.owner?.displayName || s.owner?.username || "Profesional"}</div>
+                          <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-white/50">
                             {s.category && <span className="truncate">{s.category}</span>}
                             {s.owner?.city && <span className="truncate">· {s.owner.city}</span>}
                           </div>
                         </div>
                         {s.price != null && s.price > 0 && (
                           <div className="text-right shrink-0">
-                            <div className="text-xs sm:text-sm font-bold">${s.price.toLocaleString("es-CL")}</div>
+                            <div className="text-[11px] sm:text-sm font-bold">${s.price.toLocaleString("es-CL")}</div>
                           </div>
                         )}
                       </div>
