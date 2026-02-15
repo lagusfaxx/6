@@ -874,12 +874,20 @@ export default function ShopDashboardClient() {
                 {geocodeError && <p className="text-sm text-red-400">{geocodeError}</p>}
 
                 {locationVerified && latitude && longitude && (
-                  <div className="h-64 overflow-hidden rounded-xl border border-white/10">
+                  <div className="overflow-hidden rounded-xl border border-white/10">
                     <MapboxMap
-                      lat={Number(latitude)}
-                      lng={Number(longitude)}
-                      zoom={15}
-                      markers={[{ lat: Number(latitude), lng: Number(longitude), label: displayName || "Mi tienda" }]}
+                      height={256}
+                      className="w-full"
+                      userLocation={[Number(longitude), Number(latitude)]}
+                      focusMarkerId="shop"
+                      markers={[
+                        {
+                          id: "shop",
+                          name: displayName || "Mi tienda",
+                          lat: Number(latitude),
+                          lng: Number(longitude)
+                        }
+                      ]}
                     />
                   </div>
                 )}
