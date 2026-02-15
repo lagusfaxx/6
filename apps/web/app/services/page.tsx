@@ -344,12 +344,12 @@ export default function ServicesPage() {
                           {s.owner?.avatarUrl ? (
                             <img src={resolveMediaUrl(s.owner.avatarUrl) ?? undefined} className="h-full w-full object-cover" alt="" />
                           ) : (
-                            <div className="flex h-full items-center justify-center text-[10px] sm:text-xs text-white/20">👤</div>
+                            <div className="flex h-full items-center justify-center text-xs text-white/20">👤</div>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-[11px] sm:text-sm font-medium">{s.owner?.displayName || s.owner?.username || "Profesional"}</div>
-                          <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-white/50">
+                          <div className="flex items-center gap-1 sm:gap-2 text-[11px] sm:text-xs text-white/50">
                             {s.category && <span className="truncate">{s.category}</span>}
                             {s.owner?.city && <span className="truncate">· {s.owner.city}</span>}
                           </div>
