@@ -235,11 +235,24 @@ export default function HomePage() {
       apiFetch<{ professionals: any[] }>(`/professionals/recent?${query}`, {
         signal: controller.signal,
       })
-        .then((res) => {
-          const mapped: RecentProfessional[] = (res?.professionals || []).map((p) => ({
+        .then(async (res) => {
+          let pros = res?.professionals || [];
+          // Fallback: if /recent returns empty, try the general directory endpoint
+          if (!pros.length) {
+            try {
+              const fallback = await apiFetch<{ professionals: any[] }>(
+                `/professionals?${query}`,
+                { signal: controller.signal }
+              );
+              pros = (fallback?.professionals || []).slice(0, 6);
+            } catch {
+              // ignore fallback errors
+            }
+          }
+          const mapped: RecentProfessional[] = pros.map((p: any) => ({
             id: p.id,
-            name: p.name || "Experiencia",
-            avatarUrl: p.avatarUrl || null,
+            name: p.name || p.displayName || "Experiencia",
+            avatarUrl: p.avatarUrl || p.primaryPhoto || null,
             distance: typeof p.distance === "number" ? p.distance : null,
             age: typeof p.age === "number" ? p.age : null,
           }));
