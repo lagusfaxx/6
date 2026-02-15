@@ -200,6 +200,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
         gender: true,
         bio: true,
         birthdate: true,
+        city: true,
         serviceCategory: true,
         serviceDescription: true,
         services: {
@@ -231,6 +232,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
           gender: true,
           bio: true,
           birthdate: true,
+          city: true,
           serviceCategory: true,
           serviceDescription: true,
           services: {

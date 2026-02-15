@@ -235,11 +235,24 @@ export default function HomePage() {
       apiFetch<{ professionals: any[] }>(`/professionals/recent?${query}`, {
         signal: controller.signal,
       })
-        .then((res) => {
-          const mapped: RecentProfessional[] = (res?.professionals || []).map((p) => ({
+        .then(async (res) => {
+          let pros = res?.professionals || [];
+          // Fallback: if /recent returns empty, try the general directory endpoint
+          if (!pros.length) {
+            try {
+              const fallback = await apiFetch<{ professionals: any[] }>(
+                `/professionals?${query}`,
+                { signal: controller.signal }
+              );
+              pros = (fallback?.professionals || []).slice(0, 6);
+            } catch {
+              // ignore fallback errors
+            }
+          }
+          const mapped: RecentProfessional[] = pros.map((p: any) => ({
             id: p.id,
-            name: p.name || "Experiencia",
-            avatarUrl: p.avatarUrl || null,
+            name: p.name || p.displayName || "Experiencia",
+            avatarUrl: p.avatarUrl || p.primaryPhoto || null,
             distance: typeof p.distance === "number" ? p.distance : null,
             age: typeof p.age === "number" ? p.age : null,
           }));
@@ -437,10 +450,11 @@ export default function HomePage() {
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Horizontal carousel on mobile, grid on sm+ */}
+          <div className="scrollbar-none -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-3">
             {recentPros.length > 0
               ? recentPros.slice(0, 6).map((p, i) => (
-                  <motion.div key={p.id} variants={cardFade}>
+                  <motion.div key={p.id} variants={cardFade} className="w-[70vw] shrink-0 snap-start sm:w-auto">
                     <Link
                       href={`/profesional/${p.id}`}
                       className="group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
@@ -489,7 +503,7 @@ export default function HomePage() {
                 ))
               : recentLoading
                 ? [1, 2, 3].map((i) => (
-                    <motion.div key={i} variants={cardFade}>
+                    <motion.div key={i} variants={cardFade} className="w-[70vw] shrink-0 snap-start sm:w-auto">
                       <div className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
                         <div className="aspect-[4/5] bg-white/[0.04]" />
                         <div className="space-y-2 p-4">
@@ -500,7 +514,7 @@ export default function HomePage() {
                     </motion.div>
                   ))
                 : (
-                    <div className="col-span-full rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm text-white/50">
+                    <div className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm text-white/50 sm:col-span-full">
                       Aún no hay experiencias recientes. Vuelve pronto para descubrir nuevas opciones.
                     </div>
                   )}
