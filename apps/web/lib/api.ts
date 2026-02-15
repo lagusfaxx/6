@@ -114,26 +114,14 @@ export function friendlyErrorMessage(err: any): string {
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const base = getApiBase();
-  const method = (init?.method || "GET").toUpperCase();
-
-  // Build headers in a way that avoids forcing preflight/cache behavior on GET.
-  const headers: Record<string, string> = {
-    ...(init?.headers as any)
-  };
-
-  const isForm = init?.body instanceof FormData;
-
-  // Only set Content-Type automatically for non-GET requests with non-FormData bodies.
-  if (method !== "GET" && !isForm && !headers["Content-Type"]) {
-    headers["Content-Type"] = "application/json";
-  }
-
   const res = await fetch(`${base}${path}`, {
     ...init,
     credentials: "include",
-    headers,
-    // Prevent ETag-driven 304 responses that can break callers expecting a JSON body.
-    cache: "no-store"
+    headers: {
+      // Let callers override Content-Type (e.g. FormData, file uploads)
+      ...(init?.headers || {}),
+      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" })
+    }
   });
 
   if (!res.ok) {
@@ -148,4 +136,3 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
   return (await res.json()) as T;
 }
-
