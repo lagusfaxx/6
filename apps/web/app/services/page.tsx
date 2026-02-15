@@ -282,15 +282,15 @@ export default function ServicesPage() {
                   <Link
                     key={s.id}
                     href={href}
-                    className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+                    className="group w-full max-w-[420px] mx-auto sm:max-w-none sm:mx-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
                   >
                     {/* Image or avatar header */}
-                    <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                    <div className="relative aspect-[4/5] sm:aspect-[16/10] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
                       {img ? (
                         <img
                           src={img}
                           alt={s.title}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
                           onError={(e) => {
                             const el = e.currentTarget;
                             el.onerror = null;
@@ -302,7 +302,7 @@ export default function ServicesPage() {
                         <img
                           src={resolveMediaUrl(s.owner.avatarUrl) ?? undefined}
                           alt={s.title}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center">
