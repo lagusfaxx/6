@@ -144,7 +144,7 @@ export default function ServicesPage() {
           <div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-fuchsia-400/70">
             <span>✨</span> Explorar
           </div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">Servicios</h1>
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Servicios</h1>
           <p className="mt-1 text-sm text-white/45">Descubre experiencias, hospedajes y tiendas cerca de ti.</p>
 
           {/* Search */}
@@ -320,7 +320,7 @@ export default function ServicesPage() {
 
                       {/* Type badge */}
                       <div className="absolute left-2 top-2 sm:left-3 sm:top-3">
-                        <span className={`rounded-full border px-2 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[10px] font-medium backdrop-blur-xl ${
+                        <span className={`rounded-full border px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] font-medium backdrop-blur-xl ${
                           s.owner?.profileType === "PROFESSIONAL"
                             ? "border-fuchsia-400/30 bg-fuchsia-500/20 text-fuchsia-200"
                             : s.owner?.profileType === "ESTABLISHMENT"
@@ -349,7 +349,7 @@ export default function ServicesPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-xs sm:text-sm font-medium">{s.owner?.displayName || s.owner?.username || "Profesional"}</div>
-                          <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-white/40">
+                          <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-white/50">
                             {s.category && <span className="truncate">{s.category}</span>}
                             {s.owner?.city && <span className="truncate">· {s.owner.city}</span>}
                           </div>
