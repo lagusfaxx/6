@@ -154,9 +154,9 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
       });
     }
     where.services = { some: { categoryId: categoryRef.id, isActive: true } };
-  } else {
-    where.services = { some: { isActive: true } };
   }
+  // Note: no services filter when no category is specified — this allows
+  // professionals who haven't created ServiceItem records yet to appear.
 
   if (gender) where.gender = gender;
   if (tier) where.tier = tier;
@@ -326,7 +326,8 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
   const lat = req.query.lat ? Number(req.query.lat) : null;
   const lng = req.query.lng ? Number(req.query.lng) : null;
 
-  const users = await prisma.user.findMany({
+  // First try with active services, then fallback to all active professionals
+  let users = await prisma.user.findMany({
     where: {
       profileType: "PROFESSIONAL",
       isActive: true,
@@ -342,6 +343,8 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
       avatarUrl: true,
       bio: true,
       birthdate: true,
+      latitude: true,
+      longitude: true,
       createdAt: true,
       services: {
         where: { isActive: true },
@@ -352,11 +355,73 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
     }
   });
 
+  // Fallback: if no results, try without the active-services requirement
+  if (!users.length) {
+    users = await prisma.user.findMany({
+      where: {
+        profileType: "PROFESSIONAL",
+        isActive: true,
+        OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        bio: true,
+        birthdate: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+        services: {
+          where: { isActive: true },
+          select: { latitude: true, longitude: true },
+          take: 1,
+          orderBy: { createdAt: "desc" }
+        }
+      }
+    });
+  }
+
+  // Last fallback: if still nothing, try all professionals regardless of membership
+  if (!users.length) {
+    users = await prisma.user.findMany({
+      where: {
+        profileType: "PROFESSIONAL",
+        isActive: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        bio: true,
+        birthdate: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+        services: {
+          where: { isActive: true },
+          select: { latitude: true, longitude: true },
+          take: 1,
+          orderBy: { createdAt: "desc" }
+        }
+      }
+    });
+  }
+
   const mapped = users.map((u) => {
     const activeService = u.services[0];
+    // Use service location first, fallback to user's own location
+    const profLat = activeService?.latitude ?? u.latitude;
+    const profLng = activeService?.longitude ?? u.longitude;
     const distance =
-      lat != null && lng != null && activeService?.latitude != null && activeService?.longitude != null
-        ? haversineKm(lat, lng, activeService.latitude, activeService.longitude)
+      lat != null && lng != null && profLat != null && profLng != null
+        ? haversineKm(lat, lng, profLat, profLng)
         : null;
     return {
       id: u.id,
