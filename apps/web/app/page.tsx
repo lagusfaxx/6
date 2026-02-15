@@ -190,7 +190,7 @@ export default function HomePage() {
   const { location, resolved } = useMapLocation([-33.45, -70.66]);
   const [error, setError] = useState<string | null>(null);
   const [recentError, setRecentError] = useState<string | null>(null);
-  const [recentLoading, setRecentLoading] = useState(false);
+  const [recentLoading, setRecentLoading] = useState(true);
   const lastRecentQueryRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
