@@ -5,8 +5,6 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import { useMapLocation } from "../hooks/useMapLocation";
-import SkeletonCard from "../components/SkeletonCard";
-import StarRating from "../components/StarRating";
 import {
   ArrowRight,
   BedDouble,
@@ -18,7 +16,6 @@ import {
   Hotel,
   MapPin,
   Sparkles,
-  Star,
   Store,
   TrendingUp,
   Users,
@@ -183,11 +180,13 @@ const cardFade = {
 
 /* ── Page ── */
 
+const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
+
 export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
-  const { location, resolved } = useMapLocation([-33.45, -70.66]);
+  const { location } = useMapLocation(SANTIAGO_FALLBACK);
   const [error, setError] = useState<string | null>(null);
   const [recentError, setRecentError] = useState<string | null>(null);
   const [recentLoading, setRecentLoading] = useState(true);
@@ -212,8 +211,8 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (!resolved) return;
-
+    // Build query — use current location (or fallback) immediately.
+    // Don't gate on `resolved` so cards load without waiting for geolocation.
     const params = new URLSearchParams();
     if (location) {
       params.set("lat", String(location[0]));
@@ -255,13 +254,13 @@ export default function HomePage() {
           setRecentError("No se pudieron cargar experiencias recientes.");
         })
         .finally(() => setRecentLoading(false));
-    }, 250);
+    }, 150);
 
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [location, resolved]);
+  }, [location]);
 
   const grouped = useMemo(() => {
     const by = { PROFESSIONAL: [] as Category[], ESTABLISHMENT: [] as Category[], SHOP: [] as Category[] };
