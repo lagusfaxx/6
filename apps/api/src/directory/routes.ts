@@ -326,55 +326,92 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
   const lat = req.query.lat ? Number(req.query.lat) : null;
   const lng = req.query.lng ? Number(req.query.lng) : null;
 
-  const baseSelect = {
-    id: true,
-    username: true,
-    displayName: true,
-    avatarUrl: true,
-    bio: true,
-    birthdate: true,
-    latitude: true,
-    longitude: true,
-    createdAt: true,
-    services: {
-      where: { isActive: true },
-      select: { latitude: true, longitude: true },
-      take: 1,
-      orderBy: { createdAt: "desc" }
-    }
-  } satisfies Prisma.UserSelect;
-
-  const whereAttempts: Prisma.UserWhereInput[] = [
-    {
+  // First try with active services, then fallback to all active professionals
+  let users = await prisma.user.findMany({
+    where: {
       profileType: "PROFESSIONAL",
       isActive: true,
       OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
       services: { some: { isActive: true } }
     },
-    {
-      profileType: "PROFESSIONAL",
-      isActive: true,
-      OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }]
-    },
-    {
-      profileType: "PROFESSIONAL",
-      isActive: true
-    },
-    // Último recurso: perfiles profesionales aunque no estén activos.
-    {
-      profileType: "PROFESSIONAL"
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      avatarUrl: true,
+      bio: true,
+      birthdate: true,
+      latitude: true,
+      longitude: true,
+      createdAt: true,
+      services: {
+        where: { isActive: true },
+        select: { latitude: true, longitude: true },
+        take: 1,
+        orderBy: { createdAt: "desc" }
+      }
     }
-  ];
+  });
 
-  let users: Array<Prisma.UserGetPayload<{ select: typeof baseSelect }>> = [];
-  for (const where of whereAttempts) {
+  // Fallback: if no results, try without the active-services requirement
+  if (!users.length) {
     users = await prisma.user.findMany({
-      where,
+      where: {
+        profileType: "PROFESSIONAL",
+        isActive: true,
+        OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
+      },
       orderBy: { createdAt: "desc" },
       take: limit,
-      select: baseSelect
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        bio: true,
+        birthdate: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+        services: {
+          where: { isActive: true },
+          select: { latitude: true, longitude: true },
+          take: 1,
+          orderBy: { createdAt: "desc" }
+        }
+      }
     });
-    if (users.length) break;
+  }
+
+  // Last fallback: if still nothing, try all professionals regardless of membership
+  if (!users.length) {
+    users = await prisma.user.findMany({
+      where: {
+        profileType: "PROFESSIONAL",
+        isActive: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        bio: true,
+        birthdate: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+        services: {
+          where: { isActive: true },
+          select: { latitude: true, longitude: true },
+          take: 1,
+          orderBy: { createdAt: "desc" }
+        }
+      }
+    });
   }
 
   const mapped = users.map((u) => {
