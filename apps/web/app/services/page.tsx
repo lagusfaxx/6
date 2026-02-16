@@ -6,6 +6,7 @@ import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import Avatar from "../../components/Avatar";
 import { useMapLocation } from "../../hooks/useMapLocation";
 import MapboxMap from "../../components/MapboxMap";
+import { Sparkles, Gem, Hotel, ShoppingBag, MapPin, Search, User } from "lucide-react";
 
 type ServiceItem = {
   id: string;
@@ -32,10 +33,10 @@ type ServiceItem = {
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
 
 const KIND_TABS = [
-  { key: "", label: "Todos", icon: "✨" },
-  { key: "PROFESSIONAL", label: "Experiencias", icon: "💎" },
-  { key: "ESTABLISHMENT", label: "Hospedaje", icon: "🏨" },
-  { key: "SHOP", label: "Tiendas", icon: "🛍️" },
+  { key: "", label: "Todos", icon: Sparkles },
+  { key: "PROFESSIONAL", label: "Experiencias", icon: Gem },
+  { key: "ESTABLISHMENT", label: "Hospedaje", icon: Hotel },
+  { key: "SHOP", label: "Tiendas", icon: ShoppingBag },
 ] as const;
 
 function ownerHref(owner: ServiceItem["owner"]) {
@@ -120,16 +121,14 @@ export default function ServicesPage() {
         <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-[400px] w-[600px] -translate-x-1/2 rounded-full bg-violet-600/[0.08] blur-[120px]" />
         <div className="mx-auto max-w-6xl">
           <div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-fuchsia-400/70">
-            <span>✨</span> Explorar
+            <Sparkles className="h-3.5 w-3.5" /> Explorar
           </div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">Servicios</h1>
           <p className="mt-1 text-sm text-white/45">Descubre experiencias, hospedajes y tiendas cerca de ti.</p>
 
           {/* Search */}
           <div className="relative mt-3 sm:mt-5">
-            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30 sm:left-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30 sm:left-4" />
             <input
               type="text"
               value={search}
@@ -141,20 +140,23 @@ export default function ServicesPage() {
 
           {/* Kind tabs */}
           <div className="scrollbar-none -mx-3 mt-3 flex gap-1.5 overflow-x-auto px-3 sm:-mx-4 sm:mt-4 sm:gap-2 sm:px-4">
-            {KIND_TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setActiveKind(t.key)}
-                className={`flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all sm:gap-1.5 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm ${
-                  activeKind === t.key
-                    ? "border border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300"
-                    : "border border-white/[0.06] text-white/50 hover:bg-white/[0.04]"
-                }`}
-              >
-                <span>{t.icon}</span>
-                {t.label}
-              </button>
-            ))}
+            {KIND_TABS.map((t) => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setActiveKind(t.key)}
+                  className={`flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all sm:gap-1.5 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm ${
+                    activeKind === t.key
+                      ? "border border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300"
+                      : "border border-white/[0.06] text-white/50 hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -174,7 +176,8 @@ export default function ServicesPage() {
                 : "border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08]"
             }`}
           >
-            {showMap ? "📍 Ocultar mapa" : "📍 Ver mapa"}
+            <MapPin className="h-3.5 w-3.5" />
+            {showMap ? "Ocultar mapa" : "Ver mapa"}
           </button>
         </div>
 
@@ -207,7 +210,9 @@ export default function ServicesPage() {
         {/* Empty state */}
         {!loading && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-3xl border border-white/[0.08] bg-white/[0.03] p-12 text-center">
-            <div className="mb-4 text-5xl">🔍</div>
+            <div className="mb-4 rounded-full bg-white/[0.06] p-4">
+              <Search className="h-8 w-8 text-white/30" />
+            </div>
             <h3 className="text-lg font-semibold">Sin resultados</h3>
             <p className="mt-1 max-w-sm text-sm text-white/40">
               {search ? `No encontramos servicios para "${search}". Intenta con otra búsqueda.` : "No hay servicios disponibles en este momento. Vuelve pronto."}
@@ -273,7 +278,7 @@ export default function ServicesPage() {
                       {/* Distance badge */}
                       {s.distance != null && (
                         <div className="absolute right-2 top-2 sm:right-3 sm:top-3 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-1 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] text-white/80 backdrop-blur-xl">
-                          📍 {s.distance.toFixed(1)} km
+                          <MapPin className="h-3 w-3" /> {s.distance.toFixed(1)} km
                         </div>
                       )}
 
@@ -303,7 +308,9 @@ export default function ServicesPage() {
                           {s.owner?.avatarUrl ? (
                             <img src={resolveMediaUrl(s.owner.avatarUrl) ?? undefined} className="h-full w-full object-cover" alt="" />
                           ) : (
-                            <div className="flex h-full items-center justify-center text-xs text-white/20">👤</div>
+                            <div className="flex h-full items-center justify-center text-white/20">
+                              <User className="h-4 w-4" />
+                            </div>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
