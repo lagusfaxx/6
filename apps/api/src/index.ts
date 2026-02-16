@@ -30,6 +30,7 @@ import { statsRouter } from "./stats/routes";
 import { clientRouter } from "./client/routes";
 import { shopRouter } from "./shop/routes";
 import { motelRouter } from "./motel/routes";
+import { favoritesRouter } from "./favorites/routes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 
@@ -173,6 +174,7 @@ app.use("/", billingRouter);
 app.use("/", notificationsRouter);
 app.use("/", realtimeRouter);
 app.use("/", statsRouter);
+app.use("/", favoritesRouter);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const requestId = (req as any).requestId;

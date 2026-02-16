@@ -546,7 +546,7 @@ export default function HomePage() {
                   {items.length > 0
                     ? items.map((c, idx) => {
                         const Icon = categoryIcon(c.kind, c.slug || c.name);
-                        const href = kindAllHref(c.kind);
+                        const href = kindHref(c.kind, c.slug || c.name);
                         const grad = categoryGradient(c.kind, idx);
 
                         return (
