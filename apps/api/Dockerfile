@@ -49,4 +49,4 @@ COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 EXPOSE 3001
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD sh -lc "cd prisma && npx prisma migrate deploy --schema=schema.prisma && npx prisma db seed --schema=schema.prisma && cd .. && node apps/api/dist/index.js"
+CMD sh -lc "cd prisma && npx prisma migrate deploy --schema=schema.prisma && cd .. && node apps/api/dist/index.js"
