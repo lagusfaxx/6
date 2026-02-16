@@ -236,14 +236,24 @@ export default function HomePage() {
         signal: controller.signal,
       })
         .then((res) => {
-          const mapped: RecentProfessional[] = (res?.professionals || []).map((p) => ({
-            id: p.id,
-            name: p.name || "Experiencia",
-            avatarUrl: p.avatarUrl || null,
-            distance: typeof p.distance === "number" ? p.distance : null,
-            age: typeof p.age === "number" ? p.age : null,
-          }));
+          // Filter out professionals without avatars (defense-in-depth)
+          const mapped: RecentProfessional[] = (res?.professionals || [])
+            .filter(p => {
+              if (!p.avatarUrl || p.avatarUrl.trim() === '') {
+                console.warn('[HomePage] Filtering professional without avatar:', p.id);
+                return false;
+              }
+              return true;
+            })
+            .map((p) => ({
+              id: p.id,
+              name: p.name || "Experiencia",
+              avatarUrl: p.avatarUrl,
+              distance: typeof p.distance === "number" ? p.distance : null,
+              age: typeof p.age === "number" ? p.age : null,
+            }));
           setRecentPros(mapped);
+          console.log(`[HomePage] Loaded ${mapped.length} professionals`);
         })
         .catch((err: any) => {
           if (err?.name === "AbortError") return;
