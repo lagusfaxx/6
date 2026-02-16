@@ -333,6 +333,7 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
     where: {
       profileType: "PROFESSIONAL",
       isActive: true,
+      avatarUrl: { not: null },
       OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
       services: { some: { isActive: true } }
     },
@@ -363,6 +364,7 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
       where: {
         profileType: "PROFESSIONAL",
         isActive: true,
+        avatarUrl: { not: null },
         OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
       },
       orderBy: { createdAt: "desc" },
@@ -393,6 +395,7 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
       where: {
         profileType: "PROFESSIONAL",
         isActive: true,
+        avatarUrl: { not: null },
       },
       orderBy: { createdAt: "desc" },
       take: limit,
@@ -416,7 +419,20 @@ directoryRouter.get("/professionals/recent", asyncHandler(async (req, res) => {
     });
   }
 
-  const mapped = users.map((u) => {
+  // Additional safety filter (should be redundant but ensures no nulls slip through)
+  const validUsers = users.filter(u => {
+    if (!u.avatarUrl || u.avatarUrl.trim() === '') {
+      console.warn(`[professionals/recent] Filtering professional ${u.id} without avatar`, {
+        id: u.id,
+        username: u.username,
+        avatarUrl: u.avatarUrl
+      });
+      return false;
+    }
+    return true;
+  });
+
+  const mapped = validUsers.map((u) => {
     const activeService = u.services[0];
     // Use service location first, fallback to user's own location
     const profLat = activeService?.latitude ?? u.latitude;

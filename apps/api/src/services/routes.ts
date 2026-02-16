@@ -222,7 +222,25 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
     }
   });
 
-  const enriched = items
+  // Filter out services without visual assets (media or owner avatar)
+  const validItems = items.filter(item => {
+    const hasMedia = item.media && item.media.length > 0;
+    const hasOwnerAvatar = item.owner?.avatarUrl != null && item.owner.avatarUrl.trim() !== '';
+
+    if (!hasMedia && !hasOwnerAvatar) {
+      console.warn(`[services/global] Filtering service ${item.id}: no media, no avatar`, {
+        serviceId: item.id,
+        title: item.title,
+        ownerId: item.owner?.id,
+        mediaCount: item.media?.length || 0,
+        hasAvatar: !!item.owner?.avatarUrl
+      });
+      return false;
+    }
+    return true;
+  });
+
+  const enriched = validItems
     .map((s) => {
       const distance =
         lat !== null && lng !== null && s.latitude !== null && s.longitude !== null
