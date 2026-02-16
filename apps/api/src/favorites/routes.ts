@@ -116,7 +116,7 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
   return res.json({
     favorites: favorites.map(fav => {
       const stats = ratingByProfessional.get(fav.professionalId);
-      const rating = stats ? stats.sum / stats.count : null;
+      const rating = stats ? Math.round((stats.sum / stats.count) * 100) / 100 : null;
       
       return {
         id: fav.id,
@@ -130,7 +130,7 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
                    fav.professional.serviceCategory || 
                    "Profesional",
           isActive: fav.professional.isActive,
-          rating: rating ? Number(rating.toFixed(2)) : null
+          rating
         }
       };
     }),

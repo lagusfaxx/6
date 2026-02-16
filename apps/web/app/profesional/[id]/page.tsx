@@ -69,7 +69,13 @@ export default function ProfessionalDetailPage() {
     if (me?.user?.profileType === "VIEWER") {
       apiFetch<{ isFavorite: boolean }>(`/favorites/check/${id}`)
         .then((res) => setFavorite(res.isFavorite))
-        .catch(() => setFavorite(false));
+        .catch((err) => {
+          // Only log error if it's not an authorization error
+          if (!(err instanceof ApiHttpError && err.status === 403)) {
+            console.error("Failed to check favorite status", err);
+          }
+          setFavorite(false);
+        });
     } else {
       setFavorite(false);
     }

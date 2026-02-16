@@ -221,7 +221,13 @@ export default function FavoritesPage() {
                   )}
 
                   <div className="mt-3 text-xs text-white/40">
-                    Completado el {new Date(service.updatedAt).toLocaleDateString('es-CL')}
+                    {(() => {
+                      try {
+                        return `Completado el ${new Date(service.updatedAt).toLocaleDateString('es-CL')}`;
+                      } catch {
+                        return `Completado recientemente`;
+                      }
+                    })()}
                   </div>
                 </div>
               </div>
