@@ -11,6 +11,7 @@ import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 import { findCategoryByRef } from "../lib/categories";
 import { obfuscateLocation } from "../lib/locationPrivacy";
+import { isUUID } from "../lib/validators";
 import { sendToUser } from "../realtime/sse";
 
 export const servicesRouter = Router();
@@ -195,7 +196,7 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
         ? {
           OR: [
             { categoryRel: { slug: category } },
-            { categoryRel: { id: category } },
+            ...(isUUID(category) ? [{ categoryRel: { id: category } }] : []),
             { category: { contains: category, mode: "insensitive" } }
           ]
         }
