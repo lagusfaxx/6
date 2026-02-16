@@ -236,6 +236,12 @@ export default function HomePage() {
         signal: controller.signal,
       })
         .then((res) => {
+          // DEBUG: Log raw API response
+          console.log('[HomePage DEBUG] Raw API response:', {
+            count: res?.professionals?.length || 0,
+            sample: res?.professionals?.[0]
+          });
+
           // Filter out professionals without avatars (defense-in-depth)
           const mapped: RecentProfessional[] = (res?.professionals || [])
             .filter(p => {
@@ -252,8 +258,20 @@ export default function HomePage() {
               distance: typeof p.distance === "number" ? p.distance : null,
               age: typeof p.age === "number" ? p.age : null,
             }));
-          setRecentPros(mapped);
+
+          // DEBUG: Log processed data and resolved URLs
           console.log(`[HomePage] Loaded ${mapped.length} professionals`);
+          if (mapped.length > 0) {
+            const firstPro = mapped[0];
+            console.log('[HomePage DEBUG] First professional:', {
+              id: firstPro.id,
+              name: firstPro.name,
+              rawAvatarUrl: firstPro.avatarUrl,
+              resolvedUrl: resolveMediaUrl(firstPro.avatarUrl)
+            });
+          }
+
+          setRecentPros(mapped);
         })
         .catch((err: any) => {
           if (err?.name === "AbortError") return;
