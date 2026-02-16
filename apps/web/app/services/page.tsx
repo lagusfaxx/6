@@ -82,7 +82,26 @@ export default function ServicesPage() {
     if (activeCategory) params.set("category", activeCategory);
 
     apiFetch<{ services: ServiceItem[] }>(`/services/global?${params.toString()}`)
-      .then((res) => setServices(res?.services || []))
+      .then((res) => {
+        // Filter services without visual assets (defense-in-depth)
+        const validServices = (res?.services || []).filter(s => {
+          const hasMedia = s.media && s.media.length > 0;
+          const hasOwnerAvatar = s.owner?.avatarUrl != null && s.owner.avatarUrl.trim() !== '';
+
+          if (!hasMedia && !hasOwnerAvatar) {
+            console.warn('[ServicesPage] Filtering service without visual assets:', {
+              id: s.id,
+              title: s.title,
+              ownerId: s.owner?.id
+            });
+            return false;
+          }
+          return true;
+        });
+
+        setServices(validServices);
+        console.log(`[ServicesPage] Loaded ${validServices.length} services`);
+      })
       .catch(() => setServices([]))
       .finally(() => setLoading(false));
   }, [location, activeKind, activeCategory]);

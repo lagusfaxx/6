@@ -1,5 +1,19 @@
-self.addEventListener("install", () => {
+// Version-based cache for automatic invalidation on deployment
+const CACHE_VERSION = 'v1-' + new Date().toISOString().slice(0,10);
+const CACHE_NAME = `uzeed-cache-${CACHE_VERSION}`;
+
+self.addEventListener("install", (event) => {
   self.skipWaiting();
+  // Delete old caches on install
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames
+          .filter(name => name.startsWith('uzeed-cache-') && name !== CACHE_NAME)
+          .map(name => caches.delete(name))
+      );
+    })
+  );
 });
 
 self.addEventListener("activate", (event) => {

@@ -68,6 +68,41 @@ export default function PushNotificationsManager() {
     };
   }, []);
 
+  // Service Worker update detection - auto-reload when new version available
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    let refreshing = false;
+
+    // Detect when new service worker is installed and waiting
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      console.log('[SW] New version detected, reloading page...');
+      window.location.reload();
+    });
+
+    // Check for updates periodically
+    const checkForUpdates = async () => {
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          await registration.update();
+        }
+      } catch (err) {
+        console.error('[SW] Update check failed:', err);
+      }
+    };
+
+    // Check for updates every 30 minutes
+    const interval = setInterval(checkForUpdates, 30 * 60 * 1000);
+
+    // Check once on mount
+    checkForUpdates();
+
+    return () => clearInterval(interval);
+  }, []);
+
   async function ensureServiceWorkerRegistration() {
     if (swRegistration) return swRegistration;
     const reg = await registerServiceWorker();
