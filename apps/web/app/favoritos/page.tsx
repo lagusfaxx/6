@@ -88,19 +88,20 @@ export default function FavoritesPage() {
   };
 
   return (
-    <div className="grid gap-6">
-      <div className="card p-6">
-        <h1 className="text-2xl font-semibold">Favoritos e Historial</h1>
+    <div className="grid gap-4 sm:gap-6">
+      {/* Header */}
+      <div className="card p-4 sm:p-6">
+        <h1 className="text-xl sm:text-2xl font-semibold">Favoritos e Historial</h1>
         <p className="mt-2 text-sm text-white/70">
           Tus profesionales favoritos y servicios completados.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-white/10">
+      <div className="flex gap-1 border-b border-white/10 overflow-x-auto">
         <button
           onClick={() => setActiveTab("favorites")}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
+          className={`flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
             activeTab === "favorites"
               ? "border-b-2 border-fuchsia-500 text-white"
               : "text-white/60 hover:text-white/80"
@@ -110,7 +111,7 @@ export default function FavoritesPage() {
         </button>
         <button
           onClick={() => setActiveTab("history")}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
+          className={`flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
             activeTab === "history"
               ? "border-b-2 border-fuchsia-500 text-white"
               : "text-white/60 hover:text-white/80"
@@ -122,22 +123,22 @@ export default function FavoritesPage() {
 
       {/* Favorites Tab */}
       {activeTab === "favorites" && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
           {data.favorites.map((fav) => (
             <Link
               key={fav.id}
               href={`/profesional/${fav.professional.id}`}
-              className={`rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-white/30 ${
+              className={`rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 transition hover:border-white/30 active:scale-98 ${
                 fav.professional.isActive ? "" : "opacity-60 grayscale"
               }`}
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <Avatar src={fav.professional.avatarUrl} alt={fav.professional.name} size={48} />
-                <div className="flex-1">
-                  <div className="font-semibold">{fav.professional.name}</div>
-                  <div className="text-xs text-white/60">{fav.professional.category || "Profesional"}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold truncate">{fav.professional.name}</div>
+                  <div className="text-xs text-white/60 truncate">{fav.professional.category || "Profesional"}</div>
                 </div>
-                <Heart className="h-5 w-5 fill-red-500 text-red-500" />
+                <Heart className="h-5 w-5 flex-shrink-0 fill-red-500 text-red-500" />
               </div>
               {fav.professional.rating && (
                 <div className="mt-3 flex items-center gap-2 text-xs text-white/60">
@@ -148,10 +149,10 @@ export default function FavoritesPage() {
             </Link>
           ))}
           {!data.favorites.length && (
-            <div className="col-span-full card p-6 text-center text-white/60">
-              <Heart className="mx-auto h-12 w-12 text-white/20" />
-              <p className="mt-3">No tienes favoritos aún.</p>
-              <p className="mt-1 text-sm">Toca el corazón en el perfil de un profesional para agregarlo.</p>
+            <div className="col-span-full card p-6 sm:p-8 text-center text-white/60">
+              <Heart className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-white/20" />
+              <p className="mt-3 text-sm sm:text-base">No tienes favoritos aún.</p>
+              <p className="mt-1 text-xs sm:text-sm">Toca el corazón en el perfil de un profesional para agregarlo.</p>
             </div>
           )}
         </div>
@@ -159,54 +160,55 @@ export default function FavoritesPage() {
 
       {/* Service History Tab */}
       {activeTab === "history" && (
-        <div className="grid gap-4">
+        <div className="grid gap-3 sm:gap-4">
           {data.serviceHistory.map((service) => (
             <div
               key={service.id}
-              className="rounded-2xl border border-white/10 bg-white/5 p-5"
+              className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5"
             >
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-3 sm:gap-4">
                 <Avatar 
                   src={service.professional.avatarUrl} 
                   alt={service.professional.name} 
                   size={48} 
+                  className="flex-shrink-0"
                 />
-                <div className="flex-1">
-                  <div className="flex items-start justify-between">
-                    <div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
                       <Link
                         href={`/profesional/${service.professional.id}`}
-                        className="font-semibold hover:text-fuchsia-400 transition"
+                        className="font-semibold hover:text-fuchsia-400 transition block truncate"
                       >
                         {service.professional.name}
                       </Link>
-                      <div className="text-xs text-white/60 mt-0.5">
+                      <div className="text-xs text-white/60 mt-0.5 truncate">
                         {service.professional.category}
                       </div>
                     </div>
                     {service.review && (
-                      <div className="flex flex-col items-end gap-1">
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
                         {renderHearts(service.review.hearts)}
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-3 grid gap-2 text-sm text-white/70">
+                  <div className="mt-3 grid gap-2 text-xs sm:text-sm text-white/70">
                     {service.requestedDate && service.requestedTime && (
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-white/40" />
-                        <span>{service.requestedDate} a las {service.requestedTime}</span>
+                      <div className="flex items-start gap-2">
+                        <Calendar className="h-4 w-4 text-white/40 flex-shrink-0 mt-0.5" />
+                        <span className="break-words">{service.requestedDate} a las {service.requestedTime}</span>
                       </div>
                     )}
                     {service.agreedLocation && (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-white/40" />
-                        <span>{service.agreedLocation}</span>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 text-white/40 flex-shrink-0 mt-0.5" />
+                        <span className="break-words">{service.agreedLocation}</span>
                       </div>
                     )}
                     {service.professionalDurationM && service.professionalPriceClp && (
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-white/40" />
+                      <div className="flex items-start gap-2">
+                        <Clock className="h-4 w-4 text-white/40 flex-shrink-0 mt-0.5" />
                         <span>
                           {service.professionalDurationM} min · ${service.professionalPriceClp.toLocaleString()}
                         </span>
@@ -215,7 +217,7 @@ export default function FavoritesPage() {
                   </div>
 
                   {service.review?.comment && (
-                    <div className="mt-3 rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white/80">
+                    <div className="mt-3 rounded-lg border border-white/10 bg-white/5 p-3 text-xs sm:text-sm text-white/80">
                       "{service.review.comment}"
                     </div>
                   )}
@@ -234,10 +236,10 @@ export default function FavoritesPage() {
             </div>
           ))}
           {!data.serviceHistory.length && (
-            <div className="card p-6 text-center text-white/60">
-              <Calendar className="mx-auto h-12 w-12 text-white/20" />
-              <p className="mt-3">No tienes servicios completados aún.</p>
-              <p className="mt-1 text-sm">Una vez que completes un servicio, aparecerá aquí.</p>
+            <div className="card p-6 sm:p-8 text-center text-white/60">
+              <Calendar className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-white/20" />
+              <p className="mt-3 text-sm sm:text-base">No tienes servicios completados aún.</p>
+              <p className="mt-1 text-xs sm:text-sm">Una vez que completes un servicio, aparecerá aquí.</p>
             </div>
           )}
         </div>
