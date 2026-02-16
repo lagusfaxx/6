@@ -122,30 +122,30 @@ export default function ServicesPage() {
           <div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-fuchsia-400/70">
             <span>✨</span> Explorar
           </div>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Servicios</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">Servicios</h1>
           <p className="mt-1 text-sm text-white/45">Descubre experiencias, hospedajes y tiendas cerca de ti.</p>
 
           {/* Search */}
-          <div className="relative mt-5">
-            <svg className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="relative mt-3 sm:mt-5">
+            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30 sm:left-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre, categoría, ciudad..."
-              className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3.5 pl-11 pr-4 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-fuchsia-500/40 focus:bg-white/[0.06] focus:ring-1 focus:ring-fuchsia-500/20"
+              placeholder="Buscar por nombre, categoría..."
+              className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2.5 pl-9 pr-3 text-xs text-white placeholder-white/30 outline-none transition-all focus:border-fuchsia-500/40 focus:bg-white/[0.06] focus:ring-1 focus:ring-fuchsia-500/20 sm:rounded-2xl sm:py-3.5 sm:pl-11 sm:pr-4 sm:text-sm"
             />
           </div>
 
           {/* Kind tabs */}
-          <div className="scrollbar-none -mx-4 mt-4 flex gap-2 overflow-x-auto px-4">
+          <div className="scrollbar-none -mx-3 mt-3 flex gap-1.5 overflow-x-auto px-3 sm:-mx-4 sm:mt-4 sm:gap-2 sm:px-4">
             {KIND_TABS.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setActiveKind(t.key)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+                className={`flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all sm:gap-1.5 sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm ${
                   activeKind === t.key
                     ? "border border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300"
                     : "border border-white/[0.06] text-white/50 hover:bg-white/[0.04]"
