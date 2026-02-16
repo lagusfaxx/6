@@ -218,8 +218,7 @@ export default function HomePage() {
       params.set("lat", String(location[0]));
       params.set("lng", String(location[1]));
     }
-    // Show more professionals, not just recent
-    params.set("limit", "50");
+    params.set("limit", "20");
     const query = params.toString();
 
     if (lastRecentQueryRef.current === query) return;
@@ -439,9 +438,9 @@ export default function HomePage() {
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
             {recentPros.length > 0
-              ? recentPros.slice(0, 12).map((p, i) => (
+              ? recentPros.slice(0, 3).map((p, i) => (
                   <motion.div key={p.id} variants={cardFade}>
                     <Link
                       href={`/profesional/${p.id}`}
@@ -629,9 +628,9 @@ export default function HomePage() {
 
             <motion.div
               variants={cardFade}
-              className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory md:mx-0 md:grid md:grid-cols-3 lg:grid-cols-4 md:overflow-visible md:px-0"
+              className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0"
             >
-              {recentPros.slice(0, 12).map((p) => (
+              {recentPros.slice(0, 3).map((p) => (
                 <Link
                   key={`trend-${p.id}`}
                   href={`/profesional/${p.id}`}
