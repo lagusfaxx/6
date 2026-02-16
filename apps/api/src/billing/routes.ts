@@ -76,14 +76,8 @@ const handleMembershipStart = asyncHandler(async (req, res) => {
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
-  // CLIENT and VIEWER profiles don't need to pay
-  if (user.profileType === "CLIENT" || user.profileType === "VIEWER") {
-    return res.status(400).json({ error: "NOT_REQUIRED" });
-  }
-
-  // PROFESSIONAL, ESTABLISHMENT, and SHOP profiles require payment
-  const requiresPayment = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType);
-  if (!requiresPayment) {
+  // Only PROFESSIONAL, ESTABLISHMENT, and SHOP profiles need to pay
+  if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
     return res.status(400).json({ error: "NOT_REQUIRED" });
   }
 
@@ -127,9 +121,10 @@ const handleShopPlanStart = asyncHandler(async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { profileType: true, username: true } });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
   
-  // SHOP, PROFESSIONAL, and ESTABLISHMENT profiles all use the same price
-  const requiresPayment = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType);
-  if (!requiresPayment) return res.status(400).json({ error: "NOT_ALLOWED" });
+  // PROFESSIONAL, ESTABLISHMENT, and SHOP profiles all use the same price
+  if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
+    return res.status(400).json({ error: "NOT_ALLOWED" });
+  }
 
   const amount = config.membershipPriceClp; // Use unified price (4990)
   const intent = await prisma.paymentIntent.create({

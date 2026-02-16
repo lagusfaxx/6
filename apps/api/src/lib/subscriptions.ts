@@ -15,15 +15,12 @@ type PlanUser = {
  * @returns true if the user has an active subscription or is within trial period, false otherwise
  */
 export function isBusinessPlanActive(user: PlanUser): boolean {
-  // CLIENT and VIEWER profiles don't need to pay
+  // CLIENT, VIEWER, and CREATOR profiles don't need to pay
   if (user.profileType === "CLIENT" || user.profileType === "VIEWER" || user.profileType === "CREATOR") {
     return true;
   }
 
   // PROFESSIONAL, ESTABLISHMENT, and SHOP profiles require payment
-  const requiresPayment = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType);
-  if (!requiresPayment) return true;
-
   const now = Date.now();
   
   // Check if membership is active (paid subscription)
