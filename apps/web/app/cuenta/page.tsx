@@ -51,6 +51,9 @@ export default function AccountPage() {
   const isMotelProfile = profileType === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
   const canManageProfile = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
   const requiresPayment = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
+  
+  // Compute derived subscription values
+  const isTrialPeriod = subscriptionStatus?.trialActive && !subscriptionStatus?.membershipActive;
   const profileLabel =
     profileType === "PROFESSIONAL"
       ? "Experiencia"
@@ -205,7 +208,7 @@ export default function AccountPage() {
                           </span>
                         </div>
                       )}
-                      {subscriptionStatus.trialActive && !subscriptionStatus.membershipActive && (
+                      {isTrialPeriod && (
                         <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2 border border-amber-500/20">
                           ⚡ Período de prueba gratis
                         </p>
@@ -222,7 +225,7 @@ export default function AccountPage() {
                 <div className="flex items-center justify-between text-sm pt-3 border-t border-white/[0.06]">
                   <span className="text-white/60">Precio mensual:</span>
                   <span className="font-semibold text-white/90">
-                    ${subscriptionStatus.subscriptionPrice?.toLocaleString("es-CL") || "4.990"} CLP
+                    ${(subscriptionStatus.subscriptionPrice || 4990).toLocaleString("es-CL")} CLP
                   </span>
                 </div>
 
