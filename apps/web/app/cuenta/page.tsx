@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import useMe from "../../hooks/useMe";
+import useSubscriptionStatus from "../../hooks/useSubscriptionStatus";
 import { apiFetch } from "../../lib/api";
 import Avatar from "../../components/Avatar";
 import { Badge } from "../../components/ui/badge";
@@ -18,6 +20,8 @@ const fadeUp = {
 
 export default function AccountPage() {
   const { me, loading } = useMe();
+  const { status: subscriptionStatus, loading: statusLoading } = useSubscriptionStatus();
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const user = me?.user ?? null;
 
   const handleLogout = async () => {
@@ -25,10 +29,28 @@ export default function AccountPage() {
     window.location.href = "/login";
   };
 
+  const handleStartPayment = async () => {
+    try {
+      setPaymentLoading(true);
+      const response = await apiFetch<{ paymentUrl: string }>("/billing/membership/start", { 
+        method: "POST" 
+      });
+      if (response.paymentUrl) {
+        window.location.href = response.paymentUrl;
+      }
+    } catch (error) {
+      console.error("Failed to start payment:", error);
+      alert("Error al iniciar el pago. Por favor, intenta de nuevo.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   const profileType = (user?.profileType || "").toUpperCase();
   const role = (user?.role || "").toUpperCase();
   const isMotelProfile = profileType === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
   const canManageProfile = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
+  const requiresPayment = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
   const profileLabel =
     profileType === "PROFESSIONAL"
       ? "Experiencia"
@@ -146,8 +168,116 @@ export default function AccountPage() {
             </motion.div>
           )}
 
+          {/* ── Payment Management (only for business profiles) ── */}
+          {requiresPayment && !statusLoading && subscriptionStatus && (
+            <motion.div custom={2} variants={fadeUp} className="editor-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-white/50">
+                  Suscripción
+                </h2>
+                {subscriptionStatus.isActive ? (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                    {subscriptionStatus.membershipActive ? "Activa" : "Prueba"}
+                  </Badge>
+                ) : (
+                  <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                    Expirada
+                  </Badge>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {/* Status info */}
+                <div className="space-y-2">
+                  {subscriptionStatus.isActive ? (
+                    <>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-white/60">Días restantes:</span>
+                        <span className="font-semibold text-white/90">
+                          {subscriptionStatus.daysRemaining || 0} días
+                        </span>
+                      </div>
+                      {subscriptionStatus.membershipExpiresAt && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-white/60">Vence el:</span>
+                          <span className="text-white/90">
+                            {new Date(subscriptionStatus.membershipExpiresAt).toLocaleDateString("es-CL")}
+                          </span>
+                        </div>
+                      )}
+                      {subscriptionStatus.trialActive && !subscriptionStatus.membershipActive && (
+                        <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2 border border-amber-500/20">
+                          ⚡ Período de prueba gratis
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2 border border-red-500/20">
+                      Tu suscripción ha expirado. Renuévala para seguir visible.
+                    </p>
+                  )}
+                </div>
+
+                {/* Price info */}
+                <div className="flex items-center justify-between text-sm pt-3 border-t border-white/[0.06]">
+                  <span className="text-white/60">Precio mensual:</span>
+                  <span className="font-semibold text-white/90">
+                    ${subscriptionStatus.subscriptionPrice?.toLocaleString("es-CL") || "4.990"} CLP
+                  </span>
+                </div>
+
+                {/* Payment button */}
+                <button
+                  onClick={handleStartPayment}
+                  disabled={paymentLoading}
+                  className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {paymentLoading ? "Procesando..." : "Renovar suscripción"}
+                </button>
+
+                {/* Recent payments */}
+                {subscriptionStatus.recentPayments && subscriptionStatus.recentPayments.length > 0 && (
+                  <div className="pt-4 border-t border-white/[0.06]">
+                    <p className="text-xs font-medium text-white/50 mb-2 uppercase tracking-wider">
+                      Últimos pagos
+                    </p>
+                    <div className="space-y-2">
+                      {subscriptionStatus.recentPayments.slice(0, 3).map((payment) => (
+                        <div 
+                          key={payment.id} 
+                          className="flex items-center justify-between text-xs bg-white/[0.02] rounded-lg px-3 py-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`h-2 w-2 rounded-full ${
+                              payment.status === "PAID" ? "bg-green-500" :
+                              payment.status === "PENDING" ? "bg-yellow-500" :
+                              "bg-red-500"
+                            }`} />
+                            <span className="text-white/60">
+                              {new Date(payment.createdAt).toLocaleDateString("es-CL")}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-white/90">
+                              ${payment.amount.toLocaleString("es-CL")}
+                            </span>
+                            <span className="text-white/40 capitalize">
+                              {payment.status === "PAID" ? "Pagado" :
+                               payment.status === "PENDING" ? "Pendiente" :
+                               "Fallido"}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {/* ── Quick links grid ── */}
-          <motion.div custom={2} variants={fadeUp} className="editor-card p-6">
+          <motion.div custom={3} variants={fadeUp} className="editor-card p-6">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-white/50 mb-4">
               Accesos rápidos
             </h2>
@@ -165,7 +295,7 @@ export default function AccountPage() {
           </motion.div>
 
           {/* ── Logout ── */}
-          <motion.div custom={3} variants={fadeUp}>
+          <motion.div custom={4} variants={fadeUp}>
             <button
               onClick={handleLogout}
               className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-5 py-3.5 text-sm text-white/40 transition-all hover:border-red-500/20 hover:bg-red-500/[0.04] hover:text-red-400"
