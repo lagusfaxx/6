@@ -191,10 +191,10 @@ export default function ServicesPage() {
 
         {/* Loading skeleton */}
         {loading && (
-          <div className="grid gap-2 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
-                <div className="aspect-[16/11] sm:aspect-[16/10] bg-white/[0.04]" />
+                <div className="aspect-[4/3] bg-white/[0.04]" />
                 <div className="space-y-2 p-2 sm:p-4">
                   <div className="h-4 w-2/3 rounded bg-white/[0.06]" />
                   <div className="h-3 w-1/3 rounded bg-white/[0.04]" />
@@ -233,7 +233,7 @@ export default function ServicesPage() {
               </div>
             </div>
 
-            <div className="grid gap-2 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
               {items.map((s) => {
                 const img = s.media?.[0]?.url ? resolveMediaUrl(s.media[0].url) : null;
                 const href = ownerHref(s.owner);
@@ -244,7 +244,7 @@ export default function ServicesPage() {
                     className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
                   >
                     {/* Image or avatar header */}
-                    <div className="relative aspect-[16/11] sm:aspect-[16/10] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                    <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
                       {img ? (
                         <img
                           src={img}
