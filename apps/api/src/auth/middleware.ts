@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { prisma } from "../db";
 import { config } from "../config";
+import { isBusinessPlanActive } from "../lib/subscriptions";
 
 /**
  * Rutas que deben ser PUBLICAS (sin sesión).
@@ -21,10 +22,29 @@ const PUBLIC_PREFIXES = [
   "/webhooks/khipu"     // webhooks deben entrar sin sesión
 ];
 
+/**
+ * Routes that require active subscription for business profiles.
+ * These routes will be blocked if subscription has expired.
+ */
+const SUBSCRIPTION_PROTECTED_PREFIXES = [
+  "/services",
+  "/shop",
+  "/motel",
+  "/messages",
+  "/feed",
+  "/profile"
+];
+
 function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some((p) =>
     pathname === p ||
     pathname.startsWith(p + "/") ||
+    pathname.startsWith(p)
+  );
+}
+
+function isSubscriptionProtected(pathname: string) {
+  return SUBSCRIPTION_PROTECTED_PREFIXES.some((p) =>
     pathname.startsWith(p)
   );
 }
@@ -52,11 +72,34 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: sessionUserId }
+      where: { id: sessionUserId },
+      select: {
+        id: true,
+        email: true,
+        profileType: true,
+        membershipExpiresAt: true,
+        shopTrialEndsAt: true,
+        createdAt: true
+      }
     });
 
     if (!user) {
       return res.status(401).json({ error: "UNAUTHENTICATED" });
+    }
+
+    // Check subscription status for business profiles
+    if (isSubscriptionProtected(req.path) && !isBusinessPlanActive(user)) {
+      // Allow billing and subscription management routes even if expired
+      if (req.path.startsWith("/billing") || req.path === "/auth/me") {
+        (req as any).user = user;
+        return next();
+      }
+      
+      return res.status(403).json({ 
+        error: "SUBSCRIPTION_EXPIRED", 
+        message: "Tu periodo de prueba ha expirado. Por favor, actualiza tu suscripción para continuar usando la app.",
+        requiresPayment: true
+      });
     }
 
     (req as any).user = user;

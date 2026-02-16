@@ -119,7 +119,7 @@ khipuRouter.post("/webhooks/khipu/subscription", asyncHandler(async (req, res) =
       subject: "UZEED - Suscripción mensual",
       body: `Suscripción mensual UZEED - ${subscription_id}`,
       error_response_url: config.khipuChargeNotifyUrl,
-      custom: JSON.stringify({ userId: subscription.userId, subscriptionId }),
+      custom: JSON.stringify({ userId: subscription.userId, subscriptionId: subscription_id }),
       transaction_id: transactionId,
       notify_url: config.khipuChargeNotifyUrl,
       notify_api_version: "1.3"
