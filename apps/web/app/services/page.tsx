@@ -29,14 +29,6 @@ type ServiceItem = {
   media: { id: string; url: string; type: string }[];
 };
 
-type Category = {
-  id: string;
-  name: string;
-  slug: string;
-  displayName: string;
-  kind: string;
-};
-
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
 
 const KIND_TABS = [
@@ -56,19 +48,10 @@ export default function ServicesPage() {
   const { location } = useMapLocation(DEFAULT_LOCATION);
 
   const [services, setServices] = useState<ServiceItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeKind, setActiveKind] = useState("");
-  const [activeCategory, setActiveCategory] = useState("");
   const [search, setSearch] = useState("");
   const [showMap, setShowMap] = useState(false);
-
-  // Fetch categories
-  useEffect(() => {
-    apiFetch<Category[]>("/categories")
-      .then((cats) => setCategories(Array.isArray(cats) ? cats : []))
-      .catch(() => {});
-  }, []);
 
   // Fetch services
   useEffect(() => {
@@ -79,32 +62,14 @@ export default function ServicesPage() {
       params.set("lng", String(location[1]));
     }
     if (activeKind) params.set("kind", activeKind);
-    if (activeCategory) params.set("category", activeCategory);
 
     apiFetch<{ services: ServiceItem[] }>(`/services/global?${params.toString()}`)
       .then((res) => {
-        // Filter services without visual assets (defense-in-depth)
-        const validServices = (res?.services || []).filter(s => {
-          const hasMedia = s.media && s.media.length > 0;
-          const hasOwnerAvatar = s.owner?.avatarUrl != null && s.owner.avatarUrl.trim() !== '';
-
-          if (!hasMedia && !hasOwnerAvatar) {
-            console.warn('[ServicesPage] Filtering service without visual assets:', {
-              id: s.id,
-              title: s.title,
-              ownerId: s.owner?.id
-            });
-            return false;
-          }
-          return true;
-        });
-
-        setServices(validServices);
-        console.log(`[ServicesPage] Loaded ${validServices.length} services`);
+        setServices(res?.services || []);
       })
       .catch(() => setServices([]))
       .finally(() => setLoading(false));
-  }, [location, activeKind, activeCategory]);
+  }, [location, activeKind]);
 
   // Filter by search
   const filtered = useMemo(() => {
@@ -118,12 +83,6 @@ export default function ServicesPage() {
         (s.owner?.city || "").toLowerCase().includes(q)
     );
   }, [services, search]);
-
-  // Category pills filtered by kind
-  const filteredCategories = useMemo(() => {
-    if (!activeKind) return categories.slice(0, 12);
-    return categories.filter((c) => c.kind === activeKind).slice(0, 12);
-  }, [categories, activeKind]);
 
   // Group services by category for display
   const grouped = useMemo(() => {
@@ -185,7 +144,7 @@ export default function ServicesPage() {
             {KIND_TABS.map((t) => (
               <button
                 key={t.key}
-                onClick={() => { setActiveKind(t.key); setActiveCategory(""); }}
+                onClick={() => setActiveKind(t.key)}
                 className={`flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
                   activeKind === t.key
                     ? "border border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300"
@@ -197,25 +156,6 @@ export default function ServicesPage() {
               </button>
             ))}
           </div>
-
-          {/* Category pills */}
-          {filteredCategories.length > 0 && (
-            <div className="scrollbar-none -mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4 pb-1">
-              {filteredCategories.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setActiveCategory(activeCategory === c.slug ? "" : c.slug)}
-                  className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
-                    activeCategory === c.slug
-                      ? "border border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-300"
-                      : "border border-white/[0.08] text-white/40 hover:bg-white/[0.04] hover:text-white/60"
-                  }`}
-                >
-                  {c.displayName || c.name}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </section>
 
@@ -272,9 +212,9 @@ export default function ServicesPage() {
             <p className="mt-1 max-w-sm text-sm text-white/40">
               {search ? `No encontramos servicios para "${search}". Intenta con otra búsqueda.` : "No hay servicios disponibles en este momento. Vuelve pronto."}
             </p>
-            {(search || activeCategory || activeKind) && (
+            {(search || activeKind) && (
               <button
-                onClick={() => { setSearch(""); setActiveCategory(""); setActiveKind(""); }}
+                onClick={() => { setSearch(""); setActiveKind(""); }}
                 className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-2.5 text-sm font-medium transition hover:bg-white/[0.08]"
               >
                 Limpiar filtros

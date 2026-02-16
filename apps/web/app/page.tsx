@@ -218,7 +218,7 @@ export default function HomePage() {
       params.set("lat", String(location[0]));
       params.set("lng", String(location[1]));
     }
-    params.set("limit", "6");
+    params.set("limit", "20");
     const query = params.toString();
 
     if (lastRecentQueryRef.current === query) return;
@@ -232,44 +232,17 @@ export default function HomePage() {
     setRecentError(null);
 
     const timer = setTimeout(() => {
-      apiFetch<{ professionals: any[] }>(`/professionals/recent?${query}`, {
+      apiFetch<{ professionals: any[] }>(`/professionals?${query}`, {
         signal: controller.signal,
       })
         .then((res) => {
-          // DEBUG: Log raw API response
-          console.log('[HomePage DEBUG] Raw API response:', {
-            count: res?.professionals?.length || 0,
-            sample: res?.professionals?.[0]
-          });
-
-          // Filter out professionals without avatars (defense-in-depth)
-          const mapped: RecentProfessional[] = (res?.professionals || [])
-            .filter(p => {
-              if (!p.avatarUrl || p.avatarUrl.trim() === '') {
-                console.warn('[HomePage] Filtering professional without avatar:', p.id);
-                return false;
-              }
-              return true;
-            })
-            .map((p) => ({
-              id: p.id,
-              name: p.name || "Experiencia",
-              avatarUrl: p.avatarUrl,
-              distance: typeof p.distance === "number" ? p.distance : null,
-              age: typeof p.age === "number" ? p.age : null,
-            }));
-
-          // DEBUG: Log processed data and resolved URLs
-          console.log(`[HomePage] Loaded ${mapped.length} professionals`);
-          if (mapped.length > 0) {
-            const firstPro = mapped[0];
-            console.log('[HomePage DEBUG] First professional:', {
-              id: firstPro.id,
-              name: firstPro.name,
-              rawAvatarUrl: firstPro.avatarUrl,
-              resolvedUrl: resolveMediaUrl(firstPro.avatarUrl)
-            });
-          }
+          const mapped: RecentProfessional[] = (res?.professionals || []).map((p) => ({
+            id: p.id,
+            name: p.name || "Experiencia",
+            avatarUrl: p.avatarUrl,
+            distance: typeof p.distance === "number" ? p.distance : null,
+            age: typeof p.age === "number" ? p.age : null,
+          }));
 
           setRecentPros(mapped);
         })
@@ -279,7 +252,7 @@ export default function HomePage() {
             setRecentError("Estamos recibiendo muchas solicitudes. Reintenta en unos segundos.");
             return;
           }
-          setRecentError("No se pudieron cargar experiencias recientes.");
+          setRecentError("No se pudieron cargar las experiencias.");
         })
         .finally(() => setRecentLoading(false));
     }, 150);
@@ -448,7 +421,7 @@ export default function HomePage() {
                 <span className="text-xs font-medium uppercase tracking-wider text-fuchsia-400/80">Destacadas</span>
               </div>
               <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Experiencias cerca de ti</h2>
-              <p className="mt-1 text-sm text-white/45">Lo más reciente y popular en tu zona</p>
+              <p className="mt-1 text-sm text-white/45">Descubre profesionales disponibles en tu zona</p>
             </div>
             <Link
               href="/profesionales"
@@ -467,7 +440,7 @@ export default function HomePage() {
 
           <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
             {recentPros.length > 0
-              ? recentPros.slice(0, 6).map((p, i) => (
+              ? recentPros.slice(0, 3).map((p, i) => (
                   <motion.div key={p.id} variants={cardFade}>
                     <Link
                       href={`/profesional/${p.id}`}
@@ -477,24 +450,11 @@ export default function HomePage() {
                       <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
                         {p.avatarUrl ? (
                           <img
-                            src={(() => {
-                              const url = resolveMediaUrl(p.avatarUrl);
-                              console.log('[RecentPro Card]', {
-                                id: p.id,
-                                name: p.name,
-                                rawUrl: p.avatarUrl,
-                                resolvedUrl: url
-                              });
-                              return url ?? undefined;
-                            })()}
+                            src={resolveMediaUrl(p.avatarUrl) ?? undefined}
                             alt={p.name}
                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                            onLoad={() => {
-                              console.log('[RecentPro Card] ✅ Image loaded successfully for:', p.name);
-                            }}
                             onError={(e) => {
                               const img = e.currentTarget as HTMLImageElement;
-                              console.error('[RecentPro Card] ❌ Image load failed for:', p.name, 'URL:', img.src);
                               img.onerror = null;
                               img.src = "/brand/isotipo-new.png";
                               img.className = "h-20 w-20 mx-auto mt-20 opacity-40";
@@ -542,7 +502,7 @@ export default function HomePage() {
                   ))
                 : (
                     <div className="col-span-full rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm text-white/50">
-                      Aún no hay experiencias recientes. Vuelve pronto para descubrir nuevas opciones.
+                      Aún no hay experiencias disponibles. Vuelve pronto para descubrir nuevas opciones.
                     </div>
                   )}
           </div>
@@ -602,7 +562,7 @@ export default function HomePage() {
                   {items.length > 0
                     ? items.map((c, idx) => {
                         const Icon = categoryIcon(c.kind, c.slug || c.name);
-                        const href = kind === "ESTABLISHMENT" ? "/hospedaje" : kindHref(c.kind, c.slug || c.id);
+                        const href = kindAllHref(c.kind);
                         const grad = categoryGradient(c.kind, idx);
 
                         return (
@@ -670,7 +630,7 @@ export default function HomePage() {
               variants={cardFade}
               className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0"
             >
-              {recentPros.slice(0, 6).map((p) => (
+              {recentPros.slice(0, 3).map((p) => (
                 <Link
                   key={`trend-${p.id}`}
                   href={`/profesional/${p.id}`}
