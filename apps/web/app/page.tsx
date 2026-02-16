@@ -477,11 +477,24 @@ export default function HomePage() {
                       <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
                         {p.avatarUrl ? (
                           <img
-                            src={resolveMediaUrl(p.avatarUrl) ?? undefined}
+                            src={(() => {
+                              const url = resolveMediaUrl(p.avatarUrl);
+                              console.log('[RecentPro Card]', {
+                                id: p.id,
+                                name: p.name,
+                                rawUrl: p.avatarUrl,
+                                resolvedUrl: url
+                              });
+                              return url ?? undefined;
+                            })()}
                             alt={p.name}
                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                            onLoad={() => {
+                              console.log('[RecentPro Card] ✅ Image loaded successfully for:', p.name);
+                            }}
                             onError={(e) => {
                               const img = e.currentTarget as HTMLImageElement;
+                              console.error('[RecentPro Card] ❌ Image load failed for:', p.name, 'URL:', img.src);
                               img.onerror = null;
                               img.src = "/brand/isotipo-new.png";
                               img.className = "h-20 w-20 mx-auto mt-20 opacity-40";
