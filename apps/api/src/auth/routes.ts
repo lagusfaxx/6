@@ -3,6 +3,7 @@ import argon2 from "argon2";
 import { prisma } from "../db";
 import { loginInputSchema, registerInputSchema } from "@uzeed/shared";
 import { asyncHandler } from "../lib/asyncHandler";
+import { config } from "../config";
 
 export const authRouter = Router();
 
@@ -78,7 +79,12 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
   if (existing?.username === username) return res.status(409).json({ error: "USERNAME_IN_USE" });
 
   const passwordHash = await argon2.hash(password);
-  const shopTrialEndsAt = profileType === "SHOP" ? addDays(new Date(), 30) : null;
+  
+  // Determine trial period: 7 days for business profiles, 30 days for others
+  const requiresPayment = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(profileType);
+  const trialDays = requiresPayment ? config.freeTrialDays : 30;
+  const shopTrialEndsAt = profileType === "SHOP" ? addDays(new Date(), trialDays) : null;
+  
   const isLodgingProfile = profileType === "ESTABLISHMENT";
   const geocoded = isLodgingProfile ? await geocodeAddress(address || "") : null;
   const fallbackLat = -33.4489;
@@ -115,7 +121,7 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
         latitude: isLodgingProfile ? Number(geocoded?.latitude ?? fallbackLat) : null,
         longitude: isLodgingProfile ? Number(geocoded?.longitude ?? fallbackLng) : null,
         termsAcceptedAt: new Date(),
-        membershipExpiresAt: profileType === "CLIENT" ? null : addDays(new Date(), 30),
+        membershipExpiresAt: profileType === "CLIENT" || profileType === "VIEWER" ? null : addDays(new Date(), trialDays),
         passwordHash,
         displayName: displayName || null,
         bio: bio || null,
@@ -197,6 +203,8 @@ authRouter.get("/me", asyncHandler(async (req, res) => {
       displayName: true,
       role: true,
       membershipExpiresAt: true,
+      shopTrialEndsAt: true,
+      createdAt: true,
       username: true,
       profileType: true,
       gender: true,
@@ -217,7 +225,21 @@ authRouter.get("/me", asyncHandler(async (req, res) => {
     }
   });
   if (!user) return res.json({ user: null });
+  
+  // Add subscription status info
+  const requiresPayment = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType);
+  const now = new Date();
+  const membershipActive = user.membershipExpiresAt ? user.membershipExpiresAt.getTime() > now.getTime() : false;
+  const trialActive = user.shopTrialEndsAt ? user.shopTrialEndsAt.getTime() > now.getTime() : false;
+  const subscriptionActive = requiresPayment ? (membershipActive || trialActive) : true;
+  
   return res.json({
-    user: { ...user, membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null }
+    user: { 
+      ...user, 
+      membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null,
+      shopTrialEndsAt: user.shopTrialEndsAt?.toISOString() || null,
+      subscriptionActive,
+      requiresPayment
+    }
   });
 }));
