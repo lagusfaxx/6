@@ -222,7 +222,7 @@ export default function HomePage() {
     setRecentLoading(true);
     setRecentError(null);
 
-    apiFetch<{ professionals: any[] }>(`/professionals?${query}`, {
+    apiFetch<{ professionals: any[] }>(`/professionals/recent?${query}`, {
       signal: controller.signal,
     })
       .then((res) => {
@@ -395,89 +395,89 @@ export default function HomePage() {
         {/* ═══════════════════════════════════════════════
             2. EXPERIENCIAS DESTACADAS — Recent profiles
            ═══════════════════════════════════════════════ */}
-        <motion.section
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-60px" }}
-          variants={stagger}
-          className="mb-16"
-        >
-          <motion.div variants={cardFade} className="mb-6 flex items-end justify-between">
-            <div>
-              <div className="mb-1 flex items-center gap-2">
-                <Flame className="h-4 w-4 text-fuchsia-400" />
-                <span className="text-xs font-medium uppercase tracking-wider text-fuchsia-400/80">Destacadas</span>
+        {(recentPros.length > 0 || recentLoading) && (
+          <motion.section
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-60px" }}
+            variants={stagger}
+            className="mb-16"
+          >
+            <motion.div variants={cardFade} className="mb-6 flex items-end justify-between">
+              <div>
+                <div className="mb-1 flex items-center gap-2">
+                  <Flame className="h-4 w-4 text-fuchsia-400" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-fuchsia-400/80">Destacadas</span>
+                </div>
+                <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Experiencias cerca de ti</h2>
+                <p className="mt-1 text-sm text-white/45">Descubre profesionales disponibles en tu zona</p>
               </div>
-              <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Experiencias cerca de ti</h2>
-              <p className="mt-1 text-sm text-white/45">Descubre profesionales disponibles en tu zona</p>
-            </div>
-            <Link
-              href="/profesionales"
-              className="group hidden items-center gap-1.5 text-sm text-white/50 transition hover:text-white sm:flex"
-            >
-              Ver todas
-              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </motion.div>
+              <Link
+                href="/profesionales"
+                className="group hidden items-center gap-1.5 text-sm text-white/50 transition hover:text-white sm:flex"
+              >
+                Ver todas
+                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </motion.div>
 
-          {recentError && (
-            <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm text-white/70">
-              {recentError}
-            </div>
-          )}
+            {recentError && (
+              <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm text-white/70">
+                {recentError}
+              </div>
+            )}
 
-          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
-            {recentPros.length > 0
-              ? recentPros.slice(0, 3).map((p, i) => (
-                  <motion.div key={p.id} variants={cardFade}>
-                    <Link
-                      href={`/profesional/${p.id}`}
-                      className="group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
-                    >
-                      {/* Image */}
-                      <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
-                        {p.avatarUrl ? (
-                          <img
-                            src={resolveMediaUrl(p.avatarUrl) ?? undefined}
-                            alt={p.name}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                            onError={(e) => {
-                              const img = e.currentTarget as HTMLImageElement;
-                              img.onerror = null;
-                              img.src = "/brand/isotipo-new.png";
-                              img.className = "h-20 w-20 mx-auto mt-20 opacity-40";
-                            }}
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-30" />
-                          </div>
-                        )}
+            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
+              {recentPros.length > 0
+                ? recentPros.slice(0, 3).map((p, i) => (
+                    <motion.div key={p.id} variants={cardFade}>
+                      <Link
+                        href={`/profesional/${p.id}`}
+                        className="group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+                      >
+                        {/* Image */}
+                        <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                          {p.avatarUrl ? (
+                            <img
+                              src={resolveMediaUrl(p.avatarUrl) ?? undefined}
+                              alt={p.name}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                              onError={(e) => {
+                                const img = e.currentTarget as HTMLImageElement;
+                                img.onerror = null;
+                                img.src = "/brand/isotipo-new.png";
+                                img.className = "h-20 w-20 mx-auto mt-20 opacity-40";
+                              }}
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center">
+                              <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-30" />
+                            </div>
+                          )}
 
-                        {/* Overlay gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                          {/* Overlay gradient */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                        {/* Distance badge */}
-                        {p.distance != null && (
-                          <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-[11px] text-white/80 backdrop-blur-xl">
-                            <MapPin className="h-3 w-3" />
-                            {p.distance.toFixed(1)} km
-                          </div>
-                        )}
+                          {/* Distance badge */}
+                          {p.distance != null && (
+                            <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-[11px] text-white/80 backdrop-blur-xl">
+                              <MapPin className="h-3 w-3" />
+                              {p.distance.toFixed(1)} km
+                            </div>
+                          )}
 
-                        {/* Bottom info overlay */}
-                        <div className="absolute bottom-0 left-0 right-0 p-4">
-                          <h3 className="text-lg font-semibold leading-tight">{p.name}</h3>
-                          <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
-                            {p.age && <span>{p.age} años</span>}
+                          {/* Bottom info overlay */}
+                          <div className="absolute bottom-0 left-0 right-0 p-4">
+                            <h3 className="text-lg font-semibold leading-tight">{p.name}</h3>
+                            <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
+                              {p.age && <span>{p.age} años</span>}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  </motion.div>
-                ))
-              : recentLoading
-                ? [1, 2, 3, 4].map((i) => (
+                      </Link>
+                    </motion.div>
+                  ))
+                : [1, 2, 3].map((i) => (
                     <motion.div key={i} variants={cardFade}>
                       <div className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
                         <div className="aspect-[4/5] bg-white/[0.04]" />
@@ -487,23 +487,19 @@ export default function HomePage() {
                         </div>
                       </div>
                     </motion.div>
-                  ))
-                : (
-                    <div className="col-span-full rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm text-white/50">
-                      Aún no hay experiencias disponibles. Vuelve pronto para descubrir nuevas opciones.
-                    </div>
-                  )}
-          </div>
+                  ))}
+            </div>
 
-          {/* Mobile "ver todas" */}
-          <Link
-            href="/profesionales"
-            className="mt-4 flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] py-3 text-sm text-white/60 transition hover:bg-white/[0.06] sm:hidden"
-          >
-            Ver todas las experiencias
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-        </motion.section>
+            {/* Mobile "ver todas" */}
+            <Link
+              href="/profesionales"
+              className="mt-4 flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] py-3 text-sm text-white/60 transition hover:bg-white/[0.06] sm:hidden"
+            >
+              Ver todas las experiencias
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </motion.section>
+        )}
 
         {/* ═══════════════════════════════════════════════
             3. CATEGORÍAS — Visual tile cards
