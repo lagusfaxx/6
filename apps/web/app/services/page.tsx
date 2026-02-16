@@ -235,7 +235,7 @@ export default function ServicesPage() {
           <div className="grid gap-2 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
-                <div className="aspect-[16/10] bg-white/[0.04]" />
+                <div className="aspect-[16/11] sm:aspect-[16/10] bg-white/[0.04]" />
                 <div className="space-y-2 p-2 sm:p-4">
                   <div className="h-4 w-2/3 rounded bg-white/[0.06]" />
                   <div className="h-3 w-1/3 rounded bg-white/[0.04]" />
@@ -285,7 +285,7 @@ export default function ServicesPage() {
                     className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
                   >
                     {/* Image or avatar header */}
-                    <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                    <div className="relative aspect-[16/11] sm:aspect-[16/10] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
                       {img ? (
                         <img
                           src={img}
@@ -332,15 +332,15 @@ export default function ServicesPage() {
                       </div>
 
                       {/* Bottom overlay */}
-                      <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
-                        <h3 className="text-sm sm:text-sm font-semibold leading-tight line-clamp-2">{s.title || "Servicio"}</h3>
+                      <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-4">
+                        <h3 className="text-xs sm:text-sm font-semibold leading-tight line-clamp-2">{s.title || "Servicio"}</h3>
                       </div>
                     </div>
 
                     {/* Card body */}
-                    <div className="p-3 sm:p-4">
+                    <div className="p-2.5 sm:p-4">
                       <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-white/[0.06]">
+                        <div className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 overflow-hidden rounded-lg bg-white/[0.06]">
                           {s.owner?.avatarUrl ? (
                             <img src={resolveMediaUrl(s.owner.avatarUrl) ?? undefined} className="h-full w-full object-cover" alt="" />
                           ) : (
