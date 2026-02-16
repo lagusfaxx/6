@@ -64,7 +64,16 @@ export default function ProfessionalDetailPage() {
         setProfessional(null);
       })
       .finally(() => setLoading(false));
-  }, [id]);
+
+    // Check if professional is favorited (only for logged-in VIEWER users)
+    if (me?.user?.profileType === "VIEWER") {
+      apiFetch<{ isFavorite: boolean }>(`/favorites/check/${id}`)
+        .then((res) => setFavorite(res.isFavorite))
+        .catch(() => setFavorite(false));
+    } else {
+      setFavorite(false);
+    }
+  }, [id, me?.user]);
 
   async function toggleFavorite() {
     if (!professional) return;
@@ -85,7 +94,7 @@ export default function ProfessionalDetailPage() {
   }
 
   useEffect(() => {
-    if (!me?.user || me.user.profileType !== "CLIENT" || !professional) return;
+    if (!me?.user || me.user.profileType !== "VIEWER" || !professional) return;
     apiFetch<{ services: { id: string; status: string; professional: { id: string } }[] }>("/services/active")
       .then((res) => {
         const match = res.services.find((s) => s.professional.id === professional.id);
@@ -118,7 +127,7 @@ export default function ProfessionalDetailPage() {
           ? "Otro"
           : null;
 
-  const canRequest = me?.user?.profileType === "CLIENT";
+  const canRequest = me?.user?.profileType === "VIEWER";
 
   return (
     <div className="grid gap-6">
