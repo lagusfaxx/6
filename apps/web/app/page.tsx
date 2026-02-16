@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
@@ -190,8 +190,6 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [recentError, setRecentError] = useState<string | null>(null);
   const [recentLoading, setRecentLoading] = useState(true);
-  const lastRecentQueryRef = useRef<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -211,8 +209,6 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    // Build query — use current location (or fallback) immediately.
-    // Don't gate on `resolved` so cards load without waiting for geolocation.
     const params = new URLSearchParams();
     if (location) {
       params.set("lat", String(location[0]));
@@ -221,44 +217,36 @@ export default function HomePage() {
     params.set("limit", "20");
     const query = params.toString();
 
-    if (lastRecentQueryRef.current === query) return;
-    lastRecentQueryRef.current = query;
-
-    abortRef.current?.abort();
     const controller = new AbortController();
-    abortRef.current = controller;
 
     setRecentLoading(true);
     setRecentError(null);
 
-    const timer = setTimeout(() => {
-      apiFetch<{ professionals: any[] }>(`/professionals?${query}`, {
-        signal: controller.signal,
-      })
-        .then((res) => {
-          const mapped: RecentProfessional[] = (res?.professionals || []).map((p) => ({
-            id: p.id,
-            name: p.name || "Experiencia",
-            avatarUrl: p.avatarUrl,
-            distance: typeof p.distance === "number" ? p.distance : null,
-            age: typeof p.age === "number" ? p.age : null,
-          }));
+    apiFetch<{ professionals: any[] }>(`/professionals?${query}`, {
+      signal: controller.signal,
+    })
+      .then((res) => {
+        const mapped: RecentProfessional[] = (res?.professionals || []).map((p) => ({
+          id: p.id,
+          name: p.name || "Experiencia",
+          avatarUrl: p.avatarUrl,
+          distance: typeof p.distance === "number" ? p.distance : null,
+          age: typeof p.age === "number" ? p.age : null,
+        }));
 
-          setRecentPros(mapped);
-        })
-        .catch((err: any) => {
-          if (err?.name === "AbortError") return;
-          if (err?.status === 429) {
-            setRecentError("Estamos recibiendo muchas solicitudes. Reintenta en unos segundos.");
-            return;
-          }
-          setRecentError("No se pudieron cargar las experiencias.");
-        })
-        .finally(() => setRecentLoading(false));
-    }, 150);
+        setRecentPros(mapped);
+      })
+      .catch((err: any) => {
+        if (err?.name === "AbortError") return;
+        if (err?.status === 429) {
+          setRecentError("Estamos recibiendo muchas solicitudes. Reintenta en unos segundos.");
+          return;
+        }
+        setRecentError("No se pudieron cargar las experiencias.");
+      })
+      .finally(() => setRecentLoading(false));
 
     return () => {
-      clearTimeout(timer);
       controller.abort();
     };
   }, [location]);
