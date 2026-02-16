@@ -437,7 +437,7 @@ export default function HomePage() {
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
             {recentPros.length > 0
               ? recentPros.slice(0, 6).map((p, i) => (
                   <motion.div key={p.id} variants={cardFade}>
@@ -488,7 +488,7 @@ export default function HomePage() {
                   </motion.div>
                 ))
               : recentLoading
-                ? [1, 2, 3].map((i) => (
+                ? [1, 2, 3, 4, 5, 6].map((i) => (
                     <motion.div key={i} variants={cardFade}>
                       <div className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
                         <div className="aspect-[4/5] bg-white/[0.04]" />

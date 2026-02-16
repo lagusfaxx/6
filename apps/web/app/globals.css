@@ -8,8 +8,7 @@
   Background image: /public/brand/bg.jpg
 */
 
-html,
-body {
+html {
   height: 100%;
 }
 
@@ -18,6 +17,7 @@ body {
   background: #070816;
   position: relative;
   overflow-x: hidden;
+  min-height: 100%;
 }
 
 /* Background image layer */
