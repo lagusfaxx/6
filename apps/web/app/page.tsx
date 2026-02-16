@@ -218,7 +218,8 @@ export default function HomePage() {
       params.set("lat", String(location[0]));
       params.set("lng", String(location[1]));
     }
-    params.set("limit", "6");
+    // Show more professionals, not just recent
+    params.set("limit", "50");
     const query = params.toString();
 
     if (lastRecentQueryRef.current === query) return;
@@ -232,7 +233,7 @@ export default function HomePage() {
     setRecentError(null);
 
     const timer = setTimeout(() => {
-      apiFetch<{ professionals: any[] }>(`/professionals/recent?${query}`, {
+      apiFetch<{ professionals: any[] }>(`/professionals?${query}`, {
         signal: controller.signal,
       })
         .then((res) => {
@@ -252,7 +253,7 @@ export default function HomePage() {
             setRecentError("Estamos recibiendo muchas solicitudes. Reintenta en unos segundos.");
             return;
           }
-          setRecentError("No se pudieron cargar experiencias recientes.");
+          setRecentError("No se pudieron cargar las experiencias.");
         })
         .finally(() => setRecentLoading(false));
     }, 150);
@@ -421,7 +422,7 @@ export default function HomePage() {
                 <span className="text-xs font-medium uppercase tracking-wider text-fuchsia-400/80">Destacadas</span>
               </div>
               <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Experiencias cerca de ti</h2>
-              <p className="mt-1 text-sm text-white/45">Lo más reciente y popular en tu zona</p>
+              <p className="mt-1 text-sm text-white/45">Descubre profesionales disponibles en tu zona</p>
             </div>
             <Link
               href="/profesionales"
@@ -438,9 +439,9 @@ export default function HomePage() {
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
             {recentPros.length > 0
-              ? recentPros.slice(0, 6).map((p, i) => (
+              ? recentPros.slice(0, 12).map((p, i) => (
                   <motion.div key={p.id} variants={cardFade}>
                     <Link
                       href={`/profesional/${p.id}`}
@@ -502,7 +503,7 @@ export default function HomePage() {
                   ))
                 : (
                     <div className="col-span-full rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 text-center text-sm text-white/50">
-                      Aún no hay experiencias recientes. Vuelve pronto para descubrir nuevas opciones.
+                      Aún no hay experiencias disponibles. Vuelve pronto para descubrir nuevas opciones.
                     </div>
                   )}
           </div>
@@ -628,9 +629,9 @@ export default function HomePage() {
 
             <motion.div
               variants={cardFade}
-              className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0"
+              className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory md:mx-0 md:grid md:grid-cols-3 lg:grid-cols-4 md:overflow-visible md:px-0"
             >
-              {recentPros.slice(0, 6).map((p) => (
+              {recentPros.slice(0, 12).map((p) => (
                 <Link
                   key={`trend-${p.id}`}
                   href={`/profesional/${p.id}`}
