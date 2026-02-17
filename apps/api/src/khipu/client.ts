@@ -130,7 +130,7 @@ export async function createPayment(req: KhipuCreatePaymentRequest): Promise<Khi
 
 // ── Flow Plans API ──────────────────────────────────────────────────
 
-function signFlowParams(params: Record<string, string>): string {
+export function signFlowParams(params: Record<string, string>): string {
   const sorted = Object.keys(params).sort().map((k) => `${k}${params[k]}`).join("");
   return crypto.createHmac("sha256", config.flowSecretKey).update(sorted).digest("hex");
 }
@@ -287,7 +287,7 @@ export type FlowSubscription = {
   customerId: string;
   created: string;
   status: number;
-  moleskinePeriodEnd?: string;
+  current_period_end?: string;
   next_invoice_date?: string;
   trial_period_days?: number;
   trial_end?: string;

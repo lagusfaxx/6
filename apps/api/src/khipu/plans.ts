@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
+import { config } from "../config";
 import {
   createFlowPlan,
   getFlowPlan,
@@ -9,7 +10,8 @@ import {
   listFlowPlans,
   createFlowCustomer,
   createFlowSubscription,
-  getFlowSubscription
+  getFlowSubscription,
+  signFlowParams
 } from "./client";
 
 export const plansRouter = Router();
@@ -136,7 +138,17 @@ plansRouter.get("/subscription/get", requireAuth, asyncHandler(async (req, res) 
 
 /** POST /webhooks/flow/subscription – Flow subscription confirmation callback */
 plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) => {
-  const { subscriptionId, status, planId, customerId } = req.body;
+  const body = req.body as Record<string, string>;
+  const { s, ...params } = body;
+
+  if (config.flowSecretKey && s) {
+    const expected = signFlowParams(params);
+    if (s !== expected) {
+      return res.status(401).json({ error: "INVALID_SIGNATURE" });
+    }
+  }
+
+  const { subscriptionId, status, planId, customerId } = params;
   console.log("[flow] subscription webhook received", { subscriptionId, status, planId, customerId });
 
   if (!subscriptionId) {
