@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { asyncHandler } from "../lib/asyncHandler";
 import { findCategoryByRef } from "../lib/categories";
 import { obfuscateLocation } from "../lib/locationPrivacy";
+import { parseAndNormalizeTags } from "../lib/tags";
 
 export const directoryRouter = Router();
 
@@ -518,6 +519,7 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
       skinTone: u.skinTone,
       languages: u.languages,
       serviceStyleTags: u.serviceStyleTags,
+      normalizedTags: parseAndNormalizeTags(u.serviceStyleTags),
       availabilityNote: u.availabilityNote,
       baseRate: u.baseRate,
       minDurationMinutes: u.minDurationMinutes,

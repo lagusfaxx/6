@@ -33,6 +33,7 @@ type Professional = {
   skinTone?: string | null;
   languages?: string | null;
   serviceStyleTags?: string | null;
+  normalizedTags?: string[];
   availabilityNote?: string | null;
   baseRate?: number | null;
   minDurationMinutes?: number | null;
@@ -118,6 +119,24 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     ].filter(Boolean).slice(0, 3) as string[];
   }, [professional]);
 
+  // Build detail rows for the new "Detalles" card
+  const detailRows = useMemo(() => {
+    if (!professional) return [];
+    const rows: { label: string; value: string }[] = [];
+
+    if (professional.heightCm) rows.push({ label: "Altura", value: `${professional.heightCm} cm` });
+    if (professional.weightKg) rows.push({ label: "Peso", value: `${professional.weightKg} kg` });
+    if (professional.measurements) rows.push({ label: "Medidas", value: professional.measurements });
+    if (professional.hairColor) rows.push({ label: "Cabello", value: professional.hairColor });
+    if (professional.skinTone) rows.push({ label: "Piel", value: professional.skinTone });
+    if (professional.languages) {
+      const langs = splitCsv(professional.languages);
+      if (langs.length > 0) rows.push({ label: "Idiomas", value: langs.join(", ") });
+    }
+
+    return rows;
+  }, [professional]);
+
   const styleChips = useMemo(() => splitCsv(professional?.serviceStyleTags), [professional?.serviceStyleTags]);
   const availabilityChips = useMemo(() => {
     if (!professional) return [] as string[];
@@ -134,7 +153,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     () => (professional?.gallery || []).map((g) => resolveMediaUrl(g.url)).filter((url): url is string => Boolean(url)),
     [professional?.gallery],
   );
-  const hasInfoSection = infoChips.length > 0;
+  const hasDetailsSection = detailRows.length > 0;
   const hasStyleSection = styleChips.length > 0;
   const hasAvailabilitySection = Boolean(professional?.availabilityNote || availabilityChips.length);
   const hasRatesSection = typeof professional?.baseRate === "number";
@@ -184,6 +203,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
   return (
     <div className="grid gap-6">
+      {/* Header card with cover, avatar, and CTA buttons */}
       <div className={`card overflow-hidden p-0 ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
         <div className="relative w-full overflow-hidden bg-white/5 aspect-[4/5] md:aspect-[16/6]">
           {coverSrc ? (
@@ -195,49 +215,171 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           )}
           <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
           {availableNow ? (
-            <div className="absolute right-3 top-3 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-xs text-emerald-100">
+            <div className="absolute right-3 top-3 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2.5 py-1 text-xs text-emerald-100 backdrop-blur-sm">
               Disponible ahora
             </div>
           ) : null}
         </div>
 
         <div className="px-4 pb-5 pt-4 md:px-6 md:pb-6 md:pt-5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-4">
+            {/* Avatar and info */}
             <div className="flex items-start gap-3">
               <Avatar
                 src={avatarSrc}
                 alt={professional.name}
                 size={96}
-                className="size-[80px] shrink-0 rounded-full border-2 border-white/30 ring-4 ring-black/30 md:size-[108px]"
+                className="size-20 shrink-0 rounded-full border-2 border-white/30 ring-4 ring-black/30 md:size-24"
               />
-              <div>
-                <h1 className="text-xl font-semibold md:text-2xl">{professional.name}{professional.age ? `, ${professional.age}` : ""}</h1>
-                <div className="mt-1 flex items-center gap-2 text-sm text-white/60"><span>{professional.category || "Perfil"}</span><span>•</span><StarRating rating={professional.rating} size={14} /></div>
-                <div className="mt-1 text-xs text-white/60">{availableNow ? "Disponible ahora" : professional.lastSeen ? `Última vez: ${new Date(professional.lastSeen).toLocaleString("es-CL")}` : "Sin actividad reciente"}{professional.city ? ` • ${professional.city}` : ""}</div>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl font-semibold md:text-2xl truncate">{professional.name}{professional.age ? `, ${professional.age}` : ""}</h1>
+                <div className="mt-1 flex items-center gap-2 text-sm text-white/60">
+                  <span>{professional.category || "Perfil"}</span>
+                  <span>•</span>
+                  <StarRating rating={professional.rating} size={14} />
+                </div>
+                <div className="mt-1 text-xs text-white/60">
+                  {availableNow ? "Disponible ahora" : professional.lastSeen ? `Última vez: ${new Date(professional.lastSeen).toLocaleString("es-CL")}` : "Sin actividad reciente"}
+                  {professional.city ? ` • ${professional.city}` : ""}
+                </div>
               </div>
             </div>
-            <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2 md:min-w-[340px]">
-              <button onClick={() => handleChatClick("message")} className="btn-secondary w-full">Enviar mensaje</button>
-              <button onClick={() => handleChatClick("request")} className="btn-primary w-full">Solicitar / Reservar</button>
-              <button onClick={toggleFavorite} className={`rounded-full border px-4 py-2 text-sm ${favorite ? "border-rose-400 bg-rose-500/20" : "border-white/20 bg-white/5"}`}>{favorite ? "♥ Favorito" : "♡ Favorito"}</button>
+
+            {/* CTA buttons - responsive on mobile */}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button onClick={() => handleChatClick("message")} className="btn-secondary w-full text-sm py-2.5">
+                Enviar mensaje
+              </button>
+              <button onClick={() => handleChatClick("request")} className="btn-primary w-full text-sm py-2.5">
+                Solicitar / Reservar
+              </button>
             </div>
+
+            {/* Favorite button */}
+            <button
+              onClick={toggleFavorite}
+              className={`w-full rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${favorite ? "border-rose-400 bg-rose-500/20 text-rose-100" : "border-white/20 bg-white/5 text-white/80 hover:bg-white/10"}`}
+            >
+              {favorite ? "♥ Guardado en favoritos" : "♡ Agregar a favoritos"}
+            </button>
           </div>
         </div>
       </div>
 
-      {hasInfoSection ? <div className="card p-6"><h2 className="text-lg font-semibold">Información</h2><div className="mt-3 flex flex-wrap gap-2">{infoChips.map((chip) => <span key={chip} className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/80">{chip}</span>)}</div></div> : null}
-      {hasStyleSection ? <div className="card p-6"><h2 className="text-lg font-semibold">Estilo</h2><div className="mt-3 flex flex-wrap gap-2">{styleChips.map((chip) => <span key={chip} className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/80">{chip}</span>)}</div></div> : null}
-      {hasAvailabilitySection ? <div className="card p-6"><h2 className="text-lg font-semibold">Disponibilidad</h2>{professional.availabilityNote ? <p className="mt-2 text-sm text-white/70">{professional.availabilityNote}</p> : null}<div className="mt-3 flex gap-2">{availabilityChips.map((chip) => <span key={chip} className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs">{chip}</span>)}</div></div> : null}
-      {hasRatesSection ? <div className="card p-6"><h2 className="text-lg font-semibold">Tarifas</h2><p className="mt-2 text-sm text-white/70">{professional.minDurationMinutes ? `$${professional.baseRate?.toLocaleString("es-CL")} / ${professional.minDurationMinutes} min` : `Desde $${professional.baseRate?.toLocaleString("es-CL")}`}</p></div> : null}
+      {/* Detalles card - clean grid layout */}
+      {hasDetailsSection && (
+        <div className="card p-5 md:p-6">
+          <h2 className="text-lg font-semibold mb-4">Detalles</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {detailRows.map((row) => (
+              <div key={row.label} className="flex justify-between items-center py-2 border-b border-white/5">
+                <span className="text-sm text-white/60">{row.label}</span>
+                <span className="text-sm font-medium text-white/90">{row.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {gallery.length ? <div className="card p-6">
-        <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">Galería</h2><GalleryCounter count={gallery.length} /></div>
-        <div className="-mx-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-2 pb-1 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 lg:grid-cols-3 xl:grid-cols-4">{gallery.map((url, idx) => <motion.button type="button" key={`${url}-${idx}`} onClick={() => setLightbox(url)} className="aspect-[4/5] w-[78%] shrink-0 snap-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 md:w-auto md:hover:opacity-90"><img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" /></motion.button>)}</div>
-      </div> : <div className="card p-6 text-sm text-white/60">Sin fotos aún.</div>}
+      {/* Etiquetas - nice chips */}
+      {hasStyleSection && (
+        <div className="card p-5 md:p-6">
+          <h2 className="text-lg font-semibold mb-3">Etiquetas</h2>
+          <div className="flex flex-wrap gap-2">
+            {styleChips.map((chip) => (
+              <span key={chip} className="inline-block rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-1 text-xs font-medium text-fuchsia-100">
+                {chip}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {hasLocationSection ? <div className="card p-6"><h2 className="text-lg font-semibold">Ubicación</h2><p className="mt-2 text-sm text-white/70">{professional.city ? `Zona aproximada: ${professional.city}` : "Zona referencial"}</p></div> : null}
+      {/* Availability section */}
+      {hasAvailabilitySection && (
+        <div className="card p-5 md:p-6">
+          <h2 className="text-lg font-semibold mb-3">Disponibilidad</h2>
+          {professional.availabilityNote && (
+            <p className="text-sm text-white/70 mb-3">{professional.availabilityNote}</p>
+          )}
+          {availabilityChips.length > 0 && (
+            <div className="flex gap-2">
+              {availabilityChips.map((chip) => (
+                <span key={chip} className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/80">
+                  {chip}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-      {lightbox ? <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={() => setLightbox(null)}><div className="max-w-3xl w-full"><img src={lightbox} alt="Vista ampliada" className="w-full rounded-2xl border border-white/10 object-cover" /></div></div> : null}
+      {/* Rates section */}
+      {hasRatesSection && (
+        <div className="card p-5 md:p-6">
+          <h2 className="text-lg font-semibold mb-2">Tarifas</h2>
+          <p className="text-sm text-white/70">
+            {professional.minDurationMinutes
+              ? `$${professional.baseRate?.toLocaleString("es-CL")} / ${professional.minDurationMinutes} min`
+              : `Desde $${professional.baseRate?.toLocaleString("es-CL")}`}
+          </p>
+        </div>
+      )}
+
+      {/* Gallery - premium mobile carousel, desktop grid */}
+      {gallery.length > 0 ? (
+        <div className="card p-5 md:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Galería</h2>
+            <GalleryCounter count={gallery.length} />
+          </div>
+          {/* Mobile: horizontal scroll carousel with snap */}
+          <div className="md:hidden -mx-5 px-5 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
+            {gallery.map((url, idx) => (
+              <motion.button
+                type="button"
+                key={`${url}-${idx}`}
+                onClick={() => setLightbox(url)}
+                className="aspect-[3/4] w-[75%] shrink-0 snap-center overflow-hidden rounded-2xl border border-white/10 bg-white/5"
+              >
+                <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" />
+              </motion.button>
+            ))}
+          </div>
+          {/* Desktop: 3-col grid */}
+          <div className="hidden md:grid md:grid-cols-3 gap-3">
+            {gallery.map((url, idx) => (
+              <motion.button
+                type="button"
+                key={`${url}-${idx}`}
+                onClick={() => setLightbox(url)}
+                className="aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-white/5 hover:opacity-90 transition-opacity"
+              >
+                <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" />
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Location section */}
+      {hasLocationSection && (
+        <div className="card p-5 md:p-6">
+          <h2 className="text-lg font-semibold mb-2">Ubicación</h2>
+          <p className="text-sm text-white/70">
+            {professional.city ? `Zona aproximada: ${professional.city}` : "Zona referencial"}
+          </p>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/90 p-4 backdrop-blur-sm" onClick={() => setLightbox(null)}>
+          <div className="max-w-3xl w-full">
+            <img src={lightbox} alt="Vista ampliada" className="w-full rounded-2xl border border-white/10 object-cover" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
