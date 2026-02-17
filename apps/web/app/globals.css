@@ -1,0 +1,359 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  UZEED – global styling
+  Purple galaxy background + glassmorphism.
+  Background image: /public/brand/bg.jpg
+*/
+
+html {
+  height: 100%;
+}
+
+body {
+  @apply text-white;
+  background: #070816;
+  position: relative;
+  overflow-x: hidden;
+  min-height: 100%;
+}
+
+/* Background image layer */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("/brand/bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.55;
+  filter: saturate(1.15) contrast(1.05);
+  z-index: -2;
+}
+
+/* Soft galaxy overlays */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(1200px 800px at 20% 10%, rgba(168, 85, 247, 0.30), transparent 60%),
+    radial-gradient(900px 700px at 80% 25%, rgba(236, 72, 153, 0.22), transparent 60%),
+    radial-gradient(900px 900px at 50% 90%, rgba(59, 130, 246, 0.12), transparent 60%),
+    linear-gradient(180deg, rgba(7, 8, 22, 0.10), rgba(7, 8, 22, 0.75));
+  z-index: -1;
+}
+
+/* On iOS/Safari, fixed backgrounds can cause flicker and "different" looking pages.
+   Keep the same visuals but avoid fixed positioning on small screens. */
+@media (max-width: 768px) {
+  body::before,
+  body::after {
+    position: absolute;
+  }
+}
+
+/* Make tap highlights less ugly on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Small helper utilities */
+@layer components {
+  /* Legacy classnames used across pages */
+  .card {
+    @apply uzeed-glass-strong rounded-2xl p-6;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/50 outline-none backdrop-blur-xl;
+  }
+
+  .input:focus {
+    @apply border-white/20 ring-2 ring-fuchsia-500/30;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-xl px-5 py-3 font-semibold transition;
+  }
+
+  .btn-primary {
+    @apply btn bg-gradient-to-r from-fuchsia-600 to-violet-600 shadow-[0_12px_30px_rgba(168,85,247,0.20)];
+  }
+
+  .btn-primary:hover {
+    @apply brightness-110;
+  }
+
+  .btn-secondary {
+    @apply btn border border-white/15 bg-white/5 text-white/90 backdrop-blur-xl;
+  }
+
+  .btn-secondary:hover {
+    @apply bg-white/10;
+  }
+
+  .btn-ghost {
+    @apply btn border border-white/10 bg-white/5;
+  }
+
+  .file-input {
+    @apply block w-full cursor-pointer rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 backdrop-blur-xl;
+  }
+
+  .uzeed-glass {
+    @apply border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.35)];
+  }
+
+  .uzeed-glass-strong {
+    @apply border border-white/10 bg-white/10 backdrop-blur-2xl shadow-[0_18px_50px_rgba(0,0,0,0.45)];
+  }
+
+  .uzeed-pill {
+    @apply rounded-full border border-white/10 bg-white/5 backdrop-blur-xl;
+  }
+
+  /* ── Creator Studio ── */
+  .studio-bg {
+    background: #0e0e12;
+  }
+
+  .studio-glow {
+    background: radial-gradient(600px 400px at 30% 50%, rgba(139, 92, 246, 0.08), transparent 70%);
+    pointer-events: none;
+  }
+
+  .editor-card {
+    @apply rounded-2xl border border-white/[0.06] backdrop-blur-lg;
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: border-color 200ms, box-shadow 200ms, transform 200ms;
+  }
+
+  .editor-card:hover {
+    @apply border-white/[0.10];
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.35);
+  }
+
+  .input-studio {
+    @apply w-full rounded-xl border border-white/[0.08] px-4 py-3 text-sm text-white placeholder-white/30 outline-none;
+    background: rgba(255, 255, 255, 0.025);
+    transition: all 200ms ease;
+  }
+
+  .input-studio:focus {
+    @apply border-violet-500/40 ring-2 ring-violet-500/20;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .unsaved-bar {
+    @apply flex items-center gap-3 rounded-2xl border border-white/10 px-5 py-3;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Studio select inherits input-studio + dark options */
+  select.input-studio {
+    color-scheme: dark;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, rgba(255,255,255,.5) 50%),
+      linear-gradient(135deg, rgba(255,255,255,.5) 50%, transparent 50%);
+    background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px);
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 2.5rem;
+  }
+
+  select.input-studio option,
+  select.input-studio optgroup {
+    background-color: #0e0e12;
+    color: #ffffff;
+  }
+
+  input[type="date"].input-studio {
+    color-scheme: dark;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  input[type="date"].input-studio::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(0.7);
+  }
+
+  .studio-link-card {
+    @apply flex items-center justify-center rounded-xl border border-white/[0.06] px-4 py-3 text-sm text-white/70 transition-all;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .studio-link-card:hover {
+    @apply border-violet-500/20 text-white/90;
+    background: rgba(139, 92, 246, 0.06);
+  }
+}
+
+.uzeed-map-marker {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), rgba(168, 85, 247, 0.9));
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.2);
+  cursor: pointer;
+}
+
+.uzeed-map-marker--avatar {
+  background-size: cover;
+  background-position: center;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.uzeed-map-marker--incognito {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+.uzeed-map-marker__icon {
+  width: 70%;
+  height: 70%;
+}
+
+.uzeed-map-marker--user {
+  width: 18px;
+  height: 18px;
+  background: #38bdf8;
+  box-shadow: 0 0 0 6px rgba(56, 189, 248, 0.2);
+}
+
+.uzeed-map-popup {
+  color: #111;
+  font-family: inherit;
+  min-width: 160px;
+}
+
+.uzeed-map-popup__title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.uzeed-map-popup__subtitle {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.uzeed-map-popup__meta {
+  font-size: 11px;
+  opacity: 0.65;
+  margin-top: 4px;
+}
+
+.uzeed-map-popup__desc {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 6px;
+  max-width: 220px;
+}
+
+.uzeed-map-popup__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.uzeed-map-popup__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #111827;
+  color: #fff;
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.uzeed-map-popup__btn--ghost {
+  background: rgba(17, 24, 39, 0.15);
+  color: #111827;
+  border: 1px solid rgba(17, 24, 39, 0.2);
+}
+
+@keyframes uzeed-spin-slow {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.uzeed-hero-logo {
+  animation: uzeed-spin-slow 16s ease-in-out infinite;
+}
+
+.uzeed-hero-logo:hover {
+  animation-play-state: paused;
+}
+
+
+
+/* Fix native <select>/<option> contrast on desktop (Windows/Chrome) */
+select.input {
+  color-scheme: dark;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, rgba(255,255,255,.7) 50%),
+    linear-gradient(135deg, rgba(255,255,255,.7) 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 2.5rem;
+}
+
+select.input option,
+select.input optgroup {
+  background-color: #0b0b1b;
+  color: #ffffff;
+}
+
+input[type="date"].input,
+input[type="time"].input,
+input[type="datetime-local"].input {
+  color-scheme: dark;
+  min-width: 0;
+  max-width: 100%;
+}
+
+input[type="date"].input::-webkit-calendar-picker-indicator,
+input[type="time"].input::-webkit-calendar-picker-indicator,
+input[type="datetime-local"].input::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.9);
+}
+
+input[type="date"].input::-webkit-datetime-edit,
+input[type="time"].input::-webkit-datetime-edit,
+input[type="datetime-local"].input::-webkit-datetime-edit {
+  color: #ffffff;
+}

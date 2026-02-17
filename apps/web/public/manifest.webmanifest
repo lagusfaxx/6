@@ -1,0 +1,30 @@
+{
+  "name": "UZEED",
+  "short_name": "UZEED",
+  "description": "UZEED",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "lang": "es-CL",
+  "icons": [
+    {
+      "src": "/brand/isotipo-new.png",
+      "sizes": "720x720",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand/isotipo-new.png",
+      "sizes": "720x720",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand/isotipo-new.png",
+      "sizes": "720x720",
+      "type": "image/png"
+    }
+  ]
+}

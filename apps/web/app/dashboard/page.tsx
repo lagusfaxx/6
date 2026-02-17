@@ -1,0 +1,128 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import useMe from "../../hooks/useMe";
+import { apiFetch } from "../../lib/api";
+
+function fmtDate(iso?: string | null) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString();
+}
+
+export default function DashboardPage() {
+  const { me, loading } = useMe();
+  const user = me?.user ?? null;
+
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const membershipActive = useMemo(() => {
+    if (!user?.membershipExpiresAt) return false;
+    const d = new Date(user.membershipExpiresAt);
+    return !Number.isNaN(d.getTime()) && d.getTime() > Date.now();
+  }, [user?.membershipExpiresAt]);
+
+  const isProfessional = user?.profileType === "PROFESSIONAL";
+  const isShop = user?.profileType === "SHOP";
+  const isViewer = user?.profileType === "VIEWER";
+  const isAdmin = (user?.role ?? "").toUpperCase() === "ADMIN";
+  const isMotel = (user?.profileType ?? "").toUpperCase() === "ESTABLISHMENT" || ["MOTEL", "MOTEL_OWNER"].includes((user?.role ?? "").toUpperCase());
+
+  useEffect(() => {
+    if (isMotel) window.location.href = "/dashboard/motel";
+  }, [isMotel]);
+
+  const handleSubscribe = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await apiFetch("/billing/subscription/start", { method: "POST", body: JSON.stringify({}) });
+      window.location.reload();
+    } catch (e: any) {
+      setError(e?.body?.message || e?.message || "No se pudo iniciar la suscripción. Intenta de nuevo.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) return <div className="p-6 text-white/80">Cargando...</div>;
+
+  if (!user) {
+    return (
+      <div className="p-6 text-white">
+        <h1 className="text-2xl font-semibold mb-2">Dashboard</h1>
+        <p className="text-white/80 mb-4">Debes iniciar sesión para ver tu dashboard.</p>
+        <Link className="underline" href="/login">Ir a iniciar sesión</Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 text-white max-w-3xl">
+      <h1 className="text-2xl font-semibold mb-2">Dashboard</h1>
+      <p className="text-white/80 mb-6">
+        Estado de tu cuenta y publicidad mensual.
+      </p>
+
+      <div className="rounded-2xl bg-white/5 border border-white/10 p-4 mb-4">
+        <div className="text-sm text-white/70">Usuario</div>
+        <div className="text-lg font-medium">{user.username}</div>
+        <div className="text-sm text-white/70 mt-2">Tipo de perfil</div>
+        <div className="text-base">{user.profileType ?? "—"}</div>
+
+        <div className="text-sm text-white/70 mt-4">Publicidad / membresía</div>
+        <div className="text-base">
+          {membershipActive ? "Activa" : "Inactiva"}{" "}
+          {user.membershipExpiresAt ? (
+            <span className="text-white/60">· vence: {fmtDate(user.membershipExpiresAt)}</span>
+          ) : null}
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-xl border border-red-400/40 bg-red-500/10 p-3 mb-4 text-red-200">
+          {error}
+        </div>
+      ) : null}
+
+      {isViewer ? (
+        <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+          <div className="font-medium mb-1">Perfil consumidor</div>
+          <div className="text-white/80 text-sm">
+            Puedes explorar categorías, chatear y solicitar servicios. Este perfil no paga.
+          </div>
+        </div>
+      ) : null}
+
+      {(isProfessional || isShop) ? (
+        <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+          <div className="font-medium mb-1">Activar publicidad mensual</div>
+          <div className="text-white/80 text-sm mb-4">
+            Para aparecer como perfil <span className="font-medium">activo</span> en el directorio, debes mantener tu plan mensual al día.
+          </div>
+
+          <button
+            onClick={handleSubscribe}
+            disabled={busy}
+            className="px-4 py-2 rounded-xl bg-white text-black font-medium disabled:opacity-60"
+          >
+            {busy ? "Procesando..." : membershipActive ? "Renovar plan" : "Suscribirse al plan mensual"}
+          </button>
+
+          <div className="text-xs text-white/60 mt-3">
+            La activación se confirma automáticamente vía Flow.
+          </div>
+        </div>
+      ) : null}
+
+      {isAdmin ? (
+        <div className="mt-6">
+          <Link className="underline" href="/admin/pricing">Panel Admin: Precios</Link>
+        </div>
+      ) : null}
+    </div>
+  );
+}
