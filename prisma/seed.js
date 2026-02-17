@@ -59,7 +59,6 @@ async function main() {
     { name: "Servicios VIP", slug: "servicios-vip", displayName: "Servicios VIP", kind: "PROFESSIONAL" },
     { name: "Moteles", slug: "moteles", displayName: "Moteles", kind: "ESTABLISHMENT" },
     { name: "Hoteles por hora", slug: "hoteles-por-hora", displayName: "Hoteles por hora", kind: "ESTABLISHMENT" },
-    { name: "Centros privados", slug: "centros-privados", displayName: "Centros privados", kind: "ESTABLISHMENT" },
     { name: "Espacios exclusivos", slug: "espacios-exclusivos", displayName: "Espacios exclusivos", kind: "ESTABLISHMENT" },
     { name: "Sex shop", slug: "sex-shop", displayName: "Sex shop", kind: "SHOP" },
     { name: "Lencería", slug: "lenceria", displayName: "Lencería", kind: "SHOP" },
