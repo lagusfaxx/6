@@ -65,6 +65,18 @@ export type DashboardFormState = {
   city: string;
   profileLatitude: string;
   profileLongitude: string;
+  heightCm: string;
+  weightKg: string;
+  measurements: string;
+  hairColor: string;
+  skinTone: string;
+  languages: string;
+  serviceStyleTags: string;
+  availabilityNote: string;
+  baseRate: string;
+  minDurationMinutes: string;
+  acceptsIncalls: boolean;
+  acceptsOutcalls: boolean;
 
   /* Profile non-dirty-tracked */
   profileLocationVerified: boolean;
@@ -132,6 +144,18 @@ export const INITIAL_STATE: DashboardFormState = {
   city: "",
   profileLatitude: "",
   profileLongitude: "",
+  heightCm: "",
+  weightKg: "",
+  measurements: "",
+  hairColor: "",
+  skinTone: "",
+  languages: "",
+  serviceStyleTags: "",
+  availabilityNote: "",
+  baseRate: "",
+  minDurationMinutes: "",
+  acceptsIncalls: false,
+  acceptsOutcalls: false,
   profileLocationVerified: false,
   avatarPreview: null,
   coverPreview: null,
@@ -232,6 +256,16 @@ const DIRTY_TRACKED_KEYS = [
   "city",
   "profileLatitude",
   "profileLongitude",
+  "heightCm",
+  "weightKg",
+  "measurements",
+  "hairColor",
+  "skinTone",
+  "languages",
+  "serviceStyleTags",
+  "availabilityNote",
+  "baseRate",
+  "minDurationMinutes",
 ] as const;
 
 type DirtySnapshot = Record<(typeof DIRTY_TRACKED_KEYS)[number], string>;

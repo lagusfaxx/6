@@ -39,7 +39,7 @@ export default function ServicesEditor({
   return (
     <div className="space-y-4">
       {/* Active services list */}
-      <EditorCard title="Servicios activos" delay={0}>
+      <EditorCard title="Publicaciones / servicios (opcional)" delay={0}>
         <div className="grid gap-3">
           {state.items.map((item) => (
             <div
@@ -82,7 +82,7 @@ export default function ServicesEditor({
 
       {/* Create/edit service form */}
       <EditorCard
-        title={state.editingServiceId ? "Editar servicio" : "Nuevo servicio"}
+        title={state.editingServiceId ? "Editar publicación" : "Publicar servicio (opcional)"}
         subtitle="Completa los datos para publicar."
         delay={0.05}
       >

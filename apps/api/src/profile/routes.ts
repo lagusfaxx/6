@@ -96,6 +96,8 @@ profileRouter.get("/profiles/discover", asyncHandler(async (req, res) => {
       latitude: true,
       longitude: true,
       lastSeen: true,
+      heightCm: true,
+      serviceStyleTags: true,
       profileType: true,
       membershipExpiresAt: true,
       shopTrialEndsAt: true,
@@ -121,6 +123,8 @@ profileRouter.get("/profiles/discover", asyncHandler(async (req, res) => {
         lng: p.longitude,
         distanceKm,
         availableNow: computeAvailableNow(p.lastSeen),
+        heightCm: p.heightCm,
+        serviceStyleTags: p.serviceStyleTags,
         createdAt: p.createdAt
       };
     })
@@ -285,6 +289,18 @@ async function updateProfile(req: any, res: any) {
     serviceCategory,
     serviceDescription,
     city,
+    heightCm,
+    weightKg,
+    measurements,
+    hairColor,
+    skinTone,
+    languages,
+    serviceStyleTags,
+    availabilityNote,
+    baseRate,
+    minDurationMinutes,
+    acceptsIncalls,
+    acceptsOutcalls,
     latitude,
     longitude,
     allowFreeMessages,
@@ -314,6 +330,20 @@ async function updateProfile(req: any, res: any) {
   }
   const canSetPrice = me.profileType === "CREATOR";
   const allowFree = allowFreeMessages === "true";
+  const parseNullableInt = (value?: string | null, max = Number.MAX_SAFE_INTEGER) => {
+    if (value === undefined) return undefined;
+    if (value === null || value === "") return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return undefined;
+    return Math.max(0, Math.min(max, Math.round(parsed)));
+  };
+  const parseNullableBool = (value?: string | null) => {
+    if (value === undefined) return undefined;
+    if (value === null || value === "") return null;
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return undefined;
+  };
   let safeBirthdate: Date | null | undefined = undefined;
   if (birthdate !== undefined) {
     if (!birthdate) {
@@ -349,6 +379,18 @@ async function updateProfile(req: any, res: any) {
       allowFreeMessages: canSetPrice ? allowFree : undefined,
       serviceCategory: serviceCategory ?? undefined,
       serviceDescription: serviceDescription ?? undefined,
+      heightCm: parseNullableInt(heightCm, 260),
+      weightKg: parseNullableInt(weightKg, 250),
+      measurements: measurements ?? undefined,
+      hairColor: hairColor ?? undefined,
+      skinTone: skinTone ?? undefined,
+      languages: languages ?? undefined,
+      serviceStyleTags: serviceStyleTags ?? undefined,
+      availabilityNote: availabilityNote ?? undefined,
+      baseRate: parseNullableInt(baseRate, 10000000),
+      minDurationMinutes: parseNullableInt(minDurationMinutes, 1440),
+      acceptsIncalls: parseNullableBool(acceptsIncalls),
+      acceptsOutcalls: parseNullableBool(acceptsOutcalls),
       city: city ?? undefined,
       latitude: latitude ? Number(latitude) : undefined,
       longitude: longitude ? Number(longitude) : undefined,
