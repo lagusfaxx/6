@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useMe from "../../hooks/useMe";
+import { apiFetch } from "../../lib/api";
 
 function fmtDate(iso?: string | null) {
   if (!iso) return null;
@@ -16,6 +17,7 @@ export default function DashboardPage() {
   const user = me?.user ?? null;
 
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const membershipActive = useMemo(() => {
     if (!user?.membershipExpiresAt) return false;
@@ -32,6 +34,19 @@ export default function DashboardPage() {
   useEffect(() => {
     if (isMotel) window.location.href = "/dashboard/motel";
   }, [isMotel]);
+
+  const handleSubscribe = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await apiFetch("/billing/subscription/start", { method: "POST", body: JSON.stringify({}) });
+      window.location.reload();
+    } catch (e: any) {
+      setError(e?.body?.message || e?.message || "No se pudo iniciar la suscripción. Intenta de nuevo.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (loading) return <div className="p-6 text-white/80">Cargando...</div>;
 
@@ -84,13 +99,21 @@ export default function DashboardPage() {
 
       {(isProfessional || isShop) ? (
         <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-          <div className="font-medium mb-1">Publicidad mensual</div>
+          <div className="font-medium mb-1">Activar publicidad mensual</div>
           <div className="text-white/80 text-sm mb-4">
             Para aparecer como perfil <span className="font-medium">activo</span> en el directorio, debes mantener tu plan mensual al día.
           </div>
 
+          <button
+            onClick={handleSubscribe}
+            disabled={busy}
+            className="px-4 py-2 rounded-xl bg-white text-black font-medium disabled:opacity-60"
+          >
+            {busy ? "Procesando..." : membershipActive ? "Renovar plan" : "Suscribirse al plan mensual"}
+          </button>
+
           <div className="text-xs text-white/60 mt-3">
-            La activación de tu plan se gestiona directamente. Contacta a soporte si necesitas ayuda.
+            La activación se confirma automáticamente vía Flow.
           </div>
         </div>
       ) : null}

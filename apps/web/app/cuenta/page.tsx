@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import useMe from "../../hooks/useMe";
 import useSubscriptionStatus from "../../hooks/useSubscriptionStatus";
 import { apiFetch } from "../../lib/api";
@@ -20,11 +21,28 @@ const fadeUp = {
 export default function AccountPage() {
   const { me, loading } = useMe();
   const { status: subscriptionStatus, loading: statusLoading } = useSubscriptionStatus();
+  const [payBusy, setPayBusy] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const user = me?.user ?? null;
 
   const handleLogout = async () => {
     await apiFetch("/auth/logout", { method: "POST" });
     window.location.href = "/login";
+  };
+
+  const handleSubscribe = async () => {
+    setPayError(null);
+    setPayBusy(true);
+    try {
+      await apiFetch("/billing/subscription/start", { method: "POST", body: JSON.stringify({}) });
+      // Subscription created — webhook will activate membership
+      window.location.reload();
+    } catch (err: any) {
+      const msg = err?.body?.message || err?.message || "Error al crear la suscripción. Intenta de nuevo.";
+      setPayError(msg);
+    } finally {
+      setPayBusy(false);
+    }
   };
 
   const profileType = (user?.profileType || "").toUpperCase();
@@ -209,6 +227,24 @@ export default function AccountPage() {
                     ${(subscriptionStatus.subscriptionPrice || 4990).toLocaleString("es-CL")} CLP
                   </span>
                 </div>
+
+                {/* Subscribe / Renew button */}
+                {payError && (
+                  <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2 border border-red-500/20">
+                    {payError}
+                  </p>
+                )}
+                <button
+                  onClick={handleSubscribe}
+                  disabled={payBusy}
+                  className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {payBusy
+                    ? "Procesando..."
+                    : subscriptionStatus.isActive
+                      ? "Renovar suscripción"
+                      : "Suscribirse al plan mensual"}
+                </button>
 
                 {/* Recent payments */}
                 {subscriptionStatus.recentPayments && subscriptionStatus.recentPayments.length > 0 && (
