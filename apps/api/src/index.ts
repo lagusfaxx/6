@@ -14,6 +14,7 @@ import { Prisma } from "@prisma/client";
 import { config } from "./config";
 import { authRouter } from "./auth/routes";
 import { ensureAdminUser } from "./auth/seedAdmin";
+import { seedCategories } from "./client/seedCategories";
 import { feedRouter } from "./feed/routes";
 import { adminRouter } from "./admin/routes";
 import { plansRouter } from "./khipu/plans";
@@ -195,6 +196,7 @@ process.on("uncaughtException", (err) => console.error("[api] uncaughtException"
 
 async function boot() {
   await ensureAdminUser().catch((err) => console.error("[api] admin seed failed", err));
+  await seedCategories().catch((err) => console.error("[api] category seed failed", err));
 
   app.listen(config.port, () => {
     console.log(`[api] listening on :${config.port}`);
