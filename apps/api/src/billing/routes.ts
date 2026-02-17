@@ -1,171 +1,77 @@
 import { Router } from "express";
-import crypto from "crypto";
 import { prisma } from "../db";
 import { requireAuth } from "../auth/middleware";
 import { config } from "../config";
-import { createPayment } from "../khipu/client";
-import { verifyKhipuSignature } from "../khipu/webhook";
-import { addDays } from "@uzeed/shared";
 import { asyncHandler } from "../lib/asyncHandler";
+import {
+  createFlowCustomer,
+  createFlowSubscription,
+  getFlowSubscription
+} from "../khipu/client";
 
 export const billingRouter = Router();
 
-function subscriptionBaseDate(expiresAt: Date | null) {
-  const now = new Date();
-  if (expiresAt && expiresAt.getTime() > now.getTime()) return expiresAt;
-  return now;
-}
+// ── Flow subscription start (one-click: creates customer + subscription) ────
 
-billingRouter.post("/billing/creator-subscriptions/start", requireAuth, asyncHandler(async (req, res) => {
-  const subscriberId = req.session.userId!;
-  const profileId = String(req.body?.profileId || "");
-  if (!profileId) return res.status(400).json({ error: "PROFILE_REQUIRED" });
-
-  const profile = await prisma.user.findUnique({
-    where: { id: profileId },
-    select: { id: true, profileType: true, subscriptionPrice: true, username: true }
-  });
-  if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
-  if (profile.profileType !== "CREATOR") return res.status(400).json({ error: "NOT_SUBSCRIBABLE" });
-  if (profile.id === subscriberId) return res.status(400).json({ error: "SELF_SUBSCRIBE" });
-
-  const amount = Math.max(100, Math.min(20000, profile.subscriptionPrice || 2500));
-  const intent = await prisma.paymentIntent.create({
-    data: {
-      subscriberId,
-      profileId,
-      purpose: "CREATOR_SUBSCRIPTION",
-      status: "PENDING",
-      amount
-    }
-  });
-
-  const transactionId = intent.id;
-  const payment = await createPayment({
-    amount,
-    currency: "CLP",
-    subject: `Suscripción a ${profile.username}`,
-    body: `Suscripción mensual UZEED para ${profile.username}`,
-    transaction_id: transactionId,
-    return_url: config.khipuReturnUrl,
-    cancel_url: config.khipuCancelUrl,
-    notify_url: `${config.apiUrl}/webhooks/khipu/payment`,
-    notify_api_version: "3.0"
-  });
-
-  if (!payment.payment_id || !payment.payment_url) {
-    return res.status(502).json({ error: "KHIPU_INVALID_RESPONSE" });
-  }
-
-  await prisma.paymentIntent.update({
-    where: { id: intent.id },
-    data: { providerPaymentId: payment.payment_id, paymentUrl: payment.payment_url }
-  });
-
-  console.log("[billing] creator subscription start", { intentId: intent.id, profileId, amount });
-  return res.json({ intentId: intent.id, paymentUrl: payment.payment_url });
-}));
-
-
-
-const handleMembershipStart = asyncHandler(async (req, res) => {
+billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.session.userId!;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { profileType: true, username: true }
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      username: true,
+      profileType: true,
+      flowCustomerId: true,
+      flowSubscriptionId: true
+    }
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
-  // Only PROFESSIONAL, ESTABLISHMENT, and SHOP profiles need to pay
   if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
-    return res.status(400).json({ error: "NOT_REQUIRED" });
+    return res.status(400).json({ error: "NOT_REQUIRED", message: "Este tipo de perfil no requiere suscripción" });
   }
 
-  const amount = config.membershipPriceClp;
-  const intent = await prisma.paymentIntent.create({
-    data: {
-      subscriberId: userId,
-      purpose: "MEMBERSHIP_PLAN",
-      status: "PENDING",
-      amount
+  // 1) Ensure Flow customer exists
+  let customerId = user.flowCustomerId;
+  if (!customerId) {
+    const name = (user.displayName || user.username || "").trim();
+    const email = (user.email || "").trim().toLowerCase();
+    if (!email || !name) {
+      return res.status(400).json({ error: "MISSING_CUSTOMER_DATA", message: "Se requiere nombre y email para crear el cliente de pago" });
     }
-  });
 
-  const payment = await createPayment({
-    amount,
-    currency: "CLP",
-    subject: "Plan UZEED",
-    body: `Plan mensual UZEED - ${user.username}`,
-    transaction_id: intent.id,
-    return_url: config.khipuReturnUrl,
-    cancel_url: config.khipuCancelUrl,
-    notify_url: `${config.apiUrl}/webhooks/khipu/payment`,
-    notify_api_version: "3.0"
-  });
+    const customer = await createFlowCustomer({ name, email, externalId: userId });
+    customerId = customer.customerId;
 
-  if (!payment.payment_id || !payment.payment_url) {
-    return res.status(502).json({ error: "KHIPU_INVALID_RESPONSE" });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { flowCustomerId: customerId }
+    });
   }
 
-  await prisma.paymentIntent.update({
-    where: { id: intent.id },
-    data: { providerPaymentId: payment.payment_id, paymentUrl: payment.payment_url }
+  // 2) Create Flow subscription
+  const planId = req.body?.planId || config.flowPlanId;
+  const { subscription_start, couponId, trial_period_days } = req.body || {};
+
+  const subscription = await createFlowSubscription({
+    planId,
+    customerId,
+    subscription_start,
+    couponId,
+    trial_period_days: trial_period_days !== undefined ? Number(trial_period_days) : undefined
   });
 
-  console.log("[billing] membership start", { intentId: intent.id, amount, profileType: user.profileType });
-  return res.json({ intentId: intent.id, paymentUrl: payment.payment_url });
-});
-
-const handleShopPlanStart = asyncHandler(async (req, res) => {
-  const userId = req.session.userId!;
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { profileType: true, username: true } });
-  if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
-  
-  // PROFESSIONAL, ESTABLISHMENT, and SHOP profiles all use the same price
-  if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
-    return res.status(400).json({ error: "NOT_ALLOWED" });
-  }
-
-  const amount = config.membershipPriceClp; // Use unified price (4990)
-  const intent = await prisma.paymentIntent.create({
-    data: {
-      subscriberId: userId,
-      purpose: "SHOP_PLAN",
-      status: "PENDING",
-      amount
-    }
+  // 3) Store subscriptionId (membership activates via webhook)
+  await prisma.user.update({
+    where: { id: userId },
+    data: { flowSubscriptionId: subscription.subscriptionId }
   });
 
-  const transactionId = intent.id;
-  const payment = await createPayment({
-    amount,
-    currency: "CLP",
-    subject: "Plan negocio UZEED",
-    body: `Plan mensual negocio - ${user.username}`,
-    transaction_id: transactionId,
-    return_url: config.khipuReturnUrl,
-    cancel_url: config.khipuCancelUrl,
-    notify_url: `${config.apiUrl}/webhooks/khipu/payment`,
-    notify_api_version: "3.0"
-  });
-
-  if (!payment.payment_id || !payment.payment_url) {
-    return res.status(502).json({ error: "KHIPU_INVALID_RESPONSE" });
-  }
-
-  await prisma.paymentIntent.update({
-    where: { id: intent.id },
-    data: { providerPaymentId: payment.payment_id, paymentUrl: payment.payment_url }
-  });
-
-  console.log("[billing] shop plan start", { intentId: intent.id, amount });
-  return res.json({ intentId: intent.id, paymentUrl: payment.payment_url });
-});
-
-billingRouter.post("/billing/membership/start", requireAuth, handleMembershipStart);
-
-billingRouter.post("/billing/shop-plan/start", requireAuth, handleShopPlanStart);
-billingRouter.post("/billing/shop-plans/start", requireAuth, handleShopPlanStart);
+  console.log("[billing] Flow subscription created", { userId, subscriptionId: subscription.subscriptionId, planId });
+  return res.json({ subscriptionId: subscription.subscriptionId, subscription });
+}));
 
 // Get subscription status for current user
 billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(async (req, res) => {
@@ -177,6 +83,7 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
       profileType: true,
       membershipExpiresAt: true,
       shopTrialEndsAt: true,
+      flowSubscriptionId: true,
       createdAt: true
     }
   });
@@ -223,6 +130,22 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     }
   });
 
+  // Check Flow subscription status if available
+  let flowSubscriptionStatus: string | null = null;
+  if (user.flowSubscriptionId) {
+    try {
+      const flowSub = await getFlowSubscription(user.flowSubscriptionId);
+      const FLOW_ACTIVE = 1;
+      const FLOW_CANCELED = 4;
+      flowSubscriptionStatus = flowSub.status === FLOW_ACTIVE ? "active"
+        : flowSub.status === FLOW_CANCELED ? "canceled"
+        : "inactive";
+    } catch {
+      // Flow API unreachable or subscription not found — don't block the response
+      flowSubscriptionStatus = null;
+    }
+  }
+
   return res.json({
     requiresPayment: true,
     isActive,
@@ -233,89 +156,8 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     shopTrialEndsAt: user.shopTrialEndsAt?.toISOString() || null,
     profileType: user.profileType,
     subscriptionPrice: config.membershipPriceClp,
-    recentPayments
+    recentPayments,
+    flowSubscriptionId: user.flowSubscriptionId || null,
+    flowSubscriptionStatus
   });
 }));
-
-const handleKhipuWebhook = asyncHandler(async (req, res) => {
-  const rawBody: Buffer | undefined = (req as any).rawBody;
-  const sig = req.header("x-khipu-signature");
-  if (sig && rawBody) {
-    const ok = verifyKhipuSignature(rawBody, sig);
-    if (!ok) return res.status(401).json({ error: "INVALID_SIGNATURE" });
-  }
-
-  const payload = req.body as { payment_id?: string; status?: string };
-  if (!payload.payment_id || !payload.status) return res.status(400).json({ error: "INVALID_PAYLOAD" });
-
-  const intent = await prisma.paymentIntent.findFirst({ where: { providerPaymentId: payload.payment_id } });
-  if (!intent) return res.status(404).json({ error: "INTENT_NOT_FOUND" });
-  if (intent.status === "PAID") return res.json({ ok: true, status: "PAID" });
-
-  console.log("[billing] webhook received", { intentId: intent.id, status: payload.status });
-
-  if (payload.status !== "done") {
-    await prisma.paymentIntent.update({ where: { id: intent.id }, data: { status: "FAILED" } });
-    return res.json({ ok: true, status: "FAILED" });
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.paymentIntent.update({
-      where: { id: intent.id },
-      data: { status: "PAID", paidAt: new Date() }
-    });
-
-    if (intent.purpose === "CREATOR_SUBSCRIPTION" && intent.profileId) {
-      const existing = await tx.profileSubscription.findUnique({
-        where: { subscriberId_profileId: { subscriberId: intent.subscriberId, profileId: intent.profileId } }
-      });
-      const base = subscriptionBaseDate(existing?.expiresAt || null);
-      const expiresAt = addDays(base, config.membershipDays);
-      await tx.profileSubscription.upsert({
-        where: { subscriberId_profileId: { subscriberId: intent.subscriberId, profileId: intent.profileId } },
-        update: { status: "ACTIVE", expiresAt, price: intent.amount },
-        create: {
-          subscriberId: intent.subscriberId,
-          profileId: intent.profileId,
-          status: "ACTIVE",
-          expiresAt,
-          price: intent.amount
-        }
-      });
-      await tx.notification.createMany({
-        data: [
-          {
-            userId: intent.profileId,
-            type: "SUBSCRIPTION_STARTED",
-            data: { subscriberId: intent.subscriberId, intentId: intent.id }
-          },
-          {
-            userId: intent.subscriberId,
-            type: "SUBSCRIPTION_STARTED",
-            data: { profileId: intent.profileId, intentId: intent.id }
-          }
-        ]
-      });
-    }
-
-    if (intent.purpose === "SHOP_PLAN" || intent.purpose === "MEMBERSHIP_PLAN") {
-      const user = await tx.user.findUnique({ where: { id: intent.subscriberId }, select: { membershipExpiresAt: true } });
-      const base = subscriptionBaseDate(user?.membershipExpiresAt || null);
-      const expiresAt = addDays(base, 30);
-      await tx.user.update({ where: { id: intent.subscriberId }, data: { membershipExpiresAt: expiresAt } });
-      await tx.notification.create({
-        data: {
-          userId: intent.subscriberId,
-          type: "SUBSCRIPTION_STARTED",
-          data: { intentId: intent.id }
-        }
-      });
-    }
-  });
-
-  console.log("[billing] subscription activated", { intentId: intent.id });
-  return res.json({ ok: true, status: "PAID" });
-});
-
-billingRouter.post("/webhooks/khipu/payment", handleKhipuWebhook);
-billingRouter.post("/webhooks/khipu", handleKhipuWebhook);

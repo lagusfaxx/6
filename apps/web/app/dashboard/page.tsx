@@ -16,8 +16,8 @@ export default function DashboardPage() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
 
-  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const membershipActive = useMemo(() => {
     if (!user?.membershipExpiresAt) return false;
@@ -35,18 +35,16 @@ export default function DashboardPage() {
     if (isMotel) window.location.href = "/dashboard/motel";
   }, [isMotel]);
 
-  const startPlan = async (kind: "professional" | "shop") => {
+  const handleSubscribe = async () => {
     setError(null);
-    setBusy(kind);
+    setBusy(true);
     try {
-      const path = kind === "professional" ? "/billing/professional-plan/start" : "/billing/shop-plan/start";
-      const r = await apiFetch<{ paymentUrl: string }>(path, { method: "POST", body: JSON.stringify({}) });
-      if (!r?.paymentUrl) throw new Error("NO_PAYMENT_URL");
-      window.location.href = r.paymentUrl;
+      await apiFetch("/billing/subscription/start", { method: "POST", body: JSON.stringify({}) });
+      window.location.reload();
     } catch (e: any) {
-      setError("No se pudo iniciar el pago. Revisa tu sesión y configuración de Khipu.");
+      setError(e?.body?.message || e?.message || "No se pudo iniciar la suscripción. Intenta de nuevo.");
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
@@ -66,7 +64,7 @@ export default function DashboardPage() {
     <div className="p-6 text-white max-w-3xl">
       <h1 className="text-2xl font-semibold mb-2">Dashboard</h1>
       <p className="text-white/80 mb-6">
-        Estado de tu cuenta y publicidad mensual (Khipu).
+        Estado de tu cuenta y publicidad mensual.
       </p>
 
       <div className="rounded-2xl bg-white/5 border border-white/10 p-4 mb-4">
@@ -106,28 +104,16 @@ export default function DashboardPage() {
             Para aparecer como perfil <span className="font-medium">activo</span> en el directorio, debes mantener tu plan mensual al día.
           </div>
 
-          {isProfessional ? (
-            <button
-              onClick={() => startPlan("professional")}
-              disabled={busy !== null}
-              className="px-4 py-2 rounded-xl bg-white text-black font-medium disabled:opacity-60"
-            >
-              {busy === "professional" ? "Redirigiendo a Khipu..." : "Pagar plan Experiencia"}
-            </button>
-          ) : null}
-
-          {isShop ? (
-            <button
-              onClick={() => startPlan("shop")}
-              disabled={busy !== null}
-              className="px-4 py-2 rounded-xl bg-white text-black font-medium disabled:opacity-60"
-            >
-              {busy === "shop" ? "Redirigiendo a Khipu..." : "Pagar plan Tienda"}
-            </button>
-          ) : null}
+          <button
+            onClick={handleSubscribe}
+            disabled={busy}
+            className="px-4 py-2 rounded-xl bg-white text-black font-medium disabled:opacity-60"
+          >
+            {busy ? "Procesando..." : membershipActive ? "Renovar plan" : "Suscribirse al plan mensual"}
+          </button>
 
           <div className="text-xs text-white/60 mt-3">
-            Al pagar, volverás a este dashboard. La activación se confirma automáticamente vía webhook de Khipu.
+            La activación se confirma automáticamente vía Flow.
           </div>
         </div>
       ) : null}

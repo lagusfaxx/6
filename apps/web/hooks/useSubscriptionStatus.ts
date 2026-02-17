@@ -20,6 +20,8 @@ type SubscriptionStatus = {
     paidAt: string | null;
     createdAt: string;
   }>;
+  flowSubscriptionId?: string | null;
+  flowSubscriptionStatus?: string | null;
 };
 
 export default function useSubscriptionStatus() {

@@ -21,7 +21,8 @@ const fadeUp = {
 export default function AccountPage() {
   const { me, loading } = useMe();
   const { status: subscriptionStatus, loading: statusLoading } = useSubscriptionStatus();
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [payBusy, setPayBusy] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const user = me?.user ?? null;
 
   const handleLogout = async () => {
@@ -29,20 +30,18 @@ export default function AccountPage() {
     window.location.href = "/login";
   };
 
-  const handleStartPayment = async () => {
+  const handleSubscribe = async () => {
+    setPayError(null);
+    setPayBusy(true);
     try {
-      setPaymentLoading(true);
-      const response = await apiFetch<{ paymentUrl: string }>("/billing/membership/start", { 
-        method: "POST" 
-      });
-      if (response.paymentUrl) {
-        window.location.href = response.paymentUrl;
-      }
-    } catch (error) {
-      console.error("Failed to start payment:", error);
-      alert("Error al iniciar el pago. Por favor, intenta de nuevo.");
+      await apiFetch("/billing/subscription/start", { method: "POST", body: JSON.stringify({}) });
+      // Subscription created — webhook will activate membership
+      window.location.reload();
+    } catch (err: any) {
+      const msg = err?.body?.message || err?.message || "Error al crear la suscripción. Intenta de nuevo.";
+      setPayError(msg);
     } finally {
-      setPaymentLoading(false);
+      setPayBusy(false);
     }
   };
 
@@ -229,13 +228,22 @@ export default function AccountPage() {
                   </span>
                 </div>
 
-                {/* Payment button */}
+                {/* Subscribe / Renew button */}
+                {payError && (
+                  <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2 border border-red-500/20">
+                    {payError}
+                  </p>
+                )}
                 <button
-                  onClick={handleStartPayment}
-                  disabled={paymentLoading}
+                  onClick={handleSubscribe}
+                  disabled={payBusy}
                   className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {paymentLoading ? "Procesando..." : "Renovar suscripción"}
+                  {payBusy
+                    ? "Procesando..."
+                    : subscriptionStatus.isActive
+                      ? "Renovar suscripción"
+                      : "Suscribirse al plan mensual"}
                 </button>
 
                 {/* Recent payments */}
