@@ -1,19 +1,25 @@
+import crypto from "crypto";
 import { Router } from "express";
 import { prisma } from "../db";
 import { requireAuth } from "../auth/middleware";
 import { config } from "../config";
 import { asyncHandler } from "../lib/asyncHandler";
 import {
-  createFlowCustomer,
-  createFlowSubscription,
-  getFlowSubscription
+  createFlowPayment,
+  getFlowPaymentStatus
 } from "../khipu/client";
 
 export const billingRouter = Router();
 
-// ── Flow subscription start (one-click: creates customer + subscription) ────
+function addDays(base: Date, days: number): Date {
+  const d = new Date(base.getTime());
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
 
-billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(async (req, res) => {
+// ── Flow manual payment (generates a payment link for the user) ─────
+
+billingRouter.post("/billing/payment/create", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.session.userId!;
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -22,58 +28,129 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
       email: true,
       displayName: true,
       username: true,
-      profileType: true,
-      flowCustomerId: true,
-      flowSubscriptionId: true
+      profileType: true
     }
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
   if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
-    return res.status(400).json({ error: "NOT_REQUIRED", message: "Este tipo de perfil no requiere suscripción" });
+    return res.status(400).json({ error: "NOT_REQUIRED", message: "Este tipo de perfil no requiere pago" });
   }
 
-  // 1) Ensure Flow customer exists
-  let customerId = user.flowCustomerId;
-  if (!customerId) {
-    const name = (user.displayName || user.username || "").trim();
-    const email = (user.email || "").trim().toLowerCase();
-    if (!email || !name) {
-      return res.status(400).json({ error: "MISSING_CUSTOMER_DATA", message: "Se requiere nombre y email para crear el cliente de pago" });
+  const email = (user.email || "").trim().toLowerCase();
+  if (!email) {
+    return res.status(400).json({ error: "MISSING_EMAIL", message: "Se requiere email para generar el pago" });
+  }
+
+  const amount = config.membershipPriceClp;
+  const commerceOrder = crypto.randomUUID();
+
+  const flowResponse = await createFlowPayment({
+    commerceOrder,
+    subject: `Membresía mensual UZEED – ${user.displayName || user.username}`,
+    currency: "CLP",
+    amount,
+    email,
+    urlConfirmation: config.flowUrlConfirmation,
+    urlReturn: config.flowUrlReturn,
+    optional: JSON.stringify({ userId })
+  });
+
+  // Store the payment in our database
+  await prisma.payment.create({
+    data: {
+      userId,
+      providerPaymentId: String(flowResponse.flowOrder),
+      transactionId: commerceOrder,
+      amount,
+      currency: "CLP",
+      status: "PENDING",
+      paymentUrl: `${flowResponse.url}?token=${flowResponse.token}`
     }
-
-    const customer = await createFlowCustomer({ name, email, externalId: userId });
-    customerId = customer.customerId;
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { flowCustomerId: customerId }
-    });
-  }
-
-  // 2) Create Flow subscription
-  const planId = req.body?.planId || config.flowPlanId;
-  const { subscription_start, couponId, trial_period_days } = req.body || {};
-
-  const subscription = await createFlowSubscription({
-    planId,
-    customerId,
-    subscription_start,
-    couponId,
-    trial_period_days: trial_period_days !== undefined ? Number(trial_period_days) : undefined
   });
 
-  // 3) Store subscriptionId (membership activates via webhook)
-  await prisma.user.update({
-    where: { id: userId },
-    data: { flowSubscriptionId: subscription.subscriptionId }
+  console.log("[billing] Flow manual payment created", { userId, commerceOrder, flowOrder: flowResponse.flowOrder });
+  return res.json({
+    paymentUrl: `${flowResponse.url}?token=${flowResponse.token}`,
+    commerceOrder,
+    flowOrder: flowResponse.flowOrder
   });
-
-  console.log("[billing] Flow subscription created", { userId, subscriptionId: subscription.subscriptionId, planId });
-  return res.json({ subscriptionId: subscription.subscriptionId, subscription });
 }));
 
-// Get subscription status for current user
+// ── Flow payment webhook (confirmation callback) ────────────────────
+
+billingRouter.post("/billing/webhooks/flow/payment", asyncHandler(async (req, res) => {
+  const body = req.body as Record<string, string>;
+  const token = body.token;
+
+  if (!token) {
+    console.error("[flow] payment webhook rejected: missing token");
+    return res.status(400).json({ error: "MISSING_TOKEN" });
+  }
+
+  // Query Flow for the payment status using the token
+  const flowPayment = await getFlowPaymentStatus(token);
+  console.log("[flow] payment webhook received", { flowOrder: flowPayment.flowOrder, status: flowPayment.status, commerceOrder: flowPayment.commerceOrder });
+
+  // Flow status: 1=pending, 2=paid, 3=rejected, 4=canceled
+  if (flowPayment.status !== 2) {
+    console.log("[flow] payment not paid yet", { flowOrder: flowPayment.flowOrder, status: flowPayment.status });
+    return res.json({ ok: true, status: flowPayment.status, activated: false });
+  }
+
+  // Find the local payment by commerceOrder (transactionId)
+  const localPayment = await prisma.payment.findFirst({
+    where: { transactionId: flowPayment.commerceOrder }
+  });
+
+  if (!localPayment) {
+    console.error("[flow] payment webhook: commerceOrder not found", { commerceOrder: flowPayment.commerceOrder });
+    return res.status(404).json({ error: "PAYMENT_NOT_FOUND" });
+  }
+
+  // Idempotency: if already paid, acknowledge
+  if (localPayment.status === "PAID") {
+    return res.json({ ok: true, status: flowPayment.status, activated: false, reason: "ALREADY_PAID" });
+  }
+
+  // Activate membership inside a transaction
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.update({
+      where: { id: localPayment.id },
+      data: { status: "PAID", paidAt: now }
+    });
+
+    const user = await tx.user.findUnique({
+      where: { id: localPayment.userId },
+      select: { membershipExpiresAt: true }
+    });
+
+    const base = user?.membershipExpiresAt && user.membershipExpiresAt.getTime() > now.getTime()
+      ? user.membershipExpiresAt
+      : now;
+    const expiresAt = addDays(base, config.membershipDays);
+
+    await tx.user.update({
+      where: { id: localPayment.userId },
+      data: { membershipExpiresAt: expiresAt }
+    });
+
+    await tx.notification.create({
+      data: {
+        userId: localPayment.userId,
+        type: "SUBSCRIPTION_RENEWED",
+        data: { commerceOrder: flowPayment.commerceOrder, source: "flow_manual" }
+      }
+    });
+  });
+
+  console.log("[flow] membership activated via manual payment webhook", { userId: localPayment.userId, commerceOrder: flowPayment.commerceOrder });
+  return res.json({ ok: true, status: flowPayment.status, activated: true });
+}));
+
+// ── Get subscription status for current user ────────────────────────
+
 billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.session.userId!;
   const user = await prisma.user.findUnique({
@@ -83,7 +160,6 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
       profileType: true,
       membershipExpiresAt: true,
       shopTrialEndsAt: true,
-      flowSubscriptionId: true,
       createdAt: true
     }
   });
@@ -113,12 +189,17 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     daysRemaining = Math.ceil((user.shopTrialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   }
 
-  // Get recent payment intents
-  const recentPayments = await prisma.paymentIntent.findMany({
-    where: {
-      subscriberId: userId,
-      purpose: { in: ["MEMBERSHIP_PLAN", "SHOP_PLAN"] }
-    },
+  // Calculate next payment date
+  let nextPaymentDate: string | null = null;
+  if (membershipActive && user.membershipExpiresAt) {
+    nextPaymentDate = user.membershipExpiresAt.toISOString();
+  } else if (trialActive && user.shopTrialEndsAt) {
+    nextPaymentDate = user.shopTrialEndsAt.toISOString();
+  }
+
+  // Get recent payments from the Payment table
+  const recentPayments = await prisma.payment.findMany({
+    where: { userId },
     orderBy: { createdAt: "desc" },
     take: 5,
     select: {
@@ -130,22 +211,6 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     }
   });
 
-  // Check Flow subscription status if available
-  let flowSubscriptionStatus: string | null = null;
-  if (user.flowSubscriptionId) {
-    try {
-      const flowSub = await getFlowSubscription(user.flowSubscriptionId);
-      const FLOW_ACTIVE = 1;
-      const FLOW_CANCELED = 4;
-      flowSubscriptionStatus = flowSub.status === FLOW_ACTIVE ? "active"
-        : flowSub.status === FLOW_CANCELED ? "canceled"
-        : "inactive";
-    } catch {
-      // Flow API unreachable or subscription not found — don't block the response
-      flowSubscriptionStatus = null;
-    }
-  }
-
   return res.json({
     requiresPayment: true,
     isActive,
@@ -154,10 +219,9 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     daysRemaining,
     membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null,
     shopTrialEndsAt: user.shopTrialEndsAt?.toISOString() || null,
+    nextPaymentDate,
     profileType: user.profileType,
     subscriptionPrice: config.membershipPriceClp,
-    recentPayments,
-    flowSubscriptionId: user.flowSubscriptionId || null,
-    flowSubscriptionStatus
+    recentPayments
   });
 }));

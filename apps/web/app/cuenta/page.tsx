@@ -34,11 +34,14 @@ export default function AccountPage() {
     setPayError(null);
     setPayBusy(true);
     try {
-      await apiFetch("/billing/subscription/start", { method: "POST", body: JSON.stringify({}) });
-      // Subscription created — webhook will activate membership
-      window.location.reload();
+      const result = await apiFetch<{ paymentUrl: string }>("/billing/payment/create", { method: "POST", body: JSON.stringify({}) });
+      if (result.paymentUrl) {
+        window.location.href = result.paymentUrl;
+      } else {
+        setPayError("No se pudo generar el enlace de pago. Intenta de nuevo.");
+      }
     } catch (err: any) {
-      const msg = err?.body?.message || err?.message || "Error al crear la suscripción. Intenta de nuevo.";
+      const msg = err?.body?.message || err?.message || "Error al crear el pago. Intenta de nuevo.";
       setPayError(msg);
     } finally {
       setPayBusy(false);
@@ -175,7 +178,7 @@ export default function AccountPage() {
             <motion.div custom={2} variants={fadeUp} className="editor-card p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-white/50">
-                  Suscripción
+                  Pago mensual
                 </h2>
                 {subscriptionStatus.isActive ? (
                   <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
@@ -194,11 +197,25 @@ export default function AccountPage() {
                   {subscriptionStatus.isActive ? (
                     <>
                       <div className="flex items-center justify-between text-sm">
+                        <span className="text-white/60">Estado del pago:</span>
+                        <span className="font-semibold text-green-400">
+                          {subscriptionStatus.membershipActive ? "Pagado" : "Prueba gratuita"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-white/60">Días restantes:</span>
                         <span className="font-semibold text-white/90">
                           {subscriptionStatus.daysRemaining || 0} días
                         </span>
                       </div>
+                      {subscriptionStatus.nextPaymentDate && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-white/60">Próximo pago antes de:</span>
+                          <span className="text-white/90">
+                            {new Date(subscriptionStatus.nextPaymentDate).toLocaleDateString("es-CL")}
+                          </span>
+                        </div>
+                      )}
                       {subscriptionStatus.membershipExpiresAt && (
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-white/60">Vence el:</span>
@@ -209,13 +226,13 @@ export default function AccountPage() {
                       )}
                       {isTrialPeriod && (
                         <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2 border border-amber-500/20">
-                          ⚡ Período de prueba gratis
+                          ⚡ Período de prueba gratis — paga antes de que expire para mantener tu acceso
                         </p>
                       )}
                     </>
                   ) : (
                     <p className="text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2 border border-red-500/20">
-                      Tu suscripción ha expirado. Renuévala para seguir visible.
+                      Tu membresía ha expirado. Realiza un pago manual para seguir usando la plataforma.
                     </p>
                   )}
                 </div>
@@ -242,8 +259,8 @@ export default function AccountPage() {
                   {payBusy
                     ? "Procesando..."
                     : subscriptionStatus.isActive
-                      ? "Renovar suscripción"
-                      : "Suscribirse al plan mensual"}
+                      ? "Renovar plan (pago manual)"
+                      : "Pagar plan mensual"}
                 </button>
 
                 {/* Recent payments */}
