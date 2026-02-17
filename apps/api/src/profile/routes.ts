@@ -8,6 +8,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { isBusinessPlanActive } from "../lib/subscriptions";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
+import { parseAndNormalizeTags } from "../lib/tags";
 
 export const profileRouter = Router();
 
@@ -74,11 +75,16 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
 
 
 profileRouter.get("/profiles/discover", asyncHandler(async (req, res) => {
-  const sort = typeof req.query.sort === "string" ? req.query.sort : "availableNow";
+  let sort = typeof req.query.sort === "string" ? req.query.sort : "availableNow";
   const radiusKm = req.query.radiusKm != null ? Number(req.query.radiusKm) : null;
   const limit = req.query.limit != null ? Math.min(Number(req.query.limit) || 24, 120) : 24;
   const lat = req.query.lat != null ? Number(req.query.lat) : null;
   const lng = req.query.lng != null ? Number(req.query.lng) : null;
+
+  // Fallback: if sort=near but no location provided, use availableNow instead
+  if (sort === "near" && (lat === null || lng === null)) {
+    sort = "availableNow";
+  }
 
   const profiles = await prisma.user.findMany({
     where: {
@@ -125,6 +131,7 @@ profileRouter.get("/profiles/discover", asyncHandler(async (req, res) => {
         availableNow: computeAvailableNow(p.lastSeen),
         heightCm: p.heightCm,
         serviceStyleTags: p.serviceStyleTags,
+        normalizedTags: parseAndNormalizeTags(p.serviceStyleTags),
         createdAt: p.createdAt
       };
     })
