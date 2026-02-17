@@ -20,23 +20,36 @@ export default function PresenceHeartbeat() {
       await apiFetch("/auth/ping", { method: "POST" }).catch(() => undefined);
     };
 
-    ping();
+    const stop = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const start = () => {
+      if (document.visibilityState !== "visible" || timer) return;
+      ping();
+      timer = setInterval(() => {
+        ping();
+      }, HEARTBEAT_MS);
+    };
 
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        ping();
+        start();
+      } else {
+        stop();
       }
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
-    timer = setInterval(() => {
-      ping();
-    }, HEARTBEAT_MS);
+    start();
 
     return () => {
       active = false;
+      stop();
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      if (timer) clearInterval(timer);
     };
   }, [loading, me?.user?.id]);
 

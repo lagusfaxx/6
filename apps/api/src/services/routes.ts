@@ -86,9 +86,9 @@ function isSpaceCategory(value: string | null | undefined) {
   return normalized.includes("motel") || normalized.includes("hotel");
 }
 
-function computeAvailableNow(lastSeen: Date | null | undefined, isOnline: boolean | null | undefined) {
-  if (lastSeen && Date.now() - lastSeen.getTime() <= AVAILABLE_WINDOW_MS) return true;
-  return Boolean(isOnline);
+function computeAvailableNow(lastSeen: Date | null | undefined) {
+  if (!lastSeen) return false;
+  return Date.now() - lastSeen.getTime() <= AVAILABLE_WINDOW_MS;
 }
 
 servicesRouter.get("/services", asyncHandler(async (req, res) => {
@@ -264,10 +264,8 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
           : null;
 
       const radius = s.approxAreaM ?? 600;
-      const obfuscated =
-        s.latitude !== null && s.longitude !== null ? obfuscateLocation(s.latitude, s.longitude, `svc:${s.id}`, radius) : { latitude: null, longitude: null };
 
-      const ownerAvailableNow = computeAvailableNow(s.owner?.lastSeen, s.owner?.isOnline);
+      const ownerAvailableNow = computeAvailableNow(s.owner?.lastSeen);
       const resolvedCategory = s.categoryRel ? (s.categoryRel.displayName || s.categoryRel.name) : s.category;
 
       return {
@@ -279,9 +277,9 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
         categorySlug: s.categoryRel?.slug ?? null,
         type: isSpaceCategory(resolvedCategory) ? "space" : "experience",
         address: s.address,
-        latitude: obfuscated.latitude,
-        longitude: obfuscated.longitude,
-        coordinates: obfuscated.latitude != null && obfuscated.longitude != null ? { lat: obfuscated.latitude, lng: obfuscated.longitude } : null,
+        latitude: s.latitude !== null ? Number(s.latitude) : null,
+        longitude: s.longitude !== null ? Number(s.longitude) : null,
+        coordinates: s.latitude !== null && s.longitude !== null ? { lat: Number(s.latitude), lng: Number(s.longitude) } : null,
         approxAreaM: radius,
         locationVerified: s.locationVerified,
         distance,
@@ -353,6 +351,10 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
       ? Number(req.body.longitude)
       : null;
   const isActive = typeof req.body?.isActive === "boolean" ? req.body.isActive : true;
+  const durationMinutes =
+    req.body?.durationMinutes != null && req.body?.durationMinutes !== "" && Number.isFinite(Number(req.body.durationMinutes))
+      ? Math.max(15, Math.min(600, Math.round(Number(req.body.durationMinutes))))
+      : null;
   const locationVerified = req.body?.locationVerified === true;
   if (!title) return res.status(400).json({ error: "TITLE_REQUIRED" });
   if (!locationVerified || !addressLabel || latitude == null || longitude == null) {
@@ -398,7 +400,8 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
         longitude,
         approxAreaM,
         locationVerified,
-        isActive
+        isActive,
+        durationMinutes
       }
     });
   } catch (error) {
@@ -417,7 +420,8 @@ servicesRouter.post("/services/items", requireAuth, asyncHandler(async (req, res
           address: addressLabel || null,
           latitude,
           longitude,
-          isActive
+          isActive,
+          durationMinutes
         }
       });
     } else {
@@ -460,6 +464,10 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
       : null;
   const nextIsActive = typeof req.body?.isActive === "boolean" ? req.body.isActive : item.isActive;
   const locationVerified = req.body?.locationVerified === true;
+  const durationMinutes =
+    req.body?.durationMinutes != null && req.body?.durationMinutes !== "" && Number.isFinite(Number(req.body.durationMinutes))
+      ? Math.max(15, Math.min(600, Math.round(Number(req.body.durationMinutes))))
+      : null;
   const kind = me.profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : me.profileType === "SHOP" ? "SHOP" : "PROFESSIONAL";
   const nextCategory = await findCategoryByRef(prisma, {
     categoryId,
@@ -508,7 +516,8 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
         longitude: wantsLocationUpdate ? longitude : item.longitude,
         approxAreaM: wantsLocationUpdate ? approxAreaM ?? item.approxAreaM : item.approxAreaM,
         locationVerified: wantsLocationUpdate ? locationVerified : item.locationVerified,
-        isActive: nextIsActive
+        isActive: nextIsActive,
+        durationMinutes: req.body?.durationMinutes !== undefined ? durationMinutes : item.durationMinutes
       },
       include: { media: true }
     });
@@ -528,7 +537,8 @@ servicesRouter.put("/services/items/:id", requireAuth, asyncHandler(async (req, 
           address: wantsLocationUpdate ? addressLabel ?? item.address : item.address,
           latitude: wantsLocationUpdate ? latitude : item.latitude,
           longitude: wantsLocationUpdate ? longitude : item.longitude,
-          isActive: nextIsActive
+          isActive: nextIsActive,
+          durationMinutes: req.body?.durationMinutes !== undefined ? durationMinutes : item.durationMinutes
         },
         include: { media: true }
       });
