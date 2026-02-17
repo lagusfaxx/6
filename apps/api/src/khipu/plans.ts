@@ -148,8 +148,12 @@ plansRouter.post("/customer/create", requireAuth, asyncHandler(async (req, res) 
     return res.json({ customerId: user.flowCustomerId, reused: true });
   }
 
-  const name = req.body.name || user.displayName || user.username;
-  const email = req.body.email || user.email;
+  const name = (req.body.name || user.displayName || user.username || "").trim();
+  const email = (req.body.email || user.email || "").trim().toLowerCase();
+
+  if (!email || !name) {
+    return res.status(400).json({ error: "MISSING_CUSTOMER_DATA", message: "name and email are required" });
+  }
 
   const customer = await createFlowCustomer({ name, email, externalId: userId });
 

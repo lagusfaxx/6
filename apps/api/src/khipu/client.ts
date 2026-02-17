@@ -141,6 +141,10 @@ async function flowFetch<T>(path: string, method: "GET" | "POST", params: Record
 
   const baseUrl = config.flowBaseUrl.replace(/\/$/, "");
 
+  // Debug: log the exact payload sent to Flow (exclude signature)
+  const { s, ...debugParams } = signed;
+  console.log("[flow] request", { path, method, params: debugParams, formEncodedBody: new URLSearchParams(debugParams).toString() });
+
   let res: Response;
   if (method === "GET") {
     const qs = new URLSearchParams(signed).toString();
@@ -275,7 +279,18 @@ export type FlowCreateCustomerRequest = {
 };
 
 export async function createFlowCustomer(req: FlowCreateCustomerRequest): Promise<FlowCustomer> {
-  return flowFetch<FlowCustomer>("/customer/create", "POST", toStringRecord(req as unknown as Record<string, unknown>));
+  const email = String(req.email ?? "").trim().toLowerCase();
+  const name = String(req.name ?? "").trim();
+
+  if (!email) throw new FlowError(400, "Flow customer email is required", { field: "email" });
+  if (!name) throw new FlowError(400, "Flow customer name is required", { field: "name" });
+
+  const params: Record<string, string> = { email, name };
+  if (req.externalId !== undefined && req.externalId !== null) {
+    params.externalId = String(req.externalId).trim();
+  }
+
+  return flowFetch<FlowCustomer>("/customer/create", "POST", params);
 }
 
 // ── Flow Subscription API ───────────────────────────────────────────
