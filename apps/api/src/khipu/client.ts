@@ -32,7 +32,11 @@ async function khipuFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(url, { ...init, headers });
   const text = await res.text();
   let data: any = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
   if (!res.ok) {
     const msg = typeof data === "string" ? data : JSON.stringify(data);
     const safeMsg = msg.length > 500 ? `${msg.slice(0, 500)}...` : msg;
@@ -101,47 +105,64 @@ export type KhipuCreatePaymentResponse = {
   payment_url?: string;
 };
 
-export async function createSubscription(req: KhipuCreateSubscriptionRequest): Promise<KhipuCreateSubscriptionResponse> {
+export async function createSubscription(
+  req: KhipuCreateSubscriptionRequest
+): Promise<KhipuCreateSubscriptionResponse> {
   return khipuFetch<KhipuCreateSubscriptionResponse>("/v1/automatic-payment/subscription", {
     method: "POST",
-    body: JSON.stringify(req)
+    body: JSON.stringify(req),
   });
 }
 
-export async function getSubscription(subscriptionId: string): Promise<KhipuSubscriptionStatusResponse> {
-  return khipuFetch<KhipuSubscriptionStatusResponse>(`/v1/automatic-payment/subscription/${encodeURIComponent(subscriptionId)}`, {
-    method: "GET"
-  });
+export async function getSubscription(
+  subscriptionId: string
+): Promise<KhipuSubscriptionStatusResponse> {
+  return khipuFetch<KhipuSubscriptionStatusResponse>(
+    `/v1/automatic-payment/subscription/${encodeURIComponent(subscriptionId)}`,
+    {
+      method: "GET",
+    }
+  );
 }
 
-export async function createChargeIntent(req: KhipuChargeIntentRequest): Promise<KhipuChargeIntentResponse> {
+export async function createChargeIntent(
+  req: KhipuChargeIntentRequest
+): Promise<KhipuChargeIntentResponse> {
   return khipuFetch<KhipuChargeIntentResponse>("/v1/automatic-payment/charge-intent", {
     method: "POST",
-    body: JSON.stringify(req)
+    body: JSON.stringify(req),
   });
 }
 
 export async function createPayment(req: KhipuCreatePaymentRequest): Promise<KhipuCreatePaymentResponse> {
   return khipuFetch<KhipuCreatePaymentResponse>("/v1/payments", {
     method: "POST",
-    body: JSON.stringify(req)
+    body: JSON.stringify(req),
   });
 }
 
 // ── Flow Plans API ──────────────────────────────────────────────────
 
+// Match WHATWG URLSearchParams encoding for x-www-form-urlencoded:
+// - encodeURIComponent + spaces become '+'
+function formEncodeValue(v: string): string {
+  return encodeURIComponent(v).replace(/%20/g, "+");
+}
+
 export function signFlowParams(params: Record<string, string>): string {
   const sortedKeys = Object.keys(params).sort();
 
-  // IMPORTANT: Flow signature must match the exact value representation sent in form-url-encoded body
-  const raw = sortedKeys
-    .map((k) => `${k}${encodeURIComponent(params[k])}`)
-    .join("");
+  // IMPORTANT: signature must match the exact value representation sent as x-www-form-urlencoded
+  const raw = sortedKeys.map((k) => `${k}${formEncodeValue(params[k])}`).join("");
 
   return crypto.createHmac("sha256", config.flowSecretKey).update(raw).digest("hex");
 }
 
-async function flowFetch<T>(path: string, method: "GET" | "POST", params: Record<string, string>): Promise<T> {
+async function flowFetch<T>(
+  path: string,
+  method: "GET" | "POST",
+  params: Record<string, string>
+): Promise<T> {
   const signed: Record<string, string> = { ...params, apiKey: config.flowApiKey };
   signed.s = signFlowParams(signed);
 
@@ -156,23 +177,32 @@ async function flowFetch<T>(path: string, method: "GET" | "POST", params: Record
     const qs = new URLSearchParams(signed).toString();
     res = await fetch(`${baseUrl}${path}?${qs}`, { method: "GET" });
   } else {
-    const form = new FormData();
-    for (const [k, v] of Object.entries(signed)) form.append(k, v);
+    // Flow expects application/x-www-form-urlencoded (NOT multipart/form-data)
+    const body = new URLSearchParams(signed).toString();
     res = await fetch(`${baseUrl}${path}`, {
       method: "POST",
-      body: form
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
     });
   }
 
   const text = await res.text();
   let data: any = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
   if (!res.ok) {
     const msg = typeof data === "string" ? data : JSON.stringify(data);
     const safeMsg = msg.length > 500 ? `${msg.slice(0, 500)}...` : msg;
     console.error("[flow] error", { status: res.status, path, message: safeMsg });
     throw new FlowError(res.status, `Flow ${res.status}: ${safeMsg}`, data);
   }
+
   return data as T;
 }
 
@@ -328,7 +358,11 @@ export type FlowCreateSubscriptionRequest = {
 };
 
 export async function createFlowSubscription(req: FlowCreateSubscriptionRequest): Promise<FlowSubscription> {
-  return flowFetch<FlowSubscription>("/subscription/create", "POST", toStringRecord(req as unknown as Record<string, unknown>));
+  return flowFetch<FlowSubscription>(
+    "/subscription/create",
+    "POST",
+    toStringRecord(req as unknown as Record<string, unknown>)
+  );
 }
 
 export async function getFlowSubscription(subscriptionId: string): Promise<FlowSubscription> {
