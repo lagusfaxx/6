@@ -397,16 +397,21 @@ export type FlowPaymentStatusResponse = {
 };
 
 export async function createFlowPayment(req: FlowPaymentCreateRequest): Promise<FlowPaymentCreateResponse> {
+  const email = String(req.email ?? "").trim().toLowerCase();
+  if (!email) throw new FlowError(400, "Flow payment email is required", { field: "email" });
+
   const params: Record<string, string> = {
     commerceOrder: req.commerceOrder,
     subject: req.subject,
     currency: req.currency || "CLP",
     amount: String(req.amount),
-    email: req.email,
+    email,
     urlConfirmation: req.urlConfirmation,
     urlReturn: req.urlReturn,
   };
   if (req.optional) params.optional = req.optional;
+
+  console.log("Flow params:", params);
 
   return flowFetch<FlowPaymentCreateResponse>("/payment/create", "POST", params);
 }
