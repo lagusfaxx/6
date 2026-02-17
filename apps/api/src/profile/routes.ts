@@ -44,6 +44,101 @@ const uploadMedia = multer({
   limits: { fileSize: 100 * 1024 * 1024 }
 });
 
+const AVAILABLE_WINDOW_MS = 10 * 60 * 1000;
+
+function computeAvailableNow(lastSeen: Date | null | undefined) {
+  if (!lastSeen) return false;
+  return Date.now() - lastSeen.getTime() <= AVAILABLE_WINDOW_MS;
+}
+
+function computeAge(birthdate: Date | null | undefined) {
+  if (!birthdate) return null;
+  const now = new Date();
+  let age = now.getFullYear() - birthdate.getFullYear();
+  const m = now.getMonth() - birthdate.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < birthdate.getDate())) age -= 1;
+  return age >= 18 ? age : null;
+}
+
+function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (n: number) => (n * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+
+profileRouter.get("/profiles/discover", asyncHandler(async (req, res) => {
+  const sort = typeof req.query.sort === "string" ? req.query.sort : "availableNow";
+  const radiusKm = req.query.radiusKm != null ? Number(req.query.radiusKm) : null;
+  const limit = req.query.limit != null ? Math.min(Number(req.query.limit) || 24, 120) : 24;
+  const lat = req.query.lat != null ? Number(req.query.lat) : null;
+  const lng = req.query.lng != null ? Number(req.query.lng) : null;
+
+  const profiles = await prisma.user.findMany({
+    where: {
+      profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "CREATOR"] }
+    },
+    orderBy: { createdAt: "desc" },
+    take: Math.max(limit * 3, 48),
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      avatarUrl: true,
+      coverUrl: true,
+      birthdate: true,
+      latitude: true,
+      longitude: true,
+      lastSeen: true,
+      profileType: true,
+      membershipExpiresAt: true,
+      shopTrialEndsAt: true,
+      createdAt: true
+    }
+  });
+
+  const enriched = profiles
+    .filter((p) => isBusinessPlanActive(p))
+    .map((p) => {
+      const distanceKm =
+        lat !== null && lng !== null && p.latitude !== null && p.longitude !== null
+          ? haversine(lat, lng, p.latitude, p.longitude)
+          : null;
+      return {
+        id: p.id,
+        username: p.username,
+        displayName: p.displayName || p.username,
+        age: computeAge(p.birthdate),
+        avatarUrl: p.avatarUrl,
+        coverUrl: p.coverUrl,
+        lat: p.latitude,
+        lng: p.longitude,
+        distanceKm,
+        availableNow: computeAvailableNow(p.lastSeen),
+        createdAt: p.createdAt
+      };
+    })
+    .filter((p) => (radiusKm !== null && p.distanceKm !== null ? p.distanceKm <= radiusKm : true));
+
+  if (sort === "near") {
+    enriched.sort((a, b) => (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9));
+  } else if (sort === "new") {
+    enriched.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  } else {
+    enriched.sort((a, b) => Number(b.availableNow) - Number(a.availableNow));
+  }
+
+  const payload = enriched.slice(0, limit).map(({ createdAt, ...row }) => row);
+
+  return res.json({ profiles: payload });
+}));
+
 profileRouter.get("/profiles", asyncHandler(async (req, res) => {
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
   const types = typeof req.query.types === "string" ? req.query.types.split(",").map((t) => t.trim()) : [];

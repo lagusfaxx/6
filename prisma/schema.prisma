@@ -263,6 +263,7 @@ model ServiceItem {
   approxAreaM Int?
   locationVerified Boolean  @default(false)
   isActive    Boolean  @default(true)
+  durationMinutes Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -75,20 +75,6 @@ function resolveCategoryForPublication(params: {
   return hiddenDefault?.c.id || categories[0]?.id || "";
 }
 
-function withDurationDescription(description: string, durationMinutes: string) {
-  const clean = description.replace(/^\[duracion:(\d{1,3})\]\s*/i, "").trim();
-  const duration = Number(durationMinutes);
-  if (Number.isFinite(duration) && duration > 0) {
-    return `[duracion:${Math.round(duration)}] ${clean}`.trim();
-  }
-  return clean;
-}
-
-function parseDurationFromDescription(description?: string | null) {
-  const m = (description || "").match(/^\[duracion:(\d{1,3})\]\s*/i);
-  return m?.[1] || "";
-}
-
 export default function DashboardServicesClient() {
   const searchParams = useSearchParams();
   const { me, loading } = useMe();
@@ -413,7 +399,7 @@ export default function DashboardServicesClient() {
     try {
       const payload = {
         title: state.title,
-        description: withDurationDescription(state.description, state.durationMinutes),
+        description: state.description,
         price: state.price ? Number(state.price) : null,
         categoryId: resolveCategoryForPublication({
           categories: categoryOptions,
@@ -427,6 +413,7 @@ export default function DashboardServicesClient() {
         approxAreaM: Number(state.serviceApproxArea) || null,
         locationVerified: true,
         isActive: state.serviceIsActive,
+        durationMinutes: state.durationMinutes ? Number(state.durationMinutes) : null,
       };
       if (state.editingServiceId) {
         await apiFetch(`/services/items/${state.editingServiceId}`, { method: "PATCH", body: JSON.stringify(payload) });
@@ -468,7 +455,7 @@ export default function DashboardServicesClient() {
       setMany({
         title: item.title,
         description: item.description || "",
-        durationMinutes: parseDurationFromDescription(item.description),
+        durationMinutes: item.durationMinutes != null ? String(item.durationMinutes) : "",
         price: item.price != null ? String(item.price) : "",
         serviceCategoryId: item.categoryId || "",
         ...inferPublicationType(item.categoryRel?.displayName || item.categoryRel?.name || item.category),

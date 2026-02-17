@@ -19,6 +19,7 @@ export type ServiceItem = {
   approxAreaM?: number | null;
   locationVerified?: boolean;
   isActive: boolean;
+  durationMinutes?: number | null;
   createdAt: string;
   media?: ServiceMedia[];
   categoryRel?: { id: string; slug: string; displayName?: string | null; name?: string | null } | null;

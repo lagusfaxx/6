@@ -12,7 +12,6 @@ import {
   Clock3,
   MapPin,
   Navigation,
-  Building2,
   Sparkles,
   TrendingUp,
   Zap,
@@ -36,37 +35,29 @@ type RecentProfessional = {
   age: number | null;
 };
 
-type ServiceItem = {
+type DiscoverProfile = {
   id: string;
-  title: string;
-  price: number | null;
-  distance: number | null;
-  media: { id: string; url: string; type: string }[];
-  availableNow?: boolean;
-  owner: {
-    id: string;
-    username: string;
-    displayName: string | null;
-    avatarUrl: string | null;
-    coverUrl?: string | null;
-    profileType: string;
-    isOnline?: boolean;
-  };
+  username: string;
+  displayName: string;
+  age: number | null;
+  avatarUrl: string | null;
+  coverUrl: string | null;
+  lat: number | null;
+  lng: number | null;
+  distanceKm: number | null;
+  availableNow: boolean;
 };
 
 /* ── Helpers ── */
 
 const DISCOVERY_SECTIONS = [
-  { key: "available", title: "Disponibles ahora", subtitle: "Perfiles conectados en este momento.", icon: Clock3, href: "/servicios?type=experience&sort=availableNow", cta: "Ver todas", query: { type: "experience", sort: "availableNow", limit: "4" } },
-  { key: "near", title: "Cerca de ti", subtitle: "Experiencias ordenadas por cercanía.", icon: Navigation, href: "/servicios?type=experience&sort=near", cta: "Ver mapa", query: { type: "experience", sort: "near", limit: "4" } },
-  { key: "new", title: "Nuevas", subtitle: "Servicios publicados recientemente.", icon: Sparkles, href: "/servicios?type=experience&sort=new", cta: "Ver todas", query: { type: "experience", sort: "new", limit: "4" } },
-  { key: "spaces", title: "Espacios disponibles", subtitle: "Moteles y hoteles activos para reservar.", icon: Building2, href: "/servicios?type=space", cta: "Ver todas", query: { type: "space", sort: "new", limit: "4" } },
+  { key: "available", title: "Disponibles ahora", subtitle: "Perfiles activos en los últimos minutos.", icon: Clock3, href: "/servicios?sort=availableNow", cta: "Ver todas", query: { sort: "availableNow", limit: "4" } },
+  { key: "near", title: "Cerca de ti", subtitle: "Perfiles ordenados por cercanía.", icon: Navigation, href: "/servicios?sort=near", cta: "Ver mapa", query: { sort: "near", limit: "4" } },
+  { key: "new", title: "Nuevas", subtitle: "Perfiles recientes para descubrir.", icon: Sparkles, href: "/servicios?sort=new", cta: "Ver todas", query: { sort: "new", limit: "4" } },
 ] as const;
 
-function resolveServiceImage(service: ServiceItem) {
-  const primary = service.media?.[0]?.url || null;
-  const fallback = service.owner?.coverUrl || service.owner?.avatarUrl || null;
-  return resolveMediaUrl(primary || fallback);
+function resolveProfileImage(profile: DiscoverProfile) {
+  return resolveMediaUrl(profile.coverUrl) ?? resolveMediaUrl(profile.avatarUrl) ?? "/brand/isotipo-new.png";
 }
 
 /* ── Animation variants ── */
@@ -101,7 +92,7 @@ const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
 export default function HomePage() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
-  const [discoverSections, setDiscoverSections] = useState<Record<string, ServiceItem[]>>({});
+  const [discoverSections, setDiscoverSections] = useState<Record<string, DiscoverProfile[]>>({});
   const { location } = useMapLocation(SANTIAGO_FALLBACK);
   const [error, setError] = useState<string | null>(null);
   const [recentError, setRecentError] = useState<string | null>(null);
@@ -163,7 +154,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const loadSections = async () => {
-      const next: Record<string, ServiceItem[]> = {};
+      const next: Record<string, DiscoverProfile[]> = {};
       setError(null);
       await Promise.all(DISCOVERY_SECTIONS.map(async (section) => {
         const qp = new URLSearchParams(section.query as Record<string, string>);
@@ -171,8 +162,8 @@ export default function HomePage() {
           qp.set("lat", String(location[0]));
           qp.set("lng", String(location[1]));
         }
-        const res = await apiFetch<{ services: ServiceItem[] }>(`/services/global?${qp.toString()}`).catch(() => ({ services: [] }));
-        next[section.key] = (res.services || []).filter((s) => s.owner.profileType !== "SHOP");
+        const res = await apiFetch<{ profiles: DiscoverProfile[] }>(`/profiles/discover?${qp.toString()}`).catch(() => ({ profiles: [] }));
+        next[section.key] = res.profiles || [];
       }));
       setDiscoverSections(next);
     };
@@ -458,34 +449,44 @@ export default function HomePage() {
 
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   {items.length > 0
-                    ? items.map((s) => {
-                        const href = s.owner.profileType === "ESTABLISHMENT" ? `/hospedaje/${s.owner.id}` : `/profesional/${s.owner.id}`;
-                        const cover = resolveServiceImage(s);
+                    ? items.map((profile) => {
+                        const href = `/perfil/${profile.username}`;
+                        const cover = resolveProfileImage(profile);
 
                         return (
-                          <Link
-                            key={s.id}
-                            href={href}
+                          <article
+                            key={profile.id}
                             className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20"
                           >
-                            <div className="relative aspect-[4/3] bg-white/[0.04]">
-                              {cover ? <img src={cover} alt={s.title} className="h-full w-full object-cover transition group-hover:scale-105" /> : <div className="flex h-full items-center justify-center text-xs text-white/40">Sin imagen</div>}
-                              {s.distance != null && (
-                                <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80">
-                                  {s.distance.toFixed(1)} km
-                                </div>
-                              )}
-                              {s.availableNow && (
-                                <div className="absolute left-2 top-2 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-100">
-                                  Online
-                                </div>
-                              )}
+                            <Link href={href} className="block">
+                              <div className="relative aspect-[4/3] bg-white/[0.04]">
+                                <img src={cover ?? undefined} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
+                                {profile.distanceKm != null && (
+                                  <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80">
+                                    {profile.distanceKm.toFixed(1)} km
+                                  </div>
+                                )}
+                                {profile.availableNow && (
+                                  <div className="absolute left-2 top-2 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-100">
+                                    Disponible
+                                  </div>
+                                )}
+                              </div>
+                            </Link>
+                            <div className="space-y-2 p-3">
+                              <div className="truncate text-sm font-semibold">
+                                {profile.displayName}{profile.age != null ? `, ${profile.age}` : ""}
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Link href={href} className="rounded-lg bg-white/[0.07] px-2 py-1.5 text-center text-xs font-medium text-white/85 hover:bg-white/[0.12]">
+                                  Ver perfil
+                                </Link>
+                                <Link href={href} className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-1.5 text-center text-xs font-medium text-fuchsia-100 hover:bg-fuchsia-500/20">
+                                  Solicitar / Reservar
+                                </Link>
+                              </div>
                             </div>
-                            <div className="p-3">
-                              <div className="truncate text-sm font-semibold">{s.title || "Servicio"}</div>
-                              <div className="mt-1 text-xs text-white/45">{s.owner.displayName || s.owner.username}</div>
-                            </div>
-                          </Link>
+                          </article>
                         );
                       })
                     : [1, 2, 3, 4].map((i) => (

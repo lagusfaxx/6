@@ -136,7 +136,7 @@ export default function ServicesPage() {
   const markers = useMemo(
     () =>
       filtered
-        .filter((s) => s.latitude != null && s.longitude != null)
+        .filter((s) => Number.isFinite(Number(s.latitude)) && Number.isFinite(Number(s.longitude)))
         .map((s) => ({
           id: s.id,
           name: s.title || s.owner?.displayName || "Servicio",
@@ -213,7 +213,7 @@ export default function ServicesPage() {
 
         {view === "map" && !loading && markers.length === 0 && (
           <div className="mb-6 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white/55">
-            No hay ubicaciones válidas, amplía rango o completa ubicación del perfil.
+            No hay ubicaciones válidas aún. Amplía rango o completa ubicación del servicio.
           </div>
         )}
 
