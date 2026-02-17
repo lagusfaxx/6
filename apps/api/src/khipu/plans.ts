@@ -36,11 +36,46 @@ plansRouter.post("/plans/create", requireAuth, asyncHandler(async (req, res) => 
     trial_period_days: trial_period_days !== undefined ? Number(trial_period_days) : undefined,
     days_until_due: days_until_due !== undefined ? Number(days_until_due) : undefined,
     periods_number: periods_number !== undefined ? Number(periods_number) : undefined,
-    urlCallback,
+    urlCallback: urlCallback || config.flowCallbackUrl || undefined,
     charges_retries_number: charges_retries_number !== undefined ? Number(charges_retries_number) : undefined,
     currency_convert_option: currency_convert_option !== undefined ? Number(currency_convert_option) : undefined
   });
 
+  return res.json(plan);
+}));
+
+/**
+ * POST /plans/setup – One-time convenience endpoint to create the standard UZEED plan in Flow.
+ *
+ * Uses config defaults:
+ *   planId        = FLOW_PLAN_ID  (default: UZEED_PRO_MENSUAL)
+ *   amount        = MEMBERSHIP_PRICE_CLP (default: 4990)
+ *   interval      = 3 (monthly)
+ *   urlCallback   = FLOW_CALLBACK_URL
+ *
+ * Call this ONCE to register the plan in Flow, then use /customer/create + /subscription/create.
+ */
+plansRouter.post("/plans/setup", requireAuth, asyncHandler(async (req, res) => {
+  const planId = req.body.planId || config.flowPlanId;
+  const name = req.body.name || "Plan Profesional UZEED";
+  const amount = req.body.amount !== undefined ? Number(req.body.amount) : config.membershipPriceClp;
+  const interval = req.body.interval !== undefined ? Number(req.body.interval) : 3; // 3 = monthly
+  const urlCallback = req.body.urlCallback || config.flowCallbackUrl;
+  const trial_period_days = req.body.trial_period_days !== undefined ? Number(req.body.trial_period_days) : config.freeTrialDays;
+
+  const plan = await createFlowPlan({
+    planId,
+    name,
+    currency: req.body.currency || "CLP",
+    amount,
+    interval,
+    interval_count: 1,
+    trial_period_days,
+    days_until_due: 3,
+    urlCallback: urlCallback || undefined
+  });
+
+  console.log("[flow] plan created via /plans/setup", { planId: plan.planId, amount, interval });
   return res.json(plan);
 }));
 
@@ -132,11 +167,8 @@ plansRouter.post("/customer/create", requireAuth, asyncHandler(async (req, res) 
 /** POST /subscription/create – creates a Flow subscription (does NOT activate membership) */
 plansRouter.post("/subscription/create", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.session.userId!;
-  const { planId, subscription_start, couponId, trial_period_days } = req.body;
-
-  if (!planId) {
-    return res.status(400).json({ error: "MISSING_REQUIRED_FIELDS", required: ["planId"] });
-  }
+  const { subscription_start, couponId, trial_period_days } = req.body;
+  const planId = req.body.planId || config.flowPlanId;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
