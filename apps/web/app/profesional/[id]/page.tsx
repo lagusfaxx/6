@@ -214,16 +214,18 @@ export default function ProfessionalDetailPage() {
               >
                 {favorite ? "♥ Favorito" : "♡ Favorito"}
               </button>
-              {canRequest && !activeRequest ? (
-                <button
-                  className="btn-primary"
-                  onClick={() => {
-                    window.location.href = `/chat/${professional.id}`;
-                  }}
-                >
-                  Solicitar / reservar en chat
-                </button>
-              ) : null}
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  if (!me?.user) {
+                    window.location.href = `/login?next=${encodeURIComponent(`/profesional/${professional.id}`)}`;
+                    return;
+                  }
+                  window.location.href = `/chat/${professional.id}`;
+                }}
+              >
+                Solicitar servicio
+              </button>
               {canRequest && activeRequest ? (
                 <span className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs text-white/70">
                   Solicitud {activeRequest.status === "ACTIVO" ? "activa" : "pendiente"}

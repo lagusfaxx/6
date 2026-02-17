@@ -576,6 +576,16 @@ servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, r
     }
   });
 
+  // Create a welcome message so conversation appears in inbox immediately
+  const welcomeMessageBody = `Nueva solicitud de servicio:\n📅 Fecha: ${requestedDate}\n🕒 Hora: ${requestedTime}\n📍 Ubicación: ${agreedLocation}${clientComment ? `\n💬 Comentario: ${clientComment}` : ""}`;
+  await prisma.message.create({
+    data: {
+      fromId: req.session.userId!,
+      toId: professionalId,
+      body: welcomeMessageBody
+    }
+  });
+
   await createServiceNotification(
     professionalId,
     "Nuevo servicio solicitado",
