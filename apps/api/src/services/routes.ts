@@ -537,6 +537,12 @@ servicesRouter.post("/services/:userId/rating", requireAuth, asyncHandler(async 
 }));
 
 servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, res) => {
+  // Server-side canRequest enforcement
+  const me = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { profileType: true } });
+  if (!me || (me.profileType !== "CLIENT" && me.profileType !== "VIEWER")) {
+    return res.status(403).json({ error: "NOT_ALLOWED", message: "Solo clientes pueden solicitar servicios." });
+  }
+
   const professionalId = typeof req.body?.professionalId === "string" ? req.body.professionalId : null;
   const requestedDate = typeof req.body?.date === "string" ? req.body.date.trim() : "";
   const requestedTime = typeof req.body?.time === "string" ? req.body.time.trim() : "";
@@ -584,17 +590,29 @@ servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, r
   );
 
   // Auto-create a system message so the conversation appears in both inboxes
-  const clientName = request.client?.displayName || request.client?.username || "Cliente";
-  const systemBody = `📋 ${clientName} ha solicitado un servicio — ${requestedDate} ${requestedTime}, ${agreedLocation}`;
-  const systemMessage = await prisma.message.create({
-    data: {
+  // Idempotency: only create if no recent system message for this request exists
+  const recentSystemMsg = await prisma.message.findFirst({
+    where: {
       fromId: req.session.userId!,
       toId: professionalId,
-      body: systemBody
+      body: { startsWith: "📋 " },
+      createdAt: { gte: new Date(Date.now() - 60_000) }
     }
   });
 
-  sendToUser(professionalId, "message", { message: systemMessage });
+  if (!recentSystemMsg) {
+    const clientName = request.client?.displayName || request.client?.username || "Cliente";
+    const systemBody = `📋 ${clientName} ha solicitado un servicio — ${requestedDate} ${requestedTime}, ${agreedLocation}`;
+    const systemMessage = await prisma.message.create({
+      data: {
+        fromId: req.session.userId!,
+        toId: professionalId,
+        body: systemBody
+      }
+    });
+    sendToUser(professionalId, "message", { message: systemMessage });
+  }
+
   sendToUser(professionalId, "service_request", { request });
   sendToUser(req.session.userId!, "service_request", { request });
   return res.json({ request });
@@ -665,6 +683,16 @@ servicesRouter.get("/services/requests/with/:otherUserId", requireAuth, asyncHan
       professional: { select: { id: true, displayName: true, username: true, phone: true } }
     }
   });
+
+  // Only expose phone when service is ACTIVO or FINALIZADO
+  if (service) {
+    const unlocked = service.status === "ACTIVO" || service.status === "FINALIZADO";
+    if (!unlocked) {
+      if (service.client) service.client.phone = null;
+      if (service.professional) service.professional.phone = null;
+    }
+  }
+
   return res.json({ request: service });
 }));
 
@@ -705,6 +733,15 @@ servicesRouter.post("/services/:id/approve", requireAuth, asyncHandler(async (re
 
   if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
 
+  // System message
+  const proName = updated.professional?.displayName || updated.professional?.username || "Profesional";
+  const sysMsg = await prisma.message.create({
+    data: { fromId: professionalId, toId: updated.clientId, body: `✅ ${proName} aceptó la solicitud — $${Math.round(priceClp).toLocaleString("es-CL")}, ${durationMinutes} min` }
+  });
+  sendToUser(updated.clientId, "message", { message: sysMsg });
+
+  await createServiceNotification(updated.clientId, "Solicitud aceptada", `${proName} aceptó tu solicitud de servicio.`, { requestId: id, status: "APROBADO" });
+
   sendToUser(updated.clientId, "service_request", { request: updated });
   sendToUser(updated.professionalId, "service_request", { request: updated });
   return res.json({ service: updated });
@@ -725,8 +762,23 @@ servicesRouter.post("/services/:id/reject", requireAuth, asyncHandler(async (req
 
   if (transition.count === 0) return res.status(400).json({ error: "INVALID_STATE" });
 
-  const updated = await prisma.serviceRequest.findUnique({ where: { id } });
+  const updated = await prisma.serviceRequest.findUnique({
+    where: { id },
+    include: {
+      client: { select: { id: true, displayName: true, username: true, phone: true } },
+      professional: { select: { id: true, displayName: true, username: true, phone: true } }
+    }
+  });
   if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+
+  // System message
+  const proName = updated.professional?.displayName || updated.professional?.username || "Profesional";
+  const sysMsg = await prisma.message.create({
+    data: { fromId: professionalId, toId: updated.clientId, body: `❌ ${proName} rechazó la solicitud de servicio.` }
+  });
+  sendToUser(updated.clientId, "message", { message: sysMsg });
+
+  await createServiceNotification(updated.clientId, "Solicitud rechazada", `${proName} rechazó tu solicitud de servicio.`, { requestId: id, status: "RECHAZADO" });
 
   sendToUser(updated.clientId, "service_request", { request: updated });
   sendToUser(updated.professionalId, "service_request", { request: updated });
@@ -748,8 +800,23 @@ servicesRouter.post("/services/:id/client-confirm", requireAuth, asyncHandler(as
 
   if (transition.count === 0) return res.status(400).json({ error: "INVALID_STATE" });
 
-  const updated = await prisma.serviceRequest.findUnique({ where: { id } });
+  const updated = await prisma.serviceRequest.findUnique({
+    where: { id },
+    include: {
+      client: { select: { id: true, displayName: true, username: true, phone: true } },
+      professional: { select: { id: true, displayName: true, username: true, phone: true } }
+    }
+  });
   if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+
+  // System message
+  const clientName = updated.client?.displayName || updated.client?.username || "Cliente";
+  const sysMsg = await prisma.message.create({
+    data: { fromId: clientId, toId: updated.professionalId, body: `🤝 ${clientName} confirmó la solicitud — servicio activo.` }
+  });
+  sendToUser(updated.professionalId, "message", { message: sysMsg });
+
+  await createServiceNotification(updated.professionalId, "Servicio confirmado", `${clientName} confirmó la solicitud. El servicio está activo.`, { requestId: id, status: "ACTIVO" });
 
   sendToUser(updated.clientId, "service_request", { request: updated });
   sendToUser(updated.professionalId, "service_request", { request: updated });
@@ -760,19 +827,35 @@ servicesRouter.post("/services/:id/client-cancel", requireAuth, asyncHandler(asy
   const id = req.params.id;
   const clientId = req.session.userId!;
 
+  // Allow cancel while PENDING or APROBADO
   const transition = await prisma.serviceRequest.updateMany({
     where: {
       id,
       clientId,
-      status: "APROBADO"
+      status: { in: ["PENDIENTE_APROBACION", "APROBADO"] }
     },
     data: { status: "CANCELADO_CLIENTE" }
   });
 
   if (transition.count === 0) return res.status(400).json({ error: "INVALID_STATE" });
 
-  const updated = await prisma.serviceRequest.findUnique({ where: { id } });
+  const updated = await prisma.serviceRequest.findUnique({
+    where: { id },
+    include: {
+      client: { select: { id: true, displayName: true, username: true, phone: true } },
+      professional: { select: { id: true, displayName: true, username: true, phone: true } }
+    }
+  });
   if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+
+  // System message
+  const clientName = updated.client?.displayName || updated.client?.username || "Cliente";
+  const sysMsg = await prisma.message.create({
+    data: { fromId: clientId, toId: updated.professionalId, body: `🚫 ${clientName} canceló la solicitud de servicio.` }
+  });
+  sendToUser(updated.professionalId, "message", { message: sysMsg });
+
+  await createServiceNotification(updated.professionalId, "Solicitud cancelada", `${clientName} canceló la solicitud de servicio.`, { requestId: id, status: "CANCELADO_CLIENTE" });
 
   sendToUser(updated.clientId, "service_request", { request: updated });
   sendToUser(updated.professionalId, "service_request", { request: updated });
@@ -794,8 +877,23 @@ servicesRouter.post("/services/:id/finish", requireAuth, asyncHandler(async (req
 
   if (transition.count === 0) return res.status(400).json({ error: "INVALID_STATE" });
 
-  const updated = await prisma.serviceRequest.findUnique({ where: { id } });
+  const updated = await prisma.serviceRequest.findUnique({
+    where: { id },
+    include: {
+      client: { select: { id: true, displayName: true, username: true, phone: true } },
+      professional: { select: { id: true, displayName: true, username: true, phone: true } }
+    }
+  });
   if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+
+  // System message
+  const proName = updated.professional?.displayName || updated.professional?.username || "Profesional";
+  const sysMsg = await prisma.message.create({
+    data: { fromId: professionalId, toId: updated.clientId, body: `🏁 ${proName} finalizó el servicio.` }
+  });
+  sendToUser(updated.clientId, "message", { message: sysMsg });
+
+  await createServiceNotification(updated.clientId, "Servicio finalizado", `${proName} finalizó el servicio.`, { requestId: id, status: "FINALIZADO" });
 
   sendToUser(updated.clientId, "service_request", { request: updated });
   sendToUser(updated.professionalId, "service_request", { request: updated });

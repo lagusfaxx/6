@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, API_URL, isAuthError, resolveMediaUrl } from "../../../lib/api";
 import { connectRealtime } from "../../../lib/realtime";
+import { buildUberLink } from "../../../lib/uber";
 import Avatar from "../../../components/Avatar";
 import {
   ArrowLeft,
   Calendar,
+  Car,
   Clock,
   Image as ImageIcon,
   MapPin,
@@ -76,7 +78,7 @@ type MotelBooking = {
 };
 
 type MeResponse = {
-  user: { id: string; displayName: string | null; username: string; profileType: string | null } | null;
+  user: { id: string; displayName: string | null; username: string; profileType: string | null; capabilities?: { canRequest: boolean; canChat: boolean; canFavorite: boolean } } | null;
 };
 
 function statusLabel(status: string) {
@@ -152,6 +154,7 @@ export default function ChatPage() {
   const [proposalDuration, setProposalDuration] = useState("60");
   const [proposalComment, setProposalComment] = useState("");
   const [proposalSubmitting, setProposalSubmitting] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const [lastRealtimeAt, setLastRealtimeAt] = useState(0);
   const fallbackStepsMs = [2000, 5000, 10000, 20000] as const;
   const fallbackStepRef = useRef(0);
@@ -178,7 +181,7 @@ export default function ChatPage() {
       return;
     }
 
-    if (profile.profileType === "CLIENT" || profile.profileType === "VIEWER") {
+    if (profile.capabilities?.canRequest) {
       const res = await apiFetch<{ services: ServiceRequest[] }>("/services/active");
       const match = res.services.find((service) => service.professional?.id === userId);
       setActiveRequest(match || null);
@@ -463,26 +466,27 @@ export default function ChatPage() {
     }
   }
 
+  const isClientLike = me?.capabilities?.canRequest ?? false;
   const contactPhone = useMemo(() => {
     if (!activeRequest) return null;
     if (!(activeRequest.status === "ACTIVO" || activeRequest.status === "FINALIZADO")) return null;
-    if (me?.profileType === "CLIENT" || me?.profileType === "VIEWER") return activeRequest.professional?.phone || null;
+    if (isClientLike) return activeRequest.professional?.phone || null;
     if (me?.profileType === "PROFESSIONAL") return activeRequest.client?.phone || null;
     return null;
-  }, [activeRequest, me?.profileType]);
+  }, [activeRequest, me?.profileType, isClientLike]);
 
   const professionalWhatsAppLink = useMemo(() => {
-    if (me?.profileType !== "CLIENT" && me?.profileType !== "VIEWER") return null;
+    if (!isClientLike) return null;
     const professionalPhone = activeRequest?.professional?.phone;
     if (!professionalPhone) return null;
     const normalizedPhone = normalizePhoneForWhatsApp(professionalPhone);
     if (!normalizedPhone) return null;
     return `https://wa.me/${normalizedPhone}`;
-  }, [activeRequest?.professional?.phone, me?.profileType]);
+  }, [activeRequest?.professional?.phone, isClientLike]);
 
-  const isClientLike = me?.profileType === "CLIENT" || me?.profileType === "VIEWER";
   const canCreateRequest = isClientLike && other?.profileType === "PROFESSIONAL" && !activeRequest;
   const waitingProfessional = isClientLike && activeRequest?.status === "PENDIENTE_APROBACION";
+  const canCancelPending = isClientLike && activeRequest?.status === "PENDIENTE_APROBACION";
   const canConfirmProposal = isClientLike && activeRequest?.status === "APROBADO";
   const canReviewPendingRequest = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "PENDIENTE_APROBACION";
   const waitingClientConfirm = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "APROBADO";
@@ -702,6 +706,9 @@ export default function ChatPage() {
 
               {/* Actions */}
               <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {canCancelPending && (
+                  <button onClick={cancelProposal} className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 transition hover:bg-white/10">Cancelar solicitud</button>
+                )}
                 {canConfirmProposal && (
                   <>
                     <button onClick={confirmProposal} className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-[11px] font-semibold transition hover:brightness-110">
@@ -713,6 +720,22 @@ export default function ChatPage() {
                 {canFinishService && (
                   <button onClick={finishService} className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-[11px] font-semibold transition hover:brightness-110">
                     <CheckCircle2 className="h-3 w-3" /> Servicio terminado
+                  </button>
+                )}
+                {/* Uber button — shown to client when service ACTIVO */}
+                {isClientChat && activeRequest.status === "ACTIVO" && (
+                  <button
+                    onClick={() => {
+                      const { url, isFallback } = buildUberLink({ locationText: activeRequest.agreedLocation || undefined });
+                      if (isFallback) {
+                        setToast("Abriendo Uber en navegador...");
+                        setTimeout(() => setToast(null), 3000);
+                      }
+                      window.open(url, "_blank", "noopener");
+                    }}
+                    className="flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 transition hover:bg-white/10"
+                  >
+                    <Car className="h-3 w-3" /> Solicitar Uber
                   </button>
                 )}
               </div>
@@ -962,6 +985,13 @@ export default function ChatPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-white/10 bg-black/80 px-4 py-2 text-xs text-white/90 shadow-lg backdrop-blur-sm">
+          {toast}
         </div>
       )}
     </div>

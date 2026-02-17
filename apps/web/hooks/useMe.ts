@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 
+type Capabilities = {
+  canRequest: boolean;
+  canChat: boolean;
+  canFavorite: boolean;
+};
+
 type MeUser = {
   id: string;
   email?: string;
@@ -17,6 +23,7 @@ type MeUser = {
   preferenceGender?: string | null;
   address?: string | null;
   birthdate?: string | null;
+  capabilities?: Capabilities;
 };
 
 export default function useMe() {

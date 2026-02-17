@@ -233,13 +233,22 @@ authRouter.get("/me", asyncHandler(async (req, res) => {
   const trialActive = user.shopTrialEndsAt ? user.shopTrialEndsAt.getTime() > now.getTime() : false;
   const subscriptionActive = requiresPayment ? (membershipActive || trialActive) : true;
   
+  // Capabilities: derive from profileType
+  const isClientLike = user.profileType === "CLIENT" || user.profileType === "VIEWER";
+  const capabilities = {
+    canRequest: isClientLike,
+    canChat: true,
+    canFavorite: isClientLike
+  };
+
   return res.json({
     user: { 
       ...user, 
       membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null,
       shopTrialEndsAt: user.shopTrialEndsAt?.toISOString() || null,
       subscriptionActive,
-      requiresPayment
+      requiresPayment,
+      capabilities
     }
   });
 }));
