@@ -285,7 +285,7 @@ export async function createFlowCustomer(req: FlowCreateCustomerRequest): Promis
   if (!email) throw new FlowError(400, "Flow customer email is required", { field: "email" });
   if (!name) throw new FlowError(400, "Flow customer name is required", { field: "name" });
 
-  const params: Record<string, string> = { email, name };
+  const params: Record<string, string> = { customer_email: email, customer_name: name };
   if (req.externalId !== undefined && req.externalId !== null) {
     params.externalId = String(req.externalId).trim();
   }
