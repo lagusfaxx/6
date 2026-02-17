@@ -149,17 +149,18 @@ async function flowFetch<T>(path: string, method: "GET" | "POST", params: Record
 
   // Debug: log the exact payload sent to Flow (exclude signature)
   const { s, ...debugParams } = signed;
-  console.log("[flow] request", { path, method, params: debugParams, formEncodedBody: new URLSearchParams(debugParams).toString() });
+  console.log("[flow] request", { path, method, params: debugParams });
 
   let res: Response;
   if (method === "GET") {
     const qs = new URLSearchParams(signed).toString();
     res = await fetch(`${baseUrl}${path}?${qs}`, { method: "GET" });
   } else {
+    const form = new FormData();
+    for (const [k, v] of Object.entries(signed)) form.append(k, v);
     res = await fetch(`${baseUrl}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams(signed).toString()
+      body: form
     });
   }
 
