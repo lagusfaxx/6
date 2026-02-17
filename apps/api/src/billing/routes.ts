@@ -135,9 +135,10 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
   if (user.flowSubscriptionId) {
     try {
       const flowSub = await getFlowSubscription(user.flowSubscriptionId);
-      // Flow status: 1 = active, 2 = past_due, 3 = unpaid, 4 = canceled
-      flowSubscriptionStatus = flowSub.status === 1 ? "active"
-        : flowSub.status === 4 ? "canceled"
+      const FLOW_ACTIVE = 1;
+      const FLOW_CANCELED = 4;
+      flowSubscriptionStatus = flowSub.status === FLOW_ACTIVE ? "active"
+        : flowSub.status === FLOW_CANCELED ? "canceled"
         : "inactive";
     } catch {
       // Flow API unreachable or subscription not found — don't block the response
