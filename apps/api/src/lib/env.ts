@@ -13,7 +13,7 @@ export const env = {
 
   KHIPU_RECEIVER_ID: process.env.KHIPU_RECEIVER_ID ?? "",
   KHIPU_SECRET: process.env.KHIPU_SECRET ?? "",
-  KHIPU_BASE_URL: process.env.KHIPU_BASE_URL ?? "https://khipu.com/api/3.0",
+  KHIPU_BASE_URL: process.env.KHIPU_BASE_URL ?? "https://payment-api.khipu.com",
   KHIPU_NOTIFY_URL: process.env.KHIPU_NOTIFY_URL ?? "",
   KHIPU_RETURN_URL: process.env.KHIPU_RETURN_URL ?? "",
   KHIPU_CANCEL_URL: process.env.KHIPU_CANCEL_URL ?? "",

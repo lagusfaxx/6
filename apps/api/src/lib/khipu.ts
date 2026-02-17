@@ -32,7 +32,7 @@ function authHeader() {
 }
 
 export async function khipuCreatePayment(params: KhipuCreatePaymentRequest): Promise<KhipuPayment> {
-  const res = await fetch(`${env.KHIPU_BASE_URL.replace(/\/$/, "")}/payments`, {
+  const res = await fetch(`${env.KHIPU_BASE_URL.replace(/\/$/, "")}/v3/payments`, {
     method: "POST",
     headers: {
       "Authorization": authHeader(),
@@ -48,7 +48,7 @@ export async function khipuCreatePayment(params: KhipuCreatePaymentRequest): Pro
 }
 
 export async function khipuGetPayment(paymentId: string): Promise<KhipuPayment> {
-  const res = await fetch(`${env.KHIPU_BASE_URL.replace(/\/$/, "")}/payments/${encodeURIComponent(paymentId)}`, {
+  const res = await fetch(`${env.KHIPU_BASE_URL.replace(/\/$/, "")}/v3/payments/${encodeURIComponent(paymentId)}`, {
     method: "GET",
     headers: {
       "Authorization": authHeader(),

@@ -110,7 +110,7 @@ export async function createChargeIntent(req: KhipuChargeIntentRequest): Promise
 }
 
 export async function createPayment(req: KhipuCreatePaymentRequest): Promise<KhipuCreatePaymentResponse> {
-  return khipuFetch<KhipuCreatePaymentResponse>("/v1/payments", {
+  return khipuFetch<KhipuCreatePaymentResponse>("/v3/payments", {
     method: "POST",
     body: JSON.stringify(req)
   });
