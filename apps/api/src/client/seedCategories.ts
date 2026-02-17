@@ -20,6 +20,7 @@ export async function seedCategories(): Promise<void> {
       // Lugares
       { name: "Moteles", slug: "moteles", displayName: "Moteles", kind: CategoryKind.ESTABLISHMENT },
       { name: "Hoteles por hora", slug: "hoteles-por-hora", displayName: "Hoteles por hora", kind: CategoryKind.ESTABLISHMENT },
+      { name: "Centros privados", slug: "centros-privados", displayName: "Centros privados", kind: CategoryKind.ESTABLISHMENT },
       { name: "Espacios exclusivos", slug: "espacios-exclusivos", displayName: "Espacios exclusivos", kind: CategoryKind.ESTABLISHMENT },
 
       // Tiendas
