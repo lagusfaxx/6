@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useState } from "react";
 import useMe from "../../hooks/useMe";
 import useSubscriptionStatus from "../../hooks/useSubscriptionStatus";
 import { apiFetch } from "../../lib/api";
@@ -21,29 +20,11 @@ const fadeUp = {
 export default function AccountPage() {
   const { me, loading } = useMe();
   const { status: subscriptionStatus, loading: statusLoading } = useSubscriptionStatus();
-  const [paymentLoading, setPaymentLoading] = useState(false);
   const user = me?.user ?? null;
 
   const handleLogout = async () => {
     await apiFetch("/auth/logout", { method: "POST" });
     window.location.href = "/login";
-  };
-
-  const handleStartPayment = async () => {
-    try {
-      setPaymentLoading(true);
-      const response = await apiFetch<{ paymentUrl: string }>("/billing/membership/start", { 
-        method: "POST" 
-      });
-      if (response.paymentUrl) {
-        window.location.href = response.paymentUrl;
-      }
-    } catch (error) {
-      console.error("Failed to start payment:", error);
-      alert("Error al iniciar el pago. Por favor, intenta de nuevo.");
-    } finally {
-      setPaymentLoading(false);
-    }
   };
 
   const profileType = (user?.profileType || "").toUpperCase();
@@ -228,15 +209,6 @@ export default function AccountPage() {
                     ${(subscriptionStatus.subscriptionPrice || 4990).toLocaleString("es-CL")} CLP
                   </span>
                 </div>
-
-                {/* Payment button */}
-                <button
-                  onClick={handleStartPayment}
-                  disabled={paymentLoading}
-                  className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {paymentLoading ? "Procesando..." : "Renovar suscripción"}
-                </button>
 
                 {/* Recent payments */}
                 {subscriptionStatus.recentPayments && subscriptionStatus.recentPayments.length > 0 && (

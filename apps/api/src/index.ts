@@ -16,7 +16,6 @@ import { authRouter } from "./auth/routes";
 import { ensureAdminUser } from "./auth/seedAdmin";
 import { feedRouter } from "./feed/routes";
 import { adminRouter } from "./admin/routes";
-import { khipuRouter } from "./khipu/routes";
 import { plansRouter } from "./khipu/plans";
 import { profileRouter } from "./profile/routes";
 import { servicesRouter } from "./services/routes";
@@ -26,7 +25,7 @@ import { creatorRouter } from "./creator/routes";
 import { billingRouter } from "./billing/routes";
 import { notificationsRouter } from "./notifications/routes";
 import { realtimeRouter } from "./realtime/routes";
-import { KhipuError, FlowError } from "./khipu/client";
+import { FlowError } from "./khipu/client";
 import { statsRouter } from "./stats/routes";
 import { clientRouter } from "./client/routes";
 import { shopRouter } from "./shop/routes";
@@ -85,22 +84,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// JSON body, except for webhook where we need raw body for signature
+// JSON body parser
 app.use((req, res, next) => {
-  if (req.path.startsWith("/webhooks/khipu")) {
-    express.raw({ type: "application/json" })(req, res, (err) => {
-      if (err) return next(err);
-      (req as any).rawBody = req.body;
-      try {
-        req.body = JSON.parse((req.body as Buffer).toString("utf8"));
-      } catch {
-        req.body = {};
-      }
-      return next();
-    });
-  } else {
-    express.json({ limit: "2mb" })(req, res, next);
-  }
+  express.json({ limit: "2mb" })(req, res, next);
 });
 
 const pgPool = new pg.Pool({ connectionString: config.databaseUrl });
@@ -164,7 +150,6 @@ app.use("/", clientRouter);
 app.use("/shop", shopRouter);
 app.use("/", feedRouter);
 app.use("/admin", adminRouter);
-app.use("/", khipuRouter);
 app.use("/", plansRouter);
 app.use("/", profileRouter);
 app.use("/", directoryRouter);
@@ -194,14 +179,6 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
     if (err.code === "P2021" || err.code === "P2022") {
       return res.status(500).json({ error: "DB_SCHEMA_MISMATCH" });
     }
-  }
-
-  if (err instanceof KhipuError) {
-    const hint =
-      err.status === 404
-        ? "Khipu devolvió 404. Revisa KHIPU_BASE_URL (prod vs sandbox) y que apunte a la API correcta."
-        : undefined;
-    return res.status(502).json({ error: "KHIPU_ERROR", status: err.status, message: err.message, hint });
   }
 
   if (err instanceof FlowError) {
