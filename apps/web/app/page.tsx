@@ -7,31 +7,18 @@ import { apiFetch, resolveMediaUrl } from "../lib/api";
 import { useMapLocation } from "../hooks/useMapLocation";
 import {
   ArrowRight,
-  BedDouble,
-  Building2,
   ChevronRight,
   Flame,
-  GlassWater,
-  Heart,
-  Hotel,
+  Clock3,
   MapPin,
+  Navigation,
+  Building2,
   Sparkles,
-  Store,
   TrendingUp,
-  Users,
-  WandSparkles,
   Zap,
 } from "lucide-react";
 
 /* ── Types ── */
-
-type Category = {
-  id: string;
-  name: string;
-  slug: string;
-  displayName: string;
-  kind: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
-};
 
 type Banner = {
   id: string;
@@ -49,109 +36,30 @@ type RecentProfessional = {
   age: number | null;
 };
 
+type ServiceItem = {
+  id: string;
+  title: string;
+  price: number | null;
+  distance: number | null;
+  media: { id: string; url: string; type: string }[];
+  owner: {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    profileType: string;
+    isOnline?: boolean;
+  };
+};
+
 /* ── Helpers ── */
 
-function kindLabel(kind: Category["kind"]) {
-  if (kind === "PROFESSIONAL") return "Experiencias";
-  if (kind === "ESTABLISHMENT") return "Hospedaje";
-  return "Tiendas";
-}
-
-function kindDescription(kind: Category["kind"]) {
-  if (kind === "PROFESSIONAL") return "Servicios exclusivos y profesionales verificados";
-  if (kind === "ESTABLISHMENT") return "Moteles, hoteles y lugares privados";
-  return "Productos y accesorios premium";
-}
-
-function displayCategoryName(category: Category) {
-  return category.displayName || category.name;
-}
-
-const categoryPriority: Record<Category["kind"], string[]> = {
-  PROFESSIONAL: ["acompan", "masaj", "vip", "premium"],
-  ESTABLISHMENT: ["motel", "hotel"],
-  SHOP: ["sex", "juguet", "shop"],
-};
-
-const categoryLimits: Record<Category["kind"], number> = {
-  PROFESSIONAL: 4,
-  ESTABLISHMENT: 2,
-  SHOP: 1,
-};
-
-function pickTopCategories(kind: Category["kind"], categories: Category[]) {
-  const filtered = categories.filter((c) => c.kind === kind && !/lenceria/i.test(c.slug || c.name));
-  const prioritized: Category[] = [];
-  const priorities = categoryPriority[kind];
-
-  priorities.forEach((token) => {
-    filtered.forEach((c) => {
-      const haystack = `${c.slug} ${c.name} ${c.displayName}`.toLowerCase();
-      if (haystack.includes(token) && !prioritized.find((p) => p.id === c.id)) {
-        prioritized.push(c);
-      }
-    });
-  });
-
-  filtered.forEach((c) => {
-    if (!prioritized.find((p) => p.id === c.id)) {
-      prioritized.push(c);
-    }
-  });
-
-  return prioritized.slice(0, categoryLimits[kind]);
-}
-
-function kindHref(kind: Category["kind"], categorySlug: string) {
-  if (kind === "PROFESSIONAL") return `/profesionales?category=${encodeURIComponent(categorySlug)}`;
-  if (kind === "ESTABLISHMENT") return `/hospedaje?category=${encodeURIComponent(categorySlug)}`;
-  return `/sexshops?category=${encodeURIComponent(categorySlug)}`;
-}
-
-function kindAllHref(kind: Category["kind"]) {
-  if (kind === "PROFESSIONAL") return "/profesionales";
-  if (kind === "ESTABLISHMENT") return "/hospedaje";
-  return "/sexshops";
-}
-
-function categoryIcon(kind: Category["kind"], slug: string) {
-  const n = slug.toLowerCase();
-  if (kind === "PROFESSIONAL") {
-    if (n.includes("masajes")) return Heart;
-    if (n.includes("vip")) return Sparkles;
-    if (n.includes("acompan")) return Users;
-    return WandSparkles;
-  }
-  if (kind === "ESTABLISHMENT") {
-    if (n.includes("hotel")) return Hotel;
-    if (n.includes("motel")) return BedDouble;
-    return Building2;
-  }
-  if (n.includes("lenceria")) return Sparkles;
-  if (n.includes("juguetes")) return Heart;
-  if (n.includes("premium")) return GlassWater;
-  return Store;
-}
-
-function categoryGradient(kind: Category["kind"], idx: number) {
-  const gradients: Record<Category["kind"], string[]> = {
-    PROFESSIONAL: [
-      "from-fuchsia-600/20 to-pink-600/10",
-      "from-violet-600/20 to-indigo-600/10",
-      "from-rose-600/20 to-fuchsia-600/10",
-      "from-purple-600/20 to-violet-600/10",
-    ],
-    ESTABLISHMENT: [
-      "from-amber-600/20 to-orange-600/10",
-      "from-teal-600/20 to-cyan-600/10",
-    ],
-    SHOP: [
-      "from-pink-600/20 to-red-600/10",
-    ],
-  };
-  const list = gradients[kind];
-  return list[idx % list.length];
-}
+const DISCOVERY_SECTIONS = [
+  { key: "available", title: "Disponibles ahora", subtitle: "Perfiles conectados en este momento.", icon: Clock3, href: "/servicios?type=experience&sort=availableNow", cta: "Ver todas", query: { type: "experience", sort: "availableNow", limit: "4" } },
+  { key: "near", title: "Cerca de ti", subtitle: "Experiencias ordenadas por cercanía.", icon: Navigation, href: "/servicios?type=experience&sort=near", cta: "Ver mapa", query: { type: "experience", sort: "near", limit: "4" } },
+  { key: "new", title: "Nuevas", subtitle: "Servicios publicados recientemente.", icon: Sparkles, href: "/servicios?type=experience&sort=new", cta: "Ver todas", query: { type: "experience", sort: "new", limit: "4" } },
+  { key: "spaces", title: "Espacios disponibles", subtitle: "Moteles y hoteles activos para reservar.", icon: Building2, href: "/servicios?type=space", cta: "Ver todas", query: { type: "space", sort: "new", limit: "4" } },
+] as const;
 
 /* ── Animation variants ── */
 
@@ -183,9 +91,9 @@ const cardFade = {
 const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
 
 export default function HomePage() {
-  const [categories, setCategories] = useState<Category[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
+  const [discoverSections, setDiscoverSections] = useState<Record<string, ServiceItem[]>>({});
   const { location } = useMapLocation(SANTIAGO_FALLBACK);
   const [error, setError] = useState<string | null>(null);
   const [recentError, setRecentError] = useState<string | null>(null);
@@ -193,12 +101,6 @@ export default function HomePage() {
 
   useEffect(() => {
     (async () => {
-      try {
-        const cats = await apiFetch<Category[]>("/categories");
-        setCategories(Array.isArray(cats) ? cats : []);
-      } catch {
-        setError("No se pudieron cargar las categorías.");
-      }
       try {
         const res = await apiFetch<{ banners: Banner[] }>("/banners");
         setBanners(res?.banners ?? []);
@@ -251,11 +153,23 @@ export default function HomePage() {
     };
   }, [location]);
 
-  const grouped = useMemo(() => {
-    const by = { PROFESSIONAL: [] as Category[], ESTABLISHMENT: [] as Category[], SHOP: [] as Category[] };
-    for (const c of categories) by[c.kind].push(c);
-    return by;
-  }, [categories]);
+  useEffect(() => {
+    const loadSections = async () => {
+      const next: Record<string, ServiceItem[]> = {};
+      setError(null);
+      await Promise.all(DISCOVERY_SECTIONS.map(async (section) => {
+        const qp = new URLSearchParams(section.query as Record<string, string>);
+        if (location) {
+          qp.set("lat", String(location[0]));
+          qp.set("lng", String(location[1]));
+        }
+        const res = await apiFetch<{ services: ServiceItem[] }>(`/services/global?${qp.toString()}`).catch(() => ({ services: [] }));
+        next[section.key] = (res.services || []).filter((s) => s.owner.profileType !== "SHOP");
+      }));
+      setDiscoverSections(next);
+    };
+    loadSections().catch(() => setError("No se pudieron cargar las secciones destacadas."));
+  }, [location]);
 
   const inlineBanners = useMemo(() => banners.filter((b) => (b.position || "").toUpperCase() === "INLINE"), [banners]);
 
@@ -502,7 +416,7 @@ export default function HomePage() {
         )}
 
         {/* ═══════════════════════════════════════════════
-            3. CATEGORÍAS — Visual tile cards
+            3. DESCUBRIR — Dynamic sections
            ═══════════════════════════════════════════════ */}
         <motion.section
           initial="hidden"
@@ -511,79 +425,59 @@ export default function HomePage() {
           variants={stagger}
           className="mb-16"
         >
-          {(["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as const).map((kind) => {
-            const items =
-              kind === "ESTABLISHMENT"
-                ? ([
-                    { id: "motel", displayName: "Moteles", slug: "motel", kind: "ESTABLISHMENT", name: "Moteles" },
-                    { id: "hotel", displayName: "Hoteles", slug: "hotel", kind: "ESTABLISHMENT", name: "Hoteles" },
-                  ] as Category[])
-                : pickTopCategories(kind, grouped[kind]);
+          {DISCOVERY_SECTIONS.map((section) => {
+            const items = discoverSections[section.key] || [];
+            const Icon = section.icon;
 
             return (
-              <motion.div key={kind} variants={cardFade} className="mb-10 last:mb-0">
+              <motion.div key={section.key} variants={cardFade} className="mb-10 last:mb-0">
                 <div className="mb-4 flex items-end justify-between">
                   <div>
-                    <h2 className="text-xl font-bold tracking-tight md:text-2xl">{kindLabel(kind)}</h2>
-                    <p className="mt-0.5 text-xs text-white/40">{kindDescription(kind)}</p>
+                    <div className="flex items-center gap-2">
+                      <Icon className="h-4 w-4 text-fuchsia-300" />
+                      <h2 className="text-xl font-bold tracking-tight md:text-2xl">{section.title}</h2>
+                    </div>
+                    <p className="mt-0.5 text-xs text-white/40">{section.subtitle}</p>
                   </div>
                   <Link
-                    href={kindAllHref(kind)}
+                    href={section.href}
                     className="group flex items-center gap-1 text-xs text-white/50 transition hover:text-fuchsia-400"
                   >
-                    Ver todas
+                    {section.cta}
                     <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                   </Link>
                 </div>
 
-                <div className={`grid gap-3 ${
-                  kind === "PROFESSIONAL"
-                    ? "grid-cols-2 md:grid-cols-4"
-                    : kind === "ESTABLISHMENT"
-                      ? "grid-cols-2"
-                      : "grid-cols-1 sm:grid-cols-2"
-                }`}>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   {items.length > 0
-                    ? items.map((c, idx) => {
-                        const Icon = categoryIcon(c.kind, c.slug || c.name);
-                        const href = kindHref(c.kind, c.slug || c.name);
-                        const grad = categoryGradient(c.kind, idx);
+                    ? items.map((s) => {
+                        const href = s.owner.profileType === "ESTABLISHMENT" ? `/hospedaje/${s.owner.id}` : `/profesional/${s.owner.id}`;
+                        const cover = s.media?.[0]?.url ? resolveMediaUrl(s.media[0].url) : null;
 
                         return (
                           <Link
-                            key={c.id}
+                            key={s.id}
                             href={href}
-                            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 hover:shadow-[0_16px_50px_rgba(0,0,0,0.3)]"
+                            className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20"
                           >
-                            {/* Background gradient */}
-                            <div className={`absolute inset-0 bg-gradient-to-br ${grad} opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
-
-                            <div className="relative">
-                              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] transition-all duration-200 group-hover:border-fuchsia-500/20 group-hover:bg-fuchsia-500/10 group-hover:shadow-[0_0_20px_rgba(192,38,211,0.15)]">
-                                <Icon className="h-5 w-5 text-white/70 transition-colors group-hover:text-fuchsia-400" />
-                              </div>
-                              <div className="text-sm font-semibold leading-tight">{displayCategoryName(c)}</div>
-                              <div className="mt-1 text-[11px] text-white/40">Explorar</div>
+                            <div className="relative aspect-[4/3] bg-white/[0.04]">
+                              {cover ? <img src={cover} alt={s.title} className="h-full w-full object-cover transition group-hover:scale-105" /> : <div className="flex h-full items-center justify-center text-xs text-white/40">Sin imagen</div>}
+                              {s.distance != null && (
+                                <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80">
+                                  {s.distance.toFixed(1)} km
+                                </div>
+                              )}
                             </div>
-
-                            <ChevronRight className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20 transition-all duration-200 group-hover:text-fuchsia-400/60 group-hover:translate-x-0.5" />
+                            <div className="p-3">
+                              <div className="truncate text-sm font-semibold">{s.title || "Servicio"}</div>
+                              <div className="mt-1 text-xs text-white/45">{s.owner.displayName || s.owner.username}</div>
+                            </div>
                           </Link>
                         );
                       })
-                    : kind === "SHOP"
-                      ? (
-                          <Link
-                            href="/sexshops"
-                            className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 text-sm text-white/50 transition hover:bg-white/[0.06]"
-                          >
-                            Aún no hay categorías de tiendas cargadas. Toca aquí para explorar tiendas activas.
-                          </Link>
-                        )
-                      : (
-                          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 text-sm text-white/50">
-                            No hay categorías disponibles.
-                          </div>
-                        )}
+                    : [1, 2, 3, 4].map((i) => (
+                      <div key={i} className="aspect-[4/5] animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                    ))}
                 </div>
               </motion.div>
             );
