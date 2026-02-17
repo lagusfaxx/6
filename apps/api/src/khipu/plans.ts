@@ -6,7 +6,10 @@ import {
   getFlowPlan,
   editFlowPlan,
   deleteFlowPlan,
-  listFlowPlans
+  listFlowPlans,
+  createFlowCustomer,
+  createFlowSubscription,
+  getFlowSubscription
 } from "./client";
 
 export const plansRouter = Router();
@@ -88,4 +91,58 @@ plansRouter.get("/plans/list", requireAuth, asyncHandler(async (req, res) => {
 
   const result = await listFlowPlans({ start, limit, filter, status });
   return res.json(result);
+}));
+
+// ── Flow Customer ───────────────────────────────────────────────────
+
+/** POST /customer/create */
+plansRouter.post("/customer/create", requireAuth, asyncHandler(async (req, res) => {
+  const { name, email, externalId } = req.body;
+  if (!name || !email) {
+    return res.status(400).json({ error: "MISSING_REQUIRED_FIELDS", required: ["name", "email"] });
+  }
+
+  const customer = await createFlowCustomer({ name, email, externalId });
+  return res.json(customer);
+}));
+
+// ── Flow Subscription ───────────────────────────────────────────────
+
+/** POST /subscription/create */
+plansRouter.post("/subscription/create", requireAuth, asyncHandler(async (req, res) => {
+  const { planId, customerId, subscription_start, couponId, trial_period_days } = req.body;
+  if (!planId || !customerId) {
+    return res.status(400).json({ error: "MISSING_REQUIRED_FIELDS", required: ["planId", "customerId"] });
+  }
+
+  const subscription = await createFlowSubscription({
+    planId,
+    customerId,
+    subscription_start,
+    couponId,
+    trial_period_days: trial_period_days !== undefined ? Number(trial_period_days) : undefined
+  });
+  return res.json(subscription);
+}));
+
+/** GET /subscription/get */
+plansRouter.get("/subscription/get", requireAuth, asyncHandler(async (req, res) => {
+  const subscriptionId = req.query.subscriptionId as string | undefined;
+  if (!subscriptionId) return res.status(400).json({ error: "MISSING_SUBSCRIPTION_ID" });
+
+  const subscription = await getFlowSubscription(subscriptionId);
+  return res.json(subscription);
+}));
+
+/** POST /webhooks/flow/subscription – Flow subscription confirmation callback */
+plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) => {
+  const { subscriptionId, status, planId, customerId } = req.body;
+  console.log("[flow] subscription webhook received", { subscriptionId, status, planId, customerId });
+
+  if (!subscriptionId) {
+    return res.status(400).json({ error: "MISSING_SUBSCRIPTION_ID" });
+  }
+
+  // Acknowledge receipt — business logic to be implemented
+  return res.json({ ok: true, subscriptionId, status });
 }));

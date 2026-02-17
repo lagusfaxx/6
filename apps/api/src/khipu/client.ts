@@ -12,6 +12,17 @@ export class KhipuError extends Error {
   }
 }
 
+export class FlowError extends Error {
+  status: number;
+  payload: unknown;
+  constructor(status: number, message: string, payload: unknown) {
+    super(message);
+    this.name = "FlowError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
 async function khipuFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const baseUrl = config.khipuBaseUrl.replace(/\/$/, "");
   const url = `${baseUrl}${path}`;
@@ -149,7 +160,7 @@ async function flowFetch<T>(path: string, method: "GET" | "POST", params: Record
     const msg = typeof data === "string" ? data : JSON.stringify(data);
     const safeMsg = msg.length > 500 ? `${msg.slice(0, 500)}...` : msg;
     console.error("[flow] error", { status: res.status, path, message: safeMsg });
-    throw new KhipuError(res.status, `Flow ${res.status}: ${safeMsg}`, data);
+    throw new FlowError(res.status, `Flow ${res.status}: ${safeMsg}`, data);
   }
   return data as T;
 }
@@ -244,4 +255,60 @@ export async function listFlowPlans(opts?: {
   if (opts?.filter !== undefined) params.filter = opts.filter;
   if (opts?.status !== undefined) params.status = String(opts.status);
   return flowFetch<FlowPlanListResponse>("/plans/list", "GET", params);
+}
+
+// ── Flow Customer API ───────────────────────────────────────────────
+
+export type FlowCustomer = {
+  customerId: string;
+  name: string;
+  email: string;
+  externalId?: string;
+  status: number;
+  created: string;
+};
+
+export type FlowCreateCustomerRequest = {
+  name: string;
+  email: string;
+  externalId?: string;
+};
+
+export async function createFlowCustomer(req: FlowCreateCustomerRequest): Promise<FlowCustomer> {
+  return flowFetch<FlowCustomer>("/customer/create", "POST", toStringRecord(req as unknown as Record<string, unknown>));
+}
+
+// ── Flow Subscription API ───────────────────────────────────────────
+
+export type FlowSubscription = {
+  subscriptionId: string;
+  planId: string;
+  plan_name?: string;
+  customerId: string;
+  created: string;
+  status: number;
+  moleskinePeriodEnd?: string;
+  next_invoice_date?: string;
+  trial_period_days?: number;
+  trial_end?: string;
+  cancel_at_period_end?: number;
+  cancel_at?: string;
+  periods_number?: number;
+  urlCallback?: string;
+};
+
+export type FlowCreateSubscriptionRequest = {
+  planId: string;
+  customerId: string;
+  subscription_start?: string;
+  couponId?: string;
+  trial_period_days?: number;
+};
+
+export async function createFlowSubscription(req: FlowCreateSubscriptionRequest): Promise<FlowSubscription> {
+  return flowFetch<FlowSubscription>("/subscription/create", "POST", toStringRecord(req as unknown as Record<string, unknown>));
+}
+
+export async function getFlowSubscription(subscriptionId: string): Promise<FlowSubscription> {
+  return flowFetch<FlowSubscription>("/subscription/get", "GET", { subscriptionId });
 }

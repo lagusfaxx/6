@@ -26,7 +26,7 @@ import { creatorRouter } from "./creator/routes";
 import { billingRouter } from "./billing/routes";
 import { notificationsRouter } from "./notifications/routes";
 import { realtimeRouter } from "./realtime/routes";
-import { KhipuError } from "./khipu/client";
+import { KhipuError, FlowError } from "./khipu/client";
 import { statsRouter } from "./stats/routes";
 import { clientRouter } from "./client/routes";
 import { shopRouter } from "./shop/routes";
@@ -202,6 +202,10 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
         ? "Khipu devolvió 404. Revisa KHIPU_BASE_URL (prod vs sandbox) y que apunte a la API correcta."
         : undefined;
     return res.status(502).json({ error: "KHIPU_ERROR", status: err.status, message: err.message, hint });
+  }
+
+  if (err instanceof FlowError) {
+    return res.status(err.status).json({ error: "FLOW_ERROR", status: err.status, message: err.message, payload: err.payload });
   }
 
   if (err?.message === "CORS_NOT_ALLOWED") return res.status(403).json({ error: "CORS_NOT_ALLOWED" });

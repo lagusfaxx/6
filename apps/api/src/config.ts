@@ -25,6 +25,7 @@ export const config = {
   flowApiKey: process.env.FLOW_API_KEY || "",
   flowSecretKey: process.env.FLOW_SECRET_KEY || "",
   flowBaseUrl: process.env.FLOW_BASE_URL || "https://www.flow.cl/api",
+  flowCallbackUrl: process.env.FLOW_CALLBACK_URL || "",
   membershipDays: Number(process.env.MEMBERSHIP_DAYS || 30),
   membershipPriceClp: Number(process.env.MEMBERSHIP_PRICE_CLP || 4990),
   shopMonthlyPriceClp: Number(process.env.SHOP_MONTHLY_PRICE_CLP || 4990),
