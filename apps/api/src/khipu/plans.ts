@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Router } from "express";
-import { requireAuth } from "../auth/middleware";
+import { requireAuth, requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 import { prisma } from "../db";
@@ -55,7 +55,7 @@ plansRouter.post("/plans/create", requireAuth, asyncHandler(async (req, res) => 
  *
  * Call this ONCE to register the plan in Flow, then use /customer/create + /subscription/create.
  */
-plansRouter.post("/plans/setup", requireAuth, asyncHandler(async (req, res) => {
+plansRouter.post("/plans/setup", requireAdmin, asyncHandler(async (req, res) => {
   const planId = req.body.planId || config.flowPlanId;
   const name = req.body.name || "Plan Profesional UZEED";
   const amount = req.body.amount !== undefined ? Number(req.body.amount) : config.membershipPriceClp;
