@@ -71,6 +71,26 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c;
 }
 
+const AVAILABLE_WINDOW_MS = 10 * 60 * 1000;
+
+function normalizeLegacyCategory(value: string | null | undefined) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isSpaceCategory(value: string | null | undefined) {
+  const normalized = normalizeLegacyCategory(value);
+  return normalized.includes("motel") || normalized.includes("hotel");
+}
+
+function computeAvailableNow(lastSeen: Date | null | undefined, isOnline: boolean | null | undefined) {
+  if (lastSeen && Date.now() - lastSeen.getTime() <= AVAILABLE_WINDOW_MS) return true;
+  return Boolean(isOnline);
+}
+
 servicesRouter.get("/services", asyncHandler(async (req, res) => {
   const lat = req.query.lat ? Number(req.query.lat) : null;
   const lng = req.query.lng ? Number(req.query.lng) : null;
@@ -193,20 +213,13 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
   const maxPrice = req.query.maxPrice ? Number(req.query.maxPrice) : null;
   const limit = req.query.limit ? Math.min(Number(req.query.limit) || 80, 300) : 80;
 
-  const ownerTypes = kind
-    ? [kind]
-    : type === "experience"
-      ? ["PROFESSIONAL"]
-      : type === "space"
-        ? ["ESTABLISHMENT"]
-        : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"];
+  const ownerTypes = kind ? [kind] : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"];
 
   const items = await prisma.serviceItem.findMany({
     where: {
       isActive: true,
       owner: {
         profileType: { in: ownerTypes as any },
-        ...(availableNow ? { isOnline: true } : {})
       },
       ...(minPrice !== null ? { price: { gte: minPrice } } : {}),
       ...(maxPrice !== null ? { price: { lte: maxPrice } } : {}),
@@ -231,7 +244,9 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
           avatarUrl: true,
           profileType: true,
           city: true,
+          coverUrl: true,
           isOnline: true,
+          lastSeen: true,
           membershipExpiresAt: true,
           shopTrialEndsAt: true
         }
@@ -252,35 +267,49 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
       const obfuscated =
         s.latitude !== null && s.longitude !== null ? obfuscateLocation(s.latitude, s.longitude, `svc:${s.id}`, radius) : { latitude: null, longitude: null };
 
+      const ownerAvailableNow = computeAvailableNow(s.owner?.lastSeen, s.owner?.isOnline);
+      const resolvedCategory = s.categoryRel ? (s.categoryRel.displayName || s.categoryRel.name) : s.category;
+
       return {
         id: s.id,
         title: s.title,
         description: s.description,
         price: s.price,
-        category: s.categoryRel ? (s.categoryRel.displayName || s.categoryRel.name) : s.category,
+        category: resolvedCategory,
         categorySlug: s.categoryRel?.slug ?? null,
+        type: isSpaceCategory(resolvedCategory) ? "space" : "experience",
         address: s.address,
         latitude: obfuscated.latitude,
         longitude: obfuscated.longitude,
+        coordinates: obfuscated.latitude != null && obfuscated.longitude != null ? { lat: obfuscated.latitude, lng: obfuscated.longitude } : null,
         approxAreaM: radius,
         locationVerified: s.locationVerified,
         distance,
+        availableNow: ownerAvailableNow,
         createdAt: s.createdAt,
         owner: s.owner,
         media: s.media
       };
     })
+    .filter((s) => {
+      if (!type) return true;
+      return type === "space" ? isSpaceCategory(s.category) : !isSpaceCategory(s.category);
+    })
     .filter((s) => (radiusKm !== null && s.distance !== null ? s.distance <= radiusKm : true));
 
+  const filteredByAvailableNow = availableNow ? enriched.filter((s) => s.availableNow) : enriched;
+  const fallbackToAll = availableNow && filteredByAvailableNow.length === 0;
+  const filtered = fallbackToAll ? enriched : filteredByAvailableNow;
+
   if (sort === "new") {
-    enriched.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+    filtered.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
   } else if (sort === "near") {
-    enriched.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+    filtered.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
   } else if (sort === "availableNow") {
-    enriched.sort((a, b) => Number(Boolean(b.owner?.isOnline)) - Number(Boolean(a.owner?.isOnline)));
+    filtered.sort((a, b) => Number(Boolean(b.availableNow)) - Number(Boolean(a.availableNow)));
   }
 
-  return res.json({ services: enriched });
+  return res.json({ services: filtered });
 }));
 
 

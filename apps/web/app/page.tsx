@@ -42,11 +42,13 @@ type ServiceItem = {
   price: number | null;
   distance: number | null;
   media: { id: string; url: string; type: string }[];
+  availableNow?: boolean;
   owner: {
     id: string;
     username: string;
     displayName: string | null;
     avatarUrl: string | null;
+    coverUrl?: string | null;
     profileType: string;
     isOnline?: boolean;
   };
@@ -60,6 +62,12 @@ const DISCOVERY_SECTIONS = [
   { key: "new", title: "Nuevas", subtitle: "Servicios publicados recientemente.", icon: Sparkles, href: "/servicios?type=experience&sort=new", cta: "Ver todas", query: { type: "experience", sort: "new", limit: "4" } },
   { key: "spaces", title: "Espacios disponibles", subtitle: "Moteles y hoteles activos para reservar.", icon: Building2, href: "/servicios?type=space", cta: "Ver todas", query: { type: "space", sort: "new", limit: "4" } },
 ] as const;
+
+function resolveServiceImage(service: ServiceItem) {
+  const primary = service.media?.[0]?.url || null;
+  const fallback = service.owner?.coverUrl || service.owner?.avatarUrl || null;
+  return resolveMediaUrl(primary || fallback);
+}
 
 /* ── Animation variants ── */
 
@@ -452,7 +460,7 @@ export default function HomePage() {
                   {items.length > 0
                     ? items.map((s) => {
                         const href = s.owner.profileType === "ESTABLISHMENT" ? `/hospedaje/${s.owner.id}` : `/profesional/${s.owner.id}`;
-                        const cover = s.media?.[0]?.url ? resolveMediaUrl(s.media[0].url) : null;
+                        const cover = resolveServiceImage(s);
 
                         return (
                           <Link
@@ -465,6 +473,11 @@ export default function HomePage() {
                               {s.distance != null && (
                                 <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80">
                                   {s.distance.toFixed(1)} km
+                                </div>
+                              )}
+                              {s.availableNow && (
+                                <div className="absolute left-2 top-2 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-100">
+                                  Online
                                 </div>
                               )}
                             </div>
