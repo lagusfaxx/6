@@ -150,12 +150,13 @@ function formEncodeValue(v: string): string {
 }
 
 export function signFlowParams(params: Record<string, string>): string {
-  const sortedKeys = Object.keys(params).sort();
-
-  // IMPORTANT: signature must match the exact value representation sent as x-www-form-urlencoded
-  const raw = sortedKeys.map((k) => `${k}${formEncodeValue(params[k])}`).join("");
-
-  return crypto.createHmac("sha256", config.flowSecretKey).update(raw).digest("hex");
+  const keys = Object.keys(params).sort();
+  let toSign = "";
+  for (const k of keys) {
+    if (k === "s") continue; // por si acaso
+    toSign += k + params[k]; // SIN encode
+  }
+  return crypto.createHmac("sha256", config.flowSecretKey).update(toSign).digest("hex");
 }
 
 async function flowFetch<T>(
