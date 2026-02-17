@@ -583,6 +583,18 @@ servicesRouter.post("/services/request", requireAuth, asyncHandler(async (req, r
     { url: `/dashboard/services?request=${request.id}`, requestId: request.id, status: request.status }
   );
 
+  // Auto-create a system message so the conversation appears in both inboxes
+  const clientName = request.client?.displayName || request.client?.username || "Cliente";
+  const systemBody = `📋 ${clientName} ha solicitado un servicio — ${requestedDate} ${requestedTime}, ${agreedLocation}`;
+  const systemMessage = await prisma.message.create({
+    data: {
+      fromId: req.session.userId!,
+      toId: professionalId,
+      body: systemBody
+    }
+  });
+
+  sendToUser(professionalId, "message", { message: systemMessage });
   sendToUser(professionalId, "service_request", { request });
   sendToUser(req.session.userId!, "service_request", { request });
   return res.json({ request });

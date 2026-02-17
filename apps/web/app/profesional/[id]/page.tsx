@@ -65,8 +65,8 @@ export default function ProfessionalDetailPage() {
       })
       .finally(() => setLoading(false));
 
-    // Check if professional is favorited (only for logged-in VIEWER users)
-    if (me?.user?.profileType === "VIEWER") {
+    // Check if professional is favorited (only for logged-in VIEWER/CLIENT users)
+    if (me?.user?.profileType === "VIEWER" || me?.user?.profileType === "CLIENT") {
       apiFetch<{ isFavorite: boolean }>(`/favorites/check/${id}`)
         .then((res) => setFavorite(res.isFavorite))
         .catch((err) => {
@@ -100,7 +100,7 @@ export default function ProfessionalDetailPage() {
   }
 
   useEffect(() => {
-    if (!me?.user || me.user.profileType !== "VIEWER" || !professional) return;
+    if (!me?.user || (me.user.profileType !== "VIEWER" && me.user.profileType !== "CLIENT") || !professional) return;
     apiFetch<{ services: { id: string; status: string; professional: { id: string } }[] }>("/services/active")
       .then((res) => {
         const match = res.services.find((s) => s.professional.id === professional.id);
@@ -133,7 +133,7 @@ export default function ProfessionalDetailPage() {
           ? "Otro"
           : null;
 
-  const canRequest = me?.user?.profileType === "VIEWER";
+  const canRequest = me?.user?.profileType === "VIEWER" || me?.user?.profileType === "CLIENT";
 
   return (
     <div className="grid gap-6">
@@ -221,7 +221,16 @@ export default function ProfessionalDetailPage() {
                     window.location.href = `/chat/${professional.id}`;
                   }}
                 >
-                  Solicitar / reservar en chat
+                  Solicitar servicio
+                </button>
+              ) : !me?.user && !activeRequest ? (
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    window.location.href = `/login?next=${encodeURIComponent(`/profesional/${professional.id}`)}`;
+                  }}
+                >
+                  Solicitar servicio
                 </button>
               ) : null}
               {canRequest && activeRequest ? (
