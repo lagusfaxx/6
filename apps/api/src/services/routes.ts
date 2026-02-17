@@ -184,14 +184,32 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
   const lat = req.query.lat ? Number(req.query.lat) : null;
   const lng = req.query.lng ? Number(req.query.lng) : null;
   const kind = typeof req.query.kind === "string" ? req.query.kind.trim() : "";
+  const type = typeof req.query.type === "string" ? req.query.type.trim().toLowerCase() : "";
   const category = typeof req.query.category === "string" ? req.query.category.trim() : "";
+  const sort = typeof req.query.sort === "string" ? req.query.sort.trim() : "near";
+  const radiusKm = req.query.radiusKm ? Number(req.query.radiusKm) : null;
+  const availableNow = req.query.availableNow === "1" || sort === "availableNow";
+  const minPrice = req.query.minPrice ? Number(req.query.minPrice) : null;
+  const maxPrice = req.query.maxPrice ? Number(req.query.maxPrice) : null;
+  const limit = req.query.limit ? Math.min(Number(req.query.limit) || 80, 300) : 80;
 
-  const ownerTypes = kind ? [kind] : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"];
+  const ownerTypes = kind
+    ? [kind]
+    : type === "experience"
+      ? ["PROFESSIONAL"]
+      : type === "space"
+        ? ["ESTABLISHMENT"]
+        : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"];
 
   const items = await prisma.serviceItem.findMany({
     where: {
       isActive: true,
-      owner: { profileType: { in: ownerTypes as any } },
+      owner: {
+        profileType: { in: ownerTypes as any },
+        ...(availableNow ? { isOnline: true } : {})
+      },
+      ...(minPrice !== null ? { price: { gte: minPrice } } : {}),
+      ...(maxPrice !== null ? { price: { lte: maxPrice } } : {}),
       ...(category
         ? {
           OR: [
@@ -203,7 +221,7 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
         : {})
     },
     orderBy: { createdAt: "desc" },
-    take: 300,
+    take: limit,
     include: {
       owner: {
         select: {
@@ -213,6 +231,7 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
           avatarUrl: true,
           profileType: true,
           city: true,
+          isOnline: true,
           membershipExpiresAt: true,
           shopTrialEndsAt: true
         }
@@ -251,7 +270,15 @@ servicesRouter.get("/services/global", asyncHandler(async (req, res) => {
         media: s.media
       };
     })
-    .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+    .filter((s) => (radiusKm !== null && s.distance !== null ? s.distance <= radiusKm : true));
+
+  if (sort === "new") {
+    enriched.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  } else if (sort === "near") {
+    enriched.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+  } else if (sort === "availableNow") {
+    enriched.sort((a, b) => Number(Boolean(b.owner?.isOnline)) - Number(Boolean(a.owner?.isOnline)));
+  }
 
   return res.json({ services: enriched });
 }));
