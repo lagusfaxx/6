@@ -125,6 +125,8 @@ model User {
   allowFreeMessages   Boolean           @default(false)
   role                Role              @default(USER)
   membershipExpiresAt DateTime?
+  flowCustomerId      String?           @unique
+  flowSubscriptionId  String?           @unique
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
