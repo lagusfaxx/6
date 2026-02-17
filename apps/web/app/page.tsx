@@ -5,6 +5,8 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import { useMapLocation } from "../hooks/useMapLocation";
+import useMe from "../hooks/useMe";
+import { buildChatHref, buildCurrentPathWithSearch, buildLoginHref } from "../lib/chat";
 import {
   ArrowRight,
   ChevronRight,
@@ -46,6 +48,7 @@ type DiscoverProfile = {
   lng: number | null;
   distanceKm: number | null;
   availableNow: boolean;
+  lastSeen?: string | null;
 };
 
 /* ── Helpers ── */
@@ -58,6 +61,13 @@ const DISCOVERY_SECTIONS = [
 
 function resolveProfileImage(profile: DiscoverProfile) {
   return resolveMediaUrl(profile.coverUrl) ?? resolveMediaUrl(profile.avatarUrl) ?? "/brand/isotipo-new.png";
+}
+
+function isAvailableNowFromLastSeen(lastSeen?: string | null) {
+  if (!lastSeen) return false;
+  const timestamp = Date.parse(lastSeen);
+  if (Number.isNaN(timestamp)) return false;
+  return Date.now() - timestamp <= 10 * 60 * 1000;
 }
 
 /* ── Animation variants ── */
@@ -97,6 +107,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [recentError, setRecentError] = useState<string | null>(null);
   const [recentLoading, setRecentLoading] = useState(true);
+  const { me } = useMe();
 
   useEffect(() => {
     (async () => {
@@ -447,11 +458,18 @@ export default function HomePage() {
                   </Link>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {items.length > 0
                     ? items.map((profile) => {
                         const href = `/perfil/${profile.username}`;
                         const cover = resolveProfileImage(profile);
+                        const availableNow = isAvailableNowFromLastSeen(profile.lastSeen);
+                        const messageHref = me?.user
+                          ? buildChatHref(profile.id, { mode: "message" })
+                          : buildLoginHref(buildCurrentPathWithSearch());
+                        const requestHref = me?.user
+                          ? buildChatHref(profile.id, { mode: "request" })
+                          : buildLoginHref(buildCurrentPathWithSearch());
 
                         return (
                           <article
@@ -459,14 +477,14 @@ export default function HomePage() {
                             className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20"
                           >
                             <Link href={href} className="block">
-                              <div className="relative aspect-[4/3] bg-white/[0.04]">
+                              <div className="relative aspect-[4/5] bg-white/[0.04]">
                                 <img src={cover ?? undefined} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
                                 {profile.distanceKm != null && (
                                   <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80">
                                     {profile.distanceKm.toFixed(1)} km
                                   </div>
                                 )}
-                                {profile.availableNow && (
+                                {availableNow && (
                                   <div className="absolute left-2 top-2 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-100">
                                     Disponible
                                   </div>
@@ -477,11 +495,11 @@ export default function HomePage() {
                               <div className="truncate text-sm font-semibold">
                                 {profile.displayName}{profile.age != null ? `, ${profile.age}` : ""}
                               </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <Link href={href} className="rounded-lg bg-white/[0.07] px-2 py-1.5 text-center text-xs font-medium text-white/85 hover:bg-white/[0.12]">
-                                  Ver perfil
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <Link href={messageHref} className="rounded-lg bg-white/[0.07] px-2 py-2 text-center text-xs font-medium text-white/85 hover:bg-white/[0.12]">
+                                  Enviar mensaje
                                 </Link>
-                                <Link href={href} className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-1.5 text-center text-xs font-medium text-fuchsia-100 hover:bg-fuchsia-500/20">
+                                <Link href={requestHref} className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-2 text-center text-xs font-medium text-fuchsia-100 hover:bg-fuchsia-500/20">
                                   Solicitar / Reservar
                                 </Link>
                               </div>
