@@ -405,7 +405,7 @@ export async function createFlowPayment(req: FlowPaymentCreateRequest): Promise<
     subject: req.subject,
     currency: req.currency || "CLP",
     amount: String(req.amount),
-    email,
+    userEmail: email,
     urlConfirmation: req.urlConfirmation,
     urlReturn: req.urlReturn,
   };
