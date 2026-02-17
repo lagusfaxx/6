@@ -159,6 +159,7 @@ export default function ChatPage() {
   const fallbackStepsMs = [2000, 5000, 10000, 20000] as const;
   const fallbackStepRef = useRef(0);
   const fallbackInFlightRef = useRef(false);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -729,7 +730,8 @@ export default function ChatPage() {
                       const { url, isFallback } = buildUberLink({ locationText: activeRequest.agreedLocation || undefined });
                       if (isFallback) {
                         setToast("Abriendo Uber en navegador...");
-                        setTimeout(() => setToast(null), 3000);
+                        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+                        toastTimerRef.current = setTimeout(() => setToast(null), 3000);
                       }
                       window.open(url, "_blank", "noopener");
                     }}
