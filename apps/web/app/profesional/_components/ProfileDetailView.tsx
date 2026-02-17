@@ -9,7 +9,7 @@ import Avatar from "../../../components/Avatar";
 import StarRating from "../../../components/StarRating";
 import GalleryCounter from "../../../components/GalleryCounter";
 import SkeletonCard from "../../../components/SkeletonCard";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, Star, X } from "lucide-react";
 
 type Professional = {
   id: string;
@@ -107,34 +107,17 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       .catch(() => setFavorite(false));
   }, [me?.user?.profileType, professional]);
 
-  const infoChips = useMemo(() => {
-    if (!professional) return [] as string[];
+  const infoBadges = useMemo(() => {
+    if (!professional) return [];
+
     return [
       professional.heightCm ? `${professional.heightCm} cm` : null,
       professional.weightKg ? `${professional.weightKg} kg` : null,
-      professional.measurements || null,
-      professional.hairColor ? `Cabello: ${professional.hairColor}` : null,
-      professional.skinTone ? `Piel: ${professional.skinTone}` : null,
-      ...splitCsv(professional.languages).map((l) => `Idioma: ${l}`),
-    ].filter(Boolean).slice(0, 3) as string[];
-  }, [professional]);
-
-  // Build detail rows for the new "Detalles" card
-  const detailRows = useMemo(() => {
-    if (!professional) return [];
-    const rows: { label: string; value: string }[] = [];
-
-    if (professional.heightCm) rows.push({ label: "Altura", value: `${professional.heightCm} cm` });
-    if (professional.weightKg) rows.push({ label: "Peso", value: `${professional.weightKg} kg` });
-    if (professional.measurements) rows.push({ label: "Medidas", value: professional.measurements });
-    if (professional.hairColor) rows.push({ label: "Cabello", value: professional.hairColor });
-    if (professional.skinTone) rows.push({ label: "Piel", value: professional.skinTone });
-    if (professional.languages) {
-      const langs = splitCsv(professional.languages);
-      if (langs.length > 0) rows.push({ label: "Idiomas", value: langs.join(", ") });
-    }
-
-    return rows;
+      professional.measurements ? `Medidas ${professional.measurements}` : null,
+      professional.hairColor ? `Cabello ${professional.hairColor}` : null,
+      professional.skinTone ? `Piel ${professional.skinTone}` : null,
+      ...splitCsv(professional.languages).map((language) => `Idioma ${language}`),
+    ].filter(Boolean) as string[];
   }, [professional]);
 
   const styleChips = useMemo(() => splitCsv(professional?.serviceStyleTags), [professional?.serviceStyleTags]);
@@ -153,7 +136,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     () => (professional?.gallery || []).map((g) => resolveMediaUrl(g.url)).filter((url): url is string => Boolean(url)),
     [professional?.gallery],
   );
-  const hasDetailsSection = detailRows.length > 0;
+  const hasDetailsSection = infoBadges.length > 0;
   const hasStyleSection = styleChips.length > 0;
   const hasAvailabilitySection = Boolean(professional?.availabilityNote || availabilityChips.length);
   const hasRatesSection = typeof professional?.baseRate === "number";
@@ -201,93 +184,97 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     );
   }
 
+  const availabilityState = availableNow
+    ? { label: "Disponible ahora", className: "border-emerald-300/40 bg-emerald-500/20 text-emerald-100" }
+    : professional.availabilityNote
+      ? { label: "Disponible hoy", className: "border-amber-300/40 bg-amber-500/20 text-amber-100" }
+      : { label: "No disponible", className: "border-white/20 bg-white/10 text-white/70" };
+
   return (
-    <div className="grid gap-6">
-      {/* Header card with cover, avatar, and CTA buttons */}
-      <div className={`card overflow-hidden p-0 ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
-        <div className="relative w-full overflow-hidden bg-white/5 aspect-[4/5] md:aspect-[16/6]">
+    <div className="mx-auto grid w-full max-w-5xl gap-5 pb-28 md:gap-6 md:pb-6">
+      <section className={`relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-b from-white/15 to-white/[0.03] shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
+        <div className="relative aspect-[4/5] w-full overflow-hidden md:aspect-[16/7]">
           {coverSrc ? (
             <img src={coverSrc} alt="Portada" className="h-full w-full object-cover object-center" />
           ) : (
-            <div className="grid h-full w-full place-items-center bg-gradient-to-br from-fuchsia-700/30 via-violet-700/20 to-slate-900">
+            <div className="grid h-full w-full place-items-center bg-gradient-to-br from-fuchsia-700/35 via-violet-700/30 to-slate-900">
               <ImageIcon className="h-10 w-10 text-white/50" />
             </div>
           )}
-          <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
-          {availableNow ? (
-            <div className="absolute right-3 top-3 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2.5 py-1 text-xs text-emerald-100 backdrop-blur-sm">
-              Disponible ahora
-            </div>
-          ) : null}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#090312] via-[#090312]/60 to-transparent" />
         </div>
 
-        <div className="px-4 pb-5 pt-4 md:px-6 md:pb-6 md:pt-5">
-          <div className="flex flex-col gap-4">
-            {/* Avatar and info */}
-            <div className="flex items-start gap-3">
+        <div className="relative -mt-14 space-y-4 px-4 pb-5 md:px-6 md:pb-6">
+          <div className="rounded-[24px] border border-white/15 bg-black/35 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-5">
+            <div className="flex items-start gap-3 md:gap-4">
               <Avatar
                 src={avatarSrc}
                 alt={professional.name}
-                size={96}
-                className="size-20 shrink-0 rounded-full border-2 border-white/30 ring-4 ring-black/30 md:size-24"
+                size={112}
+                className="size-20 shrink-0 rounded-full border-2 border-white/40 ring-4 ring-black/40 md:size-24"
               />
-              <div className="flex-1 min-w-0">
-                <h1 className="text-xl font-semibold md:text-2xl truncate">{professional.name}{professional.age ? `, ${professional.age}` : ""}</h1>
-                <div className="mt-1 flex items-center gap-2 text-sm text-white/60">
-                  <span>{professional.category || "Perfil"}</span>
-                  <span>•</span>
-                  <StarRating rating={professional.rating} size={14} />
+              <div className="min-w-0 flex-1 space-y-2">
+                <h1 className="truncate text-2xl font-semibold leading-tight">{professional.name}{professional.age ? `, ${professional.age}` : ""}</h1>
+                <div className="flex items-center gap-2 text-sm text-white/80">
+                  <div className="flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1">
+                    <Star className="h-3.5 w-3.5 text-amber-300" />
+                    <StarRating rating={professional.rating} size={12} />
+                  </div>
+                  <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${availabilityState.className}`}>{availabilityState.label}</span>
                 </div>
-                <div className="mt-1 text-xs text-white/60">
-                  {availableNow ? "Disponible ahora" : professional.lastSeen ? `Última vez: ${new Date(professional.lastSeen).toLocaleString("es-CL")}` : "Sin actividad reciente"}
-                  {professional.city ? ` • ${professional.city}` : ""}
+                <div className="text-sm text-white/65">
+                  {professional.city || "Ubicación no especificada"}
+                  {professional.category ? ` • ${professional.category}` : ""}
                 </div>
               </div>
             </div>
 
-            {/* CTA buttons - responsive on mobile */}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button onClick={() => handleChatClick("message")} className="btn-secondary w-full text-sm py-2.5">
-                Enviar mensaje
-              </button>
-              <button onClick={() => handleChatClick("request")} className="btn-primary w-full text-sm py-2.5">
-                Solicitar / Reservar
-              </button>
+            <div className="mt-4 flex flex-wrap gap-2.5">
+              {styleChips.slice(0, 5).map((chip) => (
+                <span key={chip} className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90">
+                  {chip}
+                </span>
+              ))}
             </div>
 
-            {/* Favorite button */}
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button onClick={() => handleChatClick("message")} className="btn-primary w-full rounded-2xl py-3 text-sm">
+                Enviar mensaje
+              </button>
+              <button onClick={() => handleChatClick("request")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
+                Solicitar servicio
+              </button>
+            </div>
             <button
               onClick={toggleFavorite}
-              className={`w-full rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${favorite ? "border-rose-400 bg-rose-500/20 text-rose-100" : "border-white/20 bg-white/5 text-white/80 hover:bg-white/10"}`}
+              className={`mt-2.5 w-full rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${favorite ? "border-rose-400/60 bg-rose-500/20 text-rose-100" : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"}`}
             >
               {favorite ? "♥ Guardado en favoritos" : "♡ Agregar a favoritos"}
             </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Detalles card - clean grid layout */}
       {hasDetailsSection && (
-        <div className="card p-5 md:p-6">
-          <h2 className="text-lg font-semibold mb-4">Detalles</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {detailRows.map((row) => (
-              <div key={row.label} className="flex justify-between items-center py-2 border-b border-white/5">
-                <span className="text-sm text-white/60">{row.label}</span>
-                <span className="text-sm font-medium text-white/90">{row.value}</span>
-              </div>
+        <section className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
+          <h2 className="mb-4 text-lg font-semibold">Información</h2>
+          <div className="flex flex-wrap gap-2.5">
+            {infoBadges.map((badge) => (
+              <span key={badge} className="rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-xs font-medium text-white/85 md:text-sm">
+                {badge}
+              </span>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Etiquetas - nice chips */}
       {hasStyleSection && (
-        <div className="card p-5 md:p-6">
-          <h2 className="text-lg font-semibold mb-3">Etiquetas</h2>
-          <div className="flex flex-wrap gap-2">
+        <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
+          <h2 className="mb-3 text-lg font-semibold">Etiquetas</h2>
+          <div className="flex flex-wrap gap-2.5">
             {styleChips.map((chip) => (
-              <span key={chip} className="inline-block rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-1 text-xs font-medium text-fuchsia-100">
+              <span key={chip} className="inline-block rounded-full border border-fuchsia-300/25 bg-fuchsia-500/10 px-3.5 py-1.5 text-xs font-medium tracking-wide text-fuchsia-100">
                 {chip}
               </span>
             ))}
@@ -297,15 +284,16 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
       {/* Availability section */}
       {hasAvailabilitySection && (
-        <div className="card p-5 md:p-6">
-          <h2 className="text-lg font-semibold mb-3">Disponibilidad</h2>
+        <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
+          <h2 className="mb-3 text-lg font-semibold">Disponibilidad</h2>
+          <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-medium ${availabilityState.className}`}>{availabilityState.label}</span>
           {professional.availabilityNote && (
-            <p className="text-sm text-white/70 mb-3">{professional.availabilityNote}</p>
+            <p className="mb-3 mt-3 text-sm text-white/70">{professional.availabilityNote}</p>
           )}
           {availabilityChips.length > 0 && (
-            <div className="flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {availabilityChips.map((chip) => (
-                <span key={chip} className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/80">
+                <span key={chip} className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-xs text-white/80">
                   {chip}
                 </span>
               ))}
@@ -316,55 +304,41 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
       {/* Rates section */}
       {hasRatesSection && (
-        <div className="card p-5 md:p-6">
-          <h2 className="text-lg font-semibold mb-2">Tarifas</h2>
-          <p className="text-sm text-white/70">
-            {professional.minDurationMinutes
-              ? `$${professional.baseRate?.toLocaleString("es-CL")} / ${professional.minDurationMinutes} min`
-              : `Desde $${professional.baseRate?.toLocaleString("es-CL")}`}
+        <section className="rounded-[28px] border border-fuchsia-300/20 bg-gradient-to-br from-fuchsia-500/15 via-violet-500/10 to-white/[0.03] p-5 shadow-[0_14px_50px_rgba(120,40,200,0.25)] backdrop-blur-xl md:p-6">
+          <h2 className="text-lg font-semibold text-white/90">Tarifas</h2>
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-white">
+            ${professional.baseRate?.toLocaleString("es-CL")}
           </p>
-        </div>
+          <p className="mt-1 text-sm text-white/70">
+            {professional.minDurationMinutes ? `${professional.minDurationMinutes} minutos` : "Tarifa base"}
+          </p>
+        </section>
       )}
 
-      {/* Gallery - premium mobile carousel, desktop grid */}
       {gallery.length > 0 ? (
-        <div className="card p-5 md:p-6">
+        <section className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Galería</h2>
             <GalleryCounter count={gallery.length} />
           </div>
-          {/* Mobile: horizontal scroll carousel with snap */}
-          <div className="md:hidden -mx-5 px-5 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
             {gallery.map((url, idx) => (
               <motion.button
                 type="button"
                 key={`${url}-${idx}`}
                 onClick={() => setLightbox(url)}
-                className="aspect-[3/4] w-[75%] shrink-0 snap-center overflow-hidden rounded-2xl border border-white/10 bg-white/5"
+                className="aspect-[4/5] overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition hover:scale-[1.01]"
               >
                 <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" />
               </motion.button>
             ))}
           </div>
-          {/* Desktop: 3-col grid */}
-          <div className="hidden md:grid md:grid-cols-3 gap-3">
-            {gallery.map((url, idx) => (
-              <motion.button
-                type="button"
-                key={`${url}-${idx}`}
-                onClick={() => setLightbox(url)}
-                className="aspect-[3/4] overflow-hidden rounded-2xl border border-white/10 bg-white/5 hover:opacity-90 transition-opacity"
-              >
-                <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" />
-              </motion.button>
-            ))}
-          </div>
-        </div>
+        </section>
       ) : null}
 
       {/* Location section */}
       {hasLocationSection && (
-        <div className="card p-5 md:p-6">
+        <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
           <h2 className="text-lg font-semibold mb-2">Ubicación</h2>
           <p className="text-sm text-white/70">
             {professional.city ? `Zona aproximada: ${professional.city}` : "Zona referencial"}
@@ -374,12 +348,25 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
       {/* Lightbox */}
       {lightbox && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/90 p-4 backdrop-blur-sm" onClick={() => setLightbox(null)}>
-          <div className="max-w-3xl w-full">
-            <img src={lightbox} alt="Vista ampliada" className="w-full rounded-2xl border border-white/10 object-cover" />
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/85 p-4 backdrop-blur-md" onClick={() => setLightbox(null)}>
+          <div className="w-full max-w-3xl">
+            <button
+              type="button"
+              className="mb-3 ml-auto flex rounded-full border border-white/25 bg-black/40 p-2 text-white/80"
+              onClick={() => setLightbox(null)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <img src={lightbox} alt="Vista ampliada" className="w-full rounded-3xl border border-white/10 object-cover" />
           </div>
         </div>
       )}
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#08050f]/90 px-4 py-3 backdrop-blur-xl md:hidden">
+        <button onClick={() => handleChatClick("message")} className="btn-primary w-full rounded-2xl py-3 text-sm">
+          Enviar mensaje
+        </button>
+      </div>
     </div>
   );
 }
