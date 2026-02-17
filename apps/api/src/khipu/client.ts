@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { config } from "../config";
 
 export class KhipuError extends Error {
@@ -114,4 +115,133 @@ export async function createPayment(req: KhipuCreatePaymentRequest): Promise<Khi
     method: "POST",
     body: JSON.stringify(req)
   });
+}
+
+// ── Flow Plans API ──────────────────────────────────────────────────
+
+function signFlowParams(params: Record<string, string>): string {
+  const sorted = Object.keys(params).sort().map((k) => `${k}${params[k]}`).join("");
+  return crypto.createHmac("sha256", config.flowSecretKey).update(sorted).digest("hex");
+}
+
+async function flowFetch<T>(path: string, method: "GET" | "POST", params: Record<string, string>): Promise<T> {
+  const signed: Record<string, string> = { ...params, apiKey: config.flowApiKey };
+  signed.s = signFlowParams(signed);
+
+  const baseUrl = config.flowBaseUrl.replace(/\/$/, "");
+
+  let res: Response;
+  if (method === "GET") {
+    const qs = new URLSearchParams(signed).toString();
+    res = await fetch(`${baseUrl}${path}?${qs}`, { method: "GET" });
+  } else {
+    res = await fetch(`${baseUrl}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(signed).toString()
+    });
+  }
+
+  const text = await res.text();
+  let data: any = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) {
+    const msg = typeof data === "string" ? data : JSON.stringify(data);
+    const safeMsg = msg.length > 500 ? `${msg.slice(0, 500)}...` : msg;
+    console.error("[flow] error", { status: res.status, path, message: safeMsg });
+    throw new KhipuError(res.status, `Flow ${res.status}: ${safeMsg}`, data);
+  }
+  return data as T;
+}
+
+export type FlowPlan = {
+  planId: string;
+  name: string;
+  currency: string;
+  amount: number;
+  interval: number;
+  interval_count: number;
+  created: string;
+  trial_period_days: number;
+  days_until_due: number;
+  periods_number: number;
+  urlCallback: string;
+  charges_retries_number: number;
+  currency_convert_option: number;
+  status: number;
+  public: number;
+};
+
+export type FlowPlanListResponse = {
+  total: number;
+  hasMore: number;
+  data: string;
+};
+
+export type FlowCreatePlanRequest = {
+  planId: string;
+  name: string;
+  currency?: string;
+  amount: number;
+  interval: number;
+  interval_count?: number;
+  trial_period_days?: number;
+  days_until_due?: number;
+  periods_number?: number;
+  urlCallback?: string;
+  charges_retries_number?: number;
+  currency_convert_option?: number;
+};
+
+export type FlowEditPlanRequest = {
+  planId: string;
+  name?: string;
+  currency?: string;
+  amount?: number;
+  interval?: number;
+  interval_count?: number;
+  trial_period_days?: number;
+  days_until_due?: number;
+  periods_number?: number;
+  urlCallback?: string;
+  charges_retries_number?: number;
+  currency_convert_option?: number;
+};
+
+function toStringRecord(obj: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined && v !== null) out[k] = String(v);
+  }
+  return out;
+}
+
+export async function createFlowPlan(req: FlowCreatePlanRequest): Promise<FlowPlan> {
+  return flowFetch<FlowPlan>("/plans/create", "POST", toStringRecord(req as unknown as Record<string, unknown>));
+}
+
+export async function getFlowPlan(planId: string): Promise<FlowPlan> {
+  return flowFetch<FlowPlan>("/plans/get", "GET", { planId });
+}
+
+export async function editFlowPlan(req: FlowEditPlanRequest): Promise<FlowPlan> {
+  return flowFetch<FlowPlan>("/plans/edit", "POST", toStringRecord(req as unknown as Record<string, unknown>));
+}
+
+export async function deleteFlowPlan(planId: string): Promise<FlowPlan> {
+  return flowFetch<FlowPlan>("/plans/delete", "POST", { planId });
+}
+
+export async function listFlowPlans(opts?: {
+  start?: number;
+  limit?: number;
+  filter?: string;
+  status?: number;
+}): Promise<FlowPlanListResponse> {
+  const params: Record<string, string> = {};
+  if (opts?.start !== undefined) params.start = String(opts.start);
+  if (opts?.limit !== undefined) params.limit = String(opts.limit);
+  if (opts?.filter !== undefined) params.filter = opts.filter;
+  if (opts?.status !== undefined) params.status = String(opts.status);
+  return flowFetch<FlowPlanListResponse>("/plans/list", "GET", params);
 }
