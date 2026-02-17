@@ -128,6 +128,8 @@ authRouter.post("/register", asyncHandler(async (req, res) => {
         birthdate: safeBirthdate,
         shopTrialEndsAt,
         subscriptionPrice: profileType === "CREATOR" || profileType === "PROFESSIONAL" ? 2500 : null,
+        isOnline: true,
+        lastSeen: new Date(),
         role: "USER"
       },
       select: {
@@ -170,6 +172,11 @@ authRouter.post("/login", asyncHandler(async (req, res) => {
   req.session.role = user.role;
   await persistSession(req);
 
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { isOnline: true, lastSeen: new Date() }
+  });
+
   return res.json({
     user: {
       id: user.id,
@@ -186,11 +193,31 @@ authRouter.post("/login", asyncHandler(async (req, res) => {
 }));
 
 authRouter.post("/logout", asyncHandler(async (req, res) => {
+  const userId = req.session.userId;
   req.session.destroy((err) => {
     if (err) return res.status(500).json({ error: "LOGOUT_FAILED" });
     res.clearCookie("uzeed_session");
     return res.json({ ok: true });
   });
+  if (userId) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isOnline: false }
+    }).catch(() => undefined);
+  }
+}));
+
+authRouter.post("/ping", asyncHandler(async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: "UNAUTHENTICATED" });
+  const now = new Date();
+  await prisma.user.update({
+    where: { id: req.session.userId },
+    data: {
+      isOnline: true,
+      lastSeen: now
+    }
+  });
+  return res.json({ ok: true, lastSeen: now.toISOString() });
 }));
 
 authRouter.get("/me", asyncHandler(async (req, res) => {

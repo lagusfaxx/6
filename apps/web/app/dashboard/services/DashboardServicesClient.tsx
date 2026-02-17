@@ -35,6 +35,60 @@ function toDateInputValue(value?: string | null) {
   return `${year}-${month}-${day}`;
 }
 
+function normalizeCategoryText(value?: string | null) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function inferPublicationType(categoryName?: string | null) {
+  const normalized = normalizeCategoryText(categoryName);
+  if (normalized.includes("motel") || normalized.includes("hotel")) {
+    return {
+      publicationType: "space" as const,
+      spaceSubtype: normalized.includes("hotel") ? ("hotel" as const) : ("motel" as const),
+    };
+  }
+  return {
+    publicationType: "experience" as const,
+    spaceSubtype: "motel" as const,
+  };
+}
+
+function resolveCategoryForPublication(params: {
+  categories: Category[];
+  publicationType: "experience" | "space";
+  spaceSubtype: "motel" | "hotel";
+}) {
+  const { categories, publicationType, spaceSubtype } = params;
+  const normalized = categories.map((c) => ({ c, n: normalizeCategoryText(c.displayName || c.name) }));
+
+  if (publicationType === "space") {
+    const target = spaceSubtype === "hotel" ? "hotel" : "motel";
+    const match = normalized.find((entry) => entry.n.includes(target));
+    return match?.c.id || categories[0]?.id || "";
+  }
+
+  const hiddenDefault = normalized.find((entry) => !entry.n.includes("hotel") && !entry.n.includes("motel"));
+  return hiddenDefault?.c.id || categories[0]?.id || "";
+}
+
+function withDurationDescription(description: string, durationMinutes: string) {
+  const clean = description.replace(/^\[duracion:(\d{1,3})\]\s*/i, "").trim();
+  const duration = Number(durationMinutes);
+  if (Number.isFinite(duration) && duration > 0) {
+    return `[duracion:${Math.round(duration)}] ${clean}`.trim();
+  }
+  return clean;
+}
+
+function parseDurationFromDescription(description?: string | null) {
+  const m = (description || "").match(/^\[duracion:(\d{1,3})\]\s*/i);
+  return m?.[1] || "";
+}
+
 export default function DashboardServicesClient() {
   const searchParams = useSearchParams();
   const { me, loading } = useMe();
@@ -74,11 +128,18 @@ export default function DashboardServicesClient() {
   /* ─── Default category selection ─── */
   useEffect(() => {
     if (!categoryOptions.length) return;
-    if (!state.serviceCategoryId) setField("serviceCategoryId", categoryOptions[0].id);
+    if (!state.serviceCategoryId) {
+      const nextCategoryId = resolveCategoryForPublication({
+        categories: categoryOptions,
+        publicationType: state.publicationType,
+        spaceSubtype: state.spaceSubtype,
+      });
+      setField("serviceCategoryId", nextCategoryId);
+    }
     if (profileType === "SHOP" && state.productCategoryId === "") {
       // Keep empty for shop — user selects
     }
-  }, [categoryOptions, profileType, state.serviceCategoryId, state.productCategoryId, setField]);
+  }, [categoryOptions, profileType, state.serviceCategoryId, state.productCategoryId, state.publicationType, state.spaceSubtype, setField]);
 
   /* ─── Toast auto-dismiss ─── */
   useEffect(() => {
@@ -332,6 +393,11 @@ export default function DashboardServicesClient() {
     if (!user) return;
     setField("busy", true);
     setField("error", null);
+    if (!state.title.trim()) {
+      setField("error", "Ingresa un título para tu publicación.");
+      setField("busy", false);
+      return;
+    }
     if (!state.serviceAddress.trim() || !state.serviceVerified) {
       setField("error", "Debes confirmar la ubicacion en el mapa antes de publicar.");
       setField("busy", false);
@@ -347,9 +413,13 @@ export default function DashboardServicesClient() {
     try {
       const payload = {
         title: state.title,
-        description: state.description,
+        description: withDurationDescription(state.description, state.durationMinutes),
         price: state.price ? Number(state.price) : null,
-        categoryId: state.serviceCategoryId,
+        categoryId: resolveCategoryForPublication({
+          categories: categoryOptions,
+          publicationType: state.publicationType,
+          spaceSubtype: state.spaceSubtype,
+        }),
         addressLabel: state.serviceAddress.trim(),
         latitude: parsedLat,
         longitude: parsedLng,
@@ -398,8 +468,10 @@ export default function DashboardServicesClient() {
       setMany({
         title: item.title,
         description: item.description || "",
+        durationMinutes: parseDurationFromDescription(item.description),
         price: item.price != null ? String(item.price) : "",
         serviceCategoryId: item.categoryId || "",
+        ...inferPublicationType(item.categoryRel?.displayName || item.categoryRel?.name || item.category),
         serviceAddress: item.address || "",
         serviceLatitude: item.latitude != null ? String(item.latitude) : "",
         serviceLongitude: item.longitude != null ? String(item.longitude) : "",

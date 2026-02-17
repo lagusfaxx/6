@@ -76,7 +76,10 @@ export type DashboardFormState = {
   title: string;
   description: string;
   serviceCategoryId: string;
+  publicationType: "experience" | "space";
+  spaceSubtype: "motel" | "hotel";
   price: string;
+  durationMinutes: string;
   serviceAddress: string;
   serviceLatitude: string;
   serviceLongitude: string;
@@ -136,7 +139,10 @@ export const INITIAL_STATE: DashboardFormState = {
   title: "",
   description: "",
   serviceCategoryId: "",
+  publicationType: "experience",
+  spaceSubtype: "motel",
   price: "",
+  durationMinutes: "",
   serviceAddress: "",
   serviceLatitude: "",
   serviceLongitude: "",
@@ -189,6 +195,7 @@ function reducer(state: DashboardFormState, action: Action): DashboardFormState 
         title: "",
         description: "",
         price: "",
+        durationMinutes: "",
         editingServiceId: null,
         serviceAddress: "",
         serviceLatitude: "",

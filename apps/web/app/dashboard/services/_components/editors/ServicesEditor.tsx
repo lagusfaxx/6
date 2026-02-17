@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useDashboardForm, type ServiceItem, type Category } from "../../../../../hooks/useDashboardForm";
+import { useDashboardForm, type ServiceItem } from "../../../../../hooks/useDashboardForm";
 import EditorCard from "../EditorCard";
 import FloatingInput from "../FloatingInput";
 import FloatingTextarea from "../FloatingTextarea";
@@ -31,9 +31,9 @@ export default function ServicesEditor({
   const { state, setField } = useDashboardForm();
 
   const kindForProfile = profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : profileType === "SHOP" ? "SHOP" : "PROFESSIONAL";
-  const categoryOptions = useMemo(
-    () => state.categories.filter((c) => c.kind === kindForProfile),
-    [state.categories, kindForProfile]
+  const hasHotel = useMemo(
+    () => state.categories.some((c) => c.kind === kindForProfile && /hotel/i.test(c.displayName || c.name)),
+    [kindForProfile, state.categories]
   );
 
   return (
@@ -100,23 +100,44 @@ export default function ServicesEditor({
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <FloatingSelect
-              label="Categoria"
-              value={state.serviceCategoryId}
-              onChange={(v) => setField("serviceCategoryId", v)}
-              options={categoryOptions.map((c) => ({
-                value: c.id,
-                label: c.displayName || c.name,
-              }))}
-              placeholder="Selecciona una categoria"
+              label="Tipo de publicación"
+              value={state.publicationType}
+              onChange={(v) => setField("publicationType", (v as "experience" | "space") || "experience")}
+              options={[
+                { value: "experience", label: "Experiencia" },
+                { value: "space", label: "Espacio" },
+              ]}
+              placeholder="Selecciona el tipo"
             />
             <FloatingInput
-              label="Precio"
+              label="Precio base"
               value={state.price}
               onChange={(v) => setField("price", v)}
               type="number"
               min="0"
             />
           </div>
+
+          {state.publicationType === "space" && (
+            <FloatingSelect
+              label="Subtipo de espacio"
+              value={state.spaceSubtype}
+              onChange={(v) => setField("spaceSubtype", (v as "motel" | "hotel") || "motel")}
+              options={[
+                { value: "motel", label: "Motel" },
+                ...(hasHotel ? [{ value: "hotel", label: "Hotel" }] : []),
+              ]}
+              placeholder="Selecciona un subtipo"
+            />
+          )}
+
+          <FloatingInput
+            label="Duración (minutos)"
+            value={state.durationMinutes}
+            onChange={(v) => setField("durationMinutes", v)}
+            type="number"
+            min="15"
+          />
 
           <FloatingInput
             label="Direccion"
@@ -201,7 +222,7 @@ export default function ServicesEditor({
           </button>
 
           {!state.serviceVerified && (
-            <p className="text-[11px] text-amber-200/60">Confirma la direccion en el mapa para habilitar la publicacion.</p>
+            <p className="text-[11px] text-amber-200/60">Confirma la dirección en el mapa para habilitar la publicación.</p>
           )}
         </div>
       </EditorCard>

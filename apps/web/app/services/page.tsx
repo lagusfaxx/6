@@ -19,11 +19,13 @@ type ServiceItem = {
   longitude: number | null;
   approxAreaM: number | null;
   createdAt?: string;
+  availableNow?: boolean;
   owner: {
     id: string;
     username: string;
     displayName: string | null;
     avatarUrl: string | null;
+    coverUrl?: string | null;
     profileType: string;
     city: string | null;
     isOnline?: boolean;
@@ -37,6 +39,12 @@ const INITIAL_RADIUS_KM = 10;
 function ownerHref(owner: ServiceItem["owner"]) {
   if (owner.profileType === "ESTABLISHMENT") return `/hospedaje/${owner.id}`;
   return `/profesional/${owner.id}`;
+}
+
+function resolveServiceImage(service: ServiceItem) {
+  const primary = service.media?.[0]?.url || null;
+  const fallback = service.owner?.coverUrl || service.owner?.avatarUrl || null;
+  return resolveMediaUrl(primary || fallback);
 }
 
 export default function ServicesPage() {
@@ -197,9 +205,15 @@ export default function ServicesPage() {
           {loading ? "Cargando resultados..." : `${filtered.length} resultado${filtered.length !== 1 ? "s" : ""}`}
         </div>
 
-        {view === "map" && markers.length > 0 && (
+        {view === "map" && (
           <div className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08]">
             <MapboxMap userLocation={location} markers={markers} height={420} />
+          </div>
+        )}
+
+        {view === "map" && !loading && markers.length === 0 && (
+          <div className="mb-6 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white/55">
+            No hay ubicaciones válidas, amplía rango o completa ubicación del perfil.
           </div>
         )}
 
@@ -225,12 +239,13 @@ export default function ServicesPage() {
             <h2 className="mb-4 text-xl font-semibold">Resultados</h2>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {filtered.map((s) => {
-                const img = s.media?.[0]?.url ? resolveMediaUrl(s.media[0].url) : null;
+                const img = resolveServiceImage(s);
                 return (
                   <Link key={s.id} href={ownerHref(s.owner)} className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
-                    <div className="relative aspect-[4/3] bg-white/[0.04]">
+                    <div className="relative aspect-[4/3] overflow-hidden bg-white/[0.04]">
                       {img ? <img src={img} alt={s.title} className="h-full w-full object-cover transition group-hover:scale-105" /> : <div className="flex h-full items-center justify-center text-white/30">Sin imagen</div>}
                       {s.distance != null && <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px]"><MapPin className="mr-1 inline h-3 w-3" />{s.distance.toFixed(1)} km</div>}
+                      {s.availableNow && <div className="absolute left-2 top-2 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-100">Online</div>}
                     </div>
                     <div className="p-3">
                       <div className="truncate text-sm font-semibold">{s.title || "Servicio"}</div>
