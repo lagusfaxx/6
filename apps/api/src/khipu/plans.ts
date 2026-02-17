@@ -1,7 +1,9 @@
+import crypto from "crypto";
 import { Router } from "express";
 import { requireAuth } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
+import { prisma } from "../db";
 import {
   createFlowPlan,
   getFlowPlan,
@@ -97,33 +99,69 @@ plansRouter.get("/plans/list", requireAuth, asyncHandler(async (req, res) => {
 
 // ── Flow Customer ───────────────────────────────────────────────────
 
-/** POST /customer/create */
+/** POST /customer/create – creates or reuses a Flow customer for the current user */
 plansRouter.post("/customer/create", requireAuth, asyncHandler(async (req, res) => {
-  const { name, email, externalId } = req.body;
-  if (!name || !email) {
-    return res.status(400).json({ error: "MISSING_REQUIRED_FIELDS", required: ["name", "email"] });
+  const userId = req.session.userId!;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, displayName: true, username: true, flowCustomerId: true }
+  });
+  if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+  // Prevent duplicate customer creation
+  if (user.flowCustomerId) {
+    return res.json({ customerId: user.flowCustomerId, reused: true });
   }
 
-  const customer = await createFlowCustomer({ name, email, externalId });
+  const name = req.body.name || user.displayName || user.username;
+  const email = req.body.email || user.email;
+
+  const customer = await createFlowCustomer({ name, email, externalId: userId });
+
+  // Persist flowCustomerId
+  await prisma.user.update({
+    where: { id: userId },
+    data: { flowCustomerId: customer.customerId }
+  });
+
   return res.json(customer);
 }));
 
 // ── Flow Subscription ───────────────────────────────────────────────
 
-/** POST /subscription/create */
+/** POST /subscription/create – creates a Flow subscription (does NOT activate membership) */
 plansRouter.post("/subscription/create", requireAuth, asyncHandler(async (req, res) => {
-  const { planId, customerId, subscription_start, couponId, trial_period_days } = req.body;
-  if (!planId || !customerId) {
-    return res.status(400).json({ error: "MISSING_REQUIRED_FIELDS", required: ["planId", "customerId"] });
+  const userId = req.session.userId!;
+  const { planId, subscription_start, couponId, trial_period_days } = req.body;
+
+  if (!planId) {
+    return res.status(400).json({ error: "MISSING_REQUIRED_FIELDS", required: ["planId"] });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, flowCustomerId: true }
+  });
+  if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+  if (!user.flowCustomerId) {
+    return res.status(400).json({ error: "CUSTOMER_NOT_CREATED", message: "Call /customer/create first" });
   }
 
   const subscription = await createFlowSubscription({
     planId,
-    customerId,
+    customerId: user.flowCustomerId,
     subscription_start,
     couponId,
     trial_period_days: trial_period_days !== undefined ? Number(trial_period_days) : undefined
   });
+
+  // Store subscriptionId but do NOT activate membership yet — wait for webhook
+  await prisma.user.update({
+    where: { id: userId },
+    data: { flowSubscriptionId: subscription.subscriptionId }
+  });
+
+  console.log("[flow] subscription created (pending confirmation)", { userId, subscriptionId: subscription.subscriptionId, planId });
   return res.json(subscription);
 }));
 
@@ -136,25 +174,97 @@ plansRouter.get("/subscription/get", requireAuth, asyncHandler(async (req, res) 
   return res.json(subscription);
 }));
 
+// ── Flow Webhook ────────────────────────────────────────────────────
+
+function addDays(base: Date, days: number): Date {
+  const d = new Date(base.getTime());
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
+
 /** POST /webhooks/flow/subscription – Flow subscription confirmation callback */
 plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) => {
   const body = req.body as Record<string, string>;
   const { s, ...params } = body;
 
-  if (config.flowSecretKey && s) {
-    const expected = signFlowParams(params);
-    if (s !== expected) {
-      return res.status(401).json({ error: "INVALID_SIGNATURE" });
-    }
+  // 1) Signature verification (timing-safe)
+  if (!config.flowSecretKey) {
+    console.error("[flow] webhook rejected: FLOW_SECRET_KEY not configured");
+    return res.status(500).json({ error: "WEBHOOK_NOT_CONFIGURED" });
   }
 
-  const { subscriptionId, status, planId, customerId } = params;
-  console.log("[flow] subscription webhook received", { subscriptionId, status, planId, customerId });
+  if (!s) {
+    console.error("[flow] webhook rejected: missing signature");
+    return res.status(401).json({ error: "MISSING_SIGNATURE" });
+  }
+
+  const expected = signFlowParams(params);
+  const sigA = Buffer.from(expected, "hex");
+  const sigB = Buffer.from(s, "hex");
+  if (sigA.length !== sigB.length || !crypto.timingSafeEqual(sigA, sigB)) {
+    console.error("[flow] webhook rejected: invalid signature");
+    return res.status(401).json({ error: "INVALID_SIGNATURE" });
+  }
+
+  const { subscriptionId, status } = params;
+  console.log("[flow] subscription webhook received", { subscriptionId, status });
 
   if (!subscriptionId) {
     return res.status(400).json({ error: "MISSING_SUBSCRIPTION_ID" });
   }
 
-  // Acknowledge receipt — business logic to be implemented
-  return res.json({ ok: true, subscriptionId, status });
+  // 2) Validate subscriptionId exists in our database
+  const user = await prisma.user.findFirst({
+    where: { flowSubscriptionId: subscriptionId },
+    select: { id: true, membershipExpiresAt: true, flowSubscriptionId: true }
+  });
+
+  if (!user) {
+    console.error("[flow] webhook: subscriptionId not found in database", { subscriptionId });
+    return res.status(404).json({ error: "SUBSCRIPTION_NOT_FOUND" });
+  }
+
+  // Flow status 1 = active, 4 = canceled
+  const flowStatus = Number(status);
+  const isActive = flowStatus === 1;
+
+  if (!isActive) {
+    console.log("[flow] webhook: subscription not active", { subscriptionId, status: flowStatus });
+    return res.json({ ok: true, subscriptionId, status: flowStatus, activated: false });
+  }
+
+  // 3) Idempotency: if membership is already active and not expired, skip
+  const now = new Date();
+  if (user.membershipExpiresAt && user.membershipExpiresAt.getTime() > now.getTime()) {
+    console.log("[flow] webhook: membership already active, skipping", { subscriptionId, expiresAt: user.membershipExpiresAt });
+    return res.json({ ok: true, subscriptionId, status: flowStatus, activated: false, reason: "ALREADY_ACTIVE" });
+  }
+
+  // 4) Activate membership inside a transaction
+  await prisma.$transaction(async (tx) => {
+    const current = await tx.user.findUnique({
+      where: { id: user.id },
+      select: { membershipExpiresAt: true }
+    });
+    const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
+      ? current.membershipExpiresAt
+      : now;
+    const expiresAt = addDays(base, config.membershipDays);
+
+    await tx.user.update({
+      where: { id: user.id },
+      data: { membershipExpiresAt: expiresAt }
+    });
+
+    await tx.notification.create({
+      data: {
+        userId: user.id,
+        type: "SUBSCRIPTION_RENEWED",
+        data: { subscriptionId, source: "flow" }
+      }
+    });
+  });
+
+  console.log("[flow] membership activated via webhook", { userId: user.id, subscriptionId });
+  return res.json({ ok: true, subscriptionId, status: flowStatus, activated: true });
 }));
