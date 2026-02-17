@@ -23,7 +23,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 
 function isOnline(lastSeen: Date | null) {
   if (!lastSeen) return false;
-  return Date.now() - lastSeen.getTime() < 5 * 60 * 1000;
+  return Date.now() - lastSeen.getTime() <= 10 * 60 * 1000;
 }
 
 function normalizeCategoryText(value: string | null | undefined) {
@@ -173,6 +173,7 @@ directoryRouter.get("/professionals", asyncHandler(async (req, res) => {
     gender: string | null;
     bio: string | null;
     birthdate: Date | null;
+    city: string | null;
     serviceCategory: string | null;
     serviceDescription: string | null;
     services: Array<{
@@ -470,6 +471,19 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
       gender: true,
       birthdate: true,
       serviceDescription: true,
+      heightCm: true,
+      weightKg: true,
+      measurements: true,
+      hairColor: true,
+      skinTone: true,
+      languages: true,
+      serviceStyleTags: true,
+      availabilityNote: true,
+      baseRate: true,
+      minDurationMinutes: true,
+      acceptsIncalls: true,
+      acceptsOutcalls: true,
+      city: true,
       serviceCategory: true,
       category: { select: { id: true, name: true, displayName: true, kind: true } },
       profileMedia: { where: { type: "IMAGE" }, orderBy: { createdAt: "desc" }, take: 12, select: { id: true, url: true, type: true } }
@@ -496,6 +510,19 @@ directoryRouter.get("/professionals/:id", asyncHandler(async (req, res) => {
       age: resolveAge(u.birthdate, u.bio),
       gender: u.gender,
       serviceSummary: u.serviceDescription || u.serviceCategory || null,
+      city: u.city,
+      heightCm: u.heightCm,
+      weightKg: u.weightKg,
+      measurements: u.measurements,
+      hairColor: u.hairColor,
+      skinTone: u.skinTone,
+      languages: u.languages,
+      serviceStyleTags: u.serviceStyleTags,
+      availabilityNote: u.availabilityNote,
+      baseRate: u.baseRate,
+      minDurationMinutes: u.minDurationMinutes,
+      acceptsIncalls: u.acceptsIncalls,
+      acceptsOutcalls: u.acceptsOutcalls,
       isOnline: isOnline(u.lastSeen),
       lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
       gallery: u.profileMedia

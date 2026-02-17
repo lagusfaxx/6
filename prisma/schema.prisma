@@ -119,6 +119,18 @@ model User {
   birthdate           DateTime?
   serviceCategory     String?
   serviceDescription  String?
+  heightCm            Int?
+  weightKg            Int?
+  measurements        String?
+  hairColor           String?
+  skinTone            String?
+  languages           String?
+  serviceStyleTags    String?
+  availabilityNote    String?
+  baseRate            Int?
+  minDurationMinutes  Int?
+  acceptsIncalls      Boolean?
+  acceptsOutcalls     Boolean?
   subscriptionPrice   Int?              @default(2500)
   shopTrialEndsAt     DateTime?
   termsAcceptedAt     DateTime?

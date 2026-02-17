@@ -26,7 +26,7 @@ export default function EditorPanel({ profileType, user }: Props) {
   const tabs = useMemo(
     () => [
       { key: "perfil", label: "Perfil" },
-      ...(profileType !== "SHOP" ? [{ key: "servicios", label: "Servicios" }] : []),
+      ...(profileType !== "SHOP" ? [{ key: "servicios", label: "Publicaciones (opcional)" }] : []),
       ...(profileType === "SHOP" ? [{ key: "productos", label: "Productos" }] : []),
       { key: "galeria", label: "Galeria" },
       { key: "ubicacion", label: "Ubicacion" },
