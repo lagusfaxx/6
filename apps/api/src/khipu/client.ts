@@ -131,8 +131,14 @@ export async function createPayment(req: KhipuCreatePaymentRequest): Promise<Khi
 // ── Flow Plans API ──────────────────────────────────────────────────
 
 export function signFlowParams(params: Record<string, string>): string {
-  const sorted = Object.keys(params).sort().map((k) => `${k}${params[k]}`).join("");
-  return crypto.createHmac("sha256", config.flowSecretKey).update(sorted).digest("hex");
+  const sortedKeys = Object.keys(params).sort();
+
+  // IMPORTANT: Flow signature must match the exact value representation sent in form-url-encoded body
+  const raw = sortedKeys
+    .map((k) => `${k}${encodeURIComponent(params[k])}`)
+    .join("");
+
+  return crypto.createHmac("sha256", config.flowSecretKey).update(raw).digest("hex");
 }
 
 async function flowFetch<T>(path: string, method: "GET" | "POST", params: Record<string, string>): Promise<T> {
