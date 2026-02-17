@@ -199,10 +199,15 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
   }
 
   const expected = signFlowParams(params);
-  const sigA = Buffer.from(expected, "hex");
-  const sigB = Buffer.from(s, "hex");
-  if (sigA.length !== sigB.length || !crypto.timingSafeEqual(sigA, sigB)) {
-    console.error("[flow] webhook rejected: invalid signature");
+  try {
+    const sigA = Buffer.from(expected, "hex");
+    const sigB = Buffer.from(s, "hex");
+    if (sigA.length !== sigB.length || !crypto.timingSafeEqual(sigA, sigB)) {
+      console.error("[flow] webhook rejected: invalid signature");
+      return res.status(401).json({ error: "INVALID_SIGNATURE" });
+    }
+  } catch {
+    console.error("[flow] webhook rejected: malformed signature");
     return res.status(401).json({ error: "INVALID_SIGNATURE" });
   }
 
@@ -233,19 +238,19 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
     return res.json({ ok: true, subscriptionId, status: flowStatus, activated: false });
   }
 
-  // 3) Idempotency: if membership is already active and not expired, skip
+  // Activate membership inside a transaction (idempotency check inside tx to prevent races)
   const now = new Date();
-  if (user.membershipExpiresAt && user.membershipExpiresAt.getTime() > now.getTime()) {
-    console.log("[flow] webhook: membership already active, skipping", { subscriptionId, expiresAt: user.membershipExpiresAt });
-    return res.json({ ok: true, subscriptionId, status: flowStatus, activated: false, reason: "ALREADY_ACTIVE" });
-  }
-
-  // 4) Activate membership inside a transaction
-  await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const current = await tx.user.findUnique({
       where: { id: user.id },
       select: { membershipExpiresAt: true }
     });
+
+    // Idempotency: if membership is already active, skip activation
+    if (current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()) {
+      return { activated: false, reason: "ALREADY_ACTIVE" as const };
+    }
+
     const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
       ? current.membershipExpiresAt
       : now;
@@ -263,7 +268,14 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
         data: { subscriptionId, source: "flow" }
       }
     });
+
+    return { activated: true, reason: undefined };
   });
+
+  if (!result.activated) {
+    console.log("[flow] webhook: membership already active, skipping", { subscriptionId });
+    return res.json({ ok: true, subscriptionId, status: flowStatus, activated: false, reason: result.reason });
+  }
 
   console.log("[flow] membership activated via webhook", { userId: user.id, subscriptionId });
   return res.json({ ok: true, subscriptionId, status: flowStatus, activated: true });
