@@ -11,6 +11,7 @@ type SubscriptionStatus = {
   daysRemaining?: number;
   membershipExpiresAt?: string | null;
   shopTrialEndsAt?: string | null;
+  nextPaymentDate?: string | null;
   profileType: string;
   subscriptionPrice?: number;
   recentPayments?: Array<{
@@ -20,8 +21,6 @@ type SubscriptionStatus = {
     paidAt: string | null;
     createdAt: string;
   }>;
-  flowSubscriptionId?: string | null;
-  flowSubscriptionStatus?: string | null;
 };
 
 export default function useSubscriptionStatus() {

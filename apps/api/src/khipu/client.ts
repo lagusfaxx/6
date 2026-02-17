@@ -362,3 +362,55 @@ export async function createFlowSubscription(req: FlowCreateSubscriptionRequest)
 export async function getFlowSubscription(subscriptionId: string): Promise<FlowSubscription> {
   return flowFetch<FlowSubscription>("/subscription/get", "GET", { subscriptionId });
 }
+
+// ── Flow Manual Payment API ─────────────────────────────────────────
+
+export type FlowPaymentCreateRequest = {
+  commerceOrder: string;
+  subject: string;
+  currency?: string;
+  amount: number;
+  email: string;
+  urlConfirmation: string;
+  urlReturn: string;
+  optional?: string;
+};
+
+export type FlowPaymentCreateResponse = {
+  url: string;
+  token: string;
+  flowOrder: number;
+};
+
+export type FlowPaymentStatusResponse = {
+  flowOrder: number;
+  commerceOrder: string;
+  requestDate: string;
+  status: number; // 1=pending, 2=paid, 3=rejected, 4=canceled
+  subject: string;
+  currency: string;
+  amount: number;
+  payer: string;
+  optional?: string;
+  pending_info?: { media: string; date: string };
+  paymentData?: { date: string; media: string; conversionDate?: string; conversionRate?: number; amount?: number; currency?: string; fee?: number; balance?: number; transferDate?: string };
+};
+
+export async function createFlowPayment(req: FlowPaymentCreateRequest): Promise<FlowPaymentCreateResponse> {
+  const params: Record<string, string> = {
+    commerceOrder: req.commerceOrder,
+    subject: req.subject,
+    currency: req.currency || "CLP",
+    amount: String(req.amount),
+    email: req.email,
+    urlConfirmation: req.urlConfirmation,
+    urlReturn: req.urlReturn,
+  };
+  if (req.optional) params.optional = req.optional;
+
+  return flowFetch<FlowPaymentCreateResponse>("/payment/create", "POST", params);
+}
+
+export async function getFlowPaymentStatus(token: string): Promise<FlowPaymentStatusResponse> {
+  return flowFetch<FlowPaymentStatusResponse>("/payment/getStatus", "GET", { token });
+}

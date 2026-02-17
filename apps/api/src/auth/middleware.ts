@@ -19,7 +19,8 @@ const PUBLIC_PREFIXES = [
   "/categories",        // ✅ HOME necesita esto sin sesión
   "/professionals",     // ✅ directorio público (solo GET)
   "/motels",            // ✅ hospedaje público
-  "/webhooks/flow"      // Flow subscription webhooks
+  "/webhooks/flow",     // Flow subscription webhooks
+  "/billing/webhooks"   // Flow payment webhooks
 ];
 
 /**
