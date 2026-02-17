@@ -178,7 +178,7 @@ export default function ChatPage() {
       return;
     }
 
-    if (profile.profileType === "CLIENT") {
+    if (profile.profileType === "CLIENT" || profile.profileType === "VIEWER") {
       const res = await apiFetch<{ services: ServiceRequest[] }>("/services/active");
       const match = res.services.find((service) => service.professional?.id === userId);
       setActiveRequest(match || null);
@@ -195,7 +195,7 @@ export default function ChatPage() {
   }
 
   async function loadBookingState(profile: MeResponse["user"] | null) {
-    if (!profile || !["CLIENT", "ESTABLISHMENT"].includes(String(profile.profileType || "").toUpperCase())) {
+    if (!profile || !["CLIENT", "VIEWER", "ESTABLISHMENT"].includes(String(profile.profileType || "").toUpperCase())) {
       setActiveBooking(null);
       return;
     }
@@ -463,31 +463,33 @@ export default function ChatPage() {
     }
   }
 
+  const isClientType = me?.profileType === "CLIENT" || me?.profileType === "VIEWER";
+
   const contactPhone = useMemo(() => {
     if (!activeRequest) return null;
     if (!(activeRequest.status === "ACTIVO" || activeRequest.status === "FINALIZADO")) return null;
-    if (me?.profileType === "CLIENT") return activeRequest.professional?.phone || null;
+    if (isClientType) return activeRequest.professional?.phone || null;
     if (me?.profileType === "PROFESSIONAL") return activeRequest.client?.phone || null;
     return null;
-  }, [activeRequest, me?.profileType]);
+  }, [activeRequest, me?.profileType, isClientType]);
 
   const professionalWhatsAppLink = useMemo(() => {
-    if (me?.profileType !== "CLIENT") return null;
+    if (!isClientType) return null;
     const professionalPhone = activeRequest?.professional?.phone;
     if (!professionalPhone) return null;
     const normalizedPhone = normalizePhoneForWhatsApp(professionalPhone);
     if (!normalizedPhone) return null;
     return `https://wa.me/${normalizedPhone}`;
-  }, [activeRequest?.professional?.phone, me?.profileType]);
+  }, [activeRequest?.professional?.phone, isClientType]);
 
-  const canCreateRequest = me?.profileType === "CLIENT" && other?.profileType === "PROFESSIONAL" && !activeRequest;
-  const waitingProfessional = me?.profileType === "CLIENT" && activeRequest?.status === "PENDIENTE_APROBACION";
-  const canConfirmProposal = me?.profileType === "CLIENT" && activeRequest?.status === "APROBADO";
+  const canCreateRequest = isClientType && other?.profileType === "PROFESSIONAL" && !activeRequest;
+  const waitingProfessional = isClientType && activeRequest?.status === "PENDIENTE_APROBACION";
+  const canConfirmProposal = isClientType && activeRequest?.status === "APROBADO";
   const canReviewPendingRequest = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "PENDIENTE_APROBACION";
   const waitingClientConfirm = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "APROBADO";
   const canFinishService = me?.profileType === "PROFESSIONAL" && activeRequest?.status === "ACTIVO";
   const isMotelOwnerChat = String(me?.profileType || "").toUpperCase() === "ESTABLISHMENT";
-  const isClientChat = String(me?.profileType || "").toUpperCase() === "CLIENT";
+  const isClientChat = isClientType;
   const hasMotelBooking = Boolean(activeBooking);
   const bookingMapsLink = activeBooking ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([activeBooking.establishmentAddress || "", activeBooking.establishmentCity || ""].join(" ").trim() || "motel")}` : "";
 

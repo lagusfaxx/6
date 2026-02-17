@@ -65,8 +65,8 @@ export default function ProfessionalDetailPage() {
       })
       .finally(() => setLoading(false));
 
-    // Check if professional is favorited (only for logged-in VIEWER users)
-    if (me?.user?.profileType === "VIEWER") {
+    // Check if professional is favorited (only for logged-in CLIENT/VIEWER users)
+    if (me?.user?.profileType === "VIEWER" || me?.user?.profileType === "CLIENT") {
       apiFetch<{ isFavorite: boolean }>(`/favorites/check/${id}`)
         .then((res) => setFavorite(res.isFavorite))
         .catch((err) => {
@@ -100,7 +100,7 @@ export default function ProfessionalDetailPage() {
   }
 
   useEffect(() => {
-    if (!me?.user || me.user.profileType !== "VIEWER" || !professional) return;
+    if (!me?.user || (me.user.profileType !== "VIEWER" && me.user.profileType !== "CLIENT") || !professional) return;
     apiFetch<{ services: { id: string; status: string; professional: { id: string } }[] }>("/services/active")
       .then((res) => {
         const match = res.services.find((s) => s.professional.id === professional.id);
@@ -133,7 +133,8 @@ export default function ProfessionalDetailPage() {
           ? "Otro"
           : null;
 
-  const canRequest = me?.user?.profileType === "VIEWER";
+  const canRequest = me?.user?.profileType === "VIEWER" || me?.user?.profileType === "CLIENT";
+  const canFavorite = canRequest;
 
   return (
     <div className="grid gap-6">
@@ -206,14 +207,16 @@ export default function ProfessionalDetailPage() {
               </motion.div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={toggleFavorite}
-                className={`rounded-full border px-4 py-2 text-sm ${
-                  favorite ? "border-rose-400 bg-rose-500/20" : "border-white/20 bg-white/5"
-                }`}
-              >
-                {favorite ? "♥ Favorito" : "♡ Favorito"}
-              </button>
+              {canFavorite && (
+                <button
+                  onClick={toggleFavorite}
+                  className={`rounded-full border px-4 py-2 text-sm ${
+                    favorite ? "border-rose-400 bg-rose-500/20" : "border-white/20 bg-white/5"
+                  }`}
+                >
+                  {favorite ? "♥ Favorito" : "♡ Favorito"}
+                </button>
+              )}
               {canRequest && !activeRequest ? (
                 <button
                   className="btn-primary"

@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 import { Heart, Home, MessageCircle, Briefcase, User, Hotel } from "lucide-react";
 import useMe from "../hooks/useMe";
 
-const navItems = [
-  { href: "/", label: "Home", icon: Home, protected: false },
-  { href: "/favoritos", label: "Favoritos", icon: Heart, protected: true },
-  { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
-  { href: "/servicios", label: "Servicios", icon: Briefcase, protected: true },
-  { href: "/cuenta", label: "Cuenta", icon: User, protected: false }
+const allNavItems = [
+  { href: "/", label: "Home", icon: Home, protected: false, clientOnly: false },
+  { href: "/favoritos", label: "Favoritos", icon: Heart, protected: true, clientOnly: true },
+  { href: "/chats", label: "Chat", icon: MessageCircle, protected: true, clientOnly: false },
+  { href: "/servicios", label: "Servicios", icon: Briefcase, protected: true, clientOnly: true },
+  { href: "/cuenta", label: "Cuenta", icon: User, protected: false, clientOnly: false }
 ];
 
 export default function Nav() {
@@ -22,12 +22,14 @@ export default function Nav() {
   const ptype = String(me?.user?.profileType || "").toUpperCase();
   const isMotelProfile = ptype === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
 
+  const isClientProfile = !isAuthed || ptype === "CLIENT" || ptype === "VIEWER";
+
   const dynamicItems = isMotelProfile
     ? [
-        { href: "/dashboard/motel", label: "Dashboard", icon: Hotel, protected: true },
-        { href: "/chats", label: "Chat", icon: MessageCircle, protected: true }
+        { href: "/dashboard/motel", label: "Dashboard", icon: Hotel, protected: true, clientOnly: false },
+        { href: "/chats", label: "Chat", icon: MessageCircle, protected: true, clientOnly: false }
       ]
-    : navItems;
+    : allNavItems.filter((item) => !item.clientOnly || isClientProfile);
 
   return (
     <>

@@ -22,7 +22,7 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
     return res.status(404).json({ error: "USER_NOT_FOUND" });
   }
   
-  if (user.profileType !== "VIEWER") {
+  if (user.profileType !== "VIEWER" && user.profileType !== "CLIENT") {
     return res.status(403).json({ 
       error: "NOT_ALLOWED",
       message: "Solo los clientes pueden acceder a favoritos." 
@@ -178,7 +178,7 @@ favoritesRouter.post("/favorites/:professionalId", requireAuth, asyncHandler(asy
     return res.status(404).json({ error: "USER_NOT_FOUND" });
   }
 
-  if (user.profileType !== "VIEWER") {
+  if (user.profileType !== "VIEWER" && user.profileType !== "CLIENT") {
     return res.status(403).json({ 
       error: "NOT_ALLOWED",
       message: "Solo los clientes pueden guardar favoritos." 
@@ -252,7 +252,7 @@ favoritesRouter.delete("/favorites/:professionalId", requireAuth, asyncHandler(a
     return res.status(404).json({ error: "USER_NOT_FOUND" });
   }
 
-  if (user.profileType !== "VIEWER") {
+  if (user.profileType !== "VIEWER" && user.profileType !== "CLIENT") {
     return res.status(403).json({ 
       error: "NOT_ALLOWED",
       message: "Solo los clientes pueden gestionar favoritos." 
