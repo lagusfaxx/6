@@ -32,6 +32,7 @@ type MapboxMapProps = {
   onCenterChange?: (center: { lat: number; lng: number }) => void;
   autoCenterOnDataChange?: boolean;
   showMarkersForArea?: boolean;
+  renderHtmlMarkers?: boolean;
 };
 
 // Mapbox usa orden [lng, lat]
@@ -102,6 +103,7 @@ function MapboxMapComponent({
   onCenterChange,
   autoCenterOnDataChange = true,
   showMarkersForArea = true,
+  renderHtmlMarkers = true,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapboxRef = useRef<typeof mapboxgl | null>(null);
@@ -233,6 +235,7 @@ function MapboxMapComponent({
     markerRefs.current.forEach((marker) => marker.remove());
     markerRefs.current = [];
 
+    if (!renderHtmlMarkers) return;
     if (!mapbox) return;
 
     const markersToRender = showMarkersForArea
@@ -361,8 +364,47 @@ function MapboxMapComponent({
         .addTo(map);
       markerRefs.current.push(markerInstance);
     });
-  }, [displayMarkers, onMarkerFocus, showMarkersForArea]);
+  }, [displayMarkers, onMarkerFocus, showMarkersForArea, renderHtmlMarkers]);
 
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const update = () => {
+      const sourceId = "uzeed-profile-points";
+      const data: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+        type: "FeatureCollection",
+        features: displayMarkers.map((m) => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [m.lng, m.lat] },
+          properties: { id: m.id, online: m.tier === "online" ? 1 : 0 },
+        })),
+      };
+      const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
+      if (!source) {
+        map.addSource(sourceId, { type: "geojson", data });
+        map.addLayer({
+          id: `${sourceId}-circle`,
+          type: "circle",
+          source: sourceId,
+          paint: {
+            "circle-color": ["case", ["==", ["get", "online"], 1], "#34d399", "#a855f7"],
+            "circle-opacity": 0.85,
+            "circle-stroke-color": "rgba(255,255,255,0.8)",
+            "circle-stroke-width": 1,
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3.5, 12, 6, 15, 9],
+          },
+        });
+      } else {
+        source.setData(data as any);
+      }
+    };
+    if (!map.isStyleLoaded()) {
+      map.once("load", update);
+    } else {
+      update();
+    }
+  }, [displayMarkers, mapIdle]);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
