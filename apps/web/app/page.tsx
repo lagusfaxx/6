@@ -195,8 +195,8 @@ export default function HomePage() {
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#070816]/50 to-[#0e0e12]" />
 
         {/* Glow orbs */}
-        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.12] blur-[120px]" />
-        <div className="pointer-events-none absolute right-1/4 top-2/3 -z-10 h-[400px] w-[400px] rounded-full bg-fuchsia-600/[0.08] blur-[100px]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.12] blur-[120px] md:h-[600px] md:w-[600px]" />
+        <div className="pointer-events-none absolute right-1/4 top-2/3 -z-10 h-[250px] w-[250px] rounded-full bg-fuchsia-600/[0.08] blur-[100px] md:h-[400px] md:w-[400px]" />
 
         <div className="relative mx-auto max-w-3xl text-center">
           <motion.div
@@ -284,7 +284,7 @@ export default function HomePage() {
       </section>
 
       {/* Main content container */}
-      <div className="mx-auto max-w-6xl px-4 pb-16">
+      <div className="mx-auto max-w-6xl overflow-hidden px-4 pb-16">
 
         {error && (
           <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">
@@ -325,7 +325,7 @@ export default function HomePage() {
             whileInView="visible"
             viewport={{ once: true, margin: "-60px" }}
             variants={stagger}
-            className="mb-16"
+            className="mb-16 max-w-full overflow-hidden"
           >
             <motion.div variants={cardFade} className="mb-6 flex items-end justify-between">
               <div>
@@ -353,7 +353,7 @@ export default function HomePage() {
 
             <motion.div
               variants={cardFade}
-              className="scrollbar-none flex w-full snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2"
+              className="scrollbar-none flex min-w-0 w-full snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2"
             >
               {recentPros.length > 0
                 ? recentPros.slice(0, 8).map((p) => (
@@ -432,7 +432,7 @@ export default function HomePage() {
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
           variants={stagger}
-          className="mb-16"
+          className="mb-16 max-w-full overflow-hidden"
         >
           {DISCOVERY_SECTIONS.map((section) => {
             const items = discoverSections[section.key] || [];
@@ -459,7 +459,7 @@ export default function HomePage() {
 
                 <motion.div
                   variants={cardFade}
-                  className="scrollbar-none flex w-full snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2"
+                  className="scrollbar-none flex min-w-0 w-full snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2"
                 >
                   {items.length > 0
                     ? items.map((profile) => {
@@ -527,7 +527,7 @@ export default function HomePage() {
             whileInView="visible"
             viewport={{ once: true, margin: "-60px" }}
             variants={stagger}
-            className="mb-16"
+            className="mb-16 max-w-full overflow-hidden"
           >
             <motion.div variants={cardFade} className="mb-6">
               <div className="flex items-center gap-2">
@@ -540,7 +540,7 @@ export default function HomePage() {
 
             <motion.div
               variants={cardFade}
-              className="scrollbar-none flex w-full gap-3 overflow-x-auto overscroll-x-contain pb-2 snap-x snap-mandatory"
+              className="scrollbar-none flex min-w-0 w-full gap-3 overflow-x-auto overscroll-x-contain pb-2 snap-x snap-mandatory"
             >
               {recentPros.slice(0, 3).map((p) => (
                 <Link
