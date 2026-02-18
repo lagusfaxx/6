@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../db";
 import { requireAuth } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
+import { resolveProfessionalLevel } from "../lib/professionalLevel";
 
 export const favoritesRouter = Router();
 
@@ -40,6 +41,7 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
           displayName: true,
           avatarUrl: true,
           isActive: true,
+          completedServices: true,
           category: {
             select: {
               name: true,
@@ -93,6 +95,7 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
           username: true,
           displayName: true,
           avatarUrl: true,
+          completedServices: true,
           category: {
             select: {
               name: true,
@@ -130,7 +133,8 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
                    fav.professional.serviceCategory || 
                    "Profesional",
           isActive: fav.professional.isActive,
-          rating
+          rating,
+          userLevel: resolveProfessionalLevel(fav.professional.completedServices)
         }
       };
     }),
@@ -147,6 +151,7 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
         id: service.professional.id,
         name: service.professional.displayName || service.professional.username,
         avatarUrl: service.professional.avatarUrl,
+        userLevel: resolveProfessionalLevel(service.professional.completedServices),
         category: service.professional.category?.displayName || 
                  service.professional.category?.name || 
                  service.professional.serviceCategory || 

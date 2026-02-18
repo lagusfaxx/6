@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type mapboxgl from "mapbox-gl";
 import { resolveMediaUrl } from "../lib/api";
 
@@ -91,7 +91,7 @@ function circleFeature(
   };
 }
 
-export default function MapboxMap({
+function MapboxMapComponent({
   markers,
   userLocation,
   height = 380,
@@ -110,6 +110,12 @@ export default function MapboxMap({
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const didInitialCenterRef = useRef(false);
   const [mapInitialized, setMapInitialized] = useState(false);
+  const [mapIdle, setMapIdle] = useState(false);
+  const centerChangeHandlerRef = useRef(onCenterChange);
+
+  useEffect(() => {
+    centerChangeHandlerRef.current = onCenterChange;
+  }, [onCenterChange]);
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
   const safeMarkers = useMemo(
@@ -161,9 +167,13 @@ export default function MapboxMap({
       );
       mapRef.current = map;
       setMapInitialized(true);
+      map.on("movestart", () => setMapIdle(false));
+      map.on("zoomstart", () => setMapIdle(false));
+      map.on("dragstart", () => setMapIdle(false));
       map.on("idle", () => {
+        setMapIdle(true);
         const center = map.getCenter();
-        onCenterChange?.({ lat: center.lat, lng: center.lng });
+        centerChangeHandlerRef.current?.({ lat: center.lat, lng: center.lng });
         try {
           localStorage.setItem(
             "uzeed:lastLocation",
@@ -182,11 +192,11 @@ export default function MapboxMap({
         mapRef.current = null;
       }
     };
-  }, [token, onCenterChange]);
+  }, [token]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapIdle) return;
 
     const target =
       userLocation ||
@@ -387,11 +397,11 @@ export default function MapboxMap({
     } else {
       update();
     }
-  }, [displayMarkers]);
+  }, [displayMarkers, mapIdle]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !userLocation || !rangeKm) return;
+    if (!map || !mapIdle || !userLocation || !rangeKm) return;
     const update = () => {
       const sourceId = "uzeed-user-range";
       const radiusM = Math.max(1, rangeKm) * 1000;
@@ -422,7 +432,7 @@ export default function MapboxMap({
     } else {
       update();
     }
-  }, [userLocation?.[0], userLocation?.[1], rangeKm]);
+  }, [mapIdle, userLocation?.[0], userLocation?.[1], rangeKm]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -439,7 +449,7 @@ export default function MapboxMap({
   useEffect(() => {
     const map = mapRef.current;
     const mapbox = mapboxRef.current;
-    if (!map) return;
+    if (!map || !mapIdle) return;
 
     if (userMarkerRef.current) {
       userMarkerRef.current.remove();
@@ -454,7 +464,7 @@ export default function MapboxMap({
     userMarkerRef.current = new mapbox.Marker(el)
       .setLngLat([userLocation[1], userLocation[0]])
       .addTo(map);
-  }, [mapInitialized, userLocation?.[0], userLocation?.[1]]);
+  }, [mapInitialized, mapIdle, userLocation?.[0], userLocation?.[1]]);
 
   if (!token) {
     return (
@@ -469,3 +479,7 @@ export default function MapboxMap({
 
   return <div ref={containerRef} className={className} style={{ height }} />;
 }
+
+const MapboxMap = memo(MapboxMapComponent);
+
+export default MapboxMap;

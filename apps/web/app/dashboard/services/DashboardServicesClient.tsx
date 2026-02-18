@@ -246,7 +246,6 @@ export default function DashboardServicesClient() {
               : "",
           acceptsIncalls: Boolean(meRes?.user?.acceptsIncalls),
           acceptsOutcalls: Boolean(meRes?.user?.acceptsOutcalls),
-          profileIsActive: meRes?.user?.isActive !== false,
           profileLocationVerified: Boolean(loadedLatitude && loadedLongitude),
           items:
             profileType !== "SHOP" ? (serviceRes?.items ?? []) : state.items,
@@ -487,7 +486,6 @@ export default function DashboardServicesClient() {
         minDurationMinutes: state.minDurationMinutes || null,
         acceptsIncalls: String(state.acceptsIncalls),
         acceptsOutcalls: String(state.acceptsOutcalls),
-        isActive: state.profileIsActive,
         latitude: state.profileLatitude ? Number(state.profileLatitude) : null,
         longitude: state.profileLongitude
           ? Number(state.profileLongitude)
