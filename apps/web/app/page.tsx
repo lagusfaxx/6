@@ -351,15 +351,17 @@ export default function HomePage() {
               </div>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
+            <motion.div
+              variants={cardFade}
+              className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"
+            >
               {recentPros.length > 0
-                ? recentPros.slice(0, 3).map((p, i) => (
-                    <motion.div key={p.id} variants={cardFade}>
+                ? recentPros.slice(0, 8).map((p) => (
+                    <motion.div key={p.id} variants={cardFade} className="w-[78vw] max-w-[280px] shrink-0 snap-start sm:w-[260px]">
                       <Link
                         href={`/profesional/${p.id}`}
-                        className="group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+                        className="group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
                       >
-                        {/* Image */}
                         <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
                           {p.avatarUrl ? (
                             <img
@@ -379,10 +381,8 @@ export default function HomePage() {
                             </div>
                           )}
 
-                          {/* Overlay gradient */}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                          {/* Distance badge */}
                           {p.distance != null && (
                             <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-[11px] text-white/80 backdrop-blur-xl">
                               <MapPin className="h-3 w-3" />
@@ -390,7 +390,6 @@ export default function HomePage() {
                             </div>
                           )}
 
-                          {/* Bottom info overlay */}
                           <div className="absolute bottom-0 left-0 right-0 p-4">
                             <h3 className="text-lg font-semibold leading-tight">{p.name}</h3>
                             <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
@@ -402,7 +401,7 @@ export default function HomePage() {
                     </motion.div>
                   ))
                 : [1, 2, 3].map((i) => (
-                    <motion.div key={i} variants={cardFade}>
+                    <motion.div key={i} variants={cardFade} className="w-[78vw] max-w-[280px] shrink-0 snap-start sm:w-[260px]">
                       <div className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
                         <div className="aspect-[4/5] bg-white/[0.04]" />
                         <div className="space-y-2 p-4">
@@ -412,7 +411,7 @@ export default function HomePage() {
                       </div>
                     </motion.div>
                   ))}
-            </div>
+            </motion.div>
 
             {/* Mobile "ver todas" */}
             <Link
@@ -458,7 +457,10 @@ export default function HomePage() {
                   </Link>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <motion.div
+                  variants={cardFade}
+                  className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"
+                >
                   {items.length > 0
                     ? items.map((profile) => {
                         const href = `/perfil/${profile.username}`;
@@ -474,7 +476,7 @@ export default function HomePage() {
                         return (
                           <article
                             key={profile.id}
-                            className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20"
+                            className="group w-[78vw] max-w-[280px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/30 sm:w-[260px]"
                           >
                             <Link href={href} className="block">
                               <div className="relative aspect-[4/5] bg-white/[0.04]">
@@ -489,28 +491,28 @@ export default function HomePage() {
                                     Disponible
                                   </div>
                                 )}
+                                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/75 via-black/20 to-transparent">
+                                  <div className="truncate text-sm font-semibold">
+                                    {profile.displayName}{profile.age != null ? `, ${profile.age}` : ""}
+                                  </div>
+                                </div>
                               </div>
                             </Link>
-                            <div className="space-y-2 p-3">
-                              <div className="truncate text-sm font-semibold">
-                                {profile.displayName}{profile.age != null ? `, ${profile.age}` : ""}
-                              </div>
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <Link href={messageHref} className="rounded-lg bg-white/[0.07] px-2 py-2 text-center text-xs font-medium text-white/85 hover:bg-white/[0.12]">
-                                  Enviar mensaje
-                                </Link>
-                                <Link href={requestHref} className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-2 text-center text-xs font-medium text-fuchsia-100 hover:bg-fuchsia-500/20">
-                                  Solicitar / Reservar
-                                </Link>
-                              </div>
+                            <div className="grid grid-cols-2 gap-2 p-3">
+                              <Link href={messageHref} className="rounded-lg bg-white/[0.07] px-2 py-2 text-center text-xs font-medium text-white/85 hover:bg-white/[0.12]">
+                                Enviar mensaje
+                              </Link>
+                              <Link href={requestHref} className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-2 text-center text-xs font-medium text-fuchsia-100 hover:bg-fuchsia-500/20">
+                                Solicitar / Reservar
+                              </Link>
                             </div>
                           </article>
                         );
                       })
                     : [1, 2, 3, 4].map((i) => (
-                      <div key={i} className="aspect-[4/5] animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                      <div key={i} className="aspect-[4/5] w-[78vw] max-w-[280px] shrink-0 snap-start animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03] sm:w-[260px]" />
                     ))}
-                </div>
+                </motion.div>
               </motion.div>
             );
           })}
@@ -538,13 +540,13 @@ export default function HomePage() {
 
             <motion.div
               variants={cardFade}
-              className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0"
+              className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:px-0"
             >
               {recentPros.slice(0, 3).map((p) => (
                 <Link
                   key={`trend-${p.id}`}
                   href={`/profesional/${p.id}`}
-                  className="group flex w-[260px] shrink-0 snap-start items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-white/[0.06] md:w-auto"
+                  className="group flex w-[260px] shrink-0 snap-start items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-white/[0.06]"
                 >
                   <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-white/5 to-transparent">
                     {p.avatarUrl ? (
