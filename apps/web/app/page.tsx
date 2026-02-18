@@ -284,7 +284,7 @@ export default function HomePage() {
       </section>
 
       {/* Main content container */}
-      <div className="mx-auto max-w-6xl px-4 pb-16">
+      <div className="mx-auto max-w-6xl overflow-hidden px-4 pb-16">
 
         {error && (
           <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">
@@ -351,10 +351,10 @@ export default function HomePage() {
               </div>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 md:grid-cols-3">
               {recentPros.length > 0
                 ? recentPros.slice(0, 3).map((p, i) => (
-                    <motion.div key={p.id} variants={cardFade}>
+                    <motion.div key={p.id} variants={cardFade} className="w-[75vw] shrink-0 snap-start sm:w-auto">
                       <Link
                         href={`/profesional/${p.id}`}
                         className="group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
@@ -402,7 +402,7 @@ export default function HomePage() {
                     </motion.div>
                   ))
                 : [1, 2, 3].map((i) => (
-                    <motion.div key={i} variants={cardFade}>
+                    <motion.div key={i} variants={cardFade} className="w-[75vw] shrink-0 snap-start sm:w-auto">
                       <div className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
                         <div className="aspect-[4/5] bg-white/[0.04]" />
                         <div className="space-y-2 p-4">
@@ -458,7 +458,7 @@ export default function HomePage() {
                   </Link>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
                   {items.length > 0
                     ? items.map((profile) => {
                         const href = `/perfil/${profile.username}`;
@@ -474,7 +474,7 @@ export default function HomePage() {
                         return (
                           <article
                             key={profile.id}
-                            className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20"
+                            className="group w-[70vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto"
                           >
                             <Link href={href} className="block">
                               <div className="relative aspect-[4/5] bg-white/[0.04]">
@@ -495,7 +495,7 @@ export default function HomePage() {
                               <div className="truncate text-sm font-semibold">
                                 {profile.displayName}{profile.age != null ? `, ${profile.age}` : ""}
                               </div>
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <div className="grid grid-cols-2 gap-2">
                                 <Link href={messageHref} className="rounded-lg bg-white/[0.07] px-2 py-2 text-center text-xs font-medium text-white/85 hover:bg-white/[0.12]">
                                   Enviar mensaje
                                 </Link>
@@ -508,7 +508,7 @@ export default function HomePage() {
                         );
                       })
                     : [1, 2, 3, 4].map((i) => (
-                      <div key={i} className="aspect-[4/5] animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                      <div key={i} className="w-[70vw] shrink-0 snap-start aspect-[4/5] animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03] sm:w-auto" />
                     ))}
                 </div>
               </motion.div>
