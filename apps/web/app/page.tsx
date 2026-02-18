@@ -474,7 +474,7 @@ export default function HomePage() {
                         return (
                           <article
                             key={profile.id}
-                            className="w-[70vw] shrink-0 snap-start sm:w-auto group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20"
+                            className="group w-[70vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto"
                           >
                             <Link href={href} className="block">
                               <div className="relative aspect-[4/5] bg-white/[0.04]">
@@ -508,7 +508,7 @@ export default function HomePage() {
                         );
                       })
                     : [1, 2, 3, 4].map((i) => (
-                      <div key={i} className="w-[70vw] shrink-0 snap-start sm:w-auto aspect-[4/5] animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                      <div key={i} className="w-[70vw] shrink-0 snap-start aspect-[4/5] animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03] sm:w-auto" />
                     ))}
                 </div>
               </motion.div>
