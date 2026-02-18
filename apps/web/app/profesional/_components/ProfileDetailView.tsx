@@ -189,7 +189,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       : { label: "No disponible", className: "border-white/20 bg-white/10 text-white/70" };
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-4 overflow-hidden pb-36 md:gap-6 md:pb-6">
+    <div className="mx-auto grid w-full max-w-full md:max-w-5xl gap-4 overflow-hidden pb-36 md:gap-6 md:pb-6">
       <section className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/15 to-white/[0.03] shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:rounded-[30px] ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
         <div className="relative aspect-[3/4] w-full overflow-hidden sm:aspect-[4/5] md:aspect-[16/8]">
           {coverSrc ? (
@@ -236,17 +236,19 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             <h2 className="text-lg font-semibold">Galería</h2>
             <GalleryCounter count={gallery.length} />
           </div>
-          <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {gallery.map((url, idx) => (
-              <motion.button
-                type="button"
-                key={`${url}-${idx}`}
-                onClick={() => setLightbox(url)}
-                className="aspect-[4/5] w-[40vw] min-w-[130px] max-w-[220px] flex-shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.30)] transition hover:scale-[1.01] md:rounded-3xl"
-              >
-                <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" />
-              </motion.button>
-            ))}
+          <div className="-mx-4 md:-mx-6">
+            <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {gallery.map((url, idx) => (
+                <motion.button
+                  type="button"
+                  key={`${url}-${idx}`}
+                  onClick={() => setLightbox(url)}
+                  className="aspect-[4/5] w-[40vw] min-w-[130px] max-w-[220px] flex-shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.30)] transition hover:scale-[1.01] md:rounded-3xl"
+                >
+                  <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" />
+                </motion.button>
+              ))}
+            </div>
           </div>
         </section>
       ) : null}
