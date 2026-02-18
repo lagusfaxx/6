@@ -30,6 +30,8 @@ type MapboxMapProps = {
   onMarkerFocus?: (id: string) => void;
   rangeKm?: number | null;
   onCenterChange?: (center: { lat: number; lng: number }) => void;
+  autoCenterOnDataChange?: boolean;
+  showMarkersForArea?: boolean;
 };
 
 // Mapbox usa orden [lng, lat]
@@ -98,6 +100,8 @@ export default function MapboxMap({
   onMarkerFocus,
   rangeKm,
   onCenterChange,
+  autoCenterOnDataChange = true,
+  showMarkersForArea = true,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapboxRef = useRef<typeof mapboxgl | null>(null);
@@ -157,7 +161,7 @@ export default function MapboxMap({
       );
       mapRef.current = map;
       setMapInitialized(true);
-      map.on("moveend", () => {
+      map.on("idle", () => {
         const center = map.getCenter();
         onCenterChange?.({ lat: center.lat, lng: center.lng });
         try {
@@ -201,6 +205,7 @@ export default function MapboxMap({
         map.jumpTo({ center, zoom });
         return;
       }
+      if (!autoCenterOnDataChange) return;
       map.flyTo({ center, zoom, essential: true, duration: 600 });
     };
     if (!map.isStyleLoaded()) {
@@ -208,7 +213,7 @@ export default function MapboxMap({
     } else {
       run();
     }
-  }, [userLocation?.[0], userLocation?.[1], displayMarkers]);
+  }, [userLocation?.[0], userLocation?.[1], displayMarkers, autoCenterOnDataChange]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -220,7 +225,11 @@ export default function MapboxMap({
 
     if (!mapbox) return;
 
-    displayMarkers.forEach((marker) => {
+    const markersToRender = showMarkersForArea
+      ? displayMarkers
+      : displayMarkers.filter((m) => (m.areaRadiusM ?? 0) <= 0);
+
+    markersToRender.forEach((marker) => {
       const el = document.createElement("div");
       el.className = "uzeed-map-marker";
 
@@ -342,7 +351,7 @@ export default function MapboxMap({
         .addTo(map);
       markerRefs.current.push(markerInstance);
     });
-  }, [displayMarkers, onMarkerFocus]);
+  }, [displayMarkers, onMarkerFocus, showMarkersForArea]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -77,6 +77,7 @@ export type DashboardFormState = {
   minDurationMinutes: string;
   acceptsIncalls: boolean;
   acceptsOutcalls: boolean;
+  profileIsActive: boolean;
 
   /* Profile non-dirty-tracked */
   profileLocationVerified: boolean;
@@ -156,6 +157,7 @@ export const INITIAL_STATE: DashboardFormState = {
   minDurationMinutes: "",
   acceptsIncalls: false,
   acceptsOutcalls: false,
+  profileIsActive: true,
   profileLocationVerified: false,
   avatarPreview: null,
   coverPreview: null,

@@ -121,6 +121,7 @@ servicesRouter.get(
         profileType: {
           in: types.length ? types : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"],
         },
+        isActive: true,
         ...(q
           ? {
               OR: [
@@ -146,6 +147,8 @@ servicesRouter.get(
         serviceCategory: true,
         serviceDescription: true,
         profileType: true,
+        isActive: true,
+        completedServices: true,
         membershipExpiresAt: true,
         shopTrialEndsAt: true,
       },
@@ -173,6 +176,7 @@ servicesRouter.get(
           longitude: obfuscated.longitude,
           locality: p.city || null,
           distance,
+          userLevel: resolveProfessionalLevel(p.completedServices),
         };
       });
 

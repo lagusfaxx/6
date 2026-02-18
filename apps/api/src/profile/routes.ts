@@ -411,7 +411,8 @@ async function updateProfile(req: any, res: any) {
     longitude,
     allowFreeMessages,
     birthdate,
-  } = req.body as Record<string, string | null>;
+    isActive,
+  } = req.body as Record<string, string | boolean | null>;
   const allowedGenders = new Set(["MALE", "FEMALE", "OTHER"]);
   const allowedPrefs = new Set(["MALE", "FEMALE", "ALL", "OTHER"]);
   const safeGender = gender && allowedGenders.has(gender) ? gender : undefined;
@@ -456,6 +457,12 @@ async function updateProfile(req: any, res: any) {
     if (value === "false") return false;
     return undefined;
   };
+  const safeIsActive =
+    isActive === undefined
+      ? undefined
+      : typeof isActive === "boolean"
+        ? isActive
+        : isActive === "true";
   let safeBirthdate: Date | null | undefined = undefined;
   if (birthdate !== undefined) {
     if (!birthdate) {
@@ -517,6 +524,7 @@ async function updateProfile(req: any, res: any) {
       latitude: latitude ? Number(latitude) : undefined,
       longitude: longitude ? Number(longitude) : undefined,
       birthdate: safeBirthdate,
+      isActive: safeIsActive,
     },
   });
   return res.json({ user });
