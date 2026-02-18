@@ -121,7 +121,6 @@ servicesRouter.get(
         profileType: {
           in: types.length ? types : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"],
         },
-        isActive: true,
         ...(q
           ? {
               OR: [
@@ -148,6 +147,8 @@ servicesRouter.get(
         serviceDescription: true,
         profileType: true,
         isActive: true,
+        isOnline: true,
+        lastSeen: true,
         completedServices: true,
         membershipExpiresAt: true,
         shopTrialEndsAt: true,
@@ -176,6 +177,8 @@ servicesRouter.get(
           longitude: obfuscated.longitude,
           locality: p.city || null,
           distance,
+          availableNow: Boolean(p.isOnline) && computeAvailableNow(p.lastSeen),
+          lastSeen: p.lastSeen ? p.lastSeen.toISOString() : null,
           userLevel: resolveProfessionalLevel(p.completedServices),
         };
       });
@@ -185,6 +188,9 @@ servicesRouter.get(
         rangeKm != null && p.distance != null ? p.distance <= rangeKm : true,
       )
       .sort((a, b) => {
+        if (a.availableNow !== b.availableNow) {
+          return Number(b.availableNow) - Number(a.availableNow);
+        }
         if (a.distance === null && b.distance === null) return 0;
         if (a.distance === null) return 1;
         if (b.distance === null) return -1;
