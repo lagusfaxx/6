@@ -202,7 +202,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       : { label: "No disponible", className: "border-white/20 bg-white/10 text-white/70" };
 
   return (
-    <div className="w-full overflow-x-hidden pb-36 md:pb-6">
+    <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-clip pb-36 md:pb-8">
     <section className={`relative w-full overflow-hidden ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
             <div className="relative aspect-[3/4] w-full overflow-hidden sm:aspect-[4/5] md:aspect-[16/8]">
               {coverSrc ? (
@@ -224,7 +224,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
               <div className="absolute inset-x-0 bottom-0">
                 <div className="bg-[#13061f]/55 backdrop-blur-md">
-                  <div className="mx-auto w-full max-w-full md:max-w-5xl px-4 py-4 md:px-6 md:py-6">
+                  <div className="w-full px-4 py-4 md:px-8 md:py-7">
                     <div className="space-y-1.5 md:space-y-2">
                       <h1 className="text-2xl font-semibold leading-none tracking-tight sm:text-3xl md:text-4xl">
                         {professional.name}{professional.age ? `, ${professional.age}` : ""}
@@ -249,7 +249,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
               </div>
             </div>
           </section>
-    <div className="mx-auto grid w-full max-w-full md:max-w-5xl gap-4 md:gap-6">
+    <div className="mx-auto grid w-full max-w-6xl gap-4 px-4 md:gap-5 md:px-8">
       {gallery.length > 0 && (
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:bg-white/[0.06] md:p-6">
                 <div className="min-w-0 space-y-3 md:space-y-4">
@@ -287,7 +287,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             )}
 
             {hasDetailsSection && (
-              <section className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:p-6">
+              <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-lg md:rounded-[28px] md:p-6">
                 <h2 className="mb-4 text-lg font-semibold">Información</h2>
                 <div className="flex flex-wrap gap-2.5">
                   {infoBadges.map((badge) => (
@@ -300,7 +300,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             )}
 
             {hasAvailabilitySection && (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:p-6">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-lg md:rounded-[28px] md:p-6">
                 <h2 className="mb-3 text-lg font-semibold">Disponibilidad</h2>
                 {professional.availabilityNote && (
                   <p className="text-sm text-white/70">{professional.availabilityNote}</p>
@@ -318,7 +318,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             )}
 
             {hasRatesSection && (
-              <section className="rounded-2xl border border-fuchsia-300/20 bg-gradient-to-br from-[#23102d]/95 via-[#2d1638]/85 to-[#1b1126]/80 p-4 shadow-[0_14px_50px_rgba(120,40,200,0.25)] backdrop-blur-xl md:rounded-[28px] md:p-6">
+              <section className="rounded-2xl border border-fuchsia-300/25 bg-gradient-to-br from-[#23102d]/92 via-[#2d1638]/82 to-[#1b1126]/76 p-4 shadow-[0_8px_28px_rgba(120,40,200,0.2)] backdrop-blur-lg md:rounded-[28px] md:p-6">
                 <h2 className="text-lg font-semibold text-white/90">Tarifa</h2>
                 <p className="mt-2 text-3xl font-semibold tracking-tight text-white md:text-4xl">
                   ${professional.baseRate?.toLocaleString("es-CL")}
@@ -330,7 +330,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             )}
 
             {hasStyleSection && (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:p-6">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-lg md:rounded-[28px] md:p-6">
                 <h2 className="mb-3 text-lg font-semibold">Etiquetas</h2>
                 <div className="flex flex-wrap gap-2.5">
                   {styleChips.map((chip) => (
@@ -343,7 +343,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             )}
 
             {hasLocationSection && (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:p-6">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-lg md:rounded-[28px] md:p-6">
                 <h2 className="mb-2 text-lg font-semibold">Ubicación</h2>
                 <p className="text-sm text-white/70">
                   {professional.city ? `Zona aproximada: ${professional.city}` : "Zona referencial"}
