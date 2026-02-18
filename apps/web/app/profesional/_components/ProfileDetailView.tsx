@@ -106,6 +106,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       .catch(() => setFavorite(false));
   }, [me?.user?.profileType, professional]);
 
+
   const infoBadges = useMemo(() => {
     if (!professional) return [];
 
@@ -189,9 +190,9 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       : { label: "No disponible", className: "border-white/20 bg-white/10 text-white/70" };
 
   return (
-    <div className="mx-auto grid w-full max-w-full md:max-w-5xl gap-4 overflow-hidden pb-36 md:gap-6 md:pb-6">
-      <section className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/15 to-white/[0.03] shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:rounded-[30px] ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
-        <div className="relative aspect-[3/4] w-full overflow-hidden sm:aspect-[4/5] md:aspect-[16/8]">
+    <div className="grid w-full gap-4 overflow-hidden pb-36 md:gap-6 md:pb-6">
+      <section className={`relative -mx-4 overflow-hidden border-y border-white/10 bg-gradient-to-b from-white/15 to-white/[0.03] shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:mx-0 md:rounded-[30px] md:border ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
+        <div className="relative h-[100svh] w-full overflow-hidden md:h-[80vh] md:min-h-[560px]">
           {coverSrc ? (
             <img src={coverSrc} alt="Portada" className="h-full w-full object-cover object-center" />
           ) : (
