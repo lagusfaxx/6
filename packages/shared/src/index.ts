@@ -3,7 +3,14 @@ import { z } from "zod";
 export const Roles = z.enum(["USER", "ADMIN"]);
 export type Role = z.infer<typeof Roles>;
 
-export const ProfileTypes = z.enum(["CLIENT","VIEWER","CREATOR","PROFESSIONAL","ESTABLISHMENT","SHOP"]);
+export const ProfileTypes = z.enum([
+  "CLIENT",
+  "VIEWER",
+  "CREATOR",
+  "PROFESSIONAL",
+  "ESTABLISHMENT",
+  "SHOP",
+]);
 export type ProfileType = z.infer<typeof ProfileTypes>;
 
 export const Genders = z.enum(["MALE", "FEMALE", "OTHER"]);
@@ -12,37 +19,82 @@ export type Gender = z.infer<typeof Genders>;
 export const PreferenceGenders = z.enum(["MALE", "FEMALE", "ALL", "OTHER"]);
 export type PreferenceGender = z.infer<typeof PreferenceGenders>;
 
-export const registerInputSchema = z.object({
-  username: z.string().min(3).max(30),
-  phone: z.string().min(6).max(20),
-  email: z.string().email(),
-  password: z.string().min(8).max(128),
-  displayName: z.string().min(2).max(50).optional(),
-  gender: Genders.optional(),
-  profileType: ProfileTypes,
-  preferenceGender: PreferenceGenders.optional(),
-  address: z.string().min(6).max(200),
-  acceptTerms: z.boolean().refine((v) => v === true, "Terms must be accepted"),
-  birthdate: z.string().optional(),
-  bio: z.string().max(1000).optional()
-}).superRefine((data, ctx) => {
-  if (data.profileType === "PROFESSIONAL") {
-    if (!data.gender) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["gender"], message: "required" });
+export const registerInputSchema = z
+  .object({
+    username: z.string().min(3).max(30),
+    phone: z
+      .string()
+      .regex(
+        /^\+56\s?9(?:[\s-]?\d){8}$/,
+        "Por seguridad, solo aceptamos números chilenos válidos (+56 9...)",
+      ),
+    email: z.string().email(),
+    password: z.string().min(8).max(128),
+    displayName: z.string().min(2).max(50).optional(),
+    gender: Genders.optional(),
+    profileType: ProfileTypes,
+    preferenceGender: PreferenceGenders.optional(),
+    address: z.string().max(200).optional(),
+    city: z.string().max(120).optional(),
+    latitude: z.number().finite().optional(),
+    longitude: z.number().finite().optional(),
+    acceptTerms: z
+      .boolean()
+      .refine((v) => v === true, "Terms must be accepted"),
+    birthdate: z.string().optional(),
+    bio: z.string().max(1000).optional(),
+  })
+  .superRefine((data, ctx) => {
+    const isBusiness = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(
+      data.profileType,
+    );
+
+    if (data.profileType === "PROFESSIONAL") {
+      if (!data.gender) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["gender"],
+          message: "required",
+        });
+      }
+      if (!data.birthdate) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["birthdate"],
+          message: "required",
+        });
+      }
+      if (!data.bio || data.bio.trim().length < 20) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["bio"],
+          message: "required",
+        });
+      }
     }
-    if (!data.birthdate) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["birthdate"], message: "required" });
+
+    if (isBusiness) {
+      if (!data.address || data.address.trim().length < 6) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["address"],
+          message: "required",
+        });
+      }
+      if (!Number.isFinite(data.latitude) || !Number.isFinite(data.longitude)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["address"],
+          message: "Debes validar la dirección usando el buscador de Mapbox.",
+        });
+      }
     }
-    if (!data.bio || data.bio.trim().length < 20) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["bio"], message: "required" });
-    }
-  }
-});
+  });
 export type RegisterInput = z.infer<typeof registerInputSchema>;
 
 export const loginInputSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8).max(128)
+  password: z.string().min(8).max(128),
 });
 export type LoginInput = z.infer<typeof loginInputSchema>;
 
@@ -53,7 +105,7 @@ export const CreatePostSchema = z.object({
   title: z.string().min(1).max(120),
   body: z.string().min(1).max(20000),
   isPublic: z.boolean().default(false),
-  price: z.number().int().min(0).max(5000).default(0)
+  price: z.number().int().min(0).max(5000).default(0),
 });
 export type CreatePostInput = z.infer<typeof CreatePostSchema>;
 
@@ -87,7 +139,9 @@ export type FeedPost = {
   paywalled: boolean;
 };
 
-export function isMembershipActive(expiresAt: string | null | undefined): boolean {
+export function isMembershipActive(
+  expiresAt: string | null | undefined,
+): boolean {
   if (!expiresAt) return false;
   const t = Date.parse(expiresAt);
   if (Number.isNaN(t)) return false;

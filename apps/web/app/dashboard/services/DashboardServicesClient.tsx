@@ -48,7 +48,9 @@ function inferPublicationType(categoryName?: string | null) {
   if (normalized.includes("motel") || normalized.includes("hotel")) {
     return {
       publicationType: "space" as const,
-      spaceSubtype: normalized.includes("hotel") ? ("hotel" as const) : ("motel" as const),
+      spaceSubtype: normalized.includes("hotel")
+        ? ("hotel" as const)
+        : ("motel" as const),
     };
   }
   return {
@@ -63,7 +65,10 @@ function resolveCategoryForPublication(params: {
   spaceSubtype: "motel" | "hotel";
 }) {
   const { categories, publicationType, spaceSubtype } = params;
-  const normalized = categories.map((c) => ({ c, n: normalizeCategoryText(c.displayName || c.name) }));
+  const normalized = categories.map((c) => ({
+    c,
+    n: normalizeCategoryText(c.displayName || c.name),
+  }));
 
   if (publicationType === "space") {
     const target = spaceSubtype === "hotel" ? "hotel" : "motel";
@@ -71,7 +76,9 @@ function resolveCategoryForPublication(params: {
     return match?.c.id || categories[0]?.id || "";
   }
 
-  const hiddenDefault = normalized.find((entry) => !entry.n.includes("hotel") && !entry.n.includes("motel"));
+  const hiddenDefault = normalized.find(
+    (entry) => !entry.n.includes("hotel") && !entry.n.includes("motel"),
+  );
   return hiddenDefault?.c.id || categories[0]?.id || "";
 }
 
@@ -81,24 +88,48 @@ export default function DashboardServicesClient() {
   const user = me?.user ?? null;
 
   const form = useDashboardFormReducer();
-  const { state, setField, setMany, resetServiceForm, resetProductForm, setSavedSnapshot, captureSnapshot } = form;
+  const {
+    state,
+    setField,
+    setMany,
+    resetServiceForm,
+    resetProductForm,
+    setSavedSnapshot,
+    captureSnapshot,
+  } = form;
 
   const profileType = (user?.profileType ?? "CLIENT") as ProfileType;
   const role = String(user?.role || "").toUpperCase();
-  const isMotelProfile = profileType === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
-  const canManage = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(profileType);
+  const isMotelProfile =
+    profileType === "ESTABLISHMENT" ||
+    role === "MOTEL" ||
+    role === "MOTEL_OWNER";
+  const canManage = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(
+    profileType,
+  );
 
-  const kindForProfile = profileType === "ESTABLISHMENT" ? "ESTABLISHMENT" : profileType === "SHOP" ? "SHOP" : "PROFESSIONAL";
+  const kindForProfile =
+    profileType === "ESTABLISHMENT"
+      ? "ESTABLISHMENT"
+      : profileType === "SHOP"
+        ? "SHOP"
+        : "PROFESSIONAL";
   const categoryOptions = useMemo(
     () => state.categories.filter((c) => c.kind === kindForProfile),
-    [state.categories, kindForProfile]
+    [state.categories, kindForProfile],
   );
 
   /* ─── Sync tab from URL ─── */
   useEffect(() => {
     const requested = searchParams.get("tab");
     if (!requested) return;
-    const allowed = ["perfil", "servicios", "productos", "galeria", "ubicacion"];
+    const allowed = [
+      "perfil",
+      "servicios",
+      "productos",
+      "galeria",
+      "ubicacion",
+    ];
     if (allowed.includes(requested)) setField("tab", requested);
   }, [searchParams, setField]);
 
@@ -125,7 +156,15 @@ export default function DashboardServicesClient() {
     if (profileType === "SHOP" && state.productCategoryId === "") {
       // Keep empty for shop — user selects
     }
-  }, [categoryOptions, profileType, state.serviceCategoryId, state.productCategoryId, state.publicationType, state.spaceSubtype, setField]);
+  }, [
+    categoryOptions,
+    profileType,
+    state.serviceCategoryId,
+    state.productCategoryId,
+    state.publicationType,
+    state.spaceSubtype,
+    setField,
+  ]);
 
   /* ─── Toast auto-dismiss ─── */
   useEffect(() => {
@@ -145,11 +184,15 @@ export default function DashboardServicesClient() {
           apiFetch<{ media: ProfileMedia[] }>("/profile/media"),
         ];
         if (profileType !== "SHOP") {
-          requests.push(apiFetch<{ items: ServiceItem[] }>(`/services/${userId}/items`));
+          requests.push(
+            apiFetch<{ items: ServiceItem[] }>(`/services/${userId}/items`),
+          );
         }
         if (profileType === "SHOP") {
           requests.push(apiFetch<{ products: Product[] }>("/shop/products"));
-          requests.push(apiFetch<{ categories: ShopCategory[] }>("/shop/categories"));
+          requests.push(
+            apiFetch<{ categories: ShopCategory[] }>("/shop/categories"),
+          );
         }
 
         const results = await Promise.all(requests);
@@ -169,8 +212,10 @@ export default function DashboardServicesClient() {
           shopCategoryRes = results[idx] as { categories: ShopCategory[] };
         }
 
-        const loadedLatitude = meRes?.user?.latitude != null ? String(meRes.user.latitude) : "";
-        const loadedLongitude = meRes?.user?.longitude != null ? String(meRes.user.longitude) : "";
+        const loadedLatitude =
+          meRes?.user?.latitude != null ? String(meRes.user.latitude) : "";
+        const loadedLongitude =
+          meRes?.user?.longitude != null ? String(meRes.user.longitude) : "";
 
         const fields = {
           gallery: galleryRes?.media ?? [],
@@ -183,22 +228,35 @@ export default function DashboardServicesClient() {
           city: meRes?.user?.city || "",
           profileLatitude: loadedLatitude,
           profileLongitude: loadedLongitude,
-          heightCm: meRes?.user?.heightCm != null ? String(meRes.user.heightCm) : "",
-          weightKg: meRes?.user?.weightKg != null ? String(meRes.user.weightKg) : "",
+          heightCm:
+            meRes?.user?.heightCm != null ? String(meRes.user.heightCm) : "",
+          weightKg:
+            meRes?.user?.weightKg != null ? String(meRes.user.weightKg) : "",
           measurements: meRes?.user?.measurements ?? "",
           hairColor: meRes?.user?.hairColor ?? "",
           skinTone: meRes?.user?.skinTone ?? "",
           languages: meRes?.user?.languages ?? "",
           serviceStyleTags: meRes?.user?.serviceStyleTags ?? "",
           availabilityNote: meRes?.user?.availabilityNote ?? "",
-          baseRate: meRes?.user?.baseRate != null ? String(meRes.user.baseRate) : "",
-          minDurationMinutes: meRes?.user?.minDurationMinutes != null ? String(meRes.user.minDurationMinutes) : "",
+          baseRate:
+            meRes?.user?.baseRate != null ? String(meRes.user.baseRate) : "",
+          minDurationMinutes:
+            meRes?.user?.minDurationMinutes != null
+              ? String(meRes.user.minDurationMinutes)
+              : "",
           acceptsIncalls: Boolean(meRes?.user?.acceptsIncalls),
           acceptsOutcalls: Boolean(meRes?.user?.acceptsOutcalls),
           profileLocationVerified: Boolean(loadedLatitude && loadedLongitude),
-          items: profileType !== "SHOP" ? (serviceRes?.items ?? []) : state.items,
-          products: profileType === "SHOP" ? (productRes?.products ?? []) : state.products,
-          shopCategories: profileType === "SHOP" ? (shopCategoryRes?.categories ?? []) : state.shopCategories,
+          items:
+            profileType !== "SHOP" ? (serviceRes?.items ?? []) : state.items,
+          products:
+            profileType === "SHOP"
+              ? (productRes?.products ?? [])
+              : state.products,
+          shopCategories:
+            profileType === "SHOP"
+              ? (shopCategoryRes?.categories ?? [])
+              : state.shopCategories,
         };
 
         setMany(fields);
@@ -231,7 +289,7 @@ export default function DashboardServicesClient() {
         setField("error", "No se pudieron cargar tus datos del panel.");
       }
     },
-    [profileType, setField, setMany, setSavedSnapshot]
+    [profileType, setField, setMany, setSavedSnapshot],
   );
 
   useEffect(() => {
@@ -243,7 +301,7 @@ export default function DashboardServicesClient() {
     (message: string, tone: "success" | "error" = "success") => {
       setField("toast", { message, tone });
     },
-    [setField]
+    [setField],
   );
 
   /* ─── Geocoding (service) ─── */
@@ -251,25 +309,34 @@ export default function DashboardServicesClient() {
     async (override?: string, silent = false) => {
       const addressQuery = (override ?? state.serviceAddress).trim();
       if (!addressQuery) {
-        if (!silent) setField("geocodeError", "Ingresa una direccion para buscar en el mapa.");
+        if (!silent)
+          setField(
+            "geocodeError",
+            "Ingresa una direccion para buscar en el mapa.",
+          );
         return;
       }
       const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
       if (!token) {
-        if (!silent) setField("geocodeError", "Configura NEXT_PUBLIC_MAPBOX_TOKEN para usar el buscador.");
+        if (!silent)
+          setField(
+            "geocodeError",
+            "Configura NEXT_PUBLIC_MAPBOX_TOKEN para usar el buscador.",
+          );
         return;
       }
       setField("geocodeBusy", true);
       if (!silent) setField("geocodeError", null);
       try {
         const res = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(addressQuery)}.json?access_token=${token}&limit=1&language=es`
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(addressQuery)}.json?access_token=${token}&limit=1&language=es`,
         );
         if (!res.ok) throw new Error("GEOCODE_FAILED");
         const data = await res.json();
         const feature = data?.features?.[0];
         if (!feature?.center) throw new Error("NO_RESULTS");
-        const contexts: Array<{ id: string; text: string }> = feature.context || [];
+        const contexts: Array<{ id: string; text: string }> =
+          feature.context || [];
         const locality =
           contexts.find((c) => c.id.includes("neighborhood"))?.text ||
           contexts.find((c) => c.id.includes("locality"))?.text ||
@@ -285,12 +352,16 @@ export default function DashboardServicesClient() {
           lastGeocoded: addressQuery,
         });
       } catch {
-        if (!silent) setField("geocodeError", "No encontramos esa direccion. Ajusta el texto o intenta nuevamente.");
+        if (!silent)
+          setField(
+            "geocodeError",
+            "No encontramos esa direccion. Ajusta el texto o intenta nuevamente.",
+          );
       } finally {
         setField("geocodeBusy", false);
       }
     },
-    [state.serviceAddress, setField, setMany]
+    [state.serviceAddress, setField, setMany],
   );
 
   /* ─── Geocoding (profile) ─── */
@@ -298,25 +369,34 @@ export default function DashboardServicesClient() {
     async (override?: string, silent = false) => {
       const addressQuery = (override ?? state.address).trim();
       if (!addressQuery) {
-        if (!silent) setField("profileGeocodeError", "Ingresa una direccion para buscar en el mapa.");
+        if (!silent)
+          setField(
+            "profileGeocodeError",
+            "Ingresa una direccion para buscar en el mapa.",
+          );
         return;
       }
       const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
       if (!token) {
-        if (!silent) setField("profileGeocodeError", "Configura NEXT_PUBLIC_MAPBOX_TOKEN para usar el buscador.");
+        if (!silent)
+          setField(
+            "profileGeocodeError",
+            "Configura NEXT_PUBLIC_MAPBOX_TOKEN para usar el buscador.",
+          );
         return;
       }
       setField("profileGeocodeBusy", true);
       if (!silent) setField("profileGeocodeError", null);
       try {
         const res = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(addressQuery)}.json?access_token=${token}&limit=1&language=es`
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(addressQuery)}.json?access_token=${token}&limit=1&language=es`,
         );
         if (!res.ok) throw new Error("GEOCODE_FAILED");
         const data = await res.json();
         const feature = data?.features?.[0];
         if (!feature?.center) throw new Error("NO_RESULTS");
-        const contexts: Array<{ id: string; text: string }> = feature.context || [];
+        const contexts: Array<{ id: string; text: string }> =
+          feature.context || [];
         const locality =
           contexts.find((c) => c.id.includes("neighborhood"))?.text ||
           contexts.find((c) => c.id.includes("locality"))?.text ||
@@ -332,25 +412,31 @@ export default function DashboardServicesClient() {
           lastProfileGeocoded: addressQuery,
         });
       } catch {
-        if (!silent) setField("profileGeocodeError", "No encontramos esa direccion. Ajusta el texto o intenta nuevamente.");
+        if (!silent)
+          setField(
+            "profileGeocodeError",
+            "No encontramos esa direccion. Ajusta el texto o intenta nuevamente.",
+          );
       } finally {
         setField("profileGeocodeBusy", false);
       }
     },
-    [state.address, state.city, setField, setMany]
+    [state.address, state.city, setField, setMany],
   );
 
   /* ─── Auto-geocode effects ─── */
   useEffect(() => {
     const trimmed = state.serviceAddress.trim();
-    if (!trimmed || trimmed.length < 6 || trimmed === state.lastGeocoded) return;
+    if (!trimmed || trimmed.length < 6 || trimmed === state.lastGeocoded)
+      return;
     const timer = setTimeout(() => geocodeAddress(trimmed, true), 550);
     return () => clearTimeout(timer);
   }, [state.serviceAddress, state.lastGeocoded, geocodeAddress]);
 
   useEffect(() => {
     const trimmed = state.address.trim();
-    if (!trimmed || trimmed.length < 6 || trimmed === state.lastProfileGeocoded) return;
+    if (!trimmed || trimmed.length < 6 || trimmed === state.lastProfileGeocoded)
+      return;
     const timer = setTimeout(() => geocodeProfileAddress(trimmed, true), 550);
     return () => clearTimeout(timer);
   }, [state.address, state.lastProfileGeocoded, geocodeProfileAddress]);
@@ -360,16 +446,22 @@ export default function DashboardServicesClient() {
     if (!user) return;
     setField("busy", true);
     setField("error", null);
-    if (profileType === "SHOP") {
+    if (["SHOP", "PROFESSIONAL", "ESTABLISHMENT"].includes(profileType)) {
       if (!state.address.trim() || !state.profileLocationVerified) {
-        setField("error", "Debes confirmar la ubicacion en el mapa para tu tienda.");
+        setField(
+          "error",
+          "Debes confirmar la ubicación de tu perfil con Mapbox para aparecer en el ecosistema.",
+        );
         setField("busy", false);
         return;
       }
       const parsedLat = Number(state.profileLatitude);
       const parsedLng = Number(state.profileLongitude);
       if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) {
-        setField("error", "Debes confirmar la ubicacion en el mapa para tu tienda.");
+        setField(
+          "error",
+          "Debes confirmar la ubicación de tu perfil con Mapbox para aparecer en el ecosistema.",
+        );
         setField("busy", false);
         return;
       }
@@ -395,10 +487,15 @@ export default function DashboardServicesClient() {
         acceptsIncalls: String(state.acceptsIncalls),
         acceptsOutcalls: String(state.acceptsOutcalls),
         latitude: state.profileLatitude ? Number(state.profileLatitude) : null,
-        longitude: state.profileLongitude ? Number(state.profileLongitude) : null,
+        longitude: state.profileLongitude
+          ? Number(state.profileLongitude)
+          : null,
       };
       if (state.birthdate) payload.birthdate = state.birthdate;
-      await apiFetch("/profile", { method: "PATCH", body: JSON.stringify(payload) });
+      await apiFetch("/profile", {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
       showToast("Perfil actualizado.");
       await loadPanel(user.id);
     } catch (err: any) {
@@ -419,14 +516,20 @@ export default function DashboardServicesClient() {
       return;
     }
     if (!state.serviceAddress.trim() || !state.serviceVerified) {
-      setField("error", "Debes confirmar la ubicacion en el mapa antes de publicar.");
+      setField(
+        "error",
+        "Debes confirmar la ubicacion en el mapa antes de publicar.",
+      );
       setField("busy", false);
       return;
     }
     const parsedLat = Number(state.serviceLatitude);
     const parsedLng = Number(state.serviceLongitude);
     if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) {
-      setField("error", "Debes confirmar la ubicacion en el mapa antes de publicar.");
+      setField(
+        "error",
+        "Debes confirmar la ubicacion en el mapa antes de publicar.",
+      );
       setField("busy", false);
       return;
     }
@@ -447,13 +550,21 @@ export default function DashboardServicesClient() {
         approxAreaM: Number(state.serviceApproxArea) || null,
         locationVerified: true,
         isActive: state.serviceIsActive,
-        durationMinutes: state.durationMinutes ? Number(state.durationMinutes) : null,
+        durationMinutes: state.durationMinutes
+          ? Number(state.durationMinutes)
+          : null,
       };
       if (state.editingServiceId) {
-        await apiFetch(`/services/items/${state.editingServiceId}`, { method: "PATCH", body: JSON.stringify(payload) });
+        await apiFetch(`/services/items/${state.editingServiceId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
         showToast("Servicio actualizado.");
       } else {
-        await apiFetch("/services/items", { method: "POST", body: JSON.stringify(payload) });
+        await apiFetch("/services/items", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
         showToast("Servicio creado.");
       }
       resetServiceForm();
@@ -480,7 +591,7 @@ export default function DashboardServicesClient() {
         setField("busy", false);
       }
     },
-    [user, setField, showToast, loadPanel]
+    [user, setField, showToast, loadPanel],
   );
 
   /* ─── Start edit service ─── */
@@ -489,23 +600,32 @@ export default function DashboardServicesClient() {
       setMany({
         title: item.title,
         description: item.description || "",
-        durationMinutes: item.durationMinutes != null ? String(item.durationMinutes) : "",
+        durationMinutes:
+          item.durationMinutes != null ? String(item.durationMinutes) : "",
         price: item.price != null ? String(item.price) : "",
         serviceCategoryId: item.categoryId || "",
-        ...inferPublicationType(item.categoryRel?.displayName || item.categoryRel?.name || item.category),
+        ...inferPublicationType(
+          item.categoryRel?.displayName ||
+            item.categoryRel?.name ||
+            item.category,
+        ),
         serviceAddress: item.address || "",
         serviceLatitude: item.latitude != null ? String(item.latitude) : "",
         serviceLongitude: item.longitude != null ? String(item.longitude) : "",
         serviceLocality: item.locality || "",
-        serviceApproxArea: item.approxAreaM != null ? String(item.approxAreaM) : "600",
-        serviceVerified: Boolean(item.locationVerified || (item.latitude != null && item.longitude != null)),
+        serviceApproxArea:
+          item.approxAreaM != null ? String(item.approxAreaM) : "600",
+        serviceVerified: Boolean(
+          item.locationVerified ||
+          (item.latitude != null && item.longitude != null),
+        ),
         serviceIsActive: item.isActive ?? true,
         geocodeError: null,
         editingServiceId: item.id,
         tab: "servicios",
       });
     },
-    [setMany]
+    [setMany],
   );
 
   /* ─── Upload profile image ─── */
@@ -518,14 +638,18 @@ export default function DashboardServicesClient() {
       if (type === "avatar") setField("avatarUploading", true);
       if (type === "cover") setField("coverUploading", true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/profile/${type}`, {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-        });
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || ""}/profile/${type}`,
+          {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+          },
+        );
         if (!res.ok) throw new Error("UPLOAD_FAILED");
         const data = await res.json();
-        if (type === "avatar") setField("avatarPreview", data?.avatarUrl ?? null);
+        if (type === "avatar")
+          setField("avatarPreview", data?.avatarUrl ?? null);
         if (type === "cover") setField("coverPreview", data?.coverUrl ?? null);
         showToast("Imagen actualizada.");
         await loadPanel(user.id);
@@ -536,7 +660,7 @@ export default function DashboardServicesClient() {
         if (type === "cover") setField("coverUploading", false);
       }
     },
-    [user, setField, showToast, loadPanel]
+    [user, setField, showToast, loadPanel],
   );
 
   /* ─── Upload gallery ─── */
@@ -548,11 +672,14 @@ export default function DashboardServicesClient() {
       Array.from(files).forEach((file) => formData.append("files", file));
       setField("busy", true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/profile/media`, {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-        });
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || ""}/profile/media`,
+          {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+          },
+        );
         if (!res.ok) throw new Error("UPLOAD_FAILED");
         showToast("Fotos agregadas.");
         await loadPanel(user.id);
@@ -562,7 +689,7 @@ export default function DashboardServicesClient() {
         setField("busy", false);
       }
     },
-    [user, setField, showToast, loadPanel]
+    [user, setField, showToast, loadPanel],
   );
 
   /* ─── Remove gallery item ─── */
@@ -581,7 +708,7 @@ export default function DashboardServicesClient() {
         setField("busy", false);
       }
     },
-    [user, setField, showToast, loadPanel]
+    [user, setField, showToast, loadPanel],
   );
 
   /* ─── Save product ─── */
@@ -599,10 +726,16 @@ export default function DashboardServicesClient() {
         isActive: true,
       };
       if (state.editingProductId) {
-        await apiFetch(`/shop/products/${state.editingProductId}`, { method: "PATCH", body: JSON.stringify(payload) });
+        await apiFetch(`/shop/products/${state.editingProductId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
         showToast("Producto actualizado.");
       } else {
-        await apiFetch("/shop/products", { method: "POST", body: JSON.stringify(payload) });
+        await apiFetch("/shop/products", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
         showToast("Producto creado.");
       }
       resetProductForm();
@@ -629,7 +762,7 @@ export default function DashboardServicesClient() {
         setField("busy", false);
       }
     },
-    [user, setField, showToast, loadPanel]
+    [user, setField, showToast, loadPanel],
   );
 
   /* ─── Start edit product ─── */
@@ -645,14 +778,17 @@ export default function DashboardServicesClient() {
         tab: "productos",
       });
     },
-    [setMany]
+    [setMany],
   );
 
   /* ─── Shop categories ─── */
   const createShopCategory = useCallback(async () => {
     if (!state.newShopCategory.trim()) return;
     try {
-      await apiFetch("/shop/categories", { method: "POST", body: JSON.stringify({ name: state.newShopCategory.trim() }) });
+      await apiFetch("/shop/categories", {
+        method: "POST",
+        body: JSON.stringify({ name: state.newShopCategory.trim() }),
+      });
       setField("newShopCategory", "");
       if (user?.id) await loadPanel(user.id);
       showToast("Categoria creada.");
@@ -671,7 +807,7 @@ export default function DashboardServicesClient() {
         setField("error", friendlyErrorMessage(err));
       }
     },
-    [user, setField, showToast, loadPanel]
+    [user, setField, showToast, loadPanel],
   );
 
   /* ─── Product media ─── */
@@ -683,11 +819,14 @@ export default function DashboardServicesClient() {
       Array.from(files).forEach((file) => formData.append("files", file));
       setField("uploadingProductId", productId);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/shop/products/${productId}/media`, {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-        });
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || ""}/shop/products/${productId}/media`,
+          {
+            method: "POST",
+            credentials: "include",
+            body: formData,
+          },
+        );
         if (!res.ok) throw new Error("UPLOAD_FAILED");
         if (user?.id) await loadPanel(user.id);
         showToast("Fotos del producto actualizadas.");
@@ -697,7 +836,7 @@ export default function DashboardServicesClient() {
         setField("uploadingProductId", null);
       }
     },
-    [user, setField, showToast, loadPanel]
+    [user, setField, showToast, loadPanel],
   );
 
   const removeProductMedia = useCallback(
@@ -710,19 +849,28 @@ export default function DashboardServicesClient() {
         setField("error", "No se pudo eliminar la foto.");
       }
     },
-    [user, setField, showToast, loadPanel]
+    [user, setField, showToast, loadPanel],
   );
 
   /* ─── Guards ─── */
   if (loading) return <div className="p-6 text-white/70">Cargando...</div>;
-  if (!user) return <div className="p-6 text-white/70">Debes iniciar sesion.</div>;
-  if (!canManage) return <div className="p-6 text-white/70">Este panel es solo para experiencias, lugares y tiendas.</div>;
+  if (!user)
+    return <div className="p-6 text-white/70">Debes iniciar sesion.</div>;
+  if (!canManage)
+    return (
+      <div className="p-6 text-white/70">
+        Este panel es solo para experiencias, lugares y tiendas.
+      </div>
+    );
   if (isMotelProfile) {
     return (
       <div className="editor-card p-6 space-y-3 mx-auto max-w-xl mt-8">
-        <h1 className="text-xl font-semibold">Gestion centralizada en Panel Motel</h1>
+        <h1 className="text-xl font-semibold">
+          Gestion centralizada en Panel Motel
+        </h1>
         <p className="text-sm text-white/60">
-          Tu perfil esta configurado como Motel/Hotel. Toda la administracion se realiza desde el panel dedicado.
+          Tu perfil esta configurado como Motel/Hotel. Toda la administracion se
+          realiza desde el panel dedicado.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link href="/dashboard/motel" className="btn-primary">
@@ -738,9 +886,12 @@ export default function DashboardServicesClient() {
   if (profileType === "SHOP") {
     return (
       <div className="editor-card p-6 space-y-3 mx-auto max-w-xl mt-8">
-        <h1 className="text-xl font-semibold">Gestion centralizada en Panel Tienda</h1>
+        <h1 className="text-xl font-semibold">
+          Gestion centralizada en Panel Tienda
+        </h1>
         <p className="text-sm text-white/60">
-          Tu perfil esta configurado como Tienda. Toda la administracion se realiza desde el panel dedicado.
+          Tu perfil esta configurado como Tienda. Toda la administracion se
+          realiza desde el panel dedicado.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link href="/dashboard/shop" className="btn-primary">
