@@ -58,6 +58,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [galleryIndex, setGalleryIndex] = useState(0);
   const { me } = useMe();
 
   useEffect(() => {
@@ -106,6 +107,10 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       .catch(() => setFavorite(false));
   }, [me?.user?.profileType, professional]);
 
+  useEffect(() => {
+    setGalleryIndex(0);
+  }, [professional?.id]);
+
   const infoBadges = useMemo(() => {
     if (!professional) return [];
 
@@ -134,6 +139,16 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     () => (professional?.gallery || []).map((g) => resolveMediaUrl(g.url)).filter((url): url is string => Boolean(url)),
     [professional?.gallery],
   );
+  const selectedGalleryImage = gallery[galleryIndex] ?? gallery[0] ?? null;
+
+  useEffect(() => {
+    if (!gallery.length) {
+      setGalleryIndex(0);
+      return;
+    }
+    setGalleryIndex((prev) => Math.min(prev, gallery.length - 1));
+  }, [gallery.length]);
+
   const hasDetailsSection = infoBadges.length > 0;
   const hasStyleSection = styleChips.length > 0;
   const hasAvailabilitySection = Boolean(professional?.availabilityNote || availabilityChips.length);
@@ -189,9 +204,9 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       : { label: "No disponible", className: "border-white/20 bg-white/10 text-white/70" };
 
   return (
-    <div className="mx-auto grid w-full max-w-full md:max-w-5xl gap-4 overflow-hidden pb-36 md:gap-6 md:pb-6">
-      <section className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/15 to-white/[0.03] shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:rounded-[30px] ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
-        <div className="relative aspect-[3/4] w-full overflow-hidden sm:aspect-[4/5] md:aspect-[16/8]">
+    <div className="grid w-full gap-4 overflow-hidden pb-36 md:gap-6 md:pb-6">
+      <section className={`relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-black shadow-[0_20px_60px_rgba(0,0,0,0.45)] ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
+        <div className="relative h-[100svh] w-full overflow-hidden">
           {coverSrc ? (
             <img src={coverSrc} alt="Portada" className="h-full w-full object-cover object-center" />
           ) : (
@@ -236,18 +251,35 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             <h2 className="text-lg font-semibold">Galería</h2>
             <GalleryCounter count={gallery.length} />
           </div>
-          <div className="-mx-4 md:-mx-6">
-            <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {gallery.map((url, idx) => (
-                <motion.button
-                  type="button"
-                  key={`${url}-${idx}`}
-                  onClick={() => setLightbox(url)}
-                  className="aspect-[4/5] w-[40vw] min-w-[130px] max-w-[220px] flex-shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.30)] transition hover:scale-[1.01] md:rounded-3xl"
-                >
-                  <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" />
-                </motion.button>
-              ))}
+          <div className="min-w-0 space-y-3 md:space-y-4">
+            {selectedGalleryImage && (
+              <motion.button
+                type="button"
+                onClick={() => setLightbox(selectedGalleryImage)}
+                className="relative block w-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_12px_32px_rgba(0,0,0,0.3)] md:rounded-3xl"
+              >
+                <div className="aspect-[4/5] w-full sm:aspect-[3/2] md:aspect-[16/8]">
+                  <img src={selectedGalleryImage} alt="Imagen destacada" className="h-full w-full object-cover" />
+                </div>
+                <span className="absolute bottom-3 right-3 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-xs text-white/90 backdrop-blur-md">
+                  {galleryIndex + 1} / {gallery.length}
+                </span>
+              </motion.button>
+            )}
+
+            <div className="-mx-4 min-w-0 md:-mx-6">
+              <div className="flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-1 md:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {gallery.map((url, idx) => (
+                  <button
+                    type="button"
+                    key={`${url}-${idx}`}
+                    onClick={() => setGalleryIndex(idx)}
+                    className={`relative aspect-[4/5] w-24 min-w-24 shrink-0 snap-start overflow-hidden rounded-xl border transition md:w-28 md:min-w-28 ${idx === galleryIndex ? "border-fuchsia-300 shadow-[0_0_0_1px_rgba(232,121,249,0.5)]" : "border-white/10 opacity-80 hover:opacity-100"}`}
+                  >
+                    <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </section>
