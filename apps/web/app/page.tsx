@@ -353,11 +353,11 @@ export default function HomePage() {
 
             <motion.div
               variants={cardFade}
-              className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"
+              className="scrollbar-none flex w-full snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2"
             >
               {recentPros.length > 0
                 ? recentPros.slice(0, 8).map((p) => (
-                    <motion.div key={p.id} variants={cardFade} className="w-[78vw] max-w-[280px] shrink-0 snap-start sm:w-[260px]">
+                    <motion.div key={p.id} variants={cardFade} className="w-[220px] shrink-0 snap-start sm:w-[240px] lg:w-[250px]">
                       <Link
                         href={`/profesional/${p.id}`}
                         className="group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
@@ -401,7 +401,7 @@ export default function HomePage() {
                     </motion.div>
                   ))
                 : [1, 2, 3].map((i) => (
-                    <motion.div key={i} variants={cardFade} className="w-[78vw] max-w-[280px] shrink-0 snap-start sm:w-[260px]">
+                    <motion.div key={i} variants={cardFade} className="w-[220px] shrink-0 snap-start sm:w-[240px] lg:w-[250px]">
                       <div className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
                         <div className="aspect-[4/5] bg-white/[0.04]" />
                         <div className="space-y-2 p-4">
@@ -459,7 +459,7 @@ export default function HomePage() {
 
                 <motion.div
                   variants={cardFade}
-                  className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"
+                  className="scrollbar-none flex w-full snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2"
                 >
                   {items.length > 0
                     ? items.map((profile) => {
@@ -476,7 +476,7 @@ export default function HomePage() {
                         return (
                           <article
                             key={profile.id}
-                            className="group w-[78vw] max-w-[280px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/30 sm:w-[260px]"
+                            className="group w-[220px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/30 sm:w-[240px] lg:w-[250px]"
                           >
                             <Link href={href} className="block">
                               <div className="relative aspect-[4/5] bg-white/[0.04]">
@@ -510,7 +510,7 @@ export default function HomePage() {
                         );
                       })
                     : [1, 2, 3, 4].map((i) => (
-                      <div key={i} className="aspect-[4/5] w-[78vw] max-w-[280px] shrink-0 snap-start animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03] sm:w-[260px]" />
+                      <div key={i} className="aspect-[4/5] w-[220px] shrink-0 snap-start animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03] sm:w-[240px] lg:w-[250px]" />
                     ))}
                 </motion.div>
               </motion.div>
@@ -540,13 +540,13 @@ export default function HomePage() {
 
             <motion.div
               variants={cardFade}
-              className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:px-0"
+              className="scrollbar-none flex w-full gap-3 overflow-x-auto overscroll-x-contain pb-2 snap-x snap-mandatory"
             >
               {recentPros.slice(0, 3).map((p) => (
                 <Link
                   key={`trend-${p.id}`}
                   href={`/profesional/${p.id}`}
-                  className="group flex w-[260px] shrink-0 snap-start items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-white/[0.06]"
+                  className="group flex w-[220px] shrink-0 snap-start items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-white/[0.06] sm:w-[240px] lg:w-[250px]"
                 >
                   <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-white/5 to-transparent">
                     {p.avatarUrl ? (
