@@ -9,12 +9,16 @@ import { isBusinessPlanActive } from "../lib/subscriptions";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 import { parseAndNormalizeTags } from "../lib/tags";
+import {
+  compareProfessionalLevelDesc,
+  resolveProfessionalLevel,
+} from "../lib/professionalLevel";
 
 export const profileRouter = Router();
 
 const storageProvider = new LocalStorageProvider({
   baseDir: config.storageDir,
-  publicPathPrefix: `${config.apiUrl.replace(/\/$/, "")}/uploads`
+  publicPathPrefix: `${config.apiUrl.replace(/\/$/, "")}/uploads`,
 });
 
 const storage = multer.diskStorage({
@@ -24,10 +28,12 @@ const storage = multer.diskStorage({
   },
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname) || "";
-    const safeBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, "");
+    const safeBase = path
+      .basename(file.originalname, ext)
+      .replace(/[^a-zA-Z0-9_-]/g, "");
     const name = `${Date.now()}-${safeBase}${ext}`;
     cb(null, name);
-  }
+  },
 });
 
 const uploadImage = multer({
@@ -37,12 +43,12 @@ const uploadImage = multer({
     const ok = (file.mimetype || "").toLowerCase().startsWith("image/");
     if (!ok) return cb(new Error("INVALID_FILE_TYPE"));
     return cb(null, true);
-  }
+  },
 });
 
 const uploadMedia = multer({
   storage,
-  limits: { fileSize: 100 * 1024 * 1024 }
+  limits: { fileSize: 100 * 1024 * 1024 },
 });
 
 const AVAILABLE_WINDOW_MS = 10 * 60 * 1000;
@@ -73,215 +79,308 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c;
 }
 
+profileRouter.get(
+  "/profiles/discover",
+  asyncHandler(async (req, res) => {
+    let sort = typeof req.query.sort === "string" ? req.query.sort : "featured";
+    const radiusKm =
+      req.query.radiusKm != null ? Number(req.query.radiusKm) : null;
+    const limit =
+      req.query.limit != null
+        ? Math.min(Number(req.query.limit) || 24, 120)
+        : 24;
+    const lat = req.query.lat != null ? Number(req.query.lat) : null;
+    const lng = req.query.lng != null ? Number(req.query.lng) : null;
 
-profileRouter.get("/profiles/discover", asyncHandler(async (req, res) => {
-  let sort = typeof req.query.sort === "string" ? req.query.sort : "availableNow";
-  const radiusKm = req.query.radiusKm != null ? Number(req.query.radiusKm) : null;
-  const limit = req.query.limit != null ? Math.min(Number(req.query.limit) || 24, 120) : 24;
-  const lat = req.query.lat != null ? Number(req.query.lat) : null;
-  const lng = req.query.lng != null ? Number(req.query.lng) : null;
-
-  // Fallback: if sort=near but no location provided, use availableNow instead
-  if (sort === "near" && (lat === null || lng === null)) {
-    sort = "availableNow";
-  }
-
-  const profiles = await prisma.user.findMany({
-    where: {
-      profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "CREATOR"] }
-    },
-    orderBy: { createdAt: "desc" },
-    take: Math.max(limit * 3, 48),
-    select: {
-      id: true,
-      username: true,
-      displayName: true,
-      avatarUrl: true,
-      coverUrl: true,
-      birthdate: true,
-      latitude: true,
-      longitude: true,
-      lastSeen: true,
-      heightCm: true,
-      serviceStyleTags: true,
-      profileType: true,
-      membershipExpiresAt: true,
-      shopTrialEndsAt: true,
-      createdAt: true
+    // Fallback: if sort=near but no location provided, use availableNow instead
+    if (sort === "near" && (lat === null || lng === null)) {
+      sort = "featured";
     }
-  });
 
-  const enriched = profiles
-    .filter((p) => isBusinessPlanActive(p))
-    .map((p) => {
-      const distanceKm =
-        lat !== null && lng !== null && p.latitude !== null && p.longitude !== null
-          ? haversine(lat, lng, p.latitude, p.longitude)
-          : null;
+    const profiles = await prisma.user.findMany({
+      where: {
+        profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "CREATOR"] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: Math.max(limit * 3, 48),
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        coverUrl: true,
+        birthdate: true,
+        latitude: true,
+        longitude: true,
+        lastSeen: true,
+        heightCm: true,
+        serviceStyleTags: true,
+        profileType: true,
+        membershipExpiresAt: true,
+        shopTrialEndsAt: true,
+        createdAt: true,
+        isActive: true,
+        completedServices: true,
+        profileViews: true,
+      },
+    });
+
+    const enriched = profiles
+      .filter((p) => isBusinessPlanActive(p))
+      .map((p) => {
+        const distanceKm =
+          lat !== null &&
+          lng !== null &&
+          p.latitude !== null &&
+          p.longitude !== null
+            ? haversine(lat, lng, p.latitude, p.longitude)
+            : null;
+        return {
+          id: p.id,
+          username: p.username,
+          displayName: p.displayName || p.username,
+          age: computeAge(p.birthdate),
+          avatarUrl: p.avatarUrl,
+          coverUrl: p.coverUrl,
+          lat: p.latitude,
+          lng: p.longitude,
+          distanceKm,
+          availableNow: computeAvailableNow(p.lastSeen),
+          isActive: p.isActive,
+          userLevel: resolveProfessionalLevel(p.completedServices),
+          completedServices: p.completedServices,
+          profileViews: p.profileViews,
+          lastActiveAt: p.lastSeen ? p.lastSeen.toISOString() : null,
+          heightCm: p.heightCm,
+          serviceStyleTags: p.serviceStyleTags,
+          normalizedTags: parseAndNormalizeTags(p.serviceStyleTags),
+          createdAt: p.createdAt,
+        };
+      })
+      .filter((p) =>
+        radiusKm !== null && p.distanceKm !== null
+          ? p.distanceKm <= radiusKm
+          : true,
+      );
+
+    if (sort === "near") {
+      enriched.sort((a, b) => (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9));
+    } else if (sort === "new") {
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const recentOnly = enriched.filter(
+        (p) => new Date(p.createdAt).getTime() >= sevenDaysAgo,
+      );
+      recentOnly.sort((a, b) => {
+        if (a.isActive !== b.isActive)
+          return Number(b.isActive) - Number(a.isActive);
+        return +new Date(b.createdAt) - +new Date(a.createdAt);
+      });
+      return res.json({
+        profiles: recentOnly
+          .slice(0, limit)
+          .map(({ createdAt, ...row }) => row),
+      });
+    } else if (sort === "availableNow") {
+      const available = enriched.filter((p) => p.isActive);
+      available.sort((a, b) => {
+        const levelCmp = compareProfessionalLevelDesc(a.userLevel, b.userLevel);
+        if (levelCmp !== 0) return levelCmp;
+        return (
+          (Date.parse(b.lastActiveAt || "") || 0) -
+          (Date.parse(a.lastActiveAt || "") || 0)
+        );
+      });
+      return res.json({
+        profiles: available.slice(0, limit).map(({ createdAt, ...row }) => row),
+      });
+    } else {
+      const featured = enriched.filter((p) =>
+        ["GOLD", "DIAMOND"].includes(p.userLevel),
+      );
+      featured.sort((a, b) => {
+        const levelCmp = compareProfessionalLevelDesc(a.userLevel, b.userLevel);
+        if (levelCmp !== 0) return levelCmp;
+        if (a.isActive !== b.isActive)
+          return Number(b.isActive) - Number(a.isActive);
+        return (b.profileViews || 0) - (a.profileViews || 0);
+      });
+      return res.json({
+        profiles: featured.slice(0, limit).map(({ createdAt, ...row }) => row),
+      });
+    }
+
+    const payload = enriched
+      .slice(0, limit)
+      .map(({ createdAt, ...row }) => row);
+
+    return res.json({ profiles: payload });
+  }),
+);
+
+profileRouter.get(
+  "/profiles",
+  asyncHandler(async (req, res) => {
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const types =
+      typeof req.query.types === "string"
+        ? req.query.types.split(",").map((t) => t.trim())
+        : [];
+    const where: any = {
+      profileType: {
+        in: types.length ? types : ["CREATOR", "PROFESSIONAL", "SHOP"],
+      },
+    };
+    if (q) {
+      where.OR = [
+        { username: { contains: q, mode: "insensitive" } },
+        { displayName: { contains: q, mode: "insensitive" } },
+        { serviceCategory: { contains: q, mode: "insensitive" } },
+        { city: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    const profiles = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        displayName: true,
+        username: true,
+        avatarUrl: true,
+        coverUrl: true,
+        bio: true,
+        city: true,
+        address: true,
+        serviceCategory: true,
+        serviceDescription: true,
+        profileType: true,
+        subscriptionPrice: true,
+        membershipExpiresAt: true,
+        shopTrialEndsAt: true,
+        latitude: true,
+        longitude: true,
+      },
+    });
+
+    const filtered = profiles.filter((p) => isBusinessPlanActive(p));
+
+    return res.json({ profiles: filtered });
+  }),
+);
+
+profileRouter.get(
+  "/profiles/:username",
+  asyncHandler(async (req, res) => {
+    const username = req.params.username;
+    const viewerId = req.session.userId || null;
+    const profile = await prisma.user.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        displayName: true,
+        username: true,
+        avatarUrl: true,
+        coverUrl: true,
+        bio: true,
+        city: true,
+        address: true,
+        serviceCategory: true,
+        serviceDescription: true,
+        profileType: true,
+        subscriptionPrice: true,
+        membershipExpiresAt: true,
+        shopTrialEndsAt: true,
+        latitude: true,
+        longitude: true,
+      },
+    });
+    if (!profile) return res.status(404).json({ error: "NOT_FOUND" });
+    const isOwner = viewerId === profile.id;
+    if (!isOwner && !isBusinessPlanActive(profile)) {
+      return res.status(403).json({ error: "PLAN_EXPIRED" });
+    }
+
+    const posts = await prisma.post.findMany({
+      where: { authorId: profile.id },
+      orderBy: { createdAt: "desc" },
+      include: { media: true },
+    });
+
+    const subscription = viewerId
+      ? await prisma.profileSubscription.findUnique({
+          where: {
+            subscriberId_profileId: {
+              subscriberId: viewerId,
+              profileId: profile.id,
+            },
+          },
+        })
+      : null;
+    const isSubscribed =
+      (!!subscription &&
+        subscription.status === "ACTIVE" &&
+        subscription.expiresAt.getTime() > Date.now()) ||
+      (viewerId && viewerId === profile.id);
+
+    const payload = posts.map((p) => {
+      const paywalled = !p.isPublic && !isSubscribed;
       return {
         id: p.id,
-        username: p.username,
-        displayName: p.displayName || p.username,
-        age: computeAge(p.birthdate),
-        avatarUrl: p.avatarUrl,
-        coverUrl: p.coverUrl,
-        lat: p.latitude,
-        lng: p.longitude,
-        distanceKm,
-        availableNow: computeAvailableNow(p.lastSeen),
-        heightCm: p.heightCm,
-        serviceStyleTags: p.serviceStyleTags,
-        normalizedTags: parseAndNormalizeTags(p.serviceStyleTags),
-        createdAt: p.createdAt
+        title: p.title,
+        body: paywalled ? p.body.slice(0, 220) + "…" : p.body,
+        createdAt: p.createdAt.toISOString(),
+        isPublic: p.isPublic,
+        media: paywalled
+          ? []
+          : p.media.map((m) => ({ id: m.id, type: m.type, url: m.url })),
+        preview: p.media[0]
+          ? { id: p.media[0].id, type: p.media[0].type, url: p.media[0].url }
+          : null,
+        paywalled,
       };
-    })
-    .filter((p) => (radiusKm !== null && p.distanceKm !== null ? p.distanceKm <= radiusKm : true));
+    });
 
-  if (sort === "near") {
-    enriched.sort((a, b) => (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9));
-  } else if (sort === "new") {
-    enriched.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
-  } else {
-    enriched.sort((a, b) => Number(b.availableNow) - Number(a.availableNow));
-  }
+    const serviceItems = await prisma.serviceItem.findMany({
+      where: { ownerId: profile.id },
+      orderBy: { createdAt: "desc" },
+      include: { media: true },
+    });
 
-  const payload = enriched.slice(0, limit).map(({ createdAt, ...row }) => row);
+    const gallery = await prisma.profileMedia.findMany({
+      where: { ownerId: profile.id },
+      orderBy: { createdAt: "desc" },
+    });
 
-  return res.json({ profiles: payload });
-}));
+    return res.json({
+      profile,
+      isSubscribed,
+      isOwner,
+      subscriptionExpiresAt: subscription?.expiresAt.toISOString() || null,
+      posts: payload,
+      serviceItems,
+      gallery,
+    });
+  }),
+);
 
-profileRouter.get("/profiles", asyncHandler(async (req, res) => {
-  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
-  const types = typeof req.query.types === "string" ? req.query.types.split(",").map((t) => t.trim()) : [];
-  const where: any = {
-    profileType: { in: types.length ? types : ["CREATOR", "PROFESSIONAL", "SHOP"] }
-  };
-  if (q) {
-    where.OR = [
-      { username: { contains: q, mode: "insensitive" } },
-      { displayName: { contains: q, mode: "insensitive" } },
-      { serviceCategory: { contains: q, mode: "insensitive" } },
-      { city: { contains: q, mode: "insensitive" } }
-    ];
-  }
+profileRouter.post(
+  "/profiles/:username/subscribe",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    return res.status(410).json({ error: "USE_BILLING_START" });
+  }),
+);
 
-  const profiles = await prisma.user.findMany({
-    where,
-    select: {
-      id: true,
-      displayName: true,
-      username: true,
-      avatarUrl: true,
-      coverUrl: true,
-      bio: true,
-      city: true,
-      address: true,
-      serviceCategory: true,
-      serviceDescription: true,
-      profileType: true,
-      subscriptionPrice: true,
-      membershipExpiresAt: true,
-      shopTrialEndsAt: true,
-      latitude: true,
-      longitude: true
-    }
-  });
-
-  const filtered = profiles.filter((p) => isBusinessPlanActive(p));
-
-  return res.json({ profiles: filtered });
-}));
-
-profileRouter.get("/profiles/:username", asyncHandler(async (req, res) => {
-  const username = req.params.username;
-  const viewerId = req.session.userId || null;
-  const profile = await prisma.user.findUnique({
-    where: { username },
-    select: {
-      id: true,
-      displayName: true,
-      username: true,
-      avatarUrl: true,
-      coverUrl: true,
-      bio: true,
-      city: true,
-      address: true,
-      serviceCategory: true,
-      serviceDescription: true,
-      profileType: true,
-      subscriptionPrice: true,
-      membershipExpiresAt: true,
-      shopTrialEndsAt: true,
-      latitude: true,
-      longitude: true
-    }
-  });
-  if (!profile) return res.status(404).json({ error: "NOT_FOUND" });
-  const isOwner = viewerId === profile.id;
-  if (!isOwner && !isBusinessPlanActive(profile)) {
-    return res.status(403).json({ error: "PLAN_EXPIRED" });
-  }
-
-  const posts = await prisma.post.findMany({
-    where: { authorId: profile.id },
-    orderBy: { createdAt: "desc" },
-    include: { media: true }
-  });
-
-  const subscription = viewerId
-    ? await prisma.profileSubscription.findUnique({
-      where: { subscriberId_profileId: { subscriberId: viewerId, profileId: profile.id } }
-    })
-    : null;
-  const isSubscribed =
-    (!!subscription && subscription.status === "ACTIVE" && subscription.expiresAt.getTime() > Date.now()) ||
-    (viewerId && viewerId === profile.id);
-
-  const payload = posts.map((p) => {
-    const paywalled = !p.isPublic && !isSubscribed;
-    return {
-      id: p.id,
-      title: p.title,
-      body: paywalled ? p.body.slice(0, 220) + "…" : p.body,
-      createdAt: p.createdAt.toISOString(),
-      isPublic: p.isPublic,
-      media: paywalled ? [] : p.media.map((m) => ({ id: m.id, type: m.type, url: m.url })),
-      preview: p.media[0] ? { id: p.media[0].id, type: p.media[0].type, url: p.media[0].url } : null,
-      paywalled
-    };
-  });
-
-  const serviceItems = await prisma.serviceItem.findMany({
-    where: { ownerId: profile.id },
-    orderBy: { createdAt: "desc" },
-    include: { media: true }
-  });
-
-  const gallery = await prisma.profileMedia.findMany({
-    where: { ownerId: profile.id },
-    orderBy: { createdAt: "desc" }
-  });
-
-  return res.json({
-    profile,
-    isSubscribed,
-    isOwner,
-    subscriptionExpiresAt: subscription?.expiresAt.toISOString() || null,
-    posts: payload,
-    serviceItems,
-    gallery
-  });
-}));
-
-profileRouter.post("/profiles/:username/subscribe", requireAuth, asyncHandler(async (req, res) => {
-  return res.status(410).json({ error: "USE_BILLING_START" });
-}));
-
-profileRouter.get("/profile/me", requireAuth, asyncHandler(async (req, res) => {
-  const user = await prisma.user.findUnique({ where: { id: req.session.userId! } });
-  if (!user) return res.status(404).json({ error: "NOT_FOUND" });
-  return res.json({ user });
-}));
+profileRouter.get(
+  "/profile/me",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId! },
+    });
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+    return res.json({ user });
+  }),
+);
 
 async function updateProfile(req: any, res: any) {
   const {
@@ -311,12 +410,15 @@ async function updateProfile(req: any, res: any) {
     latitude,
     longitude,
     allowFreeMessages,
-    birthdate
+    birthdate,
   } = req.body as Record<string, string | null>;
   const allowedGenders = new Set(["MALE", "FEMALE", "OTHER"]);
   const allowedPrefs = new Set(["MALE", "FEMALE", "ALL", "OTHER"]);
   const safeGender = gender && allowedGenders.has(gender) ? gender : undefined;
-  const safePreference = preferenceGender && allowedPrefs.has(preferenceGender) ? preferenceGender : undefined;
+  const safePreference =
+    preferenceGender && allowedPrefs.has(preferenceGender)
+      ? preferenceGender
+      : undefined;
   const priceValue = subscriptionPrice ? Number(subscriptionPrice) : undefined;
   const safePrice =
     priceValue !== undefined && Number.isFinite(priceValue)
@@ -324,20 +426,23 @@ async function updateProfile(req: any, res: any) {
       : undefined;
   const me = await prisma.user.findUnique({
     where: { id: req.session.userId! },
-    select: { profileType: true }
+    select: { profileType: true },
   });
   if (!me) return res.status(404).json({ error: "NOT_FOUND" });
   if (me.profileType === "PROFESSIONAL" && bio !== undefined) {
     if (!bio || bio.trim().length < 20) {
       return res.status(400).json({
         error: "BIO_REQUIRED",
-        message: "La descripción del perfil debe tener al menos 20 caracteres."
+        message: "La descripción del perfil debe tener al menos 20 caracteres.",
       });
     }
   }
   const canSetPrice = me.profileType === "CREATOR";
   const allowFree = allowFreeMessages === "true";
-  const parseNullableInt = (value?: string | null, max = Number.MAX_SAFE_INTEGER) => {
+  const parseNullableInt = (
+    value?: string | null,
+    max = Number.MAX_SAFE_INTEGER,
+  ) => {
     if (value === undefined) return undefined;
     if (value === null || value === "") return null;
     const parsed = Number(value);
@@ -358,7 +463,12 @@ async function updateProfile(req: any, res: any) {
     } else {
       const parsed = new Date(birthdate);
       if (Number.isNaN(parsed.getTime())) {
-        return res.status(400).json({ error: "BIRTHDATE_INVALID", message: "La fecha de nacimiento no es válida." });
+        return res
+          .status(400)
+          .json({
+            error: "BIRTHDATE_INVALID",
+            message: "La fecha de nacimiento no es válida.",
+          });
       }
       const now = new Date();
       let age = now.getFullYear() - parsed.getFullYear();
@@ -367,7 +477,12 @@ async function updateProfile(req: any, res: any) {
         age -= 1;
       }
       if (age < 18) {
-        return res.status(400).json({ error: "BIRTHDATE_UNDERAGE", message: "Debes ser mayor de 18 años." });
+        return res
+          .status(400)
+          .json({
+            error: "BIRTHDATE_UNDERAGE",
+            message: "Debes ser mayor de 18 años.",
+          });
       }
       safeBirthdate = parsed;
     }
@@ -401,8 +516,8 @@ async function updateProfile(req: any, res: any) {
       city: city ?? undefined,
       latitude: latitude ? Number(latitude) : undefined,
       longitude: longitude ? Number(longitude) : undefined,
-      birthdate: safeBirthdate
-    }
+      birthdate: safeBirthdate,
+    },
   });
   return res.json({ user });
 }
@@ -411,64 +526,90 @@ async function updateProfile(req: any, res: any) {
 profileRouter.put(
   "/profile",
   requireAuth,
-  asyncHandler(async (req, res) => updateProfile(req, res))
+  asyncHandler(async (req, res) => updateProfile(req, res)),
 );
 
 profileRouter.patch(
   "/profile",
   requireAuth,
-  asyncHandler(async (req, res) => updateProfile(req, res))
+  asyncHandler(async (req, res) => updateProfile(req, res)),
 );
 
-profileRouter.post("/profile/avatar", requireAuth, uploadImage.single("file"), asyncHandler(async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "NO_FILE" });
-  await validateUploadedFile(req.file, "image");
-  const url = storageProvider.publicUrl(req.file.filename);
-  const user = await prisma.user.update({
-    where: { id: req.session.userId! },
-    data: { avatarUrl: url }
-  });
-  return res.json({ user });
-}));
+profileRouter.post(
+  "/profile/avatar",
+  requireAuth,
+  uploadImage.single("file"),
+  asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "NO_FILE" });
+    await validateUploadedFile(req.file, "image");
+    const url = storageProvider.publicUrl(req.file.filename);
+    const user = await prisma.user.update({
+      where: { id: req.session.userId! },
+      data: { avatarUrl: url },
+    });
+    return res.json({ user });
+  }),
+);
 
-profileRouter.post("/profile/cover", requireAuth, uploadImage.single("file"), asyncHandler(async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "NO_FILE" });
-  await validateUploadedFile(req.file, "image");
-  const url = storageProvider.publicUrl(req.file.filename);
-  const user = await prisma.user.update({
-    where: { id: req.session.userId! },
-    data: { coverUrl: url }
-  });
-  return res.json({ user });
-}));
+profileRouter.post(
+  "/profile/cover",
+  requireAuth,
+  uploadImage.single("file"),
+  asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "NO_FILE" });
+    await validateUploadedFile(req.file, "image");
+    const url = storageProvider.publicUrl(req.file.filename);
+    const user = await prisma.user.update({
+      where: { id: req.session.userId! },
+      data: { coverUrl: url },
+    });
+    return res.json({ user });
+  }),
+);
 
-profileRouter.get("/profile/media", requireAuth, asyncHandler(async (req, res) => {
-  const media = await prisma.profileMedia.findMany({
-    where: { ownerId: req.session.userId! },
-    orderBy: { createdAt: "desc" }
-  });
-  return res.json({ media });
-}));
+profileRouter.get(
+  "/profile/media",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const media = await prisma.profileMedia.findMany({
+      where: { ownerId: req.session.userId! },
+      orderBy: { createdAt: "desc" },
+    });
+    return res.json({ media });
+  }),
+);
 
-profileRouter.post("/profile/media", requireAuth, uploadMedia.array("files", 12), asyncHandler(async (req, res) => {
-  const files = (req.files as Express.Multer.File[]) ?? [];
-  if (!files.length) return res.status(400).json({ error: "NO_FILES" });
-  const media = [];
-  for (const file of files) {
-    const { type } = await validateUploadedFile(file, "image-or-video");
-    const url = storageProvider.publicUrl(file.filename);
-    media.push(
-      await prisma.profileMedia.create({
-        data: { ownerId: req.session.userId!, type, url }
-      })
-    );
-  }
-  return res.json({ media });
-}));
+profileRouter.post(
+  "/profile/media",
+  requireAuth,
+  uploadMedia.array("files", 12),
+  asyncHandler(async (req, res) => {
+    const files = (req.files as Express.Multer.File[]) ?? [];
+    if (!files.length) return res.status(400).json({ error: "NO_FILES" });
+    const media = [];
+    for (const file of files) {
+      const { type } = await validateUploadedFile(file, "image-or-video");
+      const url = storageProvider.publicUrl(file.filename);
+      media.push(
+        await prisma.profileMedia.create({
+          data: { ownerId: req.session.userId!, type, url },
+        }),
+      );
+    }
+    return res.json({ media });
+  }),
+);
 
-profileRouter.delete("/profile/media/:id", requireAuth, asyncHandler(async (req, res) => {
-  const media = await prisma.profileMedia.findUnique({ where: { id: req.params.id } });
-  if (!media || media.ownerId !== req.session.userId!) return res.status(404).json({ error: "NOT_FOUND" });
-  await prisma.profileMedia.delete({ where: { id: media.id } });
-  return res.json({ ok: true });
-}));
+profileRouter.delete(
+  "/profile/media/:id",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const media = await prisma.profileMedia.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!media || media.ownerId !== req.session.userId!)
+      return res.status(404).json({ error: "NOT_FOUND" });
+    await prisma.profileMedia.delete({ where: { id: media.id } });
+    return res.json({ ok: true });
+  }),
+);

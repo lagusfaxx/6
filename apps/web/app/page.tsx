@@ -6,7 +6,11 @@ import { motion } from "framer-motion";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import { useMapLocation } from "../hooks/useMapLocation";
 import useMe from "../hooks/useMe";
-import { buildChatHref, buildCurrentPathWithSearch, buildLoginHref } from "../lib/chat";
+import {
+  buildChatHref,
+  buildCurrentPathWithSearch,
+  buildLoginHref,
+} from "../lib/chat";
 import {
   ArrowRight,
   ChevronRight,
@@ -29,12 +33,18 @@ type Banner = {
   position: string;
 };
 
+type UserLevel = "SILVER" | "GOLD" | "DIAMOND";
+
 type RecentProfessional = {
   id: string;
   name: string;
   avatarUrl: string | null;
   distance: number | null;
   age: number | null;
+  isActive: boolean;
+  userLevel: UserLevel;
+  completedServices: number;
+  profileViews: number;
 };
 
 type DiscoverProfile = {
@@ -48,26 +58,52 @@ type DiscoverProfile = {
   lng: number | null;
   distanceKm: number | null;
   availableNow: boolean;
+  isActive: boolean;
+  userLevel: UserLevel;
+  completedServices: number;
+  profileViews: number;
   lastSeen?: string | null;
+  lastActiveAt?: string | null;
 };
 
 /* ── Helpers ── */
 
 const DISCOVERY_SECTIONS = [
-  { key: "available", title: "Disponibles ahora", subtitle: "Perfiles activos en los últimos minutos.", icon: Clock3, href: "/servicios?sort=availableNow", cta: "Ver todas", query: { sort: "availableNow", limit: "4" } },
-  { key: "near", title: "Cerca de ti", subtitle: "Perfiles ordenados por cercanía.", icon: Navigation, href: "/servicios?sort=near", cta: "Ver mapa", query: { sort: "near", limit: "4" } },
-  { key: "new", title: "Nuevas", subtitle: "Perfiles recientes para descubrir.", icon: Sparkles, href: "/servicios?sort=new", cta: "Ver todas", query: { sort: "new", limit: "4" } },
+  {
+    key: "available",
+    title: "Disponibles ahora",
+    subtitle: "Solo perfiles encendidos en este momento.",
+    icon: Clock3,
+    href: "/servicios?sort=availableNow",
+    cta: "Ver todas",
+    query: { sort: "availableNow", limit: "4" },
+  },
+  {
+    key: "near",
+    title: "Cerca de ti",
+    subtitle: "Perfiles ordenados por cercanía.",
+    icon: Navigation,
+    href: "/servicios?sort=near",
+    cta: "Ver mapa",
+    query: { sort: "near", limit: "4" },
+  },
+  {
+    key: "new",
+    title: "Nuevas",
+    subtitle: "Perfiles recientes para descubrir.",
+    icon: Sparkles,
+    href: "/servicios?sort=new",
+    cta: "Ver todas",
+    query: { sort: "new", limit: "4" },
+  },
 ] as const;
 
 function resolveProfileImage(profile: DiscoverProfile) {
-  return resolveMediaUrl(profile.coverUrl) ?? resolveMediaUrl(profile.avatarUrl) ?? "/brand/isotipo-new.png";
-}
-
-function isAvailableNowFromLastSeen(lastSeen?: string | null) {
-  if (!lastSeen) return false;
-  const timestamp = Date.parse(lastSeen);
-  if (Number.isNaN(timestamp)) return false;
-  return Date.now() - timestamp <= 10 * 60 * 1000;
+  return (
+    resolveMediaUrl(profile.coverUrl) ??
+    resolveMediaUrl(profile.avatarUrl) ??
+    "/brand/isotipo-new.png"
+  );
 }
 
 /* ── Animation variants ── */
@@ -102,7 +138,9 @@ const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
 export default function HomePage() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
-  const [discoverSections, setDiscoverSections] = useState<Record<string, DiscoverProfile[]>>({});
+  const [discoverSections, setDiscoverSections] = useState<
+    Record<string, DiscoverProfile[]>
+  >({});
   const { location } = useMapLocation(SANTIAGO_FALLBACK);
   const [error, setError] = useState<string | null>(null);
   const [recentError, setRecentError] = useState<string | null>(null);
@@ -138,20 +176,31 @@ export default function HomePage() {
       signal: controller.signal,
     })
       .then((res) => {
-        const mapped: RecentProfessional[] = (res?.professionals || []).map((p) => ({
-          id: p.id,
-          name: p.name || "Experiencia",
-          avatarUrl: p.avatarUrl,
-          distance: typeof p.distance === "number" ? p.distance : null,
-          age: typeof p.age === "number" ? p.age : null,
-        }));
+        const mapped: RecentProfessional[] = (res?.professionals || []).map(
+          (p) => ({
+            id: p.id,
+            name: p.name || "Experiencia",
+            avatarUrl: p.avatarUrl,
+            distance: typeof p.distance === "number" ? p.distance : null,
+            age: typeof p.age === "number" ? p.age : null,
+            isActive: Boolean(p.isActive),
+            userLevel:
+              p.userLevel === "DIAMOND" || p.userLevel === "GOLD"
+                ? p.userLevel
+                : "SILVER",
+            completedServices: Number(p.completedServices || 0),
+            profileViews: Number(p.profileViews || 0),
+          }),
+        );
 
         setRecentPros(mapped);
       })
       .catch((err: any) => {
         if (err?.name === "AbortError") return;
         if (err?.status === 429) {
-          setRecentError("Estamos recibiendo muchas solicitudes. Reintenta en unos segundos.");
+          setRecentError(
+            "Estamos recibiendo muchas solicitudes. Reintenta en unos segundos.",
+          );
           return;
         }
         setRecentError("No se pudieron cargar las experiencias.");
@@ -167,21 +216,32 @@ export default function HomePage() {
     const loadSections = async () => {
       const next: Record<string, DiscoverProfile[]> = {};
       setError(null);
-      await Promise.all(DISCOVERY_SECTIONS.map(async (section) => {
-        const qp = new URLSearchParams(section.query as Record<string, string>);
-        if (location) {
-          qp.set("lat", String(location[0]));
-          qp.set("lng", String(location[1]));
-        }
-        const res = await apiFetch<{ profiles: DiscoverProfile[] }>(`/profiles/discover?${qp.toString()}`).catch(() => ({ profiles: [] }));
-        next[section.key] = res.profiles || [];
-      }));
+      await Promise.all(
+        DISCOVERY_SECTIONS.map(async (section) => {
+          const qp = new URLSearchParams(
+            section.query as Record<string, string>,
+          );
+          if (location) {
+            qp.set("lat", String(location[0]));
+            qp.set("lng", String(location[1]));
+          }
+          const res = await apiFetch<{ profiles: DiscoverProfile[] }>(
+            `/profiles/discover?${qp.toString()}`,
+          ).catch(() => ({ profiles: [] }));
+          next[section.key] = res.profiles || [];
+        }),
+      );
       setDiscoverSections(next);
     };
-    loadSections().catch(() => setError("No se pudieron cargar las secciones destacadas."));
+    loadSections().catch(() =>
+      setError("No se pudieron cargar las secciones destacadas."),
+    );
   }, [location]);
 
-  const inlineBanners = useMemo(() => banners.filter((b) => (b.position || "").toUpperCase() === "INLINE"), [banners]);
+  const inlineBanners = useMemo(
+    () => banners.filter((b) => (b.position || "").toUpperCase() === "INLINE"),
+    [banners],
+  );
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
@@ -233,8 +293,8 @@ export default function HomePage() {
             variants={fadeUp}
             className="mx-auto mt-5 max-w-lg text-base text-white/55 md:text-lg"
           >
-            Conecta con profesionales, hospedajes y tiendas en segundos.
-            Todo verificado, discreto y a tu medida.
+            Conecta con profesionales, hospedajes y tiendas en segundos. Todo
+            verificado, discreto y a tu medida.
           </motion.p>
 
           <motion.div
@@ -285,7 +345,6 @@ export default function HomePage() {
 
       {/* Main content container */}
       <div className="mx-auto max-w-6xl overflow-hidden px-4 pb-16">
-
         {error && (
           <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">
             {error}
@@ -327,14 +386,23 @@ export default function HomePage() {
             variants={stagger}
             className="mb-16"
           >
-            <motion.div variants={cardFade} className="mb-6 flex items-end justify-between">
+            <motion.div
+              variants={cardFade}
+              className="mb-6 flex items-end justify-between"
+            >
               <div>
                 <div className="mb-1 flex items-center gap-2">
                   <Flame className="h-4 w-4 text-fuchsia-400" />
-                  <span className="text-xs font-medium uppercase tracking-wider text-fuchsia-400/80">Destacadas</span>
+                  <span className="text-xs font-medium uppercase tracking-wider text-fuchsia-400/80">
+                    Destacadas
+                  </span>
                 </div>
-                <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Experiencias cerca de ti</h2>
-                <p className="mt-1 text-sm text-white/45">Descubre profesionales disponibles en tu zona</p>
+                <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+                  Experiencias cerca de ti
+                </h2>
+                <p className="mt-1 text-sm text-white/45">
+                  Descubre profesionales disponibles en tu zona
+                </p>
               </div>
               <Link
                 href="/profesionales"
@@ -354,10 +422,14 @@ export default function HomePage() {
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 md:grid-cols-3">
               {recentPros.length > 0
                 ? recentPros.slice(0, 3).map((p, i) => (
-                    <motion.div key={p.id} variants={cardFade} className="w-[75vw] shrink-0 snap-start sm:w-auto">
+                    <motion.div
+                      key={p.id}
+                      variants={cardFade}
+                      className="w-[75vw] shrink-0 snap-start sm:w-auto"
+                    >
                       <Link
                         href={`/profesional/${p.id}`}
-                        className="group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+                        className={`group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)] ${!p.isActive ? "opacity-80 saturate-75" : ""} ${p.userLevel === "DIAMOND" ? "shadow-[0_0_0_1px_rgba(167,139,250,0.45),0_0_28px_rgba(167,139,250,0.18)]" : ""}`}
                       >
                         {/* Image */}
                         <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
@@ -370,12 +442,17 @@ export default function HomePage() {
                                 const img = e.currentTarget as HTMLImageElement;
                                 img.onerror = null;
                                 img.src = "/brand/isotipo-new.png";
-                                img.className = "h-20 w-20 mx-auto mt-20 opacity-40";
+                                img.className =
+                                  "h-20 w-20 mx-auto mt-20 opacity-40";
                               }}
                             />
                           ) : (
                             <div className="flex h-full items-center justify-center">
-                              <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-30" />
+                              <img
+                                src="/brand/isotipo-new.png"
+                                alt=""
+                                className="h-20 w-20 opacity-30"
+                              />
                             </div>
                           )}
 
@@ -389,10 +466,22 @@ export default function HomePage() {
                               {p.distance.toFixed(1)} km
                             </div>
                           )}
+                          {p.userLevel === "DIAMOND" && (
+                            <div className="absolute left-3 top-3 rounded-full border border-cyan-200/40 bg-cyan-400/20 px-2.5 py-1 text-[11px] font-semibold text-cyan-50">
+                              💎 Diamond
+                            </div>
+                          )}
+                          {p.userLevel === "GOLD" && (
+                            <div className="absolute left-3 top-3 rounded-full border border-amber-200/40 bg-amber-400/20 px-2.5 py-1 text-[11px] font-semibold text-amber-50">
+                              🥇 {p.completedServices} servicios exitosos
+                            </div>
+                          )}
 
                           {/* Bottom info overlay */}
                           <div className="absolute bottom-0 left-0 right-0 p-4">
-                            <h3 className="text-lg font-semibold leading-tight">{p.name}</h3>
+                            <h3 className="text-lg font-semibold leading-tight">
+                              {p.name}
+                            </h3>
                             <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
                               {p.age && <span>{p.age} años</span>}
                             </div>
@@ -402,7 +491,11 @@ export default function HomePage() {
                     </motion.div>
                   ))
                 : [1, 2, 3].map((i) => (
-                    <motion.div key={i} variants={cardFade} className="w-[75vw] shrink-0 snap-start sm:w-auto">
+                    <motion.div
+                      key={i}
+                      variants={cardFade}
+                      className="w-[75vw] shrink-0 snap-start sm:w-auto"
+                    >
                       <div className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03]">
                         <div className="aspect-[4/5] bg-white/[0.04]" />
                         <div className="space-y-2 p-4">
@@ -440,14 +533,22 @@ export default function HomePage() {
             const Icon = section.icon;
 
             return (
-              <motion.div key={section.key} variants={cardFade} className="mb-10 last:mb-0">
+              <motion.div
+                key={section.key}
+                variants={cardFade}
+                className="mb-10 last:mb-0"
+              >
                 <div className="mb-4 flex items-end justify-between">
                   <div>
                     <div className="flex items-center gap-2">
                       <Icon className="h-4 w-4 text-fuchsia-300" />
-                      <h2 className="text-xl font-bold tracking-tight md:text-2xl">{section.title}</h2>
+                      <h2 className="text-xl font-bold tracking-tight md:text-2xl">
+                        {section.title}
+                      </h2>
                     </div>
-                    <p className="mt-0.5 text-xs text-white/40">{section.subtitle}</p>
+                    <p className="mt-0.5 text-xs text-white/40">
+                      {section.subtitle}
+                    </p>
                   </div>
                   <Link
                     href={section.href}
@@ -463,7 +564,7 @@ export default function HomePage() {
                     ? items.map((profile) => {
                         const href = `/perfil/${profile.username}`;
                         const cover = resolveProfileImage(profile);
-                        const availableNow = isAvailableNowFromLastSeen(profile.lastSeen);
+                        const availableNow = profile.availableNow;
                         const messageHref = me?.user
                           ? buildChatHref(profile.id, { mode: "message" })
                           : buildLoginHref(buildCurrentPathWithSearch());
@@ -474,32 +575,58 @@ export default function HomePage() {
                         return (
                           <article
                             key={profile.id}
-                            className="group w-[70vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto"
+                            className={`group w-[70vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto ${section.key === "new" && !profile.isActive ? "opacity-80 saturate-75" : ""} ${profile.userLevel === "DIAMOND" ? "shadow-[0_0_0_1px_rgba(167,139,250,0.45),0_0_24px_rgba(167,139,250,0.14)]" : ""}`}
                           >
                             <Link href={href} className="block">
                               <div className="relative aspect-[4/5] bg-white/[0.04]">
-                                <img src={cover ?? undefined} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
+                                <img
+                                  src={cover ?? undefined}
+                                  alt={profile.displayName}
+                                  className="h-full w-full object-cover transition group-hover:scale-105"
+                                />
                                 {profile.distanceKm != null && (
                                   <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80">
                                     {profile.distanceKm.toFixed(1)} km
                                   </div>
                                 )}
                                 {availableNow && (
-                                  <div className="absolute left-2 top-2 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-100">
+                                  <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-100">
+                                    <span className="h-2 w-2 rounded-full bg-emerald-300 animate-pulse" />
                                     Disponible
+                                  </div>
+                                )}
+                                {profile.userLevel === "DIAMOND" && (
+                                  <div className="absolute bottom-2 right-2 rounded-full border border-cyan-200/40 bg-cyan-400/20 px-2 py-1 text-[11px] font-semibold text-cyan-50">
+                                    💎 Diamond
+                                  </div>
+                                )}
+                                {profile.userLevel === "GOLD" && (
+                                  <div className="absolute bottom-2 right-2 rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-1 text-[11px] font-semibold text-amber-50">
+                                    🥇 {profile.completedServices} servicios
+                                    exitosos
                                   </div>
                                 )}
                               </div>
                             </Link>
                             <div className="space-y-2 p-3">
                               <div className="truncate text-sm font-semibold">
-                                {profile.displayName}{profile.age != null ? `, ${profile.age}` : ""}
+                                {profile.displayName}
+                                {profile.age != null ? `, ${profile.age}` : ""}
+                              </div>
+                              <div className="text-[11px] text-white/45">
+                                {profile.profileViews} visitas
                               </div>
                               <div className="grid grid-cols-2 gap-2">
-                                <Link href={messageHref} className="rounded-lg bg-white/[0.07] px-2 py-2 text-center text-xs font-medium text-white/85 hover:bg-white/[0.12]">
+                                <Link
+                                  href={messageHref}
+                                  className="rounded-lg bg-white/[0.07] px-2 py-2 text-center text-xs font-medium text-white/85 hover:bg-white/[0.12]"
+                                >
                                   Enviar mensaje
                                 </Link>
-                                <Link href={requestHref} className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-2 text-center text-xs font-medium text-fuchsia-100 hover:bg-fuchsia-500/20">
+                                <Link
+                                  href={requestHref}
+                                  className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-2 text-center text-xs font-medium text-fuchsia-100 hover:bg-fuchsia-500/20"
+                                >
                                   Solicitar / Reservar
                                 </Link>
                               </div>
@@ -508,8 +635,11 @@ export default function HomePage() {
                         );
                       })
                     : [1, 2, 3, 4].map((i) => (
-                      <div key={i} className="w-[70vw] shrink-0 snap-start aspect-[4/5] animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03] sm:w-auto" />
-                    ))}
+                        <div
+                          key={i}
+                          className="w-[70vw] shrink-0 snap-start aspect-[4/5] animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03] sm:w-auto"
+                        />
+                      ))}
                 </div>
               </motion.div>
             );
@@ -530,10 +660,16 @@ export default function HomePage() {
             <motion.div variants={cardFade} className="mb-6">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-violet-400" />
-                <span className="text-xs font-medium uppercase tracking-wider text-violet-400/80">Tendencias</span>
+                <span className="text-xs font-medium uppercase tracking-wider text-violet-400/80">
+                  Tendencias
+                </span>
               </div>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">Cerca de ti</h2>
-              <p className="mt-1 text-sm text-white/45">Las más buscadas en tu zona</p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
+                Cerca de ti
+              </h2>
+              <p className="mt-1 text-sm text-white/45">
+                Las más buscadas en tu zona
+              </p>
             </motion.div>
 
             <motion.div
@@ -561,12 +697,18 @@ export default function HomePage() {
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center">
-                        <img src="/brand/isotipo-new.png" alt="" className="h-8 w-8 opacity-30" />
+                        <img
+                          src="/brand/isotipo-new.png"
+                          alt=""
+                          className="h-8 w-8 opacity-30"
+                        />
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold">{p.name}</div>
+                    <div className="truncate text-sm font-semibold">
+                      {p.name}
+                    </div>
                     <div className="mt-0.5 flex items-center gap-2 text-xs text-white/45">
                       {p.age && <span>{p.age} años</span>}
                       {p.distance != null && (
@@ -601,8 +743,8 @@ export default function HomePage() {
             ¿Listo para explorar?
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm text-white/50">
-            Miles de experiencias, hospedajes y productos esperan por ti.
-            Crea tu cuenta gratis y descubre lo mejor cerca de ti.
+            Miles de experiencias, hospedajes y productos esperan por ti. Crea
+            tu cuenta gratis y descubre lo mejor cerca de ti.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link

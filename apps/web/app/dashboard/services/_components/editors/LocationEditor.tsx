@@ -4,6 +4,7 @@ import { useDashboardForm } from "../../../../../hooks/useDashboardForm";
 import EditorCard from "../EditorCard";
 import FloatingInput from "../FloatingInput";
 import MapboxMap from "../../../../../components/MapboxMap";
+import MapboxAddressAutocomplete from "../../../../../components/MapboxAddressAutocomplete";
 
 type Props = {
   profileType: string;
@@ -11,20 +12,49 @@ type Props = {
   onGeocodeProfileAddress: () => Promise<void>;
 };
 
-export default function LocationEditor({ profileType, user, onGeocodeProfileAddress }: Props) {
+export default function LocationEditor({
+  profileType,
+  user,
+  onGeocodeProfileAddress,
+}: Props) {
   const { state, setField } = useDashboardForm();
+  const requiresMapboxLocation =
+    profileType === "PROFESSIONAL" ||
+    profileType === "ESTABLISHMENT" ||
+    profileType === "SHOP";
 
   return (
-    <EditorCard title="Ubicacion" subtitle="Actualiza tu direccion y ciudad." delay={0}>
+    <EditorCard
+      title="Ubicacion"
+      subtitle="Actualiza tu direccion y ciudad."
+      delay={0}
+    >
       <div className="grid gap-4">
-        <FloatingInput
-          label="Direccion"
-          value={state.address}
-          onChange={(v) => {
-            setField("address", v);
-            if (profileType === "SHOP") setField("profileLocationVerified", false);
-          }}
-        />
+        {requiresMapboxLocation ? (
+          <MapboxAddressAutocomplete
+            label="Direccion"
+            value={state.address}
+            onChange={(v) => {
+              setField("address", v);
+              setField("profileLocationVerified", false);
+            }}
+            onSelect={(selection) => {
+              setField("address", selection.placeName);
+              setField("city", selection.city || "");
+              setField("profileLatitude", String(selection.latitude));
+              setField("profileLongitude", String(selection.longitude));
+              setField("profileLocationVerified", true);
+            }}
+            placeholder="Busca y selecciona tu direccion"
+            required
+          />
+        ) : (
+          <FloatingInput
+            label="Direccion"
+            value={state.address}
+            onChange={(v) => setField("address", v)}
+          />
+        )}
         <FloatingInput
           label="Ciudad"
           value={state.city}
@@ -36,7 +66,8 @@ export default function LocationEditor({ profileType, user, onGeocodeProfileAddr
             value={state.profileLatitude}
             onChange={(v) => {
               setField("profileLatitude", v);
-              if (profileType === "SHOP") setField("profileLocationVerified", false);
+              if (requiresMapboxLocation)
+                setField("profileLocationVerified", false);
             }}
             placeholder="-33.45"
           />
@@ -45,13 +76,14 @@ export default function LocationEditor({ profileType, user, onGeocodeProfileAddr
             value={state.profileLongitude}
             onChange={(v) => {
               setField("profileLongitude", v);
-              if (profileType === "SHOP") setField("profileLocationVerified", false);
+              if (requiresMapboxLocation)
+                setField("profileLocationVerified", false);
             }}
             placeholder="-70.66"
           />
         </div>
 
-        {profileType === "SHOP" && (
+        {requiresMapboxLocation && (
           <>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -60,9 +92,13 @@ export default function LocationEditor({ profileType, user, onGeocodeProfileAddr
                 disabled={state.profileGeocodeBusy}
                 className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-white/50 hover:bg-white/[0.06] transition"
               >
-                {state.profileGeocodeBusy ? "Buscando..." : "Verificar direccion en mapa"}
+                {state.profileGeocodeBusy
+                  ? "Buscando..."
+                  : "Verificar direccion en mapa"}
               </button>
-              <span className="text-[11px] text-white/25">Buscamos automaticamente mientras escribes.</span>
+              <span className="text-[11px] text-white/25">
+                Buscamos automaticamente mientras escribes.
+              </span>
             </div>
             {state.profileGeocodeError && (
               <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
@@ -76,7 +112,7 @@ export default function LocationEditor({ profileType, user, onGeocodeProfileAddr
                 markers={[
                   {
                     id: "profile-location",
-                    name: state.displayName || user?.username || "Tienda",
+                    name: state.displayName || user?.username || "Perfil",
                     lat: Number(state.profileLatitude),
                     lng: Number(state.profileLongitude),
                     subtitle: state.city || state.address || null,
@@ -87,7 +123,8 @@ export default function LocationEditor({ profileType, user, onGeocodeProfileAddr
               />
             ) : (
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3 text-xs text-white/30 text-center">
-                Verifica la direccion en el mapa para que tu tienda aparezca correctamente.
+                Verifica la dirección en el mapa para sobrescribir tu ubicación
+                anterior.
               </div>
             )}
           </>

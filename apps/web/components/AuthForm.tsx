@@ -3,11 +3,14 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch, friendlyErrorMessage } from "../lib/api";
+import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
 
 type Mode = "login" | "register";
 
 function flattenValidation(details: any): string | null {
-  const fieldErrors = details?.fieldErrors as Record<string, string[] | undefined> | undefined;
+  const fieldErrors = details?.fieldErrors as
+    | Record<string, string[] | undefined>
+    | undefined;
   if (!fieldErrors) return null;
 
   const labels: Record<string, string> = {
@@ -22,20 +25,24 @@ function flattenValidation(details: any): string | null {
     profileType: "tipo de perfil",
     preferenceGender: "preferencia de género",
     address: "dirección",
-    acceptTerms: "términos y condiciones"
+    acceptTerms: "términos y condiciones",
   };
 
-  const errors = Object.entries(fieldErrors)
-    .flatMap(([key, arr]) => (arr || []).map((msg) => {
+  const errors = Object.entries(fieldErrors).flatMap(([key, arr]) =>
+    (arr || []).map((msg) => {
       const f = labels[key] || key;
       const low = String(msg || "").toLowerCase();
       if (low.includes("required")) return `Falta completar ${f}.`;
-      if (low.includes("must be accepted")) return "Debes aceptar términos y condiciones.";
+      if (low.includes("must be accepted"))
+        return "Debes aceptar términos y condiciones.";
       if (low.includes("invalid email")) return "El email no es válido.";
       if (low.includes("too small")) return `${f} es demasiado corto.`;
       if (low.includes("too big")) return `${f} es demasiado largo.`;
+      if (low.includes("chileno") || low.includes("+56 9"))
+        return "Por seguridad, solo aceptamos números chilenos válidos (+56 9...).";
       return `${f}: ${msg}`;
-    }));
+    }),
+  );
 
   if (!errors.length) return null;
   return errors.join(" ");
@@ -45,7 +52,7 @@ export default function AuthForm({
   mode,
   initialProfileType,
   lockProfileType,
-  onSuccess
+  onSuccess,
 }: {
   mode: Mode;
   initialProfileType?: string;
@@ -60,13 +67,24 @@ export default function AuthForm({
   const [gender, setGender] = useState("FEMALE");
   const [birthdate, setBirthdate] = useState("");
   const [bio, setBio] = useState("");
-  const [profileType, setProfileType] = useState(initialProfileType || "CLIENT");
+  const [profileType, setProfileType] = useState(
+    initialProfileType || "CLIENT",
+  );
   const [preferenceGender, setPreferenceGender] = useState("ALL");
   const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [latitude, setLatitude] = useState<string>("");
+  const [longitude, setLongitude] = useState<string>("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isBusinessProfile =
+    profileType === "PROFESSIONAL" ||
+    profileType === "ESTABLISHMENT" ||
+    profileType === "SHOP";
+  const phoneRegex = /^\+56\s?9(?:[\s-]?\d){8}$/;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -75,6 +93,25 @@ export default function AuthForm({
 
     try {
       if (mode === "register") {
+        if (!phoneRegex.test(phone.trim())) {
+          setError(
+            "Por seguridad, solo aceptamos números chilenos válidos (+56 9...)",
+          );
+          setLoading(false);
+          return;
+        }
+        if (
+          isBusinessProfile &&
+          (!Number.isFinite(Number(latitude)) ||
+            !Number.isFinite(Number(longitude)))
+        ) {
+          setError(
+            "Debes seleccionar una dirección válida desde el buscador de Mapbox.",
+          );
+          setLoading(false);
+          return;
+        }
+
         const res = await apiFetch("/auth/register", {
           method: "POST",
           body: JSON.stringify({
@@ -85,28 +122,35 @@ export default function AuthForm({
             phone,
             gender: profileType === "PROFESSIONAL" ? gender : undefined,
             profileType,
-            preferenceGender: profileType === "CLIENT" ? preferenceGender : undefined,
-            address,
+            preferenceGender:
+              profileType === "CLIENT" ? preferenceGender : undefined,
+            address: isBusinessProfile ? address : undefined,
+            city: isBusinessProfile ? city || undefined : undefined,
+            latitude: isBusinessProfile ? Number(latitude) : undefined,
+            longitude: isBusinessProfile ? Number(longitude) : undefined,
             acceptTerms,
             birthdate: birthdate || undefined,
-            bio: bio || undefined
-          })
+            bio: bio || undefined,
+          }),
         });
         const override = onSuccess?.(res);
         const next = searchParams.get("next");
-        const redirectTo = override && "redirect" in override ? override.redirect : next || "/";
+        const redirectTo =
+          override && "redirect" in override ? override.redirect : next || "/";
         if (redirectTo) window.location.replace(redirectTo);
         return;
       } else {
         await apiFetch("/auth/login", {
           method: "POST",
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ email, password }),
         });
       }
       const next = searchParams.get("next");
       window.location.replace(next || "/");
     } catch (err: any) {
-      const detailed = err?.body?.details ? flattenValidation(err.body.details) : null;
+      const detailed = err?.body?.details
+        ? flattenValidation(err.body.details)
+        : null;
       setError(detailed || friendlyErrorMessage(err) || "Error");
     } finally {
       setLoading(false);
@@ -172,12 +216,18 @@ export default function AuthForm({
         <div className="grid gap-2">
           <label className="text-sm text-white/70">Género</label>
           <div className="relative">
-            <select className="input select-dark" value={gender} onChange={(e) => setGender(e.target.value)}>
+            <select
+              className="input select-dark"
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+            >
               <option value="FEMALE">Mujer</option>
               <option value="MALE">Hombre</option>
               <option value="OTHER">Otro</option>
             </select>
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">▾</span>
+            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">
+              ▾
+            </span>
           </div>
         </div>
       ) : null}
@@ -186,13 +236,19 @@ export default function AuthForm({
         <div className="grid gap-2">
           <label className="text-sm text-white/70">Tipo de perfil</label>
           <div className="relative">
-            <select className="input select-dark" value={profileType} onChange={(e) => setProfileType(e.target.value)}>
+            <select
+              className="input select-dark"
+              value={profileType}
+              onChange={(e) => setProfileType(e.target.value)}
+            >
               <option value="CLIENT">Cliente</option>
               <option value="PROFESSIONAL">Experiencia</option>
               <option value="ESTABLISHMENT">Lugar</option>
               <option value="SHOP">Tienda</option>
             </select>
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">▾</span>
+            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">
+              ▾
+            </span>
           </div>
         </div>
       ) : null}
@@ -201,13 +257,19 @@ export default function AuthForm({
         <div className="grid gap-2">
           <label className="text-sm text-white/70">Preferencia de género</label>
           <div className="relative">
-            <select className="input select-dark" value={preferenceGender} onChange={(e) => setPreferenceGender(e.target.value)}>
+            <select
+              className="input select-dark"
+              value={preferenceGender}
+              onChange={(e) => setPreferenceGender(e.target.value)}
+            >
               <option value="ALL">Todos</option>
               <option value="FEMALE">Mujer</option>
               <option value="MALE">Hombre</option>
               <option value="OTHER">Otro</option>
             </select>
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">▾</span>
+            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">
+              ▾
+            </span>
           </div>
         </div>
       ) : null}
@@ -227,33 +289,54 @@ export default function AuthForm({
         </div>
       ) : null}
 
-      {mode === "register" && (profileType === "PROFESSIONAL" || profileType === "ESTABLISHMENT" || profileType === "SHOP") ? (
+      {mode === "register" &&
+      (profileType === "PROFESSIONAL" ||
+        profileType === "ESTABLISHMENT" ||
+        profileType === "SHOP") ? (
         <div className="grid gap-2">
           <label className="text-sm text-white/70">
-            {profileType === "PROFESSIONAL" ? "Descripción del perfil" : "Descripción comercial"}
+            {profileType === "PROFESSIONAL"
+              ? "Descripción del perfil"
+              : "Descripción comercial"}
           </label>
           <textarea
             className="input min-h-[110px]"
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            placeholder={profileType === "PROFESSIONAL" ? "Describe tu experiencia en pocas líneas." : "Describe tu negocio (opcional)."}
+            placeholder={
+              profileType === "PROFESSIONAL"
+                ? "Describe tu experiencia en pocas líneas."
+                : "Describe tu negocio (opcional)."
+            }
             required={profileType === "PROFESSIONAL"}
           />
         </div>
       ) : null}
 
-      {mode === "register" ? (
-        <div className="grid gap-2">
-          <label className="text-sm text-white/70">Dirección</label>
-          <input
-            className="input"
+      {mode === "register" && isBusinessProfile ? (
+        <>
+          <MapboxAddressAutocomplete
+            label="Dirección"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Av. Providencia 1234, Santiago"
+            onChange={(next) => {
+              setAddress(next);
+              setLatitude("");
+              setLongitude("");
+            }}
+            onSelect={(selection) => {
+              setAddress(selection.placeName);
+              setCity(selection.city || "");
+              setLatitude(String(selection.latitude));
+              setLongitude(String(selection.longitude));
+            }}
+            placeholder="Busca tu dirección"
             required
           />
-          <p className="text-xs text-white/50">Se usa para el mapa de servicios y cercanía.</p>
-        </div>
+          <p className="text-xs text-white/50">
+            Para publicar perfiles comerciales debes validar la dirección con
+            Mapbox.
+          </p>
+        </>
       ) : null}
 
       <div className="grid gap-2">
@@ -279,7 +362,8 @@ export default function AuthForm({
             required
           />
           <span>
-            Acepto los términos y condiciones y entiendo los descargos legales de la plataforma.
+            Acepto los términos y condiciones y entiendo los descargos legales
+            de la plataforma.
           </span>
         </label>
       ) : null}
@@ -291,7 +375,11 @@ export default function AuthForm({
       ) : null}
 
       <button disabled={loading} className="btn-primary">
-        {loading ? "Procesando..." : mode === "register" ? "Crear cuenta" : "Ingresar"}
+        {loading
+          ? "Procesando..."
+          : mode === "register"
+            ? "Crear cuenta"
+            : "Ingresar"}
       </button>
     </form>
   );

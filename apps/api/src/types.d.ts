@@ -4,5 +4,6 @@ declare module "express-session" {
   interface SessionData {
     userId?: string;
     role?: "USER" | "ADMIN";
+    profileViewTracker?: Record<string, number>;
   }
 }
