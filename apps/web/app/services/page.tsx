@@ -22,6 +22,9 @@ type ProfileResult = {
   profileType: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
   serviceCategory: string | null;
   serviceDescription: string | null;
+  isActive: boolean;
+  userLevel?: "SILVER" | "GOLD" | "DIAMOND";
+  completedServices?: number | null;
 };
 
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
@@ -37,6 +40,27 @@ function resolveCardImage(profile: ProfileResult) {
   return (
     resolveMediaUrl(profile.coverUrl) ?? resolveMediaUrl(profile.avatarUrl)
   );
+}
+
+function levelBadge(level?: "SILVER" | "GOLD" | "DIAMOND") {
+  if (level === "DIAMOND") {
+    return {
+      label: "💎 Diamond",
+      className:
+        "border-cyan-200/40 bg-cyan-400/20 text-cyan-50",
+    };
+  }
+  if (level === "GOLD") {
+    return {
+      label: "🥇 Gold",
+      className:
+        "border-amber-200/40 bg-amber-400/20 text-amber-50",
+    };
+  }
+  return {
+    label: "🥈 Silver",
+    className: "border-slate-200/30 bg-slate-300/15 text-slate-100",
+  };
 }
 
 export default function ServicesPage() {
@@ -123,12 +147,12 @@ export default function ServicesPage() {
   return (
     <div className="pb-24">
       <section className="border-b border-white/[0.06] bg-gradient-to-b from-[#0d1024] to-transparent">
-        <div className="mx-auto max-w-6xl px-4 py-6">
+        <div className="mx-auto max-w-6xl px-4 py-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold">Buscar perfiles</h1>
               <p className="mt-1 text-sm text-white/55">
-                Resultados basados en ubicación de perfiles (no en servicios).
+                Profesionales disponibles cerca de ti
               </p>
             </div>
             <div className="inline-flex overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
@@ -192,7 +216,7 @@ export default function ServicesPage() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="mx-auto max-w-6xl px-4 py-4">
         <div className="mb-5 text-sm text-white/45">
           {loading
             ? "Cargando resultados..."
@@ -205,6 +229,8 @@ export default function ServicesPage() {
               userLocation={location}
               markers={markers}
               height={420}
+              autoCenterOnDataChange={false}
+              showMarkersForArea={false}
               onCenterChange={(center) => setMapCenter(center)}
             />
           </div>
@@ -257,6 +283,7 @@ export default function ServicesPage() {
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {filtered.map((profile) => {
                 const img = resolveCardImage(profile);
+                const badge = levelBadge(profile.userLevel);
                 return (
                   <Link
                     key={profile.id}
@@ -281,10 +308,25 @@ export default function ServicesPage() {
                           {profile.distance.toFixed(1)} km
                         </div>
                       )}
+                      {profile.isActive && (
+                        <div className="absolute left-2 top-2">
+                          <span className="relative flex h-3.5 w-3.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
+                            <span className="relative inline-flex h-3.5 w-3.5 rounded-full border border-emerald-200/90 bg-emerald-400" />
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="p-3">
-                      <div className="truncate text-sm font-semibold">
-                        {profile.displayName || profile.username}
+                      <div className="flex items-center gap-2">
+                        <div className="truncate text-sm font-semibold">
+                          {profile.displayName || profile.username}
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}
+                        >
+                          {badge.label}
+                        </span>
                       </div>
                       <div className="mt-1 flex items-center gap-2 text-xs text-white/50">
                         <div className="h-6 w-6 overflow-hidden rounded-full bg-white/[0.06]">

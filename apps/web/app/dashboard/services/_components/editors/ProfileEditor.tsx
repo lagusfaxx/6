@@ -40,6 +40,24 @@ export default function ProfileEditor() {
           />
         </div>
 
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-white">Estado en tiempo real</p>
+              <p className="text-xs text-white/55">Activa o pausa tu visibilidad en Servicios y Disponibles ahora.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setField("profileIsActive", !state.profileIsActive)}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${state.profileIsActive ? "bg-emerald-500/70" : "bg-white/20"}`}
+              aria-pressed={state.profileIsActive}
+              aria-label="Cambiar visibilidad"
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${state.profileIsActive ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+        </div>
+
         <FloatingTextarea
           label="Descripcion general"
           value={state.bio}
