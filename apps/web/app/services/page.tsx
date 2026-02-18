@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import { useMapLocation } from "../../hooks/useMapLocation";
@@ -24,9 +24,24 @@ type ProfileResult = {
   serviceCategory: string | null;
   serviceDescription: string | null;
   isActive: boolean;
+  availableNow?: boolean;
+  lastSeen?: string | null;
   userLevel?: "SILVER" | "GOLD" | "DIAMOND";
   completedServices?: number | null;
 };
+
+function formatLastActive(lastSeen: string | null | undefined): string | null {
+  if (!lastSeen) return null;
+  const diff = Date.now() - new Date(lastSeen).getTime();
+  if (diff < 0) return null;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 10) return null; // online
+  if (minutes < 60) return `Activa hace ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Activa hace ${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `Activa hace ${days}d`;
+}
 
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
 const INITIAL_RADIUS_KM = 10;
@@ -43,11 +58,91 @@ function resolveCardImage(profile: ProfileResult) {
   );
 }
 
+const ProfileCard = memo(function ProfileCard({
+  profile,
+}: {
+  profile: ProfileResult;
+}) {
+  const img = resolveCardImage(profile);
+  const lastActive = !profile.availableNow
+    ? formatLastActive(profile.lastSeen)
+    : null;
+
+  return (
+    <Link
+      href={ownerHref(profile)}
+      className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]"
+    >
+      <div className="relative aspect-[4/3] overflow-hidden bg-white/[0.04]">
+        {img ? (
+          <img
+            src={img}
+            alt={profile.displayName || profile.username}
+            className="h-full w-full object-cover transition group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-white/30">
+            Sin imagen
+          </div>
+        )}
+        {profile.distance != null && (
+          <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px]">
+            <MapPin className="mr-1 inline h-3 w-3" />
+            {profile.distance.toFixed(1)} km
+          </div>
+        )}
+        {profile.availableNow ? (
+          <div className="absolute left-2 top-2">
+            <span className="relative flex h-3.5 w-3.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
+              <span className="relative inline-flex h-3.5 w-3.5 rounded-full border border-emerald-200/90 bg-emerald-400" />
+            </span>
+          </div>
+        ) : lastActive ? (
+          <div className="absolute left-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/60">
+            {lastActive}
+          </div>
+        ) : null}
+      </div>
+      <div className="p-3">
+        <div className="flex items-center gap-2">
+          <div className="truncate text-sm font-semibold">
+            {profile.displayName || profile.username}
+          </div>
+          <UserLevelBadge level={profile.userLevel} className="shrink-0" />
+        </div>
+        <div className="mt-1 flex items-center gap-2 text-xs text-white/50">
+          <div className="h-6 w-6 overflow-hidden rounded-full bg-white/[0.06]">
+            {profile.avatarUrl ? (
+              <img
+                src={resolveMediaUrl(profile.avatarUrl) ?? undefined}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <User className="m-1 h-4 w-4 text-white/35" />
+            )}
+          </div>
+          <span className="truncate">
+            {profile.serviceCategory || profile.city || profile.profileType}
+          </span>
+        </div>
+        {profile.serviceDescription && (
+          <p className="mt-2 line-clamp-2 text-xs text-white/55">
+            {profile.serviceDescription}
+          </p>
+        )}
+      </div>
+    </Link>
+  );
+});
+
 export default function ServicesPage() {
   const { location } = useMapLocation(DEFAULT_LOCATION);
 
   const [profiles, setProfiles] = useState<ProfileResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [type, setType] = useState<"experience" | "space">("experience");
   const [view, setView] = useState<"list" | "map">("list");
   const [search, setSearch] = useState("");
@@ -58,6 +153,18 @@ export default function ServicesPage() {
     lng: number;
   } | null>(null);
   const [searchTick, setSearchTick] = useState(0);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleCenterChange = useCallback(
+    (center: { lat: number; lng: number }) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        setMapCenter(center);
+      }, 600);
+    },
+    [],
+  );
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -71,7 +178,7 @@ export default function ServicesPage() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
+    if (!initialLoad) setLoading(true);
     const center =
       mapCenter || (location ? { lat: location[0], lng: location[1] } : null);
     const qp = new URLSearchParams();
@@ -84,7 +191,10 @@ export default function ServicesPage() {
     apiFetch<{ profiles: ProfileResult[] }>(`/services?${qp.toString()}`)
       .then((res) => setProfiles(res?.profiles || []))
       .catch(() => setProfiles([]))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setInitialLoad(false);
+      });
   }, [location, mapCenter, type, searchTick]);
 
   const filtered = useMemo(() => {
@@ -100,7 +210,11 @@ export default function ServicesPage() {
           return false;
         return true;
       })
-      .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+      .sort((a, b) => {
+        // Online (availableNow) first, then by distance
+        if (a.availableNow !== b.availableNow) return a.availableNow ? -1 : 1;
+        return (a.distance ?? 1e9) - (b.distance ?? 1e9);
+      });
   }, [profiles, radiusKm, search]);
 
   const markers = useMemo(
@@ -198,7 +312,7 @@ export default function ServicesPage() {
 
       <div className="mx-auto max-w-6xl px-4 py-4">
         <div className="mb-5 text-sm text-white/45">
-          {loading
+          {loading && initialLoad
             ? "Cargando resultados..."
             : `${filtered.length} resultado${filtered.length !== 1 ? "s" : ""}`}
         </div>
@@ -211,12 +325,12 @@ export default function ServicesPage() {
               height={420}
               autoCenterOnDataChange={false}
               showMarkersForArea={false}
-              onCenterChange={(center) => setMapCenter(center)}
+              onCenterChange={handleCenterChange}
             />
           </div>
         )}
 
-        {loading && (
+        {loading && initialLoad && (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div
@@ -261,80 +375,9 @@ export default function ServicesPage() {
           <section>
             <h2 className="mb-4 text-xl font-semibold">Resultados</h2>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {filtered.map((profile) => {
-                const img = resolveCardImage(profile);
-                return (
-                  <Link
-                    key={profile.id}
-                    href={ownerHref(profile)}
-                    className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]"
-                  >
-                    <div className="relative aspect-[4/3] overflow-hidden bg-white/[0.04]">
-                      {img ? (
-                        <img
-                          src={img}
-                          alt={profile.displayName || profile.username}
-                          className="h-full w-full object-cover transition group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-white/30">
-                          Sin imagen
-                        </div>
-                      )}
-                      {profile.distance != null && (
-                        <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px]">
-                          <MapPin className="mr-1 inline h-3 w-3" />
-                          {profile.distance.toFixed(1)} km
-                        </div>
-                      )}
-                      {profile.isActive && (
-                        <div className="absolute left-2 top-2">
-                          <span className="relative flex h-3.5 w-3.5">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
-                            <span className="relative inline-flex h-3.5 w-3.5 rounded-full border border-emerald-200/90 bg-emerald-400" />
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <div className="flex items-center gap-2">
-                        <div className="truncate text-sm font-semibold">
-                          {profile.displayName || profile.username}
-                        </div>
-                        <UserLevelBadge
-                          level={profile.userLevel}
-                          className="shrink-0"
-                        />
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-white/50">
-                        <div className="h-6 w-6 overflow-hidden rounded-full bg-white/[0.06]">
-                          {profile.avatarUrl ? (
-                            <img
-                              src={
-                                resolveMediaUrl(profile.avatarUrl) ?? undefined
-                              }
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <User className="m-1 h-4 w-4 text-white/35" />
-                          )}
-                        </div>
-                        <span className="truncate">
-                          {profile.serviceCategory ||
-                            profile.city ||
-                            profile.profileType}
-                        </span>
-                      </div>
-                      {profile.serviceDescription && (
-                        <p className="mt-2 line-clamp-2 text-xs text-white/55">
-                          {profile.serviceDescription}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
+              {filtered.map((profile) => (
+                <ProfileCard key={profile.id} profile={profile} />
+              ))}
             </div>
           </section>
         )}

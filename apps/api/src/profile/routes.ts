@@ -169,8 +169,12 @@ profileRouter.get(
 
     if (sort === "near") {
       const near = enriched
-        .filter((p) => p.availableNow && p.distanceKm !== null)
-        .sort((a, b) => (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9));
+        .filter((p) => p.distanceKm !== null)
+        .sort((a, b) => {
+          // Online first, then by distance
+          if (a.availableNow !== b.availableNow) return a.availableNow ? -1 : 1;
+          return (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9);
+        });
       return res.json({
         profiles: near.slice(0, limit).map(({ createdAt, ...row }) => row),
       });
