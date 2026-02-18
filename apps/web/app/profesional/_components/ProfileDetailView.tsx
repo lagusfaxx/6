@@ -250,6 +250,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             </div>
           </section>
     <div className="mx-auto grid w-full max-w-full md:max-w-5xl gap-4 md:gap-6">
+      {gallery.length > 0 && (
       <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:bg-white/[0.06] md:p-6">
                 <div className="min-w-0 space-y-3 md:space-y-4">
                   {selectedGalleryImage && (
@@ -283,7 +284,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                   </div>
                 </div>
               </section>
-            ) : null}
+            )}
 
             {hasDetailsSection && (
               <section className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:p-6">
