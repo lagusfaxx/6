@@ -130,10 +130,13 @@ export default function ServicesPage() {
   const [search, setSearch] = useState("");
   const [radiusKm, setRadiusKm] = useState(INITIAL_RADIUS_KM);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
-  const [idleCenter, setIdleCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [searchTick, setSearchTick] = useState(0);
-  const idleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userGpsRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (!location) return;
+    userGpsRef.current = { lat: location[0], lng: location[1] };
+  }, [location]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -146,7 +149,7 @@ export default function ServicesPage() {
   }, []);
 
   useEffect(() => {
-    const center = idleCenter || (location ? { lat: location[0], lng: location[1] } : null);
+    const center = userGpsRef.current || (location ? { lat: location[0], lng: location[1] } : null);
     if (!center && hasLoadedOnce) return;
 
     if (!hasLoadedOnce) {
@@ -169,11 +172,7 @@ export default function ServicesPage() {
         setLoading(false);
         setHasLoadedOnce(true);
       });
-  }, [location, idleCenter, type, searchTick]);
-
-  useEffect(() => () => {
-    if (idleDebounceRef.current) clearTimeout(idleDebounceRef.current);
-  }, []);
+  }, [location, type, searchTick]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -219,6 +218,7 @@ export default function ServicesPage() {
           age: profile.age ?? null,
           hairColor: profile.hairColor ?? null,
           weightKg: profile.weightKg ?? null,
+          level: profile.userLevel ?? null,
           tier: profile.availableNow ? "online" : "offline",
           areaRadiusM: 500,
         })),
@@ -279,14 +279,7 @@ export default function ServicesPage() {
               height={420}
               autoCenterOnDataChange={false}
               showMarkersForArea={false}
-              renderHtmlMarkers={false}
-              onCenterChange={(center) => {
-                setMapCenter(center);
-                if (idleDebounceRef.current) clearTimeout(idleDebounceRef.current);
-                idleDebounceRef.current = setTimeout(() => {
-                  setIdleCenter(center);
-                }, 600);
-              }}
+              renderHtmlMarkers
             />
           </div>
         )}
@@ -307,11 +300,6 @@ export default function ServicesPage() {
               <button
                 onClick={() => {
                   setRadiusKm((r) => r + 10);
-                  const center = mapCenter || (location ? { lat: location[0], lng: location[1] } : null);
-                  if (center) {
-                    setMapCenter({ ...center });
-                    setIdleCenter({ ...center });
-                  }
                   setSearchTick((v) => v + 1);
                 }}
                 className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm"
