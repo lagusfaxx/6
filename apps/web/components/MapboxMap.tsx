@@ -14,6 +14,8 @@ export type MapMarker = {
   age?: number | null;
   gender?: string | null;
   description?: string | null;
+  hairColor?: string | null;
+  weightKg?: number | null;
   href?: string | null;
   messageHref?: string | null;
   avatarUrl?: string | null;
@@ -113,11 +115,21 @@ function MapboxMapComponent({
   const didInitialCenterRef = useRef(false);
   const [mapInitialized, setMapInitialized] = useState(false);
   const [mapIdle, setMapIdle] = useState(false);
+  const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const centerChangeHandlerRef = useRef(onCenterChange);
 
   useEffect(() => {
     centerChangeHandlerRef.current = onCenterChange;
   }, [onCenterChange]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const updateViewport = () => setIsMobileViewport(window.innerWidth <= 768);
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
   const safeMarkers = useMemo(
@@ -185,6 +197,7 @@ function MapboxMapComponent({
           // ignore storage issues
         }
       });
+      map.on("click", () => setSelectedMarker(null));
     })();
 
     return () => {
@@ -274,16 +287,17 @@ function MapboxMapComponent({
       const metadata = [marker.subtitle, marker.locality]
         .filter(Boolean)
         .join(" · ");
-      if (marker.tier || metadata) {
+      const tierLabel = marker.tier === "online" ? "Online" : marker.tier === "offline" ? "Offline" : marker.tier;
+      if (tierLabel || metadata) {
         const subtitle = document.createElement("div");
         subtitle.className = "uzeed-map-popup__subtitle";
-        subtitle.textContent = [marker.tier, metadata]
+        subtitle.textContent = [tierLabel, metadata]
           .filter(Boolean)
           .join(" · ");
         popupContent.appendChild(subtitle);
       }
 
-      if (marker.age || marker.gender) {
+      if (marker.age || marker.gender || marker.hairColor || marker.weightKg) {
         const meta = document.createElement("div");
         meta.className = "uzeed-map-popup__meta";
         const genderLabel =
@@ -297,6 +311,8 @@ function MapboxMapComponent({
         meta.textContent = [
           marker.age ? `${marker.age} años` : null,
           genderLabel,
+          marker.hairColor ? `Cabello: ${marker.hairColor}` : null,
+          marker.weightKg ? `Peso: ${Math.round(marker.weightKg)} kg` : null,
         ]
           .filter(Boolean)
           .join(" · ");
@@ -352,10 +368,15 @@ function MapboxMapComponent({
         popup.remove();
       });
 
-      // Mobile/touch: abrir popup (no navegar directo). La navegación va por el botón.
+      // Mobile/touch: abrir drawer. Desktop: popup sobre marcador.
       el.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        popup.setLngLat([marker.displayLng, marker.displayLat]).addTo(map);
+        if (isMobileViewport) {
+          popup.remove();
+          setSelectedMarker(marker);
+        } else {
+          popup.setLngLat([marker.displayLng, marker.displayLat]).addTo(map);
+        }
         onMarkerFocus?.(marker.id);
       });
 
@@ -364,7 +385,7 @@ function MapboxMapComponent({
         .addTo(map);
       markerRefs.current.push(markerInstance);
     });
-  }, [displayMarkers, onMarkerFocus, showMarkersForArea, renderHtmlMarkers]);
+  }, [displayMarkers, isMobileViewport, onMarkerFocus, showMarkersForArea, renderHtmlMarkers]);
 
 
   useEffect(() => {
@@ -519,7 +540,44 @@ function MapboxMapComponent({
     );
   }
 
-  return <div ref={containerRef} className={className} style={{ height }} />;
+  return (
+    <>
+      <div ref={containerRef} className={className} style={{ height }} />
+      {isMobileViewport && selectedMarker ? (
+        <div className="uzeed-map-drawer" role="dialog" aria-label="Detalle de perfil en mapa">
+          <div className="uzeed-map-drawer__content">
+            <div className="uzeed-map-drawer__header">
+              <div className="uzeed-map-drawer__name">{selectedMarker.name}</div>
+              <button
+                type="button"
+                className="uzeed-map-drawer__close"
+                onClick={() => setSelectedMarker(null)}
+              >
+                Cerrar
+              </button>
+            </div>
+            <div className="uzeed-map-drawer__meta">
+              {[
+                selectedMarker.tier === "online" ? "Online" : "Offline",
+                selectedMarker.subtitle,
+                selectedMarker.locality,
+                selectedMarker.age ? `${selectedMarker.age} años` : null,
+                selectedMarker.hairColor ? `Cabello: ${selectedMarker.hairColor}` : null,
+                selectedMarker.weightKg ? `Peso: ${Math.round(selectedMarker.weightKg)} kg` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </div>
+            {selectedMarker.href ? (
+              <a className="uzeed-map-drawer__btn" href={selectedMarker.href}>
+                Ver perfil
+              </a>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 const MapboxMap = memo(MapboxMapComponent);

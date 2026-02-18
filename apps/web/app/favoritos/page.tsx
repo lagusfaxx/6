@@ -131,9 +131,7 @@ export default function FavoritesPage() {
             <Link
               key={fav.id}
               href={`/profesional/${fav.professional.id}`}
-              className={`rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 transition hover:border-white/30 active:scale-98 ${
-                fav.professional.isActive ? "" : "opacity-60 grayscale"
-              }`}
+              className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5 transition hover:border-white/30 active:scale-98"
             >
               <div className="flex items-center gap-3 sm:gap-4">
                 <Avatar src={fav.professional.avatarUrl} alt={fav.professional.name} size={48} />

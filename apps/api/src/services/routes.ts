@@ -103,6 +103,20 @@ function computeAvailableNow(lastSeen: Date | null | undefined) {
   return Date.now() - lastSeen.getTime() <= AVAILABLE_WINDOW_MS;
 }
 
+function computeAge(birthdate: Date | null | undefined) {
+  if (!birthdate) return null;
+  const now = new Date();
+  let age = now.getFullYear() - birthdate.getFullYear();
+  const monthDiff = now.getMonth() - birthdate.getMonth();
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && now.getDate() < birthdate.getDate())
+  ) {
+    age -= 1;
+  }
+  return age >= 18 ? age : null;
+}
+
 servicesRouter.get(
   "/services",
   asyncHandler(async (req, res) => {
@@ -148,6 +162,9 @@ servicesRouter.get(
         profileType: true,
         isActive: true,
         isOnline: true,
+        birthdate: true,
+        hairColor: true,
+        weightKg: true,
         lastSeen: true,
         completedServices: true,
         membershipExpiresAt: true,
@@ -178,6 +195,9 @@ servicesRouter.get(
           locality: p.city || null,
           distance,
           availableNow: Boolean(p.isOnline) && computeAvailableNow(p.lastSeen),
+          age: computeAge(p.birthdate),
+          hairColor: p.hairColor,
+          weightKg: p.weightKg,
           lastSeen: p.lastSeen ? p.lastSeen.toISOString() : null,
           userLevel: resolveProfessionalLevel(p.completedServices),
         };
@@ -191,6 +211,10 @@ servicesRouter.get(
         if (a.availableNow !== b.availableNow) {
           return Number(b.availableNow) - Number(a.availableNow);
         }
+        const lastSeenDiff =
+          (Date.parse(b.lastSeen || "") || 0) -
+          (Date.parse(a.lastSeen || "") || 0);
+        if (lastSeenDiff !== 0) return lastSeenDiff;
         if (a.distance === null && b.distance === null) return 0;
         if (a.distance === null) return 1;
         if (b.distance === null) return -1;

@@ -28,6 +28,9 @@ type ProfileResult = {
   lastSeen?: string | null;
   userLevel?: "SILVER" | "GOLD" | "DIAMOND";
   completedServices?: number | null;
+  age?: number | null;
+  hairColor?: string | null;
+  weightKg?: number | null;
 };
 
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
@@ -185,6 +188,8 @@ export default function ServicesPage() {
       })
       .sort((a, b) => {
         if (Boolean(a.availableNow) !== Boolean(b.availableNow)) return Number(Boolean(b.availableNow)) - Number(Boolean(a.availableNow));
+        const lastSeenDiff = (Date.parse(b.lastSeen || "") || 0) - (Date.parse(a.lastSeen || "") || 0);
+        if (lastSeenDiff !== 0) return lastSeenDiff;
         return (a.distance ?? 1e9) - (b.distance ?? 1e9);
       });
   }, [profiles, radiusKm, search]);
@@ -193,6 +198,8 @@ export default function ServicesPage() {
     if (filtered.length > 0) return filtered;
     return [...profiles].sort((a, b) => {
       if (Boolean(a.availableNow) !== Boolean(b.availableNow)) return Number(Boolean(b.availableNow)) - Number(Boolean(a.availableNow));
+      const lastSeenDiff = (Date.parse(b.lastSeen || "") || 0) - (Date.parse(a.lastSeen || "") || 0);
+      if (lastSeenDiff !== 0) return lastSeenDiff;
       return (a.distance ?? 1e9) - (b.distance ?? 1e9);
     });
   }, [filtered, profiles]);
@@ -209,6 +216,9 @@ export default function ServicesPage() {
           subtitle: profile.serviceCategory || profile.city || "Perfil",
           href: ownerHref(profile),
           avatarUrl: profile.avatarUrl,
+          age: profile.age ?? null,
+          hairColor: profile.hairColor ?? null,
+          weightKg: profile.weightKg ?? null,
           tier: profile.availableNow ? "online" : "offline",
           areaRadiusM: 500,
         })),
@@ -222,7 +232,7 @@ export default function ServicesPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold">Buscar perfiles</h1>
-              <p className="mt-1 text-sm text-white/55">Profesionales disponibles cerca de ti</p>
+              <p className="mt-1 text-sm text-white/55">Perfiles online y offline ordenados por actividad reciente</p>
             </div>
             <div className="inline-flex overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
               <button onClick={() => setType("experience")} className={`rounded-lg px-3 py-1.5 text-sm ${type === "experience" ? "bg-fuchsia-500/20 text-fuchsia-200" : "text-white/60"}`}>
