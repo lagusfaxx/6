@@ -244,7 +244,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       </section>
 
       {gallery.length > 0 ? (
-        <section className="-mx-4 border-y border-white/10 bg-white/[0.04] py-0 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:mx-0 md:rounded-[28px] md:border md:bg-white/[0.06] md:p-6">
+        <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:bg-white/[0.06] md:p-6">
           <div className="min-w-0 space-y-3 md:space-y-4">
             {selectedGalleryImage && (
               <motion.button
@@ -252,7 +252,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                 onClick={() => setLightbox(selectedGalleryImage)}
                 className="relative block w-full overflow-hidden border-y border-white/10 bg-white/5 md:rounded-3xl md:border"
               >
-                <div className="h-[100svh] w-full md:h-auto md:aspect-[16/8]">
+                <div className="aspect-[3/4] w-full sm:aspect-[4/5] md:aspect-[16/8]">
                   <img src={selectedGalleryImage} alt="Imagen destacada" className="h-full w-full object-cover" />
                 </div>
                 <span className="absolute bottom-3 right-3 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-xs text-white/90 backdrop-blur-md">
@@ -261,14 +261,14 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
               </motion.button>
             )}
 
-            <div className="min-w-0 px-4 pb-3 md:px-0 md:pb-0">
+            <div className="min-w-0 overflow-hidden px-4 pb-3 md:px-0 md:pb-0">
               <div className="flex snap-x snap-mandatory gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {gallery.map((url, idx) => (
                   <button
                     type="button"
                     key={`${url}-${idx}`}
                     onClick={() => setGalleryIndex(idx)}
-                    className={`relative aspect-[4/5] w-24 min-w-24 shrink-0 snap-start overflow-hidden rounded-xl border transition md:w-28 md:min-w-28 ${idx === galleryIndex ? "border-fuchsia-300 shadow-[0_0_0_1px_rgba(232,121,249,0.5)]" : "border-white/10 opacity-80 hover:opacity-100"}`}
+                    className={`relative aspect-[4/5] w-24 min-w-[6rem] shrink-0 snap-start overflow-hidden rounded-xl border transition md:w-28 md:min-w-[7rem] ${idx === galleryIndex ? "border-fuchsia-300 shadow-[0_0_0_1px_rgba(232,121,249,0.5)]" : "border-white/10 opacity-80 hover:opacity-100"}`}
                   >
                     <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" />
                   </button>
