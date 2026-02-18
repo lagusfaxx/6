@@ -51,7 +51,7 @@ const uploadMedia = multer({
   limits: { fileSize: 100 * 1024 * 1024 },
 });
 
-const AVAILABLE_WINDOW_MS = 10 * 60 * 1000;
+const AVAILABLE_WINDOW_MS = 5 * 60 * 1000;
 
 function computeAvailableNow(lastSeen: Date | null | undefined) {
   if (!lastSeen) return false;
@@ -120,6 +120,7 @@ profileRouter.get(
         shopTrialEndsAt: true,
         createdAt: true,
         isActive: true,
+        isOnline: true,
         completedServices: true,
         profileViews: true,
       },
@@ -135,6 +136,9 @@ profileRouter.get(
           p.longitude !== null
             ? haversine(lat, lng, p.latitude, p.longitude)
             : null;
+        const hasActiveSession =
+          Boolean(p.isOnline) && computeAvailableNow(p.lastSeen);
+
         return {
           id: p.id,
           username: p.username,
@@ -145,7 +149,7 @@ profileRouter.get(
           lat: p.latitude,
           lng: p.longitude,
           distanceKm,
-          availableNow: computeAvailableNow(p.lastSeen),
+          availableNow: hasActiveSession,
           isActive: p.isActive,
           userLevel: resolveProfessionalLevel(p.completedServices),
           completedServices: p.completedServices,
@@ -164,24 +168,25 @@ profileRouter.get(
       );
 
     if (sort === "near") {
-      enriched.sort((a, b) => (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9));
+      const near = enriched
+        .filter((p) => p.availableNow && p.distanceKm !== null)
+        .sort((a, b) => (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9));
+      return res.json({
+        profiles: near.slice(0, limit).map(({ createdAt, ...row }) => row),
+      });
     } else if (sort === "new") {
       const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
       const recentOnly = enriched.filter(
         (p) => new Date(p.createdAt).getTime() >= sevenDaysAgo,
       );
-      recentOnly.sort((a, b) => {
-        if (a.isActive !== b.isActive)
-          return Number(b.isActive) - Number(a.isActive);
-        return +new Date(b.createdAt) - +new Date(a.createdAt);
-      });
+      recentOnly.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
       return res.json({
         profiles: recentOnly
           .slice(0, limit)
           .map(({ createdAt, ...row }) => row),
       });
     } else if (sort === "availableNow") {
-      const available = enriched.filter((p) => p.isActive);
+      const available = enriched.filter((p) => p.availableNow);
       available.sort((a, b) => {
         const levelCmp = compareProfessionalLevelDesc(a.userLevel, b.userLevel);
         if (levelCmp !== 0) return levelCmp;

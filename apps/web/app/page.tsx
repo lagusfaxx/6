@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import { useMapLocation } from "../hooks/useMapLocation";
 import useMe from "../hooks/useMe";
+import UserLevelBadge from "../components/UserLevelBadge";
 import {
   buildChatHref,
   buildCurrentPathWithSearch,
@@ -466,16 +467,10 @@ export default function HomePage() {
                               {p.distance.toFixed(1)} km
                             </div>
                           )}
-                          {p.userLevel === "DIAMOND" && (
-                            <div className="absolute left-3 top-3 rounded-full border border-cyan-200/40 bg-cyan-400/20 px-2.5 py-1 text-[11px] font-semibold text-cyan-50">
-                              💎 Diamond
-                            </div>
-                          )}
-                          {p.userLevel === "GOLD" && (
-                            <div className="absolute left-3 top-3 rounded-full border border-amber-200/40 bg-amber-400/20 px-2.5 py-1 text-[11px] font-semibold text-amber-50">
-                              🥇 {p.completedServices} servicios exitosos
-                            </div>
-                          )}
+                          <UserLevelBadge
+                            level={p.userLevel}
+                            className="absolute left-3 top-3 px-2.5 py-1 text-[11px]"
+                          />
 
                           {/* Bottom info overlay */}
                           <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -595,17 +590,10 @@ export default function HomePage() {
                                     Disponible
                                   </div>
                                 )}
-                                {profile.userLevel === "DIAMOND" && (
-                                  <div className="absolute bottom-2 right-2 rounded-full border border-cyan-200/40 bg-cyan-400/20 px-2 py-1 text-[11px] font-semibold text-cyan-50">
-                                    💎 Diamond
-                                  </div>
-                                )}
-                                {profile.userLevel === "GOLD" && (
-                                  <div className="absolute bottom-2 right-2 rounded-full border border-amber-200/40 bg-amber-400/20 px-2 py-1 text-[11px] font-semibold text-amber-50">
-                                    🥇 {profile.completedServices} servicios
-                                    exitosos
-                                  </div>
-                                )}
+                                <UserLevelBadge
+                                  level={profile.userLevel}
+                                  className="absolute bottom-2 right-2 px-2 py-1 text-[11px]"
+                                />
                               </div>
                             </Link>
                             <div className="space-y-2 p-3">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import { useMapLocation } from "../../hooks/useMapLocation";
 import MapboxMap from "../../components/MapboxMap";
+import UserLevelBadge from "../../components/UserLevelBadge";
 import { Compass, MapPin, Search, SlidersHorizontal, User } from "lucide-react";
 
 type ProfileResult = {
@@ -40,27 +41,6 @@ function resolveCardImage(profile: ProfileResult) {
   return (
     resolveMediaUrl(profile.coverUrl) ?? resolveMediaUrl(profile.avatarUrl)
   );
-}
-
-function levelBadge(level?: "SILVER" | "GOLD" | "DIAMOND") {
-  if (level === "DIAMOND") {
-    return {
-      label: "💎 Diamond",
-      className:
-        "border-cyan-200/40 bg-cyan-400/20 text-cyan-50",
-    };
-  }
-  if (level === "GOLD") {
-    return {
-      label: "🥇 Gold",
-      className:
-        "border-amber-200/40 bg-amber-400/20 text-amber-50",
-    };
-  }
-  return {
-    label: "🥈 Silver",
-    className: "border-slate-200/30 bg-slate-300/15 text-slate-100",
-  };
 }
 
 export default function ServicesPage() {
@@ -283,7 +263,6 @@ export default function ServicesPage() {
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {filtered.map((profile) => {
                 const img = resolveCardImage(profile);
-                const badge = levelBadge(profile.userLevel);
                 return (
                   <Link
                     key={profile.id}
@@ -322,11 +301,10 @@ export default function ServicesPage() {
                         <div className="truncate text-sm font-semibold">
                           {profile.displayName || profile.username}
                         </div>
-                        <span
-                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badge.className}`}
-                        >
-                          {badge.label}
-                        </span>
+                        <UserLevelBadge
+                          level={profile.userLevel}
+                          className="shrink-0"
+                        />
                       </div>
                       <div className="mt-1 flex items-center gap-2 text-xs text-white/50">
                         <div className="h-6 w-6 overflow-hidden rounded-full bg-white/[0.06]">

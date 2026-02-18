@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { apiFetch, isAuthError } from "../../lib/api";
 import Avatar from "../../components/Avatar";
+import UserLevelBadge from "../../components/UserLevelBadge";
 import { Heart, Calendar, MapPin, Clock, Star } from "lucide-react";
 
 type Favorite = {
@@ -17,6 +18,7 @@ type Favorite = {
     rating: number | null;
     category: string | null;
     isActive: boolean;
+    userLevel: "SILVER" | "GOLD" | "DIAMOND";
   };
 };
 
@@ -34,6 +36,7 @@ type ServiceHistory = {
     name: string;
     avatarUrl: string | null;
     category: string | null;
+    userLevel: "SILVER" | "GOLD" | "DIAMOND";
   };
   review: {
     hearts: number;
@@ -135,7 +138,13 @@ export default function FavoritesPage() {
               <div className="flex items-center gap-3 sm:gap-4">
                 <Avatar src={fav.professional.avatarUrl} alt={fav.professional.name} size={48} />
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate">{fav.professional.name}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-semibold truncate">{fav.professional.name}</div>
+                    <UserLevelBadge
+                      level={fav.professional.userLevel}
+                      className="shrink-0"
+                    />
+                  </div>
                   <div className="text-xs text-white/60 truncate">{fav.professional.category || "Profesional"}</div>
                 </div>
                 <Heart className="h-5 w-5 flex-shrink-0 fill-red-500 text-red-500" />
@@ -184,6 +193,11 @@ export default function FavoritesPage() {
                       </Link>
                       <div className="text-xs text-white/60 mt-0.5 truncate">
                         {service.professional.category}
+                      </div>
+                      <div className="mt-1">
+                        <UserLevelBadge
+                          level={service.professional.userLevel}
+                        />
                       </div>
                     </div>
                     {service.review && (
