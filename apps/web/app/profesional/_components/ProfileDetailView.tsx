@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { ApiHttpError, apiFetch, resolveMediaUrl } from "../../../lib/api";
 import { buildChatHref, buildCurrentPathWithSearch, buildLoginHref } from "../../../lib/chat";
 import useMe from "../../../hooks/useMe";
-import Avatar from "../../../components/Avatar";
 import StarRating from "../../../components/StarRating";
 import GalleryCounter from "../../../components/GalleryCounter";
 import SkeletonCard from "../../../components/SkeletonCard";
@@ -59,6 +58,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [brokenImages, setBrokenImages] = useState<Record<string, true>>({});
   const { me } = useMe();
 
   useEffect(() => {
@@ -131,7 +131,6 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
   const availableNow = useMemo(() => isRecentlySeen(professional?.lastSeen), [professional?.lastSeen]);
   const coverSrc = resolveMediaUrl(professional?.coverUrl) ?? resolveMediaUrl(professional?.avatarUrl);
-  const avatarSrc = resolveMediaUrl(professional?.avatarUrl);
   const gallery = useMemo(
     () => (professional?.gallery || []).map((g) => resolveMediaUrl(g.url)).filter((url): url is string => Boolean(url)),
     [professional?.gallery],
@@ -141,11 +140,20 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
   const hasAvailabilitySection = Boolean(professional?.availabilityNote || availabilityChips.length);
   const hasRatesSection = typeof professional?.baseRate === "number";
   const hasLocationSection = Boolean(professional?.city);
+  const coverKey = useMemo(() => `cover:${coverSrc || "none"}`, [coverSrc]);
 
   function redirectToLoginIfNeeded() {
     if (me?.user) return false;
     window.location.href = buildLoginHref(buildCurrentPathWithSearch());
     return true;
+  }
+
+  function markBrokenImage(key: string) {
+    setBrokenImages((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+  }
+
+  function isBrokenImage(key: string) {
+    return Boolean(brokenImages[key]);
   }
 
   function handleChatClick(mode: "message" | "request") {
@@ -191,69 +199,83 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       : { label: "No disponible", className: "border-white/20 bg-white/10 text-white/70" };
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-5 pb-28 md:gap-6 md:pb-6">
-      <section className={`relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-b from-white/15 to-white/[0.03] shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
-        <div className="relative aspect-[4/5] w-full overflow-hidden md:aspect-[16/7]">
-          {coverSrc ? (
-            <img src={coverSrc} alt="Portada" className="h-full w-full object-cover object-center" />
+    <div className="mx-auto grid w-full max-w-5xl gap-4 pb-40 md:gap-6 md:pb-6">
+      <section className={`relative overflow-hidden rounded-[30px] border border-white/10 bg-gradient-to-b from-white/15 to-white/[0.03] shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
+        <div className="relative aspect-[4/5] max-h-[76vh] w-full overflow-hidden md:aspect-[16/8] md:max-h-none">
+          {coverSrc && !isBrokenImage(coverKey) ? (
+            <img
+              src={coverSrc}
+              alt="Portada"
+              className="h-full w-full object-cover object-center"
+              onError={() => markBrokenImage(coverKey)}
+            />
           ) : (
             <div className="grid h-full w-full place-items-center bg-gradient-to-br from-fuchsia-700/35 via-violet-700/30 to-slate-900">
               <ImageIcon className="h-10 w-10 text-white/50" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#090312] via-[#090312]/60 to-transparent" />
-        </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#13061f]/90 via-[#13061f]/35 to-transparent" />
 
-        <div className="relative -mt-14 space-y-4 px-4 pb-5 md:px-6 md:pb-6">
-          <div className="rounded-[24px] border border-white/15 bg-black/35 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-5">
-            <div className="flex items-start gap-3 md:gap-4">
-              <Avatar
-                src={avatarSrc}
-                alt={professional.name}
-                size={112}
-                className="size-20 shrink-0 rounded-full border-2 border-white/40 ring-4 ring-black/40 md:size-24"
-              />
-              <div className="min-w-0 flex-1 space-y-2">
-                <h1 className="truncate text-2xl font-semibold leading-tight">{professional.name}{professional.age ? `, ${professional.age}` : ""}</h1>
-                <div className="flex items-center gap-2 text-sm text-white/80">
-                  <div className="flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1">
-                    <Star className="h-3.5 w-3.5 text-amber-300" />
-                    <StarRating rating={professional.rating} size={12} />
-                  </div>
-                  <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${availabilityState.className}`}>{availabilityState.label}</span>
-                </div>
-                <div className="text-sm text-white/65">
+          <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4 md:p-5">
+            <span className={`rounded-full border px-3 py-1 text-xs font-medium backdrop-blur-md ${availabilityState.className}`}>{availabilityState.label}</span>
+            <div className="flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white shadow-[0_6px_18px_rgba(0,0,0,0.22)] backdrop-blur-md">
+              <Star className="h-3.5 w-3.5 text-amber-300" />
+              <StarRating rating={professional.rating} size={12} />
+            </div>
+          </div>
+
+          <div className="absolute inset-x-0 bottom-0 p-3 md:p-6">
+            <div className="rounded-3xl border border-white/20 bg-white/10 p-3.5 shadow-[0_16px_48px_rgba(0,0,0,0.30)] backdrop-blur-xl md:p-5">
+              <div className="space-y-2">
+                <h1 className="line-clamp-2 text-[1.75rem] font-semibold leading-[1.02] tracking-tight md:text-4xl">{professional.name}{professional.age ? `, ${professional.age}` : ""}</h1>
+                <div className="line-clamp-1 text-sm tracking-wide text-white/80 md:text-base">
                   {professional.city || "Ubicación no especificada"}
                   {professional.category ? ` • ${professional.category}` : ""}
                 </div>
               </div>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {styleChips.slice(0, 4).map((chip) => (
+                  <span key={chip} className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium tracking-wide text-white/90">
+                    {chip}
+                  </span>
+                ))}
+              </div>
             </div>
-
-            <div className="mt-4 flex flex-wrap gap-2.5">
-              {styleChips.slice(0, 5).map((chip) => (
-                <span key={chip} className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90">
-                  {chip}
-                </span>
-              ))}
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button onClick={() => handleChatClick("message")} className="btn-primary w-full rounded-2xl py-3 text-sm">
-                Enviar mensaje
-              </button>
-              <button onClick={() => handleChatClick("request")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
-                Solicitar servicio
-              </button>
-            </div>
-            <button
-              onClick={toggleFavorite}
-              className={`mt-2.5 w-full rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${favorite ? "border-rose-400/60 bg-rose-500/20 text-rose-100" : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"}`}
-            >
-              {favorite ? "♥ Guardado en favoritos" : "♡ Agregar a favoritos"}
-            </button>
           </div>
         </div>
       </section>
+
+      {gallery.length > 0 ? (
+        <section className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Galería</h2>
+            <GalleryCounter count={gallery.length} />
+          </div>
+          <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {gallery.map((url, idx) => (
+              <motion.button
+                type="button"
+                key={`${url}-${idx}`}
+                onClick={() => setLightbox(url)}
+                className="aspect-[4/5] w-[42vw] min-w-[140px] max-w-[200px] snap-start overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.30)] transition hover:scale-[1.01]"
+              >
+                {!isBrokenImage(`gallery:${url}`) ? (
+                  <img
+                    src={url}
+                    alt={`Galería ${idx + 1}`}
+                    className="h-full w-full object-cover"
+                    onError={() => markBrokenImage(`gallery:${url}`)}
+                  />
+                ) : (
+                  <div className="grid h-full w-full place-items-center bg-gradient-to-br from-fuchsia-500/15 via-violet-500/10 to-transparent">
+                    <ImageIcon className="h-5 w-5 text-white/45" />
+                  </div>
+                )}
+              </motion.button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {hasDetailsSection && (
         <section className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
@@ -268,27 +290,11 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
         </section>
       )}
 
-      {/* Etiquetas - nice chips */}
-      {hasStyleSection && (
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
-          <h2 className="mb-3 text-lg font-semibold">Etiquetas</h2>
-          <div className="flex flex-wrap gap-2.5">
-            {styleChips.map((chip) => (
-              <span key={chip} className="inline-block rounded-full border border-fuchsia-300/25 bg-fuchsia-500/10 px-3.5 py-1.5 text-xs font-medium tracking-wide text-fuchsia-100">
-                {chip}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Availability section */}
       {hasAvailabilitySection && (
         <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
           <h2 className="mb-3 text-lg font-semibold">Disponibilidad</h2>
-          <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-medium ${availabilityState.className}`}>{availabilityState.label}</span>
           {professional.availabilityNote && (
-            <p className="mb-3 mt-3 text-sm text-white/70">{professional.availabilityNote}</p>
+            <p className="text-sm text-white/70">{professional.availabilityNote}</p>
           )}
           {availabilityChips.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -302,11 +308,10 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
         </div>
       )}
 
-      {/* Rates section */}
       {hasRatesSection && (
-        <section className="rounded-[28px] border border-fuchsia-300/20 bg-gradient-to-br from-fuchsia-500/15 via-violet-500/10 to-white/[0.03] p-5 shadow-[0_14px_50px_rgba(120,40,200,0.25)] backdrop-blur-xl md:p-6">
-          <h2 className="text-lg font-semibold text-white/90">Tarifas</h2>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-white">
+        <section className="rounded-[28px] border border-fuchsia-300/20 bg-gradient-to-br from-[#23102d]/95 via-[#2d1638]/85 to-[#1b1126]/80 p-5 shadow-[0_14px_50px_rgba(120,40,200,0.25)] backdrop-blur-xl md:p-6">
+          <h2 className="text-lg font-semibold text-white/90">Tarifa</h2>
+          <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
             ${professional.baseRate?.toLocaleString("es-CL")}
           </p>
           <p className="mt-1 text-sm text-white/70">
@@ -315,38 +320,28 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
         </section>
       )}
 
-      {gallery.length > 0 ? (
-        <section className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Galería</h2>
-            <GalleryCounter count={gallery.length} />
-          </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
-            {gallery.map((url, idx) => (
-              <motion.button
-                type="button"
-                key={`${url}-${idx}`}
-                onClick={() => setLightbox(url)}
-                className="aspect-[4/5] overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition hover:scale-[1.01]"
-              >
-                <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" />
-              </motion.button>
+      {hasStyleSection && (
+        <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
+          <h2 className="mb-3 text-lg font-semibold">Etiquetas</h2>
+          <div className="flex flex-wrap gap-2.5">
+            {styleChips.map((chip) => (
+              <span key={chip} className="inline-block rounded-full border border-fuchsia-300/25 bg-fuchsia-500/10 px-3.5 py-1.5 text-xs font-medium tracking-wide text-fuchsia-100">
+                {chip}
+              </span>
             ))}
           </div>
-        </section>
-      ) : null}
+        </div>
+      )}
 
-      {/* Location section */}
       {hasLocationSection && (
         <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
-          <h2 className="text-lg font-semibold mb-2">Ubicación</h2>
+          <h2 className="mb-2 text-lg font-semibold">Ubicación</h2>
           <p className="text-sm text-white/70">
             {professional.city ? `Zona aproximada: ${professional.city}` : "Zona referencial"}
           </p>
         </div>
       )}
 
-      {/* Lightbox */}
       {lightbox && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/85 p-4 backdrop-blur-md" onClick={() => setLightbox(null)}>
           <div className="w-full max-w-3xl">
@@ -357,14 +352,53 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             >
               <X className="h-4 w-4" />
             </button>
-            <img src={lightbox} alt="Vista ampliada" className="w-full rounded-3xl border border-white/10 object-cover" />
+            {!isBrokenImage(`lightbox:${lightbox}`) ? (
+              <img
+                src={lightbox}
+                alt="Vista ampliada"
+                className="w-full rounded-3xl border border-white/10 object-cover"
+                onError={() => markBrokenImage(`lightbox:${lightbox}`)}
+              />
+            ) : (
+              <div className="grid aspect-[4/5] w-full place-items-center rounded-3xl border border-white/10 bg-gradient-to-br from-fuchsia-500/15 via-violet-500/10 to-transparent">
+                <ImageIcon className="h-8 w-8 text-white/40" />
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#08050f]/90 px-4 py-3 backdrop-blur-xl md:hidden">
-        <button onClick={() => handleChatClick("message")} className="btn-primary w-full rounded-2xl py-3 text-sm">
-          Enviar mensaje
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[linear-gradient(180deg,rgba(14,7,22,0.75)_0%,rgba(12,6,20,0.96)_40%,rgba(12,6,20,0.98)_100%)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl md:hidden">
+        <div className="grid grid-cols-2 gap-2.5">
+          <button onClick={() => handleChatClick("message")} className="btn-primary w-full rounded-2xl py-3 text-sm">
+            Enviar mensaje
+          </button>
+          <button onClick={() => handleChatClick("request")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
+            Solicitar servicio
+          </button>
+        </div>
+        <button
+          onClick={toggleFavorite}
+          className={`mt-2.5 w-full rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${favorite ? "border-rose-400/60 bg-rose-500/20 text-rose-100" : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"}`}
+        >
+          {favorite ? "♥ Guardado en favoritos" : "♡ Agregar a favoritos"}
+        </button>
+      </div>
+
+      <div className="hidden md:block">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button onClick={() => handleChatClick("message")} className="btn-primary w-full rounded-2xl py-3 text-sm">
+            Enviar mensaje
+          </button>
+          <button onClick={() => handleChatClick("request")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
+            Solicitar servicio
+          </button>
+        </div>
+        <button
+          onClick={toggleFavorite}
+          className={`mt-2.5 w-full rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${favorite ? "border-rose-400/60 bg-rose-500/20 text-rose-100" : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"}`}
+        >
+          {favorite ? "♥ Guardado en favoritos" : "♡ Agregar a favoritos"}
         </button>
       </div>
     </div>
