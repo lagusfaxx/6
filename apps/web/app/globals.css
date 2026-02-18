@@ -357,3 +357,59 @@ input[type="time"].input::-webkit-datetime-edit,
 input[type="datetime-local"].input::-webkit-datetime-edit {
   color: #ffffff;
 }
+
+
+.uzeed-map-drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  padding: 0 12px calc(10px + env(safe-area-inset-bottom));
+}
+
+.uzeed-map-drawer__content {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(10, 10, 14, 0.94);
+  backdrop-filter: blur(12px);
+  color: #fff;
+  padding: 12px;
+}
+
+.uzeed-map-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.uzeed-map-drawer__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.uzeed-map-drawer__close {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.uzeed-map-drawer__meta {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.uzeed-map-drawer__btn {
+  margin-top: 10px;
+  display: inline-flex;
+  width: 100%;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(232, 121, 249, 0.35);
+  background: rgba(217, 70, 239, 0.15);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 10px;
+}

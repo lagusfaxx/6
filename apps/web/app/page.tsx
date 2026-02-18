@@ -73,7 +73,7 @@ const DISCOVERY_SECTIONS = [
   {
     key: "available",
     title: "Disponibles ahora",
-    subtitle: "Solo perfiles encendidos en este momento.",
+    subtitle: "Online primero, luego offline por última actividad.",
     icon: Clock3,
     href: "/servicios?sort=availableNow",
     cta: "Ver todas",
@@ -82,7 +82,7 @@ const DISCOVERY_SECTIONS = [
   {
     key: "near",
     title: "Cerca de ti",
-    subtitle: "Perfiles ordenados por cercanía.",
+    subtitle: "Perfiles visibles siempre, priorizados por actividad.",
     icon: Navigation,
     href: "/servicios?sort=near",
     cta: "Ver mapa",
@@ -105,6 +105,18 @@ function resolveProfileImage(profile: DiscoverProfile) {
     resolveMediaUrl(profile.avatarUrl) ??
     "/brand/isotipo-new.png"
   );
+}
+
+function formatLastSeenLabel(lastSeen?: string | null) {
+  if (!lastSeen) return "Activa recientemente";
+  const diff = Date.now() - Date.parse(lastSeen);
+  if (!Number.isFinite(diff) || diff < 0) return "Activa recientemente";
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return `Activa hace ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Activa hace ${hours} hora${hours === 1 ? "" : "s"}`;
+  const days = Math.floor(hours / 24);
+  return `Activa hace ${days} día${days === 1 ? "" : "s"}`;
 }
 
 /* ── Animation variants ── */
@@ -570,7 +582,7 @@ export default function HomePage() {
                         return (
                           <article
                             key={profile.id}
-                            className={`group w-[70vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto ${section.key === "new" && !profile.isActive ? "opacity-80 saturate-75" : ""} ${profile.userLevel === "DIAMOND" ? "shadow-[0_0_0_1px_rgba(167,139,250,0.45),0_0_24px_rgba(167,139,250,0.14)]" : ""}`}
+                            className={`group w-[70vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto ${profile.userLevel === "DIAMOND" ? "shadow-[0_0_0_1px_rgba(167,139,250,0.45),0_0_24px_rgba(167,139,250,0.14)]" : ""}`}
                           >
                             <Link href={href} className="block">
                               <div className="relative aspect-[4/5] bg-white/[0.04]">
@@ -584,10 +596,14 @@ export default function HomePage() {
                                     {profile.distanceKm.toFixed(1)} km
                                   </div>
                                 )}
-                                {availableNow && (
+                                {availableNow ? (
                                   <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-100">
                                     <span className="h-2 w-2 rounded-full bg-emerald-300 animate-pulse" />
                                     Disponible
+                                  </div>
+                                ) : (
+                                  <div className="absolute left-2 top-2 rounded-full border border-white/15 bg-black/45 px-2 py-1 text-[11px] text-white/80">
+                                    {formatLastSeenLabel(profile.lastActiveAt || profile.lastSeen)}
                                   </div>
                                 )}
                                 <UserLevelBadge

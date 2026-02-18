@@ -221,9 +221,7 @@ export default function ProfessionalsClient() {
             <div
               key={p.id}
               onClick={() => setFocusedId(p.id)}
-              className={`rounded-2xl border border-white/10 bg-white/5 p-5 transition-all duration-200 hover:border-fuchsia-400/30 hover:shadow-lg hover:shadow-fuchsia-500/5 ${
-                p.isActive ? "" : "opacity-60 grayscale"
-              }`}
+              className="rounded-2xl border border-white/10 bg-white/5 p-5 transition-all duration-200 hover:border-fuchsia-400/30 hover:shadow-lg hover:shadow-fuchsia-500/5"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-4">

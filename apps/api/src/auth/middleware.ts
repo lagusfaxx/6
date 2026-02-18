@@ -20,6 +20,7 @@ const PUBLIC_PREFIXES = [
   "/professionals",     // ✅ directorio público (solo GET)
   "/motels",            // ✅ hospedaje público
   "/profiles/discover", // ✅ HOME discovery sections (guests need this)
+  "/profiles",          // ✅ perfil público por username/slug
   "/webhooks/flow"      // Flow subscription webhooks
 ];
 

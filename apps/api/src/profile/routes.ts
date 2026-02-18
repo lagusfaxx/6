@@ -79,6 +79,19 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c;
 }
 
+function compareByAvailabilityAndLastSeen(
+  a: { availableNow: boolean; lastActiveAt: string | null },
+  b: { availableNow: boolean; lastActiveAt: string | null },
+) {
+  if (a.availableNow !== b.availableNow) {
+    return Number(b.availableNow) - Number(a.availableNow);
+  }
+  return (
+    (Date.parse(b.lastActiveAt || "") || 0) -
+    (Date.parse(a.lastActiveAt || "") || 0)
+  );
+}
+
 profileRouter.get(
   "/profiles/discover",
   asyncHandler(async (req, res) => {
@@ -169,8 +182,12 @@ profileRouter.get(
 
     if (sort === "near") {
       const near = enriched
-        .filter((p) => p.availableNow && p.distanceKm !== null)
-        .sort((a, b) => (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9));
+        .filter((p) => p.distanceKm !== null)
+        .sort((a, b) => {
+          const availabilityCmp = compareByAvailabilityAndLastSeen(a, b);
+          if (availabilityCmp !== 0) return availabilityCmp;
+          return (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9);
+        });
       return res.json({
         profiles: near.slice(0, limit).map(({ createdAt, ...row }) => row),
       });
@@ -186,23 +203,22 @@ profileRouter.get(
           .map(({ createdAt, ...row }) => row),
       });
     } else if (sort === "availableNow") {
-      const available = enriched.filter((p) => p.availableNow);
+      const available = [...enriched];
       available.sort((a, b) => {
+        const availabilityCmp = compareByAvailabilityAndLastSeen(a, b);
+        if (availabilityCmp !== 0) return availabilityCmp;
         const levelCmp = compareProfessionalLevelDesc(a.userLevel, b.userLevel);
         if (levelCmp !== 0) return levelCmp;
-        return (
-          (Date.parse(b.lastActiveAt || "") || 0) -
-          (Date.parse(a.lastActiveAt || "") || 0)
-        );
+        return (b.profileViews || 0) - (a.profileViews || 0);
       });
       return res.json({
         profiles: available.slice(0, limit).map(({ createdAt, ...row }) => row),
       });
     } else {
-      const featured = enriched.filter((p) =>
-        ["GOLD", "DIAMOND"].includes(p.userLevel),
-      );
+      const featured = [...enriched];
       featured.sort((a, b) => {
+        const availabilityCmp = compareByAvailabilityAndLastSeen(a, b);
+        if (availabilityCmp !== 0) return availabilityCmp;
         const levelCmp = compareProfessionalLevelDesc(a.userLevel, b.userLevel);
         if (levelCmp !== 0) return levelCmp;
         if (a.isActive !== b.isActive)
