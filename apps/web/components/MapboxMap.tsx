@@ -20,6 +20,7 @@ export type MapMarker = {
   messageHref?: string | null;
   avatarUrl?: string | null;
   tier?: string | null;
+  level?: string | null;
   areaRadiusM?: number | null;
 };
 
@@ -39,35 +40,6 @@ type MapboxMapProps = {
 
 // Mapbox usa orden [lng, lat]
 const DEFAULT_CENTER: [number, number] = [-70.66, -33.45];
-
-function hashString(seed: string) {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash << 5) - hash + seed.charCodeAt(i);
-    hash |= 0;
-  }
-  return hash >>> 0;
-}
-
-function mulberry32(a: number) {
-  return () => {
-    let t = (a += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function jitterPoint(lat: number, lng: number, radiusM: number, seed: string) {
-  const rand = mulberry32(hashString(seed));
-  const distance = radiusM * 0.6 * rand();
-  const angle = rand() * Math.PI * 2;
-  const earth = 111320;
-  const dLat = (distance * Math.cos(angle)) / earth;
-  const dLng =
-    (distance * Math.sin(angle)) / (earth * Math.cos((lat * Math.PI) / 180));
-  return [lat + dLat, lng + dLng] as [number, number];
-}
 
 function circleFeature(
   lat: number,
@@ -142,16 +114,7 @@ function MapboxMapComponent({
   const displayMarkers = useMemo(
     () =>
       safeMarkers.map((marker) => {
-        const radius = marker.areaRadiusM ?? 0;
-        if (!radius)
-          return { ...marker, displayLat: marker.lat, displayLng: marker.lng };
-        const [jLat, jLng] = jitterPoint(
-          marker.lat,
-          marker.lng,
-          radius,
-          `marker:${marker.id}`,
-        );
-        return { ...marker, displayLat: jLat, displayLng: jLng };
+        return { ...marker, displayLat: marker.lat, displayLng: marker.lng };
       }),
     [safeMarkers],
   );
@@ -319,6 +282,13 @@ function MapboxMapComponent({
         popupContent.appendChild(meta);
       }
 
+      if (marker.level) {
+        const level = document.createElement("div");
+        level.className = "uzeed-map-popup__meta";
+        level.textContent = `Nivel: ${marker.level}`;
+        popupContent.appendChild(level);
+      }
+
       if (marker.description) {
         const desc = document.createElement("div");
         desc.className = "uzeed-map-popup__desc";
@@ -360,14 +330,6 @@ function MapboxMapComponent({
         closeButton: false,
       }).setDOMContent(popupContent);
 
-      // Desktop hover
-      el.addEventListener("mouseenter", () => {
-        popup.setLngLat([marker.displayLng, marker.displayLat]).addTo(map);
-      });
-      el.addEventListener("mouseleave", () => {
-        popup.remove();
-      });
-
       // Mobile/touch: abrir drawer. Desktop: popup sobre marcador.
       el.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -391,8 +353,15 @@ function MapboxMapComponent({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const sourceId = "uzeed-profile-points";
+    const layerId = `${sourceId}-circle`;
+    if (renderHtmlMarkers) {
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+      return;
+    }
+
     const update = () => {
-      const sourceId = "uzeed-profile-points";
       const data: GeoJSON.FeatureCollection<GeoJSON.Point> = {
         type: "FeatureCollection",
         features: displayMarkers.map((m) => ({
@@ -425,7 +394,7 @@ function MapboxMapComponent({
     } else {
       update();
     }
-  }, [displayMarkers, mapIdle]);
+  }, [displayMarkers, mapIdle, renderHtmlMarkers]);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -559,6 +528,7 @@ function MapboxMapComponent({
             <div className="uzeed-map-drawer__meta">
               {[
                 selectedMarker.tier === "online" ? "Online" : "Offline",
+                selectedMarker.level ? `Nivel: ${selectedMarker.level}` : null,
                 selectedMarker.subtitle,
                 selectedMarker.locality,
                 selectedMarker.age ? `${selectedMarker.age} años` : null,
