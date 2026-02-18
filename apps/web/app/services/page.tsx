@@ -164,7 +164,11 @@ export default function ServicesPage() {
     },
     [],
   );
-  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
