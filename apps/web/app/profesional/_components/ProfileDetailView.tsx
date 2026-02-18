@@ -401,3 +401,4 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     </div>
   );
 }
+
