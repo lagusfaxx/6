@@ -189,9 +189,9 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       : { label: "No disponible", className: "border-white/20 bg-white/10 text-white/70" };
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-5 pb-36 md:gap-6 md:pb-6">
-      <section className={`relative overflow-hidden rounded-[30px] border border-white/10 bg-gradient-to-b from-white/15 to-white/[0.03] shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
-        <div className="relative aspect-[4/5] w-full overflow-hidden md:aspect-[16/8]">
+    <div className="mx-auto grid w-full max-w-5xl gap-4 overflow-hidden pb-36 md:gap-6 md:pb-6">
+      <section className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/15 to-white/[0.03] shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:rounded-[30px] ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
+        <div className="relative aspect-[3/4] w-full overflow-hidden sm:aspect-[4/5] md:aspect-[16/8]">
           {coverSrc ? (
             <img src={coverSrc} alt="Portada" className="h-full w-full object-cover object-center" />
           ) : (
@@ -209,18 +209,18 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             </div>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 p-4 md:p-6">
-            <div className="rounded-3xl border border-white/20 bg-white/10 p-4 shadow-[0_16px_48px_rgba(0,0,0,0.30)] backdrop-blur-xl md:p-5">
-              <div className="space-y-2">
-                <h1 className="text-3xl font-semibold leading-none tracking-tight md:text-4xl">{professional.name}{professional.age ? `, ${professional.age}` : ""}</h1>
+          <div className="absolute inset-x-0 bottom-0 p-3 md:p-6">
+            <div className="rounded-2xl border border-white/20 bg-white/10 p-3 shadow-[0_16px_48px_rgba(0,0,0,0.30)] backdrop-blur-xl md:rounded-3xl md:p-5">
+              <div className="space-y-1.5 md:space-y-2">
+                <h1 className="text-2xl font-semibold leading-none tracking-tight sm:text-3xl md:text-4xl">{professional.name}{professional.age ? `, ${professional.age}` : ""}</h1>
                 <div className="text-sm tracking-wide text-white/80 md:text-base">
                   {professional.city || "Ubicación no especificada"}
                   {professional.category ? ` • ${professional.category}` : ""}
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2.5">
+              <div className="mt-2 flex flex-wrap gap-2 md:mt-3 md:gap-2.5">
                 {styleChips.slice(0, 4).map((chip) => (
-                  <span key={chip} className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium tracking-wide text-white/90">
+                  <span key={chip} className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[11px] font-medium tracking-wide text-white/90 md:px-3 md:py-1.5 md:text-xs">
                     {chip}
                   </span>
                 ))}
@@ -231,18 +231,18 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       </section>
 
       {gallery.length > 0 ? (
-        <section className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Galería</h2>
             <GalleryCounter count={gallery.length} />
           </div>
-          <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {gallery.map((url, idx) => (
               <motion.button
                 type="button"
                 key={`${url}-${idx}`}
                 onClick={() => setLightbox(url)}
-                className="aspect-[4/5] w-[44vw] min-w-[150px] max-w-[220px] snap-start overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.30)] transition hover:scale-[1.01]"
+                className="aspect-[4/5] w-[40vw] min-w-[130px] max-w-[220px] flex-shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.30)] transition hover:scale-[1.01] md:rounded-3xl"
               >
                 <img src={url} alt={`Galería ${idx + 1}`} className="h-full w-full object-cover" />
               </motion.button>
@@ -252,7 +252,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       ) : null}
 
       {hasDetailsSection && (
-        <section className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:p-6">
           <h2 className="mb-4 text-lg font-semibold">Información</h2>
           <div className="flex flex-wrap gap-2.5">
             {infoBadges.map((badge) => (
@@ -265,7 +265,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       )}
 
       {hasAvailabilitySection && (
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:p-6">
           <h2 className="mb-3 text-lg font-semibold">Disponibilidad</h2>
           {professional.availabilityNote && (
             <p className="text-sm text-white/70">{professional.availabilityNote}</p>
@@ -283,9 +283,9 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       )}
 
       {hasRatesSection && (
-        <section className="rounded-[28px] border border-fuchsia-300/20 bg-gradient-to-br from-[#23102d]/95 via-[#2d1638]/85 to-[#1b1126]/80 p-5 shadow-[0_14px_50px_rgba(120,40,200,0.25)] backdrop-blur-xl md:p-6">
+        <section className="rounded-2xl border border-fuchsia-300/20 bg-gradient-to-br from-[#23102d]/95 via-[#2d1638]/85 to-[#1b1126]/80 p-4 shadow-[0_14px_50px_rgba(120,40,200,0.25)] backdrop-blur-xl md:rounded-[28px] md:p-6">
           <h2 className="text-lg font-semibold text-white/90">Tarifa</h2>
-          <p className="mt-2 text-4xl font-semibold tracking-tight text-white">
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-white md:text-4xl">
             ${professional.baseRate?.toLocaleString("es-CL")}
           </p>
           <p className="mt-1 text-sm text-white/70">
@@ -295,7 +295,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       )}
 
       {hasStyleSection && (
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:p-6">
           <h2 className="mb-3 text-lg font-semibold">Etiquetas</h2>
           <div className="flex flex-wrap gap-2.5">
             {styleChips.map((chip) => (
@@ -308,7 +308,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       )}
 
       {hasLocationSection && (
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.06] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:p-6">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:p-6">
           <h2 className="mb-2 text-lg font-semibold">Ubicación</h2>
           <p className="text-sm text-white/70">
             {professional.city ? `Zona aproximada: ${professional.city}` : "Zona referencial"}
@@ -331,7 +331,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[linear-gradient(180deg,rgba(14,7,22,0.75)_0%,rgba(12,6,20,0.96)_40%,rgba(12,6,20,0.98)_100%)] px-4 py-3 backdrop-blur-xl md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[linear-gradient(180deg,rgba(14,7,22,0.75)_0%,rgba(12,6,20,0.96)_40%,rgba(12,6,20,0.98)_100%)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl md:hidden">
         <div className="grid grid-cols-2 gap-2.5">
           <button onClick={() => handleChatClick("message")} className="btn-primary w-full rounded-2xl py-3 text-sm">
             Enviar mensaje
