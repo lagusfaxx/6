@@ -107,9 +107,6 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       .catch(() => setFavorite(false));
   }, [me?.user?.profileType, professional]);
 
-  useEffect(() => {
-    setGalleryIndex(0);
-  }, [professional?.id]);
 
   const infoBadges = useMemo(() => {
     if (!professional) return [];
@@ -205,8 +202,8 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
   return (
     <div className="grid w-full gap-4 overflow-hidden pb-36 md:gap-6 md:pb-6">
-      <section className={`relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-black shadow-[0_20px_60px_rgba(0,0,0,0.45)] ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
-        <div className="relative h-[100svh] w-full overflow-hidden">
+      <section className={`relative -mx-4 overflow-hidden border-y border-white/10 bg-gradient-to-b from-white/15 to-white/[0.03] shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:mx-0 md:rounded-[30px] md:border ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
+        <div className="relative h-[100svh] w-full overflow-hidden md:h-[80vh] md:min-h-[560px]">
           {coverSrc ? (
             <img src={coverSrc} alt="Portada" className="h-full w-full object-cover object-center" />
           ) : (
