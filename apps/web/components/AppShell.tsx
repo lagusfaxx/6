@@ -44,7 +44,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     >
       <Nav />
 
-      <div className="relative flex-1">
+      <div className="relative min-w-0 flex-1">
         <TopHeader />
         <PushNotificationsManager />
         <PresenceHeartbeat />
