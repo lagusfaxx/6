@@ -6,7 +6,6 @@ import { ApiHttpError, apiFetch, resolveMediaUrl } from "../../../lib/api";
 import { buildChatHref, buildCurrentPathWithSearch, buildLoginHref } from "../../../lib/chat";
 import useMe from "../../../hooks/useMe";
 import StarRating from "../../../components/StarRating";
-import GalleryCounter from "../../../components/GalleryCounter";
 import SkeletonCard from "../../../components/SkeletonCard";
 import { ImageIcon, Star, X } from "lucide-react";
 
