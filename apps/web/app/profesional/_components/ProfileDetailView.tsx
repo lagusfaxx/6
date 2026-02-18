@@ -6,7 +6,6 @@ import { ApiHttpError, apiFetch, resolveMediaUrl } from "../../../lib/api";
 import { buildChatHref, buildCurrentPathWithSearch, buildLoginHref } from "../../../lib/chat";
 import useMe from "../../../hooks/useMe";
 import StarRating from "../../../components/StarRating";
-import GalleryCounter from "../../../components/GalleryCounter";
 import SkeletonCard from "../../../components/SkeletonCard";
 import { ImageIcon, Star, X } from "lucide-react";
 
@@ -148,7 +147,6 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     }
     setGalleryIndex((prev) => Math.min(prev, gallery.length - 1));
   }, [gallery.length]);
-
   const hasDetailsSection = infoBadges.length > 0;
   const hasStyleSection = styleChips.length > 0;
   const hasAvailabilitySection = Boolean(professional?.availabilityNote || availabilityChips.length);
@@ -204,9 +202,9 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       : { label: "No disponible", className: "border-white/20 bg-white/10 text-white/70" };
 
   return (
-    <div className="grid w-full gap-4 overflow-hidden pb-36 md:gap-6 md:pb-6">
-      <section className={`relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-black shadow-[0_20px_60px_rgba(0,0,0,0.45)] ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
-        <div className="relative h-[100svh] w-full overflow-hidden">
+    <div className="mx-auto grid w-full max-w-full md:max-w-5xl gap-4 overflow-hidden pb-36 md:gap-6 md:pb-6">
+      <section className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/15 to-white/[0.03] shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:rounded-[30px] ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
+        <div className="relative aspect-[3/4] w-full overflow-hidden sm:aspect-[4/5] md:aspect-[16/8]">
           {coverSrc ? (
             <img src={coverSrc} alt="Portada" className="h-full w-full object-cover object-center" />
           ) : (
@@ -246,19 +244,15 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       </section>
 
       {gallery.length > 0 ? (
-        <section className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:rounded-[28px] md:p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Galería</h2>
-            <GalleryCounter count={gallery.length} />
-          </div>
+        <section className="-mx-4 border-y border-white/10 bg-white/[0.04] py-0 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:mx-0 md:rounded-[28px] md:border md:bg-white/[0.06] md:p-6">
           <div className="min-w-0 space-y-3 md:space-y-4">
             {selectedGalleryImage && (
               <motion.button
                 type="button"
                 onClick={() => setLightbox(selectedGalleryImage)}
-                className="relative block w-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_12px_32px_rgba(0,0,0,0.3)] md:rounded-3xl"
+                className="relative block w-full overflow-hidden border-y border-white/10 bg-white/5 md:rounded-3xl md:border"
               >
-                <div className="aspect-[4/5] w-full sm:aspect-[3/2] md:aspect-[16/8]">
+                <div className="h-[100svh] w-full md:h-auto md:aspect-[16/8]">
                   <img src={selectedGalleryImage} alt="Imagen destacada" className="h-full w-full object-cover" />
                 </div>
                 <span className="absolute bottom-3 right-3 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-xs text-white/90 backdrop-blur-md">
@@ -267,8 +261,8 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
               </motion.button>
             )}
 
-            <div className="-mx-4 min-w-0 md:-mx-6">
-              <div className="flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-1 md:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="min-w-0 px-4 pb-3 md:px-0 md:pb-0">
+              <div className="flex snap-x snap-mandatory gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {gallery.map((url, idx) => (
                   <button
                     type="button"
@@ -401,4 +395,3 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     </div>
   );
 }
-
