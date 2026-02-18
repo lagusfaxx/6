@@ -222,7 +222,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
   return (
     <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-hidden pb-40 md:pb-10">
       <section className={`relative w-full overflow-hidden ${professional.isActive ? "" : "opacity-70 grayscale"}`}>
-        <div className="relative aspect-[4/5] w-full overflow-hidden md:aspect-[16/8]">
+        <div className="relative aspect-[5/4] w-full overflow-hidden md:aspect-[16/6]">
           {coverSrc ? (
             <img src={coverSrc} alt="Portada" className="absolute inset-0 h-full w-full object-cover object-center" />
           ) : (
