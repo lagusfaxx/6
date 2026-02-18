@@ -16,6 +16,8 @@ export type MapMarker = {
   description?: string | null;
   hairColor?: string | null;
   weightKg?: number | null;
+  heightCm?: number | null;
+  lastSeen?: string | null;
   href?: string | null;
   messageHref?: string | null;
   avatarUrl?: string | null;
@@ -66,6 +68,34 @@ function circleFeature(
   };
 }
 
+
+function formatLastSeenLabel(lastSeen?: string | null) {
+  if (!lastSeen) return "Activa recientemente";
+  const diff = Date.now() - Date.parse(lastSeen);
+  if (!Number.isFinite(diff) || diff < 0) return "Activa recientemente";
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return `Activa hace ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Activa hace ${hours} hora${hours === 1 ? "" : "s"}`;
+  const days = Math.floor(hours / 24);
+  return `Activa hace ${days} día${days === 1 ? "" : "s"}`;
+}
+
+function offsetLatLng(lat: number, lng: number, distanceM: number, angleRad: number): [number, number] {
+  const earth = 111320;
+  const dLat = (distanceM * Math.cos(angleRad)) / earth;
+  const dLng = (distanceM * Math.sin(angleRad)) / (earth * Math.cos((lat * Math.PI) / 180));
+  return [lat + dLat, lng + dLng];
+}
+
+function stableHash(value: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
 function MapboxMapComponent({
   markers,
   userLocation,
@@ -90,6 +120,7 @@ function MapboxMapComponent({
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const centerChangeHandlerRef = useRef(onCenterChange);
+  const sessionSaltRef = useRef(`${Date.now()}-${Math.random()}`);
 
   useEffect(() => {
     centerChangeHandlerRef.current = onCenterChange;
@@ -114,7 +145,17 @@ function MapboxMapComponent({
   const displayMarkers = useMemo(
     () =>
       safeMarkers.map((marker) => {
-        return { ...marker, displayLat: marker.lat, displayLng: marker.lng };
+        const radiusM = Math.max(1, marker.areaRadiusM ?? 500);
+        const seed = stableHash(`${sessionSaltRef.current}:${marker.id}`);
+        const unitRadius = ((seed & 0xffff) / 0xffff) ** 0.5;
+        const angle = (((seed >>> 16) & 0xffff) / 0xffff) * Math.PI * 2;
+        const [displayLat, displayLng] = offsetLatLng(
+          marker.lat,
+          marker.lng,
+          radiusM * unitRadius,
+          angle,
+        );
+        return { ...marker, displayLat, displayLng };
       }),
     [safeMarkers],
   );
@@ -330,15 +371,10 @@ function MapboxMapComponent({
         closeButton: false,
       }).setDOMContent(popupContent);
 
-      // Mobile/touch: abrir drawer. Desktop: popup sobre marcador.
       el.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        if (isMobileViewport) {
-          popup.remove();
-          setSelectedMarker(marker);
-        } else {
-          popup.setLngLat([marker.displayLng, marker.displayLat]).addTo(map);
-        }
+        popup.remove();
+        setSelectedMarker(marker);
         onMarkerFocus?.(marker.id);
       });
 
@@ -510,13 +546,33 @@ function MapboxMapComponent({
   }
 
   return (
-    <>
+    <div className="relative">
       <div ref={containerRef} className={className} style={{ height }} />
-      {isMobileViewport && selectedMarker ? (
-        <div className="uzeed-map-drawer" role="dialog" aria-label="Detalle de perfil en mapa">
+      {selectedMarker ? (
+        <div
+          className={isMobileViewport ? "uzeed-map-drawer" : "uzeed-map-panel"}
+          role="dialog"
+          aria-label="Detalle de perfil en mapa"
+        >
           <div className="uzeed-map-drawer__content">
             <div className="uzeed-map-drawer__header">
-              <div className="uzeed-map-drawer__name">{selectedMarker.name}</div>
+              <div className="uzeed-map-drawer__identity">
+                <div className="uzeed-map-drawer__avatar-wrap">
+                  {selectedMarker.avatarUrl ? (
+                    <img
+                      src={resolveMediaUrl(selectedMarker.avatarUrl) ?? undefined}
+                      alt={selectedMarker.name}
+                      className="uzeed-map-drawer__avatar"
+                    />
+                  ) : null}
+                </div>
+                <div>
+                  <div className="uzeed-map-drawer__name">{selectedMarker.name}</div>
+                  <div className="uzeed-map-drawer__meta">
+                    {selectedMarker.level ? `Nivel ${selectedMarker.level}` : "Nivel no informado"}
+                  </div>
+                </div>
+              </div>
               <button
                 type="button"
                 className="uzeed-map-drawer__close"
@@ -525,28 +581,21 @@ function MapboxMapComponent({
                 Cerrar
               </button>
             </div>
-            <div className="uzeed-map-drawer__meta">
-              {[
-                selectedMarker.tier === "online" ? "Online" : "Offline",
-                selectedMarker.level ? `Nivel: ${selectedMarker.level}` : null,
-                selectedMarker.subtitle,
-                selectedMarker.locality,
-                selectedMarker.age ? `${selectedMarker.age} años` : null,
-                selectedMarker.hairColor ? `Cabello: ${selectedMarker.hairColor}` : null,
-                selectedMarker.weightKg ? `Peso: ${Math.round(selectedMarker.weightKg)} kg` : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+            <div className="uzeed-map-drawer__meta-list">
+              {selectedMarker.age ? <div>Edad: {selectedMarker.age} años</div> : null}
+              {selectedMarker.heightCm ? <div>Estatura: {Math.round(selectedMarker.heightCm)} cm</div> : null}
+              {selectedMarker.weightKg ? <div>Peso: {Math.round(selectedMarker.weightKg)} kg</div> : null}
+              <div>{selectedMarker.tier === "online" ? "Activa ahora" : formatLastSeenLabel(selectedMarker.lastSeen)}</div>
             </div>
             {selectedMarker.href ? (
               <a className="uzeed-map-drawer__btn" href={selectedMarker.href}>
-                Ver perfil
+                Ver Perfil Completo
               </a>
             ) : null}
           </div>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
