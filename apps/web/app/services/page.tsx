@@ -29,6 +29,7 @@ type ProfileResult = {
   userLevel?: "SILVER" | "GOLD" | "DIAMOND";
   completedServices?: number | null;
   age?: number | null;
+  heightCm?: number | null;
   hairColor?: string | null;
   weightKg?: number | null;
 };
@@ -216,9 +217,11 @@ export default function ServicesPage() {
           href: ownerHref(profile),
           avatarUrl: profile.avatarUrl,
           age: profile.age ?? null,
+          heightCm: profile.heightCm ?? null,
           hairColor: profile.hairColor ?? null,
           weightKg: profile.weightKg ?? null,
           level: profile.userLevel ?? null,
+          lastSeen: profile.lastSeen ?? null,
           tier: profile.availableNow ? "online" : "offline",
           areaRadiusM: 500,
         })),
