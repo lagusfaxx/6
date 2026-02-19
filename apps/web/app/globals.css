@@ -395,17 +395,17 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 }
 
 .uzeed-map-drawer {
-  position: fixed;
+  position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 110;
+  z-index: 60;
   padding: 0 0 calc(10px + env(safe-area-inset-bottom));
 }
 
 .uzeed-map-drawer__content {
   border-radius: 18px 18px 0 0;
-  max-height: min(82vh, 680px);
+  max-height: min(72vh, 560px);
   overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(10, 10, 14, 0.92);
