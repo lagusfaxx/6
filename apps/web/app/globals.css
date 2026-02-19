@@ -387,12 +387,17 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 
 .uzeed-map-mobile-overlay {
   position: fixed;
+  top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 70;
+  display: flex;
+  align-items: flex-end;
   padding: 0 10px calc(10px + env(safe-area-inset-bottom));
-  pointer-events: none;
+  background: linear-gradient(180deg, rgba(10, 10, 14, 0.06) 0%, rgba(10, 10, 14, 0.55) 55%, rgba(10, 10, 14, 0.78) 100%);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .uzeed-map-drawer__content,
@@ -412,6 +417,7 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 
 .uzeed-map-drawer--mobile {
   pointer-events: auto;
+  width: 100%;
 }
 
 .uzeed-map-drawer__cover-wrap {
