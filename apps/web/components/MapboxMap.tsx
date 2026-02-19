@@ -72,7 +72,6 @@ function circleFeature(
   };
 }
 
-
 function formatLastSeenLabel(lastSeen?: string | null) {
   if (!lastSeen) return "Activa recientemente";
   const diff = Date.now() - Date.parse(lastSeen);
@@ -370,7 +369,6 @@ function MapboxMapComponent({
       markerRefs.current.push(markerInstance);
     });
   }, [displayMarkers, isMobileViewport, onMarkerFocus, renderHtmlMarkers]);
-
 
   useEffect(() => {
     const map = mapRef.current;
