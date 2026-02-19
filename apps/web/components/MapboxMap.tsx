@@ -134,6 +134,18 @@ function MapboxMapComponent({
     return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!(isMobileViewport && selectedMarker)) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileViewport, selectedMarker]);
+
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
   const safeMarkers = useMemo(
     () =>
@@ -581,11 +593,17 @@ function MapboxMapComponent({
       <div ref={containerRef} className={className} style={{ height }} />
       {selectedMarker ? (
         <div
-          className={isMobileViewport ? "uzeed-map-drawer" : "uzeed-map-panel"}
+          className={isMobileViewport ? "uzeed-map-mobile-overlay" : "uzeed-map-panel"}
           role="dialog"
+          aria-modal={isMobileViewport ? true : undefined}
           aria-label="Detalle de perfil en mapa"
+          onClick={(event) => {
+            if (isMobileViewport && event.target === event.currentTarget) {
+              setSelectedMarker(null);
+            }
+          }}
         >
-            <div className="uzeed-map-drawer__content">
+            <div className={isMobileViewport ? "uzeed-map-drawer uzeed-map-drawer--mobile" : "uzeed-map-drawer__content"}>
             <div className="uzeed-map-drawer__cover-wrap">
               {selectedMarker.coverUrl ? (
                 <img
