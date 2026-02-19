@@ -35,6 +35,7 @@ type ProfileResult = {
   hairColor?: string | null;
   weightKg?: number | null;
   baseRate?: number | null;
+  galleryUrls?: string[] | null;
 };
 
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
@@ -217,6 +218,7 @@ export default function ServicesPage() {
           realLat: Number(profile.realLatitude ?? profile.latitude),
           realLng: Number(profile.realLongitude ?? profile.longitude),
           subtitle: profile.serviceCategory || profile.city || "Perfil",
+          username: profile.username,
           href: ownerHref(profile),
           avatarUrl: profile.avatarUrl,
           age: profile.age ?? null,
@@ -228,6 +230,7 @@ export default function ServicesPage() {
           level: profile.userLevel ?? null,
           lastSeen: profile.lastSeen ?? null,
           tier: profile.availableNow ? "online" : "offline",
+          galleryUrls: profile.galleryUrls ?? [],
           areaRadiusM: 500,
         })),
     [safeProfiles],
