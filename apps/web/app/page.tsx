@@ -46,6 +46,7 @@ type RecentProfessional = {
   userLevel: UserLevel;
   completedServices: number;
   profileViews: number;
+  lastSeen?: string | null;
 };
 
 type DiscoverProfile = {
@@ -203,6 +204,7 @@ export default function HomePage() {
                 : "SILVER",
             completedServices: Number(p.completedServices || 0),
             profileViews: Number(p.profileViews || 0),
+            lastSeen: p.lastSeen ?? null,
           }),
         );
 
@@ -442,7 +444,7 @@ export default function HomePage() {
                     >
                       <Link
                         href={`/profesional/${p.id}`}
-                        className={`group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)] ${!p.isActive ? "opacity-80 saturate-75" : ""} ${p.userLevel === "DIAMOND" ? "shadow-[0_0_0_1px_rgba(167,139,250,0.45),0_0_28px_rgba(167,139,250,0.18)]" : ""}`}
+                        className={`group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)] ${p.userLevel === "DIAMOND" ? "shadow-[0_0_0_1px_rgba(167,139,250,0.45),0_0_28px_rgba(167,139,250,0.18)]" : ""}`}
                       >
                         {/* Image */}
                         <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
@@ -491,6 +493,7 @@ export default function HomePage() {
                             </h3>
                             <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
                               {p.age && <span>{p.age} años</span>}
+                              <span>{formatLastSeenLabel(p.lastSeen)}</span>
                             </div>
                           </div>
                         </div>
@@ -715,6 +718,7 @@ export default function HomePage() {
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 text-xs text-white/45">
                       {p.age && <span>{p.age} años</span>}
+                              <span>{formatLastSeenLabel(p.lastSeen)}</span>
                       {p.distance != null && (
                         <span className="flex items-center gap-0.5">
                           <MapPin className="h-3 w-3" />

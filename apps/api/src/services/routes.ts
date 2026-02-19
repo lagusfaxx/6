@@ -166,6 +166,7 @@ servicesRouter.get(
         heightCm: true,
         hairColor: true,
         weightKg: true,
+        baseRate: true,
         lastSeen: true,
         completedServices: true,
         membershipExpiresAt: true,
@@ -202,6 +203,7 @@ servicesRouter.get(
           heightCm: p.heightCm,
           hairColor: p.hairColor,
           weightKg: p.weightKg,
+          baseRate: p.baseRate,
           lastSeen: p.lastSeen ? p.lastSeen.toISOString() : null,
           userLevel: resolveProfessionalLevel(p.completedServices),
         };

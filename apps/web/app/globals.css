@@ -215,7 +215,11 @@ body::after {
   box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.2);
   cursor: pointer;
   position: relative;
-  z-index: 8;
+  z-index: 40;
+}
+
+.mapboxgl-marker {
+  z-index: 40;
 }
 
 .uzeed-map-marker--avatar {
@@ -396,7 +400,8 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   background: rgba(10, 10, 14, 0.94);
   backdrop-filter: blur(12px);
   color: #fff;
-  padding: 12px;
+  padding: 0;
+  overflow: hidden;
 }
 
 .uzeed-map-drawer__header {
@@ -404,6 +409,7 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  padding: 10px 12px 0;
 }
 
 .uzeed-map-drawer__name {
@@ -458,6 +464,7 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   gap: 4px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.9);
+  padding: 10px 12px 0;
 }
 
 @media (max-width: 768px) {
@@ -472,15 +479,34 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   }
 }
 .uzeed-map-drawer__btn {
-  margin-top: 10px;
+  margin: 12px;
   display: inline-flex;
   width: 100%;
   justify-content: center;
   border-radius: 12px;
   border: 1px solid rgba(232, 121, 249, 0.35);
-  background: rgba(217, 70, 239, 0.15);
+  background: linear-gradient(90deg, #a21caf, #7c3aed);
   color: #fff;
   font-size: 12px;
   font-weight: 600;
   padding: 8px 10px;
+}
+
+.uzeed-map-drawer__cover-wrap {
+  position: relative;
+  min-height: 120px;
+  background: linear-gradient(120deg, rgba(124, 58, 237, 0.35), rgba(168, 85, 247, 0.2));
+}
+
+.uzeed-map-drawer__cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.uzeed-map-drawer__avatar-wrap {
+  margin-top: 66px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
 }
