@@ -58,6 +58,10 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
   const [notFound, setNotFound] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [reviews, setReviews] = useState<Array<{ id: string; rating: number; comment: string | null; createdAt: string }>>([]);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewLoading, setReviewLoading] = useState(false);
   const { me } = useMe();
 
   useEffect(() => {
@@ -109,6 +113,31 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
   useEffect(() => {
     setGalleryIndex(0);
   }, [professional?.id]);
+
+
+  useEffect(() => {
+    if (!professional?.id) return;
+    apiFetch<{ reviews: Array<{ id: string; rating: number; comment: string | null; createdAt: string }> }>(`/services/${professional.id}/reviews`)
+      .then((res) => setReviews(res?.reviews || []))
+      .catch(() => setReviews([]));
+  }, [professional?.id]);
+
+  const submitReview = async () => {
+    if (!professional?.id || !me?.user?.id) return;
+    setReviewLoading(true);
+    try {
+      await apiFetch(`/services/${professional.id}/rating`, {
+        method: "POST",
+        body: JSON.stringify({ rating: reviewRating })
+      });
+      const refreshed = await apiFetch<{ reviews: Array<{ id: string; rating: number; comment: string | null; createdAt: string }> }>(`/services/${professional.id}/reviews`);
+      setReviews(refreshed?.reviews || []);
+      setReviewComment("");
+      setReviewRating(5);
+    } catch {} finally {
+      setReviewLoading(false);
+    }
+  };
 
   const infoItems = useMemo(() => {
     if (!professional) return [] as { label: string; value: string }[];
@@ -327,6 +356,16 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             </section>
           )}
 
+
+          <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+            <h2 className="mb-3 text-base font-semibold text-white/95">Servicios</h2>
+            <div className="flex flex-wrap gap-2">
+              {(["Anal", "Packs", "Tríos", "Discapacitados", "Videollamadas", "Domicilios", ...splitCsv(professional.serviceStyleTags)]).slice(0, 12).map((chip) => (
+                <span key={chip} className="inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-white/90">{chip}</span>
+              ))}
+            </div>
+          </section>
+
           {hasStyleSection && (
             <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
               <h2 className="mb-3 text-base font-semibold text-white/95">Etiquetas</h2>
@@ -389,6 +428,32 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             </div>
           </div>
         </aside>
+      </div>
+
+
+      <div className="mx-auto mt-5 w-full max-w-6xl px-4 md:px-8">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+          <h2 className="text-base font-semibold text-white/95">Comentarios y calificaciones</h2>
+          {me?.user?.id ? (
+            <div className="mt-3 grid gap-2 md:grid-cols-[140px_1fr_auto]">
+              <select value={reviewRating} onChange={(e) => setReviewRating(Number(e.target.value))} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
+                <option value={5}>5 estrellas</option><option value={4}>4 estrellas</option><option value={3}>3 estrellas</option><option value={2}>2 estrellas</option><option value={1}>1 estrella</option>
+              </select>
+              <input value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm" placeholder="Comentario visible próximamente" />
+              <button onClick={submitReview} disabled={reviewLoading} className="rounded-xl bg-[#ff4b4b] px-4 py-2 text-sm font-semibold">{reviewLoading ? "Enviando..." : "Publicar"}</button>
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-white/60">Inicia sesión para comentar y calificar este perfil.</p>
+          )}
+          <div className="mt-4 space-y-2">
+            {reviews.length ? reviews.map((r) => (
+              <div key={r.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <div className="text-xs text-white/60">{r.rating}★ · {new Date(r.createdAt).toLocaleDateString("es-CL")}</div>
+                <p className="mt-1 text-sm text-white/85">{r.comment || "Sin comentario"}</p>
+              </div>
+            )) : <p className="text-sm text-white/60">Aún no hay comentarios.</p>}
+          </div>
+        </section>
       </div>
 
       {lightbox && (

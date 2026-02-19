@@ -45,6 +45,40 @@ export default function ProfileEditor() {
           presencia (online/offline).
         </div>
 
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FloatingSelect
+            label="Categoría principal"
+            value={state.serviceCategory}
+            onChange={(v) => setField("serviceCategory", v)}
+            options={[
+              { value: "Escort", label: "Escort" },
+              { value: "Masajes", label: "Masajes" },
+              { value: "Trans", label: "Trans" },
+              { value: "Maduras", label: "Maduras" },
+              { value: "Moteles", label: "Moteles" },
+              { value: "Sex Shop", label: "Sex Shop" },
+            ]}
+          />
+          <FloatingInput label="Servicios (comma)" value={state.servicesTags} onChange={(v) => setField("servicesTags", v)} placeholder="Anal, Packs, Tríos, Videollamadas" />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <FloatingSelect
+            label="Identidad de género"
+            value={state.genderIdentity}
+            onChange={(v) => setField("genderIdentity", v)}
+            options={[{ value: "M", label: "M" }, { value: "H", label: "H" }, { value: "Trans", label: "Trans" }]}
+          />
+          <FloatingInput label="Edad" value={state.age} onChange={(v) => setField("age", v)} type="number" min="18" />
+          <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-xs text-white/75"><input type="checkbox" checked={state.profileIsActive} onChange={(e) => setField("profileIsActive", e.target.checked)} /> Disponible ahora</label>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FloatingInput label="Comuna" value={state.comuna} onChange={(v) => setField("comuna", v)} placeholder="La Serena" />
+          <FloatingInput label="Región" value={state.region} onChange={(v) => setField("region", v)} placeholder="Coquimbo" />
+        </div>
+
         <FloatingTextarea
           label="Descripcion general"
           value={state.bio}

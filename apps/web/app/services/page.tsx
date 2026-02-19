@@ -1,12 +1,15 @@
 "use client";
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import { useMapLocation } from "../../hooks/useMapLocation";
 import MapboxMap from "../../components/MapboxMap";
 import UserLevelBadge from "../../components/UserLevelBadge";
-import { Compass, MapPin, Search, SlidersHorizontal, User } from "lucide-react";
+import { MapPin, Search, SlidersHorizontal, User } from "lucide-react";
+import { HeaderCategory, useCategoryFilter } from "../../hooks/useCategoryFilter";
+import useMe from "../../hooks/useMe";
 
 type ProfileResult = {
   id: string;
@@ -25,6 +28,11 @@ type ProfileResult = {
   profileType: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
   serviceCategory: string | null;
   serviceDescription: string | null;
+  categoryLabel?: string | null;
+  servicesTags?: string[] | null;
+  genderIdentity?: string | null;
+  comuna?: string | null;
+  region?: string | null;
   isActive: boolean;
   availableNow?: boolean;
   lastSeen?: string | null;
@@ -124,16 +132,24 @@ const ProfileCard = memo(function ProfileCard({ profile }: { profile: ProfileRes
 
 export default function ServicesPage() {
   const { location } = useMapLocation(DEFAULT_LOCATION);
+  const { selectedCategory, setSelectedCategory } = useCategoryFilter();
+  const router = useRouter();
 
   const [profiles, setProfiles] = useState<ProfileResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [type, setType] = useState<"experience" | "space">("experience");
-  const [view, setView] = useState<"list" | "map">("list");
   const [search, setSearch] = useState("");
   const [radiusKm, setRadiusKm] = useState(INITIAL_RADIUS_KM);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [searchTick, setSearchTick] = useState(0);
+  const [genderFilter, setGenderFilter] = useState("all");
+  const [tierFilter, setTierFilter] = useState("all");
+  const [servicesFilter, setServicesFilter] = useState<string[]>([]);
+  const [region, setRegion] = useState("todas");
+  const { me } = useMe();
+  const profileType = String(me?.user?.profileType || "").toUpperCase();
+  const canSeeTierTools = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(profileType);
   const userGpsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
@@ -146,10 +162,32 @@ export default function ServicesPage() {
     const query = new URLSearchParams(window.location.search);
     const nextType = query.get("type");
     if (nextType === "experience" || nextType === "space") setType(nextType);
-    if (query.get("view") === "map") setView("map");
     if (query.get("q")) setSearch(query.get("q") || "");
+    const queryCategory = query.get("category");
+    if (queryCategory) {
+      const normalized = queryCategory.trim().toLowerCase().replace(/\s+/g, "-");
+      if (["moteles", "sex-shop", "escorts", "masajes", "trans", "maduras"].includes(normalized)) {
+        setSelectedCategory(normalized as HeaderCategory);
+      } else {
+        setSearch(queryCategory);
+      }
+    }
     if (query.get("radiusKm")) setRadiusKm(Number(query.get("radiusKm")) || INITIAL_RADIUS_KM);
-  }, []);
+    if (query.get("region")) setRegion((query.get("region") || "todas").toLowerCase());
+    if (query.get("filters") === "1") setShowAdvanced(true);
+    if (query.get("near") === "1") {
+      setRadiusKm(4);
+      if (typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            userGpsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            setSearchTick((v) => v + 1);
+          },
+          () => setSearchTick((v) => v + 1),
+        );
+      }
+    }
+  }, [setSelectedCategory]);
 
   useEffect(() => {
     const center = userGpsRef.current || (location ? { lat: location[0], lng: location[1] } : null);
@@ -160,7 +198,13 @@ export default function ServicesPage() {
     }
 
     const qp = new URLSearchParams();
-    qp.set("types", type === "experience" ? "PROFESSIONAL" : "ESTABLISHMENT");
+    qp.set("types", type === "experience" ? "PROFESSIONAL,SHOP" : "ESTABLISHMENT");
+    if (search.trim()) qp.set("q", search.trim());
+    if (selectedCategory !== "all") qp.set("category", selectedCategory);
+    if (genderFilter !== "all") qp.set("gender", genderFilter);
+    if (region !== "todas") qp.set("region", region);
+    if (servicesFilter.length) qp.set("services", servicesFilter.join(","));
+    if (radiusKm) qp.set("rangeKm", String(radiusKm));
     if (center) {
       qp.set("lat", String(center.lat));
       qp.set("lng", String(center.lng));
@@ -175,15 +219,38 @@ export default function ServicesPage() {
         setLoading(false);
         setHasLoadedOnce(true);
       });
-  }, [location, type, searchTick]);
+  }, [location, type, searchTick, search, selectedCategory, genderFilter, region, servicesFilter, radiusKm]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return [...profiles]
       .filter((profile) => {
         if (q) {
-          const text = `${profile.displayName || ""} ${profile.username || ""} ${profile.serviceCategory || ""} ${profile.city || ""}`.toLowerCase();
+          const text = `${profile.displayName || ""} ${profile.username || ""} ${profile.serviceCategory || ""} ${profile.categoryLabel || ""} ${profile.city || ""} ${profile.comuna || ""} ${profile.region || ""}`.toLowerCase();
           if (!text.includes(q)) return false;
+        }
+
+        const categoryText = `${profile.serviceCategory || ""} ${profile.serviceDescription || ""} ${profile.categoryLabel || ""}`.toLowerCase();
+        if (selectedCategory === "moteles" && profile.profileType !== "ESTABLISHMENT") return false;
+        if (selectedCategory === "sex-shop" && profile.profileType !== "SHOP") return false;
+        if (selectedCategory === "escorts" && !categoryText.includes("escort")) return false;
+        if (selectedCategory === "masajes" && !categoryText.includes("masaje")) return false;
+        if (selectedCategory === "trans" && !categoryText.includes("trans")) return false;
+        if (selectedCategory === "maduras" && !categoryText.includes("madura")) return false;
+
+        if (genderFilter !== "all") {
+          const text = `${profile.serviceDescription || ""} ${profile.serviceCategory || ""} ${profile.genderIdentity || ""}`.toLowerCase();
+          if (!text.includes(genderFilter)) return false;
+        }
+        if (canSeeTierTools && tierFilter !== "all" && String(profile.userLevel || "SILVER") !== tierFilter) return false;
+        if (region !== "todas") {
+          const locationText = `${profile.city || ""} ${profile.comuna || ""} ${profile.region || ""}`.toLowerCase();
+          if (!locationText.includes(region.toLowerCase())) return false;
+        }
+        if (servicesFilter.length) {
+          const text = `${profile.serviceDescription || ""} ${profile.serviceCategory || ""} ${profile.servicesTags?.join(" ") || ""}`.toLowerCase();
+          const allIncluded = servicesFilter.every((f) => text.includes(f.toLowerCase()));
+          if (!allIncluded) return false;
         }
         if (profile.distance != null && profile.distance > radiusKm) return false;
         return true;
@@ -194,7 +261,7 @@ export default function ServicesPage() {
         if (lastSeenDiff !== 0) return lastSeenDiff;
         return (a.distance ?? 1e9) - (b.distance ?? 1e9);
       });
-  }, [profiles, radiusKm, search]);
+  }, [profiles, radiusKm, search, selectedCategory, genderFilter, tierFilter, servicesFilter, region, canSeeTierTools]);
 
   const safeProfiles = useMemo(() => {
     if (filtered.length > 0) return filtered;
@@ -205,6 +272,36 @@ export default function ServicesPage() {
       return (a.distance ?? 1e9) - (b.distance ?? 1e9);
     });
   }, [filtered, profiles]);
+
+  const regionOptions = useMemo(() => {
+    const unique = new Set<string>();
+    profiles.forEach((profile) => {
+      const raw = profile.comuna || profile.region || profile.city || "";
+      const value = raw.trim();
+      if (value) unique.add(value);
+    });
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, "es"));
+  }, [profiles]);
+
+
+  const applyNearYou = () => {
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          userGpsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setRadiusKm(4);
+          setSearchTick((v) => v + 1);
+        },
+        () => {
+          setRadiusKm(4);
+          setSearchTick((v) => v + 1);
+        },
+      );
+      return;
+    }
+    setRadiusKm(4);
+    setSearchTick((v) => v + 1);
+  };
 
   const markers = useMemo(
     () =>
@@ -238,12 +335,16 @@ export default function ServicesPage() {
 
   return (
     <div className="pb-24">
+      <button onClick={() => router.back()} className="fixed bottom-20 right-4 z-40 rounded-full border border-white/20 bg-black/70 px-4 py-2 text-xs">Volver</button>
       <section className="border-b border-white/[0.06] bg-gradient-to-b from-[#0d1024] to-transparent">
         <div className="mx-auto max-w-6xl px-4 py-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold">Buscar perfiles</h1>
               <p className="mt-1 text-sm text-white/55">Perfiles online y offline ordenados por actividad reciente</p>
+              {selectedCategory !== "all" ? (
+                <p className="mt-1 text-xs text-[#ff9d9d]">Filtro activo: {selectedCategory.replace("-", " ")}</p>
+              ) : null}
             </div>
             <div className="inline-flex overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
               <button onClick={() => setType("experience")} className={`rounded-lg px-3 py-1.5 text-sm ${type === "experience" ? "bg-fuchsia-500/20 text-fuchsia-200" : "text-white/60"}`}>
@@ -260,20 +361,37 @@ export default function ServicesPage() {
               <Search className="h-4 w-4 text-white/40" />
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, categoría o ciudad" className="w-full bg-transparent outline-none placeholder:text-white/35" />
             </label>
-            <button onClick={() => setView((v) => (v === "list" ? "map" : "list"))} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm inline-flex items-center gap-2">
-              <Compass className="h-4 w-4" />
-              {view === "map" ? "Ver lista" : "Ver mapa"}
-            </button>
             <button onClick={() => setShowAdvanced((s) => !s)} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm inline-flex items-center gap-2">
               <SlidersHorizontal className="h-4 w-4" />
-              Filtros
+              Filtros Pro
+            </button>
+            <button onClick={applyNearYou} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm inline-flex items-center gap-2">
+              <MapPin className="h-4 w-4" /> Cerca tuyo
             </button>
           </div>
 
           {showAdvanced && (
-            <div className="mt-3 grid gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 md:grid-cols-2">
+            <div className="mt-3 grid gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 md:grid-cols-3">
               <input value={radiusKm} onChange={(e) => setRadiusKm(Number(e.target.value || INITIAL_RADIUS_KM))} placeholder="Radio km" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm" />
-              <p className="text-xs text-white/45">Si no encuentras resultados exactos, mostramos también perfiles fuera de tu filtro para que la app siempre se vea poblada.</p>
+              <select value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm">
+                <option value="all">Género: Todos</option><option value="mujer">Mujer</option><option value="hombre">Hombre</option><option value="trans">Trans</option>
+              </select>
+              {canSeeTierTools ? (
+                <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value)} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm">
+                  <option value="all">Tier: Todos</option><option value="DIAMOND">Platinum</option><option value="GOLD">Gold</option><option value="SILVER">Silver</option>
+                </select>
+              ) : null}
+              <select value={region} onChange={(e) => setRegion(e.target.value)} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm">
+                <option value="todas">Comuna / Zona: Todas</option>
+                {regionOptions.map((regionName) => (
+                  <option key={regionName} value={regionName.toLowerCase()}>{regionName}</option>
+                ))}
+              </select>
+              <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs"><input type="checkbox" onChange={(e)=>setServicesFilter((prev)=>e.target.checked?[...prev,"packs"]:prev.filter(x=>x!=="packs"))}/>Packs</label>
+              <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs"><input type="checkbox" onChange={(e)=>setServicesFilter((prev)=>e.target.checked?[...prev,"trios"]:prev.filter(x=>x!=="trios"))}/>Tríos</label>
+              <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs"><input type="checkbox" onChange={(e)=>setServicesFilter((prev)=>e.target.checked?[...prev,"despedidas"]:prev.filter(x=>x!=="despedidas"))}/>Despedidas</label>
+              <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs"><input type="checkbox" onChange={(e)=>setServicesFilter((prev)=>e.target.checked?[...prev,"videollamada"]:prev.filter(x=>x!=="videollamada"))}/>Videollamadas</label>
+              <p className="text-xs text-white/45">Filtros Pro: género, madura por texto, radio, tiers y servicios específicos.</p>
             </div>
           )}
         </div>
@@ -282,18 +400,16 @@ export default function ServicesPage() {
       <div className="mx-auto max-w-6xl px-4 py-4">
         <div className="mb-5 text-sm text-white/45">{loading && !hasLoadedOnce ? "Cargando resultados..." : `${safeProfiles.length} resultado${safeProfiles.length !== 1 ? "s" : ""}`}</div>
 
-        {view === "map" && (
-          <div className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08]">
-            <MapboxMap
-              userLocation={location}
-              markers={markers}
-              height={420}
-              autoCenterOnDataChange={false}
-              showMarkersForArea
-              renderHtmlMarkers
-            />
-          </div>
-        )}
+        <div className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08]">
+          <MapboxMap
+            userLocation={location}
+            markers={markers}
+            height={420}
+            autoCenterOnDataChange={false}
+            showMarkersForArea
+            renderHtmlMarkers
+          />
+        </div>
 
         {loading && !hasLoadedOnce && (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

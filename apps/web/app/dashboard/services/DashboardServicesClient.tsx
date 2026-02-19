@@ -1,6 +1,6 @@
 "use client";
 
-import { type ChangeEvent, useCallback, useEffect, useMemo } from "react";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import useMe from "../../../hooks/useMe";
@@ -99,6 +99,9 @@ export default function DashboardServicesClient() {
   } = form;
 
   const profileType = (user?.profileType ?? "CLIENT") as ProfileType;
+  const [storyText, setStoryText] = useState("");
+  const [storyFile, setStoryFile] = useState<File | null>(null);
+  const [storyUploading, setStoryUploading] = useState(false);
   const role = String(user?.role || "").toUpperCase();
   const isMotelProfile =
     profileType === "ESTABLISHMENT" ||
@@ -223,7 +226,13 @@ export default function DashboardServicesClient() {
           bio: stripAge(meRes?.user?.bio),
           birthdate: toDateInputValue(meRes?.user?.birthdate),
           serviceDescription: meRes?.user?.serviceDescription ?? "",
+          serviceCategory: meRes?.user?.serviceCategory ?? "",
+          servicesTags: Array.isArray(meRes?.user?.servicesTags) ? meRes.user.servicesTags.join(", ") : (meRes?.user?.serviceStyleTags ?? ""),
           gender: meRes?.user?.gender || "FEMALE",
+          genderIdentity: meRes?.user?.genderIdentity ?? "",
+          age: meRes?.user?.age != null ? String(meRes.user.age) : "",
+          comuna: meRes?.user?.comuna ?? "",
+          region: meRes?.user?.region ?? "",
           address: meRes?.user?.address || "",
           city: meRes?.user?.city || "",
           profileLatitude: loadedLatitude,
@@ -267,6 +276,12 @@ export default function DashboardServicesClient() {
             displayName: fields.displayName,
             bio: fields.bio,
             serviceDescription: fields.serviceDescription,
+            serviceCategory: fields.serviceCategory,
+            servicesTags: fields.servicesTags,
+            genderIdentity: fields.genderIdentity,
+            age: fields.age,
+            comuna: fields.comuna,
+            region: fields.region,
             birthdate: fields.birthdate,
             gender: fields.gender,
             address: fields.address,
@@ -471,7 +486,14 @@ export default function DashboardServicesClient() {
         displayName: state.displayName,
         bio: state.bio,
         serviceDescription: state.serviceDescription,
+        serviceCategory: state.serviceCategory || null,
+        categoryLabel: state.serviceCategory || null,
+        servicesTags: state.servicesTags ? state.servicesTags.split(",").map((x) => x.trim()).filter(Boolean) : [],
         gender: state.gender,
+        genderIdentity: state.genderIdentity || null,
+        age: state.age ? Number(state.age) : null,
+        comuna: state.comuna || null,
+        region: state.region || null,
         address: state.address,
         city: state.city,
         heightCm: state.heightCm || null,
@@ -490,6 +512,7 @@ export default function DashboardServicesClient() {
         longitude: state.profileLongitude
           ? Number(state.profileLongitude)
           : null,
+        isActive: state.profileIsActive,
       };
       if (state.birthdate) payload.birthdate = state.birthdate;
       await apiFetch("/profile", {
@@ -633,6 +656,13 @@ export default function DashboardServicesClient() {
     async (type: "avatar" | "cover", event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file || !user) return;
+
+      const objectUrl = URL.createObjectURL(file);
+      const previousAvatar = state.avatarPreview;
+      const previousCover = state.coverPreview;
+      if (type === "avatar") setField("avatarPreview", objectUrl);
+      if (type === "cover") setField("coverPreview", objectUrl);
+
       const formData = new FormData();
       formData.append("file", file);
       if (type === "avatar") setField("avatarUploading", true);
@@ -648,19 +678,22 @@ export default function DashboardServicesClient() {
         );
         if (!res.ok) throw new Error("UPLOAD_FAILED");
         const data = await res.json();
-        if (type === "avatar")
-          setField("avatarPreview", data?.avatarUrl ?? null);
-        if (type === "cover") setField("coverPreview", data?.coverUrl ?? null);
-        showToast("Imagen actualizada.");
+        if (type === "avatar") setField("avatarPreview", data?.avatarUrl ?? objectUrl);
+        if (type === "cover") setField("coverPreview", data?.coverUrl ?? objectUrl);
+        showToast("Imagen actualizada en vivo.");
         await loadPanel(user.id);
       } catch {
+        if (type === "avatar") setField("avatarPreview", previousAvatar ?? null);
+        if (type === "cover") setField("coverPreview", previousCover ?? null);
         setField("error", "No se pudo actualizar la imagen.");
       } finally {
+        URL.revokeObjectURL(objectUrl);
         if (type === "avatar") setField("avatarUploading", false);
         if (type === "cover") setField("coverUploading", false);
+        event.target.value = "";
       }
     },
-    [user, setField, showToast, loadPanel],
+    [user, state.avatarPreview, state.coverPreview, setField, showToast, loadPanel],
   );
 
   /* ─── Upload gallery ─── */
@@ -839,6 +872,27 @@ export default function DashboardServicesClient() {
     [user, setField, showToast, loadPanel],
   );
 
+  const uploadStory = useCallback(async () => {
+    if (!storyFile) return;
+    setStoryUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("title", "Historia");
+      formData.append("body", storyText || "Historia publicada desde dashboard");
+      formData.append("isPublic", "true");
+      formData.append("price", "0");
+      formData.append("files", storyFile);
+      await apiFetch("/creator/posts", { method: "POST", body: formData });
+      setStoryText("");
+      setStoryFile(null);
+      showToast("Historia subida correctamente.");
+    } catch {
+      setField("error", "No se pudo subir la historia.");
+    } finally {
+      setStoryUploading(false);
+    }
+  }, [storyFile, storyText, showToast, setField]);
+
   const removeProductMedia = useCallback(
     async (mediaId: string) => {
       try {
@@ -936,6 +990,16 @@ export default function DashboardServicesClient() {
 
   return (
     <DashboardFormContext.Provider value={contextValue}>
+      <div className="mx-auto mb-4 max-w-6xl rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <h2 className="text-base font-semibold">Historias del perfil</h2>
+        <p className="mt-1 text-xs text-white/60">Sube historias rápidas visibles en portada.</p>
+        <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto_auto]">
+          <input value={storyText} onChange={(e) => setStoryText(e.target.value)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm" placeholder="Texto de historia" />
+          <input type="file" accept="image/*,video/*" onChange={(e) => setStoryFile(e.target.files?.[0] || null)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs" />
+          <button onClick={uploadStory} disabled={!storyFile || storyUploading} className="rounded-xl bg-[#ff4b4b] px-4 py-2 text-sm font-semibold">{storyUploading ? "Subiendo..." : "Subir historia"}</button>
+        </div>
+      </div>
+
       <StudioLayout
         user={user}
         profileType={profileType}

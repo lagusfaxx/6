@@ -1,4 +1,4 @@
-export type ProfessionalMeritLevel = "SILVER" | "GOLD" | "DIAMOND";
+export type ProfessionalMeritLevel = "SILVER" | "GOLD" | "DIAMOND"; // DIAMOND se presenta como Platinum en UI
 
 export function resolveProfessionalLevel(
   completedServices: number | null | undefined,
@@ -6,7 +6,7 @@ export function resolveProfessionalLevel(
   const total = Number.isFinite(Number(completedServices))
     ? Number(completedServices)
     : 0;
-  if (total > 20) return "DIAMOND";
+  if (total > 20) return "DIAMOND"; // Platinum
   if (total >= 10) return "GOLD";
   return "SILVER";
 }

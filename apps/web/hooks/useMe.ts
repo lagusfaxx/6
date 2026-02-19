@@ -16,6 +16,14 @@ type MeUser = {
   gender?: string | null;
   preferenceGender?: string | null;
   address?: string | null;
+  city?: string | null;
+  tier?: string | null;
+  categoryLabel?: string | null;
+  servicesTags?: string[] | null;
+  genderIdentity?: string | null;
+  age?: number | null;
+  comuna?: string | null;
+  region?: string | null;
   birthdate?: string | null;
 };
 

@@ -119,6 +119,12 @@ model User {
   birthdate           DateTime?
   serviceCategory     String?
   serviceDescription  String?
+  categoryLabel       String?
+  servicesTags        String[]
+  genderIdentity      String?
+  age                 Int?
+  comuna              String?
+  region              String?
   heightCm            Int?
   weightKg            Int?
   measurements        String?

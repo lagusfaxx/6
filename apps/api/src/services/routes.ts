@@ -123,6 +123,10 @@ servicesRouter.get(
     const lat = req.query.lat ? Number(req.query.lat) : null;
     const lng = req.query.lng ? Number(req.query.lng) : null;
     const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const category = typeof req.query.category === "string" ? req.query.category.trim().toLowerCase().replace(/-/g, " ") : "";
+    const services = typeof req.query.services === "string" ? req.query.services.trim().toLowerCase() : "";
+    const genderFilter = typeof req.query.gender === "string" ? req.query.gender.trim().toLowerCase() : "";
+    const regionFilter = typeof req.query.region === "string" ? req.query.region.trim().toLowerCase() : "";
     const rangeKm = req.query.rangeKm
       ? Math.max(1, Math.min(200, Number(req.query.rangeKm)))
       : null;
@@ -159,6 +163,11 @@ servicesRouter.get(
         longitude: true,
         serviceCategory: true,
         serviceDescription: true,
+        categoryLabel: true,
+        servicesTags: true,
+        genderIdentity: true,
+        region: true,
+        comuna: true,
         profileType: true,
         isActive: true,
         isOnline: true,
@@ -209,10 +218,25 @@ servicesRouter.get(
         };
       });
 
-    const sorted = enriched
-      .filter((p) =>
-        rangeKm != null && p.distance != null ? p.distance <= rangeKm : true,
-      )
+    const filteredBase = enriched.filter((p) => {
+      const haystack = `${p.serviceCategory || ""} ${p.serviceDescription || ""} ${p.categoryLabel || ""}`.toLowerCase();
+      const tagText = Array.isArray((p as any).servicesTags) ? (p as any).servicesTags.join(" ").toLowerCase() : "";
+      const locationText = `${p.city || ""} ${(p as any).region || ""} ${(p as any).comuna || ""}`.toLowerCase();
+      const genderText = `${(p as any).genderIdentity || ""}`.toLowerCase();
+
+      if (category && !(haystack.includes(category) || tagText.includes(category))) return false;
+      if (services) {
+        const tokens = services.split(",").map((x) => x.trim()).filter(Boolean);
+        const ok = tokens.every((t) => haystack.includes(t) || tagText.includes(t));
+        if (!ok) return false;
+      }
+      if (genderFilter && !genderText.includes(genderFilter)) return false;
+      if (regionFilter && !locationText.includes(regionFilter)) return false;
+      if (rangeKm != null && p.distance != null ? p.distance > rangeKm : false) return false;
+      return true;
+    });
+
+    const sorted = filteredBase
       .sort((a, b) => {
         if (a.availableNow !== b.availableNow) {
           return Number(b.availableNow) - Number(a.availableNow);
@@ -1332,6 +1356,23 @@ servicesRouter.post(
     });
 
     return res.json({ ok: true, tags, summary });
+  }),
+);
+
+
+servicesRouter.get(
+  "/services/:id/reviews",
+  asyncHandler(async (req, res) => {
+    const reviews = await prisma.serviceRating.findMany({
+      where: { profileId: req.params.id },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: { id: true, rating: true, createdAt: true }
+    });
+
+    return res.json({
+      reviews: reviews.map((r) => ({ id: r.id, rating: r.rating, comment: null, createdAt: r.createdAt.toISOString() }))
+    });
   }),
 );
 

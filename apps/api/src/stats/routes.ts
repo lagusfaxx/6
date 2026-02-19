@@ -5,6 +5,23 @@ import { asyncHandler } from "../lib/asyncHandler";
 
 export const statsRouter = Router();
 
+
+const AVAILABLE_WINDOW_MINUTES = 10;
+
+statsRouter.get("/stats/available-now", asyncHandler(async (_req, res) => {
+  const threshold = new Date(Date.now() - AVAILABLE_WINDOW_MINUTES * 60 * 1000);
+
+  const total = await prisma.user.count({
+    where: {
+      isActive: true,
+      lastSeen: { gte: threshold },
+      profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] }
+    }
+  });
+
+  return res.json({ total, windowMinutes: AVAILABLE_WINDOW_MINUTES });
+}));
+
 statsRouter.get("/stats/me", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.session.userId!;
   const [posts, messagesReceived, subscribers, services] = await Promise.all([

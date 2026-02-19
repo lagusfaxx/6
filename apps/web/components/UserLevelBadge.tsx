@@ -10,7 +10,7 @@ type UserLevelBadgeProps = {
 function resolveBadge(level?: UserLevel | null) {
   if (level === "DIAMOND") {
     return {
-      label: "💎 Diamond",
+      label: "💎 Platinum",
       className: "border-cyan-200/40 bg-cyan-400/20 text-cyan-50",
     };
   }

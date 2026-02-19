@@ -59,6 +59,12 @@ export type DashboardFormState = {
   displayName: string;
   bio: string;
   serviceDescription: string;
+  serviceCategory: string;
+  servicesTags: string;
+  genderIdentity: string;
+  age: string;
+  comuna: string;
+  region: string;
   birthdate: string;
   gender: string;
   address: string;
@@ -139,6 +145,12 @@ export const INITIAL_STATE: DashboardFormState = {
   displayName: "",
   bio: "",
   serviceDescription: "",
+  serviceCategory: "",
+  servicesTags: "",
+  genderIdentity: "",
+  age: "",
+  comuna: "",
+  region: "",
   birthdate: "",
   gender: "FEMALE",
   address: "",
@@ -252,6 +264,12 @@ const DIRTY_TRACKED_KEYS = [
   "displayName",
   "bio",
   "serviceDescription",
+  "serviceCategory",
+  "servicesTags",
+  "genderIdentity",
+  "age",
+  "comuna",
+  "region",
   "birthdate",
   "gender",
   "address",

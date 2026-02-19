@@ -364,6 +364,7 @@ export default function AuthForm({
           <span>
             Acepto los términos y condiciones y entiendo los descargos legales
             de la plataforma.
+            <a href="/legal/terminos-uzeed.txt" download className="ml-1 underline text-white">Descargar documento legal</a>
           </span>
         </label>
       ) : null}

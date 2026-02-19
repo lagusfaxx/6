@@ -6,6 +6,8 @@ import Nav from "./Nav";
 import TopHeader from "./TopHeader";
 import PushNotificationsManager from "./PushNotificationsManager";
 import PresenceHeartbeat from "./PresenceHeartbeat";
+import { CategoryFilterProvider } from "../hooks/useCategoryFilter";
+import BackButton from "./BackButton";
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
@@ -38,21 +40,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div
-      style={iosTextSizeFix}
-      className="flex min-h-[100svh] w-full bg-transparent text-white"
-    >
-      <Nav />
+    <CategoryFilterProvider>
+      <div
+        style={iosTextSizeFix}
+        className="flex min-h-[100svh] w-full bg-transparent text-white"
+      >
+        <Nav />
 
-      <div className="relative min-w-0 flex-1">
-        <TopHeader />
-        <PushNotificationsManager />
-        <PresenceHeartbeat />
-        {/* padding-bottom con safe-area para que no se “corte” en iPhone */}
-        <main className="flex-1 px-4 pt-[84px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[96px] md:pb-6">
-          {children}
-        </main>
+        <div className="relative min-w-0 flex-1">
+          <TopHeader />
+          <PushNotificationsManager />
+          <BackButton />
+          <PresenceHeartbeat />
+          {/* padding-bottom con safe-area para que no se “corte” en iPhone */}
+          <main className="flex-1 px-4 pt-[136px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[154px] md:pb-6">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </CategoryFilterProvider>
   );
 }
