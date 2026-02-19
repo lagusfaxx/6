@@ -213,8 +213,10 @@ export default function ServicesPage() {
         .map((profile) => ({
           id: profile.id,
           name: profile.displayName || profile.username,
-          lat: Number(profile.realLatitude ?? profile.latitude),
-          lng: Number(profile.realLongitude ?? profile.longitude),
+          lat: Number(profile.latitude),
+          lng: Number(profile.longitude),
+          realLat: Number(profile.realLatitude ?? profile.latitude),
+          realLng: Number(profile.realLongitude ?? profile.longitude),
           subtitle: profile.serviceCategory || profile.city || "Perfil",
           href: ownerHref(profile),
           avatarUrl: profile.avatarUrl,
