@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { ApiHttpError, apiFetch, resolveMediaUrl } from "../../../lib/api";
 import { buildChatHref, buildCurrentPathWithSearch, buildLoginHref } from "../../../lib/chat";
 import useMe from "../../../hooks/useMe";
 import StarRating from "../../../components/StarRating";
 import SkeletonCard from "../../../components/SkeletonCard";
-import { ImageIcon, MapPin, Star, X } from "lucide-react";
+import { ImageIcon, MapPin, Star, X, Heart, MessageCircle, Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 
 type Professional = {
   id: string;
@@ -57,6 +57,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const { me } = useMe();
 
@@ -122,7 +123,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     ];
 
     const languageItems = splitCsv(professional.languages).map((language, index) => ({
-      label: index === 0 ? "Idiomas" : "Idioma",
+      label: index === 0 ? "Idiomas" : "",
       value: language,
     }));
 
@@ -193,14 +194,28 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     }
   }
 
+  function openLightbox(url: string, index: number) {
+    setLightbox(url);
+    setLightboxIndex(index);
+  }
+
+  function navigateLightbox(direction: "prev" | "next") {
+    const newIndex = direction === "prev" 
+      ? (lightboxIndex === 0 ? gallery.length - 1 : lightboxIndex - 1)
+      : (lightboxIndex === gallery.length - 1 ? 0 : lightboxIndex + 1);
+    setLightboxIndex(newIndex);
+    setLightbox(gallery[newIndex]);
+  }
+
   if (loading) {
     return (
       <div className="grid gap-6">
-        <SkeletonCard className="h-80" />
+        <SkeletonCard className="h-64 md:h-80" />
         <SkeletonCard className="h-64" />
       </div>
     );
   }
+
   if (notFound || !professional) {
     return (
       <div className="card p-8 text-center">
@@ -221,8 +236,9 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
   return (
     <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-hidden pb-40 md:pb-10">
+      {/* Header con portada - TAMAÑO AJUSTADO */}
       <section className="relative w-full overflow-hidden">
-        <div className="relative aspect-[5/4] w-full overflow-hidden md:aspect-[16/6]">
+        <div className="relative aspect-[16/9] w-full overflow-hidden md:aspect-[21/9] max-h-[45vh]">
           {coverSrc ? (
             <img src={coverSrc} alt="Portada" className="absolute inset-0 h-full w-full object-cover object-center" />
           ) : (
@@ -230,28 +246,37 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
               <ImageIcon className="h-10 w-10 text-white/50" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#13061f]/90 via-[#13061f]/35 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#13061f]/95 via-[#13061f]/40 to-transparent" />
 
-          <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4 md:p-6">
-            <span className={`rounded-full border px-3 py-1 text-xs font-medium backdrop-blur-md ${availabilityState.className}`}>
+          {/* Top bar */}
+          <div className="absolute inset-x-0 top-0 flex items-center justify-between p-3 md:p-5">
+            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium backdrop-blur-md flex items-center gap-1.5 ${availabilityState.className}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${availableNow ? 'animate-pulse bg-emerald-400' : 'bg-amber-400'}`} />
               {availabilityState.label}
             </span>
-            <div className="flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur-md">
-              <Star className="h-3.5 w-3.5 text-amber-300" />
-              <StarRating rating={professional.rating} size={12} />
+            <div className="flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-md">
+              <Star className="h-3 w-3 text-amber-300" />
+              <StarRating rating={professional.rating} size={11} />
             </div>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 bg-[#13061f]/55 backdrop-blur-md">
-            <div className="w-full px-4 py-4 md:px-8 md:py-7">
-              <div className="space-y-1.5 md:space-y-2">
-                <h1 className="text-2xl font-semibold leading-none tracking-tight sm:text-3xl md:text-4xl">
+          {/* Bottom info */}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#13061f]/80 to-transparent backdrop-blur-sm">
+            <div className="w-full px-4 py-4 md:px-8 md:py-6">
+              <div className="space-y-1">
+                <h1 className="text-2xl font-bold leading-none tracking-tight sm:text-3xl md:text-4xl">
                   {professional.name}
-                  {professional.age ? `, ${professional.age}` : ""}
+                  {professional.age ? <span className="text-white/60 font-normal">, {professional.age}</span> : ""}
                 </h1>
-                <div className="text-sm tracking-wide text-white/80 md:text-base">
-                  {professional.city || "Ubicación no especificada"}
-                  {professional.category ? ` • ${professional.category}` : ""}
+                <div className="flex items-center gap-1.5 text-sm text-white/70 md:text-base">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span>{professional.city || "Ubicación no especificada"}</span>
+                  {professional.category && (
+                    <>
+                      <span className="text-white/40 mx-1">•</span>
+                      <span>{professional.category}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -259,67 +284,81 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
         </div>
       </section>
 
-      <div className="mx-auto mt-4 grid w-full max-w-6xl min-w-0 gap-4 px-4 md:mt-6 md:grid-cols-[minmax(0,1fr)_340px] md:items-start md:gap-6 md:px-8">
+      {/* Main content */}
+      <div className="mx-auto mt-4 grid w-full max-w-6xl min-w-0 gap-4 px-4 md:mt-6 md:grid-cols-[minmax(0,1fr)_320px] md:items-start md:gap-5 lg:grid-cols-[minmax(0,1fr)_360px] md:px-6 lg:px-8">
+        {/* Left column */}
         <div className="min-w-0 space-y-4 md:space-y-5">
+          {/* Galería */}
           <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] md:rounded-3xl">
             {selectedGalleryImage ? (
-              <motion.button
-                type="button"
-                onClick={() => setLightbox(selectedGalleryImage)}
-                className="relative block w-full overflow-hidden border-b border-white/10"
-              >
-                <div className="relative aspect-[4/5] w-full md:aspect-[16/9]">
-                  <img src={selectedGalleryImage} alt="Imagen destacada" className="absolute inset-0 h-full w-full object-cover" />
-                </div>
-                <span className="absolute bottom-3 right-3 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-xs text-white/90 backdrop-blur-md">
-                  {galleryIndex + 1} / {gallery.length}
-                </span>
-              </motion.button>
-            ) : (
-              <div className="grid aspect-[4/5] w-full place-items-center bg-white/[0.03] text-white/60 md:aspect-[16/9]">
-                <div className="text-center text-sm">
-                  <ImageIcon className="mx-auto mb-2 h-5 w-5" />
-                  Sin fotos disponibles
-                </div>
-              </div>
-            )}
+              <>
+                <motion.button
+                  type="button"
+                  onClick={() => openLightbox(selectedGalleryImage, galleryIndex)}
+                  className="relative block w-full overflow-hidden border-b border-white/10 group"
+                  whileHover={{ scale: 1.005 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="relative aspect-[4/5] w-full md:aspect-[16/10]">
+                    <img 
+                      src={selectedGalleryImage} 
+                      alt="Imagen destacada" 
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                  </div>
+                  <span className="absolute bottom-3 right-3 rounded-full border border-white/20 bg-black/60 px-2.5 py-1 text-xs text-white/90 backdrop-blur-md">
+                    {galleryIndex + 1} / {gallery.length}
+                  </span>
+                </motion.button>
 
-            {gallery.length > 1 && (
-              <div className="min-w-0 overflow-hidden px-3 py-3 md:px-4">
-                <div className="flex min-w-0 flex-nowrap gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {gallery.map((url, idx) => (
-                    <button
-                      type="button"
-                      key={`${url}-${idx}`}
-                      onClick={() => setGalleryIndex(idx)}
-                      className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border transition md:h-24 md:w-24 ${
-                        idx === galleryIndex
-                          ? "border-fuchsia-300 shadow-[0_0_0_1px_rgba(232,121,249,0.5)]"
-                          : "border-white/10 opacity-80 hover:opacity-100"
-                      }`}
-                    >
-                      <img src={url} alt={`Galería ${idx + 1}`} className="absolute inset-0 h-full w-full object-cover" />
-                    </button>
-                  ))}
+                {gallery.length > 1 && (
+                  <div className="min-w-0 overflow-hidden px-3 py-3 md:px-4">
+                    <div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      {gallery.map((url, idx) => (
+                        <button
+                          type="button"
+                          key={`${url}-${idx}`}
+                          onClick={() => setGalleryIndex(idx)}
+                          className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all duration-200 md:h-20 md:w-20 ${
+                            idx === galleryIndex
+                              ? "border-fuchsia-400 shadow-[0_0_10px_rgba(232,121,249,0.4)]"
+                              : "border-transparent opacity-70 hover:opacity-100"
+                          }`}
+                        >
+                          <img src={url} alt={`Galería ${idx + 1}`} className="absolute inset-0 h-full w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="grid aspect-[4/5] w-full place-items-center bg-white/[0.03] text-white/60 md:aspect-[16/10]">
+                <div className="text-center text-sm">
+                  <ImageIcon className="mx-auto mb-2 h-6 w-6 opacity-50" />
+                  Sin fotos disponibles
                 </div>
               </div>
             )}
           </section>
 
+          {/* Sobre mí */}
           {professional.description && (
-            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
               <h2 className="mb-2 text-base font-semibold text-white/95">Sobre mí</h2>
               <p className="text-sm leading-relaxed text-white/75">{professional.description}</p>
             </section>
           )}
 
+          {/* Información */}
           {hasDetailsSection && (
-            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
-              <h2 className="mb-4 text-base font-semibold text-white/95">Información</h2>
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2">
-                {infoItems.map((item) => (
-                  <div key={`${item.label}-${item.value}`} className="min-w-0 border-b border-white/10 pb-2">
-                    <dt className="text-[11px] uppercase tracking-wide text-white/45">{item.label}</dt>
+            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
+              <h2 className="mb-3 text-base font-semibold text-white/95">Información</h2>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-3">
+                {infoItems.map((item, index) => (
+                  <div key={`${item.label}-${item.value}-${index}`} className="min-w-0">
+                    <dt className="text-[10px] uppercase tracking-wide text-white/40">{item.label}</dt>
                     <dd className="truncate text-sm text-white/85">{item.value}</dd>
                   </div>
                 ))}
@@ -327,14 +366,15 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             </section>
           )}
 
+          {/* Etiquetas */}
           {hasStyleSection && (
-            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
               <h2 className="mb-3 text-base font-semibold text-white/95">Etiquetas</h2>
               <div className="flex flex-wrap gap-2">
                 {styleChips.map((chip) => (
                   <span
                     key={chip}
-                    className="inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100"
+                    className="inline-flex rounded-full border border-fuchsia-300/25 bg-fuchsia-500/15 px-3 py-1 text-xs font-medium text-fuchsia-100"
                   >
                     {chip}
                   </span>
@@ -344,11 +384,15 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           )}
         </div>
 
+        {/* Sidebar (desktop) */}
         <aside className="hidden min-w-0 md:block">
-          <div className="sticky top-[88px] min-w-0 rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(36,18,49,0.92)_0%,rgba(20,11,34,0.96)_100%)] p-5">
+          <div className="sticky top-20 min-w-0 rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(36,18,49,0.92)_0%,rgba(20,11,34,0.96)_100%)] p-4 lg:p-5">
             <div className="border-b border-white/10 pb-4">
-              <p className="text-3xl font-semibold leading-none text-white">{priceLabel}</p>
-              <p className="mt-1 text-sm text-white/65">{durationLabel}</p>
+              <p className="text-3xl font-bold leading-none text-white">{priceLabel}</p>
+              <p className="mt-1.5 flex items-center gap-1.5 text-sm text-white/60">
+                <Clock className="h-3.5 w-3.5" />
+                {durationLabel}
+              </p>
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -364,69 +408,128 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
             <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-white/75">
               <p className="flex items-start gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-white/60" />
-                <span>{professional.city ? `Zona aproximada: ${professional.city}` : "Zona referencial"}</span>
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-fuchsia-400" />
+                <span>{professional.city ? `Zona: ${professional.city}` : "Zona referencial"}</span>
               </p>
             </div>
 
             <div className="mt-4 space-y-2.5">
-              <button onClick={() => handleChatClick("message")} className="btn-primary w-full rounded-2xl py-3 text-sm">
+              <button 
+                onClick={() => handleChatClick("message")} 
+                className="w-full rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-medium text-white transition-all hover:from-fuchsia-500 hover:to-violet-500 hover:shadow-lg hover:shadow-fuchsia-500/25 active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="h-4 w-4" />
                 Enviar mensaje
               </button>
-              <button onClick={() => handleChatClick("request")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
+              <button 
+                onClick={() => handleChatClick("request")} 
+                className="w-full rounded-2xl border border-white/20 bg-white/5 py-3 text-sm font-medium text-white transition-all hover:bg-white/10 hover:border-white/30 active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
                 Solicitar servicio
               </button>
               <button
                 onClick={toggleFavorite}
-                className={`w-full rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`w-full rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
                   favorite
-                    ? "border-rose-400/60 bg-rose-500/20 text-rose-100"
+                    ? "border-rose-400/60 bg-rose-500/20 text-rose-100 hover:bg-rose-500/30"
                     : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
                 }`}
               >
-                {favorite ? "♥ Guardado en favoritos" : "♡ Agregar a favoritos"}
+                <Heart className={`h-4 w-4 ${favorite ? "fill-rose-400 text-rose-400" : ""}`} />
+                {favorite ? "Guardado" : "Favoritos"}
               </button>
             </div>
           </div>
         </aside>
       </div>
 
-      {lightbox && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/85 p-4 backdrop-blur-md" onClick={() => setLightbox(null)}>
-          <div className="w-full max-w-3xl">
-            <button
-              type="button"
-              className="mb-3 ml-auto flex rounded-full border border-white/25 bg-black/40 p-2 text-white/80"
-              onClick={() => setLightbox(null)}
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <img src={lightbox} alt="Vista ampliada" className="w-full rounded-3xl border border-white/10 object-cover" />
-          </div>
-        </div>
-      )}
+      {/* Lightbox mejorado con navegación */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-xl"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setLightbox(null)}
+          >
+            <div className="relative w-full max-w-4xl">
+              <button
+                type="button"
+                className="absolute -top-12 right-0 flex items-center gap-2 rounded-full border border-white/20 bg-black/50 px-4 py-2 text-sm text-white/80 backdrop-blur-md transition hover:bg-white/10"
+                onClick={() => setLightbox(null)}
+              >
+                <X className="h-4 w-4" />
+                Cerrar
+              </button>
+              
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <img 
+                  src={lightbox} 
+                  alt="Vista ampliada" 
+                  className="max-h-[75vh] w-full rounded-2xl border border-white/10 object-contain" 
+                />
+                
+                {gallery.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => navigateLightbox("prev")}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white/80 backdrop-blur-md transition hover:bg-black/80"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => navigateLightbox("next")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white/80 backdrop-blur-md transition hover:bg-black/80"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+              </div>
+              
+              <p className="mt-3 text-center text-sm text-white/50">
+                {lightboxIndex + 1} / {gallery.length}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[linear-gradient(180deg,rgba(14,7,22,0.75)_0%,rgba(12,6,20,0.96)_40%,rgba(12,6,20,0.98)_100%)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl md:hidden">
-        <div className="mb-2 text-center text-sm font-medium text-white/90">
-          <span>{priceLabel}</span>
-          <span className="mx-2 text-white/40">·</span>
-          <span>{durationLabel}</span>
+      {/* Bottom bar (mobile) */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[linear-gradient(180deg,rgba(14,7,22,0.95)_0%,rgba(12,6,20,0.98)_100%)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl md:hidden">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-lg font-bold text-white">{priceLabel}</span>
+          <span className="flex items-center gap-1.5 text-sm text-white/60">
+            <Clock className="h-3.5 w-3.5" />
+            {durationLabel}
+          </span>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          <button onClick={() => handleChatClick("message")} className="btn-primary w-full rounded-2xl py-3 text-sm">
-            Enviar mensaje
+          <button 
+            onClick={() => handleChatClick("message")} 
+            className="rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-medium text-white flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Mensaje
           </button>
-          <button onClick={() => handleChatClick("request")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
-            Solicitar servicio
+          <button 
+            onClick={() => handleChatClick("request")} 
+            className="rounded-2xl border border-white/20 bg-white/5 py-3 text-sm font-medium text-white flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+          >
+            <Calendar className="h-4 w-4" />
+            Solicitar
           </button>
         </div>
         <button
           onClick={toggleFavorite}
-          className={`mt-2.5 w-full rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${
+          className={`mt-2.5 w-full rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
             favorite ? "border-rose-400/60 bg-rose-500/20 text-rose-100" : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
           }`}
         >
-          {favorite ? "♥ Guardado en favoritos" : "♡ Agregar a favoritos"}
+          <Heart className={`h-4 w-4 ${favorite ? "fill-rose-400 text-rose-400" : ""}`} />
+          {favorite ? "Guardado en favoritos" : "Agregar a favoritos"}
         </button>
       </div>
     </div>
