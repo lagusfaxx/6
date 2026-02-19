@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type mapboxgl from "mapbox-gl";
-import { resolveMediaUrl } from "../lib/api";
+import { apiFetch, resolveMediaUrl } from "../lib/api";
 
 export type MapMarker = {
   id: string;
@@ -28,8 +28,10 @@ export type MapMarker = {
   coverUrl?: string | null;
   tier?: string | null;
   level?: string | null;
+  username?: string | null;
   areaRadiusM?: number | null;
   serviceValue?: number | null;
+  galleryUrls?: string[] | null;
 };
 
 type MapboxMapProps = {
@@ -514,6 +516,35 @@ function MapboxMapComponent({
     });
   }, [focusMarkerId, displayMarkers]);
 
+
+
+  useEffect(() => {
+    if (!selectedMarker) return;
+    if ((selectedMarker.galleryUrls?.length ?? 0) > 0) return;
+    if (!selectedMarker.username) return;
+
+    let cancelled = false;
+
+    apiFetch<{ gallery?: Array<{ url?: string | null }>; profile?: { coverUrl?: string | null; avatarUrl?: string | null } }>(`/profiles/${selectedMarker.username}`)
+      .then((res) => {
+        if (cancelled) return;
+        const galleryUrls = (res.gallery || [])
+          .map((item) => item?.url)
+          .filter((url): url is string => Boolean(url));
+        const fallback = [res.profile?.coverUrl, res.profile?.avatarUrl]
+          .filter((url): url is string => Boolean(url));
+        const urls = galleryUrls.length > 0 ? galleryUrls : fallback;
+        if (!urls.length) return;
+        setSelectedMarker((prev) => (prev && prev.id === selectedMarker.id ? { ...prev, galleryUrls: urls } : prev));
+      })
+      .catch(() => {
+        // ignore gallery fetch failures in map preview
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMarker?.id, selectedMarker?.username, selectedMarker?.galleryUrls]);
   useEffect(() => {
     const map = mapRef.current;
     const mapbox = mapboxRef.current;
@@ -546,14 +577,23 @@ function MapboxMapComponent({
   }
 
   return (
-    <div className="relative">
+    <div className="relative isolate">
       <div ref={containerRef} className={className} style={{ height }} />
       {selectedMarker ? (
-        <div
-          className={isMobileViewport ? "uzeed-map-drawer" : "uzeed-map-panel"}
-          role="dialog"
-          aria-label="Detalle de perfil en mapa"
-        >
+        <>
+          {isMobileViewport ? (
+            <button
+              type="button"
+              className="uzeed-map-drawer-backdrop"
+              aria-label="Cerrar detalle de perfil"
+              onClick={() => setSelectedMarker(null)}
+            />
+          ) : null}
+          <div
+            className={isMobileViewport ? "uzeed-map-drawer" : "uzeed-map-panel"}
+            role="dialog"
+            aria-label="Detalle de perfil en mapa"
+          >
             <div className="uzeed-map-drawer__content">
             <div className="uzeed-map-drawer__cover-wrap">
               {selectedMarker.coverUrl ? (
@@ -597,14 +637,29 @@ function MapboxMapComponent({
                 {selectedMarker.weightKg ? <span className="uzeed-map-drawer__badge" aria-label={`Peso: ${Math.round(selectedMarker.weightKg)} kg`}><span className="uzeed-map-drawer__badge-label">Peso</span><span className="uzeed-map-drawer__badge-value">{Math.round(selectedMarker.weightKg)} kg</span></span> : null}
                 {typeof selectedMarker.serviceValue === "number" ? <span className="uzeed-map-drawer__badge" aria-label={`Precio: $${selectedMarker.serviceValue.toLocaleString("es-CL")}`}><span className="uzeed-map-drawer__badge-label">Precio</span><span className="uzeed-map-drawer__badge-value">${selectedMarker.serviceValue.toLocaleString("es-CL")}</span></span> : null}
               </div>
+              {selectedMarker.galleryUrls && selectedMarker.galleryUrls.length > 0 ? (
+                <div className="uzeed-map-drawer__gallery" aria-label="Galería del perfil">
+                  {selectedMarker.galleryUrls.slice(0, 6).map((url, idx) => (
+                    <img
+                      key={`${selectedMarker.id}-gallery-${idx}`}
+                      src={resolveMediaUrl(url) ?? undefined}
+                      alt={`Foto ${idx + 1} de ${selectedMarker.name}`}
+                      className="uzeed-map-drawer__gallery-photo"
+                    />
+                  ))}
+                </div>
+              ) : null}
               {selectedMarker.href ? (
-                <a className="uzeed-map-drawer__btn" href={selectedMarker.href} aria-label="Ver Perfil Completo">
-                  Ver Perfil Completo
-                </a>
+                <div className="uzeed-map-drawer__cta-wrap">
+                  <a className="uzeed-map-drawer__btn" href={selectedMarker.href} aria-label="Ver Perfil Completo">
+                    Ver Perfil Completo
+                  </a>
+                </div>
               ) : null}
             </div>
           </div>
-        </div>
+          </div>
+        </>
       ) : null}
     </div>
   );

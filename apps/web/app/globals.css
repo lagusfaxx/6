@@ -385,24 +385,35 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 }
 
 
+.uzeed-map-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 109;
+  background: rgba(2, 6, 23, 0.58);
+  border: 0;
+  padding: 0;
+}
+
 .uzeed-map-drawer {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 30;
+  z-index: 110;
   padding: 0 0 calc(10px + env(safe-area-inset-bottom));
 }
 
 .uzeed-map-drawer__content {
   border-radius: 18px 18px 0 0;
+  max-height: min(82vh, 680px);
+  overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(10, 10, 14, 0.92);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   color: #fff;
   padding: 0;
-  overflow: hidden;
+  overflow-x: hidden;
   box-shadow: 0 -4px 32px rgba(124, 58, 237, 0.18), 0 0 0 1px rgba(168, 85, 247, 0.08);
 }
 
@@ -459,7 +470,7 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   width: 64px;
   height: 64px;
   border-radius: 999px;
-  overflow: hidden;
+  overflow-x: hidden;
   background: rgba(124, 58, 237, 0.25);
   border: 3px solid rgba(232, 121, 249, 0.6);
   box-shadow: 0 0 16px rgba(168, 85, 247, 0.4), 0 0 0 3px rgba(10, 10, 14, 0.9);
@@ -488,7 +499,7 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 }
 
 .uzeed-map-drawer__body {
-  padding: 36px 16px 4px;
+  padding: 36px 16px 8px;
   text-align: center;
 }
 
@@ -573,8 +584,31 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   color: rgba(255, 255, 255, 0.95);
 }
 
+
+.uzeed-map-drawer__gallery {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.uzeed-map-drawer__gallery-photo {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.uzeed-map-drawer__cta-wrap {
+  position: sticky;
+  bottom: 0;
+  padding: 0 16px calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(10, 10, 14, 0) 0%, rgba(10, 10, 14, 0.94) 35%);
+}
 .uzeed-map-drawer__btn {
-  margin: 14px 0 10px;
+  margin: 12px 0 0;
   display: flex;
   width: 100%;
   justify-content: center;
