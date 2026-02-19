@@ -530,6 +530,7 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   margin-top: 10px;
   font-size: 26px;
   font-weight: 800;
+  color: #e879f9;
   background: linear-gradient(90deg, #e879f9, #a78bfa);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
