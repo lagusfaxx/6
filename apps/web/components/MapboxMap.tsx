@@ -255,11 +255,7 @@ function MapboxMapComponent({
     if (!renderHtmlMarkers) return;
     if (!mapbox) return;
 
-    const markersToRender = showMarkersForArea
-      ? displayMarkers
-      : displayMarkers.filter((m) => (m.areaRadiusM ?? 0) <= 0);
-
-    markersToRender.forEach((marker) => {
+    displayMarkers.forEach((marker) => {
       const el = document.createElement("div");
       el.className = "uzeed-map-marker";
 
@@ -383,7 +379,7 @@ function MapboxMapComponent({
         .addTo(map);
       markerRefs.current.push(markerInstance);
     });
-  }, [displayMarkers, isMobileViewport, onMarkerFocus, showMarkersForArea, renderHtmlMarkers]);
+  }, [displayMarkers, isMobileViewport, onMarkerFocus, renderHtmlMarkers]);
 
 
   useEffect(() => {
@@ -434,8 +430,16 @@ function MapboxMapComponent({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const sourceId = "uzeed-marker-areas";
+    const layerId = `${sourceId}-fill`;
+
+    if (!showMarkersForArea) {
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+      return;
+    }
+
     const update = () => {
-      const sourceId = "uzeed-marker-areas";
       const data: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
         type: "FeatureCollection",
         features: displayMarkers
@@ -448,7 +452,7 @@ function MapboxMapComponent({
       if (!source) {
         map.addSource(sourceId, { type: "geojson", data });
         map.addLayer({
-          id: `${sourceId}-fill`,
+          id: layerId,
           type: "fill",
           source: sourceId,
           paint: {
@@ -465,7 +469,7 @@ function MapboxMapComponent({
     } else {
       update();
     }
-  }, [displayMarkers, mapIdle]);
+  }, [displayMarkers, mapIdle, showMarkersForArea]);
 
   useEffect(() => {
     const map = mapRef.current;
