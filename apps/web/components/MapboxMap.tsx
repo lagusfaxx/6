@@ -385,7 +385,7 @@ function MapboxMapComponent({
     return () => {
       cancelled = true;
     };
-  }, [displayMarkers, isMobileViewport, onMarkerFocus, renderHtmlMarkers]);
+  }, [displayMarkers, isMobileViewport, onMarkerFocus, renderHtmlMarkers, mapInitialized]);
 
   useEffect(() => {
     const map = mapRef.current;
