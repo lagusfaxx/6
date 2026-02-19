@@ -581,11 +581,11 @@ function MapboxMapComponent({
       <div ref={containerRef} className={className} style={{ height }} />
       {selectedMarker ? (
         <div
-          className={isMobileViewport ? "uzeed-map-drawer" : "uzeed-map-panel"}
+          className={isMobileViewport ? "uzeed-map-mobile-overlay" : "uzeed-map-panel"}
           role="dialog"
           aria-label="Detalle de perfil en mapa"
         >
-            <div className="uzeed-map-drawer__content">
+            <div className={isMobileViewport ? "uzeed-map-drawer uzeed-map-drawer--mobile" : "uzeed-map-drawer__content"}>
             <div className="uzeed-map-drawer__cover-wrap">
               {selectedMarker.coverUrl ? (
                 <img
