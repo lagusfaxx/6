@@ -18,6 +18,8 @@ type ProfileResult = {
   city: string | null;
   latitude: number | null;
   longitude: number | null;
+  realLatitude?: number | null;
+  realLongitude?: number | null;
   distance: number | null;
   locality?: string | null;
   profileType: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
@@ -211,8 +213,8 @@ export default function ServicesPage() {
         .map((profile) => ({
           id: profile.id,
           name: profile.displayName || profile.username,
-          lat: Number(profile.latitude),
-          lng: Number(profile.longitude),
+          lat: Number(profile.realLatitude ?? profile.latitude),
+          lng: Number(profile.realLongitude ?? profile.longitude),
           subtitle: profile.serviceCategory || profile.city || "Perfil",
           href: ownerHref(profile),
           avatarUrl: profile.avatarUrl,
@@ -281,7 +283,7 @@ export default function ServicesPage() {
               markers={markers}
               height={420}
               autoCenterOnDataChange={false}
-              showMarkersForArea={false}
+              showMarkersForArea
               renderHtmlMarkers
             />
           </div>

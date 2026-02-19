@@ -9,6 +9,8 @@ export type MapMarker = {
   name: string;
   lat: number;
   lng: number;
+  displayLat?: number;
+  displayLng?: number;
   subtitle?: string | null;
   locality?: string | null;
   age?: number | null;
@@ -96,6 +98,15 @@ function stableHash(value: string) {
   }
   return hash >>> 0;
 }
+function resolveLevelMarkerClass(level?: string | null) {
+  if (!level) return "uzeed-map-marker--level-default";
+  const normalized = level.toUpperCase();
+  if (normalized === "DIAMOND") return "uzeed-map-marker--level-diamond";
+  if (normalized === "GOLD") return "uzeed-map-marker--level-gold";
+  if (normalized === "SILVER") return "uzeed-map-marker--level-silver";
+  return "uzeed-map-marker--level-default";
+}
+
 function MapboxMapComponent({
   markers,
   userLocation,
@@ -146,6 +157,9 @@ function MapboxMapComponent({
     () =>
       safeMarkers.map((marker) => {
         const radiusM = Math.max(1, marker.areaRadiusM ?? 500);
+        if (Number.isFinite(marker.displayLat) && Number.isFinite(marker.displayLng)) {
+          return marker;
+        }
         const seed = stableHash(`${sessionSaltRef.current}:${marker.id}`);
         const unitRadius = ((seed & 0xffff) / 0xffff) ** 0.5;
         const angle = (((seed >>> 16) & 0xffff) / 0xffff) * Math.PI * 2;
@@ -258,6 +272,7 @@ function MapboxMapComponent({
     displayMarkers.forEach((marker) => {
       const el = document.createElement("div");
       el.className = "uzeed-map-marker";
+      el.classList.add(resolveLevelMarkerClass(marker.level));
 
       const resolvedAvatar = marker.avatarUrl
         ? resolveMediaUrl(marker.avatarUrl)
@@ -375,7 +390,7 @@ function MapboxMapComponent({
       });
 
       const markerInstance = new mapbox.Marker(el)
-        .setLngLat([marker.displayLng, marker.displayLat])
+        .setLngLat([marker.displayLng ?? marker.lng, marker.displayLat ?? marker.lat])
         .addTo(map);
       markerRefs.current.push(markerInstance);
     });
@@ -444,7 +459,10 @@ function MapboxMapComponent({
         type: "FeatureCollection",
         features: displayMarkers
           .filter((m) => (m.areaRadiusM ?? 0) > 0)
-          .map((m) => circleFeature(m.lat, m.lng, m.areaRadiusM ?? 600)),
+          .map((m) => ({
+            ...circleFeature(m.lat, m.lng, m.areaRadiusM ?? 500),
+            properties: { id: m.id },
+          })),
       };
       const source = map.getSource(sourceId) as
         | mapboxgl.GeoJSONSource
@@ -470,6 +488,39 @@ function MapboxMapComponent({
       update();
     }
   }, [displayMarkers, mapIdle, showMarkersForArea]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !showMarkersForArea) return;
+
+    const layerId = "uzeed-marker-areas-fill";
+
+    const handleMapClick = (event: mapboxgl.MapMouseEvent) => {
+      const feature = map
+        .queryRenderedFeatures(event.point, { layers: [layerId] })
+        .find((item) => item.properties?.id);
+      const markerId = feature?.properties?.id;
+      if (!markerId) return;
+      const target = displayMarkers.find((marker) => marker.id === markerId);
+      if (!target) return;
+      setSelectedMarker(target);
+      onMarkerFocus?.(target.id);
+    };
+
+    const handleMapMove = (event: mapboxgl.MapMouseEvent) => {
+      const hovered = map.queryRenderedFeatures(event.point, { layers: [layerId] }).length > 0;
+      map.getCanvas().style.cursor = hovered ? "pointer" : "";
+    };
+
+    map.on("click", handleMapClick);
+    map.on("mousemove", handleMapMove);
+
+    return () => {
+      map.off("click", handleMapClick);
+      map.off("mousemove", handleMapMove);
+      map.getCanvas().style.cursor = "";
+    };
+  }, [displayMarkers, onMarkerFocus, showMarkersForArea]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -512,7 +563,7 @@ function MapboxMapComponent({
     const target = displayMarkers.find((m) => m.id === focusMarkerId);
     if (!target) return;
     map.flyTo({
-      center: [target.displayLng, target.displayLat],
+      center: [target.displayLng ?? target.lng, target.displayLat ?? target.lat],
       zoom: 13,
       essential: true,
     });
