@@ -580,20 +580,11 @@ function MapboxMapComponent({
     <div className="relative isolate">
       <div ref={containerRef} className={className} style={{ height }} />
       {selectedMarker ? (
-        <>
-          {isMobileViewport ? (
-            <button
-              type="button"
-              className="uzeed-map-drawer-backdrop"
-              aria-label="Cerrar detalle de perfil"
-              onClick={() => setSelectedMarker(null)}
-            />
-          ) : null}
-          <div
-            className={isMobileViewport ? "uzeed-map-drawer" : "uzeed-map-panel"}
-            role="dialog"
-            aria-label="Detalle de perfil en mapa"
-          >
+        <div
+          className={isMobileViewport ? "uzeed-map-drawer" : "uzeed-map-panel"}
+          role="dialog"
+          aria-label="Detalle de perfil en mapa"
+        >
             <div className="uzeed-map-drawer__content">
             <div className="uzeed-map-drawer__cover-wrap">
               {selectedMarker.coverUrl ? (
@@ -658,8 +649,7 @@ function MapboxMapComponent({
               ) : null}
             </div>
           </div>
-          </div>
-        </>
+        </div>
       ) : null}
     </div>
   );
