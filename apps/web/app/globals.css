@@ -542,7 +542,7 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 .uzeed-map-drawer__badges {
   margin-top: 10px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 6px;
 }
 
