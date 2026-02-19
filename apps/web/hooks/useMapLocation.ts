@@ -31,7 +31,7 @@ function storeLocation(location: Location) {
 }
 
 export function useMapLocation(fallback: Location) {
-  const [location, setLocation] = useState<Location | null>(() => readStoredLocation() || fallback);
+  const [location, setLocation] = useState<Location | null>(() => readStoredLocation());
   const [resolved, setResolved] = useState(false);
   const lastLocationRef = useRef<Location | null>(null);
 

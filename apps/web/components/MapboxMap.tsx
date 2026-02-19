@@ -589,21 +589,17 @@ function MapboxMapComponent({
                 {selectedMarker.level ? `Nivel ${selectedMarker.level}` : "Nivel no informado"}
               </div>
               <span className={`uzeed-map-drawer__status-badge ${selectedMarker.tier === "online" ? "uzeed-map-drawer__status-badge--online" : "uzeed-map-drawer__status-badge--offline"}`}>
-                {selectedMarker.tier === "online" ? "🟢 Online" : formatLastSeenLabel(selectedMarker.lastSeen)}
+                {selectedMarker.tier === "online" ? "Online" : formatLastSeenLabel(selectedMarker.lastSeen)}
               </span>
-              {typeof selectedMarker.serviceValue === "number" ? (
-                <div className="uzeed-map-drawer__price">
-                  ${selectedMarker.serviceValue.toLocaleString("es-CL")}
-                </div>
-              ) : null}
               <div className="uzeed-map-drawer__badges">
-                {selectedMarker.age ? <span className="uzeed-map-drawer__badge" aria-label={`Edad: ${selectedMarker.age} años`}>🎂 {selectedMarker.age} años</span> : null}
-                {selectedMarker.heightCm ? <span className="uzeed-map-drawer__badge" aria-label={`Estatura: ${Math.round(selectedMarker.heightCm)} cm`}>📏 {Math.round(selectedMarker.heightCm)} cm</span> : null}
-                {selectedMarker.weightKg ? <span className="uzeed-map-drawer__badge" aria-label={`Peso: ${Math.round(selectedMarker.weightKg)} kg`}>⚖️ {Math.round(selectedMarker.weightKg)} kg</span> : null}
+                {selectedMarker.age ? <span className="uzeed-map-drawer__badge" aria-label={`Edad: ${selectedMarker.age} años`}><span className="uzeed-map-drawer__badge-label">Edad</span><span className="uzeed-map-drawer__badge-value">{selectedMarker.age} años</span></span> : null}
+                {selectedMarker.heightCm ? <span className="uzeed-map-drawer__badge" aria-label={`Estatura: ${Math.round(selectedMarker.heightCm)} cm`}><span className="uzeed-map-drawer__badge-label">Estatura</span><span className="uzeed-map-drawer__badge-value">{Math.round(selectedMarker.heightCm)} cm</span></span> : null}
+                {selectedMarker.weightKg ? <span className="uzeed-map-drawer__badge" aria-label={`Peso: ${Math.round(selectedMarker.weightKg)} kg`}><span className="uzeed-map-drawer__badge-label">Peso</span><span className="uzeed-map-drawer__badge-value">{Math.round(selectedMarker.weightKg)} kg</span></span> : null}
+                {typeof selectedMarker.serviceValue === "number" ? <span className="uzeed-map-drawer__badge" aria-label={`Precio: $${selectedMarker.serviceValue.toLocaleString("es-CL")}`}><span className="uzeed-map-drawer__badge-label">Precio</span><span className="uzeed-map-drawer__badge-value">${selectedMarker.serviceValue.toLocaleString("es-CL")}</span></span> : null}
               </div>
               {selectedMarker.href ? (
                 <a className="uzeed-map-drawer__btn" href={selectedMarker.href} aria-label="Ver Perfil Completo">
-                  <span aria-hidden="true">✨</span> Ver Perfil Completo
+                  Ver Perfil Completo
                 </a>
               ) : null}
             </div>
