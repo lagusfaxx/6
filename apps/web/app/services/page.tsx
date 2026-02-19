@@ -34,6 +34,7 @@ type ProfileResult = {
   heightCm?: number | null;
   hairColor?: string | null;
   weightKg?: number | null;
+  baseRate?: number | null;
 };
 
 const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
@@ -111,9 +112,7 @@ const ProfileCard = memo(function ProfileCard({ profile }: { profile: ProfileRes
           </div>
           <span className="truncate">{profile.serviceCategory || profile.city || profile.profileType}</span>
         </div>
-        {!profile.availableNow && (
-          <p className="mt-1 text-[11px] text-white/45">{formatLastSeen(profile.lastSeen)}</p>
-        )}
+        <p className="mt-1 text-[11px] text-white/45">{formatLastSeen(profile.lastSeen)}</p>
         {profile.serviceDescription && (
           <p className="mt-2 line-clamp-2 text-xs text-white/55">{profile.serviceDescription}</p>
         )}
@@ -224,6 +223,8 @@ export default function ServicesPage() {
           heightCm: profile.heightCm ?? null,
           hairColor: profile.hairColor ?? null,
           weightKg: profile.weightKg ?? null,
+          coverUrl: profile.coverUrl,
+          serviceValue: profile.baseRate ?? null,
           level: profile.userLevel ?? null,
           lastSeen: profile.lastSeen ?? null,
           tier: profile.availableNow ? "online" : "offline",
