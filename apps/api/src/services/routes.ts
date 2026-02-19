@@ -191,6 +191,8 @@ servicesRouter.get(
         );
         return {
           ...p,
+          realLatitude: p.latitude,
+          realLongitude: p.longitude,
           latitude: obfuscated.latitude,
           longitude: obfuscated.longitude,
           locality: p.city || null,
@@ -280,6 +282,8 @@ servicesRouter.get(
         );
         return {
           ...p,
+          realLatitude: p.latitude,
+          realLongitude: p.longitude,
           latitude: obfuscated.latitude,
           longitude: obfuscated.longitude,
           locality: p.city || null,
