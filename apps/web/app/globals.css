@@ -385,6 +385,15 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 }
 
 
+.uzeed-map-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 109;
+  background: rgba(2, 6, 23, 0.58);
+  border: 0;
+  padding: 0;
+}
+
 .uzeed-map-drawer {
   position: absolute;
   left: 0;
