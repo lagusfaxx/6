@@ -396,60 +396,72 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 
 .uzeed-map-drawer__content {
   border-radius: 18px 18px 0 0;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(10, 10, 14, 0.94);
-  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 10, 14, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   color: #fff;
   padding: 0;
   overflow: hidden;
+  box-shadow: 0 -4px 32px rgba(124, 58, 237, 0.18), 0 0 0 1px rgba(168, 85, 247, 0.08);
 }
 
-.uzeed-map-drawer__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px 0;
+.uzeed-map-drawer__cover-wrap {
+  position: relative;
+  min-height: 130px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.45), rgba(162, 28, 175, 0.3), rgba(168, 85, 247, 0.2));
+  overflow: hidden;
 }
 
-.uzeed-map-drawer__name {
-  font-size: 14px;
-  font-weight: 600;
+.uzeed-map-drawer__cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .uzeed-map-drawer__close {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.74);
-}
-
-.uzeed-map-drawer__meta {
-  margin-top: 8px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-
-.uzeed-map-panel {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 30;
-  width: min(360px, calc(100% - 32px));
-}
-
-.uzeed-map-drawer__identity {
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  line-height: 1;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.uzeed-map-drawer__close:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.uzeed-map-drawer__avatar-overlay {
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
 }
 
 .uzeed-map-drawer__avatar-wrap {
-  width: 40px;
-  height: 40px;
+  width: 64px;
+  height: 64px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(124, 58, 237, 0.25);
+  border: 3px solid rgba(232, 121, 249, 0.6);
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.4), 0 0 0 3px rgba(10, 10, 14, 0.9);
 }
 
 .uzeed-map-drawer__avatar {
@@ -458,13 +470,127 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   object-fit: cover;
 }
 
-.uzeed-map-drawer__meta-list {
-  margin-top: 8px;
-  display: grid;
-  gap: 4px;
+.uzeed-map-drawer__status-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(100, 100, 100, 0.7);
+  border: 2px solid rgba(10, 10, 14, 0.9);
+}
+
+.uzeed-map-drawer__status-dot--online {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+
+.uzeed-map-drawer__body {
+  padding: 36px 16px 4px;
+  text-align: center;
+}
+
+.uzeed-map-drawer__name {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.uzeed-map-drawer__level {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
-  padding: 10px 12px 0;
+  color: rgba(232, 121, 249, 0.85);
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.uzeed-map-drawer__status-badge {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+.uzeed-map-drawer__status-badge--online {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.uzeed-map-drawer__status-badge--offline {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.uzeed-map-drawer__price {
+  margin-top: 10px;
+  font-size: 26px;
+  font-weight: 800;
+  color: #e879f9;
+  background: linear-gradient(90deg, #e879f9, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+}
+
+.uzeed-map-drawer__badges {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.uzeed-map-drawer__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+}
+
+.uzeed-map-drawer__btn {
+  margin: 14px 0 10px;
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(232, 121, 249, 0.35);
+  background: linear-gradient(135deg, #a21caf, #7c3aed);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 16px;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 20px rgba(162, 28, 175, 0.35);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.uzeed-map-drawer__btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 28px rgba(162, 28, 175, 0.5);
+}
+
+.uzeed-map-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 30;
+  width: min(360px, calc(100% - 32px));
 }
 
 @media (max-width: 768px) {
@@ -477,36 +603,4 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   .uzeed-map-drawer__content {
     border-radius: 18px 18px 0 0;
   }
-}
-.uzeed-map-drawer__btn {
-  margin: 12px;
-  display: inline-flex;
-  width: 100%;
-  justify-content: center;
-  border-radius: 12px;
-  border: 1px solid rgba(232, 121, 249, 0.35);
-  background: linear-gradient(90deg, #a21caf, #7c3aed);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 8px 10px;
-}
-
-.uzeed-map-drawer__cover-wrap {
-  position: relative;
-  min-height: 120px;
-  background: linear-gradient(120deg, rgba(124, 58, 237, 0.35), rgba(168, 85, 247, 0.2));
-}
-
-.uzeed-map-drawer__cover {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.uzeed-map-drawer__avatar-wrap {
-  margin-top: 66px;
-  border: 2px solid rgba(255, 255, 255, 0.85);
 }
