@@ -214,6 +214,8 @@ body::after {
   border: 2px solid rgba(255, 255, 255, 0.85);
   box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.2);
   cursor: pointer;
+  position: relative;
+  z-index: 8;
 }
 
 .uzeed-map-marker--avatar {
@@ -221,6 +223,26 @@ body::after {
   background-position: center;
   border: 2px solid rgba(255, 255, 255, 0.95);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.uzeed-map-marker--level-default {
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.2);
+}
+
+.uzeed-map-marker--level-silver {
+  border-color: rgba(226, 232, 240, 0.95);
+  box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.35);
+}
+
+.uzeed-map-marker--level-gold {
+  border-color: rgba(253, 224, 71, 0.95);
+  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.35);
+}
+
+.uzeed-map-marker--level-diamond {
+  border-color: rgba(125, 211, 252, 0.95);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.35);
 }
 
 .uzeed-map-marker--incognito {

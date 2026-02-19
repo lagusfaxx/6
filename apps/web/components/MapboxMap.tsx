@@ -9,6 +9,10 @@ export type MapMarker = {
   name: string;
   lat: number;
   lng: number;
+  displayLat?: number;
+  displayLng?: number;
+  realLat?: number;
+  realLng?: number;
   subtitle?: string | null;
   locality?: string | null;
   age?: number | null;
@@ -81,21 +85,15 @@ function formatLastSeenLabel(lastSeen?: string | null) {
   return `Activa hace ${days} día${days === 1 ? "" : "s"}`;
 }
 
-function offsetLatLng(lat: number, lng: number, distanceM: number, angleRad: number): [number, number] {
-  const earth = 111320;
-  const dLat = (distanceM * Math.cos(angleRad)) / earth;
-  const dLng = (distanceM * Math.sin(angleRad)) / (earth * Math.cos((lat * Math.PI) / 180));
-  return [lat + dLat, lng + dLng];
+function resolveLevelMarkerClass(level?: string | null) {
+  if (!level) return "uzeed-map-marker--level-default";
+  const normalized = level.toUpperCase();
+  if (normalized === "DIAMOND") return "uzeed-map-marker--level-diamond";
+  if (normalized === "GOLD") return "uzeed-map-marker--level-gold";
+  if (normalized === "SILVER") return "uzeed-map-marker--level-silver";
+  return "uzeed-map-marker--level-default";
 }
 
-function stableHash(value: string) {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i += 1) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
 function MapboxMapComponent({
   markers,
   userLocation,
@@ -120,7 +118,6 @@ function MapboxMapComponent({
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const centerChangeHandlerRef = useRef(onCenterChange);
-  const sessionSaltRef = useRef(`${Date.now()}-${Math.random()}`);
 
   useEffect(() => {
     centerChangeHandlerRef.current = onCenterChange;
@@ -144,19 +141,11 @@ function MapboxMapComponent({
   );
   const displayMarkers = useMemo(
     () =>
-      safeMarkers.map((marker) => {
-        const radiusM = Math.max(1, marker.areaRadiusM ?? 500);
-        const seed = stableHash(`${sessionSaltRef.current}:${marker.id}`);
-        const unitRadius = ((seed & 0xffff) / 0xffff) ** 0.5;
-        const angle = (((seed >>> 16) & 0xffff) / 0xffff) * Math.PI * 2;
-        const [displayLat, displayLng] = offsetLatLng(
-          marker.lat,
-          marker.lng,
-          radiusM * unitRadius,
-          angle,
-        );
-        return { ...marker, displayLat, displayLng };
-      }),
+      safeMarkers.map((marker) => ({
+        ...marker,
+        displayLat: marker.displayLat ?? marker.lat,
+        displayLng: marker.displayLng ?? marker.lng,
+      })),
     [safeMarkers],
   );
 
@@ -258,6 +247,7 @@ function MapboxMapComponent({
     displayMarkers.forEach((marker) => {
       const el = document.createElement("div");
       el.className = "uzeed-map-marker";
+      el.classList.add(resolveLevelMarkerClass(marker.level));
 
       const resolvedAvatar = marker.avatarUrl
         ? resolveMediaUrl(marker.avatarUrl)
@@ -375,58 +365,13 @@ function MapboxMapComponent({
       });
 
       const markerInstance = new mapbox.Marker(el)
-        .setLngLat([marker.displayLng, marker.displayLat])
+        .setLngLat([marker.displayLng ?? marker.lng, marker.displayLat ?? marker.lat])
         .addTo(map);
       markerRefs.current.push(markerInstance);
     });
   }, [displayMarkers, isMobileViewport, onMarkerFocus, renderHtmlMarkers]);
 
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const sourceId = "uzeed-profile-points";
-    const layerId = `${sourceId}-circle`;
-    if (renderHtmlMarkers) {
-      if (map.getLayer(layerId)) map.removeLayer(layerId);
-      if (map.getSource(sourceId)) map.removeSource(sourceId);
-      return;
-    }
-
-    const update = () => {
-      const data: GeoJSON.FeatureCollection<GeoJSON.Point> = {
-        type: "FeatureCollection",
-        features: displayMarkers.map((m) => ({
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [m.lng, m.lat] },
-          properties: { id: m.id, online: m.tier === "online" ? 1 : 0 },
-        })),
-      };
-      const source = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
-      if (!source) {
-        map.addSource(sourceId, { type: "geojson", data });
-        map.addLayer({
-          id: `${sourceId}-circle`,
-          type: "circle",
-          source: sourceId,
-          paint: {
-            "circle-color": ["case", ["==", ["get", "online"], 1], "#34d399", "#a855f7"],
-            "circle-opacity": 0.85,
-            "circle-stroke-color": "rgba(255,255,255,0.8)",
-            "circle-stroke-width": 1,
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3.5, 12, 6, 15, 9],
-          },
-        });
-      } else {
-        source.setData(data as any);
-      }
-    };
-    if (!map.isStyleLoaded()) {
-      map.once("load", update);
-    } else {
-      update();
-    }
-  }, [displayMarkers, mapIdle, renderHtmlMarkers]);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -444,7 +389,10 @@ function MapboxMapComponent({
         type: "FeatureCollection",
         features: displayMarkers
           .filter((m) => (m.areaRadiusM ?? 0) > 0)
-          .map((m) => circleFeature(m.lat, m.lng, m.areaRadiusM ?? 600)),
+          .map((m) => ({
+            ...circleFeature(m.realLat ?? m.lat, m.realLng ?? m.lng, m.areaRadiusM ?? 500),
+            properties: { id: m.id },
+          })),
       };
       const source = map.getSource(sourceId) as
         | mapboxgl.GeoJSONSource
@@ -470,6 +418,39 @@ function MapboxMapComponent({
       update();
     }
   }, [displayMarkers, mapIdle, showMarkersForArea]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !showMarkersForArea) return;
+
+    const layerId = "uzeed-marker-areas-fill";
+
+    const handleMapClick = (event: mapboxgl.MapMouseEvent) => {
+      const feature = map
+        .queryRenderedFeatures(event.point, { layers: [layerId] })
+        .find((item) => item.properties?.id);
+      const markerId = feature?.properties?.id;
+      if (!markerId) return;
+      const target = displayMarkers.find((marker) => marker.id === markerId);
+      if (!target) return;
+      setSelectedMarker(target);
+      onMarkerFocus?.(target.id);
+    };
+
+    const handleMapMove = (event: mapboxgl.MapMouseEvent) => {
+      const hovered = map.queryRenderedFeatures(event.point, { layers: [layerId] }).length > 0;
+      map.getCanvas().style.cursor = hovered ? "pointer" : "";
+    };
+
+    map.on("click", handleMapClick);
+    map.on("mousemove", handleMapMove);
+
+    return () => {
+      map.off("click", handleMapClick);
+      map.off("mousemove", handleMapMove);
+      map.getCanvas().style.cursor = "";
+    };
+  }, [displayMarkers, onMarkerFocus, showMarkersForArea]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -512,7 +493,7 @@ function MapboxMapComponent({
     const target = displayMarkers.find((m) => m.id === focusMarkerId);
     if (!target) return;
     map.flyTo({
-      center: [target.displayLng, target.displayLat],
+      center: [target.displayLng ?? target.lng, target.displayLat ?? target.lat],
       zoom: 13,
       essential: true,
     });
