@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 
 // ── Simple in-memory sliding-window rate-limit ──
 // Prevents abuse of this logging endpoint.  Max 20 reports per IP per minute.
+// NOTE: In-memory state is per-process.  For multi-instance deployments, swap
+// this for a shared store (Redis) or accept the per-instance approximation.
 const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 20;
 const hits = new Map<string, number[]>();

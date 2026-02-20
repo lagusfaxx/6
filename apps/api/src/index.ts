@@ -97,8 +97,12 @@ const authLoginLimiter = buildLimiter(60_000, 15, "Demasiados intentos de inicio
 app.use("/auth/login", authLoginLimiter);
 app.use("/auth/register", authLoginLimiter);
 
+// General /auth bucket — skips login/register (they have their own above).
 const authGeneralLimiter = buildLimiter(60_000, 40, "Demasiadas solicitudes de autenticación.");
-app.use("/auth", authGeneralLimiter);
+app.use("/auth", (req, res, next) => {
+  if (req.path === "/login" || req.path === "/register") return next();
+  return authGeneralLimiter(req, res, next);
+});
 
 app.use(cookieParser());
 
