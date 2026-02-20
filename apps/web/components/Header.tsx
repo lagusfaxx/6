@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, ChevronDown, Menu, X, Heart, Home, MessageCircle, Briefcase, User, Hotel } from "lucide-react";
 import Avatar from "./Avatar";
+import LocationChip from "./LocationChip";
+import LocationPickerModal from "./LocationPickerModal";
 import useMe from "../hooks/useMe";
 import { apiFetch } from "../lib/api";
 
@@ -58,6 +60,7 @@ export default function Header() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifPanelOpen, setNotifPanelOpen] = useState(false);
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const notifPanelRef = useRef<HTMLDivElement | null>(null);
@@ -170,8 +173,9 @@ export default function Header() {
               </Link>
             </div>
 
-            {/* Right side: Notifications + User */}
+            {/* Right side: Location + Notifications + User */}
             <div className="flex items-center gap-2 md:gap-3">
+              <LocationChip onClick={() => setLocationPickerOpen(true)} />
               {isAuthed ? (
                 <div className="relative" ref={notifPanelRef}>
                   <button
@@ -298,6 +302,11 @@ export default function Header() {
           </div>
         </div>
       </div>
+
+      <LocationPickerModal
+        isOpen={locationPickerOpen}
+        onClose={() => setLocationPickerOpen(false)}
+      />
     </>
   );
 }

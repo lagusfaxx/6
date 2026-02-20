@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
-import { useMapLocation } from "../hooks/useMapLocation";
+import { useActiveLocation } from "../hooks/useActiveLocation";
 import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
 import {
@@ -34,7 +34,7 @@ type Banner = {
   position: string;
 };
 
-type UserLevel = "SILVER" | "GOLD" | "DIAMOND";
+type UserLevel = "SILVER" | "GOLD" | "DIAMOND" | "PLATINUM" | "PREMIUM";
 
 type RecentProfessional = {
   id: string;
@@ -155,7 +155,14 @@ export default function HomePage() {
   const [discoverSections, setDiscoverSections] = useState<
     Record<string, DiscoverProfile[]>
   >({});
-  const { location } = useMapLocation(SANTIAGO_FALLBACK);
+  const { activeLocation } = useActiveLocation();
+  const location: [number, number] | null = activeLocation
+    ? [activeLocation.lat, activeLocation.lng]
+    : null;
+  const locationLabel =
+    activeLocation?.source === "manual" && activeLocation?.label
+      ? `en ${activeLocation.label}`
+      : "cerca de ti";
   const [error, setError] = useState<string | null>(null);
   const [recentError, setRecentError] = useState<string | null>(null);
   const [recentLoading, setRecentLoading] = useState(true);
@@ -297,7 +304,7 @@ export default function HomePage() {
             </span>
             <br />
             <span className="bg-gradient-to-r from-fuchsia-400 via-violet-400 to-fuchsia-300 bg-clip-text text-transparent">
-              reales cerca de ti
+              reales {locationLabel}
             </span>
           </motion.h1>
 
@@ -413,10 +420,10 @@ export default function HomePage() {
                   </span>
                 </div>
                 <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
-                  Experiencias cerca de ti
+                  Experiencias {locationLabel}
                 </h2>
                 <p className="mt-1 text-sm text-white/45">
-                  Descubre profesionales disponibles en tu zona
+                  Descubre profesionales disponibles {locationLabel}
                 </p>
               </div>
               <Link
@@ -672,10 +679,10 @@ export default function HomePage() {
                 </span>
               </div>
               <h2 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
-                Cerca de ti
+                {activeLocation?.source === "manual" ? `En ${activeLocation.label}` : "Cerca de ti"}
               </h2>
               <p className="mt-1 text-sm text-white/45">
-                Las más buscadas en tu zona
+                Las más buscadas {locationLabel}
               </p>
             </motion.div>
 

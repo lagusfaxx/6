@@ -6,6 +6,7 @@ import Nav from "./Nav";
 import Header from "./Header";
 import PushNotificationsManager from "./PushNotificationsManager";
 import PresenceHeartbeat from "./PresenceHeartbeat";
+import ActiveLocationProvider from "./ActiveLocationProvider";
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
@@ -38,21 +39,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div
-      style={iosTextSizeFix}
-      className="flex min-h-[100svh] w-full bg-transparent text-white"
-    >
-      <Nav />
+    <ActiveLocationProvider>
+      <div
+        style={iosTextSizeFix}
+        className="flex min-h-[100svh] w-full bg-transparent text-white"
+      >
+        <Nav />
 
-      <div className="relative min-w-0 flex-1">
-        <Header />
-        <PushNotificationsManager />
-        <PresenceHeartbeat />
-        {/* Reduced bottom padding since no bottom nav on mobile */}
-        <main className="flex-1 px-4 pt-[84px] pb-[calc(2rem+env(safe-area-inset-bottom))] md:pt-[96px] md:pb-6">
-          {children}
-        </main>
+        <div className="relative min-w-0 flex-1">
+          <Header />
+          <PushNotificationsManager />
+          <PresenceHeartbeat />
+          {/* Reduced bottom padding since no bottom nav on mobile */}
+          <main className="flex-1 px-4 pt-[84px] pb-[calc(2rem+env(safe-area-inset-bottom))] md:pt-[96px] md:pb-6">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </ActiveLocationProvider>
   );
 }

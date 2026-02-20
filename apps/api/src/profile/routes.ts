@@ -13,6 +13,7 @@ import {
   compareProfessionalLevelDesc,
   resolveProfessionalLevel,
 } from "../lib/professionalLevel";
+import { computeRankingScore } from "../lib/ranking";
 
 export const profileRouter = Router();
 
@@ -136,6 +137,7 @@ profileRouter.get(
         isOnline: true,
         completedServices: true,
         profileViews: true,
+        tier: true,
       },
     });
 
@@ -165,6 +167,7 @@ profileRouter.get(
           availableNow: hasActiveSession,
           isActive: p.isActive,
           userLevel: resolveProfessionalLevel(p.completedServices),
+          tier: p.tier,
           completedServices: p.completedServices,
           profileViews: p.profileViews,
           lastActiveAt: p.lastSeen ? p.lastSeen.toISOString() : null,
@@ -189,7 +192,7 @@ profileRouter.get(
           return (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9);
         });
       return res.json({
-        profiles: near.slice(0, limit).map(({ createdAt, ...row }) => row),
+        profiles: near.slice(0, limit).map(({ createdAt, tier: _t, ...row }) => row),
       });
     } else if (sort === "new") {
       const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -200,7 +203,7 @@ profileRouter.get(
       return res.json({
         profiles: recentOnly
           .slice(0, limit)
-          .map(({ createdAt, ...row }) => row),
+          .map(({ createdAt, tier: _t, ...row }) => row),
       });
     } else if (sort === "availableNow") {
       const available = [...enriched];
@@ -212,27 +215,36 @@ profileRouter.get(
         return (b.profileViews || 0) - (a.profileViews || 0);
       });
       return res.json({
-        profiles: available.slice(0, limit).map(({ createdAt, ...row }) => row),
+        profiles: available.slice(0, limit).map(({ createdAt, tier: _t, ...row }) => row),
       });
     } else {
       const featured = [...enriched];
       featured.sort((a, b) => {
-        const availabilityCmp = compareByAvailabilityAndLastSeen(a, b);
-        if (availabilityCmp !== 0) return availabilityCmp;
-        const levelCmp = compareProfessionalLevelDesc(a.userLevel, b.userLevel);
-        if (levelCmp !== 0) return levelCmp;
-        if (a.isActive !== b.isActive)
-          return Number(b.isActive) - Number(a.isActive);
-        return (b.profileViews || 0) - (a.profileViews || 0);
+        const scoreA = computeRankingScore({
+          id: a.id,
+          lastActiveAt: a.lastActiveAt,
+          profileViews: a.profileViews,
+          availableNow: a.availableNow,
+          tier: (a as any).tier || null,
+          distanceKm: a.distanceKm,
+        });
+        const scoreB = computeRankingScore({
+          id: b.id,
+          lastActiveAt: b.lastActiveAt,
+          profileViews: b.profileViews,
+          availableNow: b.availableNow,
+          tier: (b as any).tier || null,
+          distanceKm: b.distanceKm,
+        });
+        return scoreB - scoreA;
       });
       return res.json({
-        profiles: featured.slice(0, limit).map(({ createdAt, ...row }) => row),
-      });
+        profiles: featured.slice(0, limit).map(({ createdAt, tier: _t, ...row }) => row),      });
     }
 
     const payload = enriched
       .slice(0, limit)
-      .map(({ createdAt, ...row }) => row);
+      .map(({ createdAt, tier: _t, ...row }) => row);
 
     return res.json({ profiles: payload });
   }),

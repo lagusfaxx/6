@@ -31,6 +31,7 @@ enum ProfessionalTier {
   PREMIUM
   GOLD
   SILVER
+  PLATINUM
 }
 
 enum ServiceRequestStatus {
@@ -106,8 +107,11 @@ model User {
   profileType         ProfileType       @default(VIEWER)
   address             String?
   city                String?
+  regionName          String?
   latitude            Float?
   longitude           Float?
+  locationUpdatedAt   DateTime?
+  popularityScore     Float             @default(0)
   categoryId          String?           @db.Uuid
   isActive            Boolean           @default(true)
   tier                ProfessionalTier?
