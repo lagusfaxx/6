@@ -470,7 +470,7 @@ function MapboxMapComponent({
     const handleMapMove = (event: mapboxgl.MapMouseEvent) => {
       if (!mapRef.current) return;
       const hovered = map.queryRenderedFeatures(event.point, { layers: [layerId] }).length > 0;
-      const canvas = map.getCanvas?.();
+      const canvas = map.getCanvas();
       if (canvas) canvas.style.cursor = hovered ? "pointer" : "";
     };
 
@@ -481,7 +481,7 @@ function MapboxMapComponent({
       map.off("click", handleMapClick);
       map.off("mousemove", handleMapMove);
       try {
-        const canvas = map.getCanvas?.();
+        const canvas = map.getCanvas();
         if (canvas) canvas.style.cursor = "";
       } catch {
         // map already removed
