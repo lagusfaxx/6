@@ -152,7 +152,7 @@ homeRouter.get(
     }
 
     const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
     const baseWhere: Record<string, unknown> = {
       profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "CREATOR"] },
@@ -170,7 +170,7 @@ homeRouter.get(
           where: { ...baseWhere, tier: "PLATINUM" } as any,
         }),
         prisma.user.count({
-          where: { ...baseWhere, createdAt: { gte: oneWeekAgo } } as any,
+          where: { ...baseWhere, createdAt: { gte: twoWeeksAgo } } as any,
         }),
         prisma.user.count({
           where: {
