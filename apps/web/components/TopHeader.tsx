@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, ChevronDown } from "lucide-react";
 import Avatar from "./Avatar";
+import CategoryBar from "./CategoryBar";
 import useMe from "../hooks/useMe";
 import { apiFetch } from "../lib/api";
 
@@ -38,7 +40,7 @@ function notificationTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
     day: "2-digit",
-    month: "2-digit"
+    month: "2-digit",
   }).format(date);
 }
 
@@ -78,15 +80,21 @@ export default function TopHeader() {
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.readAt).length,
-    [notifications]
+    [notifications],
   );
 
   const recentItems = notifications.slice(0, 5);
 
   const markAsRead = async (id: string) => {
     try {
-      await apiFetch<{ ok: boolean }>(`/notifications/${id}/read`, { method: "POST" });
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
+      await apiFetch<{ ok: boolean }>(`/notifications/${id}/read`, {
+        method: "POST",
+      });
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === id ? { ...n, readAt: new Date().toISOString() } : n,
+        ),
+      );
     } catch {
       // silencioso: no bloquea UX
     }
@@ -97,13 +105,18 @@ export default function TopHeader() {
       <div className="w-full border-b border-white/10 bg-transparent px-3 py-2 backdrop-blur-[10px] md:px-5 md:py-2.5">
         <div className="flex min-h-[56px] items-center justify-between md:min-h-[64px]">
           <Link href="/" className="flex items-center gap-3">
-            <img
+            <Image
               src="/brand/isotipo-new.png"
               alt="UZEED"
+              width={56}
+              height={56}
               className="h-[52px] w-[52px] object-contain drop-shadow-[0_6px_20px_rgba(168,85,247,0.55)] md:h-14 md:w-14"
+              priority
             />
             <div className="min-w-0">
-              <div className="text-[32px] font-semibold leading-none tracking-tight text-white drop-shadow-[0_4px_14px_rgba(168,85,247,0.48)] md:text-[36px]">Uzeed</div>
+              <div className="text-[32px] font-semibold leading-none tracking-tight text-white drop-shadow-[0_4px_14px_rgba(168,85,247,0.48)] md:text-[36px]">
+                Uzeed
+              </div>
             </div>
           </Link>
 
@@ -126,10 +139,14 @@ export default function TopHeader() {
 
                 {panelOpen ? (
                   <div className="absolute right-0 top-14 w-[300px] overflow-hidden rounded-2xl border border-white/15 bg-[#0a0b1de6] shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:w-[340px]">
-                    <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold">Notificaciones</div>
+                    <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold">
+                      Notificaciones
+                    </div>
                     <div className="max-h-[320px] overflow-y-auto p-2">
                       {loadingNotifications ? (
-                        <div className="rounded-xl px-3 py-4 text-sm text-white/70">Cargando…</div>
+                        <div className="rounded-xl px-3 py-4 text-sm text-white/70">
+                          Cargando…
+                        </div>
                       ) : recentItems.length ? (
                         <div className="space-y-1">
                           {recentItems.map((item) => (
@@ -139,16 +156,24 @@ export default function TopHeader() {
                               onClick={() => markAsRead(item.id)}
                               className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left hover:bg-white/10"
                             >
-                              <div className={`mt-1 h-2.5 w-2.5 rounded-full ${item.readAt ? "bg-white/30" : "bg-fuchsia-400"}`} />
+                              <div
+                                className={`mt-1 h-2.5 w-2.5 rounded-full ${item.readAt ? "bg-white/30" : "bg-fuchsia-400"}`}
+                              />
                               <div className="min-w-0">
-                                <div className="text-sm text-white/95">{notificationLabel(item)}</div>
-                                <div className="mt-1 text-[11px] text-white/55">{notificationTime(item.createdAt)}</div>
+                                <div className="text-sm text-white/95">
+                                  {notificationLabel(item)}
+                                </div>
+                                <div className="mt-1 text-[11px] text-white/55">
+                                  {notificationTime(item.createdAt)}
+                                </div>
                               </div>
                             </button>
                           ))}
                         </div>
                       ) : (
-                        <div className="rounded-xl px-3 py-4 text-sm text-white/65">No tienes notificaciones recientes.</div>
+                        <div className="rounded-xl px-3 py-4 text-sm text-white/65">
+                          No tienes notificaciones recientes.
+                        </div>
                       )}
                     </div>
                   </div>
@@ -160,12 +185,18 @@ export default function TopHeader() {
               href={isAuthed ? "/cuenta" : "/login?next=%2Fcuenta"}
               className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/15 px-1.5 py-1.5 transition hover:bg-white/20"
             >
-              <Avatar src={me?.user?.avatarUrl} alt="Cuenta" size={34} className="border-white/20" />
+              <Avatar
+                src={me?.user?.avatarUrl}
+                alt="Cuenta"
+                size={34}
+                className="border-white/20"
+              />
               <ChevronDown className="mr-1 hidden h-4 w-4 text-white/70 md:block" />
             </Link>
           </div>
         </div>
       </div>
+      <CategoryBar />
     </header>
   );
 }
