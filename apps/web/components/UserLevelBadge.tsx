@@ -1,6 +1,6 @@
 "use client";
 
-type UserLevel = "SILVER" | "GOLD" | "DIAMOND";
+type UserLevel = "SILVER" | "GOLD" | "DIAMOND" | "PLATINUM" | "PREMIUM";
 
 type UserLevelBadgeProps = {
   level?: UserLevel | null;
@@ -8,16 +8,18 @@ type UserLevelBadgeProps = {
 };
 
 function resolveBadge(level?: UserLevel | null) {
-  if (level === "DIAMOND") {
+  if (level === "DIAMOND" || level === "PLATINUM" || level === "PREMIUM") {
     return {
-      label: "💎 Diamond",
-      className: "border-cyan-200/40 bg-cyan-400/20 text-cyan-50",
+      label: "💎 Platino",
+      className:
+        "border-cyan-200/40 bg-cyan-400/20 text-cyan-50 shadow-[0_0_12px_rgba(34,211,238,0.15)]",
     };
   }
   if (level === "GOLD") {
     return {
       label: "🥇 Gold",
-      className: "border-amber-200/40 bg-amber-400/20 text-amber-50",
+      className:
+        "border-amber-200/40 bg-amber-400/20 text-amber-50 shadow-[0_0_8px_rgba(251,191,36,0.12)]",
     };
   }
   return {

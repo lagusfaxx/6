@@ -3,7 +3,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
-import { useMapLocation } from "../../hooks/useMapLocation";
+import { useActiveLocation } from "../../hooks/useActiveLocation";
 import MapboxMap from "../../components/MapboxMap";
 import UserLevelBadge from "../../components/UserLevelBadge";
 import { Compass, MapPin, Search, SlidersHorizontal, User } from "lucide-react";
@@ -64,10 +64,16 @@ function formatLastSeen(lastSeen?: string | null) {
 
 const ProfileCard = memo(function ProfileCard({ profile }: { profile: ProfileResult }) {
   const img = resolveCardImage(profile);
+  const tierClass =
+    profile.userLevel === "DIAMOND" || profile.userLevel === "PLATINUM"
+      ? "shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_0_20px_rgba(34,211,238,0.1)]"
+      : profile.userLevel === "GOLD"
+        ? "shadow-[0_0_0_1px_rgba(251,191,36,0.25),0_0_16px_rgba(251,191,36,0.08)]"
+        : "";
   return (
     <Link
       href={ownerHref(profile)}
-      className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]"
+      className={`group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-0.5 ${tierClass}`}
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-white/[0.04]">
         {img ? (
@@ -123,7 +129,14 @@ const ProfileCard = memo(function ProfileCard({ profile }: { profile: ProfileRes
 });
 
 export default function ServicesPage() {
-  const { location } = useMapLocation(DEFAULT_LOCATION);
+  const { activeLocation } = useActiveLocation();
+  const location: [number, number] | null = activeLocation
+    ? [activeLocation.lat, activeLocation.lng]
+    : null;
+  const locationLabel =
+    activeLocation?.source === "manual" && activeLocation?.label
+      ? activeLocation.label
+      : null;
 
   const [profiles, setProfiles] = useState<ProfileResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -242,7 +255,9 @@ export default function ServicesPage() {
         <div className="mx-auto max-w-6xl px-4 py-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold">Buscar perfiles</h1>
+              <h1 className="text-2xl font-bold">
+                Buscar perfiles{locationLabel ? ` en ${locationLabel}` : ""}
+              </h1>
               <p className="mt-1 text-sm text-white/55">Perfiles online y offline ordenados por actividad reciente</p>
             </div>
             <div className="inline-flex overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
@@ -284,6 +299,10 @@ export default function ServicesPage() {
 
         {view === "map" && (
           <div className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08]">
+            <div className="flex items-center gap-2 border-b border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-white/50">
+              <MapPin className="h-3 w-3 text-fuchsia-400" />
+              Centro: {locationLabel || "Tu ubicación"}
+            </div>
             <MapboxMap
               userLocation={location}
               markers={markers}
