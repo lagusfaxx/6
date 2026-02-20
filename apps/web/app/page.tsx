@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { apiFetch, resolveMediaUrl } from "../lib/api";
+import { apiFetch, apiFetchWithRetry, resolveMediaUrl } from "../lib/api";
 import { useActiveLocation } from "../hooks/useActiveLocation";
 import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
@@ -175,7 +175,7 @@ export default function HomePage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await apiFetch<{ banners: Banner[] }>("/banners");
+        const res = await apiFetchWithRetry<{ banners: Banner[] }>("/banners");
         setBanners(res?.banners ?? []);
       } catch {
         // banners opcionales
@@ -197,7 +197,7 @@ export default function HomePage() {
     setRecentLoading(true);
     setRecentError(null);
 
-    apiFetch<{ professionals: any[] }>(`/professionals/recent?${query}`, {
+    apiFetchWithRetry<{ professionals: any[] }>(`/professionals/recent?${query}`, {
       signal: controller.signal,
     })
       .then((res) => {
@@ -252,7 +252,7 @@ export default function HomePage() {
             qp.set("lat", String(location[0]));
             qp.set("lng", String(location[1]));
           }
-          const res = await apiFetch<{ profiles: DiscoverProfile[] }>(
+          const res = await apiFetchWithRetry<{ profiles: DiscoverProfile[] }>(
             `/profiles/discover?${qp.toString()}`,
             { signal: controller.signal },
           ).catch(() => ({ profiles: [] }));

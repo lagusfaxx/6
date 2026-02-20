@@ -6,7 +6,7 @@ import { MapPin } from "lucide-react";
 import MapboxMap from "../../components/MapboxMap";
 import StarRating from "../../components/StarRating";
 import SkeletonCard from "../../components/SkeletonCard";
-import { apiFetch, resolveMediaUrl } from "../../lib/api";
+import { apiFetchWithRetry, resolveMediaUrl } from "../../lib/api";
 import { useMapLocation } from "../../hooks/useMapLocation";
 
 type Item = {
@@ -45,7 +45,7 @@ export default function LodgingClient() {
 
   useEffect(() => {
     setLoading(true);
-    apiFetch<{ establishments: Item[] }>(`/motels?${query}`)
+    apiFetchWithRetry<{ establishments: Item[] }>(`/motels?${query}`)
       .then((r) => setItems(r.establishments || []))
       .finally(() => setLoading(false));
   }, [query]);

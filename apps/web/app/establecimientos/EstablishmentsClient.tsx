@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { apiFetch } from "../../lib/api";
+import { apiFetchWithRetry } from "../../lib/api";
 import MapboxMap from "../../components/MapboxMap";
 
 type Establishment = {
@@ -53,7 +53,7 @@ export default function EstablishmentsClient() {
 
   useEffect(() => {
     setLoading(true);
-    apiFetch<{ establishments: Establishment[] }>(`/establishments?${queryString}`)
+    apiFetchWithRetry<{ establishments: Establishment[] }>(`/establishments?${queryString}`)
       .then((res) => setItems(res.establishments))
       .finally(() => setLoading(false));
   }, [queryString]);

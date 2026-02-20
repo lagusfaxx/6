@@ -146,3 +146,43 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
   return (await res.json()) as T;
 }
+
+/**
+ * Wrapper around `apiFetch` that retries on transient errors (429, 5xx, network)
+ * with exponential backoff + jitter.
+ *
+ * Use this for **catalog / discovery** reads only.
+ * Auth endpoints must NEVER be auto-retried — use plain `apiFetch` for those.
+ *
+ * @param maxRetries - Maximum number of retry attempts (default: 2)
+ */
+export async function apiFetchWithRetry<T>(
+  path: string,
+  init?: RequestInit,
+  maxRetries = 2,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await apiFetch<T>(path, init);
+    } catch (err: any) {
+      lastError = err;
+
+      // Abort-cancelled requests should never be retried
+      if (err?.name === "AbortError") throw err;
+
+      // Only retry on transient errors (429, 5xx, network failures)
+      const status = err?.status;
+      const isTransient = !status || status === 429 || status >= 500;
+      if (!isTransient || attempt >= maxRetries) throw err;
+
+      // Backoff: base * 2^attempt + jitter (0–300 ms)
+      const baseMs = (err as ApiHttpError)?.retryAfter
+        ? (err as ApiHttpError).retryAfter! * 1000
+        : 1000;
+      const delay = baseMs * Math.pow(2, attempt) + Math.random() * 300;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}

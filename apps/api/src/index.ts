@@ -93,7 +93,7 @@ app.use("/profiles/discover", discoverLimiter);
 
 // Auth: separate buckets for login vs general /auth so a burst of /auth/me
 // never blocks /auth/login.  Each gets its own counter.
-const authLoginLimiter = buildLimiter(60_000, 15, "Demasiados intentos de inicio de sesión. Intenta en un minuto.");
+const authLoginLimiter = buildLimiter(60_000, 30, "Demasiados intentos de inicio de sesión. Intenta en un minuto.");
 app.use("/auth/login", authLoginLimiter);
 app.use("/auth/register", authLoginLimiter);
 

@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { apiFetch, resolveMediaUrl } from "../../lib/api";
+import { apiFetchWithRetry, resolveMediaUrl } from "../../lib/api";
 import { useActiveLocation } from "../../hooks/useActiveLocation";
 import MapboxMap from "../../components/MapboxMap";
 import UserLevelBadge from "../../components/UserLevelBadge";
@@ -180,7 +180,7 @@ export default function ServicesPage() {
       qp.set("lng", String(center.lng));
     }
 
-    apiFetch<{ profiles: ProfileResult[] }>(`/services?${qp.toString()}`, {
+    apiFetchWithRetry<{ profiles: ProfileResult[] }>(`/services?${qp.toString()}`, {
       signal: controller.signal,
     })
       .then((res) => setProfiles(res?.profiles || []))
