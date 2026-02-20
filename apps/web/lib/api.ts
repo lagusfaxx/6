@@ -86,11 +86,13 @@ function flattenValidation(details: any): string | null {
 export class ApiHttpError extends Error {
   status: number;
   body: any;
+  retryAfter: number | null;
 
-  constructor(message: string, status: number, body: any) {
+  constructor(message: string, status: number, body: any, retryAfter: number | null = null) {
     super(message);
     this.status = status;
     this.body = body;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -133,7 +135,14 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       body = { error: `HTTP_${res.status}` };
     }
     const msg = (body && (body.error || body.message)) || `HTTP_${res.status}`;
-    throw new ApiHttpError(msg, res.status, body);
+    // Parse Retry-After from 429 responses so callers can back off
+    let retryAfter: number | null = null;
+    if (res.status === 429) {
+      const raw = res.headers.get("Retry-After") || body?.retryAfter;
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed > 0) retryAfter = parsed;
+    }
+    throw new ApiHttpError(msg, res.status, body, retryAfter);
   }
   return (await res.json()) as T;
 }

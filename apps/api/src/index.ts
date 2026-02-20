@@ -68,37 +68,37 @@ const corsOptions: CorsOptions = {
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
-// Global rate-limit: generous default
-app.use(
-  rateLimit({
-    windowMs: 60 * 1000,
-    limit: 200,
+// Helper: build a rate-limiter that always emits Retry-After (seconds).
+function buildLimiter(windowMs: number, limit: number, msg: string) {
+  return rateLimit({
+    windowMs,
+    limit,
     standardHeaders: true,
-    legacyHeaders: false
-  })
-);
+    legacyHeaders: false,
+    handler: (_req, res) => {
+      const retryAfter = Math.ceil(windowMs / 1000);
+      res.setHeader("Retry-After", String(retryAfter));
+      res.status(429).json({ error: "TOO_MANY_REQUESTS", message: msg, retryAfter });
+    }
+  });
+}
+
+// Global rate-limit: generous default
+app.use(buildLimiter(60_000, 200, "Demasiadas solicitudes, intenta en unos segundos."));
 
 // Tighter bucket for discover/directory endpoints (prevents map-driven storms)
-const discoverLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  limit: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "TOO_MANY_REQUESTS", message: "Demasiadas solicitudes, intenta en unos segundos." }
-});
+const discoverLimiter = buildLimiter(60_000, 60, "Demasiadas solicitudes, intenta en unos segundos.");
 app.use("/professionals", discoverLimiter);
 app.use("/profiles/discover", discoverLimiter);
 
-// Auth endpoints get their own high-limit bucket so 429 on discover never
-// blocks login/refresh flows.
-const authLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  limit: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "TOO_MANY_REQUESTS", message: "Demasiadas solicitudes de autenticación." }
-});
-app.use("/auth", authLimiter);
+// Auth: separate buckets for login vs general /auth so a burst of /auth/me
+// never blocks /auth/login.  Each gets its own counter.
+const authLoginLimiter = buildLimiter(60_000, 15, "Demasiados intentos de inicio de sesión. Intenta en un minuto.");
+app.use("/auth/login", authLoginLimiter);
+app.use("/auth/register", authLoginLimiter);
+
+const authGeneralLimiter = buildLimiter(60_000, 40, "Demasiadas solicitudes de autenticación.");
+app.use("/auth", authGeneralLimiter);
 
 app.use(cookieParser());
 

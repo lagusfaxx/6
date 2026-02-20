@@ -232,6 +232,7 @@ function MapboxMapComponent({
     const zoom = userLocation ? 13 : 11.5;
     const center: [number, number] = [target[1], target[0]];
     const run = () => {
+      if (!mapRef.current) return;
       // Primera vez: sin animación (evita “viaje” visible)
       if (!didInitialCenterRef.current) {
         didInitialCenterRef.current = true;
@@ -246,6 +247,9 @@ function MapboxMapComponent({
     } else {
       run();
     }
+    return () => {
+      map.off("load", run);
+    };
   }, [userLocation?.[0], userLocation?.[1], displayMarkers, autoCenterOnDataChange]);
 
   useEffect(() => {
@@ -398,6 +402,8 @@ function MapboxMapComponent({
     window.requestAnimationFrame(appendChunk);
     return () => {
       cancelled = true;
+      markerRefs.current.forEach((marker) => marker.remove());
+      markerRefs.current = [];
     };
   }, [displayMarkers, isMobileViewport, onMarkerFocus, renderHtmlMarkers, mapInitialized]);
 
@@ -414,6 +420,7 @@ function MapboxMapComponent({
     }
 
     const update = () => {
+      if (!mapRef.current) return;
       const data: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
         type: "FeatureCollection",
         features: displayMarkers
@@ -446,6 +453,9 @@ function MapboxMapComponent({
     } else {
       update();
     }
+    return () => {
+      map.off("load", update);
+    };
   }, [displayMarkers, mapIdle, showMarkersForArea]);
 
   useEffect(() => {
@@ -493,6 +503,7 @@ function MapboxMapComponent({
     const map = mapRef.current;
     if (!map || !mapIdle || !userLocation || !rangeKm) return;
     const update = () => {
+      if (!mapRef.current) return;
       const sourceId = "uzeed-user-range";
       const radiusM = Math.max(1, rangeKm) * 1000;
       const data: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
@@ -522,6 +533,9 @@ function MapboxMapComponent({
     } else {
       update();
     }
+    return () => {
+      map.off("load", update);
+    };
   }, [mapIdle, userLocation?.[0], userLocation?.[1], rangeKm]);
 
   useEffect(() => {
@@ -583,6 +597,13 @@ function MapboxMapComponent({
     userMarkerRef.current = new mapbox.Marker(el)
       .setLngLat([userLocation[1], userLocation[0]])
       .addTo(map);
+
+    return () => {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+    };
   }, [mapInitialized, mapIdle, userLocation?.[0], userLocation?.[1]]);
 
   if (!token) {
