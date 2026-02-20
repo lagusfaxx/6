@@ -30,9 +30,16 @@ export default function useMe() {
         if (!alive) return;
         setMe(r);
       })
-      .catch(() => {
+      .catch((err: any) => {
         if (!alive) return;
-        setMe(null);
+        // Only clear session on real auth errors (401/403).
+        // Transient errors (429, 5xx, network) must NOT reset `me` so the
+        // app doesn't wrongly show the logged-out state.
+        const status = err?.status;
+        if (status === 401 || status === 403) {
+          setMe(null);
+        }
+        // For any other error keep the previous value (null on first load is fine).
       })
       .finally(() => {
         if (!alive) return;

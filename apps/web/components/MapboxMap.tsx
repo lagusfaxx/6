@@ -263,7 +263,7 @@ function MapboxMapComponent({
     let cancelled = false;
 
     const appendChunk = () => {
-      if (cancelled) return;
+      if (cancelled || !mapRef.current) return;
       const chunk = markerQueue.splice(0, 24);
       chunk.forEach((marker) => {
       const el = document.createElement("div");
@@ -455,6 +455,7 @@ function MapboxMapComponent({
     const layerId = "uzeed-marker-areas-fill";
 
     const handleMapClick = (event: mapboxgl.MapMouseEvent) => {
+      if (!mapRef.current) return;
       const feature = map
         .queryRenderedFeatures(event.point, { layers: [layerId] })
         .find((item) => item.properties?.id);
@@ -467,8 +468,10 @@ function MapboxMapComponent({
     };
 
     const handleMapMove = (event: mapboxgl.MapMouseEvent) => {
+      if (!mapRef.current) return;
       const hovered = map.queryRenderedFeatures(event.point, { layers: [layerId] }).length > 0;
-      map.getCanvas().style.cursor = hovered ? "pointer" : "";
+      const canvas = map.getCanvas?.();
+      if (canvas) canvas.style.cursor = hovered ? "pointer" : "";
     };
 
     map.on("click", handleMapClick);
@@ -477,7 +480,12 @@ function MapboxMapComponent({
     return () => {
       map.off("click", handleMapClick);
       map.off("mousemove", handleMapMove);
-      map.getCanvas().style.cursor = "";
+      try {
+        const canvas = map.getCanvas?.();
+        if (canvas) canvas.style.cursor = "";
+      } catch {
+        // map already removed
+      }
     };
   }, [displayMarkers, onMarkerFocus, showMarkersForArea]);
 

@@ -102,6 +102,7 @@ export function friendlyErrorMessage(err: any): string {
   const status = err?.status;
   if (status === 401) return "Inicia sesión para continuar.";
   if (status === 403) return "No tienes permisos para realizar esta acción.";
+  if (status === 429) return "Demasiadas solicitudes, intenta en unos segundos.";
   if (err?.body?.message) return err.body.message;
   const detailsMsg = flattenValidation(err?.body?.details);
   if (detailsMsg) return detailsMsg;

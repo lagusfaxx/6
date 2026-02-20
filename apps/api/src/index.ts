@@ -68,14 +68,37 @@ const corsOptions: CorsOptions = {
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
+// Global rate-limit: generous default
 app.use(
   rateLimit({
     windowMs: 60 * 1000,
-    limit: 120,
+    limit: 200,
     standardHeaders: true,
     legacyHeaders: false
   })
 );
+
+// Tighter bucket for discover/directory endpoints (prevents map-driven storms)
+const discoverLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "TOO_MANY_REQUESTS", message: "Demasiadas solicitudes, intenta en unos segundos." }
+});
+app.use("/professionals", discoverLimiter);
+app.use("/profiles/discover", discoverLimiter);
+
+// Auth endpoints get their own high-limit bucket so 429 on discover never
+// blocks login/refresh flows.
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "TOO_MANY_REQUESTS", message: "Demasiadas solicitudes de autenticación." }
+});
+app.use("/auth", authLimiter);
 
 app.use(cookieParser());
 

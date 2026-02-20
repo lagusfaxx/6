@@ -239,6 +239,7 @@ export default function HomePage() {
   }, [location]);
 
   useEffect(() => {
+    const controller = new AbortController();
     const loadSections = async () => {
       const next: Record<string, DiscoverProfile[]> = {};
       setError(null);
@@ -253,15 +254,23 @@ export default function HomePage() {
           }
           const res = await apiFetch<{ profiles: DiscoverProfile[] }>(
             `/profiles/discover?${qp.toString()}`,
+            { signal: controller.signal },
           ).catch(() => ({ profiles: [] }));
           next[section.key] = res.profiles || [];
         }),
       );
-      setDiscoverSections(next);
+      if (!controller.signal.aborted) {
+        setDiscoverSections(next);
+      }
     };
-    loadSections().catch(() =>
-      setError("No se pudieron cargar las secciones destacadas."),
-    );
+    loadSections().catch(() => {
+      if (!controller.signal.aborted) {
+        setError("No se pudieron cargar las secciones destacadas.");
+      }
+    });
+    return () => {
+      controller.abort();
+    };
   }, [location]);
 
   const inlineBanners = useMemo(

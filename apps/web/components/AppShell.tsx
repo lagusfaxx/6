@@ -7,6 +7,7 @@ import Header from "./Header";
 import PushNotificationsManager from "./PushNotificationsManager";
 import PresenceHeartbeat from "./PresenceHeartbeat";
 import ActiveLocationProvider from "./ActiveLocationProvider";
+import ErrorBoundary from "./ErrorBoundary";
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
@@ -39,6 +40,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <ErrorBoundary>
     <ActiveLocationProvider>
       <div
         style={iosTextSizeFix}
@@ -57,5 +59,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     </ActiveLocationProvider>
+    </ErrorBoundary>
   );
 }
