@@ -65,7 +65,7 @@ function formatLastSeen(lastSeen?: string | null) {
 const ProfileCard = memo(function ProfileCard({ profile }: { profile: ProfileResult }) {
   const img = resolveCardImage(profile);
   const tierClass =
-    profile.userLevel === "DIAMOND" || profile.userLevel === "PLATINUM"
+    profile.userLevel === "DIAMOND" || profile.userLevel === "PLATINUM" || profile.userLevel === "PREMIUM"
       ? "shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_0_20px_rgba(34,211,238,0.1)]"
       : profile.userLevel === "GOLD"
         ? "shadow-[0_0_0_1px_rgba(251,191,36,0.25),0_0_16px_rgba(251,191,36,0.08)]"

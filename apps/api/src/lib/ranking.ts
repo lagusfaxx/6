@@ -14,11 +14,15 @@ const TIER_BOOST: Record<string, number> = {
   PLATINUM: 2.6,
 };
 
+/** Weights must sum to 1.0 for normalized scoring */
 const W_RECENCY = 0.20;
 const W_POPULARITY = 0.20;
 const W_AVAILABILITY = 0.25;
 const W_TIER = 0.25;
 const W_DISTANCE = 0.10;
+
+/** Controls how much daily rotation affects ranking (±10%) */
+const DAILY_ROTATION_NOISE_FACTOR = 0.1;
 
 /**
  * Deterministic hash to produce a rotation noise value [0..1) per profile per day.
@@ -82,8 +86,8 @@ export function computeRankingScore(input: RankingInput): number {
     W_TIER * tierNorm +
     W_DISTANCE * distanceBoost;
 
-  // Add daily rotation noise (±10% of score)
-  const noise = dailyNoise(input.id) * 0.1;
+  // Add daily rotation noise to prevent stagnant positions
+  const noise = dailyNoise(input.id) * DAILY_ROTATION_NOISE_FACTOR;
 
   return baseScore + noise;
 }

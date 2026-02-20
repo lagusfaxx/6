@@ -48,6 +48,10 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+/** Max distance (km) to assign a known city via reverse geocoding */
+const MAX_CITY_DISTANCE_KM = 100;
+const DEFAULT_COUNTRY_NAME = "Chile";
+
 function reverseGeocodeLocal(
   lat: number,
   lng: number,
@@ -61,9 +65,8 @@ function reverseGeocodeLocal(
       nearest = city;
     }
   }
-  // Only assign if reasonably close (< 100km)
-  if (minDist > 100) {
-    return { city: "Chile", region: "" };
+  if (minDist > MAX_CITY_DISTANCE_KM) {
+    return { city: DEFAULT_COUNTRY_NAME, region: "" };
   }
   return { city: nearest.name, region: nearest.region };
 }
