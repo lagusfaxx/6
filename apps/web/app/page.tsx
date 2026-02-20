@@ -156,9 +156,13 @@ export default function HomePage() {
     Record<string, DiscoverProfile[]>
   >({});
   const { activeLocation } = useActiveLocation();
-  const location: [number, number] | null = activeLocation
-    ? [activeLocation.lat, activeLocation.lng]
-    : null;
+  const location = useMemo<[number, number] | null>(
+    () =>
+      activeLocation
+        ? [activeLocation.lat, activeLocation.lng]
+        : null,
+    [activeLocation?.lat, activeLocation?.lng],
+  );
   const locationLabel =
     activeLocation?.source === "manual" && activeLocation?.label
       ? `en ${activeLocation.label}`
