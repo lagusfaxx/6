@@ -40,8 +40,11 @@ export default function LocationPickerModal({
   isOpen,
   onClose,
 }: LocationPickerModalProps) {
-  const { activeLocation, setManualLocation, useGpsLocation } =
-    useActiveLocation();
+  const {
+    activeLocation,
+    setManualLocation,
+    useGpsLocation: switchToGps,
+  } = useActiveLocation();
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -106,11 +109,11 @@ export default function LocationPickerModal({
   );
 
   const handleUseGps = useCallback(() => {
-    useGpsLocation();
+    switchToGps();
     setSearch("");
     setResults([]);
     onClose();
-  }, [useGpsLocation, onClose]);
+  }, [switchToGps, onClose]);
 
   if (!isOpen) return null;
 

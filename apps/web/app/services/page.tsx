@@ -28,7 +28,7 @@ type ProfileResult = {
   isActive: boolean;
   availableNow?: boolean;
   lastSeen?: string | null;
-  userLevel?: "SILVER" | "GOLD" | "DIAMOND";
+  userLevel?: "SILVER" | "GOLD" | "DIAMOND" | "PLATINUM" | "PREMIUM";
   completedServices?: number | null;
   age?: number | null;
   heightCm?: number | null;

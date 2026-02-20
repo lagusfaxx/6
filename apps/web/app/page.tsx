@@ -34,7 +34,7 @@ type Banner = {
   position: string;
 };
 
-type UserLevel = "SILVER" | "GOLD" | "DIAMOND";
+type UserLevel = "SILVER" | "GOLD" | "DIAMOND" | "PLATINUM" | "PREMIUM";
 
 type RecentProfessional = {
   id: string;
