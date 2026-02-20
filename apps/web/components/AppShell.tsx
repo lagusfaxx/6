@@ -3,7 +3,7 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import Nav from "./Nav";
-import TopHeader from "./TopHeader";
+import Header from "./Header";
 import PushNotificationsManager from "./PushNotificationsManager";
 import PresenceHeartbeat from "./PresenceHeartbeat";
 
@@ -45,11 +45,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <Nav />
 
       <div className="relative min-w-0 flex-1">
-        <TopHeader />
+        <Header />
         <PushNotificationsManager />
         <PresenceHeartbeat />
-        {/* padding-bottom con safe-area para que no se “corte” en iPhone */}
-        <main className="flex-1 px-4 pt-[84px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[96px] md:pb-6">
+        {/* Reduced bottom padding since no bottom nav on mobile */}
+        <main className="flex-1 px-4 pt-[84px] pb-[calc(2rem+env(safe-area-inset-bottom))] md:pt-[96px] md:pb-6">
           {children}
         </main>
       </div>
