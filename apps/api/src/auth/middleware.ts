@@ -23,6 +23,8 @@ const PUBLIC_PREFIXES = [
   "/profiles",          // ✅ perfil público por username/slug
   "/cities",            // ✅ /cities/with_supply needed for public catalog
   "/banners",           // ✅ HOME banners (guests need this)
+  "/home",              // ✅ VIP home summary + sections (public)
+  "/zones",             // ✅ zones with supply (public catalog)
   "/webhooks/flow"      // Flow subscription webhooks
 ];
 

@@ -51,6 +51,47 @@ export type RankingInput = {
   distanceKm: number | null;
 };
 
+/**
+ * VIP ranking weights — optimized for city-wide catalog where visual impact
+ * and popularity matter more than proximity.
+ *
+ * distance  5%  — low weight; same city is close enough
+ * popularity 30% — engagement / views drive discovery
+ * tier      25% — monetisation boost (Platinum/Gold)
+ * availability 20% — online-now still relevant
+ * recency   20% — recent activity keeps catalog fresh
+ */
+const VIP_W_RECENCY = 0.20;
+const VIP_W_POPULARITY = 0.30;
+const VIP_W_AVAILABILITY = 0.20;
+const VIP_W_TIER = 0.25;
+const VIP_W_DISTANCE = 0.05;
+
+export function computeVipRankingScore(input: RankingInput): number {
+  const now = Date.now();
+  const lastActive = input.lastActiveAt ? Date.parse(input.lastActiveAt) : 0;
+  const hoursSinceActive = lastActive
+    ? Math.max(0, (now - lastActive) / (3600 * 1000))
+    : 168;
+  const recency = Math.max(0, 1 - hoursSinceActive / 168);
+  const popularity = Math.min(1, (input.profileViews || 0) / 500);
+  const availability = input.availableNow ? 1.0 : 0.0;
+  const rawTier = TIER_BOOST[input.tier?.toUpperCase() || "SILVER"] || 1.0;
+  const tierNorm = rawTier / 2.6;
+  let distanceBoost = 0.5;
+  if (input.distanceKm !== null) {
+    distanceBoost = Math.max(0, 1 - input.distanceKm / 50);
+  }
+  const baseScore =
+    VIP_W_RECENCY * recency +
+    VIP_W_POPULARITY * popularity +
+    VIP_W_AVAILABILITY * availability +
+    VIP_W_TIER * tierNorm +
+    VIP_W_DISTANCE * distanceBoost;
+  const noise = dailyNoise(input.id) * DAILY_ROTATION_NOISE_FACTOR;
+  return baseScore + noise;
+}
+
 export function computeRankingScore(input: RankingInput): number {
   const now = Date.now();
 
