@@ -8,6 +8,11 @@ import useSubscriptionStatus from "../../hooks/useSubscriptionStatus";
 import { apiFetch } from "../../lib/api";
 import Avatar from "../../components/Avatar";
 import { Badge } from "../../components/ui/badge";
+import {
+  User, Settings, Image, MapPin, MessageSquare, Heart,
+  CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
+  Building, Sparkles, ChevronRight,
+} from "lucide-react";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 14 },
@@ -16,6 +21,13 @@ const fadeUp = {
     y: 0,
     transition: { delay: i * 0.08, duration: 0.35, ease: [0.16, 1, 0.3, 1] },
   }),
+};
+
+type QuickLink = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  description?: string;
 };
 
 export default function AccountPage() {
@@ -35,7 +47,6 @@ export default function AccountPage() {
     setPayBusy(true);
     try {
       await apiFetch("/billing/subscription/start", { method: "POST", body: JSON.stringify({}) });
-      // Subscription created — webhook will activate membership
       window.location.reload();
     } catch (err: any) {
       const msg = err?.body?.message || err?.message || "Error al crear la suscripción. Intenta de nuevo.";
@@ -50,8 +61,7 @@ export default function AccountPage() {
   const isMotelProfile = profileType === "ESTABLISHMENT" || role === "MOTEL" || role === "MOTEL_OWNER";
   const canManageProfile = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
   const requiresPayment = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
-  
-  // Compute derived subscription values
+
   const isTrialPeriod = subscriptionStatus?.trialActive && !subscriptionStatus?.membershipActive;
   const profileLabel =
     profileType === "PROFESSIONAL"
@@ -61,6 +71,15 @@ export default function AccountPage() {
         : profileType === "SHOP"
           ? "Tienda"
           : "Cliente";
+
+  const profileIcon =
+    profileType === "PROFESSIONAL"
+      ? <Sparkles className="h-4 w-4" />
+      : profileType === "ESTABLISHMENT"
+        ? <Building className="h-4 w-4" />
+        : profileType === "SHOP"
+          ? <ShoppingBag className="h-4 w-4" />
+          : <User className="h-4 w-4" />;
 
   const publicProfileUrl = user
     ? profileType === "PROFESSIONAL"
@@ -72,28 +91,27 @@ export default function AccountPage() {
           : "/"
     : "/";
 
-  /* ── Quick-link definitions ── */
-  const managementLinks = isMotelProfile
+  const managementLinks: QuickLink[] = isMotelProfile
     ? [
-        { href: "/dashboard/motel", label: "Dashboard Motel" },
-        { href: "/dashboard/motel?tab=bookings", label: "Reservas" },
-        { href: "/dashboard/motel?tab=rooms", label: "Habitaciones" },
-        { href: "/dashboard/motel?tab=promos", label: "Promociones" },
-        { href: "/dashboard/motel?tab=location", label: "Ubicación" },
+        { href: "/dashboard/motel", label: "Dashboard Motel", icon: <Building className="h-4 w-4" />, description: "Panel principal" },
+        { href: "/dashboard/motel?tab=rooms", label: "Habitaciones", icon: <Settings className="h-4 w-4" />, description: "Gestionar habitaciones" },
+        { href: "/dashboard/motel?tab=promos", label: "Promociones", icon: <Palette className="h-4 w-4" />, description: "Ofertas activas" },
+        { href: "/dashboard/motel?tab=location", label: "Ubicación", icon: <MapPin className="h-4 w-4" />, description: "Mapa y dirección" },
+        { href: "/chats", label: "Chats", icon: <MessageSquare className="h-4 w-4" />, description: "Mensajes directos" },
       ]
     : [
-        { href: "/dashboard/services?tab=perfil", label: "Editar perfil" },
-        { href: "/dashboard/services?tab=servicios", label: "Gestionar servicio" },
-        ...(profileType === "SHOP" ? [{ href: "/dashboard/services?tab=productos", label: "Productos" }] : []),
-        { href: "/dashboard/services?tab=galeria", label: "Galería" },
-        { href: "/dashboard/services?tab=ubicacion", label: "Ubicación" },
-        { href: "/chats", label: "Chats" },
+        { href: "/dashboard/services?tab=perfil", label: "Editar perfil", icon: <User className="h-4 w-4" />, description: "Info, bio y detalles" },
+        { href: "/dashboard/services?tab=servicios", label: "Servicios", icon: <Settings className="h-4 w-4" />, description: "Gestionar publicaciones" },
+        ...(profileType === "SHOP" ? [{ href: "/dashboard/services?tab=productos", label: "Productos", icon: <ShoppingBag className="h-4 w-4" />, description: "Inventario y precios" }] : []),
+        { href: "/dashboard/services?tab=galeria", label: "Galería", icon: <Image className="h-4 w-4" />, description: "Fotos y media" },
+        { href: "/dashboard/services?tab=ubicacion", label: "Ubicación", icon: <MapPin className="h-4 w-4" />, description: "Mapa y dirección" },
+        { href: "/chats", label: "Chats", icon: <MessageSquare className="h-4 w-4" />, description: "Mensajes directos" },
       ];
 
-  const clientLinks = [
-    { href: "/favoritos", label: "Favoritos" },
-    { href: "/servicios", label: "Solicitudes" },
-    { href: "/chats", label: "Chats" },
+  const clientLinks: QuickLink[] = [
+    { href: "/favoritos", label: "Favoritos", icon: <Heart className="h-4 w-4" />, description: "Perfiles guardados" },
+    { href: "/servicios", label: "Explorar", icon: <Sparkles className="h-4 w-4" />, description: "Buscar servicios" },
+    { href: "/chats", label: "Chats", icon: <MessageSquare className="h-4 w-4" />, description: "Mensajes directos" },
   ];
 
   const links = canManageProfile ? managementLinks : clientLinks;
@@ -104,20 +122,20 @@ export default function AccountPage() {
         <div className="editor-card p-6 text-white/60 animate-pulse">Cargando...</div>
       ) : user ? (
         <motion.div initial="hidden" animate="visible" className="space-y-5">
-          {/* ── Profile hero ── */}
-          <motion.div custom={0} variants={fadeUp} className="editor-card overflow-hidden">
-            {/* Mini cover gradient */}
-            <div className="relative h-28 bg-gradient-to-br from-violet-600/30 via-fuchsia-500/20 to-transparent" />
+          {/* Profile hero */}
+          <motion.div custom={0} variants={fadeUp} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+            <div className="relative h-32 bg-gradient-to-br from-violet-600/30 via-fuchsia-500/20 to-transparent">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(168,85,247,0.3),transparent_70%)]" />
+            </div>
 
             <div className="relative px-6 pb-6">
-              {/* Avatar overlapping cover */}
-              <div className="-mt-12 mb-4 flex justify-center">
+              <div className="-mt-14 mb-4 flex justify-center">
                 <div className="rounded-full p-[3px] bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-[0_0_24px_rgba(139,92,246,0.35)]">
                   <Avatar
                     src={user.avatarUrl}
                     alt={user.displayName || user.username}
-                    size={88}
-                    className="border-2 border-[#0e0e12]"
+                    size={96}
+                    className="border-[3px] border-[#0e0e12]"
                   />
                 </div>
               </div>
@@ -125,56 +143,41 @@ export default function AccountPage() {
               <div className="flex flex-col items-center text-center">
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <h1 className="text-xl font-semibold leading-tight">{user.displayName || user.username}</h1>
-                  <Badge>{profileLabel}</Badge>
+                  <Badge className="flex items-center gap-1">
+                    {profileIcon}
+                    {profileLabel}
+                  </Badge>
                 </div>
                 <p className="mt-1 text-sm text-white/40">@{user.username}</p>
               </div>
 
-              {/* Public profile link */}
-              <div className="mt-5 flex justify-center">
-                {canManageProfile ? (
-                  <Link href={publicProfileUrl} className="btn-primary text-sm">
-                    Ver mi perfil público
+              <div className="mt-5 flex justify-center gap-3">
+                {canManageProfile && (
+                  <Link href={publicProfileUrl} className="btn-secondary flex items-center gap-1.5 text-sm">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Ver perfil público
                   </Link>
-                ) : (
+                )}
+                {canManageProfile && !isMotelProfile ? (
+                  <Link href="/dashboard/services" className="btn-primary flex items-center gap-1.5 text-sm">
+                    <Palette className="h-3.5 w-3.5" />
+                    Creator Studio
+                  </Link>
+                ) : !canManageProfile ? (
                   <Link href="/servicios" className="btn-primary text-sm">
                     Explorar servicios
                   </Link>
-                )}
+                ) : null}
               </div>
             </div>
           </motion.div>
 
-          {/* ── Creator Studio CTA (only for manageable profiles) ── */}
-          {canManageProfile && !isMotelProfile && (
-            <motion.div custom={1} variants={fadeUp}>
-              <Link
-                href="/dashboard/services"
-                className="editor-card group flex items-center gap-4 px-6 py-5 transition-all hover:border-violet-500/30 hover:shadow-[0_0_40px_rgba(139,92,246,0.12)]"
-              >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 text-lg shadow-lg">
-                  ✦
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-white/90 group-hover:text-white transition-colors">
-                    Creator Studio
-                  </p>
-                  <p className="text-xs text-white/40 mt-0.5">
-                    Edita tu perfil completo con vista previa en tiempo real
-                  </p>
-                </div>
-                <span className="shrink-0 text-xs font-medium text-violet-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Abrir →
-                </span>
-              </Link>
-            </motion.div>
-          )}
-
-          {/* ── Payment Management (only for business profiles) ── */}
+          {/* Subscription */}
           {requiresPayment && !statusLoading && subscriptionStatus && (
-            <motion.div custom={2} variants={fadeUp} className="editor-card p-6">
+            <motion.div custom={1} variants={fadeUp} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-white/50">
+                <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-white/50">
+                  <CreditCard className="h-4 w-4" />
                   Suscripción
                 </h2>
                 {subscriptionStatus.isActive ? (
@@ -189,7 +192,6 @@ export default function AccountPage() {
               </div>
 
               <div className="space-y-4">
-                {/* Status info */}
                 <div className="space-y-2">
                   {subscriptionStatus.isActive ? (
                     <>
@@ -209,7 +211,7 @@ export default function AccountPage() {
                       )}
                       {isTrialPeriod && (
                         <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2 border border-amber-500/20">
-                          ⚡ Período de prueba gratis
+                          Período de prueba gratis
                         </p>
                       )}
                     </>
@@ -220,7 +222,6 @@ export default function AccountPage() {
                   )}
                 </div>
 
-                {/* Price info */}
                 <div className="flex items-center justify-between text-sm pt-3 border-t border-white/[0.06]">
                   <span className="text-white/60">Precio mensual:</span>
                   <span className="font-semibold text-white/90">
@@ -228,7 +229,6 @@ export default function AccountPage() {
                   </span>
                 </div>
 
-                {/* Subscribe / Renew button */}
                 {payError && (
                   <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2 border border-red-500/20">
                     {payError}
@@ -246,7 +246,6 @@ export default function AccountPage() {
                       : "Suscribirse al plan mensual"}
                 </button>
 
-                {/* Recent payments */}
                 {subscriptionStatus.recentPayments && subscriptionStatus.recentPayments.length > 0 && (
                   <div className="pt-4 border-t border-white/[0.06]">
                     <p className="text-xs font-medium text-white/50 mb-2 uppercase tracking-wider">
@@ -254,8 +253,8 @@ export default function AccountPage() {
                     </p>
                     <div className="space-y-2">
                       {subscriptionStatus.recentPayments.slice(0, 3).map((payment) => (
-                        <div 
-                          key={payment.id} 
+                        <div
+                          key={payment.id}
                           className="flex items-center justify-between text-xs bg-white/[0.02] rounded-lg px-3 py-2"
                         >
                           <div className="flex items-center gap-2">
@@ -269,13 +268,9 @@ export default function AccountPage() {
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-white/90">
-                              ${payment.amount.toLocaleString("es-CL")}
-                            </span>
-                            <span className="text-white/40 capitalize">
-                              {payment.status === "PAID" ? "Pagado" :
-                               payment.status === "PENDING" ? "Pendiente" :
-                               "Fallido"}
+                            <span className="text-white/90">${payment.amount.toLocaleString("es-CL")}</span>
+                            <span className="text-white/40">
+                              {payment.status === "PAID" ? "Pagado" : payment.status === "PENDING" ? "Pendiente" : "Fallido"}
                             </span>
                           </div>
                         </div>
@@ -287,30 +282,40 @@ export default function AccountPage() {
             </motion.div>
           )}
 
-          {/* ── Quick links grid ── */}
-          <motion.div custom={3} variants={fadeUp} className="editor-card p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-white/50 mb-4">
+          {/* Quick links */}
+          <motion.div custom={2} variants={fadeUp} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-white/50">
               Accesos rápidos
             </h2>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
               {links.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="studio-link-card"
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-white/5"
                 >
-                  {link.label}
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/60">
+                    {link.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white/85">{link.label}</p>
+                    {link.description && (
+                      <p className="text-[11px] text-white/40">{link.description}</p>
+                    )}
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-white/20" />
                 </Link>
               ))}
             </div>
           </motion.div>
 
-          {/* ── Logout ── */}
-          <motion.div custom={4} variants={fadeUp}>
+          {/* Logout */}
+          <motion.div custom={3} variants={fadeUp}>
             <button
               onClick={handleLogout}
-              className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-5 py-3.5 text-sm text-white/40 transition-all hover:border-red-500/20 hover:bg-red-500/[0.04] hover:text-red-400"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-5 py-3.5 text-sm text-white/40 transition-all hover:border-red-500/20 hover:bg-red-500/[0.04] hover:text-red-400"
             >
+              <LogOut className="h-4 w-4" />
               Cerrar sesión
             </button>
           </motion.div>
@@ -320,7 +325,7 @@ export default function AccountPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
-          className="editor-card p-8 text-center"
+          className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center"
         >
           <h1 className="text-xl font-semibold">Accede para guardar favoritos y chatear</h1>
           <p className="mt-2 text-sm text-white/50">

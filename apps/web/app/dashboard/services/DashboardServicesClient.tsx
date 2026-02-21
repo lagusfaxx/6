@@ -864,42 +864,46 @@ export default function DashboardServicesClient() {
     );
   if (isMotelProfile) {
     return (
-      <div className="editor-card p-6 space-y-3 mx-auto max-w-xl mt-8">
-        <h1 className="text-xl font-semibold">
-          Gestion centralizada en Panel Motel
-        </h1>
-        <p className="text-sm text-white/60">
-          Tu perfil esta configurado como Motel/Hotel. Toda la administracion se
-          realiza desde el panel dedicado.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/dashboard/motel" className="btn-primary">
-            Ir al Panel Motel
-          </Link>
-          <Link href="/cuenta" className="btn-secondary">
-            Volver a cuenta
-          </Link>
+      <div className="mx-auto max-w-xl mt-8 space-y-4">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-lg text-lg">
+            ✦
+          </div>
+          <h1 className="text-xl font-semibold">Panel Motel</h1>
+          <p className="text-sm text-white/60">
+            Tu perfil está configurado como Motel/Hotel. Gestiona habitaciones, promociones y reservas desde el panel dedicado.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Link href="/dashboard/motel" className="btn-primary">
+              Ir al Panel Motel
+            </Link>
+            <Link href="/cuenta" className="btn-secondary">
+              Volver a cuenta
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
   if (profileType === "SHOP") {
     return (
-      <div className="editor-card p-6 space-y-3 mx-auto max-w-xl mt-8">
-        <h1 className="text-xl font-semibold">
-          Gestion centralizada en Panel Tienda
-        </h1>
-        <p className="text-sm text-white/60">
-          Tu perfil esta configurado como Tienda. Toda la administracion se
-          realiza desde el panel dedicado.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/dashboard/shop" className="btn-primary">
-            Ir al Panel Tienda
-          </Link>
-          <Link href="/cuenta" className="btn-secondary">
-            Volver a cuenta
-          </Link>
+      <div className="mx-auto max-w-xl mt-8 space-y-4">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-lg text-lg">
+            ✦
+          </div>
+          <h1 className="text-xl font-semibold">Panel Tienda</h1>
+          <p className="text-sm text-white/60">
+            Tu perfil está configurado como Tienda. Gestiona productos, categorías y branding desde el panel dedicado.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Link href="/dashboard/shop" className="btn-primary">
+              Ir al Panel Tienda
+            </Link>
+            <Link href="/cuenta" className="btn-secondary">
+              Volver a cuenta
+            </Link>
+          </div>
         </div>
       </div>
     );
