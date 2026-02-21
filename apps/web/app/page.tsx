@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetchWithRetry, resolveMediaUrl } from "../lib/api";
@@ -261,6 +261,9 @@ function AdSlotBlock({ position }: { position: string }) {
     }).catch(() => {});
   };
 
+  // Track which ads already had impressions to avoid duplicate observers
+  const trackedRef = useRef(new Set<string>());
+
   return (
     <div className="mb-10 grid gap-3 sm:grid-cols-2">
       {ads.slice(0, 2).map((ad) => {
@@ -275,7 +278,8 @@ function AdSlotBlock({ position }: { position: string }) {
             className="group block overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] transition hover:border-white/10"
             onClick={() => trackEvent(ad.id, "click")}
             ref={(el: HTMLElement | null) => {
-              if (!el) return;
+              if (!el || trackedRef.current.has(ad.id)) return;
+              trackedRef.current.add(ad.id);
               const observer = new IntersectionObserver(
                 ([entry]) => {
                   if (entry.isIntersecting) {

@@ -53,7 +53,9 @@ adsRouter.post(
     // Fire-and-forget — don't block the response on DB write
     prisma.adSlotEvent.create({
       data: { adSlotId: id, eventType },
-    }).catch(() => { /* silent — ad tracking is non-critical */ });
+    }).catch((err: unknown) => {
+      console.error(JSON.stringify({ level: "warn", msg: "ad_event_track_failed", adSlotId: id, eventType, error: String(err) }));
+    });
 
     return res.json({ ok: true });
   }),

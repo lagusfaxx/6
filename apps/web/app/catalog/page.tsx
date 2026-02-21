@@ -167,9 +167,10 @@ export default function CatalogPage() {
     urlServices ? urlServices.split(",").filter(Boolean) : [],
   );
   const [verifiedOnly, setVerifiedOnly] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState(
-    urlServices === "masajes" ? "masajes" : urlServices === "videoLlamadas" ? "videoLlamadas" : "",
-  );
+  const [categoryFilter, setCategoryFilter] = useState(() => {
+    const SERVICE_TO_CATEGORY: Record<string, string> = { masajes: "masajes", videoLlamadas: "videoLlamadas" };
+    return SERVICE_TO_CATEGORY[urlServices] ?? "";
+  });
 
   const { activeLocation } = useActiveLocation();
   const location = useMemo<[number, number] | null>(

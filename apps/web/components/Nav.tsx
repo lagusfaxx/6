@@ -6,9 +6,9 @@ import { Heart, Home, MessageCircle, Briefcase, User, Hotel, Sparkles, Building2
 import useMe from "../hooks/useMe";
 
 const CATEGORY_ITEMS = [
-  { href: "/catalog", label: "Escorts", params: "" },
-  { href: "/catalog?services=masajes", label: "Masajes", params: "services=masajes" },
-  { href: "/catalog?services=videoLlamadas", label: "Videollamadas", params: "services=videoLlamadas" },
+  { href: "/catalog", label: "Escorts" },
+  { href: "/catalog?services=masajes", label: "Masajes" },
+  { href: "/catalog?services=videoLlamadas", label: "Videollamadas" },
 ];
 
 const navItems = [
