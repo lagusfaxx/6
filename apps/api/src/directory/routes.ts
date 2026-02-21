@@ -567,11 +567,38 @@ directoryRouter.get(
 
     const reviews = await prisma.professionalReview.findMany({
       where: { serviceRequest: { professionalId: id } },
-      select: { hearts: true },
+      select: {
+        id: true,
+        hearts: true,
+        comment: true,
+        createdAt: true,
+        serviceRequest: {
+          select: {
+            client: {
+              select: { displayName: true, username: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
     });
     const rating = reviews.length
       ? reviews.reduce((a, r) => a + r.hearts, 0) / reviews.length
       : null;
+
+    const recentReviews = reviews.map((r) => ({
+      id: r.id,
+      rating: r.hearts,
+      comment: r.comment,
+      createdAt: r.createdAt.toISOString(),
+      author: r.serviceRequest?.client
+        ? {
+            displayName: r.serviceRequest.client.displayName,
+            username: r.serviceRequest.client.username,
+          }
+        : null,
+    }));
 
     return res.json({
       professional: {
@@ -582,6 +609,8 @@ directoryRouter.get(
         category: u.category?.displayName || u.category?.name || null,
         isActive: u.isActive,
         rating: rating ? Number(rating.toFixed(2)) : null,
+        reviewCount: reviews.length,
+        recentReviews,
         description: u.bio,
         age: resolveAge(u.birthdate, u.bio),
         gender: u.gender,
@@ -782,11 +811,20 @@ directoryRouter.get(
 
     const reviews = await prisma.establishmentReview.findMany({
       where: { establishmentId: id },
-      select: { stars: true },
+      select: { id: true, stars: true, comment: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 20,
     });
     const rating = reviews.length
       ? reviews.reduce((a, r) => a + r.stars, 0) / reviews.length
       : null;
+
+    const recentReviews = reviews.map((r) => ({
+      id: r.id,
+      rating: r.stars,
+      comment: r.comment,
+      createdAt: r.createdAt.toISOString(),
+    }));
 
     return res.json({
       establishment: {
@@ -800,6 +838,8 @@ directoryRouter.get(
         coverUrl: u.coverUrl,
         gallery: u.profileMedia.map((m) => m.url),
         rating: rating ? Number(rating.toFixed(2)) : null,
+        reviewCount: reviews.length,
+        recentReviews,
         rooms: u.motelRooms,
         packs: u.motelPacks,
         promotions: u.motelPromotions,
