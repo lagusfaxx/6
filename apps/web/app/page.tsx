@@ -238,6 +238,8 @@ type AdItem = {
 
 function AdSlotBlock({ position }: { position: string }) {
   const [ads, setAds] = useState<AdItem[]>([]);
+  // Track which ads already had impressions to avoid duplicate observers
+  const trackedRef = useRef(new Set<string>());
 
   useEffect(() => {
     const controller = new AbortController();
@@ -260,9 +262,6 @@ function AdSlotBlock({ position }: { position: string }) {
       body: JSON.stringify({ eventType }),
     }).catch(() => {});
   };
-
-  // Track which ads already had impressions to avoid duplicate observers
-  const trackedRef = useRef(new Set<string>());
 
   return (
     <div className="mb-10 grid gap-3 sm:grid-cols-2">

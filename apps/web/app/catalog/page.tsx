@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -141,7 +141,24 @@ const stagger = {
 
 /* ── Page ── */
 
+
+
+function CatalogPageFallback() {
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="h-10 w-56 animate-pulse rounded-lg bg-white/10" />
+    </div>
+  );
+}
+
 export default function CatalogPage() {
+  return (
+    <Suspense fallback={<CatalogPageFallback />}>
+      <CatalogPageContent />
+    </Suspense>
+  );
+}
+function CatalogPageContent() {
   const searchParams = useSearchParams();
 
   // Filters from URL
