@@ -18,7 +18,7 @@ type Props = {
     distanceKm?: number | null;
     availableNow?: boolean;
     userLevel?: string;
-    galleryUrls?: string[];
+    galleryUrls?: string[] | null;
     serviceCategory?: string | null;
     bio?: string | null;
   };

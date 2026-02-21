@@ -1,17 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, ChevronDown, MapPin, Navigation, X } from "lucide-react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Bell, ChevronDown, MapPin, Navigation } from "lucide-react";
 import Avatar from "./Avatar";
 import useMe from "../hooks/useMe";
 import { apiFetch } from "../lib/api";
-import { CHILEAN_CITIES, PROFILE_CATEGORIES, useLocationFilter } from "../hooks/useLocationFilter";
+import { CHILEAN_CITIES, PROFILE_CATEGORIES, LocationFilterContext } from "../hooks/useLocationFilter";
 
 type NotificationItem = {
   id: string;
   type: string;
-  data?: any;
+  data?: Record<string, unknown>;
   readAt?: string | null;
   createdAt: string;
 };
@@ -54,12 +54,7 @@ export default function TopHeader() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const locationRef = useRef<HTMLDivElement | null>(null);
 
-  let locationFilter: ReturnType<typeof useLocationFilter> | null = null;
-  try {
-    locationFilter = useLocationFilter();
-  } catch {
-    // LocationFilterProvider not mounted yet
-  }
+  const locationFilter = useContext(LocationFilterContext);
 
   useEffect(() => {
     if (!isAuthed) {
