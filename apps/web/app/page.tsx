@@ -343,11 +343,9 @@ export default function HomePage() {
         )}
 
         {/* ═══ STORIES ═══ */}
-        {storyProfiles.length > 0 && (
-          <section className="mb-8">
-            <Stories profiles={storyProfiles} />
-          </section>
-        )}
+        <section className="mb-8">
+          <Stories />
+        </section>
 
         {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}
         {availableProfiles.length > 0 && (

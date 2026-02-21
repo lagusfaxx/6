@@ -433,7 +433,10 @@ async function updateProfile(req: any, res: any) {
     allowFreeMessages,
     birthdate,
     isActive,
-  } = req.body as Record<string, string | boolean | null>;
+    primaryCategory,
+    profileTags,
+    serviceTags,
+  } = req.body as Record<string, string | boolean | string[] | null>;
   const allowedGenders = new Set(["MALE", "FEMALE", "OTHER"]);
   const allowedPrefs = new Set(["MALE", "FEMALE", "ALL", "OTHER"]);
   const safeGender = gender && allowedGenders.has(gender) ? gender : undefined;
@@ -537,6 +540,13 @@ async function updateProfile(req: any, res: any) {
       languages: languages ?? undefined,
       serviceStyleTags: serviceStyleTags ?? undefined,
       availabilityNote: availabilityNote ?? undefined,
+      primaryCategory: primaryCategory != null ? String(primaryCategory) : undefined,
+      profileTags: Array.isArray(profileTags)
+        ? profileTags.map((t) => String(t).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+        : undefined,
+      serviceTags: Array.isArray(serviceTags)
+        ? serviceTags.map((t) => String(t).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+        : undefined,
       baseRate: parseNullableInt(baseRate, 10000000),
       minDurationMinutes: parseNullableInt(minDurationMinutes, 1440),
       acceptsIncalls: parseNullableBool(acceptsIncalls),
