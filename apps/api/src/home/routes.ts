@@ -79,6 +79,12 @@ const PROFILE_SELECT = {
   shopTrialEndsAt: true,
   profileType: true,
   bio: true,
+  identityType: true,
+  ageCategory: true,
+  styleTags: true,
+  offeredServices: true,
+  isVerified: true,
+  verificationLevel: true,
 } as const;
 
 type ProfileRow = {
@@ -103,6 +109,12 @@ type ProfileRow = {
   shopTrialEndsAt: Date | null;
   profileType: string;
   bio: string | null;
+  identityType: string | null;
+  ageCategory: string | null;
+  styleTags: string[];
+  offeredServices: string[];
+  isVerified: boolean;
+  verificationLevel: string | null;
 };
 
 function enrichProfile(
@@ -142,6 +154,12 @@ function enrichProfile(
     lastActiveAt: p.lastSeen ? p.lastSeen.toISOString() : null,
     city: p.city,
     zone: p.city,
+    identityType: p.identityType,
+    ageCategory: p.ageCategory,
+    styleTags: p.styleTags ?? [],
+    offeredServices: p.offeredServices ?? [],
+    isVerified: p.isVerified,
+    verificationLevel: p.verificationLevel,
     createdAt: p.createdAt.toISOString(),
   };
 }
@@ -214,11 +232,19 @@ homeRouter.get(
     const limitParam = req.query.limit != null ? Number(req.query.limit) : 12;
     const limit = Math.min(Math.max(1, limitParam), 24);
 
+    // Structured filter params
+    const identityType = typeof req.query.identityType === "string" ? req.query.identityType.trim() : "";
+    const ageCategory = typeof req.query.ageCategory === "string" ? req.query.ageCategory.trim() : "";
+    const styleTags = typeof req.query.styleTags === "string" ? req.query.styleTags.split(",").filter(Boolean) : [];
+    const services = typeof req.query.services === "string" ? req.query.services.split(",").filter(Boolean) : [];
+    const verifiedOnly = req.query.verified === "true";
+
     // Check sections cache.  Round lat/lng to 0.01° (~1 km grid) to enable
     // cache hits for nearby locations without creating infinite keyspace.
     const gridLat = lat !== null ? Math.round(lat * 100) / 100 : "_";
     const gridLng = lng !== null ? Math.round(lng * 100) / 100 : "_";
-    const cacheKey = `sections:${city.toLowerCase()}:${gridLat}:${gridLng}:${limit}`;
+    const filterKey = [identityType, ageCategory, styleTags.join("+"), services.join("+"), verifiedOnly ? "v" : ""].join("|");
+    const cacheKey = `sections:${city.toLowerCase()}:${gridLat}:${gridLng}:${limit}:${filterKey}`;
     const cached = sectionsCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       res.setHeader("Cache-Control", "public, max-age=120, stale-while-revalidate=60");
@@ -235,6 +261,21 @@ homeRouter.get(
     };
     if (city) {
       (baseWhere as any).city = { equals: city, mode: "insensitive" };
+    }
+    if (identityType) {
+      (baseWhere as any).identityType = identityType;
+    }
+    if (ageCategory) {
+      (baseWhere as any).ageCategory = ageCategory;
+    }
+    if (styleTags.length > 0) {
+      (baseWhere as any).styleTags = { hasSome: styleTags };
+    }
+    if (services.length > 0) {
+      (baseWhere as any).offeredServices = { hasSome: services };
+    }
+    if (verifiedOnly) {
+      (baseWhere as any).isVerified = true;
     }
 
     // Fetch all profiles for this city (capped at 500)
@@ -355,6 +396,50 @@ homeRouter.get(
       .sort((a, b) => b.count - a.count);
 
     return res.json({ zones });
+  }),
+);
+
+/* ── GET /home/stories — Active stories (Gold/Platinum) ── */
+
+homeRouter.get(
+  "/home/stories",
+  asyncHandler(async (req, res) => {
+    const city = typeof req.query.city === "string" ? req.query.city.trim() : "";
+    const now = new Date();
+
+    const where: Record<string, unknown> = {
+      isApproved: true,
+      expiresAt: { gt: now },
+      professional: {
+        isActive: true,
+        tier: { in: ["GOLD", "PLATINUM", "PREMIUM"] },
+        ...(city ? { city: { equals: city, mode: "insensitive" } } : {}),
+      },
+    };
+
+    const stories = await prisma.story.findMany({
+      where: where as any,
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        mediaUrl: true,
+        caption: true,
+        createdAt: true,
+        expiresAt: true,
+        professional: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatarUrl: true,
+            tier: true,
+          },
+        },
+      },
+    });
+
+    return res.json({ stories });
   }),
 );
 

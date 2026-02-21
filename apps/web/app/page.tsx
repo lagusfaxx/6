@@ -43,6 +43,7 @@ type VipProfile = {
   lastActiveAt: string | null;
   city: string | null;
   zone: string | null;
+  isVerified: boolean;
 };
 
 type Zone = { name: string; count: number };
@@ -60,6 +61,21 @@ type HomeSummary = {
   newThisWeekCount: number;
   platinumCount: number;
   totalInCityCount: number;
+};
+
+type StoryItem = {
+  id: string;
+  mediaUrl: string;
+  caption: string | null;
+  createdAt: string;
+  expiresAt: string;
+  professional: {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    tier: string | null;
+  };
 };
 
 /* ── Helpers ── */
@@ -160,6 +176,13 @@ function VipCard({
           className="absolute left-2 top-2 px-2 py-1 text-[11px]"
         />
 
+        {/* Verification badge */}
+        {profile.isVerified && (
+          <div className="absolute left-2 top-10 rounded-full border border-emerald-300/20 bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-200">
+            ✓ Verificada
+          </div>
+        )}
+
         {/* Availability tag */}
         {profile.availableNow ? (
           <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-100">
@@ -210,6 +233,7 @@ export default function HomePage() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [sections, setSections] = useState<HomeSections | null>(null);
   const [summary, setSummary] = useState<HomeSummary | null>(null);
+  const [stories, setStories] = useState<StoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { activeLocation } = useActiveLocation();
@@ -268,8 +292,16 @@ export default function HomePage() {
       { signal: controller.signal },
     );
 
-    Promise.all([fetchSections, fetchSummary])
-      .then(([sectionsRes, summaryRes]) => {
+    const storiesParams = new URLSearchParams();
+    if (cityLabel) storiesParams.set("city", cityLabel);
+
+    const fetchStories = apiFetchWithRetry<{ stories: StoryItem[] }>(
+      `/home/stories?${storiesParams.toString()}`,
+      { signal: controller.signal },
+    );
+
+    Promise.all([fetchSections, fetchSummary, fetchStories])
+      .then(([sectionsRes, summaryRes, storiesRes]) => {
         if (!controller.signal.aborted) {
           setSections({
             platinum: sectionsRes?.platinum ?? [],
@@ -279,6 +311,7 @@ export default function HomePage() {
             zones: sectionsRes?.zones ?? [],
           });
           setSummary(summaryRes ?? null);
+          setStories(storiesRes?.stories ?? []);
         }
       })
       .catch((err: any) => {
@@ -473,6 +506,39 @@ export default function HomePage() {
                 <div className="p-3 text-sm text-white/70">{b.title}</div>
               </a>
             ))}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════
+            Stories carousel (Gold/Platinum only)
+           ═══════════════════════════════════════════════ */}
+        {stories.length > 0 && (
+          <div className="mb-10">
+            <h2 className="mb-4 text-lg font-semibold text-white/80">
+              Historias
+            </h2>
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x">
+              {stories.map((story) => (
+                <Link
+                  key={story.id}
+                  href={`/perfil/${story.professional.username}`}
+                  className="group relative flex shrink-0 snap-start flex-col items-center gap-1.5"
+                >
+                  <div className="relative h-[72px] w-[72px] rounded-full p-[2px] bg-gradient-to-tr from-fuchsia-500 via-violet-500 to-cyan-400">
+                    <div className="h-full w-full overflow-hidden rounded-full border-2 border-[#0e0e12]">
+                      <img
+                        src={resolveMediaUrl(story.professional.avatarUrl) ?? "/brand/isotipo-new.png"}
+                        alt={story.professional.displayName ?? story.professional.username}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  </div>
+                  <span className="max-w-[72px] truncate text-[11px] text-white/60">
+                    {story.professional.displayName ?? story.professional.username}
+                  </span>
+                </Link>
+              ))}
+            </div>
           </div>
         )}
 

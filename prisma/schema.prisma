@@ -95,6 +95,26 @@ enum PaymentIntentStatus {
   EXPIRED
 }
 
+enum IdentityType {
+  MUJER
+  HOMBRE
+  TRANS
+  PAREJA
+}
+
+enum AgeCategory {
+  AGE_18_25
+  AGE_26_35
+  AGE_36_45
+  AGE_45_PLUS
+}
+
+enum VerificationLevel {
+  BASIC
+  DOCUMENT
+  VIDEO
+}
+
 model User {
   id                  String            @id @default(uuid()) @db.Uuid
   email               String            @unique
@@ -146,6 +166,12 @@ model User {
   completedServices   Int               @default(0)
   profileViews        Int               @default(0)
   reviewTagsSummary   Json?
+  identityType        IdentityType?
+  ageCategory         AgeCategory?
+  styleTags           String[]          @default([])
+  offeredServices     String[]          @default([])
+  isVerified          Boolean           @default(false)
+  verificationLevel   VerificationLevel?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -174,6 +200,7 @@ model User {
   motelPacks              MotelPack[] @relation("MotelPacks")
   motelPromotions         MotelPromotion[] @relation("MotelPromotions")
   pushSubscriptions      PushSubscription[]
+  stories                Story[]
 }
 
 model PushSubscription {
@@ -554,4 +581,32 @@ model Banner {
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Story {
+  id              String   @id @default(uuid()) @db.Uuid
+  professionalId  String   @db.Uuid
+  mediaUrl        String
+  caption         String?
+  isApproved      Boolean  @default(false)
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  professional User @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId])
+  @@index([expiresAt])
+}
+
+model AdSlot {
+  id         String    @id @default(uuid()) @db.Uuid
+  position   String    // HOME_MIDDLE, CATALOG_SIDEBAR
+  imageUrl   String
+  linkUrl    String?
+  priority   Int       @default(0)
+  tierTarget String?   // optional: PLATINUM, GOLD, etc.
+  isActive   Boolean   @default(true)
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }

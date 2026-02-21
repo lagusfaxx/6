@@ -34,6 +34,12 @@ type VipProfile = {
   lastActiveAt: string | null;
   city: string | null;
   zone: string | null;
+  identityType: string | null;
+  ageCategory: string | null;
+  styleTags: string[];
+  offeredServices: string[];
+  isVerified: boolean;
+  verificationLevel: string | null;
 };
 
 type Zone = { name: string; count: number };
@@ -76,6 +82,38 @@ const SORT_OPTIONS = [
   { value: "availableNow", label: "Disponibles" },
 ] as const;
 
+const IDENTITY_OPTIONS = [
+  { value: "", label: "Todas" },
+  { value: "MUJER", label: "Mujeres" },
+  { value: "HOMBRE", label: "Hombres" },
+  { value: "TRANS", label: "Trans" },
+  { value: "PAREJA", label: "Parejas" },
+] as const;
+
+const AGE_OPTIONS = [
+  { value: "", label: "Todas" },
+  { value: "AGE_18_25", label: "18–25" },
+  { value: "AGE_26_35", label: "26–35" },
+  { value: "AGE_36_45", label: "36–45" },
+  { value: "AGE_45_PLUS", label: "45+" },
+] as const;
+
+const STYLE_OPTIONS = [
+  "MADURA", "UNIVERSITARIA", "EJECUTIVA", "FITNESS",
+  "PETITE", "BBW", "FETISH", "MODELO_VIP",
+] as const;
+
+const SERVICE_OPTIONS = [
+  { value: "masajes", label: "Masajes" },
+  { value: "trios", label: "Tríos" },
+  { value: "videoLlamadas", label: "Videollamadas" },
+  { value: "packs", label: "Packs" },
+  { value: "despedidasSoltero", label: "Despedidas" },
+  { value: "domicilio", label: "Domicilio" },
+  { value: "viajesAcompanamiento", label: "Viajes" },
+  { value: "atencionDiscapacitados", label: "Accesible" },
+] as const;
+
 const cardFade = {
   hidden: { opacity: 0, y: 16 },
   visible: {
@@ -99,6 +137,7 @@ export default function CatalogPage() {
   const urlSort = searchParams.get("sort") || "vip";
   const urlTier = searchParams.get("tier") || "";
   const urlCity = searchParams.get("city") || "";
+  const urlIdentity = searchParams.get("identity") || "";
 
   const [profiles, setProfiles] = useState<VipProfile[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
@@ -109,6 +148,11 @@ export default function CatalogPage() {
   const [sort, setSort] = useState(urlSort);
   const [tierFilter, setTierFilter] = useState(urlTier);
   const [zoneFilter, setZoneFilter] = useState(urlCity);
+  const [identityFilter, setIdentityFilter] = useState(urlIdentity);
+  const [ageFilter, setAgeFilter] = useState("");
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
 
   const { activeLocation } = useActiveLocation();
   const location = useMemo<[number, number] | null>(
@@ -120,7 +164,16 @@ export default function CatalogPage() {
   const cityLabel = zoneFilter || activeLocation?.label || null;
   const showDistance = activeLocation?.source === "gps";
 
-  // Fetch profiles from /home/sections (reuses same endpoint)
+  const activeFilterCount = [
+    identityFilter,
+    ageFilter,
+    selectedStyles.length > 0 ? "y" : "",
+    selectedServices.length > 0 ? "y" : "",
+    verifiedOnly ? "y" : "",
+    tierFilter,
+  ].filter(Boolean).length;
+
+  // Fetch profiles from /home/sections with filters
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -132,6 +185,11 @@ export default function CatalogPage() {
       params.set("lng", String(location[1]));
     }
     params.set("limit", "24");
+    if (identityFilter) params.set("identityType", identityFilter);
+    if (ageFilter) params.set("ageCategory", ageFilter);
+    if (selectedStyles.length > 0) params.set("styleTags", selectedStyles.join(","));
+    if (selectedServices.length > 0) params.set("services", selectedServices.join(","));
+    if (verifiedOnly) params.set("verified", "true");
 
     apiFetchWithRetry<{
       platinum: VipProfile[];
@@ -187,7 +245,7 @@ export default function CatalogPage() {
     return () => {
       controller.abort();
     };
-  }, [location, cityLabel, sort, tierFilter]);
+  }, [location, cityLabel, sort, tierFilter, identityFilter, ageFilter, selectedStyles.join(","), selectedServices.join(","), verifiedOnly]);
 
   return (
     <div className="min-h-[100dvh] text-white antialiased">
@@ -220,13 +278,62 @@ export default function CatalogPage() {
           >
             <Filter className="h-3.5 w-3.5" />
             Filtros
+            {activeFilterCount > 0 && (
+              <span className="ml-1 rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                {activeFilterCount}
+              </span>
+            )}
           </button>
         </div>
 
         {/* Filter panel */}
         {showFilters && (
           <div className="mx-auto mt-3 max-w-6xl rounded-xl border border-white/[0.08] bg-[#0c0c14] p-4">
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-5">
+              {/* Identity */}
+              <div>
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-white/40">
+                  Identidad
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {IDENTITY_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setIdentityFilter(opt.value)}
+                      className={`rounded-full px-3 py-1 text-xs transition ${
+                        identityFilter === opt.value
+                          ? "bg-fuchsia-600 text-white"
+                          : "bg-white/[0.06] text-white/60 hover:bg-white/[0.1]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Age */}
+              <div>
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-white/40">
+                  Edad
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {AGE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setAgeFilter(opt.value)}
+                      className={`rounded-full px-3 py-1 text-xs transition ${
+                        ageFilter === opt.value
+                          ? "bg-fuchsia-600 text-white"
+                          : "bg-white/[0.06] text-white/60 hover:bg-white/[0.1]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Tier */}
               <div>
                 <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-white/40">
@@ -246,6 +353,85 @@ export default function CatalogPage() {
                       {t || "Todos"}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Styles */}
+              <div>
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-white/40">
+                  Estilo
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {STYLE_OPTIONS.map((s) => {
+                    const active = selectedStyles.includes(s);
+                    return (
+                      <button
+                        key={s}
+                        onClick={() =>
+                          setSelectedStyles((prev) =>
+                            active ? prev.filter((x) => x !== s) : [...prev, s],
+                          )
+                        }
+                        className={`rounded-full px-3 py-1 text-xs transition ${
+                          active
+                            ? "bg-fuchsia-600 text-white"
+                            : "bg-white/[0.06] text-white/60 hover:bg-white/[0.1]"
+                        }`}
+                      >
+                        {s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Services */}
+              <div>
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-white/40">
+                  Servicios
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SERVICE_OPTIONS.map((s) => {
+                    const active = selectedServices.includes(s.value);
+                    return (
+                      <button
+                        key={s.value}
+                        onClick={() =>
+                          setSelectedServices((prev) =>
+                            active
+                              ? prev.filter((x) => x !== s.value)
+                              : [...prev, s.value],
+                          )
+                        }
+                        className={`rounded-full px-3 py-1 text-xs transition ${
+                          active
+                            ? "bg-fuchsia-600 text-white"
+                            : "bg-white/[0.06] text-white/60 hover:bg-white/[0.1]"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Premium toggles */}
+              <div>
+                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-white/40">
+                  Premium
+                </p>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => setVerifiedOnly(!verifiedOnly)}
+                    className={`rounded-full px-3 py-1 text-xs transition ${
+                      verifiedOnly
+                        ? "bg-fuchsia-600 text-white"
+                        : "bg-white/[0.06] text-white/60 hover:bg-white/[0.1]"
+                    }`}
+                  >
+                    ✓ Solo verificadas
+                  </button>
                 </div>
               </div>
 
@@ -282,6 +468,24 @@ export default function CatalogPage() {
                   </div>
                 </div>
               )}
+
+              {/* Clear all */}
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={() => {
+                    setIdentityFilter("");
+                    setAgeFilter("");
+                    setTierFilter("");
+                    setSelectedStyles([]);
+                    setSelectedServices([]);
+                    setVerifiedOnly(false);
+                    setZoneFilter("");
+                  }}
+                  className="self-end rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/60 hover:bg-white/[0.08]"
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -311,6 +515,11 @@ export default function CatalogPage() {
               onClick={() => {
                 setTierFilter("");
                 setZoneFilter("");
+                setIdentityFilter("");
+                setAgeFilter("");
+                setSelectedStyles([]);
+                setSelectedServices([]);
+                setVerifiedOnly(false);
                 setSort("vip");
               }}
               className="mt-4 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70 hover:bg-white/[0.08]"
@@ -356,6 +565,12 @@ export default function CatalogPage() {
                         level={p.userLevel as any}
                         className="absolute left-2 top-2 px-2 py-1 text-[11px]"
                       />
+
+                      {p.isVerified && (
+                        <div className="absolute left-2 top-10 rounded-full border border-emerald-300/20 bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-200">
+                          ✓ Verificada
+                        </div>
+                      )}
 
                       {p.availableNow ? (
                         <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[11px] text-emerald-100">
