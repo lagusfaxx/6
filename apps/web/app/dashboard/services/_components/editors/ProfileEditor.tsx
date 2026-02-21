@@ -5,6 +5,16 @@ import EditorCard from "../EditorCard";
 import FloatingInput from "../FloatingInput";
 import FloatingTextarea from "../FloatingTextarea";
 import FloatingSelect from "../FloatingSelect";
+import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../../../../../components/DirectoryPage";
+
+const PRIMARY_CATEGORY_OPTIONS = [
+  { value: "",           label: "Sin categoría principal" },
+  { value: "escort",     label: "Escort / Acompañante" },
+  { value: "masajes",    label: "Masajista" },
+  { value: "trans",      label: "Trans" },
+  { value: "despedidas", label: "Despedidas de soltero" },
+  { value: "videollamadas", label: "Videollamadas" },
+];
 
 export default function ProfileEditor() {
   const { state, setField } = useDashboardForm();
@@ -80,6 +90,74 @@ export default function ProfileEditor() {
         <div className="flex flex-wrap gap-4 text-xs text-white/70">
           <label className="flex items-center gap-2"><input type="checkbox" checked={state.acceptsIncalls} onChange={(e) => setField("acceptsIncalls", e.target.checked)} /> Recibe</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={state.acceptsOutcalls} onChange={(e) => setField("acceptsOutcalls", e.target.checked)} /> Se desplaza</label>
+        </div>
+
+        {/* ── Categoría principal ── */}
+        <FloatingSelect
+          label="Categoría principal"
+          value={state.primaryCategory}
+          onChange={(v) => setField("primaryCategory", v)}
+          options={PRIMARY_CATEGORY_OPTIONS}
+        />
+
+        {/* ── Cómo defines tu perfil (profile tags) ── */}
+        <div>
+          <p className="mb-2 text-xs font-semibold text-white/60">¿Cómo defines tu perfil?</p>
+          <p className="mb-2 text-[11px] text-white/35">Selecciona las que mejor te describen</p>
+          <div className="flex flex-wrap gap-1.5">
+            {PROFILE_TAGS_CATALOG.map((tag) => {
+              const active = state.profileTags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() =>
+                    setField(
+                      "profileTags",
+                      active ? state.profileTags.filter((t) => t !== tag) : [...state.profileTags, tag],
+                    )
+                  }
+                  className={`rounded-full border px-2.5 py-1 text-xs capitalize transition ${
+                    active
+                      ? "border-fuchsia-500 bg-fuchsia-500/15 text-fuchsia-300"
+                      : "border-white/10 text-white/40 hover:border-white/20 hover:text-white/70"
+                  }`}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Servicios que ofrezco (service tags) ── */}
+        <div>
+          <p className="mb-2 text-xs font-semibold text-white/60">Servicios que ofrezco</p>
+          <p className="mb-2 text-[11px] text-white/35">Selecciona todos los que apliquen</p>
+          <div className="flex flex-wrap gap-1.5">
+            {SERVICE_TAGS_CATALOG.map((tag) => {
+              const active = state.serviceTags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() =>
+                    setField(
+                      "serviceTags",
+                      active ? state.serviceTags.filter((t) => t !== tag) : [...state.serviceTags, tag],
+                    )
+                  }
+                  className={`rounded-full border px-2.5 py-1 text-xs capitalize transition ${
+                    active
+                      ? "border-violet-500 bg-violet-500/15 text-violet-300"
+                      : "border-white/10 text-white/40 hover:border-white/20 hover:text-white/70"
+                  }`}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </EditorCard>

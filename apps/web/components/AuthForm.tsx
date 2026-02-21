@@ -79,6 +79,7 @@ export default function AuthForm({
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [primaryCategory, setPrimaryCategory] = useState("");
 
   const isBusinessProfile =
     profileType === "PROFESSIONAL" ||
@@ -121,6 +122,7 @@ export default function AuthForm({
             username,
             phone,
             gender: profileType === "PROFESSIONAL" ? gender : undefined,
+            primaryCategory: profileType === "PROFESSIONAL" ? (primaryCategory || undefined) : undefined,
             profileType,
             preferenceGender:
               profileType === "CLIENT" ? preferenceGender : undefined,
@@ -286,6 +288,27 @@ export default function AuthForm({
             max={new Date().toISOString().split("T")[0]}
           />
           <p className="text-xs text-white/50">Debes ser mayor de 18 años.</p>
+        </div>
+      ) : null}
+
+      {mode === "register" && profileType === "PROFESSIONAL" ? (
+        <div className="grid gap-2">
+          <label className="text-sm text-white/70">¿Cómo te defines? (categoría principal)</label>
+          <div className="relative">
+            <select
+              className="input appearance-none pr-10"
+              value={primaryCategory}
+              onChange={(e) => setPrimaryCategory(e.target.value)}
+            >
+              <option value="">Selecciona tu categoría</option>
+              <option value="escort">Escort / Acompañante</option>
+              <option value="masajes">Masajista</option>
+              <option value="trans">Trans</option>
+              <option value="despedidas">Despedidas de soltero</option>
+              <option value="videollamadas">Videollamadas</option>
+            </select>
+            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">▾</span>
+          </div>
         </div>
       ) : null}
 

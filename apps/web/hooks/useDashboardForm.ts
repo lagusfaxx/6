@@ -72,6 +72,9 @@ export type DashboardFormState = {
   skinTone: string;
   languages: string;
   serviceStyleTags: string;
+  primaryCategory: string;
+  profileTags: string[];
+  serviceTags: string[];
   availabilityNote: string;
   baseRate: string;
   minDurationMinutes: string;
@@ -152,6 +155,9 @@ export const INITIAL_STATE: DashboardFormState = {
   skinTone: "",
   languages: "",
   serviceStyleTags: "",
+  primaryCategory: "",
+  profileTags: [],
+  serviceTags: [],
   availabilityNote: "",
   baseRate: "",
   minDurationMinutes: "",

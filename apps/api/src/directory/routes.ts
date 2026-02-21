@@ -771,6 +771,219 @@ directoryRouter.get(
   }),
 );
 
+/* ─────────────────────────────────────────────────────────────
+   GET /directory/search — unified real server-side search
+   Query params:
+     entityType   : 'professional' | 'establishment' | 'shop'
+     categorySlug : 'escort' | 'masajes' | 'motel' | 'sexshop' | …
+     profileTags  : comma-separated normalized tags  (tetona,culona,…)
+     serviceTags  : comma-separated normalized tags  (anal,trios,…)
+     maduras      : 'true' → age >= 40 (auto-computed, never manual tag)
+     availableNow : 'true' → online in last 5 min
+     tier         : 'DIAMOND' | 'GOLD' | 'SILVER'
+     gender       : 'MALE' | 'FEMALE' | 'OTHER'
+     lat / lng / radiusKm
+     limit        : default 48, max 120
+     sort         : 'featured' | 'near' | 'new' | 'availableNow'
+   ──────────────────────────────────────────────────────────── */
+directoryRouter.get(
+  "/directory/search",
+  asyncHandler(async (req, res) => {
+    const now = new Date();
+
+    /* ── parse params ── */
+    const entityType = (req.query.entityType as string) || "professional";
+    const categorySlug = (req.query.categorySlug as string) || "";
+    const rawProfileTags = (req.query.profileTags as string) || "";
+    const rawServiceTags = (req.query.serviceTags as string) || "";
+    const maduras = req.query.maduras === "true";
+    const availableNow = req.query.availableNow === "true";
+    const tierFilter = (req.query.tier as string) || "";
+    const genderFilter = (req.query.gender as string) || "";
+    const lat = req.query.lat ? Number(req.query.lat) : null;
+    const lng = req.query.lng ? Number(req.query.lng) : null;
+    const radiusKm = parseRangeKm(req.query.radiusKm, 50);
+    const limit = Math.min(Number(req.query.limit) || 48, 120);
+    const sort = (req.query.sort as string) || "featured";
+
+    /* ── normalise tag filters ── */
+    function normTag(t: string) {
+      return t.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+    const profileTagFilter = rawProfileTags
+      .split(",").map(normTag).filter(Boolean);
+    const serviceTagFilter = rawServiceTags
+      .split(",").map(normTag).filter(Boolean);
+
+    /* ── category aliases for categorySlug → serviceCategory / primaryCategory match ── */
+    const SLUG_TO_PRIMARY: Record<string, string[]> = {
+      escort:     ["escort", "acompañamiento", "acompanamiento"],
+      masajes:    ["masajes", "masaje", "masajes sensuales"],
+      motel:      ["motel", "moteles", "hotel", "hoteles"],
+      moteles:    ["motel", "moteles", "hotel", "hoteles"],
+      sexshop:    ["sexshop", "sex shop", "lenceria", "juguetes"],
+      trans:      ["trans"],
+      despedidas: ["despedidas"],
+    };
+    const categoryVariantsList = categorySlug
+      ? (SLUG_TO_PRIMARY[normTag(categorySlug)] || [normTag(categorySlug)])
+      : [];
+
+    /* ── determine profileType filter ── */
+    let profileTypeFilter: string[] = ["PROFESSIONAL"];
+    if (entityType === "establishment") profileTypeFilter = ["ESTABLISHMENT"];
+    else if (entityType === "shop") profileTypeFilter = ["SHOP"];
+
+    /* ── build where clause ── */
+    const where: Record<string, unknown> = {
+      profileType: { in: profileTypeFilter },
+      isActive: true,
+      OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
+    };
+
+    if (genderFilter) where.gender = genderFilter;
+    if (tierFilter) where.tier = tierFilter;
+
+    /* category filter: match primaryCategory OR serviceCategory */
+    if (categoryVariantsList.length) {
+      const catConditions = categoryVariantsList.flatMap((v) => [
+        { primaryCategory: { equals: v, mode: "insensitive" as const } },
+        { serviceCategory: { contains: v, mode: "insensitive" as const } },
+      ]);
+      // merge with existing OR if any
+      where.OR = catConditions;
+    }
+
+    /* profileTags filter — must contain ALL requested tags */
+    if (profileTagFilter.length) {
+      where.profileTags = { hasEvery: profileTagFilter };
+    }
+
+    /* serviceTags filter — must contain ALL requested tags */
+    if (serviceTagFilter.length) {
+      where.serviceTags = { hasEvery: serviceTagFilter };
+    }
+
+    /* ── fetch users ── */
+    const users = await prisma.user.findMany({
+      where,
+      take: Math.max(limit * 4, 200),
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        coverUrl: true,
+        bio: true,
+        birthdate: true,
+        latitude: true,
+        longitude: true,
+        lastSeen: true,
+        isActive: true,
+        isOnline: true,
+        completedServices: true,
+        profileViews: true,
+        tier: true,
+        gender: true,
+        city: true,
+        serviceCategory: true,
+        primaryCategory: true,
+        profileTags: true,
+        serviceTags: true,
+        createdAt: true,
+        services: {
+          where: { isActive: true },
+          select: { latitude: true, longitude: true, category: true },
+          take: 1,
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+
+    /* ── enrich + compute derived fields ── */
+    const AVAIL_MS = 5 * 60 * 1000;
+    const enriched = users.map((u) => {
+      const svcLoc = u.services[0];
+      const userLat = svcLoc?.latitude ?? u.latitude;
+      const userLng = svcLoc?.longitude ?? u.longitude;
+      const distance =
+        lat != null && lng != null && userLat != null && userLng != null
+          ? haversineKm(lat, lng, userLat, userLng)
+          : null;
+      const age = resolveAge(u.birthdate, u.bio);
+      const userIsOnline = u.lastSeen
+        ? Date.now() - u.lastSeen.getTime() <= AVAIL_MS
+        : false;
+      const level = resolveProfessionalLevel(u.completedServices);
+      const isMadura = age != null && age >= 40;
+      const obf = obfuscateLocation(userLat, userLng, `user:${u.id}`, 600);
+
+      return {
+        id: u.id,
+        username: u.username,
+        displayName: u.displayName || u.username,
+        avatarUrl: u.avatarUrl,
+        coverUrl: u.coverUrl,
+        age,
+        distance,
+        latitude: obf.latitude,
+        longitude: obf.longitude,
+        availableNow: userIsOnline,
+        isActive: u.isActive,
+        userLevel: level,
+        completedServices: u.completedServices,
+        profileViews: u.profileViews,
+        lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
+        city: u.city,
+        serviceCategory: u.serviceCategory,
+        primaryCategory: u.primaryCategory,
+        profileTags: u.profileTags,
+        serviceTags: u.serviceTags,
+        gender: u.gender,
+        isMadura,
+        createdAt: u.createdAt.toISOString(),
+      };
+    });
+
+    /* ── post-filter ── */
+    const filtered = enriched
+      .filter((u) => (maduras ? u.isMadura : true))
+      .filter((u) => (availableNow ? u.availableNow : true))
+      .filter((u) =>
+        lat != null && lng != null && u.distance != null
+          ? u.distance <= radiusKm
+          : true,
+      );
+
+    /* ── sort ── */
+    const LEVEL_ORDER: Record<string, number> = { DIAMOND: 0, GOLD: 1, SILVER: 2 };
+    const sorted = [...filtered].sort((a, b) => {
+      if (sort === "near") {
+        return (a.distance ?? 1e9) - (b.distance ?? 1e9);
+      }
+      if (sort === "new") {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (sort === "availableNow") {
+        if (a.availableNow !== b.availableNow)
+          return Number(b.availableNow) - Number(a.availableNow);
+      }
+      // featured: tier → availability → views
+      const lvlCmp =
+        (LEVEL_ORDER[a.userLevel] ?? 3) - (LEVEL_ORDER[b.userLevel] ?? 3);
+      if (lvlCmp !== 0) return lvlCmp;
+      if (a.availableNow !== b.availableNow)
+        return Number(b.availableNow) - Number(a.availableNow);
+      return (b.profileViews ?? 0) - (a.profileViews ?? 0);
+    });
+
+    return res.json({
+      results: sorted.slice(0, limit).map(({ createdAt, isMadura, ...r }) => r),
+      total: sorted.length,
+    });
+  }),
+);
+
 directoryRouter.get(
   "/establishments/:id",
   asyncHandler(async (req, res) => {
