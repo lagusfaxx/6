@@ -30,8 +30,9 @@ export const VIP_THRESHOLD = 25;
 
 /**
  * Maximum percentage of Platinum/Premium profiles in the "trending" section.
- * Prevents Platinum from monopolizing the curated feed.
- * E.g. 0.4 = at most 40% of trending slots go to Platinum.
+ * Prevents top-tier profiles from monopolizing the curated feed.
+ * Both PLATINUM and PREMIUM (legacy equivalent) are counted together.
+ * E.g. 0.4 = at most 40% of trending slots go to Platinum/Premium.
  */
 export const MAX_PLATINUM_RATIO = 0.4;
 

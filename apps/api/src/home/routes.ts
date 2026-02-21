@@ -214,8 +214,11 @@ homeRouter.get(
     const limitParam = req.query.limit != null ? Number(req.query.limit) : 12;
     const limit = Math.min(Math.max(1, limitParam), 24);
 
-    // Check sections cache (key includes location for distance calc)
-    const cacheKey = `sections:${city.toLowerCase()}:${lat}:${lng}:${limit}`;
+    // Check sections cache.  Round lat/lng to 0.01° (~1 km grid) to enable
+    // cache hits for nearby locations without creating infinite keyspace.
+    const gridLat = lat !== null ? Math.round(lat * 100) / 100 : "_";
+    const gridLng = lng !== null ? Math.round(lng * 100) / 100 : "_";
+    const cacheKey = `sections:${city.toLowerCase()}:${gridLat}:${gridLng}:${limit}`;
     const cached = sectionsCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       res.setHeader("Cache-Control", "public, max-age=120, stale-while-revalidate=60");
