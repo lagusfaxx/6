@@ -2,9 +2,10 @@
 
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
+import useMe from "../hooks/useMe";
 
 /* ─── Types ─────────────────────────────────────────────── */
 type StoryItem = {
@@ -196,15 +197,25 @@ function StoryViewer({
         <button onClick={goPrev} className="absolute left-0 top-0 h-full w-1/3 z-10" aria-label="Anterior" />
         <button onClick={goNext} className="absolute right-0 top-0 h-full w-1/3 z-10" aria-label="Siguiente" />
 
-        {/* Bottom CTA */}
+        {/* Bottom CTAs - Conversion focused */}
         <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/80 to-transparent">
-          <Link
-            href={group.profileHref}
-            onClick={onClose}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 border border-white/20 backdrop-blur py-2.5 text-sm font-semibold text-white hover:bg-white/20 transition"
-          >
-            Ver perfil completo
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href={`/chats?user=${group.userId}`}
+              onClick={onClose}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-semibold text-white hover:brightness-110 transition shadow-[0_8px_20px_rgba(168,85,247,0.3)]"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Enviar mensaje
+            </Link>
+            <Link
+              href={group.profileHref}
+              onClick={onClose}
+              className="flex items-center justify-center rounded-xl bg-white/10 border border-white/20 backdrop-blur px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/20 transition"
+            >
+              Ver perfil
+            </Link>
+          </div>
         </div>
 
         {/* Desktop side arrows */}
@@ -233,6 +244,10 @@ function StoryViewer({
 export default function Stories({ showUpload = false }: { showUpload?: boolean }) {
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
+  const { me } = useMe();
+
+  const isProfessional = (me?.user?.profileType ?? "").toUpperCase() === "PROFESSIONAL";
+  const canUpload = showUpload || isProfessional;
 
   const [groups, setGroups] = useState<StoryGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -253,7 +268,7 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
 
   if (loading) {
     return (
-      <div className="flex gap-3 overflow-x-auto px-4 py-2 scrollbar-hide">
+      <div className="flex gap-3 overflow-x-auto px-1 py-2 scrollbar-hide">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="flex-shrink-0 flex flex-col items-center gap-1.5">
             <div className="h-16 w-16 rounded-full bg-white/5 animate-pulse" />
@@ -264,12 +279,13 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
     );
   }
 
-  if (groups.length === 0 && !showUpload) return null;
+  if (groups.length === 0 && !canUpload) return null;
 
   return (
     <>
-      <div className="flex gap-3 overflow-x-auto px-4 py-2 scrollbar-hide">
-        {showUpload && (
+      <div className="flex gap-3 overflow-x-auto px-1 py-2 scrollbar-hide">
+        {/* Upload button for professionals */}
+        {canUpload && (
           <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
             <Link
               href="/dashboard/stories"
@@ -277,7 +293,7 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
             >
               <Plus className="h-6 w-6" />
             </Link>
-            <span className="text-[10px] text-white/40">Tu story</span>
+            <span className="text-[10px] text-fuchsia-300/60">Tu story</span>
           </div>
         )}
 
@@ -285,9 +301,9 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
           <button
             key={g.userId}
             onClick={() => setViewerGroupIdx(i)}
-            className="flex-shrink-0 flex flex-col items-center gap-1.5"
+            className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
           >
-            <div className="relative h-16 w-16 rounded-full p-0.5 bg-gradient-to-tr from-fuchsia-600 via-violet-500 to-pink-500">
+            <div className="relative h-16 w-16 rounded-full p-0.5 bg-gradient-to-tr from-fuchsia-600 via-violet-500 to-pink-500 group-hover:shadow-[0_0_16px_rgba(168,85,247,0.4)] transition">
               <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
                 {g.avatarUrl ? (
                   <img
@@ -302,7 +318,7 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
                 )}
               </div>
               {g.stories.some((s) => s.mediaType === "VIDEO") && (
-                <span className="absolute bottom-0 right-0 h-4 w-4 rounded-full bg-fuchsia-500 flex items-center justify-center text-[8px] text-white font-bold">
+                <span className="absolute bottom-0 right-0 h-4 w-4 rounded-full bg-fuchsia-500 flex items-center justify-center text-[8px] text-white font-bold shadow">
                   ▶
                 </span>
               )}
