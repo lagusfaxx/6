@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import path from "path";
 import { prisma } from "../db";
+import { Prisma } from "@prisma/client";
 import { requireAuth } from "../auth/middleware";
 import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
@@ -518,46 +519,67 @@ async function updateProfile(req: any, res: any) {
       safeBirthdate = parsed;
     }
   }
-  const user = await prisma.user.update({
-    where: { id: req.session.userId! },
-    data: {
-      displayName: displayName ?? undefined,
-      bio: bio ?? undefined,
-      address: address ?? undefined,
-      phone: phone ?? undefined,
-      preferenceGender: safePreference,
-      gender: safeGender,
-      username: username ?? undefined,
-      subscriptionPrice: canSetPrice ? safePrice : undefined,
-      allowFreeMessages: canSetPrice ? allowFree : undefined,
-      serviceCategory: serviceCategory ?? undefined,
-      serviceDescription: serviceDescription ?? undefined,
-      heightCm: parseNullableInt(heightCm, 260),
-      weightKg: parseNullableInt(weightKg, 250),
-      measurements: measurements ?? undefined,
-      hairColor: hairColor ?? undefined,
-      skinTone: skinTone ?? undefined,
-      languages: languages ?? undefined,
-      serviceStyleTags: serviceStyleTags ?? undefined,
-      availabilityNote: availabilityNote ?? undefined,
-      primaryCategory: primaryCategory != null ? String(primaryCategory) : undefined,
-      profileTags: Array.isArray(profileTags)
-        ? profileTags.map((t) => String(t).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
-        : undefined,
-      serviceTags: Array.isArray(serviceTags)
-        ? serviceTags.map((t) => String(t).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
-        : undefined,
-      baseRate: parseNullableInt(baseRate, 10000000),
-      minDurationMinutes: parseNullableInt(minDurationMinutes, 1440),
-      acceptsIncalls: parseNullableBool(acceptsIncalls),
-      acceptsOutcalls: parseNullableBool(acceptsOutcalls),
-      city: city ?? undefined,
-      latitude: latitude ? Number(latitude) : undefined,
-      longitude: longitude ? Number(longitude) : undefined,
-      birthdate: safeBirthdate,
-      isActive: safeIsActive,
-    },
-  });
+  const baseData: Record<string, unknown> = {
+    displayName: displayName ?? undefined,
+    bio: bio ?? undefined,
+    address: address ?? undefined,
+    phone: phone ?? undefined,
+    preferenceGender: safePreference,
+    gender: safeGender,
+    username: username ?? undefined,
+    subscriptionPrice: canSetPrice ? safePrice : undefined,
+    allowFreeMessages: canSetPrice ? allowFree : undefined,
+    serviceCategory: serviceCategory ?? undefined,
+    serviceDescription: serviceDescription ?? undefined,
+    heightCm: parseNullableInt(heightCm, 260),
+    weightKg: parseNullableInt(weightKg, 250),
+    measurements: measurements ?? undefined,
+    hairColor: hairColor ?? undefined,
+    skinTone: skinTone ?? undefined,
+    languages: languages ?? undefined,
+    serviceStyleTags: serviceStyleTags ?? undefined,
+    availabilityNote: availabilityNote ?? undefined,
+    primaryCategory: primaryCategory != null ? String(primaryCategory) : undefined,
+    profileTags: Array.isArray(profileTags)
+      ? profileTags.map((t: unknown) => String(t).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+      : undefined,
+    serviceTags: Array.isArray(serviceTags)
+      ? serviceTags.map((t: unknown) => String(t).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+      : undefined,
+    baseRate: parseNullableInt(baseRate, 10000000),
+    minDurationMinutes: parseNullableInt(minDurationMinutes, 1440),
+    acceptsIncalls: parseNullableBool(acceptsIncalls),
+    acceptsOutcalls: parseNullableBool(acceptsOutcalls),
+    city: city ?? undefined,
+    latitude: latitude ? Number(latitude) : undefined,
+    longitude: longitude ? Number(longitude) : undefined,
+    birthdate: safeBirthdate,
+    isActive: safeIsActive,
+  };
+
+  let user: any;
+  try {
+    user = await prisma.user.update({
+      where: { id: req.session.userId! },
+      data: baseData,
+    });
+  } catch (err) {
+    if (
+      (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2022") ||
+      err instanceof Prisma.PrismaClientValidationError
+    ) {
+      // New columns not in DB yet — strip them and retry
+      delete baseData.primaryCategory;
+      delete baseData.profileTags;
+      delete baseData.serviceTags;
+      user = await prisma.user.update({
+        where: { id: req.session.userId! },
+        data: baseData,
+      });
+    } else {
+      throw err;
+    }
+  }
   return res.json({ user });
 }
 

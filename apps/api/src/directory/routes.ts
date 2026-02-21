@@ -850,7 +850,6 @@ directoryRouter.get(
         { primaryCategory: { equals: v, mode: "insensitive" as const } },
         { serviceCategory: { contains: v, mode: "insensitive" as const } },
       ]);
-      // merge with existing OR if any
       where.OR = catConditions;
     }
 
@@ -864,41 +863,60 @@ directoryRouter.get(
       where.serviceTags = { hasEvery: serviceTagFilter };
     }
 
-    /* ── fetch users ── */
-    const users = await prisma.user.findMany({
-      where,
-      take: Math.max(limit * 4, 200),
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        avatarUrl: true,
-        coverUrl: true,
-        bio: true,
-        birthdate: true,
-        latitude: true,
-        longitude: true,
-        lastSeen: true,
-        isActive: true,
-        isOnline: true,
-        completedServices: true,
-        profileViews: true,
-        tier: true,
-        gender: true,
-        city: true,
-        serviceCategory: true,
-        primaryCategory: true,
-        profileTags: true,
-        serviceTags: true,
-        createdAt: true,
-        services: {
-          where: { isActive: true },
-          select: { latitude: true, longitude: true, category: true },
-          take: 1,
-          orderBy: { createdAt: "desc" },
-        },
-      },
-    });
+    /* ── Select with new columns — fallback if migration not applied ── */
+    const fullSelect = {
+      id: true, username: true, displayName: true, avatarUrl: true,
+      coverUrl: true, bio: true, birthdate: true, latitude: true,
+      longitude: true, lastSeen: true, isActive: true, isOnline: true,
+      completedServices: true, profileViews: true, tier: true,
+      gender: true, city: true, serviceCategory: true, createdAt: true,
+      primaryCategory: true, profileTags: true, serviceTags: true,
+      services: { where: { isActive: true }, select: { latitude: true, longitude: true, category: true }, take: 1, orderBy: { createdAt: "desc" as const } },
+    };
+    const fallbackSelect = {
+      id: true, username: true, displayName: true, avatarUrl: true,
+      coverUrl: true, bio: true, birthdate: true, latitude: true,
+      longitude: true, lastSeen: true, isActive: true, isOnline: true,
+      completedServices: true, profileViews: true, tier: true,
+      gender: true, city: true, serviceCategory: true, createdAt: true,
+      services: { where: { isActive: true }, select: { latitude: true, longitude: true, category: true }, take: 1, orderBy: { createdAt: "desc" as const } },
+    };
+
+    /* When new columns don't exist, strip those filters from where */
+    const fallbackWhere: Record<string, unknown> = {
+      profileType: where.profileType,
+      isActive: true,
+      OR: where.OR,
+    };
+    if (genderFilter) fallbackWhere.gender = genderFilter;
+    if (tierFilter) fallbackWhere.tier = tierFilter;
+    // Remove profileTags/serviceTags/primaryCategory filters for fallback
+    if (categoryVariantsList.length) {
+      fallbackWhere.OR = categoryVariantsList.map((v) => ({
+        serviceCategory: { contains: v, mode: "insensitive" as const },
+      }));
+    }
+
+    let users: any[];
+    let hasNewColumns = true;
+    try {
+      users = await prisma.user.findMany({
+        where, take: Math.max(limit * 4, 200), select: fullSelect,
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError ||
+        err instanceof Prisma.PrismaClientValidationError
+      ) {
+        console.warn("[directory/search] new columns not available, falling back:", (err as Error).message?.slice(0, 120));
+        hasNewColumns = false;
+        users = await prisma.user.findMany({
+          where: fallbackWhere, take: Math.max(limit * 4, 200), select: fallbackSelect,
+        });
+      } else {
+        throw err;
+      }
+    }
 
     /* ── enrich + compute derived fields ── */
     const AVAIL_MS = 5 * 60 * 1000;
@@ -936,9 +954,9 @@ directoryRouter.get(
         lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
         city: u.city,
         serviceCategory: u.serviceCategory,
-        primaryCategory: u.primaryCategory,
-        profileTags: u.profileTags,
-        serviceTags: u.serviceTags,
+        primaryCategory: hasNewColumns ? u.primaryCategory : null,
+        profileTags: hasNewColumns ? (u.profileTags ?? []) : [],
+        serviceTags: hasNewColumns ? (u.serviceTags ?? []) : [],
         gender: u.gender,
         isMadura,
         createdAt: u.createdAt.toISOString(),

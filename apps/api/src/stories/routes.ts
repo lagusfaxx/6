@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import path from "path";
 import { prisma } from "../db";
+import { Prisma } from "@prisma/client";
 import { requireAuth } from "../auth/middleware";
 import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
@@ -62,8 +63,10 @@ storiesRouter.get(
       return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    // Fetch active stories with owner profile info
-    const stories = await prisma.story.findMany({
+    // Fetch active stories — gracefully handle missing Story table
+    let stories: Awaited<ReturnType<typeof prisma.story.findMany>> = [];
+    try {
+    stories = await prisma.story.findMany({
       where: { expiresAt: { gt: now } },
       orderBy: { createdAt: "desc" },
       take: 100,
@@ -88,6 +91,17 @@ storiesRouter.get(
         },
       },
     });
+    } catch (err) {
+      // Story table might not exist yet (migration pending)
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError ||
+        err instanceof Prisma.PrismaClientValidationError
+      ) {
+        console.warn("[stories/active] Story table not available yet:", (err as Error).message?.slice(0, 120));
+        return res.json({ stories: [] });
+      }
+      throw err;
+    }
 
     // Group by user, filter by location if provided
     const byUser = new Map<string, { user: (typeof stories)[0]["user"]; stories: typeof stories }>();
@@ -147,14 +161,25 @@ storiesRouter.post(
 
     const expiresAt = new Date(Date.now() + STORY_TTL_HOURS * 60 * 60 * 1000);
 
-    const story = await prisma.story.create({
-      data: {
-        userId: user.id,
-        mediaUrl: publicUrl,
-        mediaType: mediaType as "IMAGE" | "VIDEO",
-        expiresAt,
-      },
-    });
+    let story: any;
+    try {
+      story = await prisma.story.create({
+        data: {
+          userId: user.id,
+          mediaUrl: publicUrl,
+          mediaType: mediaType as "IMAGE" | "VIDEO",
+          expiresAt,
+        },
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError ||
+        err instanceof Prisma.PrismaClientValidationError
+      ) {
+        return res.status(503).json({ error: "STORY_TABLE_NOT_READY", message: "La funcionalidad de stories aún no está disponible. Pendiente migración." });
+      }
+      throw err;
+    }
 
     return res.status(201).json({
       story: {
