@@ -91,6 +91,8 @@ app.use(buildLimiter(60_000, 200, "Demasiadas solicitudes, intenta en unos segun
 const discoverLimiter = buildLimiter(60_000, 60, "Demasiadas solicitudes, intenta en unos segundos.");
 app.use("/professionals", discoverLimiter);
 app.use("/profiles/discover", discoverLimiter);
+app.use("/home", discoverLimiter);
+app.use("/zones", discoverLimiter);
 
 // Auth: separate buckets for login vs general /auth so a burst of /auth/me
 // never blocks /auth/login.  Each gets its own counter.

@@ -2,7 +2,12 @@ import { Router } from "express";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 import { isBusinessPlanActive } from "../lib/subscriptions";
-import { computeVipRankingScore, type RankingInput } from "../lib/ranking";
+import {
+  computeVipRankingScore,
+  selectRankingFn,
+  capPlatinumInList,
+  type RankingInput,
+} from "../lib/ranking";
 import {
   resolveProfessionalLevel,
 } from "../lib/professionalLevel";
@@ -41,12 +46,14 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 
 /* ── in-memory cache for summary ──────────────────────── */
 
-type SummaryCache = {
-  data: Record<string, unknown>;
+type CacheEntry<T> = {
+  data: T;
   expiresAt: number;
 };
-const summaryCache = new Map<string, SummaryCache>();
-const SUMMARY_TTL_MS = 60_000; // 60 seconds
+const summaryCache = new Map<string, CacheEntry<Record<string, unknown>>>();
+const sectionsCache = new Map<string, CacheEntry<Record<string, unknown>>>();
+const SUMMARY_TTL_MS = 60_000;   // 60 seconds
+const SECTIONS_TTL_MS = 120_000; // 120 seconds
 
 /* ── shared query for professionals ───────────────────── */
 
@@ -148,6 +155,7 @@ homeRouter.get(
     const cacheKey = `summary:${city.toLowerCase()}`;
     const cached = summaryCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
+      res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=30");
       return res.json(cached.data);
     }
 
@@ -190,6 +198,7 @@ homeRouter.get(
     };
 
     summaryCache.set(cacheKey, { data, expiresAt: Date.now() + SUMMARY_TTL_MS });
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=30");
     return res.json(data);
   }),
 );
@@ -204,6 +213,14 @@ homeRouter.get(
     const lng = req.query.lng != null ? Number(req.query.lng) : null;
     const limitParam = req.query.limit != null ? Number(req.query.limit) : 12;
     const limit = Math.min(Math.max(1, limitParam), 24);
+
+    // Check sections cache (key includes location for distance calc)
+    const cacheKey = `sections:${city.toLowerCase()}:${lat}:${lng}:${limit}`;
+    const cached = sectionsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      res.setHeader("Cache-Control", "public, max-age=120, stale-while-revalidate=60");
+      return res.json(cached.data);
+    }
 
     const now = new Date();
     const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -229,13 +246,16 @@ homeRouter.get(
       .filter((p) => isBusinessPlanActive(p))
       .map((p) => enrichProfile(p as ProfileRow, lat, lng));
 
-    // strip internal fields for response
+    // Select ranking function based on supply count (VIP mode activation)
+    const rankFn = selectRankingFn(enriched.length);
+
+    // strip internal fields for response — never expose lat/lng to catalog
     const strip = (item: ReturnType<typeof enrichProfile>) => {
-      const { createdAt: _c, ...rest } = item;
+      const { createdAt: _c, lat: _lat, lng: _lng, ...rest } = item;
       return rest;
     };
 
-    // Section 1: Platinum — tier = PLATINUM, sorted by VIP ranking
+    // Section 1: Platinum — tier = PLATINUM, sorted by VIP ranking (always VIP for this section)
     const platinum = enriched
       .filter(
         (p) =>
@@ -249,22 +269,22 @@ homeRouter.get(
       .slice(0, limit)
       .map(strip);
 
-    // Section 2: Trending VIP — mixed tiers, VIP ranking
-    const trending = enriched
+    // Section 2: Trending VIP — mixed tiers, with anti-monopolization cap
+    const trendingSorted = [...enriched]
       .sort((a, b) => {
-        const sa = computeVipRankingScore(toRankingInput(a));
-        const sb = computeVipRankingScore(toRankingInput(b));
+        const sa = rankFn(toRankingInput(a));
+        const sb = rankFn(toRankingInput(b));
         return sb - sa;
-      })
-      .slice(0, limit)
-      .map(strip);
+      });
+    const trendingCapped = capPlatinumInList(trendingSorted, limit);
+    const trending = trendingCapped.map(strip);
 
     // Section 3: Available now — online first
     const availableNow = enriched
       .filter((p) => p.availableNow)
       .sort((a, b) => {
-        const sa = computeVipRankingScore(toRankingInput(a));
-        const sb = computeVipRankingScore(toRankingInput(b));
+        const sa = rankFn(toRankingInput(a));
+        const sb = rankFn(toRankingInput(b));
         return sb - sa;
       })
       .slice(0, limit)
@@ -288,13 +308,17 @@ homeRouter.get(
       .sort((a, b) => b.count - a.count)
       .slice(0, 20);
 
-    return res.json({
+    const payload = {
       platinum,
       trending,
       availableNow,
       newArrivals,
       zones,
-    });
+    };
+
+    sectionsCache.set(cacheKey, { data: payload, expiresAt: Date.now() + SECTIONS_TTL_MS });
+    res.setHeader("Cache-Control", "public, max-age=120, stale-while-revalidate=60");
+    return res.json(payload);
   }),
 );
 

@@ -8,11 +8,9 @@ import { apiFetchWithRetry, resolveMediaUrl } from "../../lib/api";
 import { useActiveLocation } from "../../hooks/useActiveLocation";
 import UserLevelBadge from "../../components/UserLevelBadge";
 import {
-  ChevronRight,
   Filter,
   MapPin,
   Search,
-  X,
 } from "lucide-react";
 
 /* ── Types ── */

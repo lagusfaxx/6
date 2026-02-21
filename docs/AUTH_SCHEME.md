@@ -1,6 +1,6 @@
 # Authentication & Security Scheme
 
-> Last updated: 2026-02-20
+> Last updated: 2026-02-21
 
 ## Overview
 
@@ -62,7 +62,7 @@ body with `{ error: "TOO_MANY_REQUESTS", retryAfter: <seconds> }`.
 | Bucket                    | Limit   | Window | Notes                               |
 | ------------------------- | ------- | ------ | ----------------------------------- |
 | **Global**                | 200/min | 60 s   | Catch-all for all endpoints         |
-| **Discover / Directory**  | 60/min  | 60 s   | `/professionals`, `/profiles/discover` |
+| **Discover / Directory**  | 60/min  | 60 s   | `/professionals`, `/profiles/discover`, `/home`, `/zones` |
 | **Auth login/register**   | 30/min  | 60 s   | `/auth/login`, `/auth/register`     |
 | **Auth general**          | 40/min  | 60 s   | `/auth/*` except login/register     |
 
@@ -129,7 +129,47 @@ The `requireAuth` middleware skips authentication for these prefixes:
 - `/categories`, `/banners`
 - `/professionals`, `/profiles/discover`, `/profiles`
 - `/motels`, `/cities`
+- `/home` (summary, sections)
+- `/zones` (with_supply)
 - `/services` (GET list only), `/services/global`, `/map`
 - `/webhooks/flow`
 
 All other endpoints require a valid session cookie.
+
+---
+
+## Privacy & Discreción
+
+- **No exact coordinates**: Public endpoints never return exact `latitude`/`longitude`.
+  - `/home/sections` strips `lat`/`lng` — only returns `zone` (city name).
+  - `/professionals` obfuscates coordinates within a 600m radius.
+- **distanceKm**: Only computed when the user provides GPS-sourced location;
+  manual location only shows zone name in the UI.
+- **No address fields**: No address, street, or exact location is ever exposed.
+- **Logging**: No sensitive user data (passwords, tokens, emails) is logged.
+  Only structured request metadata (requestId, route, status) for debugging.
+
+---
+
+## Caching
+
+| Endpoint            | Server TTL | Cache-Control header                           |
+| ------------------- | ---------- | ---------------------------------------------- |
+| `/home/summary`     | 60 s       | `public, max-age=60, stale-while-revalidate=30` |
+| `/home/sections`    | 120 s      | `public, max-age=120, stale-while-revalidate=60` |
+| `/cities/with_supply` | —        | No cache (low traffic)                         |
+
+---
+
+## VIP Mode Activation
+
+The ranking algorithm automatically switches between standard and VIP mode
+based on supply count in the queried city:
+
+- **supply >= 25**: VIP mode — popularity 30%, distance 5% (city-wide discovery)
+- **supply < 25**: Standard mode — distance 10%, popularity 20% (proximity matters more)
+
+Anti-monopolization: In the trending section, Platinum/Premium profiles are
+capped at 40% of slots to ensure tier diversity.
+
+See `apps/api/src/lib/ranking.ts` for the complete formula.
