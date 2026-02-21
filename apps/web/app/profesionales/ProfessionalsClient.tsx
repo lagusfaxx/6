@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { apiFetch } from "../../lib/api";
+import { apiFetchWithRetry } from "../../lib/api";
 import MapboxMap from "../../components/MapboxMap";
 import Avatar from "../../components/Avatar";
 import StarRating from "../../components/StarRating";
@@ -70,7 +70,7 @@ export default function ProfessionalsClient() {
   useEffect(() => {
     if (!resolved) return;
     setLoading(true);
-    apiFetch<{ professionals: Professional[]; category: CategoryRef | null; message?: string; warning?: string }>(`/professionals?${queryString}`)
+    apiFetchWithRetry<{ professionals: Professional[]; category: CategoryRef | null; message?: string; warning?: string }>(`/professionals?${queryString}`)
       .then((res) => {
         setItems(res.professionals);
         setCategoryInfo(res.category || null);

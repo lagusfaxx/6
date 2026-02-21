@@ -33,6 +33,9 @@ import { clientRouter } from "./client/routes";
 import { shopRouter } from "./shop/routes";
 import { motelRouter } from "./motel/routes";
 import { favoritesRouter } from "./favorites/routes";
+import { homeRouter } from "./home/routes";
+import { reviewRouter } from "./home/reviewRoutes";
+import { adsRouter } from "./home/adsRoutes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 
@@ -68,14 +71,43 @@ const corsOptions: CorsOptions = {
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
-app.use(
-  rateLimit({
-    windowMs: 60 * 1000,
-    limit: 120,
+// Helper: build a rate-limiter that always emits Retry-After (seconds).
+function buildLimiter(windowMs: number, limit: number, msg: string) {
+  return rateLimit({
+    windowMs,
+    limit,
     standardHeaders: true,
-    legacyHeaders: false
-  })
-);
+    legacyHeaders: false,
+    handler: (_req, res) => {
+      const retryAfter = Math.ceil(windowMs / 1000);
+      res.setHeader("Retry-After", String(retryAfter));
+      res.status(429).json({ error: "TOO_MANY_REQUESTS", message: msg, retryAfter });
+    }
+  });
+}
+
+// Global rate-limit: generous default
+app.use(buildLimiter(60_000, 200, "Demasiadas solicitudes, intenta en unos segundos."));
+
+// Tighter bucket for discover/directory endpoints (prevents map-driven storms)
+const discoverLimiter = buildLimiter(60_000, 60, "Demasiadas solicitudes, intenta en unos segundos.");
+app.use("/professionals", discoverLimiter);
+app.use("/profiles/discover", discoverLimiter);
+app.use("/home", discoverLimiter);
+app.use("/zones", discoverLimiter);
+
+// Auth: separate buckets for login vs general /auth so a burst of /auth/me
+// never blocks /auth/login.  Each gets its own counter.
+const authLoginLimiter = buildLimiter(60_000, 30, "Demasiados intentos de inicio de sesión. Intenta en un minuto.");
+app.use("/auth/login", authLoginLimiter);
+app.use("/auth/register", authLoginLimiter);
+
+// General /auth bucket — skips login/register (they have their own above).
+const authGeneralLimiter = buildLimiter(60_000, 40, "Demasiadas solicitudes de autenticación.");
+app.use("/auth", (req, res, next) => {
+  if (req.path === "/login" || req.path === "/register") return next();
+  return authGeneralLimiter(req, res, next);
+});
 
 app.use(cookieParser());
 
@@ -165,6 +197,9 @@ app.use("/", notificationsRouter);
 app.use("/", realtimeRouter);
 app.use("/", statsRouter);
 app.use("/", favoritesRouter);
+app.use("/", homeRouter);
+app.use("/", reviewRouter);
+app.use("/", adsRouter);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const requestId = (req as any).requestId;

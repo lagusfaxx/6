@@ -2,14 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, Home, MessageCircle, Briefcase, User, Hotel } from "lucide-react";
+import { Heart, Home, MessageCircle, Briefcase, User, Hotel, Sparkles, Building2, ShoppingBag } from "lucide-react";
 import useMe from "../hooks/useMe";
+
+const CATEGORY_ITEMS = [
+  { href: "/catalog", label: "Escorts" },
+  { href: "/catalog?services=masajes", label: "Masajes" },
+  { href: "/catalog?services=videoLlamadas", label: "Videollamadas" },
+];
 
 const navItems = [
   { href: "/", label: "Home", icon: Home, protected: false },
+  { href: "/catalog", label: "Catálogo", icon: Sparkles, protected: false },
+  { href: "/hospedajes", label: "Moteles", icon: Building2, protected: false },
+  { href: "/sexshops", label: "Sex Shop", icon: ShoppingBag, protected: false },
+  { href: "/servicios", label: "Servicios", icon: Briefcase, protected: false },
   { href: "/favoritos", label: "Favoritos", icon: Heart, protected: true },
   { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
-  { href: "/servicios", label: "Servicios", icon: Briefcase, protected: false },
   { href: "/cuenta", label: "Cuenta", icon: User, protected: false }
 ];
 
@@ -40,19 +49,34 @@ export default function Nav() {
             const href = item.protected && !isAuthed
               ? `/login?next=${encodeURIComponent(item.href)}`
               : item.href;
+            const isCatalogParent = item.href === "/catalog";
             return (
-              <Link
-                key={item.href}
-                href={href}
-                className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
-                  active
-                    ? "bg-gradient-to-r from-purple-500/20 to-fuchsia-500/20 text-white shadow-lg shadow-purple-500/20 border border-purple-400/30"
-                    : "text-white/70 hover:bg-white/10 hover:text-white border border-transparent"
-                }`}
-              >
-                <Icon className={`h-5 w-5 ${active ? "text-purple-300" : ""}`} />
-                {item.label}
-              </Link>
+              <div key={item.href}>
+                <Link
+                  href={href}
+                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
+                    active
+                      ? "bg-gradient-to-r from-purple-500/20 to-fuchsia-500/20 text-white shadow-lg shadow-purple-500/20 border border-purple-400/30"
+                      : "text-white/70 hover:bg-white/10 hover:text-white border border-transparent"
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 ${active ? "text-purple-300" : ""}`} />
+                  {item.label}
+                </Link>
+                {isCatalogParent && active && (
+                  <div className="ml-8 mt-1 grid gap-0.5">
+                    {CATEGORY_ITEMS.map((cat) => (
+                      <Link
+                        key={cat.label}
+                        href={cat.href}
+                        className="rounded-xl px-3 py-1.5 text-xs text-white/50 transition hover:bg-white/[0.06] hover:text-white/80"
+                      >
+                        {cat.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

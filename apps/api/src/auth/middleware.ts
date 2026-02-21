@@ -21,6 +21,12 @@ const PUBLIC_PREFIXES = [
   "/motels",            // ✅ hospedaje público
   "/profiles/discover", // ✅ HOME discovery sections (guests need this)
   "/profiles",          // ✅ perfil público por username/slug
+  "/cities",            // ✅ /cities/with_supply needed for public catalog
+  "/banners",           // ✅ HOME banners (guests need this)
+  "/home",              // ✅ VIP home summary + sections (public)
+  "/zones",             // ✅ zones with supply (public catalog)
+  "/reviews",           // ✅ public reviews listing (GET only; POST requires auth internally)
+  "/ads",               // ✅ public ad slots listing + event tracking
   "/webhooks/flow"      // Flow subscription webhooks
 ];
 

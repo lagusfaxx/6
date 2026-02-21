@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { apiFetch } from "../../lib/api";
+import { apiFetchWithRetry } from "../../lib/api";
 import MapboxMap from "../../components/MapboxMap";
 import Avatar from "../../components/Avatar";
 
@@ -48,7 +48,7 @@ export default function SexShopsClient() {
 
   useEffect(() => {
     setLoading(true);
-    apiFetch<{ shops: Shop[] }>(`/shop/sexshops?${queryString}`)
+    apiFetchWithRetry<{ shops: Shop[] }>(`/shop/sexshops?${queryString}`)
       .then((res) => setItems(res.shops))
       .finally(() => setLoading(false));
   }, [queryString]);

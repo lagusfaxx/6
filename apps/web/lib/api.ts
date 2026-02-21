@@ -86,11 +86,13 @@ function flattenValidation(details: any): string | null {
 export class ApiHttpError extends Error {
   status: number;
   body: any;
+  retryAfter: number | null;
 
-  constructor(message: string, status: number, body: any) {
+  constructor(message: string, status: number, body: any, retryAfter: number | null = null) {
     super(message);
     this.status = status;
     this.body = body;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -102,6 +104,7 @@ export function friendlyErrorMessage(err: any): string {
   const status = err?.status;
   if (status === 401) return "Inicia sesión para continuar.";
   if (status === 403) return "No tienes permisos para realizar esta acción.";
+  if (status === 429) return "Demasiadas solicitudes, intenta en unos segundos.";
   if (err?.body?.message) return err.body.message;
   const detailsMsg = flattenValidation(err?.body?.details);
   if (detailsMsg) return detailsMsg;
@@ -132,7 +135,54 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       body = { error: `HTTP_${res.status}` };
     }
     const msg = (body && (body.error || body.message)) || `HTTP_${res.status}`;
-    throw new ApiHttpError(msg, res.status, body);
+    // Parse Retry-After from 429 responses so callers can back off
+    let retryAfter: number | null = null;
+    if (res.status === 429) {
+      const raw = res.headers.get("Retry-After") || body?.retryAfter;
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed > 0) retryAfter = parsed;
+    }
+    throw new ApiHttpError(msg, res.status, body, retryAfter);
   }
   return (await res.json()) as T;
+}
+
+/**
+ * Wrapper around `apiFetch` that retries on transient errors (429, 5xx, network)
+ * with exponential backoff + jitter.
+ *
+ * Use this for **catalog / discovery** reads only.
+ * Auth endpoints must NEVER be auto-retried — use plain `apiFetch` for those.
+ *
+ * @param maxRetries - Maximum number of retry attempts (default: 2)
+ */
+export async function apiFetchWithRetry<T>(
+  path: string,
+  init?: RequestInit,
+  maxRetries = 2,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await apiFetch<T>(path, init);
+    } catch (err: any) {
+      lastError = err;
+
+      // Abort-cancelled requests should never be retried
+      if (err?.name === "AbortError") throw err;
+
+      // Only retry on transient errors (429, 5xx, network failures)
+      const status = err?.status;
+      const isTransient = !status || status === 429 || status >= 500;
+      if (!isTransient || attempt >= maxRetries) throw err;
+
+      // Backoff: base * 2^attempt + jitter (0–300 ms)
+      const baseMs = (err as ApiHttpError)?.retryAfter
+        ? (err as ApiHttpError).retryAfter! * 1000
+        : 1000;
+      const delay = baseMs * Math.pow(2, attempt) + Math.random() * 300;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
 }
