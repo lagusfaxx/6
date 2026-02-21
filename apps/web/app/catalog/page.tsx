@@ -114,6 +114,10 @@ const SERVICE_OPTIONS = [
   { value: "atencionDiscapacitados", label: "Accesible" },
 ] as const;
 
+function formatStyleLabel(s: string): string {
+  return s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+}
+
 const cardFade = {
   hidden: { opacity: 0, y: 16 },
   visible: {
@@ -163,6 +167,10 @@ export default function CatalogPage() {
 
   const cityLabel = zoneFilter || activeLocation?.label || null;
   const showDistance = activeLocation?.source === "gps";
+
+  // Memoize array joins for stable useEffect dependencies
+  const stylesKey = useMemo(() => selectedStyles.join(","), [selectedStyles]);
+  const servicesKey = useMemo(() => selectedServices.join(","), [selectedServices]);
 
   const activeFilterCount = [
     identityFilter,
@@ -245,7 +253,7 @@ export default function CatalogPage() {
     return () => {
       controller.abort();
     };
-  }, [location, cityLabel, sort, tierFilter, identityFilter, ageFilter, selectedStyles.join(","), selectedServices.join(","), verifiedOnly]);
+  }, [location, cityLabel, sort, tierFilter, identityFilter, ageFilter, stylesKey, servicesKey, verifiedOnly]);
 
   return (
     <div className="min-h-[100dvh] text-white antialiased">
@@ -378,7 +386,7 @@ export default function CatalogPage() {
                             : "bg-white/[0.06] text-white/60 hover:bg-white/[0.1]"
                         }`}
                       >
-                        {s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}
+                        {formatStyleLabel(s)}
                       </button>
                     );
                   })}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, Home, MessageCircle, Briefcase, User, Hotel, Sparkles, Hand, Building2, ShoppingBag, Video } from "lucide-react";
+import { Heart, Home, MessageCircle, Briefcase, User, Hotel, Sparkles, Hand, Building2, ShoppingBag } from "lucide-react";
 import useMe from "../hooks/useMe";
 
 const navItems = [
@@ -11,7 +11,7 @@ const navItems = [
   { href: "/profesionales", label: "Masajes", icon: Hand, protected: false },
   { href: "/hospedajes", label: "Moteles", icon: Building2, protected: false },
   { href: "/sexshops", label: "Sex Shop", icon: ShoppingBag, protected: false },
-  { href: "/servicios", label: "Mapa", icon: Briefcase, protected: false },
+  { href: "/servicios", label: "Servicios", icon: Briefcase, protected: false },
   { href: "/favoritos", label: "Favoritos", icon: Heart, protected: true },
   { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
   { href: "/cuenta", label: "Cuenta", icon: User, protected: false }

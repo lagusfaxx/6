@@ -412,7 +412,7 @@ homeRouter.get(
       expiresAt: { gt: now },
       professional: {
         isActive: true,
-        tier: { in: ["GOLD", "PLATINUM", "PREMIUM"] },
+        tier: { in: ["GOLD", "PLATINUM", "PREMIUM"] }, // PREMIUM is legacy equivalent of PLATINUM
         ...(city ? { city: { equals: city, mode: "insensitive" } } : {}),
       },
     };
