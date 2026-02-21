@@ -40,6 +40,22 @@ type Professional = {
   gallery: { id: string; url: string; type: string }[];
 };
 
+type ReviewComment = {
+  id: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  author?: { displayName?: string | null; username: string };
+};
+
+const SERVICE_SUBCATEGORIES = [
+  "Anal", "Oral", "Vaginal", "Masaje erótico", "Masaje relajante",
+  "Tríos", "Packs", "Videollamada", "Despedida de solteros",
+  "Discapacitados", "Duo", "Dominación", "Sumisión", "Roleplay",
+  "Fantasías", "Striptease", "Beso negro", "Lluvia dorada",
+  "Fetichismo", "Novia experience"
+] as const;
+
 function splitCsv(value?: string | null) {
   return (value || "").split(",").map((v) => v.trim()).filter(Boolean);
 }

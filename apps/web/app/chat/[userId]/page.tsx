@@ -719,7 +719,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-80px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-black/20 backdrop-blur-xl md:h-[80vh]">
+    <div className="mx-auto flex h-[calc(100dvh-160px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-black/20 backdrop-blur-xl md:h-[calc(100vh-160px)]">
       {/* ── Header ── */}
       <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.08] bg-white/[0.03] px-4 py-3">
         <Link
