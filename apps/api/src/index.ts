@@ -34,6 +34,8 @@ import { shopRouter } from "./shop/routes";
 import { motelRouter } from "./motel/routes";
 import { favoritesRouter } from "./favorites/routes";
 import { homeRouter } from "./home/routes";
+import { reviewRouter } from "./home/reviewRoutes";
+import { adsRouter } from "./home/adsRoutes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 
@@ -196,6 +198,8 @@ app.use("/", realtimeRouter);
 app.use("/", statsRouter);
 app.use("/", favoritesRouter);
 app.use("/", homeRouter);
+app.use("/", reviewRouter);
+app.use("/", adsRouter);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const requestId = (req as any).requestId;

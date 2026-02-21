@@ -4,6 +4,7 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import Nav from "./Nav";
 import Header from "./Header";
+import Footer from "./Footer";
 import PushNotificationsManager from "./PushNotificationsManager";
 import PresenceHeartbeat from "./PresenceHeartbeat";
 import ActiveLocationProvider from "./ActiveLocationProvider";
@@ -56,6 +57,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <main className="flex-1 px-4 pt-[84px] pb-[calc(2rem+env(safe-area-inset-bottom))] md:pt-[96px] md:pb-6">
             {children}
           </main>
+          <Footer />
         </div>
       </div>
     </ActiveLocationProvider>

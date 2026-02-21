@@ -25,6 +25,8 @@ const PUBLIC_PREFIXES = [
   "/banners",           // ✅ HOME banners (guests need this)
   "/home",              // ✅ VIP home summary + sections (public)
   "/zones",             // ✅ zones with supply (public catalog)
+  "/reviews",           // ✅ public reviews listing (GET only; POST requires auth internally)
+  "/ads",               // ✅ public ad slots listing + event tracking
   "/webhooks/flow"      // Flow subscription webhooks
 ];
 

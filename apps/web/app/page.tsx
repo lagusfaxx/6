@@ -227,6 +227,82 @@ function SkeletonCard({ aspect = "aspect-[4/5]" }: { aspect?: string }) {
   );
 }
 
+/* ── Ad Slot Block ── */
+
+type AdItem = {
+  id: string;
+  position: string;
+  imageUrl: string;
+  linkUrl: string | null;
+};
+
+function AdSlotBlock({ position }: { position: string }) {
+  const [ads, setAds] = useState<AdItem[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    apiFetchWithRetry<{ ads: AdItem[] }>(`/ads?position=${position}`, {
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!controller.signal.aborted) setAds(res?.ads ?? []);
+      })
+      .catch(() => {});
+    return () => { controller.abort(); };
+  }, [position]);
+
+  if (ads.length === 0) return null;
+
+  const trackEvent = (adId: string, eventType: "impression" | "click") => {
+    apiFetchWithRetry(`/ads/${adId}/event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventType }),
+    }).catch(() => {});
+  };
+
+  return (
+    <div className="mb-10 grid gap-3 sm:grid-cols-2">
+      {ads.slice(0, 2).map((ad) => {
+        const Wrapper = ad.linkUrl ? "a" : "div";
+        const wrapperProps = ad.linkUrl
+          ? { href: ad.linkUrl, target: "_blank" as const, rel: "noopener noreferrer" }
+          : {};
+        return (
+          <Wrapper
+            key={ad.id}
+            {...wrapperProps}
+            className="group block overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] transition hover:border-white/10"
+            onClick={() => trackEvent(ad.id, "click")}
+            ref={(el: HTMLElement | null) => {
+              if (!el) return;
+              const observer = new IntersectionObserver(
+                ([entry]) => {
+                  if (entry.isIntersecting) {
+                    trackEvent(ad.id, "impression");
+                    observer.disconnect();
+                  }
+                },
+                { threshold: 0.5 },
+              );
+              observer.observe(el);
+            }}
+          >
+            <img
+              src={ad.imageUrl}
+              alt="Patrocinado"
+              className="h-32 w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            />
+            <div className="px-3 py-1.5 text-[10px] text-white/25">
+              Patrocinado
+            </div>
+          </Wrapper>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ── Page ── */
 
 export default function HomePage() {
@@ -754,7 +830,12 @@ export default function HomePage() {
         )}
 
         {/* ═══════════════════════════════════════════════
-            CTA FINAL
+            AD SLOT: HOME_MIDDLE (between sections)
+           ═══════════════════════════════════════════════ */}
+        <AdSlotBlock position="HOME_MIDDLE" />
+
+        {/* ═══════════════════════════════════════════════
+            CTA FINAL — Descargar App
            ═══════════════════════════════════════════════ */}
         <motion.section
           initial="hidden"
@@ -767,11 +848,11 @@ export default function HomePage() {
           <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/10 blur-[80px]" />
 
           <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
-            ¿Listo para explorar?
+            📲 Descarga la app
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm text-white/50">
-            Miles de experiencias, hospedajes y productos esperan por ti. Crea
-            tu cuenta gratis y descubre lo mejor cerca de ti.
+            Lleva Uzeed en tu bolsillo. Notificaciones discretas, acceso rápido
+            y la mejor experiencia VIP desde tu celular.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link

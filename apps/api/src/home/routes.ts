@@ -443,6 +443,63 @@ homeRouter.get(
   }),
 );
 
+/* ── POST /home/stories — Upload a story (auth + Gold/Platinum) ── */
+
+homeRouter.post(
+  "/home/stories",
+  asyncHandler(async (req, res) => {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "UNAUTHENTICATED" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, tier: true, profileType: true },
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: "UNAUTHENTICATED" });
+    }
+
+    // Only Gold/Platinum/Premium can post stories
+    const tier = (user.tier ?? "").toUpperCase();
+    if (tier !== "GOLD" && tier !== "PLATINUM" && tier !== "PREMIUM") {
+      return res.status(403).json({ error: "Solo perfiles Gold o Platino pueden subir historias" });
+    }
+
+    const { mediaUrl, caption } = req.body;
+    if (!mediaUrl || typeof mediaUrl !== "string") {
+      return res.status(400).json({ error: "mediaUrl is required" });
+    }
+    if (caption !== undefined && caption !== null && typeof caption !== "string") {
+      return res.status(400).json({ error: "caption must be a string" });
+    }
+
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    const story = await prisma.story.create({
+      data: {
+        professionalId: userId,
+        mediaUrl,
+        caption: caption ? caption.trim().slice(0, 200) : null,
+        expiresAt,
+        isApproved: false, // Requires moderation
+      },
+      select: {
+        id: true,
+        mediaUrl: true,
+        caption: true,
+        expiresAt: true,
+        isApproved: true,
+        createdAt: true,
+      },
+    });
+
+    return res.status(201).json(story);
+  }),
+);
+
 /* ── helpers ───────────────────────────────────────────── */
 
 function toRankingInput(p: ReturnType<typeof enrichProfile>): RankingInput {

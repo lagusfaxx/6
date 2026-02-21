@@ -362,7 +362,14 @@ export default function AuthForm({
             required
           />
           <span>
-            Acepto los términos y condiciones y entiendo los descargos legales
+            Acepto los{" "}
+            <a href="/terminos" target="_blank" rel="noopener noreferrer" className="text-fuchsia-400 underline hover:text-fuchsia-300">
+              Términos y Condiciones
+            </a>{" "}
+            y la{" "}
+            <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="text-fuchsia-400 underline hover:text-fuchsia-300">
+              Política de Privacidad
+            </a>{" "}
             de la plataforma.
           </span>
         </label>

@@ -201,6 +201,8 @@ model User {
   motelPromotions         MotelPromotion[] @relation("MotelPromotions")
   pushSubscriptions      PushSubscription[]
   stories                Story[]
+  reviewsGiven           Review[]   @relation("ReviewsByUser")
+  reviewsReceived        Review[]   @relation("ReviewsForProfessional")
 }
 
 model PushSubscription {
@@ -609,4 +611,34 @@ model AdSlot {
   expiresAt  DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+  events     AdSlotEvent[]
+}
+
+model AdSlotEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  adSlotId  String   @db.Uuid
+  eventType String   // "impression" | "click"
+  createdAt DateTime @default(now())
+
+  adSlot AdSlot @relation(fields: [adSlotId], references: [id], onDelete: Cascade)
+
+  @@index([adSlotId])
+  @@index([eventType])
+}
+
+model Review {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  professionalId  String   @db.Uuid
+  rating          Int      // 1-5
+  comment         String?
+  isReported      Boolean  @default(false)
+  isApproved      Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  user         User @relation("ReviewsByUser", fields: [userId], references: [id], onDelete: Cascade)
+  professional User @relation("ReviewsForProfessional", fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId])
+  @@index([userId])
 }

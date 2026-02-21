@@ -82,6 +82,13 @@ const SORT_OPTIONS = [
   { value: "availableNow", label: "Disponibles" },
 ] as const;
 
+const CATEGORY_OPTIONS = [
+  { value: "", label: "Todos" },
+  { value: "escorts", label: "Escorts" },
+  { value: "masajes", label: "Masajes" },
+  { value: "videoLlamadas", label: "Videollamadas" },
+] as const;
+
 const IDENTITY_OPTIONS = [
   { value: "", label: "Todas" },
   { value: "MUJER", label: "Mujeres" },
@@ -142,6 +149,7 @@ export default function CatalogPage() {
   const urlTier = searchParams.get("tier") || "";
   const urlCity = searchParams.get("city") || "";
   const urlIdentity = searchParams.get("identity") || "";
+  const urlServices = searchParams.get("services") || "";
 
   const [profiles, setProfiles] = useState<VipProfile[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
@@ -155,8 +163,13 @@ export default function CatalogPage() {
   const [identityFilter, setIdentityFilter] = useState(urlIdentity);
   const [ageFilter, setAgeFilter] = useState("");
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>(
+    urlServices ? urlServices.split(",").filter(Boolean) : [],
+  );
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState(
+    urlServices === "masajes" ? "masajes" : urlServices === "videoLlamadas" ? "videoLlamadas" : "",
+  );
 
   const { activeLocation } = useActiveLocation();
   const location = useMemo<[number, number] | null>(
@@ -196,7 +209,12 @@ export default function CatalogPage() {
     if (identityFilter) params.set("identityType", identityFilter);
     if (ageFilter) params.set("ageCategory", ageFilter);
     if (selectedStyles.length > 0) params.set("styleTags", selectedStyles.join(","));
-    if (selectedServices.length > 0) params.set("services", selectedServices.join(","));
+    // Merge category filter into services list
+    const allServices = [...selectedServices];
+    if (categoryFilter && !allServices.includes(categoryFilter)) {
+      allServices.push(categoryFilter);
+    }
+    if (allServices.length > 0) params.set("services", allServices.join(","));
     if (verifiedOnly) params.set("verified", "true");
 
     apiFetchWithRetry<{
@@ -253,7 +271,7 @@ export default function CatalogPage() {
     return () => {
       controller.abort();
     };
-  }, [location, cityLabel, sort, tierFilter, identityFilter, ageFilter, stylesKey, servicesKey, verifiedOnly]);
+  }, [location, cityLabel, sort, tierFilter, identityFilter, ageFilter, stylesKey, servicesKey, verifiedOnly, categoryFilter]);
 
   return (
     <div className="min-h-[100dvh] text-white antialiased">
@@ -261,6 +279,23 @@ export default function CatalogPage() {
       <div className="sticky top-[84px] z-30 border-b border-white/[0.06] bg-[#0e0e12]/95 px-4 py-3 backdrop-blur-xl md:top-[96px]">
         <div className="mx-auto flex max-w-6xl items-center gap-3">
           <h1 className="shrink-0 text-lg font-bold">Catálogo</h1>
+
+          {/* Category pills */}
+          <div className="scrollbar-none flex gap-1.5 overflow-x-auto border-r border-white/10 pr-3">
+            {CATEGORY_OPTIONS.map((cat) => (
+              <button
+                key={cat.value}
+                onClick={() => setCategoryFilter(cat.value)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-150 ${
+                  categoryFilter === cat.value
+                    ? "bg-violet-600 text-white"
+                    : "bg-white/[0.06] text-white/60 hover:bg-white/[0.1]"
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
 
           {/* Sort pills */}
           <div className="scrollbar-none flex gap-1.5 overflow-x-auto">
@@ -488,6 +523,7 @@ export default function CatalogPage() {
                     setSelectedServices([]);
                     setVerifiedOnly(false);
                     setZoneFilter("");
+                    setCategoryFilter("");
                   }}
                   className="self-end rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/60 hover:bg-white/[0.08]"
                 >
@@ -528,6 +564,7 @@ export default function CatalogPage() {
                 setSelectedStyles([]);
                 setSelectedServices([]);
                 setVerifiedOnly(false);
+                setCategoryFilter("");
                 setSort("vip");
               }}
               className="mt-4 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70 hover:bg-white/[0.08]"
