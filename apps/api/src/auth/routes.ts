@@ -1,6 +1,7 @@
 import { Router } from "express";
 import argon2 from "argon2";
 import { prisma } from "../db";
+import { Prisma } from "@prisma/client";
 import { loginInputSchema, registerInputSchema } from "@uzeed/shared";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
@@ -339,50 +340,51 @@ authRouter.get(
   asyncHandler(async (req, res) => {
     if (!req.session.userId)
       return res.status(401).json({ error: "UNAUTHENTICATED" });
-    const user = await prisma.user.findUnique({
-      where: { id: req.session.userId },
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        role: true,
-        membershipExpiresAt: true,
-        shopTrialEndsAt: true,
-        createdAt: true,
-        username: true,
-        profileType: true,
-        gender: true,
-        preferenceGender: true,
-        avatarUrl: true,
-        address: true,
-        phone: true,
-        bio: true,
-        coverUrl: true,
-        subscriptionPrice: true,
-        serviceCategory: true,
-        serviceDescription: true,
-        heightCm: true,
-        weightKg: true,
-        measurements: true,
-        hairColor: true,
-        skinTone: true,
-        languages: true,
-        serviceStyleTags: true,
-        primaryCategory: true,
-        profileTags: true,
-        serviceTags: true,
-        availabilityNote: true,
-        baseRate: true,
-        minDurationMinutes: true,
-        acceptsIncalls: true,
-        acceptsOutcalls: true,
-        city: true,
-        latitude: true,
-        longitude: true,
-        allowFreeMessages: true,
-        birthdate: true,
-      },
-    });
+    const baseSelect = {
+      id: true, email: true, displayName: true, role: true,
+      membershipExpiresAt: true, shopTrialEndsAt: true, createdAt: true,
+      username: true, profileType: true, gender: true,
+      preferenceGender: true, avatarUrl: true, address: true,
+      phone: true, bio: true, coverUrl: true, subscriptionPrice: true,
+      serviceCategory: true, serviceDescription: true, heightCm: true,
+      weightKg: true, measurements: true, hairColor: true,
+      skinTone: true, languages: true, serviceStyleTags: true,
+      availabilityNote: true, baseRate: true, minDurationMinutes: true,
+      acceptsIncalls: true, acceptsOutcalls: true, city: true,
+      latitude: true, longitude: true, allowFreeMessages: true,
+      birthdate: true,
+    };
+    const extendedSelect = {
+      ...baseSelect,
+      primaryCategory: true,
+      profileTags: true,
+      serviceTags: true,
+    };
+    let user: any;
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: req.session.userId },
+        select: extendedSelect,
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError ||
+        err instanceof Prisma.PrismaClientValidationError
+      ) {
+        // New columns not yet in DB — fallback
+        user = await prisma.user.findUnique({
+          where: { id: req.session.userId },
+          select: baseSelect,
+        });
+        if (user) {
+          user.primaryCategory = null;
+          user.profileTags = [];
+          user.serviceTags = [];
+        }
+      } else {
+        throw err;
+      }
+    }
     if (!user) return res.json({ user: null });
 
     // Add subscription status info
