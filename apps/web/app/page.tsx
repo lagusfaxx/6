@@ -21,11 +21,17 @@ import {
   Crown,
   Download,
   Flame,
+  Hand,
+  Heart,
+  Hotel,
   MapPin,
   Navigation,
+  PartyPopper,
+  ShoppingBag,
   Sparkles,
   Star,
   TrendingUp,
+  Video,
   Zap,
 } from "lucide-react";
 
@@ -350,23 +356,23 @@ export default function HomePage() {
         </section>
 
         {/* ═══ CATEGORÍAS — Quick access for easy navigation ═══ */}
-        <section className="mb-8">
+        <section className="mb-8 sm:hidden">
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-7 sm:gap-3">
             {[
-              { label: "Escorts", href: "/escorts", emoji: "💋", color: "from-pink-600/20 to-fuchsia-600/10" },
-              { label: "Masajistas", href: "/masajistas", emoji: "💆", color: "from-violet-600/20 to-purple-600/10" },
-              { label: "Moteles", href: "/moteles", emoji: "🏩", color: "from-rose-600/20 to-red-600/10" },
-              { label: "Sex Shop", href: "/sexshop", emoji: "🛍️", color: "from-fuchsia-600/20 to-pink-600/10" },
-              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", emoji: "🎉", color: "from-amber-600/20 to-orange-600/10" },
-              { label: "Videollamadas", href: "/escorts?serviceTags=videollamadas", emoji: "📹", color: "from-blue-600/20 to-cyan-600/10" },
-              { label: "Cerca tuyo", href: "/servicios", emoji: "📍", color: "from-emerald-600/20 to-green-600/10" },
+              { label: "Escorts", href: "/escorts", icon: Heart, color: "from-pink-600/20 to-fuchsia-600/10" },
+              { label: "Masajistas", href: "/masajistas", icon: Hand, color: "from-violet-600/20 to-purple-600/10" },
+              { label: "Moteles", href: "/moteles", icon: Hotel, color: "from-rose-600/20 to-red-600/10" },
+              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, color: "from-fuchsia-600/20 to-pink-600/10" },
+              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, color: "from-amber-600/20 to-orange-600/10" },
+              { label: "Videollamadas", href: "/escorts?serviceTags=videollamadas", icon: Video, color: "from-blue-600/20 to-cyan-600/10" },
+              { label: "Cerca tuyo", href: "/servicios", icon: MapPin, color: "from-emerald-600/20 to-green-600/10" },
             ].map((cat) => (
               <Link
                 key={cat.href}
                 href={cat.href}
                 className={`group flex flex-col items-center gap-1.5 rounded-2xl border border-white/[0.06] bg-gradient-to-br ${cat.color} px-2 py-3 text-center transition hover:border-fuchsia-500/20 hover:scale-[1.04]`}
               >
-                <span className="text-2xl sm:text-3xl">{cat.emoji}</span>
+                <cat.icon className="h-6 w-6 text-white/80" />
                 <span className="text-[10px] font-medium text-white/70 leading-tight sm:text-xs">{cat.label}</span>
               </Link>
             ))}
