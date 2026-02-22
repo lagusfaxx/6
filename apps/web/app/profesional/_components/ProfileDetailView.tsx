@@ -696,6 +696,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           <Heart className={`h-4 w-4 ${favorite ? "fill-rose-400" : ""}`} />
           {favorite ? "Guardado en favoritos" : "Agregar a favoritos"}
         </button>
+        </div>
       </div>
     </div>
   );
