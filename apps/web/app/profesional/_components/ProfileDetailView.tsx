@@ -107,8 +107,19 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       try {
         let professionalId = id;
         if (!professionalId && username) {
-          const profileRes = await apiFetch<{ profile: { id: string } }>(`/profiles/${encodeURIComponent(username)}`);
-          professionalId = profileRes.profile?.id;
+          try {
+            const profileRes = await apiFetch<{ profile: { id: string } }>(`/profiles/${encodeURIComponent(username)}`);
+            professionalId = profileRes.profile?.id;
+          } catch {
+            // Profile endpoint may fail for expired plans — try directory search as fallback
+            try {
+              const searchRes = await apiFetch<{ results: Array<{ id: string; username: string }> }>(`/directory/search?entityType=professional&categorySlug=escort&limit=1&q=${encodeURIComponent(username)}`);
+              const match = searchRes?.results?.find((r) => r.username === username);
+              if (match) professionalId = match.id;
+            } catch {
+              // ignore fallback failure
+            }
+          }
         }
         if (!professionalId) {
           if (!cancelled) setNotFound(true);

@@ -211,7 +211,11 @@ function MapboxMapComponent({
     return () => {
       active = false;
       if (mapRef.current) {
-        mapRef.current.remove();
+        try {
+          mapRef.current.remove();
+        } catch {
+          // map may already be disposed during navigation
+        }
         mapRef.current = null;
       }
     };
@@ -467,17 +471,27 @@ function MapboxMapComponent({
     };
 
     const handleMapMove = (event: mapboxgl.MapMouseEvent) => {
-      const hovered = map.queryRenderedFeatures(event.point, { layers: [layerId] }).length > 0;
-      map.getCanvas().style.cursor = hovered ? "pointer" : "";
+      try {
+        const hovered = map.queryRenderedFeatures(event.point, { layers: [layerId] }).length > 0;
+        const canvas = map.getCanvas();
+        if (canvas) canvas.style.cursor = hovered ? "pointer" : "";
+      } catch {
+        // map may have been removed during navigation
+      }
     };
 
     map.on("click", handleMapClick);
     map.on("mousemove", handleMapMove);
 
     return () => {
-      map.off("click", handleMapClick);
-      map.off("mousemove", handleMapMove);
-      map.getCanvas().style.cursor = "";
+      try {
+        map.off("click", handleMapClick);
+        map.off("mousemove", handleMapMove);
+        const canvas = map.getCanvas();
+        if (canvas) canvas.style.cursor = "";
+      } catch {
+        // map may have been removed during navigation
+      }
     };
   }, [displayMarkers, onMarkerFocus, showMarkersForArea]);
 

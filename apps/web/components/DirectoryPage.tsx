@@ -3,10 +3,12 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { MapPin, SlidersHorizontal, X, ChevronDown, Search } from "lucide-react";
+import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import UserLevelBadge from "./UserLevelBadge";
+import MapboxMap from "./MapboxMap";
+import Stories from "./Stories";
 
 /* ─── Types ──────────────────────────────────────────────── */
 export type DirectoryResult = {
@@ -67,7 +69,7 @@ type Props = {
 
 /* ─── ProfileCard ────────────────────────────────────────── */
 function ProfileCard({ p }: { p: DirectoryResult }) {
-  const href = `/profesional/${p.username}`;
+  const href = `/profesional/${p.id}`;
   const avatarSrc = p.avatarUrl ? resolveMediaUrl(p.avatarUrl) : null;
   const coverSrc  = p.coverUrl  ? resolveMediaUrl(p.coverUrl)  : null;
 
@@ -230,6 +232,34 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
     );
   }
 
+  const [showMap, setShowMap] = useState(true);
+
+  /* ── Map markers: only from current category's results ── */
+  const mapMarkers = useMemo(
+    () =>
+      displayed
+        .filter((p) => Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude)))
+        .map((p) => ({
+          id: p.id,
+          name: p.displayName,
+          lat: Number(p.latitude),
+          lng: Number(p.longitude),
+          subtitle: p.serviceCategory || p.city || title,
+          username: p.username,
+          href: `/profesional/${p.id}`,
+          avatarUrl: p.avatarUrl,
+          coverUrl: p.coverUrl,
+          age: p.age,
+          level: p.userLevel,
+          lastSeen: p.lastSeen,
+          tier: p.availableNow ? "online" as const : "offline" as const,
+          areaRadiusM: 500,
+        })),
+    [displayed, title],
+  );
+
+  const mapCenter: [number, number] | null = effectiveLoc;
+
   const activeFilterCount = profileTagsFilter.length + serviceTagsFilter.length +
     (maduras ? 1 : 0) + (availableNow ? 1 : 0) + (genderFilter ? 1 : 0);
 
@@ -275,6 +305,19 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
           </div>
+
+          {/* Map toggle */}
+          <button
+            onClick={() => setShowMap((v) => !v)}
+            className={`h-9 px-3 rounded-xl border text-sm flex items-center gap-1.5 transition ${
+              showMap
+                ? "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300"
+                : "border-white/10 bg-white/5 text-white/50"
+            }`}
+          >
+            <MapIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Mapa</span>
+          </button>
 
           {/* Filters button */}
           <button
@@ -391,6 +434,27 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
           </div>
         )}
       </div>
+
+      {/* ── Stories ── */}
+      <div className="max-w-7xl mx-auto px-4 pt-4">
+        <Stories />
+      </div>
+
+      {/* ── Map (filtered by current category only) ── */}
+      {showMap && !loading && mapMarkers.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 pt-4">
+          <div className="overflow-hidden rounded-2xl border border-white/[0.08]">
+            <MapboxMap
+              userLocation={mapCenter}
+              markers={mapMarkers}
+              height={260}
+              autoCenterOnDataChange
+              showMarkersForArea
+              renderHtmlMarkers
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Results grid ── */}
       <div className="max-w-7xl mx-auto px-4 py-6">

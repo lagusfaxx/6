@@ -268,13 +268,19 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
 
   if (loading) {
     return (
-      <div className="flex gap-3 overflow-x-auto px-1 py-2 scrollbar-hide">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="flex-shrink-0 flex flex-col items-center gap-1.5">
-            <div className="h-16 w-16 rounded-full bg-white/5 animate-pulse" />
-            <div className="h-2 w-10 rounded bg-white/5 animate-pulse" />
-          </div>
-        ))}
+      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <div className="h-4 w-4 rounded bg-white/5 animate-pulse" />
+          <div className="h-3 w-20 rounded bg-white/5 animate-pulse" />
+        </div>
+        <div className="flex gap-4 overflow-x-auto scrollbar-hide">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex-shrink-0 flex flex-col items-center gap-2">
+              <div className="h-20 w-20 rounded-full bg-white/5 animate-pulse" />
+              <div className="h-2 w-12 rounded bg-white/5 animate-pulse" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -283,51 +289,73 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
 
   return (
     <>
-      <div className="flex gap-3 overflow-x-auto px-1 py-2 scrollbar-hide">
-        {/* Upload button for professionals */}
-        {canUpload && (
-          <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
+      <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-r from-fuchsia-500/[0.04] via-violet-500/[0.03] to-transparent p-4">
+        {/* Section header */}
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-white/90">Historias</span>
+            {groups.length > 0 && (
+              <span className="rounded-full bg-fuchsia-500/15 border border-fuchsia-500/20 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
+                {groups.length} activas
+              </span>
+            )}
+          </div>
+          {isProfessional && (
             <Link
               href="/dashboard/stories"
-              className="relative h-16 w-16 rounded-full border-2 border-dashed border-fuchsia-500/50 bg-fuchsia-500/5 flex items-center justify-center text-fuchsia-400 hover:border-fuchsia-400 hover:bg-fuchsia-500/10 transition"
+              className="text-[11px] text-fuchsia-400 hover:text-fuchsia-300 transition font-medium"
             >
-              <Plus className="h-6 w-6" />
+              + Subir story
             </Link>
-            <span className="text-[10px] text-fuchsia-300/60">Tu story</span>
-          </div>
-        )}
+          )}
+        </div>
 
-        {groups.map((g, i) => (
-          <button
-            key={g.userId}
-            onClick={() => setViewerGroupIdx(i)}
-            className="flex-shrink-0 flex flex-col items-center gap-1.5 group"
-          >
-            <div className="relative h-16 w-16 rounded-full p-0.5 bg-gradient-to-tr from-fuchsia-600 via-violet-500 to-pink-500 group-hover:shadow-[0_0_16px_rgba(168,85,247,0.4)] transition">
-              <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
-                {g.avatarUrl ? (
-                  <img
-                    src={resolveMediaUrl(g.avatarUrl) ?? undefined}
-                    alt={g.displayName}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center text-lg font-bold text-white">
-                    {g.displayName[0]?.toUpperCase()}
-                  </div>
+        <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
+          {/* Upload button for professionals */}
+          {canUpload && (
+            <div className="flex-shrink-0 flex flex-col items-center gap-2">
+              <Link
+                href="/dashboard/stories"
+                className="relative h-20 w-20 rounded-full border-2 border-dashed border-fuchsia-500/50 bg-fuchsia-500/5 flex items-center justify-center text-fuchsia-400 hover:border-fuchsia-400 hover:bg-fuchsia-500/10 transition hover:shadow-[0_0_20px_rgba(168,85,247,0.25)]"
+              >
+                <Plus className="h-7 w-7" />
+              </Link>
+              <span className="text-[11px] text-fuchsia-300/60 font-medium">Tu story</span>
+            </div>
+          )}
+
+          {groups.map((g, i) => (
+            <button
+              key={g.userId}
+              onClick={() => setViewerGroupIdx(i)}
+              className="flex-shrink-0 flex flex-col items-center gap-2 group"
+            >
+              <div className="relative h-20 w-20 rounded-full p-[3px] bg-gradient-to-tr from-fuchsia-600 via-violet-500 to-pink-500 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.5)] transition-shadow">
+                <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
+                  {g.avatarUrl ? (
+                    <img
+                      src={resolveMediaUrl(g.avatarUrl) ?? undefined}
+                      alt={g.displayName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-fuchsia-700/50 to-violet-700/50">
+                      {g.displayName[0]?.toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                {g.stories.some((s) => s.mediaType === "VIDEO") && (
+                  <span className="absolute bottom-0 right-0 h-5 w-5 rounded-full bg-fuchsia-500 flex items-center justify-center text-[9px] text-white font-bold shadow-lg border border-[#08090f]">
+                    ▶
+                  </span>
                 )}
               </div>
-              {g.stories.some((s) => s.mediaType === "VIDEO") && (
-                <span className="absolute bottom-0 right-0 h-4 w-4 rounded-full bg-fuchsia-500 flex items-center justify-center text-[8px] text-white font-bold shadow">
-                  ▶
-                </span>
-              )}
-            </div>
-            <span className="max-w-[60px] truncate text-[10px] text-white/60">
-              {g.displayName.split(" ")[0]}
-            </span>
-          </button>
-        ))}
+              <span className="max-w-[72px] truncate text-[11px] text-white/60 font-medium group-hover:text-white/80 transition">
+                {g.displayName.split(" ")[0]}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {viewerGroupIdx !== null && (
