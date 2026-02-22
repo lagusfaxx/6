@@ -21,8 +21,8 @@ function resolveBadge(level?: UserLevel | null) {
     };
   }
   return {
-    label: "🥈 Silver",
-    className: "border-slate-200/30 bg-slate-300/15 text-slate-100",
+    label: "⭐ Silver",
+    className: "border-violet-300/40 bg-violet-500/20 text-violet-100 shadow-[0_0_8px_rgba(139,92,246,0.25)]",
   };
 }
 

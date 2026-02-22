@@ -131,8 +131,8 @@ const FeaturedCard = memo(function FeaturedCard({
 }) {
   const img = resolveCardImage(profile);
   const chatHref = isAuthed
-    ? `/chats?user=${profile.userId || profile.id}`
-    : `/login?next=${encodeURIComponent(`/chats?user=${profile.userId || profile.id}`)}`;
+    ? `/chat/${profile.userId || profile.id}`
+    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
 
   const isDiamond = profile.userLevel === "DIAMOND";
   const glowClass = isDiamond
@@ -212,8 +212,8 @@ const ProfileCard = memo(function ProfileCard({
 }) {
   const img = resolveCardImage(profile);
   const chatHref = isAuthed
-    ? `/chats?user=${profile.userId || profile.id}`
-    : `/login?next=${encodeURIComponent(`/chats?user=${profile.userId || profile.id}`)}`;
+    ? `/chat/${profile.userId || profile.id}`
+    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
 
   return (
     <div className={`group overflow-hidden rounded-2xl border ${tierBorderClass(profile.userLevel)} bg-white/[0.03] transition-all duration-200 hover:-translate-y-0.5`}>

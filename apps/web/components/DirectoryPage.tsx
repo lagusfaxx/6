@@ -3,12 +3,14 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon } from "lucide-react";
+import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, MessageCircle, Eye, Sparkles, Flame } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import UserLevelBadge from "./UserLevelBadge";
 import MapboxMap from "./MapboxMap";
 import Stories from "./Stories";
+import useMe from "../hooks/useMe";
+import { buildChatHref, buildLoginHref, buildCurrentPathWithSearch } from "../lib/chat";
 
 /* ─── Types ──────────────────────────────────────────────── */
 export type DirectoryResult = {
@@ -69,17 +71,20 @@ type Props = {
 
 /* ─── ProfileCard ────────────────────────────────────────── */
 function ProfileCard({ p }: { p: DirectoryResult }) {
+  const { me } = useMe();
+  const isAuthed = Boolean(me?.user?.id);
   const href = `/profesional/${p.id}`;
   const avatarSrc = p.avatarUrl ? resolveMediaUrl(p.avatarUrl) : null;
   const coverSrc  = p.coverUrl  ? resolveMediaUrl(p.coverUrl)  : null;
 
+  const chatHref = isAuthed
+    ? buildChatHref(p.id)
+    : buildLoginHref(buildCurrentPathWithSearch());
+
   return (
-    <Link
-      href={href}
-      className="group relative flex flex-col overflow-hidden rounded-2xl bg-[#111] border border-white/5 hover:border-fuchsia-500/40 transition-all"
-    >
+    <div className="group relative flex flex-col overflow-hidden rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-fuchsia-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
       {/* Cover / hero photo */}
-      <div className="relative aspect-[3/4] bg-[#1a1a2e] overflow-hidden">
+      <Link href={href} className="relative aspect-[3/4] bg-[#111] overflow-hidden">
         {coverSrc || avatarSrc ? (
           <img
             src={coverSrc || avatarSrc!}
@@ -87,8 +92,10 @@ function ProfileCard({ p }: { p: DirectoryResult }) {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl text-white/10 font-bold select-none">
-            {p.displayName[0]?.toUpperCase()}
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-fuchsia-900/30 to-violet-900/30">
+            <span className="text-4xl font-bold text-white/10 select-none">
+              {p.displayName[0]?.toUpperCase()}
+            </span>
           </div>
         )}
 
@@ -99,8 +106,9 @@ function ProfileCard({ p }: { p: DirectoryResult }) {
         <div className="absolute top-2 left-2 right-2 flex items-start justify-between">
           <div className="flex flex-col gap-1">
             {p.availableNow && (
-              <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg">
-                Disponible ahora
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-emerald-500/30">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                Online
               </span>
             )}
           </div>
@@ -113,29 +121,52 @@ function ProfileCard({ p }: { p: DirectoryResult }) {
             {p.displayName}
             {p.age ? <span className="text-white/60 ml-1 font-normal">{p.age}</span> : null}
           </div>
-          {p.city && (
-            <div className="flex items-center gap-1 text-[11px] text-white/50 mt-0.5">
-              <MapPin className="h-3 w-3" />
-              <span>{p.city}</span>
-              {p.distance != null && (
-                <span className="ml-1 text-white/40">· {p.distance < 1 ? `${Math.round(p.distance * 1000)}m` : `${p.distance.toFixed(1)}km`}</span>
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-1.5 text-[11px] text-white/50 mt-0.5">
+            {p.city && (
+              <span className="flex items-center gap-0.5">
+                <MapPin className="h-3 w-3" />
+                {p.city}
+              </span>
+            )}
+            {p.distance != null && (
+              <span className="text-white/40">
+                · {p.distance < 1 ? `${Math.round(p.distance * 1000)}m` : `${p.distance.toFixed(1)}km`}
+              </span>
+            )}
+          </div>
+        </div>
+      </Link>
+
+      {/* Tags row + CTA */}
+      <div className="p-2 space-y-2">
+        {p.profileTags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {p.profileTags.slice(0, 3).map((t) => (
+              <span key={t} className="rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 px-2 py-0.5 text-[10px] text-fuchsia-300 capitalize">
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+        {/* Quick action buttons */}
+        <div className="flex gap-1.5">
+          <Link
+            href={chatHref}
+            className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2 text-[11px] font-semibold text-white transition hover:brightness-110 shadow-[0_4px_12px_rgba(168,85,247,0.25)]"
+          >
+            <MessageCircle className="h-3 w-3" />
+            Mensaje
+          </Link>
+          <Link
+            href={href}
+            className="flex items-center justify-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] font-medium text-white/70 transition hover:bg-white/[0.08]"
+          >
+            <Eye className="h-3 w-3" />
+            Perfil
+          </Link>
         </div>
       </div>
-
-      {/* Tags row */}
-      {p.profileTags.length > 0 && (
-        <div className="flex flex-wrap gap-1 p-2 bg-black/30">
-          {p.profileTags.slice(0, 3).map((t) => (
-            <span key={t} className="rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 px-2 py-0.5 text-[10px] text-fuchsia-300 capitalize">
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-    </Link>
+    </div>
   );
 }
 
@@ -264,20 +295,27 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
     (maduras ? 1 : 0) + (availableNow ? 1 : 0) + (genderFilter ? 1 : 0);
 
   return (
-    <div className="min-h-screen bg-[#08090f] text-white">
+    <div className="-mx-4 -mt-4 min-h-screen text-white">
       {/* ── Sticky header ── */}
-      <div className="sticky top-0 z-20 bg-[#08090f]/90 backdrop-blur-xl border-b border-white/5">
+      <div className="sticky top-[60px] md:top-[68px] z-20 bg-[#0d0e1a]/95 backdrop-blur-xl border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
           {/* Title + count */}
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold truncate">{title}</h1>
-            {locationLabel && (
-              <p className="text-xs text-white/40 flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {locationLabel}
-                {!loading && <span>· {total} resultado{total !== 1 ? "s" : ""}</span>}
-              </p>
-            )}
+            <h1 className="text-lg font-bold truncate flex items-center gap-2">
+              <Flame className="h-4 w-4 text-fuchsia-400" />
+              {title}
+            </h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              {locationLabel && (
+                <span className="text-[11px] text-fuchsia-300/70 flex items-center gap-1 font-medium">
+                  <MapPin className="h-3 w-3" />
+                  {locationLabel}
+                </span>
+              )}
+              {!loading && (
+                <span className="text-[11px] text-white/30">· {total} resultado{total !== 1 ? "s" : ""}</span>
+              )}
+            </div>
           </div>
 
           {/* Search */}

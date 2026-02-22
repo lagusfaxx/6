@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
-import { useMapLocation } from "../hooks/useMapLocation";
+import { LocationFilterContext } from "../hooks/useLocationFilter";
 import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
 import Stories from "../components/Stories";
@@ -145,7 +145,8 @@ export default function HomePage() {
   const [discoverSections, setDiscoverSections] = useState<
     Record<string, DiscoverProfile[]>
   >({});
-  const { location } = useMapLocation(SANTIAGO_FALLBACK);
+  const locationCtx = useContext(LocationFilterContext);
+  const location = locationCtx?.effectiveLocation ?? SANTIAGO_FALLBACK;
   const [error, setError] = useState<string | null>(null);
   const [recentLoading, setRecentLoading] = useState(true);
   const { me } = useMe();
@@ -344,8 +345,32 @@ export default function HomePage() {
         )}
 
         {/* ═══ STORIES ═══ */}
-        <section className="mb-8">
+        <section className="mb-6">
           <Stories />
+        </section>
+
+        {/* ═══ CATEGORÍAS — Quick access for easy navigation ═══ */}
+        <section className="mb-8">
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7 sm:gap-3">
+            {[
+              { label: "Escorts", href: "/escorts", emoji: "💋", color: "from-pink-600/20 to-fuchsia-600/10" },
+              { label: "Masajistas", href: "/masajistas", emoji: "💆", color: "from-violet-600/20 to-purple-600/10" },
+              { label: "Moteles", href: "/moteles", emoji: "🏩", color: "from-rose-600/20 to-red-600/10" },
+              { label: "Sex Shop", href: "/sexshop", emoji: "🛍️", color: "from-fuchsia-600/20 to-pink-600/10" },
+              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", emoji: "🎉", color: "from-amber-600/20 to-orange-600/10" },
+              { label: "Videollamadas", href: "/escorts?serviceTags=videollamadas", emoji: "📹", color: "from-blue-600/20 to-cyan-600/10" },
+              { label: "Cerca tuyo", href: "/servicios", emoji: "📍", color: "from-emerald-600/20 to-green-600/10" },
+            ].map((cat) => (
+              <Link
+                key={cat.href}
+                href={cat.href}
+                className={`group flex flex-col items-center gap-1.5 rounded-2xl border border-white/[0.06] bg-gradient-to-br ${cat.color} px-2 py-3 text-center transition hover:border-fuchsia-500/20 hover:scale-[1.04]`}
+              >
+                <span className="text-2xl sm:text-3xl">{cat.emoji}</span>
+                <span className="text-[10px] font-medium text-white/70 leading-tight sm:text-xs">{cat.label}</span>
+              </Link>
+            ))}
+          </div>
         </section>
 
         {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}
@@ -510,7 +535,7 @@ export default function HomePage() {
             {horizontalBanners.slice(0, 4).map((b) => (
               <a key={b.id} href={b.linkUrl ?? "#"} className="group block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:border-white/15 hover:bg-white/[0.06]">
                 <div className="overflow-hidden">
-                  <img src={b.imageUrl} alt={b.title} className="h-28 w-full object-contain transition-transform duration-300 group-hover:scale-105" />
+                  <img src={resolveMediaUrl(b.imageUrl) ?? b.imageUrl} alt={b.title} className="h-28 w-full object-contain transition-transform duration-300 group-hover:scale-105" />
                 </div>
                 <div className="p-3 text-sm text-white/70">{b.title}</div>
               </a>

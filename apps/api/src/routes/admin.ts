@@ -116,8 +116,8 @@ adminRouter.delete("/admin/banners/:id", requireAdmin, async (req, res) => {
 adminRouter.post("/admin/banners/upload", requireAdmin, upload.single("file"), async (req, res) => {
   const file = (req as any).file as Express.Multer.File | undefined;
   if (!file) return res.status(400).json({ error: "VALIDATION", message: "file required" });
-  const url = await storage.save(file);
-  res.json({ url });
+  const result = await storage.save(file);
+  res.json({ url: result.url });
 });
 
 // ----------------------------

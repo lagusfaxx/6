@@ -68,7 +68,18 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     }
 
     // ✅ Si es ruta pública, no exigimos sesión
-    if (isPublicPath(req.path)) return next();
+    if (isPublicPath(req.path)) {
+      // Still try to load user if session exists (for route-level requireAuth on public paths)
+      const optionalUserId = (req.session as any)?.userId;
+      if (optionalUserId) {
+        const optUser = await prisma.user.findUnique({
+          where: { id: optionalUserId },
+          select: { id: true, email: true, role: true, profileType: true, membershipExpiresAt: true, shopTrialEndsAt: true, createdAt: true }
+        });
+        if (optUser) (req as any).user = optUser;
+      }
+      return next();
+    }
 
     const sessionUserId = (req.session as any)?.userId;
     if (!sessionUserId) {
