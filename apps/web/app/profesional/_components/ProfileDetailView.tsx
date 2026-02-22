@@ -618,11 +618,11 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
               )}
 
               <div className="mt-4 space-y-2.5">
-                <button onClick={() => handleChatClick("message")} className="btn-primary w-full rounded-2xl py-3 text-sm">
-                  Enviar mensaje
-                </button>
-                <button onClick={() => handleChatClick("request")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
+                <button onClick={() => handleChatClick("request")} className="btn-primary w-full rounded-2xl py-3.5 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)]">
                   Solicitar servicio
+                </button>
+                <button onClick={() => handleChatClick("message")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
+                  Enviar mensaje
                 </button>
                 <button
                   onClick={toggleFavorite}
@@ -680,14 +680,13 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           <span className="mx-2 text-white/40">·</span>
           <span>{durationLabel}</span>
         </div>
+        <button onClick={() => handleChatClick("request")} className="btn-primary w-full rounded-2xl py-3 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)] mb-2">
+          Solicitar servicio
+        </button>
         <div className="grid grid-cols-2 gap-2.5">
-          <button onClick={() => handleChatClick("message")} className="btn-primary w-full rounded-2xl py-3 text-sm">
-            Enviar mensaje
+          <button onClick={() => handleChatClick("message")} className="btn-secondary w-full rounded-2xl py-2.5 text-sm">
+            Mensaje
           </button>
-          <button onClick={() => handleChatClick("request")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
-            Solicitar servicio
-          </button>
-        </div>
         <button
           onClick={toggleFavorite}
           className={`mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${

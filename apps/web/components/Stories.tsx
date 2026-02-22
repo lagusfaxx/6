@@ -201,7 +201,7 @@ function StoryViewer({
         <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/80 to-transparent">
           <div className="flex gap-2">
             <Link
-              href={`/chats?user=${group.userId}`}
+              href={`/chat/${group.userId}`}
               onClick={onClose}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-semibold text-white hover:brightness-110 transition shadow-[0_8px_20px_rgba(168,85,247,0.3)]"
             >
@@ -254,17 +254,12 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
   const [viewerGroupIdx, setViewerGroupIdx] = useState<number | null>(null);
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (effectiveLoc) {
-      params.set("lat", String(effectiveLoc[0]));
-      params.set("lng", String(effectiveLoc[1]));
-      params.set("radiusKm", "100");
-    }
-    apiFetch<{ stories: StoryGroup[] }>(`/stories/active?${params.toString()}`)
+    // No location filter — stories should be visible in all regions
+    apiFetch<{ stories: StoryGroup[] }>("/stories/active")
       .then((d) => setGroups(d.stories ?? []))
       .catch(() => setGroups([]))
       .finally(() => setLoading(false));
-  }, [effectiveLoc]);
+  }, []);
 
   if (loading) {
     return (

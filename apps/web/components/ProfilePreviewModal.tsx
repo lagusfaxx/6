@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
-import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcase, Loader2 } from "lucide-react";
+import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcase, Loader2, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import UserLevelBadge from "./UserLevelBadge";
 import useMe from "../hooks/useMe";
@@ -122,8 +122,8 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
   const dist = profile.distance ?? profile.distanceKm;
 
   const chatHref = isAuthed
-    ? `/chats?user=${profile.userId || profile.id}`
-    : `/login?next=${encodeURIComponent(`/chats?user=${profile.userId || profile.id}`)}`;
+    ? `/chat/${profile.userId || profile.id}`
+    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
 
   const profileHref = `/profesional/${profile.id}`;
 
@@ -354,23 +354,33 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
         </div>
 
         {/* CTAs */}
-        <div className="flex gap-2 p-4 pt-2 border-t border-white/[0.06] shrink-0">
+        <div className="space-y-2 p-4 pt-2 border-t border-white/[0.06] shrink-0">
           <Link
-            href={chatHref}
+            href={isAuthed ? `${chatHref}?mode=request` : `/login?next=${encodeURIComponent(`${chatHref}?mode=request`)}`}
             onClick={onClose}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_8px_24px_rgba(168,85,247,0.3)]"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3.5 text-sm font-bold transition hover:brightness-110 shadow-[0_8px_24px_rgba(168,85,247,0.3)]"
           >
-            <MessageCircle className="h-4 w-4" />
-            Enviar mensaje
+            <Sparkles className="h-4 w-4" />
+            Solicitar Servicio
           </Link>
-          <Link
-            href={profileHref}
-            onClick={onClose}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.1]"
-          >
-            <Eye className="h-4 w-4" />
-            Perfil
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href={chatHref}
+              onClick={onClose}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 py-2.5 text-sm font-semibold text-fuchsia-200 transition hover:bg-fuchsia-500/20"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Mensaje
+            </Link>
+            <Link
+              href={profileHref}
+              onClick={onClose}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/[0.1]"
+            >
+              <Eye className="h-4 w-4" />
+              Perfil
+            </Link>
+          </div>
         </div>
       </div>
     </div>
