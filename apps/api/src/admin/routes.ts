@@ -129,3 +129,197 @@ adminRouter.post("/posts/:id/media", upload.single("file"), asyncHandler(async (
 
   return res.json({ media });
 }));
+
+/* ══════════════════════════════════════════════════════════════
+   PROFILES (Admin Management)
+   ══════════════════════════════════════════════════════════════ */
+
+adminRouter.get("/profiles", asyncHandler(async (req, res) => {
+  const { profileType, isActive, q, limit, offset } = req.query as Record<string, string | undefined>;
+  const take = Math.min(parseInt(limit || "50", 10) || 50, 200);
+  const skip = parseInt(offset || "0", 10) || 0;
+
+  const where: any = {};
+  if (profileType) where.profileType = profileType;
+  if (isActive !== undefined) where.isActive = isActive === "true";
+  if (q) {
+    where.OR = [
+      { displayName: { contains: q, mode: "insensitive" } },
+      { username: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const [profiles, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: {
+        id: true, email: true, username: true, displayName: true,
+        avatarUrl: true, coverUrl: true, profileType: true,
+        isActive: true, isOnline: true, lastSeen: true, city: true,
+        tier: true, role: true, membershipExpiresAt: true,
+        completedServices: true, profileViews: true,
+        createdAt: true, updatedAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take,
+      skip,
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return res.json({ profiles, total });
+}));
+
+adminRouter.put("/profiles/:id/toggle", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const user = await prisma.user.findUnique({ where: { id }, select: { isActive: true } });
+  if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { isActive: !user.isActive },
+    select: { id: true, username: true, isActive: true },
+  });
+  return res.json({ profile: updated });
+}));
+
+adminRouter.put("/profiles/:id", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { isActive, tier, role, membershipExpiresAt } = req.body ?? {};
+
+  const data: any = {};
+  if (isActive !== undefined) data.isActive = Boolean(isActive);
+  if (tier !== undefined) data.tier = tier;
+  if (role !== undefined) data.role = role;
+  if (membershipExpiresAt !== undefined) {
+    data.membershipExpiresAt = membershipExpiresAt ? new Date(membershipExpiresAt) : null;
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data,
+    select: {
+      id: true, username: true, displayName: true,
+      isActive: true, tier: true, role: true, membershipExpiresAt: true,
+    },
+  });
+  return res.json({ profile: updated });
+}));
+
+adminRouter.delete("/profiles/:id", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.notification.deleteMany({ where: { userId: id } });
+    await tx.story.deleteMany({ where: { userId: id } });
+    await tx.pushSubscription.deleteMany({ where: { userId: id } });
+    await tx.favorite.deleteMany({ where: { OR: [{ userId: id }, { professionalId: id }] } });
+    await tx.profileMedia.deleteMany({ where: { userId: id } });
+    await tx.serviceItem.deleteMany({ where: { userId: id } });
+    await tx.message.deleteMany({ where: { OR: [{ senderId: id }, { receiverId: id }] } });
+    await tx.user.delete({ where: { id } });
+  });
+
+  return res.json({ ok: true });
+}));
+
+/* ══════════════════════════════════════════════════════════════
+   BANNERS (Home Ads)
+   ══════════════════════════════════════════════════════════════ */
+
+adminRouter.get("/banners", asyncHandler(async (_req, res) => {
+  const banners = await prisma.banner.findMany({
+    orderBy: [{ position: "asc" }, { sortOrder: "asc" }, { createdAt: "desc" }],
+  });
+  return res.json({ banners });
+}));
+
+adminRouter.post("/banners", asyncHandler(async (req, res) => {
+  const { title, imageUrl, linkUrl, position, isActive, sortOrder } = req.body ?? {};
+  if (!title || !imageUrl) return res.status(400).json({ error: "VALIDATION", message: "title and imageUrl required" });
+  const banner = await prisma.banner.create({
+    data: {
+      title: String(title),
+      imageUrl: String(imageUrl),
+      linkUrl: linkUrl ? String(linkUrl) : null,
+      position: position ? String(position) : "RIGHT",
+      isActive: typeof isActive === "boolean" ? isActive : true,
+      sortOrder: typeof sortOrder === "number" ? sortOrder : parseInt(String(sortOrder ?? "0"), 10) || 0,
+    },
+  });
+  return res.json({ banner });
+}));
+
+adminRouter.post("/banners/upload", upload.single("file"), asyncHandler(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "VALIDATION", message: "file required" });
+  const url = storageProvider.publicUrl(req.file.filename);
+  return res.json({ url });
+}));
+
+adminRouter.put("/banners/:id", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { title, imageUrl, linkUrl, position, isActive, sortOrder } = req.body ?? {};
+  const banner = await prisma.banner.update({
+    where: { id },
+    data: {
+      ...(title !== undefined ? { title: String(title) } : {}),
+      ...(imageUrl !== undefined ? { imageUrl: String(imageUrl) } : {}),
+      ...(linkUrl !== undefined ? { linkUrl: linkUrl ? String(linkUrl) : null } : {}),
+      ...(position !== undefined ? { position: String(position) } : {}),
+      ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
+      ...(sortOrder !== undefined ? { sortOrder: typeof sortOrder === "number" ? sortOrder : parseInt(String(sortOrder), 10) || 0 } : {}),
+    },
+  });
+  return res.json({ banner });
+}));
+
+adminRouter.delete("/banners/:id", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  await prisma.banner.delete({ where: { id } });
+  return res.json({ ok: true });
+}));
+
+/* ══════════════════════════════════════════════════════════════
+   PRICING RULES
+   ══════════════════════════════════════════════════════════════ */
+
+adminRouter.get("/pricing-rules", asyncHandler(async (_req, res) => {
+  try {
+    const rules: any[] = await prisma.$queryRaw`SELECT id, kind, tier, "priceClp", days, "isActive", "createdAt", "updatedAt" FROM "PricingRule" ORDER BY kind, tier`;
+    return res.json({ rules });
+  } catch {
+    return res.json({ rules: [] });
+  }
+}));
+
+adminRouter.put("/pricing-rules", asyncHandler(async (req, res) => {
+  const { rules } = req.body ?? {};
+  if (!Array.isArray(rules)) return res.status(400).json({ error: "VALIDATION", message: "rules array required" });
+
+  const results: any[] = [];
+  for (const r of rules) {
+    if (r.id) {
+      const updated: any[] = await prisma.$queryRaw`
+        UPDATE "PricingRule"
+        SET kind = ${r.kind}::"PricingKind", tier = ${r.tier || null}::"ProfessionalTier",
+            "priceClp" = ${Number(r.priceClp)}, days = ${Number(r.days)},
+            "isActive" = ${Boolean(r.isActive)}, "updatedAt" = now()
+        WHERE id = ${r.id}::uuid
+        RETURNING *`;
+      if (updated.length) results.push(updated[0]);
+    } else {
+      const created: any[] = await prisma.$queryRaw`
+        INSERT INTO "PricingRule" (kind, tier, "priceClp", days, "isActive")
+        VALUES (${r.kind}::"PricingKind", ${r.tier || null}::"ProfessionalTier",
+                ${Number(r.priceClp)}, ${Number(r.days)}, ${Boolean(r.isActive)})
+        RETURNING *`;
+      if (created.length) results.push(created[0]);
+    }
+  }
+
+  const all: any[] = await prisma.$queryRaw`SELECT * FROM "PricingRule" ORDER BY kind, tier`;
+  return res.json({ rules: all });
+}));

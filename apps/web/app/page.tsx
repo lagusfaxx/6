@@ -343,12 +343,10 @@ export default function HomePage() {
           <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>
         )}
 
-        {/* ═══ STORIES (only for logged-in users) ═══ */}
-        {isAuthed && (
-          <section className="mb-8">
-            <Stories />
-          </section>
-        )}
+        {/* ═══ STORIES ═══ */}
+        <section className="mb-8">
+          <Stories />
+        </section>
 
         {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}
         {availableProfiles.length > 0 && (

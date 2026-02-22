@@ -21,6 +21,8 @@ const PUBLIC_PREFIXES = [
   "/motels",            // ✅ hospedaje público
   "/profiles/discover", // ✅ HOME discovery sections (guests need this)
   "/profiles",          // ✅ perfil público por username/slug
+  "/stories",           // ✅ stories visibles para invitados en el home
+  "/banners",           // ✅ banners públicos en el home
   "/webhooks/flow"      // Flow subscription webhooks
 ];
 
@@ -78,6 +80,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       select: {
         id: true,
         email: true,
+        role: true,
         profileType: true,
         membershipExpiresAt: true,
         shopTrialEndsAt: true,
@@ -112,18 +115,20 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 }
 
 /**
- * Admin guard: requiere sesión + que el usuario sea el ADMIN_EMAIL.
- * (No hay campo isAdmin en el schema actual; se usa adminEmail desde env.)
+ * Admin guard: requiere sesión + que el usuario sea ADMIN (por email o por role).
  */
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   // Primero valida sesión / carga (req as any).user
   await requireAuth(req, res, async (err?: any) => {
     if (err) return next(err);
 
-    const user = (req as any).user as { email?: string } | undefined;
+    const user = (req as any).user as { email?: string; role?: string } | undefined;
     if (!user?.email) return res.status(401).json({ error: "UNAUTHENTICATED" });
 
-    if (user.email !== config.adminEmail) {
+    const isAdminByEmail = user.email === config.adminEmail;
+    const isAdminByRole = (user.role || "").toUpperCase() === "ADMIN";
+
+    if (!isAdminByEmail && !isAdminByRole) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
