@@ -1,23 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import MapboxMap from "../../components/MapboxMap";
 import Avatar from "../../components/Avatar";
 import StarRating from "../../components/StarRating";
 import SkeletonCard from "../../components/SkeletonCard";
-import { useMapLocation } from "../../hooks/useMapLocation";
+import { LocationFilterContext } from "../../hooks/useLocationFilter";
 import useMe from "../../hooks/useMe";
+import { MessageCircle, Eye, MapPin } from "lucide-react";
 
 const tiers = ["PREMIUM", "GOLD", "SILVER"] as const;
-const DEFAULT_LOCATION: [number, number] = [-33.45, -70.66];
 
 type Professional = {
   id: string;
   name: string;
   avatarUrl: string | null;
+  coverUrl?: string | null;
   rating: number | null;
   distance: number | null;
   latitude?: number | null;
@@ -29,6 +30,7 @@ type Professional = {
   gender: string | null;
   age?: number | null;
   serviceSummary?: string | null;
+  availableNow?: boolean;
   category: { id: string; name: string; displayName?: string | null; kind: string } | null;
 };
 
@@ -39,13 +41,20 @@ type CategoryRef = {
   slug?: string | null;
 };
 
+function tierBorderPro(t: string | null) {
+  if (t === "PREMIUM" || t === "DIAMOND") return "border-cyan-400/30 hover:border-cyan-400/50 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]";
+  if (t === "GOLD") return "border-amber-400/30 hover:border-amber-400/50 hover:shadow-[0_8px_24px_rgba(251,191,36,0.08)]";
+  return "border-white/10 hover:border-fuchsia-400/30";
+}
+
 export default function ProfessionalsClient() {
   const searchParams = useSearchParams();
   const category = searchParams.get("category") || "";
 
-  const [rangeKm, setRangeKm] = useState("15");
+  const [rangeKm, setRangeKm] = useState("30");
   const [tier, setTier] = useState("");
-  const { location, resolved } = useMapLocation(DEFAULT_LOCATION);
+  const locationCtx = useContext(LocationFilterContext);
+  const location = locationCtx?.effectiveLocation ?? null;
   const [items, setItems] = useState<Professional[]>([]);
   const [categoryInfo, setCategoryInfo] = useState<CategoryRef | null>(null);
   const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
@@ -54,6 +63,7 @@ export default function ProfessionalsClient() {
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { me } = useMe();
+  const isAuthed = Boolean(me?.user?.id);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -68,7 +78,6 @@ export default function ProfessionalsClient() {
   }, [category, rangeKm, tier, location]);
 
   useEffect(() => {
-    if (!resolved) return;
     setLoading(true);
     apiFetch<{ professionals: Professional[]; category: CategoryRef | null; message?: string; warning?: string }>(`/professionals?${queryString}`)
       .then((res) => {
@@ -78,7 +87,7 @@ export default function ProfessionalsClient() {
         setCategoryWarning(res.warning || null);
       })
       .finally(() => setLoading(false));
-  }, [queryString, resolved]);
+  }, [queryString]);
 
   const displayCategory =
     categoryInfo?.displayName ||
@@ -165,7 +174,7 @@ export default function ProfessionalsClient() {
                 gender: p.gender ?? null,
                 description: p.serviceSummary || null,
                 href: `/profesional/${p.id}`,
-                messageHref: me?.user ? `/chat/${p.id}` : null,
+                messageHref: isAuthed ? `/chats?user=${p.id}` : `/login?next=${encodeURIComponent(`/chats?user=${p.id}`)}`,
                 avatarUrl: p.avatarUrl,
                 tier: p.tier,
                 areaRadiusM: p.approxAreaM ?? 600
@@ -200,7 +209,6 @@ export default function ProfessionalsClient() {
         </div>
       ) : null}
 
-
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
@@ -216,43 +224,93 @@ export default function ProfessionalsClient() {
           </Link>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {items.map((p) => (
-            <div
-              key={p.id}
-              onClick={() => setFocusedId(p.id)}
-              className="rounded-2xl border border-white/10 bg-white/5 p-5 transition-all duration-200 hover:border-fuchsia-400/30 hover:shadow-lg hover:shadow-fuchsia-500/5"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-4">
-                  <Avatar src={p.avatarUrl} alt={p.name} size={48} />
-                  <div>
-                    <div className="font-semibold">{p.name}</div>
-                    <div className="text-xs text-white/60">{p.category?.displayName || p.category?.name || "Experiencia"}</div>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {items.map((p) => {
+            const chatHref = isAuthed
+              ? `/chats?user=${p.id}`
+              : `/login?next=${encodeURIComponent(`/chats?user=${p.id}`)}`;
+            const coverImg = p.coverUrl ? resolveMediaUrl(p.coverUrl) : null;
+            const avatarImg = p.avatarUrl ? resolveMediaUrl(p.avatarUrl) : null;
+            const heroImg = coverImg || avatarImg;
+
+            return (
+              <div
+                key={p.id}
+                onClick={() => setFocusedId(p.id)}
+                className={`group overflow-hidden rounded-2xl border ${tierBorderPro(p.tier)} bg-white/[0.03] transition-all duration-200 hover:-translate-y-0.5 cursor-pointer`}
+              >
+                {/* Card image */}
+                <Link href={`/profesional/${p.id}`} className="block">
+                  <div className="relative aspect-[4/3] overflow-hidden bg-white/5">
+                    {heroImg ? (
+                      <img src={heroImg} alt={p.name} className="h-full w-full object-cover transition group-hover:scale-105" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Avatar src={p.avatarUrl} alt={p.name} size={56} />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                    {/* Top badges */}
+                    <div className="absolute top-2 left-2 right-2 flex justify-between">
+                      {p.availableNow ? (
+                        <span className="flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
+                        </span>
+                      ) : <span />}
+                      {p.tier && (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          p.tier === "PREMIUM" ? "border border-cyan-400/30 bg-cyan-500/20 text-cyan-200" :
+                          p.tier === "GOLD" ? "border border-amber-400/30 bg-amber-500/20 text-amber-200" :
+                          "border border-white/20 bg-white/10 text-white/70"
+                        }`}>
+                          {p.tier}
+                        </span>
+                      )}
+                    </div>
+                    {/* Bottom info */}
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <div className="font-semibold text-sm">{p.name}{p.age ? `, ${p.age}` : ""}</div>
+                      <div className="flex items-center gap-2 text-[11px] text-white/50 mt-0.5">
+                        <StarRating rating={p.rating} size={10} />
+                        {p.distance != null && (
+                          <span className="flex items-center gap-0.5">
+                            <MapPin className="h-3 w-3" />
+                            {p.distance < 1 ? `${Math.round(p.distance * 1000)}m` : `${p.distance.toFixed(1)}km`}
+                          </span>
+                        )}
+                        {p.locality && <span>{p.locality}</span>}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <Link
-                  href={`/profesional/${p.id}`}
-                  className="rounded-full border border-white/15 bg-gradient-to-br from-fuchsia-600/20 to-violet-600/20 px-3 py-1 text-xs text-white/80 hover:from-fuchsia-600/30 hover:to-violet-600/30 transition-all"
-                >
-                  Ver perfil
                 </Link>
+
+                {/* Service summary */}
+                {p.serviceSummary && (
+                  <div className="px-3 pt-2 text-[11px] text-white/45 line-clamp-1">{p.serviceSummary}</div>
+                )}
+
+                {/* CTA row - Conversion focused */}
+                <div className="flex gap-1.5 p-2">
+                  <Link
+                    href={chatHref}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2.5 text-xs font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(168,85,247,0.15)]"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" /> Enviar mensaje
+                  </Link>
+                  <Link
+                    href={`/profesional/${p.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-xs text-white/60 hover:bg-white/10 transition"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
               </div>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-white/60">
-                <StarRating rating={p.rating} size={12} />
-                <span>{p.distance ? `${p.distance.toFixed(1)} km` : "Sin distancia"}</span>
-                {p.locality ? <span>{p.locality}</span> : null}
-                {p.age ? <span>{p.age} años</span> : null}
-                {p.gender ? <span>{p.gender === "FEMALE" ? "Mujer" : p.gender === "MALE" ? "Hombre" : "Otro"}</span> : null}
-                {p.tier ? <span className="rounded-full border border-yellow-400/30 bg-yellow-500/10 px-2 py-0.5 text-yellow-200">{p.tier}</span> : null}
-              </div>
-              {p.serviceSummary ? (
-                <p className="mt-3 text-xs text-white/70 line-clamp-2">{p.serviceSummary}</p>
-              ) : null}
-            </div>
-          ))}
+            );
+          })}
           {!items.length ? (
-            <div className="card p-6 text-white/60">No encontramos experiencias con estos filtros.</div>
+            <div className="card p-6 text-white/60 col-span-full">No encontramos experiencias con estos filtros.</div>
           ) : null}
         </div>
       )}

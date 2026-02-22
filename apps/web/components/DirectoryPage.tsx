@@ -3,10 +3,11 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { MapPin, SlidersHorizontal, X, ChevronDown, Search } from "lucide-react";
+import { MapPin, SlidersHorizontal, X, ChevronDown, Search, MessageCircle, Eye } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import UserLevelBadge from "./UserLevelBadge";
+import useMe from "../hooks/useMe";
 
 /* ─── Types ──────────────────────────────────────────────── */
 export type DirectoryResult = {
@@ -65,75 +66,89 @@ type Props = {
   tag?: string;            // tag from [tag] route param → added to profileTags filter
 };
 
+/* ─── Tier helpers ── */
+function tierBorderDir(level?: string | null) {
+  if (level === "DIAMOND") return "border-cyan-400/30 hover:border-cyan-400/50 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]";
+  if (level === "GOLD") return "border-amber-400/30 hover:border-amber-400/50 hover:shadow-[0_8px_24px_rgba(251,191,36,0.08)]";
+  return "border-white/5 hover:border-fuchsia-500/40";
+}
+
 /* ─── ProfileCard ────────────────────────────────────────── */
-function ProfileCard({ p }: { p: DirectoryResult }) {
-  const href = `/profesional/${p.username}`;
+function ProfileCard({ p, isAuthed }: { p: DirectoryResult; isAuthed: boolean }) {
+  const profileHref = `/profesional/${p.username}`;
+  const chatHref = isAuthed
+    ? `/chats?user=${p.id}`
+    : `/login?next=${encodeURIComponent(`/chats?user=${p.id}`)}`;
   const avatarSrc = p.avatarUrl ? resolveMediaUrl(p.avatarUrl) : null;
   const coverSrc  = p.coverUrl  ? resolveMediaUrl(p.coverUrl)  : null;
 
   return (
-    <Link
-      href={href}
-      className="group relative flex flex-col overflow-hidden rounded-2xl bg-[#111] border border-white/5 hover:border-fuchsia-500/40 transition-all"
-    >
-      {/* Cover / hero photo */}
-      <div className="relative aspect-[3/4] bg-[#1a1a2e] overflow-hidden">
-        {coverSrc || avatarSrc ? (
-          <img
-            src={coverSrc || avatarSrc!}
-            alt={p.displayName}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl text-white/10 font-bold select-none">
-            {p.displayName[0]?.toUpperCase()}
-          </div>
-        )}
-
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-
-        {/* Top badges */}
-        <div className="absolute top-2 left-2 right-2 flex items-start justify-between">
-          <div className="flex flex-col gap-1">
-            {p.availableNow && (
-              <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg">
-                Disponible ahora
-              </span>
-            )}
-          </div>
-          <UserLevelBadge level={p.userLevel as "SILVER" | "GOLD" | "DIAMOND" | null} />
-        </div>
-
-        {/* Bottom info */}
-        <div className="absolute bottom-0 left-0 right-0 p-3">
-          <div className="font-semibold text-white text-sm leading-tight truncate">
-            {p.displayName}
-            {p.age ? <span className="text-white/60 ml-1 font-normal">{p.age}</span> : null}
-          </div>
-          {p.city && (
-            <div className="flex items-center gap-1 text-[11px] text-white/50 mt-0.5">
-              <MapPin className="h-3 w-3" />
-              <span>{p.city}</span>
-              {p.distance != null && (
-                <span className="ml-1 text-white/40">· {p.distance < 1 ? `${Math.round(p.distance * 1000)}m` : `${p.distance.toFixed(1)}km`}</span>
-              )}
+    <div className={`group relative flex flex-col overflow-hidden rounded-2xl bg-[#111] border ${tierBorderDir(p.userLevel)} transition-all hover:-translate-y-0.5`}>
+      <Link href={profileHref} className="block">
+        {/* Cover / hero photo */}
+        <div className="relative aspect-[3/4] bg-[#1a1a2e] overflow-hidden">
+          {coverSrc || avatarSrc ? (
+            <img
+              src={coverSrc || avatarSrc!}
+              alt={p.displayName}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-4xl text-white/10 font-bold select-none">
+              {p.displayName[0]?.toUpperCase()}
             </div>
           )}
-        </div>
-      </div>
 
-      {/* Tags row */}
-      {p.profileTags.length > 0 && (
-        <div className="flex flex-wrap gap-1 p-2 bg-black/30">
-          {p.profileTags.slice(0, 3).map((t) => (
-            <span key={t} className="rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 px-2 py-0.5 text-[10px] text-fuchsia-300 capitalize">
-              {t}
-            </span>
-          ))}
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+          {/* Top badges */}
+          <div className="absolute top-2 left-2 right-2 flex items-start justify-between">
+            <div className="flex flex-col gap-1">
+              {p.availableNow && (
+                <span className="rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
+                </span>
+              )}
+            </div>
+            <UserLevelBadge level={p.userLevel as "SILVER" | "GOLD" | "DIAMOND" | null} />
+          </div>
+
+          {/* Bottom info */}
+          <div className="absolute bottom-0 left-0 right-0 p-3">
+            <div className="font-semibold text-white text-sm leading-tight truncate">
+              {p.displayName}
+              {p.age ? <span className="text-white/60 ml-1 font-normal">{p.age}</span> : null}
+            </div>
+            {p.city && (
+              <div className="flex items-center gap-1 text-[11px] text-white/50 mt-0.5">
+                <MapPin className="h-3 w-3" />
+                <span>{p.city}</span>
+                {p.distance != null && (
+                  <span className="ml-1 text-white/40">· {p.distance < 1 ? `${Math.round(p.distance * 1000)}m` : `${p.distance.toFixed(1)}km`}</span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      )}
-    </Link>
+      </Link>
+
+      {/* CTA row - Conversion focused */}
+      <div className="flex gap-1.5 p-1.5">
+        <Link
+          href={chatHref}
+          className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2 text-[11px] font-semibold transition hover:brightness-110"
+        >
+          <MessageCircle className="h-3 w-3" /> Mensaje
+        </Link>
+        <Link
+          href={profileHref}
+          className="flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[11px] text-white/60 hover:bg-white/10 transition"
+        >
+          <Eye className="h-3 w-3" />
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -141,6 +156,8 @@ function ProfileCard({ p }: { p: DirectoryResult }) {
 export default function DirectoryPage({ entityType = "professional", categorySlug, title, tag }: Props) {
   const searchParams = useSearchParams();
   const locationCtx = useContext(LocationFilterContext);
+  const { me } = useMe();
+  const isAuthed = Boolean(me?.user?.id);
 
   /* ── local filter state ── */
   const [profileTagsFilter, setProfileTagsFilter] = useState<string[]>(
@@ -416,7 +433,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {displayed.map((p) => (
-              <ProfileCard key={p.id} p={p} />
+              <ProfileCard key={p.id} p={p} isAuthed={isAuthed} />
             ))}
           </div>
         )}

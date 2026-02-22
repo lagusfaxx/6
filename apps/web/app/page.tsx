@@ -1,27 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
-import { useMapLocation } from "../hooks/useMapLocation";
+import { LocationFilterContext } from "../hooks/useLocationFilter";
 import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
 import Stories from "../components/Stories";
 import ProfilePreviewModal from "../components/ProfilePreviewModal";
-import {
-  buildChatHref,
-  buildCurrentPathWithSearch,
-  buildLoginHref,
-} from "../lib/chat";
 import {
   ArrowRight,
   ChevronRight,
   Clock3,
   Crown,
   Download,
+  Eye,
   Flame,
   MapPin,
+  MessageCircle,
   Navigation,
   Sparkles,
   Star,
@@ -57,6 +54,7 @@ type RecentProfessional = {
   bio?: string | null;
   serviceCategory?: string | null;
   galleryUrls?: string[];
+  userId?: string | null;
 };
 
 type DiscoverProfile = {
@@ -79,6 +77,7 @@ type DiscoverProfile = {
   bio?: string | null;
   serviceCategory?: string | null;
   galleryUrls?: string[];
+  userId?: string | null;
 };
 
 /* ── Helpers ── */
@@ -96,11 +95,23 @@ function formatLastSeenLabel(lastSeen?: string | null) {
   const diff = Date.now() - Date.parse(lastSeen);
   if (!Number.isFinite(diff) || diff < 0) return "Activa recientemente";
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `Activa hace ${minutes} min`;
+  if (minutes < 60) return `Hace ${minutes}m`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Activa hace ${hours} hora${hours === 1 ? "" : "s"}`;
+  if (hours < 24) return `Hace ${hours}h`;
   const days = Math.floor(hours / 24);
-  return `Activa hace ${days} día${days === 1 ? "" : "s"}`;
+  return `Hace ${days}d`;
+}
+
+function chatHrefFor(profileId: string, userId?: string | null, isAuthed?: boolean) {
+  const target = userId || profileId;
+  if (isAuthed) return `/chats?user=${target}`;
+  return `/login?next=${encodeURIComponent(`/chats?user=${target}`)}`;
+}
+
+function tierBorder(level?: string) {
+  if (level === "DIAMOND") return "border-cyan-400/30 hover:border-cyan-400/50";
+  if (level === "GOLD") return "border-amber-400/30 hover:border-amber-400/50";
+  return "border-white/[0.08] hover:border-fuchsia-500/20";
 }
 
 /* ── Animation variants ── */
@@ -130,25 +141,26 @@ const cardFade = {
 
 /* ── Tier config ── */
 const TIERS = [
-  { key: "DIAMOND", label: "Platino", icon: Crown, gradient: "from-cyan-400 to-blue-500", border: "border-cyan-400/30", bg: "bg-cyan-500/10" },
-  { key: "GOLD", label: "Gold", icon: Star, gradient: "from-amber-400 to-yellow-500", border: "border-amber-400/30", bg: "bg-amber-500/10" },
-  { key: "SILVER", label: "Silver", icon: Sparkles, gradient: "from-slate-300 to-slate-400", border: "border-slate-400/30", bg: "bg-slate-500/10" },
+  { key: "DIAMOND", label: "Platino", icon: Crown, gradient: "from-cyan-400 to-blue-500", border: "border-cyan-400/30", glow: "shadow-[0_4px_24px_rgba(34,211,238,0.12)]" },
+  { key: "GOLD", label: "Gold", icon: Star, gradient: "from-amber-400 to-yellow-500", border: "border-amber-400/30", glow: "shadow-[0_4px_24px_rgba(251,191,36,0.10)]" },
+  { key: "SILVER", label: "Silver", icon: Sparkles, gradient: "from-slate-300 to-slate-400", border: "border-slate-400/20", glow: "" },
 ] as const;
 
 /* ── Page ── */
 
-const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
-
 export default function HomePage() {
+  const locationCtx = useContext(LocationFilterContext);
+  const effectiveLoc = locationCtx?.effectiveLocation ?? null;
+
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
   const [discoverSections, setDiscoverSections] = useState<
     Record<string, DiscoverProfile[]>
   >({});
-  const { location } = useMapLocation(SANTIAGO_FALLBACK);
   const [error, setError] = useState<string | null>(null);
   const [recentLoading, setRecentLoading] = useState(true);
   const { me } = useMe();
+  const isAuthed = Boolean(me?.user?.id);
   const [previewProfile, setPreviewProfile] = useState<any>(null);
 
   useEffect(() => {
@@ -164,9 +176,9 @@ export default function HomePage() {
 
   useEffect(() => {
     const params = new URLSearchParams();
-    if (location) {
-      params.set("lat", String(location[0]));
-      params.set("lng", String(location[1]));
+    if (effectiveLoc) {
+      params.set("lat", String(effectiveLoc[0]));
+      params.set("lng", String(effectiveLoc[1]));
     }
     params.set("limit", "30");
     const query = params.toString();
@@ -199,6 +211,7 @@ export default function HomePage() {
             bio: p.bio ?? null,
             serviceCategory: p.serviceCategory ?? null,
             galleryUrls: p.galleryUrls ?? [],
+            userId: p.userId ?? null,
           }),
         );
 
@@ -212,7 +225,7 @@ export default function HomePage() {
     return () => {
       controller.abort();
     };
-  }, [location]);
+  }, [effectiveLoc]);
 
   useEffect(() => {
     const loadSections = async () => {
@@ -228,9 +241,9 @@ export default function HomePage() {
           const qp = new URLSearchParams(
             section.query as Record<string, string>,
           );
-          if (location) {
-            qp.set("lat", String(location[0]));
-            qp.set("lng", String(location[1]));
+          if (effectiveLoc) {
+            qp.set("lat", String(effectiveLoc[0]));
+            qp.set("lng", String(effectiveLoc[1]));
           }
           const res = await apiFetch<{ profiles: DiscoverProfile[] }>(
             `/profiles/discover?${qp.toString()}`,
@@ -243,7 +256,7 @@ export default function HomePage() {
     loadSections().catch(() =>
       setError("No se pudieron cargar las secciones destacadas."),
     );
-  }, [location]);
+  }, [effectiveLoc]);
 
   const horizontalBanners = useMemo(
     () => banners.filter((b) => (b.position || "").toUpperCase() === "INLINE" || (b.position || "").toUpperCase() === "HORIZONTAL"),
@@ -253,19 +266,6 @@ export default function HomePage() {
     () => banners.filter((b) => (b.position || "").toUpperCase() === "VERTICAL" || (b.position || "").toUpperCase() === "SIDEBAR"),
     [banners],
   );
-
-  // Story profiles: available + recently active
-  const storyProfiles = useMemo(() => {
-    const available = discoverSections["available"] || [];
-    const near = discoverSections["near"] || [];
-    const all = [...available, ...near];
-    const seen = new Set<string>();
-    return all.filter((p) => {
-      if (seen.has(p.id)) return false;
-      seen.add(p.id);
-      return true;
-    }).slice(0, 15);
-  }, [discoverSections]);
 
   // Tier-based sections
   const tierProfiles = useMemo(() => {
@@ -283,7 +283,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
-      {/* ═══ HERO — Compact, immersive ═══ */}
+      {/* ═══ HERO ═══ */}
       <section className="relative flex min-h-[50vh] items-center justify-center overflow-hidden px-4 md:min-h-[55vh]">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#070816]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[url('/brand/bg.jpg')] bg-cover bg-center opacity-20" />
@@ -297,13 +297,13 @@ export default function HomePage() {
           </motion.div>
 
           <motion.h1 initial="hidden" animate="visible" custom={1} variants={fadeUp} className="text-3xl font-bold leading-[1.1] tracking-tight md:text-5xl">
-            <span className="bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">Descubre experiencias</span>
+            <span className="bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">Conecta con experiencias</span>
             <br />
             <span className="bg-gradient-to-r from-fuchsia-400 via-violet-400 to-fuchsia-300 bg-clip-text text-transparent">reales cerca de ti</span>
           </motion.h1>
 
           <motion.p initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mx-auto mt-4 max-w-lg text-sm text-white/55 md:text-base">
-            Conecta con profesionales, hospedajes y tiendas en segundos. Todo verificado, discreto y a tu medida.
+            Envía un mensaje y conecta en segundos. Todo verificado, discreto y a tu medida.
           </motion.p>
 
           <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp} className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -311,7 +311,8 @@ export default function HomePage() {
               href="/servicios"
               className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-semibold shadow-[0_12px_40px_rgba(168,85,247,0.25)] transition-all duration-200 hover:scale-[1.03] sm:w-auto"
             >
-              Explorar ahora
+              <MessageCircle className="h-4 w-4" />
+              Explorar y conectar
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
             <a
@@ -347,13 +348,14 @@ export default function HomePage() {
           <Stories />
         </section>
 
-        {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}
+        {/* ═══ DISPONIBLE AHORA — Con botón mensaje ═══ */}
         {availableProfiles.length > 0 && (
           <section className="mb-8">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock3 className="h-4 w-4 text-emerald-400" />
                 <h2 className="text-base font-bold">Disponibles ahora</h2>
+                <span className="animate-pulse rounded-full bg-emerald-500/20 border border-emerald-400/20 px-2 py-0.5 text-[9px] text-emerald-300 font-medium">EN VIVO</span>
               </div>
               <Link href="/servicios?sort=availableNow" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -361,24 +363,36 @@ export default function HomePage() {
             </div>
             <div className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x">
               {availableProfiles.slice(0, 8).map((p) => (
-                <button
+                <div
                   key={p.id}
-                  type="button"
-                  onClick={() => setPreviewProfile(p)}
-                  className="group w-[130px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] text-left transition hover:border-fuchsia-500/20"
+                  className="group w-[140px] shrink-0 snap-start overflow-hidden rounded-xl border border-emerald-500/20 bg-white/[0.03] text-left transition hover:border-emerald-400/40 hover:-translate-y-0.5"
                 >
-                  <div className="relative aspect-[3/4] overflow-hidden">
-                    <img src={resolveProfileImage(p)} alt={p.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
-                    <div className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-200 border border-emerald-300/20">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-                      Online
+                  <button
+                    type="button"
+                    onClick={() => setPreviewProfile(p)}
+                    className="block w-full text-left"
+                  >
+                    <div className="relative aspect-[3/4] overflow-hidden">
+                      <img src={resolveProfileImage(p)} alt={p.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
+                      <div className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-emerald-500/90 px-1.5 py-0.5 text-[9px] text-white font-bold shadow">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                        Online
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                      <div className="absolute bottom-1.5 left-1.5 right-1.5">
+                        <div className="truncate text-xs font-semibold">{p.displayName}{p.age ? `, ${p.age}` : ""}</div>
+                      </div>
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute bottom-1.5 left-1.5 right-1.5">
-                      <div className="truncate text-xs font-semibold">{p.displayName}{p.age ? `, ${p.age}` : ""}</div>
-                    </div>
+                  </button>
+                  <div className="p-1.5">
+                    <Link
+                      href={chatHrefFor(p.id, p.userId, isAuthed)}
+                      className="flex w-full items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 py-1.5 text-[10px] font-semibold transition hover:brightness-110"
+                    >
+                      <MessageCircle className="h-3 w-3" /> Mensaje
+                    </Link>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </section>
@@ -395,6 +409,11 @@ export default function HomePage() {
                 <div className="flex items-center gap-2">
                   <Icon className={`h-5 w-5 bg-gradient-to-r ${tier.gradient} bg-clip-text text-transparent`} />
                   <h2 className="text-xl font-bold">{tier.label}</h2>
+                  {tier.key !== "SILVER" && (
+                    <span className={`rounded-full border ${tier.key === "DIAMOND" ? "border-cyan-400/20 bg-cyan-500/10 text-cyan-300" : "border-amber-400/20 bg-amber-500/10 text-amber-300"} px-2 py-0.5 text-[9px] font-medium`}>
+                      Premium
+                    </span>
+                  )}
                 </div>
                 <Link href="/profesionales" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
                   Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -403,47 +422,64 @@ export default function HomePage() {
               <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
                 {profiles.map((p) => (
                   <motion.div key={p.id} variants={cardFade} className="w-[70vw] shrink-0 snap-start sm:w-auto">
-                    <button
-                      type="button"
-                      onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
-                      className={`group relative block w-full overflow-hidden rounded-2xl border ${tier.border} bg-white/[0.03] text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]`}
-                    >
-                      <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
-                        {p.avatarUrl || p.coverUrl ? (
-                          <img
-                            src={resolveProfileImage(p)}
-                            alt={p.name}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-30" />
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                        {p.distance != null && (
-                          <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80 backdrop-blur-xl">
-                            <MapPin className="h-3 w-3" />
-                            {p.distance.toFixed(1)} km
-                          </div>
-                        )}
-                        <UserLevelBadge level={p.userLevel} className="absolute left-3 top-3 px-2.5 py-1 text-[11px]" />
-                        {p.availableNow && (
-                          <div className="absolute left-3 bottom-12 flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-300/20 px-2 py-0.5 text-[10px] text-emerald-200">
-                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-                            Disponible
-                          </div>
-                        )}
-                        <div className="absolute bottom-0 left-0 right-0 p-4">
-                          <h3 className="text-lg font-semibold leading-tight">{p.name}</h3>
-                          <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
-                            {p.age && <span>{p.age} años</span>}
-                            <span>{formatLastSeenLabel(p.lastSeen)}</span>
+                    <div className={`group relative overflow-hidden rounded-2xl border-2 ${tier.border} bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 ${tier.glow}`}>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
+                        className="block w-full text-left"
+                      >
+                        <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                          {p.avatarUrl || p.coverUrl ? (
+                            <img
+                              src={resolveProfileImage(p)}
+                              alt={p.name}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center">
+                              <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-30" />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                          {p.distance != null && (
+                            <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80 backdrop-blur-xl">
+                              <MapPin className="h-3 w-3" />
+                              {p.distance < 1 ? `${Math.round(p.distance * 1000)}m` : `${p.distance.toFixed(1)} km`}
+                            </div>
+                          )}
+                          <UserLevelBadge level={p.userLevel} className="absolute left-3 top-3 px-2.5 py-1 text-[11px] shadow" />
+                          {p.availableNow && (
+                            <div className="absolute left-3 bottom-14 flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] text-white font-bold shadow">
+                              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                              Online
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 p-4">
+                            <h3 className="text-lg font-semibold leading-tight">{p.name}</h3>
+                            <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
+                              {p.age && <span>{p.age} años</span>}
+                              <span>{formatLastSeenLabel(p.lastSeen)}</span>
+                            </div>
                           </div>
                         </div>
+                      </button>
+                      {/* CTA row */}
+                      <div className="flex gap-2 p-2">
+                        <Link
+                          href={chatHrefFor(p.id, p.userId, isAuthed)}
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-xs font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" /> Enviar mensaje
+                        </Link>
+                        <Link
+                          href={`/profesional/${p.id}`}
+                          className="flex items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-xs text-white/60 hover:bg-white/10 transition"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Link>
                       </div>
-                    </button>
+                    </div>
                   </motion.div>
                 ))}
               </div>
@@ -469,31 +505,52 @@ export default function HomePage() {
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
               {recentPros.slice(0, 8).map((p) => (
                 <motion.div key={p.id} variants={cardFade} className="w-[65vw] shrink-0 snap-start sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
-                    className="group relative block w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] text-left transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20"
-                  >
-                    <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
-                      <img
-                        src={resolveProfileImage(p)}
-                        alt={p.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-                      {p.distance != null && (
-                        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
-                          <MapPin className="h-3 w-3" /> {p.distance.toFixed(1)} km
+                  <div className={`group overflow-hidden rounded-2xl border ${tierBorder(p.userLevel)} bg-white/[0.03] transition-all duration-200 hover:-translate-y-1`}>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
+                      className="block w-full text-left"
+                    >
+                      <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                        <img
+                          src={resolveProfileImage(p)}
+                          alt={p.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                        {p.distance != null && (
+                          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80 backdrop-blur">
+                            <MapPin className="h-3 w-3" /> {p.distance < 1 ? `${Math.round(p.distance * 1000)}m` : `${p.distance.toFixed(1)} km`}
+                          </div>
+                        )}
+                        <UserLevelBadge level={p.userLevel} className="absolute left-2 top-2 px-2 py-0.5 text-[10px]" />
+                        {p.availableNow && (
+                          <div className="absolute left-2 bottom-12 flex items-center gap-1 rounded-full bg-emerald-500/90 px-1.5 py-0.5 text-[9px] text-white font-bold shadow">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
+                          </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 p-3">
+                          <h3 className="text-sm font-semibold leading-tight">{p.name}{p.age ? `, ${p.age}` : ""}</h3>
+                          <div className="mt-0.5 text-[10px] text-white/50">{formatLastSeenLabel(p.lastSeen)}</div>
                         </div>
-                      )}
-                      <UserLevelBadge level={p.userLevel} className="absolute left-2 top-2 px-2 py-0.5 text-[10px]" />
-                      <div className="absolute bottom-0 left-0 right-0 p-3">
-                        <h3 className="text-sm font-semibold leading-tight">{p.name}{p.age ? `, ${p.age}` : ""}</h3>
-                        <div className="mt-0.5 text-[10px] text-white/50">{formatLastSeenLabel(p.lastSeen)}</div>
                       </div>
+                    </button>
+                    <div className="flex gap-1.5 p-1.5">
+                      <Link
+                        href={chatHrefFor(p.id, p.userId, isAuthed)}
+                        className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2 text-[11px] font-semibold transition hover:brightness-110"
+                      >
+                        <MessageCircle className="h-3 w-3" /> Mensaje
+                      </Link>
+                      <Link
+                        href={`/profesional/${p.id}`}
+                        className="flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[11px] text-white/60 hover:bg-white/10 transition"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Link>
                     </div>
-                  </button>
+                  </div>
                 </motion.div>
               ))}
             </div>
@@ -517,7 +574,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* ═══ CERCA DE TI — Grid for abundance ═══ */}
+        {/* ═══ CERCA DE TI ═══ */}
         {nearProfiles.length > 0 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
@@ -531,26 +588,44 @@ export default function HomePage() {
             </motion.div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {nearProfiles.map((profile) => (
-                <motion.article key={profile.id} variants={cardFade} className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20">
+                <motion.article key={profile.id} variants={cardFade} className={`group overflow-hidden rounded-2xl border ${tierBorder(profile.userLevel)} bg-white/[0.03] transition-all duration-200 hover:-translate-y-1`}>
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
                     <div className="relative aspect-[3/4] bg-white/[0.04]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
                       {profile.distanceKm != null && (
-                        <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
-                          {profile.distanceKm.toFixed(1)} km
+                        <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80 backdrop-blur">
+                          <MapPin className="mr-0.5 inline h-3 w-3" />
+                          {profile.distanceKm < 1 ? `${Math.round(profile.distanceKm * 1000)}m` : `${profile.distanceKm.toFixed(1)}km`}
                         </div>
                       )}
                       {profile.availableNow && (
-                        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-200">
-                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Online
+                        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-emerald-500/90 px-1.5 py-0.5 text-[9px] text-white font-bold shadow">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
+                        <div className="flex items-center gap-1">
+                          <span className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</span>
+                          <UserLevelBadge level={profile.userLevel} className="shrink-0 px-1 py-0 text-[8px]" />
+                        </div>
                       </div>
                     </div>
                   </button>
+                  <div className="flex gap-1.5 p-1.5">
+                    <Link
+                      href={chatHrefFor(profile.id, profile.userId, isAuthed)}
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2 text-[11px] font-semibold transition hover:brightness-110"
+                    >
+                      <MessageCircle className="h-3 w-3" /> Mensaje
+                    </Link>
+                    <Link
+                      href={`/profesional/${profile.id}`}
+                      className="flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[11px] text-white/60 hover:bg-white/10 transition"
+                    >
+                      <Eye className="h-3 w-3" />
+                    </Link>
+                  </div>
                 </motion.article>
               ))}
             </div>
@@ -571,11 +646,16 @@ export default function HomePage() {
             </motion.div>
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
               {newProfiles.map((profile) => (
-                <motion.article key={profile.id} variants={cardFade} className="group w-[65vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto">
+                <motion.article key={profile.id} variants={cardFade} className={`group w-[65vw] shrink-0 snap-start overflow-hidden rounded-2xl border ${tierBorder(profile.userLevel)} bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 sm:w-auto`}>
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
                     <div className="relative aspect-[3/4] bg-white/[0.04]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
                       <UserLevelBadge level={profile.userLevel} className="absolute right-2 top-2 px-2 py-0.5 text-[10px]" />
+                      {profile.availableNow && (
+                        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-emerald-500/90 px-1.5 py-0.5 text-[9px] text-white font-bold shadow">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
                         <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
@@ -583,6 +663,20 @@ export default function HomePage() {
                       </div>
                     </div>
                   </button>
+                  <div className="flex gap-1.5 p-1.5">
+                    <Link
+                      href={chatHrefFor(profile.id, profile.userId, isAuthed)}
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2 text-[11px] font-semibold transition hover:brightness-110"
+                    >
+                      <MessageCircle className="h-3 w-3" /> Mensaje
+                    </Link>
+                    <Link
+                      href={`/profesional/${profile.id}`}
+                      className="flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[11px] text-white/60 hover:bg-white/10 transition"
+                    >
+                      <Eye className="h-3 w-3" />
+                    </Link>
+                  </div>
                 </motion.article>
               ))}
             </div>
@@ -600,14 +694,14 @@ export default function HomePage() {
             </motion.div>
             <motion.div variants={cardFade} className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
               {recentPros.slice(6, 12).map((p) => (
-                <Link key={`trend-${p.id}`} href={`/profesional/${p.id}`} className="group flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-white/[0.06]">
-                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-white/5 to-transparent">
+                <div key={`trend-${p.id}`} className="group flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-white/[0.06]">
+                  <Link href={`/profesional/${p.id}`} className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-white/5 to-transparent">
                     {p.avatarUrl ? (
                       <img src={resolveMediaUrl(p.avatarUrl) ?? undefined} alt={p.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" />
                     ) : (
                       <div className="flex h-full items-center justify-center"><img src="/brand/isotipo-new.png" alt="" className="h-7 w-7 opacity-30" /></div>
                     )}
-                  </div>
+                  </Link>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold">{p.name}</div>
                     <div className="mt-0.5 flex items-center gap-2 text-xs text-white/45">
@@ -615,30 +709,35 @@ export default function HomePage() {
                       {p.distance != null && <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{p.distance.toFixed(1)} km</span>}
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-white/20 transition group-hover:text-fuchsia-400" />
-                </Link>
+                  <Link
+                    href={chatHrefFor(p.id, p.userId, isAuthed)}
+                    className="shrink-0 flex items-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-2 text-[11px] font-semibold transition hover:brightness-110"
+                  >
+                    <MessageCircle className="h-3 w-3" />
+                    <span className="hidden sm:inline">Mensaje</span>
+                  </Link>
+                </div>
               ))}
             </motion.div>
           </motion.section>
         )}
 
         {/* ═══ CTA — Registration ═══ */}
-        <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-fuchsia-600/[0.08] via-violet-600/[0.05] to-transparent p-8 text-center md:p-10">
-          <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/10 blur-[80px]" />
-          <h2 className="text-xl font-bold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
-          <p className="mx-auto mt-3 max-w-md text-sm text-white/50">Crea tu cuenta gratis y descubre lo mejor cerca de ti.</p>
-          <div className="mt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link href="/register?type=CLIENT" className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-semibold shadow-[0_12px_40px_rgba(168,85,247,0.25)] transition-all duration-200 hover:scale-[1.03] sm:w-auto">
-              Registro Cliente <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link href="/register?type=PROFESSIONAL" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/10 px-6 py-3 text-sm font-semibold text-fuchsia-200 transition hover:bg-fuchsia-500/20 sm:w-auto">
-              Registro Profesional
-            </Link>
-            <Link href="/register?type=ESTABLISHMENT" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-6 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.08] sm:w-auto">
-              Registro Comercio
-            </Link>
-          </div>
-        </motion.section>
+        {!isAuthed && (
+          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-600/[0.08] via-violet-600/[0.05] to-transparent p-8 text-center md:p-10">
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/10 blur-[80px]" />
+            <h2 className="text-xl font-bold tracking-tight md:text-2xl">Regístrate y conecta ahora</h2>
+            <p className="mx-auto mt-3 max-w-md text-sm text-white/50">Crea tu cuenta gratis para enviar mensajes, guardar favoritos y descubrir experiencias.</p>
+            <div className="mt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <Link href="/register?type=CLIENT" className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-semibold shadow-[0_12px_40px_rgba(168,85,247,0.25)] transition-all duration-200 hover:scale-[1.03] sm:w-auto">
+                <MessageCircle className="h-4 w-4" /> Registro gratis <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link href="/register?type=PROFESSIONAL" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/10 px-6 py-3 text-sm font-semibold text-fuchsia-200 transition hover:bg-fuchsia-500/20 sm:w-auto">
+                Soy profesional
+              </Link>
+            </div>
+          </motion.section>
+        )}
       </div>
 
       {/* Profile Preview Modal */}
