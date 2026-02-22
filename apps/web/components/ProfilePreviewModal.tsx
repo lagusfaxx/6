@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
-import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcase, ImageIcon, Loader2 } from "lucide-react";
+import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcase, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import UserLevelBadge from "./UserLevelBadge";
 import useMe from "../hooks/useMe";
@@ -92,7 +92,6 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
         });
       })
       .catch(() => {
-        // Use whatever we have from the preview data
         if (!cancelled) setFullProfile(null);
       })
       .finally(() => {
@@ -120,7 +119,6 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
   const uniqueImages = [...new Set(images)];
 
   const [currentImage, setCurrentImage] = useState(0);
-  const [activeTab, setActiveTab] = useState<"info" | "gallery">("info");
   const dist = profile.distance ?? profile.distanceKm;
 
   const chatHref = isAuthed
@@ -154,7 +152,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className={`relative w-full max-w-md overflow-hidden rounded-t-3xl sm:rounded-3xl border border-white/[0.1] bg-[#0e0e12] ${tierGlow} max-h-[92vh] sm:max-h-[85vh] flex flex-col`}
+        className={`relative w-full sm:max-w-md overflow-hidden rounded-t-3xl sm:rounded-3xl border border-white/[0.1] bg-[#0e0e12] ${tierGlow} max-h-[90vh] sm:max-h-[85vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close */}
@@ -166,8 +164,8 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
           <X className="h-4 w-4" />
         </button>
 
-        {/* Image gallery */}
-        <div className="relative aspect-[4/5] max-h-[45vh] sm:max-h-[40vh] bg-white/5 shrink-0">
+        {/* Main image with navigation */}
+        <div className="relative aspect-[4/5] max-h-[35vh] sm:max-h-[40vh] bg-white/5 shrink-0">
           {uniqueImages.length > 0 ? (
             <>
               <img
@@ -180,20 +178,20 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                   <button
                     type="button"
                     onClick={() => setCurrentImage((i) => (i > 0 ? i - 1 : uniqueImages.length - 1))}
-                    className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition"
+                    className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setCurrentImage((i) => (i < uniqueImages.length - 1 ? i + 1 : 0))}
-                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition"
+                    className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
                   {/* Progress dots */}
                   <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-                    {uniqueImages.slice(0, 10).map((_, i) => (
+                    {uniqueImages.slice(0, 8).map((_, i) => (
                       <button
                         key={i}
                         type="button"
@@ -201,8 +199,8 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                         className={`h-1.5 rounded-full transition-all ${i === currentImage ? "w-4 bg-white/80" : "w-1.5 bg-white/30"}`}
                       />
                     ))}
-                    {uniqueImages.length > 10 && (
-                      <span className="text-[9px] text-white/50 ml-1">+{uniqueImages.length - 10}</span>
+                    {uniqueImages.length > 8 && (
+                      <span className="text-[9px] text-white/50 ml-1">+{uniqueImages.length - 8}</span>
                     )}
                   </div>
                 </>
@@ -220,7 +218,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
           {/* Info overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4">
             <div className="flex items-center gap-2">
-              <h3 className="text-xl font-bold">
+              <h3 className="text-lg font-bold sm:text-xl">
                 {fullProfile?.displayName || profile.displayName || profile.username}
                 {(fullProfile?.age || profile.age) ? `, ${fullProfile?.age || profile.age}` : ""}
               </h3>
@@ -247,27 +245,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-white/[0.06] shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveTab("info")}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition ${activeTab === "info" ? "text-fuchsia-300 border-b-2 border-fuchsia-500" : "text-white/50 hover:text-white/70"}`}
-          >
-            <Tag className="h-3.5 w-3.5" />
-            Perfil y Servicios
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("gallery")}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition ${activeTab === "gallery" ? "text-fuchsia-300 border-b-2 border-fuchsia-500" : "text-white/50 hover:text-white/70"}`}
-          >
-            <ImageIcon className="h-3.5 w-3.5" />
-            Galería {uniqueImages.length > 0 && <span className="text-[10px] text-white/30">({uniqueImages.length})</span>}
-          </button>
-        </div>
-
-        {/* Scrollable content */}
+        {/* Scrollable content - no tabs, everything in one view */}
         <div className="flex-1 overflow-y-auto min-h-0">
           {loadingFull && (
             <div className="flex items-center justify-center py-6">
@@ -275,92 +253,84 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
             </div>
           )}
 
-          {activeTab === "info" && (
-            <div className="p-4 space-y-4">
-              {/* Bio */}
-              {(fullProfile?.description || profile.bio) && (
-                <div>
-                  <p className="text-xs text-white/60 line-clamp-4">{fullProfile?.description || profile.bio}</p>
-                </div>
-              )}
+          <div className="p-4 space-y-4">
+            {/* Bio */}
+            {(fullProfile?.description || profile.bio) && (
+              <div>
+                <p className="text-xs text-white/60 leading-relaxed line-clamp-4">{fullProfile?.description || profile.bio}</p>
+              </div>
+            )}
 
-              {/* Profile tags - "¿Cómo defines tu perfil?" */}
-              {displayTags.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Tag className="h-3.5 w-3.5 text-fuchsia-400" />
-                    <span className="text-xs font-semibold text-white/80">¿Cómo define su perfil?</span>
+            {/* Profile tags */}
+            {displayTags.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Tag className="h-3.5 w-3.5 text-fuchsia-400" />
+                  <span className="text-xs font-semibold text-white/80">¿Cómo define su perfil?</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {displayTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-300"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Service tags */}
+            {allServiceTags.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Briefcase className="h-3.5 w-3.5 text-violet-400" />
+                  <span className="text-xs font-semibold text-white/80">Servicios que ofrece</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {allServiceTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-300"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quick stats */}
+            {(fullProfile?.baseRate || fullProfile?.heightCm) && (
+              <div className="flex gap-3">
+                {fullProfile.baseRate && (
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-center">
+                    <div className="text-sm font-bold text-white">${fullProfile.baseRate.toLocaleString()}</div>
+                    <div className="text-[10px] text-white/40">Desde</div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {displayTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-300"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                )}
+                {fullProfile.heightCm && (
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-center">
+                    <div className="text-sm font-bold text-white">{fullProfile.heightCm} cm</div>
+                    <div className="text-[10px] text-white/40">Estatura</div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            )}
 
-              {/* Service tags - "Servicios que ofrezco" */}
-              {allServiceTags.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Briefcase className="h-3.5 w-3.5 text-violet-400" />
-                    <span className="text-xs font-semibold text-white/80">Servicios que ofrece</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {allServiceTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-300"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Quick stats */}
-              {(fullProfile?.baseRate || fullProfile?.heightCm) && (
-                <div className="flex gap-3">
-                  {fullProfile.baseRate && (
-                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-center">
-                      <div className="text-sm font-bold text-white">${fullProfile.baseRate.toLocaleString()}</div>
-                      <div className="text-[10px] text-white/40">Desde</div>
-                    </div>
-                  )}
-                  {fullProfile.heightCm && (
-                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-center">
-                      <div className="text-sm font-bold text-white">{fullProfile.heightCm} cm</div>
-                      <div className="text-[10px] text-white/40">Estatura</div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* No tags fallback */}
-              {!loadingFull && displayTags.length === 0 && allServiceTags.length === 0 && !fullProfile?.description && !profile.bio && (
-                <div className="py-4 text-center text-xs text-white/30">
-                  Visita el perfil completo para más información
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === "gallery" && (
-            <div className="p-3">
-              {uniqueImages.length > 0 ? (
+            {/* Gallery grid - always visible, no tab needed */}
+            {uniqueImages.length > 1 && (
+              <div>
                 <div className="grid grid-cols-3 gap-1.5">
                   {uniqueImages.map((src, i) => (
                     <button
                       key={i}
                       type="button"
-                      onClick={() => { setCurrentImage(i); setActiveTab("info"); }}
-                      className="group relative aspect-square overflow-hidden rounded-lg bg-white/5"
+                      onClick={() => setCurrentImage(i)}
+                      className={`group relative aspect-square overflow-hidden rounded-lg bg-white/5 ${
+                        i === currentImage ? "ring-2 ring-fuchsia-500/50" : ""
+                      }`}
                     >
                       <img
                         src={src}
@@ -371,13 +341,16 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                     </button>
                   ))}
                 </div>
-              ) : (
-                <div className="py-8 text-center text-xs text-white/30">
-                  Sin fotos disponibles
-                </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+
+            {/* No content fallback */}
+            {!loadingFull && displayTags.length === 0 && allServiceTags.length === 0 && !fullProfile?.description && !profile.bio && uniqueImages.length <= 1 && (
+              <div className="py-4 text-center text-xs text-white/30">
+                Visita el perfil completo para más información
+              </div>
+            )}
+          </div>
         </div>
 
         {/* CTAs */}
