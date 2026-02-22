@@ -12,7 +12,7 @@ import BackButton from "./BackButton";
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
- * Auth pages deben ser "distraction-free".
+ * Auth pages y dashboard/services (Creator Studio) son distraction-free.
  */
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
@@ -23,6 +23,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/forgot-password";
 
   const isHome = pathname === "/";
+
+  // Dashboard routes: hide main header/nav so the Creator Studio has its own layout
+  const isDashboardRoute = pathname.startsWith("/dashboard");
 
   // iOS Safari: evita "auto text sizing" que agranda botones/textos
   const iosTextSizeFix: React.CSSProperties = {
@@ -42,6 +45,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Dashboard: minimal chrome, no header/nav, just the page content
+  if (isDashboardRoute) {
+    return (
+      <LocationFilterProvider>
+        <div
+          style={iosTextSizeFix}
+          className="min-h-[100svh] w-full bg-transparent text-white"
+        >
+          <PushNotificationsManager />
+          <PresenceHeartbeat />
+          <main className="min-h-[100svh]">
+            {children}
+          </main>
+        </div>
+      </LocationFilterProvider>
+    );
+  }
+
   return (
     <LocationFilterProvider>
       <div
@@ -55,8 +76,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <PushNotificationsManager />
           <PresenceHeartbeat />
           {!isHome && <BackButton />}
-          {/* padding-bottom con safe-area para que no se "corte" en iPhone — extra for category chips row */}
-          <main className="flex-1 px-4 pt-[120px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[130px] md:pb-6">
+          {/* Reduced pt since we removed the category chips row from mobile header */}
+          <main className="flex-1 px-4 pt-[76px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[90px] md:pb-6">
             {children}
           </main>
           <Footer />
