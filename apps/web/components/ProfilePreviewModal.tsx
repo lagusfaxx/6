@@ -165,7 +165,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
         </button>
 
         {/* Main image with navigation */}
-        <div className="relative aspect-[4/5] max-h-[35vh] sm:max-h-[40vh] bg-white/5 shrink-0">
+        <div className="relative w-full h-[35vh] sm:h-[40vh] bg-white/5 shrink-0">
           {uniqueImages.length > 0 ? (
             <>
               <img
