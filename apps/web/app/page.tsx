@@ -150,6 +150,7 @@ export default function HomePage() {
   const [recentLoading, setRecentLoading] = useState(true);
   const { me } = useMe();
   const [previewProfile, setPreviewProfile] = useState<any>(null);
+  const isAuthed = Boolean(me?.user?.id);
 
   useEffect(() => {
     (async () => {
@@ -342,10 +343,12 @@ export default function HomePage() {
           <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>
         )}
 
-        {/* ═══ STORIES ═══ */}
-        <section className="mb-8">
-          <Stories />
-        </section>
+        {/* ═══ STORIES (only for logged-in users) ═══ */}
+        {isAuthed && (
+          <section className="mb-8">
+            <Stories />
+          </section>
+        )}
 
         {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}
         {availableProfiles.length > 0 && (
@@ -622,23 +625,25 @@ export default function HomePage() {
           </motion.section>
         )}
 
-        {/* ═══ CTA — Registration ═══ */}
-        <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-fuchsia-600/[0.08] via-violet-600/[0.05] to-transparent p-8 text-center md:p-10">
-          <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/10 blur-[80px]" />
-          <h2 className="text-xl font-bold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
-          <p className="mx-auto mt-3 max-w-md text-sm text-white/50">Crea tu cuenta gratis y descubre lo mejor cerca de ti.</p>
-          <div className="mt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link href="/register?type=CLIENT" className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-semibold shadow-[0_12px_40px_rgba(168,85,247,0.25)] transition-all duration-200 hover:scale-[1.03] sm:w-auto">
-              Registro Cliente <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link href="/register?type=PROFESSIONAL" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/10 px-6 py-3 text-sm font-semibold text-fuchsia-200 transition hover:bg-fuchsia-500/20 sm:w-auto">
-              Registro Profesional
-            </Link>
-            <Link href="/register?type=ESTABLISHMENT" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-6 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.08] sm:w-auto">
-              Registro Comercio
-            </Link>
-          </div>
-        </motion.section>
+        {/* ═══ CTA — Registration (guests only) ═══ */}
+        {!isAuthed && (
+          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-fuchsia-600/[0.08] via-violet-600/[0.05] to-transparent p-8 text-center md:p-10">
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/10 blur-[80px]" />
+            <h2 className="text-xl font-bold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
+            <p className="mx-auto mt-3 max-w-md text-sm text-white/50">Crea tu cuenta gratis y descubre lo mejor cerca de ti.</p>
+            <div className="mt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <Link href="/register?type=CLIENT" className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-semibold shadow-[0_12px_40px_rgba(168,85,247,0.25)] transition-all duration-200 hover:scale-[1.03] sm:w-auto">
+                Registro Cliente <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link href="/register?type=PROFESSIONAL" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/10 px-6 py-3 text-sm font-semibold text-fuchsia-200 transition hover:bg-fuchsia-500/20 sm:w-auto">
+                Registro Profesional
+              </Link>
+              <Link href="/register?type=ESTABLISHMENT" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-6 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.08] sm:w-auto">
+                Registro Comercio
+              </Link>
+            </div>
+          </motion.section>
+        )}
       </div>
 
       {/* Profile Preview Modal */}

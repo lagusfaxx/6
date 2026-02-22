@@ -120,3 +120,121 @@ adminRouter.post("/admin/banners/upload", requireAdmin, upload.single("file"), a
   res.json({ url });
 });
 
+// ----------------------------
+// PROFILES (Admin Management)
+// ----------------------------
+
+// List all profiles with filtering
+adminRouter.get("/admin/profiles", requireAdmin, async (req, res) => {
+  const { profileType, isActive, q, limit, offset } = req.query as Record<string, string | undefined>;
+  const take = Math.min(parseInt(limit || "50", 10) || 50, 200);
+  const skip = parseInt(offset || "0", 10) || 0;
+
+  const where: any = {};
+  if (profileType) where.profileType = profileType;
+  if (isActive !== undefined) where.isActive = isActive === "true";
+  if (q) {
+    where.OR = [
+      { displayName: { contains: q, mode: "insensitive" } },
+      { username: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const [profiles, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        coverUrl: true,
+        profileType: true,
+        isActive: true,
+        isOnline: true,
+        lastSeen: true,
+        city: true,
+        tier: true,
+        role: true,
+        membershipExpiresAt: true,
+        completedServices: true,
+        profileViews: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take,
+      skip,
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  res.json({ profiles, total });
+});
+
+// Toggle profile active status
+adminRouter.put("/admin/profiles/:id/toggle", requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const user = await prisma.user.findUnique({ where: { id }, select: { isActive: true } });
+  if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { isActive: !user.isActive },
+    select: { id: true, username: true, isActive: true },
+  });
+  res.json({ profile: updated });
+});
+
+// Update profile fields (admin override)
+adminRouter.put("/admin/profiles/:id", requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { isActive, tier, role, membershipExpiresAt } = req.body ?? {};
+
+  const data: any = {};
+  if (isActive !== undefined) data.isActive = Boolean(isActive);
+  if (tier !== undefined) data.tier = tier;
+  if (role !== undefined) data.role = role;
+  if (membershipExpiresAt !== undefined) {
+    data.membershipExpiresAt = membershipExpiresAt ? new Date(membershipExpiresAt) : null;
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data,
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      isActive: true,
+      tier: true,
+      role: true,
+      membershipExpiresAt: true,
+    },
+  });
+  res.json({ profile: updated });
+});
+
+// Delete profile permanently
+adminRouter.delete("/admin/profiles/:id", requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+  // Delete in proper order to handle foreign key constraints
+  await prisma.$transaction(async (tx) => {
+    await tx.notification.deleteMany({ where: { userId: id } });
+    await tx.story.deleteMany({ where: { userId: id } });
+    await tx.pushSubscription.deleteMany({ where: { userId: id } });
+    await tx.favorite.deleteMany({ where: { OR: [{ userId: id }, { professionalId: id }] } });
+    await tx.profileMedia.deleteMany({ where: { userId: id } });
+    await tx.serviceItem.deleteMany({ where: { userId: id } });
+    await tx.message.deleteMany({ where: { OR: [{ senderId: id }, { receiverId: id }] } });
+    await tx.user.delete({ where: { id } });
+  });
+
+  res.json({ ok: true });
+});
+

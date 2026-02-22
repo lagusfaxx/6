@@ -15,14 +15,18 @@ export default function AdminIndex() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 text-white">
       <h1 className="text-2xl font-semibold">Panel Admin</h1>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Link href="/admin/profiles" className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition">
+          <div className="text-lg font-semibold">Perfiles</div>
+          <div className="text-sm text-white/70">Activar, desactivar y eliminar perfiles.</div>
+        </Link>
+        <Link href="/admin/banners" className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition">
+          <div className="text-lg font-semibold">Banners Publicitarios</div>
+          <div className="text-sm text-white/70">Fotos y videos promocionales.</div>
+        </Link>
         <Link href="/admin/pricing" className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition">
           <div className="text-lg font-semibold">Precios</div>
           <div className="text-sm text-white/70">Planes y reglas.</div>
-        </Link>
-        <Link href="/admin/banners" className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition">
-          <div className="text-lg font-semibold">Banners Home</div>
-          <div className="text-sm text-white/70">Publicidad lateral gestionable.</div>
         </Link>
       </div>
     </div>
