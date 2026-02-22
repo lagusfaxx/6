@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { resolveMediaUrl } from "../lib/api";
-import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye } from "lucide-react";
-import { useState } from "react";
+import { apiFetch, resolveMediaUrl } from "../lib/api";
+import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcase, ImageIcon, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import UserLevelBadge from "./UserLevelBadge";
 import useMe from "../hooks/useMe";
 
@@ -23,21 +23,104 @@ type Props = {
     serviceCategory?: string | null;
     bio?: string | null;
     userId?: string | null;
+    profileTags?: string[] | null;
+    serviceTags?: string[] | null;
   };
   onClose: () => void;
+};
+
+type FullProfile = {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  coverUrl: string | null;
+  description: string | null;
+  age: number | null;
+  city: string | null;
+  serviceCategory: string | null;
+  userLevel: string;
+  profileTags: string[];
+  serviceTags: string[];
+  serviceStyleTags: string | null;
+  normalizedTags: string[];
+  gallery: { url: string; type: string }[];
+  baseRate: number | null;
+  heightCm: number | null;
+  gender: string | null;
+  availableNow?: boolean;
 };
 
 export default function ProfilePreviewModal({ profile, onClose }: Props) {
   const { me } = useMe();
   const isAuthed = Boolean(me?.user?.id);
 
-  const images = [
+  const [fullProfile, setFullProfile] = useState<FullProfile | null>(null);
+  const [loadingFull, setLoadingFull] = useState(true);
+
+  // Fetch full profile details
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingFull(true);
+    apiFetch<any>(`/professionals/${profile.id}`)
+      .then((res) => {
+        if (cancelled) return;
+        const p = res?.professional || res;
+        setFullProfile({
+          id: p.id,
+          username: p.username || profile.username,
+          displayName: p.displayName || p.name || profile.displayName,
+          avatarUrl: p.avatarUrl,
+          coverUrl: p.coverUrl,
+          description: p.description || p.bio || null,
+          age: p.age || profile.age || null,
+          city: p.city || null,
+          serviceCategory: p.serviceCategory || p.serviceSummary || profile.serviceCategory || null,
+          userLevel: p.userLevel || profile.userLevel || "SILVER",
+          profileTags: p.profileTags || p.normalizedTags?.filter((_: any, i: number) => i < 10) || profile.profileTags || [],
+          serviceTags: p.serviceTags || profile.serviceTags || [],
+          serviceStyleTags: p.serviceStyleTags || null,
+          normalizedTags: p.normalizedTags || [],
+          gallery: (p.gallery || []).map((g: any) => ({
+            url: typeof g === "string" ? g : g.url,
+            type: typeof g === "string" ? "IMAGE" : (g.type || "IMAGE"),
+          })),
+          baseRate: p.baseRate || null,
+          heightCm: p.heightCm || null,
+          gender: p.gender || null,
+          availableNow: p.isOnline || p.availableNow || profile.availableNow,
+        });
+      })
+      .catch(() => {
+        // Use whatever we have from the preview data
+        if (!cancelled) setFullProfile(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingFull(false);
+      });
+    return () => { cancelled = true; };
+  }, [profile.id]);
+
+  // Images: combine cover, avatar, and gallery
+  const galleryImages = fullProfile?.gallery
+    ?.map((g) => resolveMediaUrl(g.url))
+    .filter(Boolean) as string[] || [];
+
+  const fallbackImages = [
     resolveMediaUrl(profile.coverUrl),
     resolveMediaUrl(profile.avatarUrl),
     ...(profile.galleryUrls || []).map((u) => resolveMediaUrl(u)),
   ].filter(Boolean) as string[];
 
+  const images = galleryImages.length > 0
+    ? [resolveMediaUrl(fullProfile?.coverUrl || profile.coverUrl), resolveMediaUrl(fullProfile?.avatarUrl || profile.avatarUrl), ...galleryImages].filter(Boolean) as string[]
+    : fallbackImages;
+
+  // Deduplicate
+  const uniqueImages = [...new Set(images)];
+
   const [currentImage, setCurrentImage] = useState(0);
+  const [activeTab, setActiveTab] = useState<"info" | "gallery">("info");
   const dist = profile.distance ?? profile.distanceKm;
 
   const chatHref = isAuthed
@@ -47,16 +130,31 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
   const profileHref = `/profesional/${profile.id}`;
 
   const tierGlow =
-    profile.userLevel === "DIAMOND"
+    (fullProfile?.userLevel || profile.userLevel) === "DIAMOND"
       ? "shadow-[0_0_30px_rgba(34,211,238,0.15)]"
-      : profile.userLevel === "GOLD"
+      : (fullProfile?.userLevel || profile.userLevel) === "GOLD"
       ? "shadow-[0_0_30px_rgba(251,191,36,0.15)]"
       : "";
+
+  const displayTags = fullProfile?.profileTags?.length
+    ? fullProfile.profileTags
+    : (fullProfile?.normalizedTags?.length ? fullProfile.normalizedTags : (profile.profileTags || []));
+
+  const displayServiceTags = fullProfile?.serviceTags?.length
+    ? fullProfile.serviceTags
+    : (profile.serviceTags || []);
+
+  // Parse serviceStyleTags if tags arrays are empty
+  const parsedStyleTags = (!displayServiceTags.length && fullProfile?.serviceStyleTags)
+    ? fullProfile.serviceStyleTags.split(",").map(t => t.trim()).filter(Boolean)
+    : [];
+
+  const allServiceTags = displayServiceTags.length > 0 ? displayServiceTags : parsedStyleTags;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className={`relative w-full max-w-sm overflow-hidden rounded-t-3xl sm:rounded-3xl border border-white/[0.1] bg-[#0e0e12] ${tierGlow}`}
+        className={`relative w-full max-w-md overflow-hidden rounded-t-3xl sm:rounded-3xl border border-white/[0.1] bg-[#0e0e12] ${tierGlow} max-h-[92vh] sm:max-h-[85vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close */}
@@ -69,33 +167,33 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
         </button>
 
         {/* Image gallery */}
-        <div className="relative aspect-[3/4] max-h-[55vh] bg-white/5">
-          {images.length > 0 ? (
+        <div className="relative aspect-[4/5] max-h-[45vh] sm:max-h-[40vh] bg-white/5 shrink-0">
+          {uniqueImages.length > 0 ? (
             <>
               <img
-                src={images[currentImage]}
+                src={uniqueImages[currentImage % uniqueImages.length]}
                 alt={profile.displayName || profile.username}
                 className="h-full w-full object-cover"
               />
-              {images.length > 1 && (
+              {uniqueImages.length > 1 && (
                 <>
                   <button
                     type="button"
-                    onClick={() => setCurrentImage((i) => (i > 0 ? i - 1 : images.length - 1))}
+                    onClick={() => setCurrentImage((i) => (i > 0 ? i - 1 : uniqueImages.length - 1))}
                     className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCurrentImage((i) => (i < images.length - 1 ? i + 1 : 0))}
+                    onClick={() => setCurrentImage((i) => (i < uniqueImages.length - 1 ? i + 1 : 0))}
                     className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
                   {/* Progress dots */}
                   <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-                    {images.slice(0, 8).map((_, i) => (
+                    {uniqueImages.slice(0, 10).map((_, i) => (
                       <button
                         key={i}
                         type="button"
@@ -103,6 +201,9 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                         className={`h-1.5 rounded-full transition-all ${i === currentImage ? "w-4 bg-white/80" : "w-1.5 bg-white/30"}`}
                       />
                     ))}
+                    {uniqueImages.length > 10 && (
+                      <span className="text-[9px] text-white/50 ml-1">+{uniqueImages.length - 10}</span>
+                    )}
                   </div>
                 </>
               )}
@@ -114,19 +215,19 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
           )}
 
           {/* Overlay gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0e0e12] via-transparent to-transparent" />
 
           {/* Info overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4">
             <div className="flex items-center gap-2">
               <h3 className="text-xl font-bold">
-                {profile.displayName || profile.username}
-                {profile.age ? `, ${profile.age}` : ""}
+                {fullProfile?.displayName || profile.displayName || profile.username}
+                {(fullProfile?.age || profile.age) ? `, ${fullProfile?.age || profile.age}` : ""}
               </h3>
-              <UserLevelBadge level={profile.userLevel as any} className="px-2 py-0.5 text-[10px]" />
+              <UserLevelBadge level={(fullProfile?.userLevel || profile.userLevel) as any} className="px-2 py-0.5 text-[10px]" />
             </div>
-            {profile.serviceCategory && (
-              <div className="mt-1 text-xs text-white/60">{profile.serviceCategory}</div>
+            {(fullProfile?.serviceCategory || profile.serviceCategory) && (
+              <div className="mt-1 text-xs text-white/60">{fullProfile?.serviceCategory || profile.serviceCategory}</div>
             )}
             <div className="mt-1 flex items-center gap-3 text-xs text-white/50">
               {dist != null && (
@@ -135,24 +236,152 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                   {dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)} km`}
                 </span>
               )}
-              {profile.availableNow && (
+              {fullProfile?.city && <span>{fullProfile.city}</span>}
+              {(fullProfile?.availableNow || profile.availableNow) && (
                 <span className="flex items-center gap-1 text-emerald-400">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-                  Disponible ahora
+                  Disponible
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Bio */}
-        {profile.bio && (
-          <div className="px-4 py-3 text-xs text-white/55 line-clamp-3">{profile.bio}</div>
-        )}
+        {/* Tabs */}
+        <div className="flex border-b border-white/[0.06] shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab("info")}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition ${activeTab === "info" ? "text-fuchsia-300 border-b-2 border-fuchsia-500" : "text-white/50 hover:text-white/70"}`}
+          >
+            <Tag className="h-3.5 w-3.5" />
+            Perfil y Servicios
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("gallery")}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition ${activeTab === "gallery" ? "text-fuchsia-300 border-b-2 border-fuchsia-500" : "text-white/50 hover:text-white/70"}`}
+          >
+            <ImageIcon className="h-3.5 w-3.5" />
+            Galería {uniqueImages.length > 0 && <span className="text-[10px] text-white/30">({uniqueImages.length})</span>}
+          </button>
+        </div>
 
-        {/* CTAs - Conversion focused */}
-        <div className="flex gap-2 p-4 pt-2">
-          {/* Primary CTA: Send message */}
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {loadingFull && (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-fuchsia-400" />
+            </div>
+          )}
+
+          {activeTab === "info" && (
+            <div className="p-4 space-y-4">
+              {/* Bio */}
+              {(fullProfile?.description || profile.bio) && (
+                <div>
+                  <p className="text-xs text-white/60 line-clamp-4">{fullProfile?.description || profile.bio}</p>
+                </div>
+              )}
+
+              {/* Profile tags - "¿Cómo defines tu perfil?" */}
+              {displayTags.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Tag className="h-3.5 w-3.5 text-fuchsia-400" />
+                    <span className="text-xs font-semibold text-white/80">¿Cómo define su perfil?</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {displayTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-300"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Service tags - "Servicios que ofrezco" */}
+              {allServiceTags.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Briefcase className="h-3.5 w-3.5 text-violet-400" />
+                    <span className="text-xs font-semibold text-white/80">Servicios que ofrece</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {allServiceTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-300"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick stats */}
+              {(fullProfile?.baseRate || fullProfile?.heightCm) && (
+                <div className="flex gap-3">
+                  {fullProfile.baseRate && (
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-center">
+                      <div className="text-sm font-bold text-white">${fullProfile.baseRate.toLocaleString()}</div>
+                      <div className="text-[10px] text-white/40">Desde</div>
+                    </div>
+                  )}
+                  {fullProfile.heightCm && (
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-center">
+                      <div className="text-sm font-bold text-white">{fullProfile.heightCm} cm</div>
+                      <div className="text-[10px] text-white/40">Estatura</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* No tags fallback */}
+              {!loadingFull && displayTags.length === 0 && allServiceTags.length === 0 && !fullProfile?.description && !profile.bio && (
+                <div className="py-4 text-center text-xs text-white/30">
+                  Visita el perfil completo para más información
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "gallery" && (
+            <div className="p-3">
+              {uniqueImages.length > 0 ? (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {uniqueImages.map((src, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => { setCurrentImage(i); setActiveTab("info"); }}
+                      className="group relative aspect-square overflow-hidden rounded-lg bg-white/5"
+                    >
+                      <img
+                        src={src}
+                        alt=""
+                        className="h-full w-full object-cover transition group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition" />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-xs text-white/30">
+                  Sin fotos disponibles
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* CTAs */}
+        <div className="flex gap-2 p-4 pt-2 border-t border-white/[0.06] shrink-0">
           <Link
             href={chatHref}
             onClick={onClose}
@@ -161,7 +390,6 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
             <MessageCircle className="h-4 w-4" />
             Enviar mensaje
           </Link>
-          {/* Secondary CTA: View profile */}
           <Link
             href={profileHref}
             onClick={onClose}
