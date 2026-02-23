@@ -92,6 +92,24 @@ function splitCsv(value?: string | null) {
   return (value || "").split(",").map((v) => v.trim()).filter(Boolean);
 }
 
+/** Strip emoji and AI-generated filler text from bio/descriptions */
+function cleanProfileText(text: string | null | undefined): string | null {
+  if (!text) return null;
+  let cleaned = text
+    // Remove emoji characters
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, "")
+    // Remove common AI filler phrases
+    .replace(/(\b(hola|hey|bienvenido|bienvenidos)\b[!.,]*\s*(soy|me llamo|mi nombre es)?)/gi, "")
+    .replace(/\b(escríbeme|contáctame|no te arrepentirás|te espero|llámame)\s*(ya|ahora|hoy|pronto|para más info)?[!.]*$/gim, "")
+    // Remove consecutive special chars
+    .replace(/[*_~`]{2,}/g, "")
+    // Collapse whitespace
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+  return cleaned || null;
+}
+
 function isRecentlySeen(lastSeen?: string | null) {
   if (!lastSeen) return false;
   const parsed = Date.parse(lastSeen);
@@ -497,10 +515,10 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           </section>
 
           {/* About */}
-          {professional.description && (
+          {cleanProfileText(professional.description) && (
             <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
-              <h2 className="mb-2 text-base font-semibold text-white/95">Sobre mí</h2>
-              <p className="whitespace-pre-line text-sm leading-relaxed text-white/75">{professional.description}</p>
+              <h2 className="mb-2 text-base font-semibold text-white/95">Sobre mi</h2>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-white/75">{cleanProfileText(professional.description)}</p>
             </section>
           )}
 
@@ -778,10 +796,10 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             </div>
 
             {/* Service summary */}
-            {professional.serviceSummary && (
+            {cleanProfileText(professional.serviceSummary) && (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/45">Descripción del servicio</h3>
-                <p className="text-sm leading-relaxed text-white/70">{professional.serviceSummary}</p>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/45">Descripcion del servicio</h3>
+                <p className="text-sm leading-relaxed text-white/70">{cleanProfileText(professional.serviceSummary)}</p>
               </div>
             )}
           </div>
