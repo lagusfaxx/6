@@ -95,7 +95,7 @@ function splitCsv(value?: string | null) {
 /** Strip emoji and AI-generated filler text from bio/descriptions */
 function cleanProfileText(text: string | null | undefined): string | null {
   if (!text) return null;
-  let cleaned = text
+  const cleaned = text
     // Remove emoji characters
     .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, "")
     // Remove common AI filler phrases
