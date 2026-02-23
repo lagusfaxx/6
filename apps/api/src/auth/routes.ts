@@ -118,6 +118,7 @@ authRouter.post(
       longitude,
       birthdate,
       bio,
+      primaryCategory,
     } = parsed.data;
     const existing = await prisma.user.findFirst({
       where: { OR: [{ email }, { username }] },
@@ -187,6 +188,28 @@ authRouter.post(
       }
     }
 
+    // Resolve category for business profiles
+    let resolvedCategoryId: string | null = null;
+    let resolvedCategoryName: string | null = null;
+    if (primaryCategory && isBusinessProfile) {
+      const cat = await prisma.category.findFirst({
+        where: {
+          OR: [
+            { slug: primaryCategory },
+            { name: { equals: primaryCategory, mode: "insensitive" } },
+            { displayName: { equals: primaryCategory, mode: "insensitive" } },
+          ],
+        },
+        select: { id: true, displayName: true, name: true },
+      });
+      if (cat) {
+        resolvedCategoryId = cat.id;
+        resolvedCategoryName = cat.displayName || cat.name;
+      } else {
+        resolvedCategoryName = primaryCategory;
+      }
+    }
+
     let user;
     try {
       user = await prisma.user.create({
@@ -199,6 +222,9 @@ authRouter.post(
           profileType,
           address: address || null,
           city: city || geocoded?.city || null,
+          primaryCategory: primaryCategory || null,
+          serviceCategory: resolvedCategoryName || null,
+          categoryId: resolvedCategoryId || null,
           latitude: isBusinessProfile
             ? Number(latitude ?? geocoded?.latitude)
             : null,
@@ -222,6 +248,7 @@ authRouter.post(
           isOnline: true,
           lastSeen: new Date(),
           role: "USER",
+          isVerified: !isBusinessProfile,
         },
         select: {
           id: true,
@@ -233,6 +260,7 @@ authRouter.post(
           profileType: true,
           gender: true,
           preferenceGender: true,
+          isVerified: true,
         },
       });
     } catch (err) {
@@ -293,6 +321,7 @@ authRouter.post(
         preferenceGender: user.preferenceGender,
         role: user.role,
         membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null,
+        isVerified: (user as any).isVerified ?? true,
       },
     });
   }),
@@ -352,7 +381,7 @@ authRouter.get(
       availabilityNote: true, baseRate: true, minDurationMinutes: true,
       acceptsIncalls: true, acceptsOutcalls: true, city: true,
       latitude: true, longitude: true, allowFreeMessages: true,
-      birthdate: true,
+      birthdate: true, isVerified: true,
     };
     const extendedSelect = {
       ...baseSelect,

@@ -23,6 +23,7 @@ const PUBLIC_PREFIXES = [
   "/profiles",          // ✅ perfil público por username/slug
   "/stories",           // ✅ stories visibles para invitados en el home
   "/banners",           // ✅ banners públicos en el home
+  "/hot",               // ✅ trending content (Hot section)
   "/webhooks/flow"      // Flow subscription webhooks
 ];
 

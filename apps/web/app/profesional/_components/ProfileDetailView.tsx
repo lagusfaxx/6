@@ -57,6 +57,29 @@ type ReviewComment = {
   author?: { displayName?: string | null; username: string } | null;
 };
 
+type SurveyReview = {
+  id: string;
+  ratingBody: number;
+  ratingFace: number;
+  ratingPhotos: number;
+  ratingService: number;
+  ratingVibe: number;
+  comment: string | null;
+  overallScore: number;
+  createdAt: string;
+  author?: { displayName?: string | null; username: string } | null;
+};
+
+type SurveySummary = {
+  count: number;
+  avgBody: number;
+  avgFace: number;
+  avgPhotos: number;
+  avgService: number;
+  avgVibe: number;
+  avgOverall: number;
+};
+
 const SERVICE_SUBCATEGORIES = [
   "Anal", "Oral", "Vaginal", "Masaje erótico", "Masaje relajante",
   "Tríos", "Packs", "Videollamada", "Despedida de solteros",
@@ -67,6 +90,24 @@ const SERVICE_SUBCATEGORIES = [
 
 function splitCsv(value?: string | null) {
   return (value || "").split(",").map((v) => v.trim()).filter(Boolean);
+}
+
+/** Strip emoji and AI-generated filler text from bio/descriptions */
+function cleanProfileText(text: string | null | undefined): string | null {
+  if (!text) return null;
+  let cleaned = text
+    // Remove emoji characters
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, "")
+    // Remove common AI filler phrases
+    .replace(/(\b(hola|hey|bienvenido|bienvenidos)\b[!.,]*\s*(soy|me llamo|mi nombre es)?)/gi, "")
+    .replace(/\b(escríbeme|contáctame|no te arrepentirás|te espero|llámame)\s*(ya|ahora|hoy|pronto|para más info)?[!.]*$/gim, "")
+    // Remove consecutive special chars
+    .replace(/[*_~`]{2,}/g, "")
+    // Collapse whitespace
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+  return cleaned || null;
 }
 
 function isRecentlySeen(lastSeen?: string | null) {
@@ -96,6 +137,13 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [showSurveyModal, setShowSurveyModal] = useState(false);
+  const [surveyReviews, setSurveyReviews] = useState<SurveyReview[]>([]);
+  const [surveySummary, setSurveySummary] = useState<SurveySummary | null>(null);
+  const [surveyForm, setSurveyForm] = useState({ ratingBody: 5, ratingFace: 5, ratingPhotos: 5, ratingService: 5, ratingVibe: 5, comment: "" });
+  const [surveySubmitting, setSurveySubmitting] = useState(false);
+  const [surveyError, setSurveyError] = useState<string | null>(null);
+  const [surveySuccess, setSurveySuccess] = useState(false);
   const { me } = useMe();
 
   useEffect(() => {
@@ -157,6 +205,13 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
   useEffect(() => {
     setGalleryIndex(0);
+    if (!professional?.id) return;
+    apiFetch<{ reviews: SurveyReview[]; summary: SurveySummary }>(`/professionals/${professional.id}/review-surveys`)
+      .then((res) => {
+        setSurveyReviews(res.reviews || []);
+        setSurveySummary(res.summary || null);
+      })
+      .catch(() => {});
   }, [professional?.id]);
 
   const infoItems = useMemo(() => {
@@ -263,6 +318,32 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       }
     } catch {
       setFavorite((prev) => !prev);
+    }
+  }
+
+  async function submitSurvey() {
+    if (!professional) return;
+    if (redirectToLoginIfNeeded()) return;
+    setSurveySubmitting(true);
+    setSurveyError(null);
+    try {
+      await apiFetch(`/professionals/${professional.id}/review-survey`, {
+        method: "POST",
+        body: JSON.stringify(surveyForm),
+      });
+      setSurveySuccess(true);
+      // Reload reviews
+      const res = await apiFetch<{ reviews: SurveyReview[]; summary: SurveySummary }>(`/professionals/${professional.id}/review-surveys`);
+      setSurveyReviews(res.reviews || []);
+      setSurveySummary(res.summary || null);
+      setTimeout(() => {
+        setShowSurveyModal(false);
+        setSurveySuccess(false);
+      }, 1500);
+    } catch (err: any) {
+      setSurveyError(err?.body?.message || "No se pudo enviar la calificacion.");
+    } finally {
+      setSurveySubmitting(false);
     }
   }
 
@@ -434,10 +515,10 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           </section>
 
           {/* About */}
-          {professional.description && (
+          {cleanProfileText(professional.description) && (
             <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
-              <h2 className="mb-2 text-base font-semibold text-white/95">Sobre mí</h2>
-              <p className="whitespace-pre-line text-sm leading-relaxed text-white/75">{professional.description}</p>
+              <h2 className="mb-2 text-base font-semibold text-white/95">Sobre mi</h2>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-white/75">{cleanProfileText(professional.description)}</p>
             </section>
           )}
 
@@ -577,6 +658,82 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
               )}
             </section>
           )}
+
+          {/* Survey Rating Summary + Button */}
+          <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-white/95">
+                <Star className="h-4 w-4 text-amber-400" />
+                Calificaciones detalladas
+                {surveySummary && surveySummary.count > 0 && (
+                  <span className="text-sm font-normal text-white/40">({surveySummary.count})</span>
+                )}
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  if (redirectToLoginIfNeeded()) return;
+                  setShowSurveyModal(true);
+                }}
+                className="flex items-center gap-1.5 rounded-xl border border-fuchsia-400/30 bg-fuchsia-500/15 px-3 py-2 text-xs font-medium text-fuchsia-200 transition hover:bg-fuchsia-500/25"
+              >
+                <Star className="h-3.5 w-3.5" />
+                Calificar
+              </button>
+            </div>
+
+            {surveySummary && surveySummary.count > 0 ? (
+              <div className="space-y-3">
+                {/* Rating bars */}
+                <div className="space-y-2">
+                  {[
+                    { label: "Cuerpo", value: surveySummary.avgBody },
+                    { label: "Rostro", value: surveySummary.avgFace },
+                    { label: "Parecida a fotos", value: surveySummary.avgPhotos },
+                    { label: "Servicio", value: surveySummary.avgService },
+                    { label: "Trato y ambiente", value: surveySummary.avgVibe },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-center gap-3">
+                      <span className="w-28 text-xs text-white/50 shrink-0">{item.label}</span>
+                      <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-amber-400" style={{ width: `${item.value * 10}%` }} />
+                      </div>
+                      <span className="w-8 text-right text-xs font-semibold text-white/80">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-center gap-2 pt-2 border-t border-white/[0.06]">
+                  <span className="text-2xl font-bold text-amber-300">{surveySummary.avgOverall}</span>
+                  <span className="text-xs text-white/40">/ 10 promedio general</span>
+                </div>
+
+                {/* Survey text reviews */}
+                {surveyReviews.filter((r) => r.comment).length > 0 && (
+                  <div className="space-y-2 pt-3 border-t border-white/[0.06]">
+                    {surveyReviews.filter((r) => r.comment).slice(0, showAllReviews ? 50 : 3).map((review) => (
+                      <div key={review.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 text-[10px] font-semibold text-white/70">
+                              {review.author?.displayName?.[0]?.toUpperCase() || review.author?.username?.[0]?.toUpperCase() || "?"}
+                            </div>
+                            <span className="text-xs font-medium text-white/70">{review.author?.displayName || review.author?.username || "Anonimo"}</span>
+                          </div>
+                          <span className="flex items-center gap-1 text-xs text-amber-300 font-semibold">
+                            <Star className="h-3 w-3 fill-amber-300" />
+                            {review.overallScore.toFixed(1)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-white/60">{review.comment}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-white/40 text-center py-4">Aun no hay calificaciones. Se el primero en calificar.</p>
+            )}
+          </section>
         </div>
 
         {/* Sidebar */}
@@ -639,10 +796,10 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             </div>
 
             {/* Service summary */}
-            {professional.serviceSummary && (
+            {cleanProfileText(professional.serviceSummary) && (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/45">Descripción del servicio</h3>
-                <p className="text-sm leading-relaxed text-white/70">{professional.serviceSummary}</p>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/45">Descripcion del servicio</h3>
+                <p className="text-sm leading-relaxed text-white/70">{cleanProfileText(professional.serviceSummary)}</p>
               </div>
             )}
           </div>
@@ -698,6 +855,104 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
         </button>
         </div>
       </div>
+
+      {/* Survey Rating Modal */}
+      <AnimatePresence>
+        {showSurveyModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 grid place-items-center bg-black/85 p-4 backdrop-blur-md"
+            onClick={() => setShowSurveyModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a0e28] p-6 shadow-2xl"
+            >
+              {surveySuccess ? (
+                <div className="text-center py-6">
+                  <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
+                    <Star className="h-7 w-7 text-emerald-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">Calificacion enviada</h3>
+                  <p className="mt-1 text-sm text-white/60">Gracias por tu opinion.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-lg font-semibold text-white">Calificar a {professional.name}</h3>
+                    <button onClick={() => setShowSurveyModal(false)} className="text-white/40 hover:text-white/70">
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {[
+                      { key: "ratingBody", label: "Cuerpo", desc: "Como calificarias su fisico" },
+                      { key: "ratingFace", label: "Rostro", desc: "Atractivo facial" },
+                      { key: "ratingPhotos", label: "Parecida a las fotos", desc: "Que tan fiel a sus fotos era en persona" },
+                      { key: "ratingService", label: "Calidad del servicio", desc: "Nivel de satisfaccion con el servicio" },
+                      { key: "ratingVibe", label: "Trato y ambiente", desc: "Amabilidad, higiene y comodidad" },
+                    ].map((item) => (
+                      <div key={item.key}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div>
+                            <span className="text-sm font-medium text-white/90">{item.label}</span>
+                            <p className="text-[11px] text-white/40">{item.desc}</p>
+                          </div>
+                          <span className="text-lg font-bold text-amber-300 w-8 text-right">
+                            {(surveyForm as any)[item.key]}
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={1}
+                          max={10}
+                          value={(surveyForm as any)[item.key]}
+                          onChange={(e) => setSurveyForm((prev) => ({ ...prev, [item.key]: Number(e.target.value) }))}
+                          className="w-full h-2 rounded-full appearance-none bg-white/10 accent-fuchsia-500 cursor-pointer [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-fuchsia-400 [&::-webkit-slider-thumb]:appearance-none"
+                        />
+                        <div className="flex justify-between text-[10px] text-white/25 mt-0.5">
+                          <span>1</span><span>5</span><span>10</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div>
+                      <label className="text-sm font-medium text-white/90 block mb-1.5">Comentario (opcional)</label>
+                      <textarea
+                        rows={3}
+                        maxLength={500}
+                        placeholder="Cuenta tu experiencia..."
+                        value={surveyForm.comment}
+                        onChange={(e) => setSurveyForm((prev) => ({ ...prev, comment: e.target.value }))}
+                        className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm outline-none resize-none focus:border-fuchsia-500/30 transition placeholder:text-white/25"
+                      />
+                    </div>
+
+                    {surveyError && (
+                      <p className="text-xs text-red-300 bg-red-500/10 rounded-lg px-3 py-2 border border-red-500/20">{surveyError}</p>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={surveySubmitting}
+                      onClick={submitSurvey}
+                      className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-bold text-white shadow-lg transition hover:from-fuchsia-500 hover:to-violet-500 disabled:opacity-50"
+                    >
+                      {surveySubmitting ? "Enviando..." : "Enviar calificacion"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -43,6 +43,7 @@ export const registerInputSchema = z
       .refine((v) => v === true, "Terms must be accepted"),
     birthdate: z.string().optional(),
     bio: z.string().max(1000).optional(),
+    primaryCategory: z.string().max(120).optional(),
   })
   .superRefine((data, ctx) => {
     const isBusiness = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(
