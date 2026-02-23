@@ -222,6 +222,7 @@ authRouter.post(
           isOnline: true,
           lastSeen: new Date(),
           role: "USER",
+          isVerified: !isBusinessProfile,
         },
         select: {
           id: true,
@@ -233,6 +234,7 @@ authRouter.post(
           profileType: true,
           gender: true,
           preferenceGender: true,
+          isVerified: true,
         },
       });
     } catch (err) {
@@ -293,6 +295,7 @@ authRouter.post(
         preferenceGender: user.preferenceGender,
         role: user.role,
         membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null,
+        isVerified: (user as any).isVerified ?? true,
       },
     });
   }),
@@ -352,7 +355,7 @@ authRouter.get(
       availabilityNote: true, baseRate: true, minDurationMinutes: true,
       acceptsIncalls: true, acceptsOutcalls: true, city: true,
       latitude: true, longitude: true, allowFreeMessages: true,
-      birthdate: true,
+      birthdate: true, isVerified: true,
     };
     const extendedSelect = {
       ...baseSelect,

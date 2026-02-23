@@ -143,6 +143,7 @@ directoryRouter.get(
     const where: any = {
       profileType: "PROFESSIONAL",
       isActive: true,
+      isVerified: true,
       OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
     };
 
@@ -437,6 +438,7 @@ directoryRouter.get(
       where: {
         profileType: "PROFESSIONAL",
         avatarUrl: { not: null },
+        isVerified: true,
         OR: [
           { membershipExpiresAt: { gt: now } },
           { membershipExpiresAt: null },
@@ -667,6 +669,7 @@ directoryRouter.get(
     const where: any = {
       profileType: "ESTABLISHMENT",
       isActive: true,
+      isVerified: true,
       OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
     };
     const categoryRef = await findCategoryByRef(prisma, {
@@ -842,6 +845,7 @@ directoryRouter.get(
     const where: Record<string, unknown> = {
       profileType: { in: profileTypeFilter },
       isActive: true,
+      isVerified: true,
       OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
     };
 
@@ -1078,6 +1082,121 @@ directoryRouter.get(
         rooms: u.motelRooms,
         packs: u.motelPacks,
         promotions: u.motelPromotions,
+      },
+    });
+  }),
+);
+
+/* ══════════════════════════════════════════════════════════════
+   PROFILE REVIEW SURVEY (Mini-encuesta de calificación)
+   ══════════════════════════════════════════════════════════════ */
+
+directoryRouter.post(
+  "/professionals/:id/review-survey",
+  asyncHandler(async (req, res) => {
+    const profileId = req.params.id;
+    const reviewerId = req.session.userId;
+    if (!reviewerId) return res.status(401).json({ error: "UNAUTHENTICATED" });
+
+    const { ratingBody, ratingFace, ratingPhotos, ratingService, ratingVibe, comment } = req.body ?? {};
+
+    // Validate all ratings are 1-10
+    const ratings = [ratingBody, ratingFace, ratingPhotos, ratingService, ratingVibe];
+    for (const r of ratings) {
+      const val = Number(r);
+      if (!Number.isFinite(val) || val < 1 || val > 10) {
+        return res.status(400).json({ error: "VALIDATION", message: "Todas las calificaciones deben estar entre 1 y 10." });
+      }
+    }
+
+    const profile = await prisma.user.findUnique({
+      where: { id: profileId, profileType: "PROFESSIONAL" },
+      select: { id: true },
+    });
+    if (!profile) return res.status(404).json({ error: "NOT_FOUND" });
+
+    if (reviewerId === profileId) {
+      return res.status(400).json({ error: "SELF_REVIEW", message: "No puedes calificarte a ti mismo." });
+    }
+
+    const overallScore = (Number(ratingBody) + Number(ratingFace) + Number(ratingPhotos) + Number(ratingService) + Number(ratingVibe)) / 5;
+
+    const review = await prisma.profileReviewSurvey.upsert({
+      where: { profileId_reviewerId: { profileId, reviewerId } },
+      create: {
+        profileId,
+        reviewerId,
+        ratingBody: Number(ratingBody),
+        ratingFace: Number(ratingFace),
+        ratingPhotos: Number(ratingPhotos),
+        ratingService: Number(ratingService),
+        ratingVibe: Number(ratingVibe),
+        comment: comment ? String(comment).slice(0, 500) : null,
+        overallScore,
+      },
+      update: {
+        ratingBody: Number(ratingBody),
+        ratingFace: Number(ratingFace),
+        ratingPhotos: Number(ratingPhotos),
+        ratingService: Number(ratingService),
+        ratingVibe: Number(ratingVibe),
+        comment: comment ? String(comment).slice(0, 500) : null,
+        overallScore,
+      },
+    });
+
+    return res.json({ review });
+  }),
+);
+
+directoryRouter.get(
+  "/professionals/:id/review-surveys",
+  asyncHandler(async (req, res) => {
+    const profileId = req.params.id;
+
+    const reviews = await prisma.profileReviewSurvey.findMany({
+      where: { profileId },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        ratingBody: true,
+        ratingFace: true,
+        ratingPhotos: true,
+        ratingService: true,
+        ratingVibe: true,
+        comment: true,
+        overallScore: true,
+        createdAt: true,
+        reviewer: {
+          select: { displayName: true, username: true },
+        },
+      },
+    });
+
+    // Calculate averages
+    const count = reviews.length;
+    const avgBody = count ? reviews.reduce((a, r) => a + r.ratingBody, 0) / count : 0;
+    const avgFace = count ? reviews.reduce((a, r) => a + r.ratingFace, 0) / count : 0;
+    const avgPhotos = count ? reviews.reduce((a, r) => a + r.ratingPhotos, 0) / count : 0;
+    const avgService = count ? reviews.reduce((a, r) => a + r.ratingService, 0) / count : 0;
+    const avgVibe = count ? reviews.reduce((a, r) => a + r.ratingVibe, 0) / count : 0;
+    const avgOverall = count ? reviews.reduce((a, r) => a + r.overallScore, 0) / count : 0;
+
+    return res.json({
+      reviews: reviews.map((r) => ({
+        ...r,
+        createdAt: r.createdAt.toISOString(),
+        author: r.reviewer ? { displayName: r.reviewer.displayName, username: r.reviewer.username } : null,
+      })),
+      summary: {
+        count,
+        avgBody: Number(avgBody.toFixed(1)),
+        avgFace: Number(avgFace.toFixed(1)),
+        avgPhotos: Number(avgPhotos.toFixed(1)),
+        avgService: Number(avgService.toFixed(1)),
+        avgVibe: Number(avgVibe.toFixed(1)),
+        avgOverall: Number(avgOverall.toFixed(1)),
       },
     });
   }),

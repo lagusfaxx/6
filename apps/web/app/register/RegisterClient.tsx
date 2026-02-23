@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import AuthForm from "../../components/AuthForm";
 import Link from "next/link";
-import { Briefcase, Building2, ShoppingBag, User } from "lucide-react";
+import { Briefcase, Building2, ShoppingBag, User, Clock, Phone, CheckCircle2 } from "lucide-react";
 import { API_URL } from "../../lib/api";
 import Avatar from "../../components/Avatar";
 
@@ -43,7 +43,7 @@ const businessOptions: Array<{
 ];
 
 export default function RegisterClient() {
-  const [step, setStep] = useState<"choose" | "form" | "photo">("choose");
+  const [step, setStep] = useState<"choose" | "form" | "photo" | "pending">("choose");
   const [profileType, setProfileType] = useState<ProfileType>("CLIENT");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -132,8 +132,7 @@ export default function RegisterClient() {
             lockProfileType
             onSuccess={() => {
               if (profileType !== "CLIENT") {
-                if (profileType === "ESTABLISHMENT") return { redirect: "/dashboard/motel" };
-                setStep("photo");
+                setStep("pending");
                 return { redirect: null };
               }
               return { redirect: "/" };
@@ -147,11 +146,47 @@ export default function RegisterClient() {
             Cambiar tipo de registro
           </button>
         </div>
+      ) : step === "pending" ? (
+        <div className="mt-6 grid gap-4">
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6 text-center">
+            <Clock className="mx-auto h-12 w-12 text-amber-400 mb-3" />
+            <h2 className="text-xl font-semibold text-amber-200">Registro recibido</h2>
+            <p className="mt-2 text-sm text-white/70 leading-relaxed">
+              Tu perfil ha sido creado exitosamente. Para aparecer en la plataforma, un administrador
+              verificara tu cuenta mediante una llamada telefonica.
+            </p>
+            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/50">
+              <Phone className="h-4 w-4" />
+              <span>Verificacion telefonica manual</span>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <h3 className="text-sm font-semibold mb-2">Mientras tanto puedes:</h3>
+            <ul className="text-sm text-white/60 space-y-1.5">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                Subir tu foto de perfil y fotos de galeria
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                Completar tu descripcion y servicios
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                Configurar tus tarifas y disponibilidad
+              </li>
+            </ul>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/cuenta" className="btn-primary">Ir a mi perfil</Link>
+            <Link href="/" className="btn-secondary">Volver al inicio</Link>
+          </div>
+        </div>
       ) : (
         <div className="mt-6 grid gap-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <h2 className="text-lg font-semibold">Foto de perfil</h2>
-            <p className="mt-1 text-sm text-white/60">Puedes subir una foto ahora o más tarde desde tu panel.</p>
+            <p className="mt-1 text-sm text-white/60">Puedes subir una foto ahora o mas tarde desde tu panel.</p>
             <div className="mt-4 flex items-center gap-4">
               <Avatar src={avatarPreview} alt="Vista previa" size={72} className="border-white/20" />
               <label className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 cursor-pointer inline-flex">

@@ -110,6 +110,9 @@ model User {
   longitude           Float?
   categoryId          String?           @db.Uuid
   isActive            Boolean           @default(true)
+  isVerified          Boolean           @default(false)
+  verifiedAt          DateTime?
+  verifiedByPhone     String?
   tier                ProfessionalTier?
   isOnline            Boolean           @default(false)
   lastSeen            DateTime?
@@ -161,6 +164,8 @@ model User {
   receivedMessages         Message[]             @relation("ReceivedMessages")
   receivedRatings          ServiceRating[]       @relation("ProfileRatings")
   givenRatings             ServiceRating[]       @relation("GivenRatings")
+  receivedProfileReviews   ProfileReviewSurvey[] @relation("ProfileReviewsReceived")
+  givenProfileReviews      ProfileReviewSurvey[] @relation("ProfileReviewsGiven")
   notifications            Notification[]
   category                 Category?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   favorites                Favorite[]            @relation("FavoritesByUser")
@@ -568,4 +573,24 @@ model Banner {
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ProfileReviewSurvey {
+  id            String   @id @default(uuid()) @db.Uuid
+  profileId     String   @db.Uuid
+  reviewerId    String   @db.Uuid
+  ratingBody    Int      // 1-10
+  ratingFace    Int      // 1-10
+  ratingPhotos  Int      // 1-10 que tan parecida a las fotos
+  ratingService Int      // 1-10 calidad del servicio
+  ratingVibe    Int      // 1-10 trato y ambiente
+  comment       String?
+  overallScore  Float    // promedio calculado
+  createdAt     DateTime @default(now())
+
+  profile  User @relation("ProfileReviewsReceived", fields: [profileId], references: [id], onDelete: Cascade)
+  reviewer User @relation("ProfileReviewsGiven", fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, reviewerId])
+  @@index([profileId])
 }

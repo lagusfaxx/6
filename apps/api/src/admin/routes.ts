@@ -227,6 +227,79 @@ adminRouter.delete("/profiles/:id", asyncHandler(async (req, res) => {
 }));
 
 /* ══════════════════════════════════════════════════════════════
+   VERIFICATION (Pending Profiles)
+   ══════════════════════════════════════════════════════════════ */
+
+adminRouter.get("/verification/pending", asyncHandler(async (req, res) => {
+  const { q, limit, offset } = req.query as Record<string, string | undefined>;
+  const take = Math.min(parseInt(limit || "50", 10) || 50, 200);
+  const skip = parseInt(offset || "0", 10) || 0;
+
+  const where: any = {
+    isVerified: false,
+    profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
+  };
+  if (q) {
+    where.OR = [
+      { displayName: { contains: q, mode: "insensitive" } },
+      { username: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+      { phone: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const [profiles, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: {
+        id: true, email: true, username: true, displayName: true,
+        avatarUrl: true, coverUrl: true, profileType: true,
+        isActive: true, phone: true, city: true, address: true,
+        bio: true, createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take,
+      skip,
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return res.json({ profiles, total });
+}));
+
+adminRouter.put("/verification/:id/approve", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { verifiedByPhone } = req.body ?? {};
+  const user = await prisma.user.findUnique({ where: { id }, select: { isVerified: true, profileType: true } });
+  if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: {
+      isVerified: true,
+      verifiedAt: new Date(),
+      verifiedByPhone: verifiedByPhone ? String(verifiedByPhone) : null,
+      isActive: true,
+    },
+    select: { id: true, username: true, displayName: true, isVerified: true, profileType: true },
+  });
+  return res.json({ profile: updated });
+}));
+
+adminRouter.put("/verification/:id/reject", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const user = await prisma.user.findUnique({ where: { id }, select: { isVerified: true } });
+  if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { isActive: false },
+    select: { id: true, username: true, displayName: true, isVerified: true, isActive: true },
+  });
+  return res.json({ profile: updated });
+}));
+
+/* ══════════════════════════════════════════════════════════════
    BANNERS (Home Ads)
    ══════════════════════════════════════════════════════════════ */
 

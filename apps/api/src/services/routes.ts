@@ -135,6 +135,7 @@ servicesRouter.get(
         profileType: {
           in: types.length ? types : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"],
         },
+        isVerified: true,
         ...(q
           ? {
               OR: [
