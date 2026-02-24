@@ -145,6 +145,7 @@ model User {
   membershipExpiresAt DateTime?
   flowCustomerId      String?           @unique
   flowSubscriptionId  String?           @unique
+  isTestData          Boolean           @default(false)
   completedServices   Int               @default(0)
   profileViews        Int               @default(0)
   reviewTagsSummary   Json?
