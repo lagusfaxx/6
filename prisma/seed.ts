@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 type Zone = {
   city: string;
   district: string;
+  addressBase: string;
   latitude: number;
   longitude: number;
 };
@@ -21,12 +22,41 @@ type Persona = {
 };
 
 const zones: Zone[] = [
-  { city: "Santiago", district: "Las Condes", latitude: -33.4097, longitude: -70.5678 },
-  { city: "Santiago", district: "Providencia", latitude: -33.4263, longitude: -70.6186 },
-  { city: "Santiago", district: "Santiago Centro", latitude: -33.4489, longitude: -70.6693 },
-  { city: "Viña del Mar", district: "Plan", latitude: -33.0245, longitude: -71.5518 },
-  { city: "La Serena", district: "Centro", latitude: -29.9027, longitude: -71.2519 },
-  { city: "Concepción", district: "Centro", latitude: -36.8269, longitude: -73.0498 }
+  {
+    city: "Las Condes",
+    district: "Las Condes",
+    addressBase: "Apoquindo 4900",
+    latitude: -33.4134,
+    longitude: -70.5761
+  },
+  {
+    city: "Providencia",
+    district: "Providencia",
+    addressBase: "Nueva Providencia 1900",
+    latitude: -33.4255,
+    longitude: -70.6153
+  },
+  {
+    city: "Santiago Centro",
+    district: "Santiago Centro",
+    addressBase: "Alameda 950",
+    latitude: -33.4469,
+    longitude: -70.6602
+  },
+  {
+    city: "Viña del Mar",
+    district: "Plan de Viña",
+    addressBase: "Av. Libertad 1150",
+    latitude: -33.0153,
+    longitude: -71.5501
+  },
+  {
+    city: "La Serena",
+    district: "Centro",
+    addressBase: "Av. Francisco de Aguirre 420",
+    latitude: -29.9045,
+    longitude: -71.2489
+  }
 ];
 
 const personas: Persona[] = [
@@ -107,6 +137,9 @@ async function seedUp() {
     const firstName = names[i % names.length];
     const label = `${firstName}${String(i + 1).padStart(2, "0")}`;
     const username = `${persona.category.toLowerCase()}_${zone.city.toLowerCase().replace(/\s+/g, "")}_${i + 1}`;
+    const latitude = Number((zone.latitude + randomInt(-10, 10) / 1000).toFixed(6));
+    const longitude = Number((zone.longitude + randomInt(-10, 10) / 1000).toFixed(6));
+    const address = `${zone.addressBase}, ${zone.district}, ${zone.city}`;
 
     const user = await prisma.user.create({
       data: {
@@ -117,10 +150,12 @@ async function seedUp() {
         phone: `+569${randomInt(10000000, 99999999)}`,
         profileType: ProfileType.PROFESSIONAL,
         gender: persona.gender,
+        isActive: true,
+        isVerified: true,
         city: zone.city,
-        address: `${zone.district}, ${zone.city}`,
-        latitude: zone.latitude + randomInt(-20, 20) / 1000,
-        longitude: zone.longitude + randomInt(-20, 20) / 1000,
+        address,
+        latitude,
+        longitude,
         tier,
         bio: persona.bioTemplate.replace("{district}", zone.district).replace("{city}", zone.city),
         serviceDescription: `Perfil ${persona.category} en ${zone.city} con enfoque profesional y discreto.`,
@@ -160,10 +195,12 @@ async function seedUp() {
           description: `Servicio ${tag} ofrecido por ${label} en ${zone.district}.`,
           category: persona.category,
           price: randomInt(30000, 120000),
-          address: `${zone.district}, ${zone.city}`,
-          latitude: zone.latitude,
-          longitude: zone.longitude,
-          durationMinutes: pick([30, 45, 60, 90])
+          address,
+          latitude,
+          longitude,
+          durationMinutes: pick([30, 45, 60, 90]),
+          isActive: true,
+          locationVerified: true
         }
       });
     }
