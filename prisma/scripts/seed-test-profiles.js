@@ -183,7 +183,7 @@ async function main() {
           price: randInt(30, 150) * 1000,
           durationMinutes: pick([30, 60, 90]),
         },
-      }).catch(() => {});
+      }).catch((e) => console.warn(`  ⚠ serviceItem skip: ${e.message}`));
     }
   }
 
@@ -232,7 +232,7 @@ async function main() {
           description: `Habitación ${roomNames[r]} con todas las comodidades`,
           price: randInt(15, 60) * 1000,
         },
-      }).catch(() => {});
+      }).catch((e) => console.warn(`  ⚠ motelRoom skip: ${e.message}`));
     }
 
     // motel packs
@@ -243,7 +243,7 @@ async function main() {
         description: "Habitación + champagne + decoración",
         price: randInt(40, 80) * 1000,
       },
-    }).catch(() => {});
+    }).catch((e) => console.warn(`  ⚠ motelPack skip: ${e.message}`));
 
     // motel promotion
     await prisma.motelPromotion.create({
@@ -255,7 +255,7 @@ async function main() {
         startsAt: new Date(),
         endsAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
       },
-    }).catch(() => {});
+    }).catch((e) => console.warn(`  ⚠ motelPromotion skip: ${e.message}`));
   }
 
   /* ── 20 SHOP (sexshop) profiles ───────────────────────────── */
@@ -307,7 +307,7 @@ async function main() {
           stock: randInt(5, 100),
           isActive: true,
         },
-      }).catch(() => {});
+      }).catch((e) => console.warn(`  ⚠ product skip: ${e.message}`));
     }
   }
 
