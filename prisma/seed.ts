@@ -3,9 +3,12 @@ import argon2 from "argon2";
 
 const prisma = new PrismaClient();
 
+const TEST_EMAIL_DOMAIN = "@seed.test";
+
 type Zone = {
   city: string;
   district: string;
+  addressBase: string;
   latitude: number;
   longitude: number;
 };
@@ -21,12 +24,41 @@ type Persona = {
 };
 
 const zones: Zone[] = [
-  { city: "Santiago", district: "Las Condes", latitude: -33.4097, longitude: -70.5678 },
-  { city: "Santiago", district: "Providencia", latitude: -33.4263, longitude: -70.6186 },
-  { city: "Santiago", district: "Santiago Centro", latitude: -33.4489, longitude: -70.6693 },
-  { city: "Viña del Mar", district: "Plan", latitude: -33.0245, longitude: -71.5518 },
-  { city: "La Serena", district: "Centro", latitude: -29.9027, longitude: -71.2519 },
-  { city: "Concepción", district: "Centro", latitude: -36.8269, longitude: -73.0498 }
+  {
+    city: "Las Condes",
+    district: "Las Condes",
+    addressBase: "Apoquindo 4900",
+    latitude: -33.4134,
+    longitude: -70.5761
+  },
+  {
+    city: "Providencia",
+    district: "Providencia",
+    addressBase: "Nueva Providencia 1900",
+    latitude: -33.4255,
+    longitude: -70.6153
+  },
+  {
+    city: "Santiago Centro",
+    district: "Santiago Centro",
+    addressBase: "Alameda 950",
+    latitude: -33.4469,
+    longitude: -70.6602
+  },
+  {
+    city: "Viña del Mar",
+    district: "Plan de Viña",
+    addressBase: "Av. Libertad 1150",
+    latitude: -33.0153,
+    longitude: -71.5501
+  },
+  {
+    city: "La Serena",
+    district: "Centro",
+    addressBase: "Av. Francisco de Aguirre 420",
+    latitude: -29.9045,
+    longitude: -71.2489
+  }
 ];
 
 const personas: Persona[] = [
@@ -86,13 +118,17 @@ function createBirthdate(age: number) {
   return new Date(now.getFullYear() - age, randomInt(0, 11), randomInt(1, 28));
 }
 
-async function cleanupTestData() {
-  await prisma.user.deleteMany({ where: { isTestData: true } });
+async function cleanupSeedUsersByEmailDomain() {
+  await prisma.user.deleteMany({
+    where: {
+      email: {
+        endsWith: TEST_EMAIL_DOMAIN
+      }
+    }
+  });
 }
 
 async function seedUp() {
-  await cleanupTestData();
-
   const passwordHash = await argon2.hash("Seed2026!");
 
   const tiers: ProfessionalTier[] = ["PREMIUM", "GOLD", "SILVER"];
@@ -107,20 +143,58 @@ async function seedUp() {
     const firstName = names[i % names.length];
     const label = `${firstName}${String(i + 1).padStart(2, "0")}`;
     const username = `${persona.category.toLowerCase()}_${zone.city.toLowerCase().replace(/\s+/g, "")}_${i + 1}`;
+    const email = `${username}${TEST_EMAIL_DOMAIN}`;
+    const latitude = Number((zone.latitude + randomInt(-10, 10) / 1000).toFixed(6));
+    const longitude = Number((zone.longitude + randomInt(-10, 10) / 1000).toFixed(6));
+    const address = `${zone.addressBase}, ${zone.district}, ${zone.city}`;
 
-    const user = await prisma.user.create({
-      data: {
-        email: `${username}@seed.test`,
+    const user = await prisma.user.upsert({
+      where: { email },
+      create: {
+        email,
         username,
         passwordHash,
         displayName: label,
         phone: `+569${randomInt(10000000, 99999999)}`,
         profileType: ProfileType.PROFESSIONAL,
         gender: persona.gender,
+        isActive: true,
+        isVerified: true,
         city: zone.city,
-        address: `${zone.district}, ${zone.city}`,
-        latitude: zone.latitude + randomInt(-20, 20) / 1000,
-        longitude: zone.longitude + randomInt(-20, 20) / 1000,
+        address,
+        latitude,
+        longitude,
+        tier,
+        bio: persona.bioTemplate.replace("{district}", zone.district).replace("{city}", zone.city),
+        serviceDescription: `Perfil ${persona.category} en ${zone.city} con enfoque profesional y discreto.`,
+        profileTags: [persona.category, zone.city, zone.district, tier],
+        serviceTags: persona.serviceTags,
+        primaryCategory: persona.category,
+        serviceCategory: persona.category,
+        birthdate: createBirthdate(age),
+        baseRate: randomInt(35000, 140000),
+        minDurationMinutes: pick([30, 45, 60, 90]),
+        acceptsIncalls: true,
+        acceptsOutcalls: randomInt(0, 1) === 1,
+        completedServices: randomInt(15, 260),
+        profileViews: randomInt(200, 8000),
+        isOnline: randomInt(0, 3) === 1,
+        termsAcceptedAt: new Date(),
+        isTestData: true
+      },
+      update: {
+        username,
+        passwordHash,
+        displayName: label,
+        phone: `+569${randomInt(10000000, 99999999)}`,
+        profileType: ProfileType.PROFESSIONAL,
+        gender: persona.gender,
+        isActive: true,
+        isVerified: true,
+        city: zone.city,
+        address,
+        latitude,
+        longitude,
         tier,
         bio: persona.bioTemplate.replace("{district}", zone.district).replace("{city}", zone.city),
         serviceDescription: `Perfil ${persona.category} en ${zone.city} con enfoque profesional y discreto.`,
@@ -144,6 +218,9 @@ async function seedUp() {
 
     users.push(user);
 
+    await prisma.profileMedia.deleteMany({ where: { ownerId: user.id } });
+    await prisma.serviceItem.deleteMany({ where: { ownerId: user.id } });
+
     await prisma.profileMedia.create({
       data: {
         ownerId: user.id,
@@ -160,14 +237,26 @@ async function seedUp() {
           description: `Servicio ${tag} ofrecido por ${label} en ${zone.district}.`,
           category: persona.category,
           price: randomInt(30000, 120000),
-          address: `${zone.district}, ${zone.city}`,
-          latitude: zone.latitude,
-          longitude: zone.longitude,
-          durationMinutes: pick([30, 45, 60, 90])
+          address,
+          latitude,
+          longitude,
+          durationMinutes: pick([30, 45, 60, 90]),
+          isActive: true,
+          locationVerified: true
         }
       });
     }
   }
+
+  await prisma.story.deleteMany({
+    where: {
+      user: {
+        email: {
+          endsWith: TEST_EMAIL_DOMAIN
+        }
+      }
+    }
+  });
 
   for (let i = 0; i < 10; i += 1) {
     const owner = users[i];
@@ -185,8 +274,8 @@ async function seedUp() {
 }
 
 async function seedDown() {
-  await cleanupTestData();
-  console.log("✅ Seed revertido: se eliminaron usuarios con isTestData=true y sus datos relacionados.");
+  await cleanupSeedUsersByEmailDomain();
+  console.log(`✅ Seed revertido: se eliminaron usuarios con email terminado en ${TEST_EMAIL_DOMAIN} y sus datos relacionados.`);
 }
 
 async function main() {
