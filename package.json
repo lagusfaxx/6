@@ -13,6 +13,8 @@
     "dev": "pnpm -r dev",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "seed:up": "pnpm --filter @uzeed/prisma seed:up",
+    "seed:down": "pnpm --filter @uzeed/prisma seed:down"
   }
 }

@@ -74,9 +74,12 @@
    # Desde tu máquina local o conectándote al contenedor
    pnpm --filter @uzeed/prisma migrate:deploy
    ```
-   O conectándote al contenedor de la API en Coolify:
+   O conectándote al contenedor de la API en Coolify (cuando el contenedor no trae `pnpm`):
    ```bash
    cd /app && npx prisma migrate deploy --schema=prisma/schema.prisma
+   cd /app/prisma && node seed.js up
+   # rollback de datos test
+   cd /app/prisma && node seed.js down
    ```
 
 10. Deploy.
