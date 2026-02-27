@@ -435,40 +435,36 @@ export default function ServicesPage() {
   return (
     <div className="pb-24">
       {/* ── Header ── */}
-      <section className="border-b border-white/[0.06] bg-[#0d1024]/80 backdrop-blur-xl">
-        <div className="mx-auto max-w-6xl px-4 py-4">
+      <section className="border-b border-white/[0.06] bg-[#0a0b14]/90 backdrop-blur-xl">
+        <div className="mx-auto max-w-6xl px-4 pt-3 pb-3">
           {/* Title row */}
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-bold flex items-center gap-2">
-                <Navigation className="h-5 w-5 text-fuchsia-400" />
-                Cerca tuyo
-              </h1>
-              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-white/50">
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold tracking-tight">Cerca tuyo</h1>
+              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/45">
                 {locationLabel && (
                   <>
-                    <MapPin className="h-3 w-3 text-fuchsia-400" />
-                    <span className="text-fuchsia-300/70">{locationLabel}</span>
-                    <span className="text-white/20">·</span>
+                    <MapPin className="h-3 w-3 text-fuchsia-400/70" />
+                    <span className="text-fuchsia-300/60">{locationLabel}</span>
+                    <span className="text-white/15">·</span>
                   </>
                 )}
                 {!loading && <span>{displayProfiles.length} resultado{displayProfiles.length !== 1 ? "s" : ""}</span>}
                 {loading && !hasLoadedOnce && <span>Buscando...</span>}
               </p>
             </div>
-            {/* Map toggle */}
             <button
               type="button"
               onClick={() => setShowMap((v) => !v)}
-              className={`rounded-xl border px-3 py-1.5 text-xs transition ${showMap ? "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300" : "border-white/10 bg-white/5 text-white/50"}`}
+              className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition ${showMap ? "border-fuchsia-500/25 bg-fuchsia-500/10 text-fuchsia-300" : "border-white/10 bg-white/[0.04] text-white/50 hover:text-white/70"}`}
             >
-              <MapPin className="inline h-3.5 w-3.5 mr-1" />
+              <MapPin className="mr-1 inline h-3 w-3" />
               Mapa
             </button>
           </div>
 
           {/* Category tabs */}
-          <div className="scrollbar-none mt-3 -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
+          <div className="scrollbar-none mt-2.5 -mx-4 flex gap-1.5 overflow-x-auto px-4">
             {CATEGORY_TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = category === tab.key;
@@ -477,13 +473,13 @@ export default function ServicesPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setCategory(tab.key)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium transition ${
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
                     isActive
-                      ? "border border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-200 shadow-[0_2px_12px_rgba(168,85,247,0.2)]"
-                      : "border border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80"
+                      ? "border border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-200"
+                      : "border border-white/[0.08] text-white/50 hover:bg-white/[0.06] hover:text-white/70"
                   }`}
                 >
-                  <Icon className="h-3.5 w-3.5" />
+                  <Icon className="h-3 w-3" />
                   {tab.label}
                 </button>
               );
@@ -491,18 +487,18 @@ export default function ServicesPage() {
           </div>
 
           {/* Search + Sort + Filters */}
-          <div className="mt-3 flex gap-2">
-            <label className="flex flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm focus-within:border-fuchsia-500/40 transition">
-              <Search className="h-4 w-4 text-white/40" />
+          <div className="mt-2.5 flex gap-1.5">
+            <label className="flex flex-1 items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm focus-within:border-fuchsia-500/30 transition">
+              <Search className="h-3.5 w-3.5 text-white/30" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar nombre, ciudad..."
-                className="w-full bg-transparent outline-none placeholder:text-white/30 text-sm"
+                className="w-full bg-transparent text-xs outline-none placeholder:text-white/25"
               />
               {search && (
                 <button type="button" onClick={() => setSearch("")} className="text-white/30 hover:text-white/60">
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3 w-3" />
                 </button>
               )}
             </label>
@@ -511,34 +507,33 @@ export default function ServicesPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="h-full rounded-xl border border-white/10 bg-white/[0.04] px-3 pr-7 text-xs text-white appearance-none focus:outline-none focus:border-fuchsia-500/40 cursor-pointer"
+                className="h-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 pr-6 text-[11px] text-white/70 appearance-none focus:outline-none focus:border-fuchsia-500/30 cursor-pointer"
               >
                 {SORT_OPTIONS.map((opt) => (
                   <option key={opt.key} value={opt.key}>{opt.label}</option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
+              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-white/30" />
             </div>
 
             <button
               type="button"
               onClick={() => setShowFilters((s) => !s)}
-              className={`rounded-xl border px-3 py-2 text-xs inline-flex items-center gap-1.5 transition ${
+              className={`shrink-0 rounded-lg border px-2.5 py-2 text-[11px] inline-flex items-center gap-1 transition ${
                 showFilters || activeFilterCount > 0
-                  ? "border-fuchsia-400/30 bg-fuchsia-500/10 text-fuchsia-200"
-                  : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10"
+                  ? "border-fuchsia-500/25 bg-fuchsia-500/10 text-fuchsia-200"
+                  : "border-white/[0.08] bg-white/[0.03] text-white/50 hover:text-white/70"
               }`}
             >
-              <SlidersHorizontal className="h-4 w-4" />
-              <span className="hidden sm:inline">Filtros</span>
+              <SlidersHorizontal className="h-3.5 w-3.5" />
               {activeFilterCount > 0 && (
-                <span className="rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-[10px] font-bold">{activeFilterCount}</span>
+                <span className="rounded-full bg-fuchsia-500 px-1 py-0.5 text-[9px] font-bold leading-none">{activeFilterCount}</span>
               )}
             </button>
           </div>
 
           {/* Quick filter pills */}
-          <div className="mt-2 flex gap-1.5 overflow-x-auto scrollbar-none">
+          <div className="mt-2 flex gap-1 overflow-x-auto scrollbar-none">
             {QUICK_FILTERS.map((f) => {
               const Icon = f.icon;
               const isActive = activeQuickFilters.has(f.key);
@@ -547,11 +542,11 @@ export default function ServicesPage() {
                   key={f.key}
                   type="button"
                   onClick={() => toggleQuickFilter(f.key)}
-                  className={`flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                    isActive ? f.activeColor : "border-white/10 text-white/50 hover:border-white/20 hover:text-white/70"
+                  className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium transition ${
+                    isActive ? f.activeColor : "border-white/[0.08] text-white/40 hover:border-white/15 hover:text-white/60"
                   }`}
                 >
-                  <Icon className="h-3 w-3" />
+                  <Icon className="h-2.5 w-2.5" />
                   {f.label}
                 </button>
               );
@@ -560,19 +555,19 @@ export default function ServicesPage() {
               <button
                 type="button"
                 onClick={() => { setActiveQuickFilters(new Set()); setSearch(""); }}
-                className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/40 hover:text-white/70 transition"
+                className="flex shrink-0 items-center gap-1 rounded-full border border-white/[0.08] px-2 py-1 text-[10px] text-white/30 hover:text-white/60 transition"
               >
-                <X className="h-3 w-3" /> Limpiar
+                <X className="h-2.5 w-2.5" /> Limpiar
               </button>
             )}
           </div>
 
           {/* Expanded filters */}
           {showFilters && (
-            <div className="mt-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+            <div className="mt-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Radio de búsqueda</label>
-                <span className="text-xs text-fuchsia-300 font-medium">{radiusKm} km</span>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-white/35">Radio de búsqueda</label>
+                <span className="text-[11px] text-fuchsia-300/80 font-medium">{radiusKm} km</span>
               </div>
               <input
                 type="range"
@@ -582,7 +577,7 @@ export default function ServicesPage() {
                 onChange={(e) => setRadiusKm(Number(e.target.value))}
                 className="w-full accent-fuchsia-500"
               />
-              <div className="flex justify-between text-[10px] text-white/25 mt-1"><span>1 km</span><span>100 km</span></div>
+              <div className="flex justify-between text-[9px] text-white/20 mt-0.5"><span>1 km</span><span>100 km</span></div>
             </div>
           )}
         </div>

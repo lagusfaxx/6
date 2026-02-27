@@ -250,7 +250,7 @@ function MapboxMapComponent({
     } else {
       run();
     }
-  }, [userLocation?.[0], userLocation?.[1], displayMarkers, autoCenterOnDataChange]);
+  }, [userLocation?.[0], userLocation?.[1], displayMarkers, autoCenterOnDataChange, mapIdle]);
 
   useEffect(() => {
     const map = mapRef.current;
