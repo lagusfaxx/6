@@ -394,8 +394,8 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   z-index: 70;
   display: flex;
   align-items: flex-end;
+  justify-content: center;
   padding: 0;
-  justify-content: flex-end;
   background: linear-gradient(180deg, rgba(10, 10, 14, 0.06) 0%, rgba(10, 10, 14, 0.55) 55%, rgba(10, 10, 14, 0.78) 100%);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
@@ -404,7 +404,6 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 .uzeed-map-drawer__content,
 .uzeed-map-drawer--mobile {
   border-radius: 18px 18px 0 0;
-  max-height: min(55vh, 420px);
   overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(10, 10, 14, 0.92);
@@ -419,14 +418,22 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 .uzeed-map-drawer--mobile {
   pointer-events: auto;
   width: 100%;
+  max-width: 420px;
+  max-height: min(50vh, 380px);
   border-radius: 18px 18px 0 0;
+}
+
+.uzeed-map-drawer__content {
+  border-radius: 14px;
+  max-height: calc(100%);
 }
 
 .uzeed-map-drawer__cover-wrap {
   position: relative;
-  min-height: 130px;
+  min-height: 80px;
+  max-height: 100px;
   background: linear-gradient(135deg, rgba(124, 58, 237, 0.45), rgba(162, 28, 175, 0.3), rgba(168, 85, 247, 0.2));
-  overflow: visible;
+  overflow: hidden;
 }
 
 .uzeed-map-drawer__cover {
@@ -465,20 +472,20 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 
 .uzeed-map-drawer__avatar-overlay {
   position: absolute;
-  bottom: -30px;
+  bottom: -22px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
 }
 
 .uzeed-map-drawer__avatar-wrap {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
-  overflow-x: hidden;
+  overflow: hidden;
   background: rgba(124, 58, 237, 0.25);
-  border: 3px solid rgba(232, 121, 249, 0.6);
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.4), 0 0 0 3px rgba(10, 10, 14, 0.9);
+  border: 2px solid rgba(232, 121, 249, 0.6);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4), 0 0 0 2px rgba(10, 10, 14, 0.9);
 }
 
 .uzeed-map-drawer__avatar {
@@ -489,10 +496,10 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 
 .uzeed-map-drawer__status-dot {
   position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 14px;
-  height: 14px;
+  bottom: 1px;
+  right: 1px;
+  width: 12px;
+  height: 12px;
   border-radius: 999px;
   background: rgba(100, 100, 100, 0.7);
   border: 2px solid rgba(10, 10, 14, 0.9);
@@ -504,29 +511,29 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 }
 
 .uzeed-map-drawer__body {
-  padding: 28px 14px 6px;
+  padding: 22px 12px 6px;
   text-align: center;
 }
 
 .uzeed-map-drawer__name {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
 
 .uzeed-map-drawer__level {
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(232, 121, 249, 0.85);
-  margin-top: 2px;
+  margin-top: 1px;
   font-weight: 500;
 }
 
 .uzeed-map-drawer__status-badge {
   display: inline-block;
-  margin-top: 8px;
-  font-size: 11px;
+  margin-top: 5px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 3px 10px;
+  padding: 2px 8px;
   border-radius: 999px;
   letter-spacing: 0.02em;
 }
@@ -556,29 +563,29 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 }
 
 .uzeed-map-drawer__badges {
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 6px;
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
 }
 
 .uzeed-map-drawer__badge {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: 4px;
+  font-size: 10px;
   font-weight: 500;
-  padding: 6px 10px;
-  border-radius: 10px;
+  padding: 3px 8px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(4px);
 }
 
 .uzeed-map-drawer__badge-label {
   color: rgba(255, 255, 255, 0.45);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -591,17 +598,18 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 
 
 .uzeed-map-drawer__gallery {
-  margin-top: 10px;
+  margin-top: 8px;
   display: grid;
-  grid-template-columns: repeat(3, 60px);
-  gap: 6px;
+  grid-template-columns: repeat(3, 48px);
+  gap: 4px;
+  justify-content: center;
 }
 
 .uzeed-map-drawer__gallery-photo {
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.05);
 }
@@ -609,23 +617,23 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 .uzeed-map-drawer__cta-wrap {
   position: sticky;
   bottom: 0;
-  padding: 0 16px calc(10px + env(safe-area-inset-bottom));
+  padding: 0 10px calc(8px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(10, 10, 14, 0) 0%, rgba(10, 10, 14, 0.94) 35%);
 }
 .uzeed-map-drawer__btn {
-  margin: 12px 0 0;
+  margin: 8px 0 0;
   display: flex;
   width: 100%;
   justify-content: center;
   align-items: center;
-  gap: 6px;
-  border-radius: 12px;
+  gap: 5px;
+  border-radius: 10px;
   border: 1px solid rgba(232, 121, 249, 0.35);
   background: linear-gradient(135deg, #a21caf, #7c3aed);
   color: #fff;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
-  padding: 12px 16px;
+  padding: 10px 12px;
   text-decoration: none;
   letter-spacing: 0.02em;
   box-shadow: 0 4px 20px rgba(162, 28, 175, 0.35);
@@ -639,10 +647,12 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 
 .uzeed-map-panel {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 10px;
+  right: 10px;
   z-index: 30;
-  width: min(320px, calc(100% - 32px));
+  width: min(280px, calc(100% - 20px));
+  max-height: calc(100% - 20px);
+  overflow: hidden;
 }
 
 @media (max-width: 768px) {
@@ -650,14 +660,15 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
     top: auto;
     right: auto;
     width: 100%;
+    max-height: none;
+    overflow: visible;
   }
 
-  .uzeed-map-drawer__content,
-  .uzeed-map-drawer--mobile {
+  .uzeed-map-drawer__content {
     border-radius: 18px 18px 0 0;
   }
 
   .uzeed-map-drawer--mobile {
-    max-height: min(55dvh, 420px);
+    max-height: min(50dvh, 380px);
   }
 }

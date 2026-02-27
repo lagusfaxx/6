@@ -603,7 +603,7 @@ function MapboxMapComponent({
   }
 
   return (
-    <div className="relative isolate">
+    <div className="relative isolate overflow-hidden">
       <div ref={containerRef} className={className} style={{ height }} />
       {selectedMarker ? (
         <div
