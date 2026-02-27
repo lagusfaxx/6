@@ -226,36 +226,50 @@ export default function MotelDashboardPage() {
   }
 
   async function saveRoom() {
-    const payload = {
-      ...roomForm,
-      amenities: String(roomForm.amenities || "").split(",").map((s: string) => s.trim()).filter(Boolean),
-      price3h: Number(roomForm.price3h || 0),
-      price6h: Number(roomForm.price6h || 0),
-      priceNight: Number(roomForm.priceNight || 0),
-      isActive: roomForm.isActive !== false,
-    };
-    if (roomForm.id) await apiFetch(`/motel/dashboard/rooms/${roomForm.id}`, { method: "PUT", body: JSON.stringify(payload) });
-    else await apiFetch("/motel/dashboard/rooms", { method: "POST", body: JSON.stringify(payload) });
-    setRoomForm({ name: "", roomType: "Normal", location: "", description: "", amenities: "", photoUrls: [], price3h: "", price6h: "", priceNight: "" });
-    setMsg(roomForm.id ? "Habitación actualizada." : "Habitación creada.");
-    await load();
+    try {
+      const payload = {
+        name: roomForm.name,
+        description: roomForm.description,
+        roomType: roomForm.roomType || "Normal",
+        location: roomForm.location,
+        amenities: String(roomForm.amenities || "").split(",").map((s: string) => s.trim()).filter(Boolean),
+        photoUrls: roomForm.photoUrls || [],
+        price3h: Number(roomForm.price3h || 0),
+        price6h: Number(roomForm.price6h || 0),
+        priceNight: Number(roomForm.priceNight || 0),
+        isActive: roomForm.isActive !== false,
+      };
+      if (roomForm.id) await apiFetch(`/motel/dashboard/rooms/${roomForm.id}`, { method: "PUT", body: JSON.stringify(payload) });
+      else await apiFetch("/motel/dashboard/rooms", { method: "POST", body: JSON.stringify(payload) });
+      setRoomForm({ name: "", roomType: "Normal", location: "", description: "", amenities: "", photoUrls: [], price3h: "", price6h: "", priceNight: "" });
+      setMsg(roomForm.id ? "Habitación actualizada." : "Habitación creada.");
+      await load();
+    } catch (e: any) {
+      setMsg(friendlyErrorMessage(e));
+    }
   }
 
   async function savePromo() {
-    const payload = {
-      ...promoForm,
-      discountPercent: promoForm.discountPercent ? Number(promoForm.discountPercent) : null,
-      discountClp: promoForm.discountClp ? Number(promoForm.discountClp) : null,
-      roomIds: promoForm.roomIds,
-      roomId: promoForm.roomIds?.[0] || null,
-      startsAt: promoForm.startsAt || null,
-      endsAt: promoForm.endsAt || null,
-    };
-    if (promoForm.id) await apiFetch(`/motel/dashboard/promotions/${promoForm.id}`, { method: "PUT", body: JSON.stringify(payload) });
-    else await apiFetch("/motel/dashboard/promotions", { method: "POST", body: JSON.stringify(payload) });
-    setPromoForm({ title: "", description: "", discountPercent: "", discountClp: "", startsAt: "", endsAt: "", roomIds: [] });
-    setMsg(promoForm.id ? "Promoción actualizada." : "Promoción creada.");
-    await load();
+    try {
+      const payload = {
+        title: promoForm.title,
+        description: promoForm.description,
+        discountPercent: promoForm.discountPercent ? Number(promoForm.discountPercent) : null,
+        discountClp: promoForm.discountClp ? Number(promoForm.discountClp) : null,
+        roomIds: promoForm.roomIds || [],
+        roomId: promoForm.roomIds?.[0] || null,
+        startsAt: promoForm.startsAt ? new Date(promoForm.startsAt).toISOString() : null,
+        endsAt: promoForm.endsAt ? new Date(promoForm.endsAt).toISOString() : null,
+        isActive: promoForm.isActive !== false,
+      };
+      if (promoForm.id) await apiFetch(`/motel/dashboard/promotions/${promoForm.id}`, { method: "PUT", body: JSON.stringify(payload) });
+      else await apiFetch("/motel/dashboard/promotions", { method: "POST", body: JSON.stringify(payload) });
+      setPromoForm({ title: "", description: "", discountPercent: "", discountClp: "", startsAt: "", endsAt: "", roomIds: [] });
+      setMsg(promoForm.id ? "Promoción actualizada." : "Promoción creada.");
+      await load();
+    } catch (e: any) {
+      setMsg(friendlyErrorMessage(e));
+    }
   }
 
   async function applyBookingAction(bookingId: string, action: "ACCEPT" | "REJECT" | "FINISH" | "DELETE") {
@@ -708,6 +722,19 @@ export default function MotelDashboardPage() {
             <h3 className="mb-5 text-lg font-semibold">{roomForm.id ? "Editar habitación" : "Nueva habitación"}</h3>
             <div className="space-y-4">
               <GlassInput label="Nombre" placeholder="Suite Premium, Habitación Estándar..." value={roomForm.name} onChange={(e) => setRoomForm((f: any) => ({ ...f, name: e.target.value }))} />
+              <label className="group block">
+                <span className="mb-1.5 block text-xs font-medium text-white/50 transition-colors group-focus-within:text-fuchsia-400">Tipo de habitación</span>
+                <select
+                  value={roomForm.roomType}
+                  onChange={(e) => setRoomForm((f: any) => ({ ...f, roomType: e.target.value }))}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition-all focus:border-fuchsia-500/40 focus:bg-white/[0.06] focus:ring-1 focus:ring-fuchsia-500/20 [color-scheme:dark]"
+                >
+                  <option value="Normal" className="bg-[#1a1a2e]">Normal</option>
+                  <option value="Suite" className="bg-[#1a1a2e]">Suite</option>
+                  <option value="VIP" className="bg-[#1a1a2e]">VIP</option>
+                  <option value="Premium" className="bg-[#1a1a2e]">Premium</option>
+                </select>
+              </label>
               <GlassInput label="Ubicación interna" placeholder="Piso 2, Ala Norte..." value={roomForm.location} onChange={(e) => setRoomForm((f: any) => ({ ...f, location: e.target.value }))} />
               <GlassTextarea label="Descripción" placeholder="Describe la habitación..." value={roomForm.description} onChange={(e) => setRoomForm((f: any) => ({ ...f, description: e.target.value }))} className="min-h-[80px]" />
               <GlassInput label="Amenidades (separadas por coma)" placeholder="WiFi, Jacuzzi, TV, Minibar..." value={roomForm.amenities} onChange={(e) => setRoomForm((f: any) => ({ ...f, amenities: e.target.value }))} />

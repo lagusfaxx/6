@@ -396,3 +396,279 @@ shopRouter.delete("/products/:id", requireAuth, asyncHandler(async (req, res) =>
   await prisma.product.delete({ where: { id } });
   return res.json({ ok: true });
 }));
+
+/* ─────────────────────────────────────────────────────────
+   Shop Order / Checkout system (raw SQL, like motel module)
+   ───────────────────────────────────────────────────────── */
+
+let shopOrderSchemaReady = false;
+async function ensureShopOrderSchema() {
+  if (shopOrderSchemaReady) return;
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "ShopOrder" (
+      "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      "shopId" TEXT NOT NULL,
+      "clientId" TEXT NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'PENDING',
+      "totalClp" INTEGER NOT NULL DEFAULT 0,
+      "deliveryAddress" TEXT,
+      "deliveryPhone" TEXT,
+      "deliveryNote" TEXT,
+      "paymentMethod" TEXT DEFAULT 'CASH',
+      "createdAt" TIMESTAMP DEFAULT NOW(),
+      "updatedAt" TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "ShopOrderItem" (
+      "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      "orderId" TEXT NOT NULL,
+      "productId" TEXT NOT NULL,
+      "productName" TEXT NOT NULL,
+      "unitPrice" INTEGER NOT NULL,
+      "quantity" INTEGER NOT NULL DEFAULT 1,
+      "createdAt" TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ShopOrder_shopId_idx" ON "ShopOrder" ("shopId")`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ShopOrder_clientId_idx" ON "ShopOrder" ("clientId")`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ShopOrderItem_orderId_idx" ON "ShopOrderItem" ("orderId")`);
+
+  shopOrderSchemaReady = true;
+}
+
+// Ensure schema is created at module load (like motel module)
+ensureShopOrderSchema().catch(() => {});
+
+// POST /orders - Client creates an order
+shopRouter.post("/orders", requireAuth, asyncHandler(async (req, res) => {
+  await ensureShopOrderSchema();
+  const clientId = req.session.userId!;
+
+  const items: Array<{ productId: string; quantity: number }> = Array.isArray(req.body?.items) ? req.body.items : [];
+  if (!items.length) return res.status(400).json({ error: "ITEMS_REQUIRED" });
+
+  const deliveryAddress = req.body?.deliveryAddress ? String(req.body.deliveryAddress) : null;
+  const deliveryPhone = req.body?.deliveryPhone ? String(req.body.deliveryPhone) : null;
+  const deliveryNote = req.body?.deliveryNote ? String(req.body.deliveryNote) : null;
+  const paymentMethod = req.body?.paymentMethod ? String(req.body.paymentMethod) : "CASH";
+
+  // Fetch all requested products
+  const productIds = items.map((i) => String(i.productId));
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds }, isActive: true },
+    select: { id: true, shopId: true, name: true, price: true, stock: true }
+  });
+
+  if (products.length !== productIds.length) {
+    return res.status(400).json({ error: "PRODUCT_NOT_FOUND", message: "One or more products not found or inactive." });
+  }
+
+  // All products must belong to the same shop
+  const shopIds = Array.from(new Set(products.map((p) => p.shopId)));
+  if (shopIds.length !== 1) {
+    return res.status(400).json({ error: "MULTI_SHOP_ORDER", message: "All items must belong to the same shop." });
+  }
+  const shopId = shopIds[0];
+
+  // Validate stock
+  const productMap = new Map(products.map((p) => [p.id, p]));
+  for (const item of items) {
+    const product = productMap.get(String(item.productId))!;
+    const qty = Math.max(1, Math.round(Number(item.quantity) || 1));
+    if (product.stock < qty) {
+      return res.status(400).json({ error: "INSUFFICIENT_STOCK", productId: product.id, available: product.stock });
+    }
+  }
+
+  // Calculate total
+  let totalClp = 0;
+  const resolvedItems = items.map((item) => {
+    const product = productMap.get(String(item.productId))!;
+    const qty = Math.max(1, Math.round(Number(item.quantity) || 1));
+    const lineTotal = product.price * qty;
+    totalClp += lineTotal;
+    return { productId: product.id, productName: product.name, unitPrice: product.price, quantity: qty };
+  });
+
+  // Create order via raw SQL
+  const orderRows = await prisma.$queryRawUnsafe<any[]>(
+    `INSERT INTO "ShopOrder" ("shopId", "clientId", "status", "totalClp", "deliveryAddress", "deliveryPhone", "deliveryNote", "paymentMethod")
+     VALUES ($1, $2, 'PENDING', $3, $4, $5, $6, $7)
+     RETURNING *`,
+    shopId,
+    clientId,
+    totalClp,
+    deliveryAddress,
+    deliveryPhone,
+    deliveryNote,
+    paymentMethod
+  );
+  const order = orderRows[0];
+
+  // Create order items via raw SQL
+  const orderItems: any[] = [];
+  for (const ri of resolvedItems) {
+    const itemRows = await prisma.$queryRawUnsafe<any[]>(
+      `INSERT INTO "ShopOrderItem" ("orderId", "productId", "productName", "unitPrice", "quantity")
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      String(order.id),
+      ri.productId,
+      ri.productName,
+      ri.unitPrice,
+      ri.quantity
+    );
+    orderItems.push(itemRows[0]);
+  }
+
+  // Decrement stock via Prisma
+  for (const ri of resolvedItems) {
+    await prisma.product.update({
+      where: { id: ri.productId },
+      data: { stock: { decrement: ri.quantity } }
+    });
+  }
+
+  return res.json({ order: { ...order, items: orderItems } });
+}));
+
+// GET /orders - Client lists their orders
+shopRouter.get("/orders", requireAuth, asyncHandler(async (req, res) => {
+  await ensureShopOrderSchema();
+  const clientId = req.session.userId!;
+
+  const orders = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT * FROM "ShopOrder" WHERE "clientId" = $1 ORDER BY "createdAt" DESC LIMIT 200`,
+    clientId
+  );
+
+  const orderIds = orders.map((o) => String(o.id));
+  let allItems: any[] = [];
+  if (orderIds.length) {
+    allItems = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM "ShopOrderItem" WHERE "orderId" = ANY($1::text[]) ORDER BY "createdAt" ASC`,
+      orderIds
+    );
+  }
+
+  const itemsByOrder = new Map<string, any[]>();
+  for (const item of allItems) {
+    const list = itemsByOrder.get(String(item.orderId)) || [];
+    list.push(item);
+    itemsByOrder.set(String(item.orderId), list);
+  }
+
+  const result = orders.map((o) => ({ ...o, items: itemsByOrder.get(String(o.id)) || [] }));
+  return res.json({ orders: result });
+}));
+
+// GET /orders/shop - Shop owner lists orders for their shop
+shopRouter.get("/orders/shop", requireAuth, asyncHandler(async (req, res) => {
+  await ensureShopOrderSchema();
+  const userId = req.session.userId!;
+
+  const me = await prisma.user.findUnique({ where: { id: userId }, select: { profileType: true } });
+  if (!me || me.profileType !== "SHOP") return res.status(403).json({ error: "NOT_SHOP" });
+
+  const orders = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT * FROM "ShopOrder" WHERE "shopId" = $1 ORDER BY "createdAt" DESC LIMIT 200`,
+    userId
+  );
+
+  const orderIds = orders.map((o) => String(o.id));
+  let allItems: any[] = [];
+  if (orderIds.length) {
+    allItems = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM "ShopOrderItem" WHERE "orderId" = ANY($1::text[]) ORDER BY "createdAt" ASC`,
+      orderIds
+    );
+  }
+
+  const itemsByOrder = new Map<string, any[]>();
+  for (const item of allItems) {
+    const list = itemsByOrder.get(String(item.orderId)) || [];
+    list.push(item);
+    itemsByOrder.set(String(item.orderId), list);
+  }
+
+  const result = orders.map((o) => ({ ...o, items: itemsByOrder.get(String(o.id)) || [] }));
+  return res.json({ orders: result });
+}));
+
+// GET /orders/:id - Get single order detail
+shopRouter.get("/orders/:id", requireAuth, asyncHandler(async (req, res) => {
+  await ensureShopOrderSchema();
+  const userId = req.session.userId!;
+  const orderId = String(req.params.id);
+
+  const orderRows = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT * FROM "ShopOrder" WHERE "id" = $1::uuid LIMIT 1`,
+    orderId
+  );
+  const order = orderRows[0];
+  if (!order) return res.status(404).json({ error: "NOT_FOUND" });
+
+  // Must be either the client or the shop owner
+  if (String(order.clientId) !== userId && String(order.shopId) !== userId) {
+    return res.status(403).json({ error: "FORBIDDEN" });
+  }
+
+  const items = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT * FROM "ShopOrderItem" WHERE "orderId" = $1 ORDER BY "createdAt" ASC`,
+    String(order.id)
+  );
+
+  return res.json({ order: { ...order, items } });
+}));
+
+// POST /orders/:id/action - Update order status
+shopRouter.post("/orders/:id/action", requireAuth, asyncHandler(async (req, res) => {
+  await ensureShopOrderSchema();
+  const userId = req.session.userId!;
+  const orderId = String(req.params.id);
+  const action = String(req.body?.action || "").toUpperCase();
+
+  const orderRows = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT * FROM "ShopOrder" WHERE "id" = $1::uuid LIMIT 1`,
+    orderId
+  );
+  const order = orderRows[0];
+  if (!order) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const isShopOwner = String(order.shopId) === userId;
+  const isClient = String(order.clientId) === userId;
+  if (!isShopOwner && !isClient) return res.status(403).json({ error: "FORBIDDEN" });
+
+  let nextStatus: string | null = null;
+
+  // PENDING -> ACCEPTED (shop only)
+  if (isShopOwner && action === "ACCEPT" && order.status === "PENDING") nextStatus = "ACCEPTED";
+  // PENDING -> REJECTED (shop only)
+  if (isShopOwner && action === "REJECT" && order.status === "PENDING") nextStatus = "REJECTED";
+  // ACCEPTED -> SHIPPED (shop only)
+  if (isShopOwner && action === "SHIP" && order.status === "ACCEPTED") nextStatus = "SHIPPED";
+  // SHIPPED -> DELIVERED (shop or client)
+  if ((isShopOwner || isClient) && action === "DELIVER" && order.status === "SHIPPED") nextStatus = "DELIVERED";
+  // any -> CANCELLED (client only, if PENDING)
+  if (isClient && action === "CANCEL" && order.status === "PENDING") nextStatus = "CANCELLED";
+
+  if (!nextStatus) return res.status(400).json({ error: "INVALID_TRANSITION" });
+
+  const updatedRows = await prisma.$queryRawUnsafe<any[]>(
+    `UPDATE "ShopOrder" SET "status" = $1, "updatedAt" = NOW() WHERE "id" = $2::uuid RETURNING *`,
+    nextStatus,
+    orderId
+  );
+  const updated = updatedRows[0];
+
+  const items = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT * FROM "ShopOrderItem" WHERE "orderId" = $1 ORDER BY "createdAt" ASC`,
+    String(updated.id)
+  );
+
+  return res.json({ order: { ...updated, items } });
+}));

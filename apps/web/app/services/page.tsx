@@ -295,7 +295,9 @@ export default function ServicesPage() {
     });
   };
 
-  const mapCenter: [number, number] | null = effectiveLoc;
+  const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
+  const effectiveLocWithFallback = effectiveLoc ?? SANTIAGO_FALLBACK;
+  const mapCenter: [number, number] | null = effectiveLocWithFallback;
   const locationLabel = locationCtx?.state.mode === "city"
     ? locationCtx.state.selectedCity?.name ?? null
     : effectiveLoc ? "Tu ubicación" : null;
@@ -326,9 +328,9 @@ export default function ServicesPage() {
     } else {
       qp.set("types", "PROFESSIONAL,ESTABLISHMENT,SHOP");
     }
-    if (effectiveLoc) {
-      qp.set("lat", String(effectiveLoc[0]));
-      qp.set("lng", String(effectiveLoc[1]));
+    if (effectiveLocWithFallback) {
+      qp.set("lat", String(effectiveLocWithFallback[0]));
+      qp.set("lng", String(effectiveLocWithFallback[1]));
     }
 
     apiFetch<{ profiles: ProfileResult[] }>(`/services?${qp.toString()}`)
@@ -345,7 +347,7 @@ export default function ServicesPage() {
         setLoading(false);
         setHasLoadedOnce(true);
       });
-  }, [effectiveLoc, category]);
+  }, [effectiveLocWithFallback, category]);
 
   /* ── Filter + Sort (tier-prioritized) ── */
   const filtered = useMemo(() => {
@@ -433,7 +435,7 @@ export default function ServicesPage() {
   return (
     <div className="pb-24">
       {/* ── Header ── */}
-      <section className="border-b border-white/[0.06] bg-gradient-to-b from-[#0d1024] to-transparent">
+      <section className="border-b border-white/[0.06] bg-[#0d1024]/80 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl px-4 py-4">
           {/* Title row */}
           <div className="flex items-center justify-between gap-3">

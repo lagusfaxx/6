@@ -97,6 +97,18 @@ export function useLocationFilterState(): LocationFilterContextValue {
     gpsLocation: stored.gpsLocation || null,
   });
 
+  useEffect(() => {
+    const stored = readStored();
+    if (stored.mode || stored.selectedCity || stored.gpsLocation) {
+      setState(prev => ({
+        ...prev,
+        mode: (stored.mode as "gps" | "city") || prev.mode,
+        selectedCity: stored.selectedCity || prev.selectedCity,
+        gpsLocation: stored.gpsLocation || prev.gpsLocation,
+      }));
+    }
+  }, []);
+
   const setCity = useCallback((city: ChileanCity | null) => {
     setState((prev) => {
       const next = { ...prev, mode: city ? "city" as const : "gps" as const, selectedCity: city };
