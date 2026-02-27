@@ -62,6 +62,8 @@ type RecentProfessional = {
   availableNow?: boolean;
   bio?: string | null;
   serviceCategory?: string | null;
+  profileTags?: string[];
+  serviceTags?: string[];
   galleryUrls?: string[];
 };
 
@@ -84,6 +86,8 @@ type DiscoverProfile = {
   lastActiveAt?: string | null;
   bio?: string | null;
   serviceCategory?: string | null;
+  profileTags?: string[];
+  serviceTags?: string[];
   galleryUrls?: string[];
 };
 
@@ -206,6 +210,8 @@ export default function HomePage() {
             lastSeen: p.lastSeen ?? null,
             bio: p.bio ?? null,
             serviceCategory: p.serviceCategory ?? null,
+            profileTags: Array.isArray(p.profileTags) ? p.profileTags : [],
+            serviceTags: Array.isArray(p.serviceTags) ? p.serviceTags : [],
             galleryUrls: p.galleryUrls ?? [],
           }),
         );
@@ -473,6 +479,19 @@ export default function HomePage() {
                             {p.age && <span>{p.age} años</span>}
                             <span>{formatLastSeenLabel(p.lastSeen)}</span>
                           </div>
+                          {(p.serviceCategory || (p.profileTags && p.profileTags.length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {p.profileTags?.map((tag) => (
+                                <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                              ))}
+                              {p.serviceCategory && (
+                                <span className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{p.serviceCategory}</span>
+                              )}
+                              {p.serviceTags?.slice(0, 10).map((tag) => (
+                                <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </button>
@@ -523,6 +542,19 @@ export default function HomePage() {
                       <div className="absolute bottom-0 left-0 right-0 p-3">
                         <h3 className="text-sm font-semibold leading-tight">{p.name}{p.age ? `, ${p.age}` : ""}</h3>
                         <div className="mt-0.5 text-[10px] text-white/50">{formatLastSeenLabel(p.lastSeen)}</div>
+                        {(p.serviceCategory || (p.profileTags && p.profileTags.length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {p.profileTags?.map((tag) => (
+                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                            {p.serviceCategory && (
+                              <span className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{p.serviceCategory}</span>
+                            )}
+                            {p.serviceTags?.slice(0, 10).map((tag) => (
+                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -580,6 +612,16 @@ export default function HomePage() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
                         <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
+                        {((profile as any).profileTags?.length > 0 || (profile as any).serviceTags?.length > 0 || profile.serviceCategory) && (
+                          <div className="flex flex-wrap gap-0.5 mt-0.5">
+                            {(profile as any).profileTags?.slice(0, 2).map((tag: string) => (
+                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                            {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
+                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -612,6 +654,16 @@ export default function HomePage() {
                       <div className="absolute bottom-0 left-0 right-0 p-2">
                         <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
                         <div className="mt-0.5 text-[10px] text-white/45">{formatLastSeenLabel(profile.lastActiveAt || profile.lastSeen)}</div>
+                        {((profile as any).profileTags?.length > 0 || (profile as any).serviceTags?.length > 0) && (
+                          <div className="flex flex-wrap gap-0.5 mt-0.5">
+                            {(profile as any).profileTags?.slice(0, 2).map((tag: string) => (
+                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                            {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
+                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </button>

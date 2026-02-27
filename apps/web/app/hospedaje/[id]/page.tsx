@@ -81,6 +81,9 @@ export default function HospedajeDetailPage() {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [bookingResult, setBookingResult] = useState<any>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [existingBooking, setExistingBooking] = useState<any>(null);
 
   const now = new Date();
   const minStartDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -90,6 +93,13 @@ export default function HospedajeDetailPage() {
       .then((r) => setData(r.establishment))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!data?.id) return;
+    apiFetch<{ booking: any }>(`/motel/bookings/with/${data.id}`)
+      .then((r) => { if (r.booking) setExistingBooking(r.booking); })
+      .catch(() => {});
+  }, [data?.id]);
 
   const selectedRoom = useMemo(() => data?.rooms.find((r) => r.id === roomId) || data?.rooms[0], [data, roomId]);
 
@@ -143,17 +153,20 @@ export default function HospedajeDetailPage() {
     setBusy(true);
     setMsg(null);
     try {
-      await apiFetch(`/motels/${data.id}/bookings`, {
+      const result = await apiFetch<{ booking: any }>(`/motels/${data.id}/bookings`, {
         method: "POST",
         body: JSON.stringify({ roomId: selectedRoom.id, durationType, startAt, note: note || null }),
       });
-      router.push(`/chat/${data.id}`);
+      setBookingResult(result.booking ?? result);
+      setShowConfirmation(true);
     } catch {
       setMsg("No pudimos crear la reserva. Inicia sesión y vuelve a intentar.");
     } finally {
       setBusy(false);
     }
   };
+
+  const bookingPanelRef = useRef<HTMLDivElement>(null);
 
   /* ── Loading skeleton ── */
   if (loading) {
@@ -436,7 +449,39 @@ export default function HospedajeDetailPage() {
         </div>
 
         {/* Right: Booking panel (sticky on desktop) */}
-        <div className="lg:sticky lg:top-4 lg:self-start">
+        <div ref={bookingPanelRef} className="lg:sticky lg:top-4 lg:self-start">
+          {/* Existing booking banner */}
+          {existingBooking && (
+            <div className="mb-4 rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-violet-300">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/20 text-xs">📋</span>
+                Reserva existente
+              </div>
+              <div className="mt-2 space-y-1 text-xs text-white/60">
+                <div className="flex items-center gap-1.5">
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                    existingBooking.status === "ACCEPTED" ? "border border-emerald-400/30 bg-emerald-500/15 text-emerald-300"
+                    : existingBooking.status === "REJECTED" ? "border border-red-400/30 bg-red-500/15 text-red-300"
+                    : "border border-amber-400/30 bg-amber-500/15 text-amber-300"
+                  }`}>
+                    {existingBooking.status === "ACCEPTED" ? "Aceptada" : existingBooking.status === "REJECTED" ? "Rechazada" : existingBooking.status === "PENDING" ? "Pendiente" : existingBooking.status}
+                  </span>
+                </div>
+                {existingBooking.room?.name && <p>Habitación: {existingBooking.room.name}</p>}
+                {existingBooking.roomName && <p>Habitación: {existingBooking.roomName}</p>}
+                {existingBooking.startAt && (
+                  <p>Fecha: {new Date(existingBooking.startAt).toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" })}</p>
+                )}
+              </div>
+              <Link
+                href={`/chat/${data.id}`}
+                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-violet-400 transition hover:text-violet-300"
+              >
+                💬 Ir al chat →
+              </Link>
+            </div>
+          )}
+
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 sm:p-6">
             <h3 className="text-lg font-semibold">Reservar</h3>
 
@@ -551,6 +596,92 @@ export default function HospedajeDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Confirmation overlay ── */}
+      {showConfirmation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md bg-black/70">
+          <div className="w-full max-w-md rounded-3xl border border-white/[0.08] bg-white/[0.03] p-8 shadow-2xl backdrop-blur-xl">
+            {/* Success icon */}
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/15">
+              <svg className="h-8 w-8 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </div>
+
+            <h2 className="mt-5 text-center text-2xl font-bold tracking-tight">¡Reserva creada!</h2>
+            <p className="mt-1 text-center text-sm text-white/40">Tu reserva ha sido enviada correctamente</p>
+
+            {/* Booking details */}
+            <div className="mt-6 space-y-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-white/40">Hotel</span>
+                <span className="font-medium">{data.name}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-white/40">Habitación</span>
+                <span className="font-medium">{selectedRoom?.name || "—"}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-white/40">Duración</span>
+                <span className="font-medium">{durationType === "NIGHT" ? "Noche" : durationType === "6H" ? "6 horas" : "3 horas"}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-white/40">Fecha / Hora</span>
+                <span className="font-medium">{startDate} · {startTime}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-white/40">Precio</span>
+                <span className="font-bold text-fuchsia-300">{formatMoney(discountedPrice)}</span>
+              </div>
+              {bookingResult?.id && (
+                <div className="flex items-center justify-between border-t border-white/[0.06] pt-3 text-sm">
+                  <span className="text-white/40">Referencia</span>
+                  <span className="rounded-lg bg-white/[0.06] px-2 py-0.5 font-mono text-xs text-white/70">{bookingResult.id}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowConfirmation(false);
+                  setBookingResult(null);
+                  setNote("");
+                  setMsg(null);
+                }}
+                className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-medium transition hover:bg-white/[0.08]"
+              >
+                Nueva reserva
+              </button>
+              <Link
+                href={`/chat/${data.id}`}
+                className="flex flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold shadow-[0_8px_30px_rgba(168,85,247,0.25)] transition-all hover:shadow-[0_12px_40px_rgba(168,85,247,0.35)]"
+              >
+                Ir al chat
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mobile sticky booking bar ── */}
+      {selectedRoom && !showConfirmation && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/[0.08] bg-black/80 px-4 py-3 backdrop-blur-xl lg:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold">{selectedRoom.name}</div>
+              <div className="text-lg font-bold text-fuchsia-300">{formatMoney(discountedPrice)}</div>
+            </div>
+            <button
+              onClick={() => bookingPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="shrink-0 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-semibold shadow-[0_8px_30px_rgba(168,85,247,0.25)] transition-all hover:shadow-[0_12px_40px_rgba(168,85,247,0.35)] active:scale-[0.98]"
+            >
+              Reservar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

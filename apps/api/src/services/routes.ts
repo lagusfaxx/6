@@ -172,6 +172,8 @@ servicesRouter.get(
         completedServices: true,
         membershipExpiresAt: true,
         shopTrialEndsAt: true,
+        profileTags: true,
+        serviceTags: true,
       },
     });
 
@@ -207,6 +209,8 @@ servicesRouter.get(
           baseRate: p.baseRate,
           lastSeen: p.lastSeen ? p.lastSeen.toISOString() : null,
           userLevel: resolveProfessionalLevel(p.completedServices),
+          profileTags: p.profileTags ?? [],
+          serviceTags: p.serviceTags ?? [],
         };
       });
 

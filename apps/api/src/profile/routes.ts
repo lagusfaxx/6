@@ -138,6 +138,9 @@ profileRouter.get(
         isOnline: true,
         completedServices: true,
         profileViews: true,
+        profileTags: true,
+        serviceTags: true,
+        serviceCategory: true,
       },
     });
 
@@ -173,6 +176,9 @@ profileRouter.get(
           heightCm: p.heightCm,
           serviceStyleTags: p.serviceStyleTags,
           normalizedTags: parseAndNormalizeTags(p.serviceStyleTags),
+          profileTags: (p as any).profileTags ?? [],
+          serviceTags: (p as any).serviceTags ?? [],
+          serviceCategory: (p as any).serviceCategory ?? null,
           createdAt: p.createdAt,
         };
       })

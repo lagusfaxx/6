@@ -97,6 +97,14 @@ export default function SexShopProfileClient() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [checkoutStep, setCheckoutStep] = useState<"cart" | "form" | "confirm">("cart");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryPhone, setDeliveryPhone] = useState("");
+  const [deliveryNote, setDeliveryNote] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [orderBusy, setOrderBusy] = useState(false);
+  const [orderResult, setOrderResult] = useState<any>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   const cartButtonRef = useRef<HTMLButtonElement | null>(null);
   const categoriesRef = useRef<Record<string, HTMLElement | null>>({});
@@ -212,6 +220,31 @@ export default function SexShopProfileClient() {
     return `Hola, quiero enviar este pedido:\n${lines}\nTotal referencial: $${total.toLocaleString("es-CL")}\n(Coordinemos entrega y pago por aquí).`;
   }
 
+  async function submitOrder() {
+    if (!cart.length || !shopId) return;
+    setOrderBusy(true);
+    setOrderError(null);
+    try {
+      const res = await apiFetch<{ order: any }>("/shop/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          items: cart.map((c) => ({ productId: c.id, quantity: c.qty })),
+          deliveryAddress: deliveryAddress || null,
+          deliveryPhone: deliveryPhone || null,
+          deliveryNote: deliveryNote || null,
+          paymentMethod,
+        }),
+      });
+      setOrderResult(res.order ?? res);
+      setCheckoutStep("confirm");
+      setCart([]);
+    } catch {
+      setOrderError("No pudimos crear tu pedido. Inicia sesión e intenta de nuevo.");
+    } finally {
+      setOrderBusy(false);
+    }
+  }
+
   const currentHour = new Date().getHours();
   const isOpenNow = currentHour >= 10 && currentHour < 23;
 
@@ -274,7 +307,7 @@ export default function SexShopProfileClient() {
           <span className="max-w-[50%] truncate text-base font-semibold text-white">{profile.name}</span>
           <button
             ref={cartButtonRef}
-            onClick={() => setSheetOpen(true)}
+            onClick={() => { setCheckoutStep("cart"); setSheetOpen(true); }}
             className={`relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 transition-all duration-300 hover:from-fuchsia-500/30 hover:to-violet-500/30 ${cartPulse ? "scale-110" : "scale-100"}`}
             aria-label="Carrito"
           >
@@ -597,7 +630,7 @@ export default function SexShopProfileClient() {
             initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
-            onClick={() => setSheetOpen(true)}
+            onClick={() => { setCheckoutStep("cart"); setSheetOpen(true); }}
             className="fixed bottom-6 left-4 right-4 z-30 flex items-center justify-between rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-4 shadow-2xl shadow-fuchsia-500/20 md:left-1/2 md:max-w-md md:-translate-x-1/2"
           >
             <div className="flex items-center gap-3">
@@ -814,7 +847,7 @@ export default function SexShopProfileClient() {
           )}
         </div>
 
-        {cart.length > 0 && (
+        {cart.length > 0 && checkoutStep === "cart" && (
           <>
             <div className="mb-5 rounded-2xl border border-fuchsia-400/30 bg-gradient-to-br from-fuchsia-500/15 to-violet-500/15 p-4">
               <div className="flex items-center justify-between">
@@ -831,16 +864,168 @@ export default function SexShopProfileClient() {
               </div>
             </div>
 
-            <Link
-              href={`/chat/${shopId}?draft=${encodeURIComponent(chatDraftFromCart())}`}
+            <button
+              onClick={() => setCheckoutStep("form")}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-4 text-base font-semibold text-white shadow-lg shadow-fuchsia-500/20 transition-all hover:from-fuchsia-600 hover:to-violet-700 active:scale-[0.98]"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Continuar al checkout
+            </button>
+
+            <Link
+              href={`/chat/${shopId}?draft=${encodeURIComponent(chatDraftFromCart())}`}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-6 py-3 text-sm font-medium text-white/70 transition-all hover:bg-white/[0.08]"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              Enviar pedido al chat
+              O consultar por chat
             </Link>
           </>
+        )}
+
+        {/* ── Checkout form step ── */}
+        {checkoutStep === "form" && (
+          <div className="space-y-4">
+            <button
+              onClick={() => setCheckoutStep("cart")}
+              className="flex items-center gap-1 text-sm text-white/50 hover:text-white/80 transition"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              Volver al carrito
+            </button>
+
+            <div className="rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/5 p-4">
+              <span className="text-xs text-white/50">Total a pagar</span>
+              <p className="text-2xl font-bold">${total.toLocaleString("es-CL")}</p>
+              <p className="text-xs text-white/40">{cartItemsCount} {cartItemsCount === 1 ? "producto" : "productos"}</p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-white/40">Dirección de entrega</label>
+              <input
+                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/20 outline-none transition focus:border-fuchsia-500/40 focus:ring-1 focus:ring-fuchsia-500/20"
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                placeholder="Calle, número, comuna"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-white/40">Teléfono de contacto</label>
+              <input
+                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/20 outline-none transition focus:border-fuchsia-500/40 focus:ring-1 focus:ring-fuchsia-500/20"
+                value={deliveryPhone}
+                onChange={(e) => setDeliveryPhone(e.target.value)}
+                placeholder="+56 9 1234 5678"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-white/40">Nota (opcional)</label>
+              <input
+                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/20 outline-none transition focus:border-fuchsia-500/40 focus:ring-1 focus:ring-fuchsia-500/20"
+                value={deliveryNote}
+                onChange={(e) => setDeliveryNote(e.target.value)}
+                placeholder="Instrucciones especiales"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-white/40">Método de pago</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: "CASH", label: "Efectivo" },
+                  { key: "TRANSFER", label: "Transferencia" },
+                ].map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setPaymentMethod(m.key)}
+                    className={`rounded-xl border py-3 text-center text-sm font-medium transition-all ${
+                      paymentMethod === m.key
+                        ? "border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300"
+                        : "border-white/10 text-white/50 hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {orderError && (
+              <div className="rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">
+                {orderError}
+              </div>
+            )}
+
+            <button
+              onClick={submitOrder}
+              disabled={orderBusy}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-4 text-base font-semibold text-white shadow-lg shadow-fuchsia-500/20 transition-all hover:from-fuchsia-600 hover:to-violet-700 active:scale-[0.98] disabled:opacity-50"
+            >
+              {orderBusy ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                  Procesando...
+                </span>
+              ) : (
+                <>
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  Confirmar pedido · ${total.toLocaleString("es-CL")}
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* ── Order confirmation step ── */}
+        {checkoutStep === "confirm" && orderResult && (
+          <div className="space-y-5 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 border border-emerald-400/30">
+              <svg className="h-8 w-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold">Pedido creado</h3>
+              <p className="mt-1 text-sm text-white/50">Tu pedido fue enviado a la tienda</p>
+            </div>
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 text-left space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-white/50">Estado</span>
+                <span className="rounded-full bg-amber-500/20 border border-amber-400/30 px-2 py-0.5 text-xs font-medium text-amber-300">Pendiente</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-white/50">Total</span>
+                <span className="font-semibold">${Number(orderResult.totalclp || orderResult.totalClp || 0).toLocaleString("es-CL")}</span>
+              </div>
+              {orderResult.paymentmethod && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-white/50">Pago</span>
+                  <span className="text-white/70">{orderResult.paymentmethod === "TRANSFER" ? "Transferencia" : "Efectivo"}</span>
+                </div>
+              )}
+              {orderResult.id && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-white/50">Referencia</span>
+                  <span className="font-mono text-xs text-white/40">{String(orderResult.id).slice(0, 8)}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setCheckoutStep("cart"); setOrderResult(null); setSheetOpen(false); }}
+                className="flex-1 rounded-xl border border-white/15 bg-white/[0.04] py-3 text-sm font-medium text-white/70 transition hover:bg-white/[0.08]"
+              >
+                Seguir comprando
+              </button>
+              <Link
+                href={`/chat/${shopId}`}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-600 py-3 text-sm font-semibold transition hover:brightness-110"
+              >
+                Ir al chat
+              </Link>
+            </div>
+          </div>
         )}
       </div>
     </div>
