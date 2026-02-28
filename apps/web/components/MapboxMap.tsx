@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type mapboxgl from "mapbox-gl";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 
@@ -116,10 +117,12 @@ function MapboxMapComponent({
   const markerRefs = useRef<mapboxgl.Marker[]>([]);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const didInitialCenterRef = useRef(false);
+  const userHasInteractedRef = useRef(false);
   const [mapInitialized, setMapInitialized] = useState(false);
   const [mapIdle, setMapIdle] = useState(false);
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [recenterFlag, setRecenterFlag] = useState(0);
   const centerChangeHandlerRef = useRef(onCenterChange);
 
   useEffect(() => {
@@ -191,7 +194,13 @@ function MapboxMapComponent({
       setMapInitialized(true);
       map.on("movestart", () => setMapIdle(false));
       map.on("zoomstart", () => setMapIdle(false));
-      map.on("dragstart", () => setMapIdle(false));
+      map.on("dragstart", () => {
+        setMapIdle(false);
+        userHasInteractedRef.current = true;
+      });
+      const canvas = map.getCanvas();
+      canvas.addEventListener("wheel", () => { userHasInteractedRef.current = true; }, { passive: true });
+      canvas.addEventListener("touchmove", () => { userHasInteractedRef.current = true; }, { passive: true });
       map.on("idle", () => {
         setMapIdle(true);
         const center = map.getCenter();
@@ -223,7 +232,8 @@ function MapboxMapComponent({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapIdle) return;
+    if (!map || !mapInitialized) return;
+    if (userHasInteractedRef.current) return;
 
     const target =
       userLocation ||
@@ -236,7 +246,7 @@ function MapboxMapComponent({
     const zoom = userLocation ? 13 : 11.5;
     const center: [number, number] = [target[1], target[0]];
     const run = () => {
-      // Primera vez: sin animación (evita “viaje” visible)
+      // Primera vez: sin animación (evita "viaje" visible)
       if (!didInitialCenterRef.current) {
         didInitialCenterRef.current = true;
         map.jumpTo({ center, zoom });
@@ -250,7 +260,7 @@ function MapboxMapComponent({
     } else {
       run();
     }
-  }, [userLocation?.[0], userLocation?.[1], displayMarkers, autoCenterOnDataChange, mapIdle]);
+  }, [userLocation?.[0], userLocation?.[1], displayMarkers, autoCenterOnDataChange, mapInitialized, recenterFlag]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -591,6 +601,11 @@ function MapboxMapComponent({
       .addTo(map);
   }, [mapInitialized, mapIdle, userLocation?.[0], userLocation?.[1]]);
 
+  const handleRecenter = useCallback(() => {
+    userHasInteractedRef.current = false;
+    setRecenterFlag((f) => f + 1);
+  }, []);
+
   if (!token) {
     return (
       <div
@@ -602,87 +617,119 @@ function MapboxMapComponent({
     );
   }
 
-  return (
-    <div className="relative isolate overflow-hidden">
-      <div ref={containerRef} className={className} style={{ height }} />
-      {selectedMarker ? (
-        <div
-          className={isMobileViewport ? "uzeed-map-mobile-overlay" : "uzeed-map-panel"}
-          role="dialog"
-          aria-modal={isMobileViewport ? true : undefined}
-          aria-label="Detalle de perfil en mapa"
-          onClick={(event) => {
-            if (isMobileViewport && event.target === event.currentTarget) {
-              setSelectedMarker(null);
-            }
-          }}
+  const selectedCardContent = selectedMarker ? (
+    <>
+      <div className="uzeed-map-drawer__cover-wrap">
+        {selectedMarker.coverUrl ? (
+          <img
+            src={resolveMediaUrl(selectedMarker.coverUrl) ?? undefined}
+            alt={`Portada de ${selectedMarker.name}`}
+            className="uzeed-map-drawer__cover"
+          />
+        ) : null}
+        <button
+          type="button"
+          className="uzeed-map-drawer__close"
+          onClick={() => setSelectedMarker(null)}
         >
-            <div className={isMobileViewport ? "uzeed-map-drawer uzeed-map-drawer--mobile" : "uzeed-map-drawer__content"}>
-            <div className="uzeed-map-drawer__cover-wrap">
-              {selectedMarker.coverUrl ? (
-                <img
-                  src={resolveMediaUrl(selectedMarker.coverUrl) ?? undefined}
-                  alt={`Portada de ${selectedMarker.name}`}
-                  className="uzeed-map-drawer__cover"
-                />
-              ) : null}
-              <button
-                type="button"
-                className="uzeed-map-drawer__close"
-                onClick={() => setSelectedMarker(null)}
-              >
-                ✕
-              </button>
-              <div className="uzeed-map-drawer__avatar-overlay">
-                <div className="uzeed-map-drawer__avatar-wrap">
-                  {selectedMarker.avatarUrl ? (
-                    <img
-                      src={resolveMediaUrl(selectedMarker.avatarUrl) ?? undefined}
-                      alt={selectedMarker.name}
-                      className="uzeed-map-drawer__avatar"
-                    />
-                  ) : null}
-                </div>
-                <span className={`uzeed-map-drawer__status-dot ${selectedMarker.tier === "online" ? "uzeed-map-drawer__status-dot--online" : ""}`} aria-label={selectedMarker.tier === "online" ? "Online" : "Offline"} role="status" />
-              </div>
-            </div>
-            <div className="uzeed-map-drawer__body">
-              <div className="uzeed-map-drawer__name">{selectedMarker.name}</div>
-              <div className="uzeed-map-drawer__level">
-                {selectedMarker.level ? `Nivel ${selectedMarker.level}` : "Nivel no informado"}
-              </div>
-              <span className={`uzeed-map-drawer__status-badge ${selectedMarker.tier === "online" ? "uzeed-map-drawer__status-badge--online" : "uzeed-map-drawer__status-badge--offline"}`}>
-                {selectedMarker.tier === "online" ? "Online" : formatLastSeenLabel(selectedMarker.lastSeen)}
-              </span>
-              <div className="uzeed-map-drawer__badges">
-                {selectedMarker.age ? <span className="uzeed-map-drawer__badge" aria-label={`Edad: ${selectedMarker.age} años`}><span className="uzeed-map-drawer__badge-label">Edad</span><span className="uzeed-map-drawer__badge-value">{selectedMarker.age} años</span></span> : null}
-                {selectedMarker.heightCm ? <span className="uzeed-map-drawer__badge" aria-label={`Estatura: ${Math.round(selectedMarker.heightCm)} cm`}><span className="uzeed-map-drawer__badge-label">Estatura</span><span className="uzeed-map-drawer__badge-value">{Math.round(selectedMarker.heightCm)} cm</span></span> : null}
-                {selectedMarker.weightKg ? <span className="uzeed-map-drawer__badge" aria-label={`Peso: ${Math.round(selectedMarker.weightKg)} kg`}><span className="uzeed-map-drawer__badge-label">Peso</span><span className="uzeed-map-drawer__badge-value">{Math.round(selectedMarker.weightKg)} kg</span></span> : null}
-                {typeof selectedMarker.serviceValue === "number" ? <span className="uzeed-map-drawer__badge" aria-label={`Precio: $${selectedMarker.serviceValue.toLocaleString("es-CL")}`}><span className="uzeed-map-drawer__badge-label">Precio</span><span className="uzeed-map-drawer__badge-value">${selectedMarker.serviceValue.toLocaleString("es-CL")}</span></span> : null}
-              </div>
-              {selectedMarker.galleryUrls && selectedMarker.galleryUrls.length > 0 ? (
-                <div className="uzeed-map-drawer__gallery" aria-label="Galería del perfil">
-                  {selectedMarker.galleryUrls.slice(0, 6).map((url, idx) => (
-                    <img
-                      key={`${selectedMarker.id}-gallery-${idx}`}
-                      src={resolveMediaUrl(url) ?? undefined}
-                      alt={`Foto ${idx + 1} de ${selectedMarker.name}`}
-                      className="uzeed-map-drawer__gallery-photo"
-                    />
-                  ))}
-                </div>
-              ) : null}
-              {selectedMarker.href ? (
-                <div className="uzeed-map-drawer__cta-wrap">
-                  <a className="uzeed-map-drawer__btn" href={selectedMarker.href} aria-label="Ver Perfil Completo">
-                    Ver Perfil Completo
-                  </a>
-                </div>
-              ) : null}
-            </div>
+          ✕
+        </button>
+        <div className="uzeed-map-drawer__avatar-overlay">
+          <div className="uzeed-map-drawer__avatar-wrap">
+            {selectedMarker.avatarUrl ? (
+              <img
+                src={resolveMediaUrl(selectedMarker.avatarUrl) ?? undefined}
+                alt={selectedMarker.name}
+                className="uzeed-map-drawer__avatar"
+              />
+            ) : null}
+          </div>
+          <span className={`uzeed-map-drawer__status-dot ${selectedMarker.tier === "online" ? "uzeed-map-drawer__status-dot--online" : ""}`} aria-label={selectedMarker.tier === "online" ? "Online" : "Offline"} role="status" />
+        </div>
+      </div>
+      <div className="uzeed-map-drawer__body">
+        <div className="uzeed-map-drawer__name">{selectedMarker.name}</div>
+        <div className="uzeed-map-drawer__level">
+          {selectedMarker.level ? `Nivel ${selectedMarker.level}` : "Nivel no informado"}
+        </div>
+        <span className={`uzeed-map-drawer__status-badge ${selectedMarker.tier === "online" ? "uzeed-map-drawer__status-badge--online" : "uzeed-map-drawer__status-badge--offline"}`}>
+          {selectedMarker.tier === "online" ? "Online" : formatLastSeenLabel(selectedMarker.lastSeen)}
+        </span>
+        <div className="uzeed-map-drawer__badges">
+          {selectedMarker.age ? <span className="uzeed-map-drawer__badge" aria-label={`Edad: ${selectedMarker.age} años`}><span className="uzeed-map-drawer__badge-label">Edad</span><span className="uzeed-map-drawer__badge-value">{selectedMarker.age} años</span></span> : null}
+          {selectedMarker.heightCm ? <span className="uzeed-map-drawer__badge" aria-label={`Estatura: ${Math.round(selectedMarker.heightCm)} cm`}><span className="uzeed-map-drawer__badge-label">Estatura</span><span className="uzeed-map-drawer__badge-value">{Math.round(selectedMarker.heightCm)} cm</span></span> : null}
+          {selectedMarker.weightKg ? <span className="uzeed-map-drawer__badge" aria-label={`Peso: ${Math.round(selectedMarker.weightKg)} kg`}><span className="uzeed-map-drawer__badge-label">Peso</span><span className="uzeed-map-drawer__badge-value">{Math.round(selectedMarker.weightKg)} kg</span></span> : null}
+          {typeof selectedMarker.serviceValue === "number" ? <span className="uzeed-map-drawer__badge" aria-label={`Precio: $${selectedMarker.serviceValue.toLocaleString("es-CL")}`}><span className="uzeed-map-drawer__badge-label">Precio</span><span className="uzeed-map-drawer__badge-value">${selectedMarker.serviceValue.toLocaleString("es-CL")}</span></span> : null}
+        </div>
+        {selectedMarker.galleryUrls && selectedMarker.galleryUrls.length > 0 ? (
+          <div className="uzeed-map-drawer__gallery" aria-label="Galería del perfil">
+            {selectedMarker.galleryUrls.slice(0, 6).map((url, idx) => (
+              <img
+                key={`${selectedMarker.id}-gallery-${idx}`}
+                src={resolveMediaUrl(url) ?? undefined}
+                alt={`Foto ${idx + 1} de ${selectedMarker.name}`}
+                className="uzeed-map-drawer__gallery-photo"
+              />
+            ))}
+          </div>
+        ) : null}
+        {selectedMarker.href ? (
+          <div className="uzeed-map-drawer__cta-wrap">
+            <a className="uzeed-map-drawer__btn" href={selectedMarker.href} aria-label="Ver Perfil Completo">
+              Ver Perfil Completo
+            </a>
+          </div>
+        ) : null}
+      </div>
+    </>
+  ) : null;
+
+  return (
+    <div className="relative overflow-hidden">
+      <div ref={containerRef} className={className} style={{ height }} />
+
+      {/* Recenter button */}
+      <button
+        type="button"
+        className="uzeed-map-recenter-btn"
+        onClick={handleRecenter}
+        aria-label="Centrar en mi ubicación"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="3 11 22 2 13 21 11 13 3 11" />
+        </svg>
+      </button>
+
+      {/* Desktop panel (inside map container) */}
+      {selectedMarker && !isMobileViewport ? (
+        <div className="uzeed-map-panel" role="dialog" aria-label="Detalle de perfil en mapa">
+          <div className="uzeed-map-drawer__content">
+            {selectedCardContent}
           </div>
         </div>
       ) : null}
+
+      {/* Mobile overlay (portal to body to escape stacking context) */}
+      {selectedMarker && isMobileViewport && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="uzeed-map-mobile-overlay"
+              role="dialog"
+              aria-modal
+              aria-label="Detalle de perfil en mapa"
+              onClick={(event) => {
+                if (event.target === event.currentTarget) {
+                  setSelectedMarker(null);
+                }
+              }}
+            >
+              <div className="uzeed-map-drawer uzeed-map-drawer--mobile">
+                {selectedCardContent}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
