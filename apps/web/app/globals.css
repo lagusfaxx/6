@@ -701,3 +701,19 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   color: #e879f9;
   border-color: rgba(168, 85, 247, 0.35);
 }
+
+/* ── Bottom sheet / panel animations ── */
+@keyframes uzeed-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes uzeed-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.uzeed-animate-slide-up {
+  animation: uzeed-slide-up 0.3s ease-out;
+}
+.uzeed-animate-fade-in {
+  animation: uzeed-fade-in 0.2s ease-out;
+}

@@ -1,11 +1,12 @@
 "use client";
 
-import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
 import useMe from "../../hooks/useMe";
 import MapboxMap from "../../components/MapboxMap";
+import type { MapMarker } from "../../components/MapboxMap";
 import UserLevelBadge from "../../components/UserLevelBadge";
 import ProfilePreviewModal from "../../components/ProfilePreviewModal";
 import Stories from "../../components/Stories";
@@ -27,6 +28,10 @@ import {
   Flame,
   Clock,
   Eye,
+  Ruler,
+  Weight,
+  Scissors,
+  CheckCircle,
 } from "lucide-react";
 
 type ProfileResult = {
@@ -266,6 +271,218 @@ const ProfileCard = memo(function ProfileCard({
   );
 });
 
+/* ── Profile Detail Panel (shown outside the map) ── */
+function ProfileDetailPanel({
+  profile,
+  galleryUrls,
+  onClose,
+  isAuthed,
+}: {
+  profile: ProfileResult;
+  galleryUrls: string[];
+  onClose: () => void;
+  isAuthed: boolean;
+}) {
+  const coverImg = resolveMediaUrl(profile.coverUrl) ?? resolveMediaUrl(profile.avatarUrl);
+  const avatarImg = resolveMediaUrl(profile.avatarUrl);
+  const chatHref = isAuthed
+    ? `/chat/${profile.userId || profile.id}`
+    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-y-auto">
+        {/* Cover photo */}
+        <div className="relative aspect-[16/9] overflow-hidden bg-white/[0.04]">
+          {coverImg ? (
+            <img src={coverImg} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-gradient-to-br from-fuchsia-900/30 to-violet-900/30">
+              <Users className="h-12 w-12 text-white/10" />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-sm transition hover:bg-black/70 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          {/* Level badge on cover */}
+          {profile.userLevel && (
+            <div className="absolute top-3 left-3">
+              <UserLevelBadge level={profile.userLevel} className="px-2.5 py-1 text-[10px] shadow-lg" />
+            </div>
+          )}
+        </div>
+
+        {/* Avatar + Name */}
+        <div className="relative px-4 -mt-10">
+          <div className="flex items-end gap-3">
+            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border-[3px] border-[#0d0e17] bg-white/[0.08]">
+              {avatarImg ? (
+                <img src={avatarImg} alt={profile.displayName || profile.username} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Users className="h-8 w-8 text-white/20" />
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 pb-1">
+              <h3 className="truncate text-lg font-bold leading-tight">
+                {profile.displayName || profile.username}
+                {profile.age ? <span className="font-normal text-white/50">, {profile.age}</span> : ""}
+              </h3>
+              {profile.city && (
+                <p className="mt-0.5 flex items-center gap-1 text-xs text-white/40">
+                  <MapPin className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{profile.city}</span>
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Status + quick info pills */}
+        <div className="mt-3 flex flex-wrap gap-1.5 px-4">
+          {profile.availableNow ? (
+            <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-400">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+              Online
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-white/40">
+              <Clock className="h-3 w-3" />
+              {formatLastSeen(profile.lastSeen)}
+            </span>
+          )}
+          {profile.distance != null && (
+            <span className="flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-white/50">
+              <MapPin className="h-3 w-3" />
+              {profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)} km`}
+            </span>
+          )}
+          {profile.baseRate != null && (
+            <span className="flex items-center gap-1 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-2.5 py-1 text-xs font-medium text-fuchsia-300">
+              ${profile.baseRate.toLocaleString("es-CL")}
+            </span>
+          )}
+          {profile.serviceCategory && (
+            <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-white/50">
+              {profile.serviceCategory}
+            </span>
+          )}
+        </div>
+
+        {/* Stats grid */}
+        <div className="mt-3 grid grid-cols-2 gap-2 px-4">
+          {profile.heightCm != null && (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-white/30">
+                <Ruler className="h-3 w-3" /> Estatura
+              </div>
+              <div className="mt-1 text-sm font-semibold text-white/80">{Math.round(profile.heightCm)} cm</div>
+            </div>
+          )}
+          {profile.weightKg != null && (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-white/30">
+                <Weight className="h-3 w-3" /> Peso
+              </div>
+              <div className="mt-1 text-sm font-semibold text-white/80">{Math.round(profile.weightKg)} kg</div>
+            </div>
+          )}
+          {profile.hairColor && (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-white/30">
+                <Scissors className="h-3 w-3" /> Cabello
+              </div>
+              <div className="mt-1 text-sm font-semibold text-white/80">{profile.hairColor}</div>
+            </div>
+          )}
+          {profile.completedServices != null && profile.completedServices > 0 && (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-white/30">
+                <CheckCircle className="h-3 w-3" /> Servicios
+              </div>
+              <div className="mt-1 text-sm font-semibold text-white/80">{profile.completedServices}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Description */}
+        {(profile.bio || profile.serviceDescription) && (
+          <div className="mt-4 px-4">
+            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Descripción</h4>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-white/60">
+              {profile.bio || profile.serviceDescription}
+            </p>
+          </div>
+        )}
+
+        {/* Profile tags */}
+        {profile.profileTags && profile.profileTags.length > 0 && (
+          <div className="mt-4 px-4">
+            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Etiquetas</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {profile.profileTags.map((tag) => (
+                <span key={tag} className="rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] text-fuchsia-300/80">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Service tags */}
+        {profile.serviceTags && profile.serviceTags.length > 0 && (
+          <div className="mt-4 px-4">
+            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Servicios</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {profile.serviceTags.map((tag) => (
+                <span key={tag} className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-300/80">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Gallery */}
+        {galleryUrls.length > 0 && (
+          <div className="mt-4 px-4 pb-4">
+            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Galería</h4>
+            <div className="grid grid-cols-3 gap-1.5">
+              {galleryUrls.map((url, idx) => (
+                <div key={idx} className="aspect-square overflow-hidden rounded-lg bg-white/[0.04]">
+                  <img src={resolveMediaUrl(url) ?? undefined} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Action buttons - fixed at bottom */}
+      <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e17] p-3 flex gap-2">
+        <Link
+          href={chatHref}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
+        >
+          <MessageCircle className="h-4 w-4" /> Chat
+        </Link>
+        <Link
+          href={ownerHref(profile)}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
+        >
+          <Eye className="h-4 w-4" /> Ver Perfil
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 /* ═══ PAGE ═══ */
 export default function ServicesPage() {
   const locationCtx = useContext(LocationFilterContext);
@@ -284,6 +501,9 @@ export default function ServicesPage() {
   const [previewProfile, setPreviewProfile] = useState<ProfileResult | null>(null);
   const [activeQuickFilters, setActiveQuickFilters] = useState<Set<string>>(new Set());
   const [showMap, setShowMap] = useState(true);
+  const [selectedProfile, setSelectedProfile] = useState<ProfileResult | null>(null);
+  const [detailGallery, setDetailGallery] = useState<string[]>([]);
+  const [isMobileView, setIsMobileView] = useState(false);
   const fetchRef = useRef(0);
 
   const toggleQuickFilter = (key: string) => {
@@ -294,6 +514,14 @@ export default function ServicesPage() {
       return next;
     });
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const check = () => setIsMobileView(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
   const effectiveLocWithFallback = effectiveLoc ?? SANTIAGO_FALLBACK;
@@ -399,6 +627,51 @@ export default function ServicesPage() {
     () => displayProfiles.filter((p) => p.userLevel !== "DIAMOND" && p.userLevel !== "GOLD"),
     [displayProfiles],
   );
+
+  const handleMarkerSelect = useCallback(
+    (marker: MapMarker) => {
+      const profile = displayProfiles.find((p) => p.id === marker.id);
+      if (profile) setSelectedProfile(profile);
+    },
+    [displayProfiles],
+  );
+
+  const handleMarkerDeselect = useCallback(() => {
+    // Don't close on map click - only close via the X button
+  }, []);
+
+  /* Gallery fetch for selected profile */
+  useEffect(() => {
+    if (!selectedProfile) {
+      setDetailGallery([]);
+      return;
+    }
+    if (selectedProfile.galleryUrls && selectedProfile.galleryUrls.length > 0) {
+      setDetailGallery(selectedProfile.galleryUrls);
+      return;
+    }
+    let cancelled = false;
+    apiFetch<{ gallery?: Array<{ url?: string | null }>; profile?: { coverUrl?: string | null; avatarUrl?: string | null } }>(
+      `/profiles/${selectedProfile.username}`,
+    )
+      .then((res) => {
+        if (cancelled) return;
+        const urls = (res.gallery || []).map((g) => g?.url).filter((u): u is string => Boolean(u));
+        const fallback = [res.profile?.coverUrl, res.profile?.avatarUrl].filter((u): u is string => Boolean(u));
+        setDetailGallery(urls.length > 0 ? urls : fallback);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedProfile?.id, selectedProfile?.username]);
+
+  /* Lock body scroll on mobile when profile panel is open */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!(isMobileView && selectedProfile)) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [isMobileView, selectedProfile]);
 
   const markers = useMemo(
     () =>
@@ -589,17 +862,56 @@ export default function ServicesPage() {
           <Stories showUpload />
         </div>
 
-        {/* ── Map ── */}
+        {/* ── Map + Desktop Profile Panel ── */}
         {showMap && (
-          <div className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08]">
-            <MapboxMap
-              userLocation={mapCenter}
-              markers={markers}
-              height={280}
-              autoCenterOnDataChange
-              showMarkersForArea
-              renderHtmlMarkers
+          <div className={`mb-6 ${selectedProfile && !isMobileView ? "flex gap-4" : ""}`}>
+            <div className={`overflow-hidden rounded-2xl border border-white/[0.08] ${selectedProfile && !isMobileView ? "min-w-0 flex-1" : ""}`}>
+              <MapboxMap
+                userLocation={mapCenter}
+                markers={markers}
+                height={selectedProfile && !isMobileView ? 520 : 280}
+                autoCenterOnDataChange
+                showMarkersForArea
+                renderHtmlMarkers
+                onMarkerSelect={handleMarkerSelect}
+                onMarkerDeselect={handleMarkerDeselect}
+              />
+            </div>
+            {/* Desktop side panel */}
+            {selectedProfile && !isMobileView && (
+              <div className="w-[420px] shrink-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0d0e17]" style={{ height: 520 }}>
+                <ProfileDetailPanel
+                  profile={selectedProfile}
+                  galleryUrls={detailGallery}
+                  onClose={() => setSelectedProfile(null)}
+                  isAuthed={isAuthed}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Mobile Bottom Sheet ── */}
+        {selectedProfile && isMobileView && (
+          <div className="fixed inset-0 z-[100] flex flex-col justify-end" role="dialog" aria-modal>
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm uzeed-animate-fade-in"
+              onClick={() => setSelectedProfile(null)}
             />
+            <div className="relative flex flex-col rounded-t-2xl border-t border-white/[0.08] bg-[#0d0e17] uzeed-animate-slide-up" style={{ maxHeight: "85vh" }}>
+              {/* Drag handle */}
+              <div className="flex justify-center py-2.5">
+                <div className="h-1 w-10 rounded-full bg-white/20" />
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <ProfileDetailPanel
+                  profile={selectedProfile}
+                  galleryUrls={detailGallery}
+                  onClose={() => setSelectedProfile(null)}
+                  isAuthed={isAuthed}
+                />
+              </div>
+            </div>
           </div>
         )}
 
