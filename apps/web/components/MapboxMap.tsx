@@ -250,7 +250,7 @@ function MapboxMapComponent({
     } else {
       run();
     }
-  }, [userLocation?.[0], userLocation?.[1], displayMarkers, autoCenterOnDataChange]);
+  }, [userLocation?.[0], userLocation?.[1], displayMarkers, autoCenterOnDataChange, mapIdle]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -603,7 +603,7 @@ function MapboxMapComponent({
   }
 
   return (
-    <div className="relative isolate">
+    <div className="relative isolate overflow-hidden">
       <div ref={containerRef} className={className} style={{ height }} />
       {selectedMarker ? (
         <div

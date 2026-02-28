@@ -361,25 +361,52 @@ export default function HomePage() {
           <Stories />
         </section>
 
+        {/* ═══ BANNERS PUBLICITARIOS ═══ */}
+        {horizontalBanners.length > 0 && (
+          <section className="mb-6">
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 snap-x">
+              {horizontalBanners.map((b) => (
+                <a
+                  key={b.id}
+                  href={b.linkUrl ?? "#"}
+                  className="relative block w-[85vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] sm:w-[400px]"
+                >
+                  <img
+                    src={resolveMediaUrl(b.imageUrl) ?? b.imageUrl}
+                    alt={b.title}
+                    className="h-[140px] w-full object-cover sm:h-[160px]"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                  {b.title && b.title !== "Banner sin título" && (
+                    <div className="absolute bottom-3 left-3 right-3">
+                      <span className="text-xs font-semibold text-white drop-shadow-md">{b.title}</span>
+                    </div>
+                  )}
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ═══ CATEGORÍAS — Quick access for easy navigation ═══ */}
         <section className="mb-8 sm:hidden">
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7 sm:gap-3">
+          <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
             {[
-              { label: "Escorts", href: "/escorts", icon: Heart, color: "from-pink-600/20 to-fuchsia-600/10" },
-              { label: "Masajistas", href: "/masajistas", icon: Hand, color: "from-violet-600/20 to-purple-600/10" },
-              { label: "Moteles", href: "/moteles", icon: Hotel, color: "from-rose-600/20 to-red-600/10" },
-              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, color: "from-fuchsia-600/20 to-pink-600/10" },
-              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, color: "from-amber-600/20 to-orange-600/10" },
-              { label: "Videollamadas", href: "/escorts?serviceTags=videollamadas", icon: Video, color: "from-blue-600/20 to-cyan-600/10" },
-              { label: "Cerca tuyo", href: "/servicios", icon: MapPin, color: "from-emerald-600/20 to-green-600/10" },
+              { label: "Escorts", href: "/escorts", icon: Sparkles },
+              { label: "Masajistas", href: "/masajistas", icon: Hand },
+              { label: "Moteles", href: "/moteles", icon: Hotel },
+              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag },
+              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper },
+              { label: "Videollamadas", href: "/escorts?serviceTags=videollamadas", icon: Video },
+              { label: "Cerca tuyo", href: "/servicios", icon: Navigation },
             ].map((cat) => (
               <Link
                 key={cat.href}
                 href={cat.href}
-                className={`group flex flex-col items-center gap-1.5 rounded-2xl border border-white/[0.06] bg-gradient-to-br ${cat.color} px-2 py-3 text-center transition hover:border-fuchsia-500/20 hover:scale-[1.04]`}
+                className="group flex shrink-0 items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 transition-all hover:border-fuchsia-500/25 hover:bg-fuchsia-500/[0.06] active:scale-[0.97]"
               >
-                <cat.icon className="h-6 w-6 text-white/80" />
-                <span className="text-[10px] font-medium text-white/70 leading-tight sm:text-xs">{cat.label}</span>
+                <cat.icon className="h-4 w-4 text-fuchsia-400/80" />
+                <span className="text-xs font-medium text-white/75">{cat.label}</span>
               </Link>
             ))}
           </div>
