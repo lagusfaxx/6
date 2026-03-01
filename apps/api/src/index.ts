@@ -13,6 +13,7 @@ import { Prisma } from "@prisma/client";
 
 import { config } from "./config";
 import { authRouter } from "./auth/routes";
+import { verificationRouter } from "./auth/verification";
 import { ensureAdminUser } from "./auth/seedAdmin";
 import { seedCategories } from "./client/seedCategories";
 import { feedRouter } from "./feed/routes";
@@ -149,6 +150,7 @@ app.use(
 );
 
 app.use("/auth", authRouter);
+app.use("/auth/verification", verificationRouter);
 app.use("/", clientRouter);
 app.use("/shop", shopRouter);
 app.use("/", feedRouter);

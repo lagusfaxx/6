@@ -104,20 +104,19 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return res.status(401).json({ error: "UNAUTHENTICATED" });
     }
 
-    // Check subscription status for business profiles
-    if (isSubscriptionProtected(req.path) && !isBusinessPlanActive(user)) {
-      // Allow billing and subscription management routes even if expired
-      if (req.path.startsWith("/billing") || req.path === "/auth/me") {
-        (req as any).user = user;
-        return next();
-      }
-      
-      return res.status(403).json({ 
-        error: "SUBSCRIPTION_EXPIRED", 
-        message: "Tu periodo de prueba ha expirado. Por favor, actualiza tu suscripción para continuar usando la app.",
-        requiresPayment: true
-      });
-    }
+    // Subscription check temporarily disabled — allow all users through
+    // TODO: Re-enable subscription enforcement when payment flow is ready
+    // if (isSubscriptionProtected(req.path) && !isBusinessPlanActive(user)) {
+    //   if (req.path.startsWith("/billing") || req.path === "/auth/me") {
+    //     (req as any).user = user;
+    //     return next();
+    //   }
+    //   return res.status(403).json({
+    //     error: "SUBSCRIPTION_EXPIRED",
+    //     message: "Tu periodo de prueba ha expirado. Por favor, actualiza tu suscripción para continuar usando la app.",
+    //     requiresPayment: true
+    //   });
+    // }
 
     (req as any).user = user;
     return next();
