@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiFetch, isAuthError } from "../../lib/api";
+import { apiFetch } from "../../lib/api";
 import Avatar from "../../components/Avatar";
 import UserLevelBadge from "../../components/UserLevelBadge";
 import { Heart, Calendar, MapPin, Clock, Star, LogIn, Sparkles } from "lucide-react";
@@ -60,11 +60,11 @@ export default function FavoritesPage() {
     apiFetch<FavoritesData>("/favorites")
       .then((res) => setData(res))
       .catch((err: any) => {
-        if (isAuthError(err)) {
+        if (err?.status === 401) {
           setNeedsAuth(true);
           return;
         }
-        setError(err?.message || "No se pudo cargar favoritos");
+        setError(err?.body?.message || err?.message || "No se pudo cargar favoritos");
       })
       .finally(() => setLoading(false));
   }, []);
