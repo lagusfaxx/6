@@ -49,6 +49,25 @@ function flattenValidation(details: any): string | null {
   return errors.join(" ");
 }
 
+export type RegisterFormData = {
+  email: string;
+  password: string;
+  displayName: string;
+  username: string;
+  phone: string;
+  gender?: string;
+  primaryCategory?: string;
+  profileType: string;
+  preferenceGender?: string;
+  address?: string;
+  city?: string;
+  latitude?: number;
+  longitude?: number;
+  acceptTerms: boolean;
+  birthdate?: string;
+  bio?: string;
+};
+
 export default function AuthForm({
   mode,
   initialProfileType,
@@ -56,6 +75,7 @@ export default function AuthForm({
   termsAccepted: externalTermsAccepted,
   onOpenTerms,
   onSuccess,
+  onCollectData,
 }: {
   mode: Mode;
   initialProfileType?: string;
@@ -63,6 +83,7 @@ export default function AuthForm({
   termsAccepted?: boolean;
   onOpenTerms?: () => void;
   onSuccess?: (data: any) => { redirect?: string | null } | void;
+  onCollectData?: (data: RegisterFormData) => void;
 }) {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -126,27 +147,36 @@ export default function AuthForm({
           return;
         }
 
+        const formData: RegisterFormData = {
+          email,
+          password,
+          displayName,
+          username,
+          phone,
+          gender: profileType === "PROFESSIONAL" ? gender : undefined,
+          primaryCategory: profileType === "PROFESSIONAL" ? (primaryCategory || undefined) : undefined,
+          profileType,
+          preferenceGender:
+            profileType === "CLIENT" ? preferenceGender : undefined,
+          address: isBusinessProfile ? address : undefined,
+          city: isBusinessProfile ? city || undefined : undefined,
+          latitude: isBusinessProfile ? Number(latitude) : undefined,
+          longitude: isBusinessProfile ? Number(longitude) : undefined,
+          acceptTerms: finalTermsAccepted,
+          birthdate: birthdate || undefined,
+          bio: bio || undefined,
+        };
+
+        // If onCollectData is provided, defer registration (verify-first flow)
+        if (onCollectData) {
+          onCollectData(formData);
+          setLoading(false);
+          return;
+        }
+
         const res = await apiFetch("/auth/register", {
           method: "POST",
-          body: JSON.stringify({
-            email,
-            password,
-            displayName,
-            username,
-            phone,
-            gender: profileType === "PROFESSIONAL" ? gender : undefined,
-            primaryCategory: profileType === "PROFESSIONAL" ? (primaryCategory || undefined) : undefined,
-            profileType,
-            preferenceGender:
-              profileType === "CLIENT" ? preferenceGender : undefined,
-            address: isBusinessProfile ? address : undefined,
-            city: isBusinessProfile ? city || undefined : undefined,
-            latitude: isBusinessProfile ? Number(latitude) : undefined,
-            longitude: isBusinessProfile ? Number(longitude) : undefined,
-            acceptTerms: finalTermsAccepted,
-            birthdate: birthdate || undefined,
-            bio: bio || undefined,
-          }),
+          body: JSON.stringify(formData),
         });
         const override = onSuccess?.(res);
         const next = searchParams.get("next");
