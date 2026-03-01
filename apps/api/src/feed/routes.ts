@@ -32,7 +32,9 @@ async function handleFeed(req: any, res: any, mediaType?: "IMAGE" | "VIDEO") {
 
   const authorWhere: any = {
     // Default should include VIEWER so normal users see their own posts in the main feed.
-    profileType: { in: types.length ? types : ["CREATOR", "PROFESSIONAL", "VIEWER"] }
+    profileType: { in: types.length ? types : ["CREATOR", "PROFESSIONAL", "VIEWER"] },
+    isVerified: true,
+    isActive: true,
   };
 
   // "Siguiendo" for UZEED = creators/pros you have an active subscription with.

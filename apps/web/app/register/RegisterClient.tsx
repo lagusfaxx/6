@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import AuthForm from "../../components/AuthForm";
+import AuthForm, { type RegisterFormData } from "../../components/AuthForm";
 import TermsModal from "../../components/TermsModal";
 import EmailVerification from "../../components/EmailVerification";
 import Link from "next/link";
+import { apiFetch, friendlyErrorMessage } from "../../lib/api";
 import { Briefcase, Building2, ShoppingBag, User, Clock, Phone, CheckCircle2, ArrowLeft, ArrowRight } from "lucide-react";
 
 type ProfileType = "CLIENT" | "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
@@ -58,6 +59,9 @@ export default function RegisterClient() {
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
+  const [pendingFormData, setPendingFormData] = useState<RegisterFormData | null>(null);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [registering, setRegistering] = useState(false);
 
   const isBusinessProfile = profileType === "PROFESSIONAL" || profileType === "ESTABLISHMENT" || profileType === "SHOP";
 
@@ -68,18 +72,37 @@ export default function RegisterClient() {
 
   const termsType = isBusinessProfile ? "business" : "client";
 
+  // After email verified, create the account
+  async function createAccountAfterVerification() {
+    if (!pendingFormData) return;
+    setRegistering(true);
+    setRegisterError(null);
+    try {
+      await apiFetch("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(pendingFormData),
+      });
+      // Register auto-creates the session, no separate login needed
+      if (isBusinessProfile) {
+        setStep("pending");
+      } else {
+        window.location.replace("/");
+      }
+    } catch (err: any) {
+      const msg = err?.body?.message || friendlyErrorMessage(err) || "Error al crear la cuenta.";
+      setRegisterError(msg);
+      setStep("form");
+    } finally {
+      setRegistering(false);
+    }
+  }
+
   // Email verification screen
   if (step === "verify") {
     return (
       <EmailVerification
         email={registeredEmail}
-        onVerified={() => {
-          if (isBusinessProfile) {
-            setStep("pending");
-          } else {
-            window.location.replace("/");
-          }
-        }}
+        onVerified={createAccountAfterVerification}
         onBack={() => setStep("form")}
       />
     );
@@ -192,16 +215,22 @@ export default function RegisterClient() {
             </div>
           ) : step === "form" ? (
             <div className="p-8">
+              {registerError && (
+                <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {registerError}
+                </div>
+              )}
               <AuthForm
                 mode="register"
                 initialProfileType={profileType}
                 lockProfileType
                 termsAccepted={termsAccepted}
                 onOpenTerms={() => setTermsOpen(true)}
-                onSuccess={(data: any) => {
-                  setRegisteredEmail(data?.user?.email || "");
+                onCollectData={(data) => {
+                  setPendingFormData(data);
+                  setRegisteredEmail(data.email);
+                  setRegisterError(null);
                   setStep("verify");
-                  return { redirect: null };
                 }}
               />
               <button

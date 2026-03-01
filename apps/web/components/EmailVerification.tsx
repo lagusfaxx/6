@@ -6,7 +6,7 @@ import { apiFetch } from "../lib/api";
 
 interface EmailVerificationProps {
   email: string;
-  onVerified: () => void;
+  onVerified: () => void | Promise<void>;
   onBack?: () => void;
 }
 
@@ -16,6 +16,7 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [expiresIn, setExpiresIn] = useState(600);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -98,7 +99,9 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
         body: JSON.stringify({ email, code: fullCode }),
       });
       setSuccess(true);
-      setTimeout(() => onVerified(), 1200);
+      setCreatingAccount(true);
+      // Call onVerified (which now creates the account) and wait for it
+      await onVerified();
     } catch (err: any) {
       const msg = err?.body?.message || "Código incorrecto";
       setError(msg);
@@ -106,6 +109,7 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
       inputRefs.current[0]?.focus();
     } finally {
       setLoading(false);
+      setCreatingAccount(false);
     }
   }
 
@@ -169,11 +173,17 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
             </div>
           </div>
           <h1 className="mt-5 text-2xl font-bold text-white">
-            {success ? "Verificado" : "Verifica tu email"}
+            {success
+              ? creatingAccount
+                ? "Creando tu cuenta..."
+                : "Verificado"
+              : "Verifica tu email"}
           </h1>
           <p className="mt-2 text-sm text-white/50 text-center max-w-xs">
             {success ? (
-              "Tu cuenta ha sido verificada correctamente."
+              creatingAccount
+                ? "Email verificado. Estamos creando tu cuenta..."
+                : "Tu cuenta ha sido creada correctamente."
             ) : (
               <>
                 Enviamos un código de 6 dígitos a{" "}
@@ -266,7 +276,11 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
         {success && (
           <div className="flex justify-center">
             <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-              <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+              {creatingAccount ? (
+                <div className="w-8 h-8 border-2 border-fuchsia-400/30 border-t-fuchsia-400 rounded-full animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+              )}
             </div>
           </div>
         )}

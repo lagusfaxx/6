@@ -254,6 +254,8 @@ servicesRouter.get(
         profileType: {
           in: types.length ? types : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"],
         },
+        isVerified: true,
+        isActive: true,
         latitude: { not: null },
         longitude: { not: null },
       },

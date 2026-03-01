@@ -143,7 +143,8 @@ export default function AccountPage() {
       ) : user ? (
         <motion.div initial="hidden" animate="visible" className="space-y-5">
           {/* Profile hero */}
-          <motion.div custom={0} variants={fadeUp} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+          <motion.div custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
             <div className="relative h-28 bg-gradient-to-br from-violet-600/30 via-fuchsia-500/20 to-transparent">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(168,85,247,0.3),transparent_70%)]" />
             </div>
@@ -220,7 +221,8 @@ export default function AccountPage() {
 
           {/* Subscription */}
           {requiresPayment && !statusLoading && subscriptionStatus && (
-            <motion.div custom={2} variants={fadeUp} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <motion.div custom={2} variants={fadeUp} className="relative rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.25)] p-5 overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent" />
               <div className="flex items-center justify-between mb-4">
                 <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-white/50">
                   <CreditCard className="h-4 w-4" />
@@ -330,7 +332,7 @@ export default function AccountPage() {
 
           {/* Visibility tip for professionals */}
           {isProfessional && (
-            <motion.div custom={3} variants={fadeUp} className="rounded-2xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-600/[0.06] to-transparent p-5">
+            <motion.div custom={3} variants={fadeUp} className="rounded-3xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-600/[0.06] to-transparent p-5">
               <div className="flex items-start gap-3">
                 <TrendingUp className="h-5 w-5 text-fuchsia-400 shrink-0 mt-0.5" />
                 <div>
@@ -353,7 +355,7 @@ export default function AccountPage() {
 
           {/* Management links */}
           {links.length > 0 && (
-            <motion.div custom={4} variants={fadeUp} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <motion.div custom={4} variants={fadeUp} className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.2)] p-5">
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-white/50">
                 Gestión de perfil
               </h2>
@@ -385,7 +387,7 @@ export default function AccountPage() {
             <motion.div custom={5} variants={fadeUp}>
               <Link
                 href="/admin"
-                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 hover:bg-white/[0.06] transition"
+                className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.04] p-4 hover:bg-white/[0.06] transition"
               >
                 <Shield className="h-5 w-5 text-amber-400" />
                 <div>
@@ -413,15 +415,26 @@ export default function AccountPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
-          className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center"
+          className="relative rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] p-8 text-center overflow-hidden"
         >
-          <h1 className="text-xl font-semibold">Accede para guardar favoritos y chatear</h1>
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
+          <div className="flex justify-center mb-4">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/30 to-violet-500/30 blur-2xl scale-150" />
+              <img
+                src="/brand/isotipo-new.png"
+                alt="UZEED"
+                className="relative w-16 h-16 rounded-2xl"
+              />
+            </div>
+          </div>
+          <h1 className="text-xl font-semibold bg-gradient-to-r from-white via-fuchsia-200 to-violet-200 bg-clip-text text-transparent">Accede a tu cuenta</h1>
           <p className="mt-2 text-sm text-white/50">
-            Si solo quieres consumir servicios, crea cuenta Cliente. Si quieres publicar, usa registro profesional/comercio.
+            Inicia sesión para guardar favoritos, chatear y más.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <Link href="/login" className="btn-primary">Iniciar sesión</Link>
-            <Link href="/register" className="btn-secondary">Crear cuenta</Link>
+            <Link href="/login" className="btn-primary px-6">Iniciar sesión</Link>
+            <Link href="/register" className="btn-secondary px-6">Crear cuenta</Link>
           </div>
         </motion.div>
       )}

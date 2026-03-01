@@ -708,8 +708,10 @@ export default function ServicesPage() {
   return (
     <div className="pb-24">
       {/* ── Header ── */}
-      <section className="border-b border-white/[0.06] bg-[#0a0b14]/90 backdrop-blur-xl">
-        <div className="mx-auto max-w-6xl px-4 pt-3 pb-3">
+      <section className="relative border-b border-white/[0.08] bg-white/[0.02] backdrop-blur-2xl overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-500/[0.03] to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/20 to-transparent" />
+        <div className="relative mx-auto max-w-6xl px-4 pt-3 pb-3">
           {/* Title row */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
