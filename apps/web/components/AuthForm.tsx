@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch, friendlyErrorMessage } from "../lib/api";
+import { Eye, EyeOff, FileText } from "lucide-react";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
 
 type Mode = "login" | "register";
@@ -52,11 +53,15 @@ export default function AuthForm({
   mode,
   initialProfileType,
   lockProfileType,
+  termsAccepted: externalTermsAccepted,
+  onOpenTerms,
   onSuccess,
 }: {
   mode: Mode;
   initialProfileType?: string;
   lockProfileType?: boolean;
+  termsAccepted?: boolean;
+  onOpenTerms?: () => void;
   onSuccess?: (data: any) => { redirect?: string | null } | void;
 }) {
   const searchParams = useSearchParams();
@@ -77,6 +82,7 @@ export default function AuthForm({
   const [longitude, setLongitude] = useState<string>("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [primaryCategory, setPrimaryCategory] = useState("");
@@ -87,6 +93,8 @@ export default function AuthForm({
     profileType === "SHOP";
   const phoneRegex = /^\+56\s?9(?:[\s-]?\d){8}$/;
 
+  const finalTermsAccepted = externalTermsAccepted ?? acceptTerms;
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -94,6 +102,11 @@ export default function AuthForm({
 
     try {
       if (mode === "register") {
+        if (!finalTermsAccepted) {
+          setError("Debes aceptar los términos y condiciones para continuar.");
+          setLoading(false);
+          return;
+        }
         if (!phoneRegex.test(phone.trim())) {
           setError(
             "Por seguridad, solo aceptamos números chilenos válidos (+56 9...)",
@@ -130,7 +143,7 @@ export default function AuthForm({
             city: isBusinessProfile ? city || undefined : undefined,
             latitude: isBusinessProfile ? Number(latitude) : undefined,
             longitude: isBusinessProfile ? Number(longitude) : undefined,
-            acceptTerms,
+            acceptTerms: finalTermsAccepted,
             birthdate: birthdate || undefined,
             bio: bio || undefined,
           }),
@@ -163,7 +176,7 @@ export default function AuthForm({
     <form onSubmit={onSubmit} className="grid gap-4">
       {mode === "register" ? (
         <div className="grid gap-2">
-          <label className="text-sm text-white/70">Nombre público</label>
+          <label className="text-sm font-medium text-white/70">Nombre público</label>
           <input
             className="input"
             value={displayName}
@@ -177,7 +190,7 @@ export default function AuthForm({
 
       {mode === "register" ? (
         <div className="grid gap-2">
-          <label className="text-sm text-white/70">Nombre de usuario</label>
+          <label className="text-sm font-medium text-white/70">Nombre de usuario</label>
           <input
             className="input"
             value={username}
@@ -190,7 +203,7 @@ export default function AuthForm({
       ) : null}
 
       <div className="grid gap-2">
-        <label className="text-sm text-white/70">Email</label>
+        <label className="text-sm font-medium text-white/70">Email</label>
         <input
           className="input"
           value={email}
@@ -203,7 +216,7 @@ export default function AuthForm({
 
       {mode === "register" ? (
         <div className="grid gap-2">
-          <label className="text-sm text-white/70">Teléfono</label>
+          <label className="text-sm font-medium text-white/70">Teléfono</label>
           <input
             className="input"
             value={phone}
@@ -216,7 +229,7 @@ export default function AuthForm({
 
       {mode === "register" && profileType === "PROFESSIONAL" ? (
         <div className="grid gap-2">
-          <label className="text-sm text-white/70">Género</label>
+          <label className="text-sm font-medium text-white/70">Género</label>
           <div className="relative">
             <select
               className="input select-dark"
@@ -236,7 +249,7 @@ export default function AuthForm({
 
       {mode === "register" && !lockProfileType ? (
         <div className="grid gap-2">
-          <label className="text-sm text-white/70">Tipo de perfil</label>
+          <label className="text-sm font-medium text-white/70">Tipo de perfil</label>
           <div className="relative">
             <select
               className="input select-dark"
@@ -257,7 +270,7 @@ export default function AuthForm({
 
       {mode === "register" && profileType === "CLIENT" ? (
         <div className="grid gap-2">
-          <label className="text-sm text-white/70">Preferencia de género</label>
+          <label className="text-sm font-medium text-white/70">Preferencia de género</label>
           <div className="relative">
             <select
               className="input select-dark"
@@ -278,7 +291,7 @@ export default function AuthForm({
 
       {mode === "register" && profileType === "PROFESSIONAL" ? (
         <div className="grid gap-2">
-          <label className="text-sm text-white/70">Fecha de nacimiento</label>
+          <label className="text-sm font-medium text-white/70">Fecha de nacimiento</label>
           <input
             className="input"
             value={birthdate}
@@ -287,13 +300,13 @@ export default function AuthForm({
             required
             max={new Date().toISOString().split("T")[0]}
           />
-          <p className="text-xs text-white/50">Debes ser mayor de 18 años.</p>
+          <p className="text-xs text-white/40">Debes ser mayor de 18 años.</p>
         </div>
       ) : null}
 
       {mode === "register" && profileType === "PROFESSIONAL" ? (
         <div className="grid gap-2">
-          <label className="text-sm text-white/70">¿Cómo te defines? (categoría principal)</label>
+          <label className="text-sm font-medium text-white/70">¿Cómo te defines? (categoría principal)</label>
           <div className="relative">
             <select
               className="input appearance-none pr-10"
@@ -317,7 +330,7 @@ export default function AuthForm({
         profileType === "ESTABLISHMENT" ||
         profileType === "SHOP") ? (
         <div className="grid gap-2">
-          <label className="text-sm text-white/70">
+          <label className="text-sm font-medium text-white/70">
             {profileType === "PROFESSIONAL"
               ? "Descripción del perfil"
               : "Descripción comercial"}
@@ -355,7 +368,7 @@ export default function AuthForm({
             placeholder="Busca tu dirección"
             required
           />
-          <p className="text-xs text-white/50">
+          <p className="text-xs text-white/40">
             Para publicar perfiles comerciales debes validar la dirección con
             Mapbox.
           </p>
@@ -363,46 +376,81 @@ export default function AuthForm({
       ) : null}
 
       <div className="grid gap-2">
-        <label className="text-sm text-white/70">Contraseña</label>
-        <input
-          className="input"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          type="password"
-          required
-          minLength={8}
-        />
-        <p className="text-xs text-white/50">Mínimo 8 caracteres.</p>
+        <label className="text-sm font-medium text-white/70">Contraseña</label>
+        <div className="relative">
+          <input
+            className="input pr-12"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type={showPassword ? "text" : "password"}
+            required
+            minLength={8}
+            placeholder="Mínimo 8 caracteres"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1"
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
 
       {mode === "register" ? (
-        <label className="flex items-start gap-3 text-xs text-white/60">
-          <input
-            type="checkbox"
-            className="mt-1 h-4 w-4"
-            checked={acceptTerms}
-            onChange={(e) => setAcceptTerms(e.target.checked)}
-            required
-          />
-          <span>
-            Acepto los términos y condiciones y entiendo los descargos legales
-            de la plataforma.
-          </span>
-        </label>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-5 w-5 rounded border-white/20 bg-white/5 accent-fuchsia-500"
+              checked={finalTermsAccepted}
+              onChange={(e) => {
+                if (onOpenTerms && !finalTermsAccepted) {
+                  onOpenTerms();
+                } else {
+                  setAcceptTerms(e.target.checked);
+                }
+              }}
+              required
+            />
+            <span className="text-sm text-white/60 leading-relaxed">
+              He leído y acepto los{" "}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (onOpenTerms) {
+                    onOpenTerms();
+                  }
+                }}
+                className="inline-flex items-center gap-1 text-fuchsia-300/80 hover:text-fuchsia-300 underline underline-offset-2 transition"
+              >
+                <FileText className="h-3 w-3" />
+                Términos y Condiciones
+              </button>
+              {" "}de la plataforma.
+            </span>
+          </label>
+        </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
           {error}
         </div>
       ) : null}
 
-      <button disabled={loading} className="btn-primary">
-        {loading
-          ? "Procesando..."
-          : mode === "register"
-            ? "Crear cuenta"
-            : "Ingresar"}
+      <button
+        disabled={loading}
+        className="btn-primary w-full py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-50"
+      >
+        {loading ? (
+          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        ) : mode === "register" ? (
+          "Crear cuenta"
+        ) : (
+          "Ingresar"
+        )}
       </button>
     </form>
   );
