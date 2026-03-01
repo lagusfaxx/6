@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { MessageCircle, Search, ArrowLeft } from "lucide-react";
+import { MessageCircle, Search, ArrowLeft, Sparkles } from "lucide-react";
 import { apiFetch, friendlyErrorMessage, isAuthError } from "../../lib/api";
 import Avatar from "../../components/Avatar";
 
@@ -31,6 +31,13 @@ function profileLabel(type: string) {
   if (type === "SHOP") return "Tienda";
   if (type === "ESTABLISHMENT") return "Lugar";
   return "Perfil";
+}
+
+function profileColor(type: string) {
+  if (type === "PROFESSIONAL") return "text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/20";
+  if (type === "SHOP") return "text-violet-300 bg-violet-500/10 border-violet-500/20";
+  if (type === "ESTABLISHMENT") return "text-amber-300 bg-amber-500/10 border-amber-500/20";
+  return "text-white/40 bg-white/5 border-white/10";
 }
 
 function timeAgo(dateStr: string) {
@@ -77,29 +84,41 @@ export default function ChatInboxPage() {
     return target.includes(search.toLowerCase());
   });
 
+  const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
+
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="mx-auto w-full max-w-2xl space-y-5">
       {/* Header */}
-      <div className="mb-6 flex items-center gap-4">
-        <Link
-          href="/cuenta"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-xl font-semibold tracking-tight">Mensajes</h1>
-          <p className="text-xs text-white/50">
-            {conversations.length} conversacion{conversations.length !== 1 ? "es" : ""}
-          </p>
+      <div className="relative rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.25)] p-5 overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
+        <div className="flex items-center gap-3">
+          <Link
+            href="/cuenta"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-semibold tracking-tight">Mensajes</h1>
+              {totalUnread > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 text-[10px] font-bold leading-none text-white">
+                  {totalUnread}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-white/40">
+              {conversations.length} conversacion{conversations.length !== 1 ? "es" : ""}
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Search */}
-      <div className="relative mb-5">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
         <input
-          className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-sm text-white placeholder-white/40 outline-none backdrop-blur-xl transition focus:border-white/20 focus:ring-2 focus:ring-fuchsia-500/20"
+          className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3 pl-11 pr-4 text-sm text-white placeholder-white/35 outline-none backdrop-blur-xl transition focus:border-fuchsia-500/30 focus:ring-1 focus:ring-fuchsia-500/20"
           placeholder="Buscar conversación..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -126,14 +145,17 @@ export default function ChatInboxPage() {
           ))}
         </div>
       ) : error ? (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center text-sm text-red-200">
+        <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center text-sm text-red-200">
           {error}
         </div>
       ) : !filtered.length ? (
         /* Empty state */
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20">
-            <MessageCircle className="h-8 w-8 text-white/40" />
+          <div className="relative mb-5">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 blur-2xl scale-150" />
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-fuchsia-500/10 to-violet-500/10">
+              <MessageCircle className="h-8 w-8 text-white/30" />
+            </div>
           </div>
           <p className="text-sm font-medium text-white/60">
             {search ? "No se encontraron conversaciones" : "Aún no tienes conversaciones"}
@@ -143,6 +165,15 @@ export default function ChatInboxPage() {
               ? "Intenta con otro nombre"
               : "Inicia una conversación desde el perfil de un profesional"}
           </p>
+          {!search && (
+            <Link
+              href="/servicios"
+              className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600/20 to-violet-600/20 border border-fuchsia-500/30 px-4 py-2.5 text-xs text-fuchsia-200 transition hover:brightness-110"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Explorar servicios
+            </Link>
+          )}
         </div>
       ) : (
         /* Conversation list */
@@ -156,17 +187,17 @@ export default function ChatInboxPage() {
               <Link
                 key={c.other.id}
                 href={`/chat/${c.other.id}`}
-                className={`group flex items-center gap-3 rounded-2xl border p-4 transition-all ${
+                className={`group flex items-center gap-3 rounded-2xl border p-4 transition-all hover:-translate-y-0.5 ${
                   hasUnread
-                    ? "border-fuchsia-500/20 bg-fuchsia-500/[0.06]"
-                    : "border-white/[0.06] bg-white/[0.03] hover:border-white/[0.12] hover:bg-white/[0.06]"
+                    ? "border-fuchsia-500/20 bg-fuchsia-500/[0.06] shadow-[0_0_20px_rgba(168,85,247,0.08)]"
+                    : "border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.06]"
                 }`}
               >
                 {/* Avatar with online dot */}
                 <div className="relative shrink-0">
                   <Avatar src={c.other.avatarUrl} alt={c.other.username} size={48} />
                   {hasUnread && (
-                    <div className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#0e0e12] bg-fuchsia-500" />
+                    <div className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#0e0e12] bg-gradient-to-r from-fuchsia-500 to-violet-500" />
                   )}
                 </div>
 
@@ -176,22 +207,22 @@ export default function ChatInboxPage() {
                     <span className={`truncate text-sm ${hasUnread ? "font-semibold" : "font-medium text-white/90"}`}>
                       {c.other.displayName || c.other.username}
                     </span>
-                    <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-white/40">
+                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${profileColor(c.other.profileType)}`}>
                       {profileLabel(c.other.profileType)}
                     </span>
                   </div>
-                  <p className={`mt-0.5 truncate text-xs ${hasUnread ? "text-white/70" : "text-white/45"}`}>
+                  <p className={`mt-0.5 truncate text-xs ${hasUnread ? "text-white/70" : "text-white/40"}`}>
                     {preview}
                   </p>
                 </div>
 
                 {/* Timestamp + badge */}
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <span className="text-[11px] text-white/40">
+                  <span className="text-[11px] text-white/35">
                     {timeAgo(c.lastMessage.createdAt)}
                   </span>
                   {hasUnread && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 text-[10px] font-bold leading-none">
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 text-[10px] font-bold leading-none text-white">
                       {c.unreadCount}
                     </span>
                   )}

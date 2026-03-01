@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   useParams,
@@ -205,13 +205,16 @@ export default function ChatPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   function scrollToBottom(smooth = true) {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: smooth ? "smooth" : "instant",
-    });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   }
 
-  useEffect(() => {
-    scrollToBottom(false);
+  // Use useLayoutEffect to scroll before paint on initial load (prevents flash)
+  useLayoutEffect(() => {
+    if (!loading) {
+      scrollToBottom(false);
+    }
   }, [loading]);
 
   useEffect(() => {
@@ -719,9 +722,10 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-160px)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-black/20 backdrop-blur-xl md:h-[calc(100vh-160px)]">
+    <div className="mx-auto flex h-[calc(100dvh-160px)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.25)] md:h-[calc(100vh-160px)]">
       {/* ── Header ── */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.08] bg-white/[0.03] px-4 py-3">
+      <div className="relative flex shrink-0 items-center gap-3 border-b border-white/[0.08] bg-white/[0.04] px-4 py-3">
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/15 to-transparent" />
         <Link
           href="/chat"
           className="flex h-9 w-9 items-center justify-center rounded-full text-white/60 transition hover:bg-white/10 hover:text-white"
@@ -902,128 +906,171 @@ export default function ChatPage() {
 
           {/* Service request card */}
           {activeRequest && (
-            <div
-              className={`rounded-xl border p-3 ${statusColor(activeRequest.status)}`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold">
-                  Solicitud de servicio
-                </span>
+            <div className="relative rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/30 to-transparent" />
+
+              {/* Card header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20">
+                    <Calendar className="h-3.5 w-3.5 text-fuchsia-300" />
+                  </div>
+                  <span className="text-xs font-semibold">Solicitud de servicio</span>
+                </div>
                 <span
-                  className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusColor(activeRequest.status)}`}
+                  className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusColor(activeRequest.status)}`}
                 >
                   {statusLabel(activeRequest.status)}
                 </span>
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-                <div className="flex items-center gap-1.5 text-white/60">
-                  <Calendar className="h-3 w-3 text-white/40" />
-                  {activeRequest.requestedDate || "-"}
+
+              {/* Card body */}
+              <div className="px-4 py-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5">
+                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-white/40 mb-1">
+                      <Calendar className="h-3 w-3" /> Fecha
+                    </div>
+                    <div className="text-xs font-medium text-white/80">
+                      {activeRequest.requestedDate || "-"}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5">
+                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-white/40 mb-1">
+                      <Clock className="h-3 w-3" /> Hora
+                    </div>
+                    <div className="text-xs font-medium text-white/80">
+                      {activeRequest.requestedTime || "-"}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-white/60">
-                  <Clock className="h-3 w-3 text-white/40" />
-                  {activeRequest.requestedTime || "-"}
-                </div>
-                <div className="col-span-2 flex items-center gap-1.5 text-white/60">
-                  <MapPin className="h-3 w-3 shrink-0 text-white/40" />
-                  <span className="truncate">
+
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-white/40 mb-1">
+                    <MapPin className="h-3 w-3" /> Ubicación
+                  </div>
+                  <div className="text-xs font-medium text-white/80 truncate">
                     {activeRequest.agreedLocation || "-"}
-                  </span>
+                  </div>
                 </div>
+
                 {activeRequest.clientComment && (
-                  <div className="col-span-2 text-white/50">
-                    "{activeRequest.clientComment}"
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5 text-xs text-white/60 italic">
+                    &ldquo;{activeRequest.clientComment}&rdquo;
                   </div>
                 )}
-                {activeRequest.professionalPriceClp != null && (
-                  <div className="flex items-center gap-1.5 text-white/70">
-                    <DollarSign className="h-3 w-3 text-white/40" />$
-                    {Number(activeRequest.professionalPriceClp).toLocaleString(
-                      "es-CL",
+
+                {/* Professional proposal details */}
+                {(activeRequest.professionalPriceClp != null || activeRequest.professionalDurationM != null) && (
+                  <div className="rounded-xl border border-fuchsia-500/15 bg-gradient-to-r from-fuchsia-500/[0.06] to-violet-500/[0.04] p-3">
+                    <div className="text-[10px] font-semibold text-fuchsia-300/80 uppercase tracking-wider mb-2">
+                      Propuesta profesional
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {activeRequest.professionalPriceClp != null && (
+                        <div className="flex items-center gap-1.5">
+                          <DollarSign className="h-3.5 w-3.5 text-fuchsia-400/70" />
+                          <span className="text-sm font-semibold text-white/90">
+                            ${Number(activeRequest.professionalPriceClp).toLocaleString("es-CL")}
+                          </span>
+                        </div>
+                      )}
+                      {activeRequest.professionalDurationM != null && (
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-fuchsia-400/70" />
+                          <span className="text-sm font-medium text-white/80">
+                            {activeRequest.professionalDurationM} min
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {activeRequest.professionalComment && (
+                      <p className="mt-2 text-xs text-white/50 italic">
+                        &ldquo;{activeRequest.professionalComment}&rdquo;
+                      </p>
                     )}
                   </div>
                 )}
-                {activeRequest.professionalDurationM != null && (
-                  <div className="text-white/60">
-                    {activeRequest.professionalDurationM} min
+
+                {/* Status messages */}
+                {waitingProfessional && (
+                  <div className="flex items-center gap-2 rounded-xl border border-blue-400/15 bg-blue-500/[0.06] px-3 py-2.5">
+                    <div className="h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+                    <p className="text-xs text-blue-300/80">
+                      Pendiente de revisión por la profesional
+                    </p>
                   </div>
                 )}
-                {activeRequest.professionalComment && (
-                  <div className="col-span-2 text-white/50">
-                    Nota: "{activeRequest.professionalComment}"
+                {waitingClientConfirm && (
+                  <div className="flex items-center gap-2 rounded-xl border border-amber-400/15 bg-amber-500/[0.06] px-3 py-2.5">
+                    <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                    <p className="text-xs text-amber-300/80">
+                      Esperando confirmación del cliente
+                    </p>
                   </div>
                 )}
-              </div>
 
-              {/* Actions */}
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                {canConfirmProposal && (
-                  <>
-                    <button
-                      onClick={confirmProposal}
-                      className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-[11px] font-semibold transition hover:brightness-110"
-                    >
-                      <CheckCircle2 className="h-3 w-3" /> Confirmar
-                    </button>
-                    <button
-                      onClick={cancelProposal}
-                      className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 transition hover:bg-white/10"
-                    >
-                      Cancelar
-                    </button>
-                  </>
-                )}
-                {canFinishService && (
-                  <button
-                    onClick={finishService}
-                    className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-[11px] font-semibold transition hover:brightness-110"
-                  >
-                    <CheckCircle2 className="h-3 w-3" /> Servicio terminado
-                  </button>
-                )}
-              </div>
-
-              {waitingProfessional && (
-                <p className="mt-2 text-[11px] text-white/40">
-                  Pendiente de revisión por la profesional.
-                </p>
-              )}
-              {waitingClientConfirm && (
-                <p className="mt-2 text-[11px] text-white/40">
-                  Propuesta enviada. Esperando confirmación del cliente.
-                </p>
-              )}
-
-              {/* Contact phone */}
-              {contactPhone && (
-                <div className="mt-2 flex items-center gap-2">
-                  <Phone className="h-3 w-3 text-emerald-400" />
-                  <span className="text-[11px] text-emerald-300">
-                    {contactPhone}
-                  </span>
-                  {professionalWhatsAppLink && (
-                    <a
-                      href={professionalWhatsAppLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/15 text-emerald-300 transition hover:bg-emerald-500/30"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-3 w-3 fill-current"
-                        aria-hidden="true"
+                {/* Contact phone */}
+                {contactPhone && (
+                  <div className="flex items-center gap-3 rounded-xl border border-emerald-400/20 bg-emerald-500/[0.06] px-3 py-2.5">
+                    <Phone className="h-4 w-4 text-emerald-400" />
+                    <span className="text-sm font-medium text-emerald-300">
+                      {contactPhone}
+                    </span>
+                    {professionalWhatsAppLink && (
+                      <a
+                        href={professionalWhatsAppLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-auto flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-400/30 bg-emerald-500/15 text-emerald-300 transition hover:bg-emerald-500/30"
                       >
-                        <path d="M19.05 4.91A9.82 9.82 0 0 0 12.06 2a9.93 9.93 0 0 0-8.61 14.89L2 22l5.26-1.38A10 10 0 0 0 12.04 22h.01A9.94 9.94 0 0 0 22 12.08a9.8 9.8 0 0 0-2.95-7.17Zm-7 .99a8.12 8.12 0 0 1 8.11 8.1 8.13 8.13 0 0 1-8.11 8.11 8.28 8.28 0 0 1-4.13-1.13l-.3-.18-3.12.82.83-3.04-.2-.31a8.12 8.12 0 0 1 6.92-12.37Zm4.45 9.95c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.34-1.67-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.79-.2-.47-.4-.41-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.1.15 1.52.09.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.03.14-1.14-.06-.11-.22-.17-.46-.29Z" />
-                      </svg>
-                    </a>
-                  )}
-                </div>
-              )}
-              {!contactPhone && activeRequest.status === "APROBADO" && (
-                <p className="mt-2 text-[11px] text-amber-400/70">
-                  El teléfono se libera al confirmar la propuesta.
-                </p>
-              )}
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4 fill-current"
+                          aria-hidden="true"
+                        >
+                          <path d="M19.05 4.91A9.82 9.82 0 0 0 12.06 2a9.93 9.93 0 0 0-8.61 14.89L2 22l5.26-1.38A10 10 0 0 0 12.04 22h.01A9.94 9.94 0 0 0 22 12.08a9.8 9.8 0 0 0-2.95-7.17Zm-7 .99a8.12 8.12 0 0 1 8.11 8.1 8.13 8.13 0 0 1-8.11 8.11 8.28 8.28 0 0 1-4.13-1.13l-.3-.18-3.12.82.83-3.04-.2-.31a8.12 8.12 0 0 1 6.92-12.37Zm4.45 9.95c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.34-1.67-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.79-.2-.47-.4-.41-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.1.15 1.52.09.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.03.14-1.14-.06-.11-.22-.17-.46-.29Z" />
+                        </svg>
+                      </a>
+                    )}
+                  </div>
+                )}
+                {!contactPhone && activeRequest.status === "APROBADO" && (
+                  <p className="text-[11px] text-amber-400/60 px-1">
+                    El teléfono se libera al confirmar la propuesta.
+                  </p>
+                )}
+
+                {/* Actions */}
+                {(canConfirmProposal || canFinishService) && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {canConfirmProposal && (
+                      <>
+                        <button
+                          onClick={confirmProposal}
+                          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-xs font-semibold transition hover:brightness-110 hover:shadow-[0_0_16px_rgba(168,85,247,0.3)]"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar propuesta
+                        </button>
+                        <button
+                          onClick={cancelProposal}
+                          className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-xs text-white/70 transition hover:bg-white/10"
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    )}
+                    {canFinishService && (
+                      <button
+                        onClick={finishService}
+                        className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-xs font-semibold transition hover:brightness-110 hover:shadow-[0_0_16px_rgba(16,185,129,0.3)]"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Servicio terminado
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -1031,61 +1078,75 @@ export default function ChatPage() {
           {canReviewPendingRequest && (
             <form
               onSubmit={submitProposal}
-              className="rounded-xl border border-violet-500/20 bg-violet-500/[0.06] p-3"
+              className="relative rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl overflow-hidden"
             >
-              <div className="mb-2 text-xs font-semibold text-violet-300">
-                Responder solicitud
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent" />
+
+              <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-3">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20">
+                  <DollarSign className="h-3.5 w-3.5 text-violet-300" />
+                </div>
+                <span className="text-xs font-semibold text-violet-200">
+                  Responder solicitud
+                </span>
               </div>
-              <div className="grid gap-2 md:grid-cols-2">
-                <label className="grid gap-1 text-[11px] text-white/50">
-                  Valor (CLP)
-                  <input
-                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
-                    inputMode="numeric"
-                    value={proposalPrice}
-                    onChange={(e) => setProposalPrice(e.target.value)}
-                    placeholder="Ej: 50000"
+
+              <div className="p-4 space-y-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="grid gap-1.5">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-white/50">
+                      <DollarSign className="h-3.5 w-3.5 text-violet-400/70" /> Valor (CLP)
+                    </span>
+                    <input
+                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
+                      inputMode="numeric"
+                      value={proposalPrice}
+                      onChange={(e) => setProposalPrice(e.target.value)}
+                      placeholder="Ej: 50000"
+                    />
+                  </label>
+                  <label className="grid gap-1.5">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-white/50">
+                      <Clock className="h-3.5 w-3.5 text-violet-400/70" /> Duración
+                    </span>
+                    <select
+                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
+                      value={proposalDuration}
+                      onChange={(e) => setProposalDuration(e.target.value)}
+                      style={{ colorScheme: "dark" }}
+                    >
+                      <option value="30">30 min</option>
+                      <option value="60">60 min</option>
+                      <option value="90">90 min</option>
+                      <option value="120">120 min</option>
+                    </select>
+                  </label>
+                </div>
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-medium text-white/50">Nota (opcional)</span>
+                  <textarea
+                    className="min-h-[3rem] rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
+                    value={proposalComment}
+                    onChange={(e) => setProposalComment(e.target.value)}
+                    placeholder="Información adicional para el cliente"
                   />
                 </label>
-                <label className="grid gap-1 text-[11px] text-white/50">
-                  Duración
-                  <select
-                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
-                    value={proposalDuration}
-                    onChange={(e) => setProposalDuration(e.target.value)}
-                    style={{ colorScheme: "dark" }}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2.5 text-xs font-semibold transition hover:brightness-110 hover:shadow-[0_0_16px_rgba(168,85,247,0.3)] disabled:opacity-50"
+                    disabled={proposalSubmitting}
                   >
-                    <option value="30">30 min</option>
-                    <option value="60">60 min</option>
-                    <option value="90">90 min</option>
-                    <option value="120">120 min</option>
-                  </select>
-                </label>
-              </div>
-              <label className="mt-2 grid gap-1 text-[11px] text-white/50">
-                Nota (opcional)
-                <textarea
-                  className="min-h-[3rem] rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
-                  value={proposalComment}
-                  onChange={(e) => setProposalComment(e.target.value)}
-                  placeholder="Info adicional"
-                />
-              </label>
-              <div className="mt-2 flex gap-1.5">
-                <button
-                  className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-[11px] font-semibold transition hover:brightness-110"
-                  disabled={proposalSubmitting}
-                >
-                  <CheckCircle2 className="h-3 w-3" />{" "}
-                  {proposalSubmitting ? "Enviando..." : "Aceptar y enviar"}
-                </button>
-                <button
-                  type="button"
-                  onClick={rejectRequest}
-                  className="flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 transition hover:bg-white/10"
-                >
-                  <XCircle className="h-3 w-3" /> Rechazar
-                </button>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {proposalSubmitting ? "Enviando..." : "Aceptar y enviar propuesta"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={rejectRequest}
+                    className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs text-white/70 transition hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-300"
+                  >
+                    <XCircle className="h-3.5 w-3.5" /> Rechazar
+                  </button>
+                </div>
               </div>
             </form>
           )}
@@ -1279,59 +1340,68 @@ export default function ChatPage() {
 
       {/* ── Request modal ── */}
       {requestModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-white/[0.08] bg-[#1a0e2e] p-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
-              <div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md">
+          <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
+
+            {/* Modal header */}
+            <div className="flex items-center gap-3 border-b border-white/[0.08] px-6 py-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 border border-fuchsia-500/20">
+                <Calendar className="h-5 w-5 text-fuchsia-300" />
+              </div>
+              <div className="flex-1">
                 <h2 className="text-base font-semibold">Solicitar servicio</h2>
-                <p className="mt-1 text-xs text-white/50">
-                  Completa los datos para coordinar.
+                <p className="text-xs text-white/45">
+                  Completa los datos para coordinar con{" "}
+                  <span className="text-fuchsia-300/80">{other?.displayName || other?.username}</span>
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setRequestModalOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-white/50 transition hover:bg-white/10 hover:text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/50 transition hover:bg-white/10 hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={submitServiceRequest} className="mt-4 grid gap-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="grid gap-1 text-[11px] text-white/50">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" /> Fecha
-                  </div>
+            <form onSubmit={submitServiceRequest} className="p-6 space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="grid gap-1.5">
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-white/60">
+                    <Calendar className="h-3.5 w-3.5 text-fuchsia-400/70" /> Fecha
+                  </span>
                   <input
                     type="date"
-                    className="input"
+                    className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white outline-none transition focus:border-fuchsia-500/40 focus:ring-1 focus:ring-fuchsia-500/20"
                     value={requestDate}
                     min={minRequestDate}
                     onChange={(e) => setRequestDate(e.target.value)}
                     required
+                    style={{ colorScheme: "dark" }}
                   />
                 </label>
-                <label className="grid gap-1 text-[11px] text-white/50">
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> Hora
-                  </div>
+                <label className="grid gap-1.5">
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-white/60">
+                    <Clock className="h-3.5 w-3.5 text-fuchsia-400/70" /> Hora
+                  </span>
                   <input
                     type="time"
-                    className="input"
+                    className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white outline-none transition focus:border-fuchsia-500/40 focus:ring-1 focus:ring-fuchsia-500/20"
                     value={requestTime}
                     onChange={(e) => setRequestTime(e.target.value)}
                     required
+                    style={{ colorScheme: "dark" }}
                   />
                 </label>
               </div>
 
-              <label className="grid gap-1 text-[11px] text-white/50">
-                <div className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3" /> Ubicación acordada
-                </div>
+              <label className="grid gap-1.5">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-white/60">
+                  <MapPin className="h-3.5 w-3.5 text-fuchsia-400/70" /> Ubicación acordada
+                </span>
                 <input
-                  className="input"
+                  className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-fuchsia-500/40 focus:ring-1 focus:ring-fuchsia-500/20"
                   value={requestLocation}
                   onChange={(e) => setRequestLocation(e.target.value)}
                   placeholder="Ej: Metro Los Leones, Providencia"
@@ -1339,46 +1409,44 @@ export default function ChatPage() {
                 />
               </label>
 
-              <label className="grid gap-1 text-[11px] text-white/50">
-                Comentario adicional (opcional)
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium text-white/60">Comentario adicional (opcional)</span>
                 <textarea
-                  className="input min-h-[3.5rem]"
+                  className="min-h-[3.5rem] rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-fuchsia-500/40 focus:ring-1 focus:ring-fuchsia-500/20"
                   value={requestComment}
                   onChange={(e) => setRequestComment(e.target.value)}
-                  placeholder="Detalles para coordinar"
+                  placeholder="Detalles adicionales para coordinar"
                 />
               </label>
 
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 text-[11px] text-white/50">
-                <div className="mb-2 font-medium text-white/60">
-                  Accesos rápidos
-                </div>
-                <div className="flex flex-wrap gap-1.5">
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
+                <span className="text-[11px] font-medium text-white/45">Accesos rápidos</span>
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   <Link
                     href="/establecimientos"
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] transition hover:bg-white/10"
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/60 transition hover:bg-white/10 hover:text-white/80"
                   >
                     Moteles / lugares
                   </Link>
                   <Link
                     href="/sexshops"
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] transition hover:bg-white/10"
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/60 transition hover:bg-white/10 hover:text-white/80"
                   >
-                    Servicios
+                    Sex shops
                   </Link>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
                 <button
                   type="button"
                   onClick={() => setRequestModalOpen(false)}
-                  className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs text-white/80 transition hover:bg-white/10"
+                  className="rounded-xl border border-white/15 bg-white/5 px-5 py-2.5 text-sm text-white/70 transition hover:bg-white/10"
                 >
                   Cancelar
                 </button>
                 <button
-                  className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-xs font-semibold transition hover:brightness-110"
+                  className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] disabled:opacity-50"
                   disabled={requesting}
                 >
                   {requesting ? "Enviando..." : "Enviar solicitud"}
