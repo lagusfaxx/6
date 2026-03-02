@@ -14,15 +14,13 @@ type PlanUser = {
  * @param user - User object with profile type and membership info
  * @returns true if the user has an active subscription or is within trial period, false otherwise
  */
-export function isBusinessPlanActive(_user: PlanUser): boolean {
+export function isBusinessPlanActive(user: PlanUser): boolean {
   // During development all profiles are treated as active regardless of
   // membership / trial status so that accounts remain visible even after the
   // free-trial period expires.
   if (process.env.NODE_ENV !== "production") {
     return true;
   }
-
-  const user = _user;
 
   // CLIENT, VIEWER, and CREATOR profiles don't need to pay
   if (user.profileType === "CLIENT" || user.profileType === "VIEWER" || user.profileType === "CREATOR") {
