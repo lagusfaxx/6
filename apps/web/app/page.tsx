@@ -10,11 +10,6 @@ import UserLevelBadge from "../components/UserLevelBadge";
 import Stories from "../components/Stories";
 import ProfilePreviewModal from "../components/ProfilePreviewModal";
 import {
-  buildChatHref,
-  buildCurrentPathWithSearch,
-  buildLoginHref,
-} from "../lib/chat";
-import {
   ArrowRight,
   ChevronRight,
   Clock3,
@@ -30,6 +25,7 @@ import {
   ShoppingBag,
   Sparkles,
   Star,
+  Store,
   TrendingUp,
   Video,
   Zap,
@@ -89,6 +85,7 @@ type DiscoverProfile = {
   profileTags?: string[];
   serviceTags?: string[];
   galleryUrls?: string[];
+  profileType?: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP" | "CREATOR";
 };
 
 /* ── Helpers ── */
@@ -143,6 +140,17 @@ const TIERS = [
   { key: "DIAMOND", label: "Platino", icon: Crown, gradient: "from-cyan-400 to-blue-500", border: "border-cyan-400/30", bg: "bg-cyan-500/10" },
   { key: "GOLD", label: "Gold", icon: Star, gradient: "from-amber-400 to-yellow-500", border: "border-amber-400/30", bg: "bg-amber-500/10" },
   { key: "SILVER", label: "Silver", icon: Sparkles, gradient: "from-slate-300 to-slate-400", border: "border-slate-400/30", bg: "bg-slate-500/10" },
+] as const;
+
+/* ── Categories config ── */
+const CATEGORIES = [
+  { label: "Escorts", href: "/escorts", icon: Sparkles, color: "from-fuchsia-500 to-pink-500", bg: "bg-fuchsia-500/10", border: "border-fuchsia-500/20" },
+  { label: "Masajistas", href: "/masajistas", icon: Hand, color: "from-violet-500 to-purple-500", bg: "bg-violet-500/10", border: "border-violet-500/20" },
+  { label: "Moteles", href: "/moteles", icon: Hotel, color: "from-amber-500 to-orange-500", bg: "bg-amber-500/10", border: "border-amber-500/20" },
+  { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, color: "from-rose-500 to-red-500", bg: "bg-rose-500/10", border: "border-rose-500/20" },
+  { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, color: "from-emerald-500 to-teal-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+  { label: "Videollamadas", href: "/escorts?serviceTags=videollamadas", icon: Video, color: "from-blue-500 to-cyan-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+  { label: "Cerca tuyo", href: "/servicios", icon: Navigation, color: "from-pink-500 to-fuchsia-500", bg: "bg-pink-500/10", border: "border-pink-500/20" },
 ] as const;
 
 /* ── Page ── */
@@ -232,7 +240,7 @@ export default function HomePage() {
     const loadSections = async () => {
       const sections = [
         { key: "available", query: { sort: "availableNow", limit: "6" } },
-        { key: "near", query: { sort: "near", limit: "8" } },
+        { key: "near", query: { sort: "near", limit: "12" } },
         { key: "new", query: { sort: "new", limit: "8" } },
       ];
       const next: Record<string, DiscoverProfile[]> = {};
@@ -281,24 +289,33 @@ export default function HomePage() {
     }).slice(0, 15);
   }, [discoverSections]);
 
-  // Tier-based sections
+  // Tier-based sections — sorted by distance
   const tierProfiles = useMemo(() => {
-    const allProfiles = [...recentPros];
+    const sorted = [...recentPros].sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
     return {
-      DIAMOND: allProfiles.filter((p) => p.userLevel === "DIAMOND").slice(0, 6),
-      GOLD: allProfiles.filter((p) => p.userLevel === "GOLD").slice(0, 6),
-      SILVER: allProfiles.filter((p) => p.userLevel === "SILVER").slice(0, 6),
+      DIAMOND: sorted.filter((p) => p.userLevel === "DIAMOND").slice(0, 6),
+      GOLD: sorted.filter((p) => p.userLevel === "GOLD").slice(0, 6),
+      SILVER: sorted.filter((p) => p.userLevel === "SILVER").slice(0, 6),
     };
   }, [recentPros]);
 
+  // Sort recentPros by distance
+  const sortedRecentPros = useMemo(() => {
+    return [...recentPros].sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+  }, [recentPros]);
+
   const availableProfiles = discoverSections["available"] || [];
-  const nearProfiles = discoverSections["near"] || [];
+  // Near profiles sorted by distance
+  const nearProfiles = useMemo(() => {
+    const profiles = discoverSections["near"] || [];
+    return [...profiles].sort((a, b) => (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9));
+  }, [discoverSections]);
   const newProfiles = discoverSections["new"] || [];
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
       {/* ═══ HERO — Compact, immersive ═══ */}
-      <section className="relative flex min-h-[50vh] items-center justify-center overflow-hidden px-4 md:min-h-[55vh]">
+      <section className="relative flex min-h-[44vh] items-center justify-center overflow-hidden px-4 md:min-h-[50vh]">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#070816]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[url('/brand/bg.jpg')] bg-cover bg-center opacity-20" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#070816]/50 to-[#0e0e12]" />
@@ -357,8 +374,30 @@ export default function HomePage() {
         )}
 
         {/* ═══ STORIES ═══ */}
-        <section className="mb-6">
+        <section className="mb-5">
           <Stories />
+        </section>
+
+        {/* ═══ CATEGORÍAS — Prominent grid visible on all devices ═══ */}
+        <section className="mb-8">
+          <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="mb-3 flex items-center gap-2">
+            <Store className="h-4 w-4 text-fuchsia-400" />
+            <h2 className="text-base font-bold">Explora por categoría</h2>
+          </motion.div>
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7 sm:gap-3">
+            {CATEGORIES.map((cat) => (
+              <Link
+                key={cat.href}
+                href={cat.href}
+                className={`group flex flex-col items-center gap-2 rounded-2xl border ${cat.border} ${cat.bg} p-3 sm:p-4 transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]`}
+              >
+                <div className={`flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-gradient-to-br ${cat.color} shadow-lg`}>
+                  <cat.icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                </div>
+                <span className="text-center text-[10px] sm:text-xs font-semibold text-white/80 leading-tight">{cat.label}</span>
+              </Link>
+            ))}
+          </div>
         </section>
 
         {/* ═══ BANNERS PUBLICITARIOS ═══ */}
@@ -388,29 +427,59 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* ═══ CATEGORÍAS — Quick access for easy navigation ═══ */}
-        <section className="mb-8 sm:hidden">
-          <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-            {[
-              { label: "Escorts", href: "/escorts", icon: Sparkles },
-              { label: "Masajistas", href: "/masajistas", icon: Hand },
-              { label: "Moteles", href: "/moteles", icon: Hotel },
-              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag },
-              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper },
-              { label: "Videollamadas", href: "/escorts?serviceTags=videollamadas", icon: Video },
-              { label: "Cerca tuyo", href: "/servicios", icon: Navigation },
-            ].map((cat) => (
-              <Link
-                key={cat.href}
-                href={cat.href}
-                className="group flex shrink-0 items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 transition-all hover:border-fuchsia-500/25 hover:bg-fuchsia-500/[0.06] active:scale-[0.97]"
-              >
-                <cat.icon className="h-4 w-4 text-fuchsia-400/80" />
-                <span className="text-xs font-medium text-white/75">{cat.label}</span>
+        {/* ═══ CERCA DE TI — Priority section, sorted by distance ═══ */}
+        {nearProfiles.length > 0 && (
+          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-8">
+            <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Navigation className="h-5 w-5 text-fuchsia-400" />
+                <div>
+                  <h2 className="text-xl font-bold">Cerca de ti</h2>
+                  <p className="text-[11px] text-white/40">Ordenado por distancia</p>
+                </div>
+              </div>
+              <Link href="/servicios?sort=near" className="group flex items-center gap-1 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-3 py-1.5 text-xs font-medium text-fuchsia-300 hover:bg-fuchsia-500/20 transition">
+                Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
-            ))}
-          </div>
-        </section>
+            </motion.div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {nearProfiles.map((profile) => (
+                <motion.article key={profile.id} variants={cardFade} className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20">
+                  <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
+                    <div className="relative aspect-[3/4] bg-white/[0.04]">
+                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
+                      {profile.distanceKm != null && (
+                        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/10 bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white/90 backdrop-blur-sm">
+                          <MapPin className="h-3 w-3 text-fuchsia-400" />
+                          {profile.distanceKm < 1 ? `${Math.round(profile.distanceKm * 1000)}m` : `${profile.distanceKm.toFixed(1)} km`}
+                        </div>
+                      )}
+                      {profile.availableNow && (
+                        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-200">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Online
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-2">
+                        <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
+                        {((profile as any).profileTags?.length > 0 || (profile as any).serviceTags?.length > 0 || profile.serviceCategory) && (
+                          <div className="flex flex-wrap gap-0.5 mt-0.5">
+                            {(profile as any).profileTags?.slice(0, 2).map((tag: string) => (
+                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                            {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
+                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </motion.article>
+              ))}
+            </div>
+          </motion.section>
+        )}
 
         {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}
         {availableProfiles.length > 0 && (
@@ -529,8 +598,8 @@ export default function HomePage() {
           );
         })}
 
-        {/* ═══ DESTACADAS ═══ */}
-        {recentPros.length > 0 && (
+        {/* ═══ DESTACADAS — Sorted by distance ═══ */}
+        {sortedRecentPros.length > 0 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
               <div>
@@ -545,7 +614,7 @@ export default function HomePage() {
               </Link>
             </motion.div>
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
-              {recentPros.slice(0, 8).map((p) => (
+              {sortedRecentPros.slice(0, 8).map((p) => (
                 <motion.div key={p.id} variants={cardFade} className="w-[65vw] shrink-0 snap-start sm:w-auto">
                   <button
                     type="button"
@@ -608,56 +677,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* ═══ CERCA DE TI — Grid for abundance ═══ */}
-        {nearProfiles.length > 0 && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
-            <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Navigation className="h-4 w-4 text-fuchsia-300" />
-                <h2 className="text-xl font-bold">Cerca de ti</h2>
-              </div>
-              <Link href="/servicios?sort=near" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
-                Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-            </motion.div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {nearProfiles.map((profile) => (
-                <motion.article key={profile.id} variants={cardFade} className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20">
-                  <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
-                    <div className="relative aspect-[3/4] bg-white/[0.04]">
-                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
-                      {profile.distanceKm != null && (
-                        <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
-                          {profile.distanceKm.toFixed(1)} km
-                        </div>
-                      )}
-                      {profile.availableNow && (
-                        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-200">
-                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Online
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
-                        {((profile as any).profileTags?.length > 0 || (profile as any).serviceTags?.length > 0 || profile.serviceCategory) && (
-                          <div className="flex flex-wrap gap-0.5 mt-0.5">
-                            {(profile as any).profileTags?.slice(0, 2).map((tag: string) => (
-                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
-                            ))}
-                            {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
-                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                </motion.article>
-              ))}
-            </div>
-          </motion.section>
-        )}
-
         {/* ═══ NUEVAS ═══ */}
         {newProfiles.length > 0 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
@@ -701,7 +720,7 @@ export default function HomePage() {
         )}
 
         {/* ═══ TENDENCIAS ═══ */}
-        {recentPros.length > 6 && (
+        {sortedRecentPros.length > 6 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4">
               <div className="flex items-center gap-2">
@@ -710,7 +729,7 @@ export default function HomePage() {
               </div>
             </motion.div>
             <motion.div variants={cardFade} className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-              {recentPros.slice(6, 12).map((p) => (
+              {sortedRecentPros.slice(6, 12).map((p) => (
                 <Link key={`trend-${p.id}`} href={`/profesional/${p.id}`} className="group flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-white/[0.06]">
                   <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-white/5 to-transparent">
                     {p.avatarUrl ? (

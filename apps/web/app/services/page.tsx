@@ -32,6 +32,7 @@ import {
   Weight,
   Scissors,
   CheckCircle,
+  Hotel,
 } from "lucide-react";
 
 type ProfileResult = {
@@ -96,6 +97,28 @@ function ownerHref(profile: ProfileResult) {
   return `/profesional/${profile.id}`;
 }
 
+function ctaLabel(profile: ProfileResult) {
+  if (profile.profileType === "ESTABLISHMENT") return "Reservar";
+  if (profile.profileType === "SHOP") return "Visitar tienda";
+  return "Mensaje";
+}
+
+function ctaIcon(profile: ProfileResult) {
+  if (profile.profileType === "ESTABLISHMENT") return Hotel;
+  if (profile.profileType === "SHOP") return ShoppingBag;
+  return MessageCircle;
+}
+
+function ctaHref(profile: ProfileResult, isAuthed: boolean) {
+  // Establishments and shops go to their profile page instead of chat
+  if (profile.profileType === "ESTABLISHMENT") return `/hospedaje/${profile.id}`;
+  if (profile.profileType === "SHOP") return `/sexshop/${profile.username}`;
+  // Professionals go to chat
+  return isAuthed
+    ? `/chat/${profile.userId || profile.id}`
+    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
+}
+
 function resolveCardImage(profile: ProfileResult) {
   return resolveMediaUrl(profile.coverUrl) ?? resolveMediaUrl(profile.avatarUrl);
 }
@@ -135,9 +158,9 @@ const FeaturedCard = memo(function FeaturedCard({
   isAuthed: boolean;
 }) {
   const img = resolveCardImage(profile);
-  const chatHref = isAuthed
-    ? `/chat/${profile.userId || profile.id}`
-    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
+  const actionHref = ctaHref(profile, isAuthed);
+  const ActionIcon = ctaIcon(profile);
+  const actionLabel = ctaLabel(profile);
 
   const isDiamond = profile.userLevel === "DIAMOND";
   const glowClass = isDiamond
@@ -189,10 +212,16 @@ const FeaturedCard = memo(function FeaturedCard({
       {/* CTA */}
       <div className="flex gap-2 p-2">
         <Link
-          href={chatHref}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-xs font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
+          href={actionHref}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition hover:brightness-110 ${
+            profile.profileType === "ESTABLISHMENT"
+              ? "bg-gradient-to-r from-amber-500 to-orange-500 shadow-[0_4px_16px_rgba(245,158,11,0.25)]"
+              : profile.profileType === "SHOP"
+              ? "bg-gradient-to-r from-rose-500 to-pink-500 shadow-[0_4px_16px_rgba(244,63,94,0.25)]"
+              : "bg-gradient-to-r from-fuchsia-600 to-violet-600 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
+          }`}
         >
-          <MessageCircle className="h-3.5 w-3.5" /> Mensaje
+          <ActionIcon className="h-3.5 w-3.5" /> {actionLabel}
         </Link>
         <Link
           href={ownerHref(profile)}
@@ -216,9 +245,9 @@ const ProfileCard = memo(function ProfileCard({
   isAuthed: boolean;
 }) {
   const img = resolveCardImage(profile);
-  const chatHref = isAuthed
-    ? `/chat/${profile.userId || profile.id}`
-    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
+  const actionHref = ctaHref(profile, isAuthed);
+  const ActionIcon = ctaIcon(profile);
+  const actionLabel = ctaLabel(profile);
 
   return (
     <div className={`group overflow-hidden rounded-2xl border ${tierBorderClass(profile.userLevel)} bg-white/[0.03] transition-all duration-200 hover:-translate-y-0.5`}>
@@ -255,10 +284,16 @@ const ProfileCard = memo(function ProfileCard({
       </button>
       <div className="flex gap-1.5 p-1.5">
         <Link
-          href={chatHref}
-          className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2 text-[11px] font-semibold transition hover:brightness-110"
+          href={actionHref}
+          className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2 text-[11px] font-semibold transition hover:brightness-110 ${
+            profile.profileType === "ESTABLISHMENT"
+              ? "bg-gradient-to-r from-amber-500/90 to-orange-500/90"
+              : profile.profileType === "SHOP"
+              ? "bg-gradient-to-r from-rose-500/90 to-pink-500/90"
+              : "bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90"
+          }`}
         >
-          <MessageCircle className="h-3 w-3" /> Mensaje
+          <ActionIcon className="h-3 w-3" /> {actionLabel}
         </Link>
         <Link
           href={ownerHref(profile)}
@@ -464,20 +499,54 @@ function ProfileDetailPanel({
         )}
       </div>
 
-      {/* Action buttons - fixed at bottom */}
+      {/* Action buttons - fixed at bottom, contextual by type */}
       <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e17] p-3 flex gap-2">
-        <Link
-          href={chatHref}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
-        >
-          <MessageCircle className="h-4 w-4" /> Chat
-        </Link>
-        <Link
-          href={ownerHref(profile)}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
-        >
-          <Eye className="h-4 w-4" /> Ver Perfil
-        </Link>
+        {profile.profileType === "ESTABLISHMENT" ? (
+          <>
+            <Link
+              href={ownerHref(profile)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.25)]"
+            >
+              <Hotel className="h-4 w-4" /> Reservar
+            </Link>
+            <Link
+              href={ownerHref(profile)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
+            >
+              <Eye className="h-4 w-4" /> Ver Perfil
+            </Link>
+          </>
+        ) : profile.profileType === "SHOP" ? (
+          <>
+            <Link
+              href={ownerHref(profile)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(244,63,94,0.25)]"
+            >
+              <ShoppingBag className="h-4 w-4" /> Visitar tienda
+            </Link>
+            <Link
+              href={ownerHref(profile)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
+            >
+              <Eye className="h-4 w-4" /> Ver Perfil
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link
+              href={chatHref}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
+            >
+              <MessageCircle className="h-4 w-4" /> Chat
+            </Link>
+            <Link
+              href={ownerHref(profile)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
+            >
+              <Eye className="h-4 w-4" /> Ver Perfil
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );

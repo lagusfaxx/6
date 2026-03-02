@@ -179,6 +179,7 @@ profileRouter.get(
           profileTags: (p as any).profileTags ?? [],
           serviceTags: (p as any).serviceTags ?? [],
           serviceCategory: (p as any).serviceCategory ?? null,
+          profileType: p.profileType,
           createdAt: p.createdAt,
         };
       })
