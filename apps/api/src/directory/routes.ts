@@ -144,7 +144,7 @@ directoryRouter.get(
       profileType: "PROFESSIONAL",
       isActive: true,
       isVerified: true,
-      OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
+      // DEV: subscription filter removed during development
     };
 
     let categoryRef = null;
@@ -439,10 +439,7 @@ directoryRouter.get(
         profileType: "PROFESSIONAL",
         avatarUrl: { not: null },
         isVerified: true,
-        OR: [
-          { membershipExpiresAt: { gt: now } },
-          { membershipExpiresAt: null },
-        ],
+        // DEV: subscription filter removed during development
       },
       take: 120,
       select: {
@@ -674,7 +671,7 @@ directoryRouter.get(
       profileType: "ESTABLISHMENT",
       isActive: true,
       isVerified: true,
-      OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
+      // DEV: subscription filter removed during development
     };
     const categoryRef = await findCategoryByRef(prisma, {
       categoryId: categoryId || null,
@@ -850,7 +847,7 @@ directoryRouter.get(
       profileType: { in: profileTypeFilter },
       isActive: true,
       isVerified: true,
-      OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
+      // DEV: subscription filter removed during development
     };
 
     if (genderFilter) where.gender = genderFilter;
