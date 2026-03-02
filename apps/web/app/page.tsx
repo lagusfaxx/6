@@ -144,12 +144,12 @@ const TIERS = [
 
 /* ── Categories config ── */
 const CATEGORIES = [
-  { label: "Escorts", href: "/escorts", icon: Sparkles, color: "from-fuchsia-500 to-pink-500", bg: "bg-fuchsia-500/10", border: "border-fuchsia-500/20" },
-  { label: "Masajistas", href: "/masajistas", icon: Hand, color: "from-violet-500 to-purple-500", bg: "bg-violet-500/10", border: "border-violet-500/20" },
-  { label: "Moteles", href: "/moteles", icon: Hotel, color: "from-amber-500 to-orange-500", bg: "bg-amber-500/10", border: "border-amber-500/20" },
-  { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, color: "from-rose-500 to-red-500", bg: "bg-rose-500/10", border: "border-rose-500/20" },
-  { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, color: "from-emerald-500 to-teal-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-  { label: "Videollamadas", href: "/escorts?serviceTags=videollamadas", icon: Video, color: "from-blue-500 to-cyan-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+  { label: "Escorts", href: "/servicios?category=escort", icon: Sparkles, color: "from-fuchsia-500 to-pink-500", bg: "bg-fuchsia-500/10", border: "border-fuchsia-500/20" },
+  { label: "Masajistas", href: "/servicios?category=masajes", icon: Hand, color: "from-violet-500 to-purple-500", bg: "bg-violet-500/10", border: "border-violet-500/20" },
+  { label: "Moteles", href: "/servicios?category=moteles", icon: Hotel, color: "from-amber-500 to-orange-500", bg: "bg-amber-500/10", border: "border-amber-500/20" },
+  { label: "Sex Shop", href: "/servicios?category=sexshop", icon: ShoppingBag, color: "from-rose-500 to-red-500", bg: "bg-rose-500/10", border: "border-rose-500/20" },
+  { label: "Despedidas", href: "/servicios?category=escort&serviceTags=despedidas", icon: PartyPopper, color: "from-emerald-500 to-teal-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+  { label: "Videollamadas", href: "/servicios?category=escort&serviceTags=videollamadas", icon: Video, color: "from-blue-500 to-cyan-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
   { label: "Cerca tuyo", href: "/servicios", icon: Navigation, color: "from-pink-500 to-fuchsia-500", bg: "bg-pink-500/10", border: "border-pink-500/20" },
 ] as const;
 
@@ -378,23 +378,23 @@ export default function HomePage() {
           <Stories />
         </section>
 
-        {/* ═══ CATEGORÍAS — Prominent grid visible on all devices ═══ */}
-        <section className="mb-8">
+        {/* ═══ CATEGORÍAS — Prominent grid, mobile only ═══ */}
+        <section className="mb-8 sm:hidden">
           <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="mb-3 flex items-center gap-2">
             <Store className="h-4 w-4 text-fuchsia-400" />
             <h2 className="text-base font-bold">Explora por categoría</h2>
           </motion.div>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7 sm:gap-3">
+          <div className="grid grid-cols-4 gap-2">
             {CATEGORIES.map((cat) => (
               <Link
                 key={cat.href}
                 href={cat.href}
-                className={`group flex flex-col items-center gap-2 rounded-2xl border ${cat.border} ${cat.bg} p-3 sm:p-4 transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]`}
+                className={`group flex flex-col items-center gap-2 rounded-2xl border ${cat.border} ${cat.bg} p-3 transition-all duration-200 hover:scale-[1.04] active:scale-[0.97]`}
               >
-                <div className={`flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-gradient-to-br ${cat.color} shadow-lg`}>
-                  <cat.icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                <div className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${cat.color} shadow-lg`}>
+                  <cat.icon className="h-5 w-5 text-white" />
                 </div>
-                <span className="text-center text-[10px] sm:text-xs font-semibold text-white/80 leading-tight">{cat.label}</span>
+                <span className="text-center text-[10px] font-semibold text-white/80 leading-tight">{cat.label}</span>
               </Link>
             ))}
           </div>
@@ -442,33 +442,33 @@ export default function HomePage() {
                 Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </motion.div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
               {nearProfiles.map((profile) => (
-                <motion.article key={profile.id} variants={cardFade} className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20">
+                <motion.article key={profile.id} variants={cardFade} className="group w-[70vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto">
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
                     <div className="relative aspect-[3/4] bg-white/[0.04]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
                       {profile.distanceKm != null && (
-                        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/10 bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white/90 backdrop-blur-sm">
+                        <div className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full border border-white/10 bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm">
                           <MapPin className="h-3 w-3 text-fuchsia-400" />
                           {profile.distanceKm < 1 ? `${Math.round(profile.distanceKm * 1000)}m` : `${profile.distanceKm.toFixed(1)} km`}
                         </div>
                       )}
                       {profile.availableNow && (
-                        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-200">
+                        <div className="absolute left-2.5 top-2.5 flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-200">
                           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Online
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3">
+                        <div className="truncate text-sm font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
                         {((profile as any).profileTags?.length > 0 || (profile as any).serviceTags?.length > 0 || profile.serviceCategory) && (
-                          <div className="flex flex-wrap gap-0.5 mt-0.5">
+                          <div className="flex flex-wrap gap-1 mt-1">
                             {(profile as any).profileTags?.slice(0, 2).map((tag: string) => (
-                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
                             ))}
                             {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
-                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
                             ))}
                           </div>
                         )}
@@ -499,7 +499,7 @@ export default function HomePage() {
                   key={p.id}
                   type="button"
                   onClick={() => setPreviewProfile(p)}
-                  className="group w-[130px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] text-left transition hover:border-fuchsia-500/20"
+                  className="group w-[140px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] text-left transition hover:border-fuchsia-500/20"
                 >
                   <div className="relative aspect-[3/4] overflow-hidden">
                     <img src={resolveProfileImage(p)} alt={p.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
@@ -691,22 +691,22 @@ export default function HomePage() {
             </motion.div>
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
               {newProfiles.map((profile) => (
-                <motion.article key={profile.id} variants={cardFade} className="group w-[65vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto">
+                <motion.article key={profile.id} variants={cardFade} className="group w-[70vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto">
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
                     <div className="relative aspect-[3/4] bg-white/[0.04]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
-                      <UserLevelBadge level={profile.userLevel} className="absolute right-2 top-2 px-2 py-0.5 text-[10px]" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
-                        <div className="mt-0.5 text-[10px] text-white/45">{formatLastSeenLabel(profile.lastActiveAt || profile.lastSeen)}</div>
+                      <UserLevelBadge level={profile.userLevel} className="absolute right-2.5 top-2.5 px-2 py-0.5 text-[10px]" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3">
+                        <div className="truncate text-sm font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
+                        <div className="mt-0.5 text-[11px] text-white/50">{formatLastSeenLabel(profile.lastActiveAt || profile.lastSeen)}</div>
                         {((profile as any).profileTags?.length > 0 || (profile as any).serviceTags?.length > 0) && (
-                          <div className="flex flex-wrap gap-0.5 mt-0.5">
+                          <div className="flex flex-wrap gap-1 mt-1">
                             {(profile as any).profileTags?.slice(0, 2).map((tag: string) => (
-                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
                             ))}
                             {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
-                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
                             ))}
                           </div>
                         )}
