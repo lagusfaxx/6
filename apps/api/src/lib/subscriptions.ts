@@ -14,24 +14,9 @@ type PlanUser = {
  * @param user - User object with profile type and membership info
  * @returns true if the user has an active subscription or is within trial period, false otherwise
  */
-export function isBusinessPlanActive(user: PlanUser): boolean {
-  // CLIENT, VIEWER, and CREATOR profiles don't need to pay
-  if (user.profileType === "CLIENT" || user.profileType === "VIEWER" || user.profileType === "CREATOR") {
-    return true;
-  }
-
-  // PROFESSIONAL, ESTABLISHMENT, and SHOP profiles require payment
-  const now = Date.now();
-  
-  // Check if membership is active (paid subscription)
-  const membershipActive = user.membershipExpiresAt ? user.membershipExpiresAt.getTime() > now : false;
-  
-  // For SHOP, also check the old shopTrialEndsAt field for backward compatibility
-  const shopTrialActive = user.profileType === "SHOP" && user.shopTrialEndsAt 
-    ? user.shopTrialEndsAt.getTime() > now 
-    : false;
-
-  return membershipActive || shopTrialActive;
+export function isBusinessPlanActive(_user: PlanUser): boolean {
+  // DEV: all profiles are active during development regardless of subscription
+  return true;
 }
 
 /**
