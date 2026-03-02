@@ -494,6 +494,10 @@ directoryRouter.get(
       })
       .filter((u) => ["GOLD", "DIAMOND"].includes(u.userLevel))
       .sort((a, b) => {
+        // Distance first — closest profiles always on top
+        const distCmp = (a.distance ?? 1e9) - (b.distance ?? 1e9);
+        if (Math.abs(distCmp) > 0.5) return distCmp;
+        // Tie-break by tier level
         const levelCmp = compareProfessionalLevelDesc(a.userLevel, b.userLevel);
         if (levelCmp !== 0) return levelCmp;
         if (a.isActive !== b.isActive)

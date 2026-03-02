@@ -79,6 +79,7 @@ type DiscoverProfile = {
   distanceKm: number | null;
   availableNow: boolean;
   isActive: boolean;
+  profileType?: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP" | "CREATOR";
   userLevel: UserLevel;
   completedServices: number;
   profileViews: number;
@@ -216,6 +217,9 @@ export default function HomePage() {
           }),
         );
 
+        // Sort by distance first — closest profiles always on top
+        mapped.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+
         setRecentPros(mapped);
       })
       .catch((err: any) => {
@@ -281,13 +285,12 @@ export default function HomePage() {
     }).slice(0, 15);
   }, [discoverSections]);
 
-  // Tier-based sections
+  // Tier-based sections — already sorted by distance from API
   const tierProfiles = useMemo(() => {
-    const allProfiles = [...recentPros];
     return {
-      DIAMOND: allProfiles.filter((p) => p.userLevel === "DIAMOND").slice(0, 6),
-      GOLD: allProfiles.filter((p) => p.userLevel === "GOLD").slice(0, 6),
-      SILVER: allProfiles.filter((p) => p.userLevel === "SILVER").slice(0, 6),
+      DIAMOND: recentPros.filter((p) => p.userLevel === "DIAMOND").slice(0, 6),
+      GOLD: recentPros.filter((p) => p.userLevel === "GOLD").slice(0, 6),
+      SILVER: recentPros.filter((p) => p.userLevel === "SILVER").slice(0, 6),
     };
   }, [recentPros]);
 
@@ -389,8 +392,31 @@ export default function HomePage() {
         )}
 
         {/* ═══ CATEGORÍAS — Quick access for easy navigation ═══ */}
-        <section className="mb-8 sm:hidden">
-          <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        <section className="mb-8">
+          {/* Mobile: prominent grid with icons */}
+          <div className="grid grid-cols-4 gap-2 sm:hidden">
+            {[
+              { label: "Escorts", href: "/escorts", icon: Sparkles, gradient: "from-fuchsia-600/20 to-pink-600/20", borderColor: "border-fuchsia-500/25" },
+              { label: "Masajistas", href: "/masajistas", icon: Hand, gradient: "from-violet-600/20 to-purple-600/20", borderColor: "border-violet-500/25" },
+              { label: "Moteles", href: "/moteles", icon: Hotel, gradient: "from-amber-600/20 to-orange-600/20", borderColor: "border-amber-500/25" },
+              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, gradient: "from-rose-600/20 to-red-600/20", borderColor: "border-rose-500/25" },
+              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, gradient: "from-cyan-600/20 to-teal-600/20", borderColor: "border-cyan-500/25" },
+              { label: "Videos", href: "/escorts?serviceTags=videollamadas", icon: Video, gradient: "from-blue-600/20 to-indigo-600/20", borderColor: "border-blue-500/25" },
+              { label: "Cerca tuyo", href: "/servicios", icon: Navigation, gradient: "from-emerald-600/20 to-green-600/20", borderColor: "border-emerald-500/25" },
+              { label: "Hot", href: "/hot", icon: Flame, gradient: "from-orange-600/20 to-red-600/20", borderColor: "border-orange-500/25" },
+            ].map((cat) => (
+              <Link
+                key={cat.href}
+                href={cat.href}
+                className={`group flex flex-col items-center gap-1.5 rounded-2xl border ${cat.borderColor} bg-gradient-to-br ${cat.gradient} px-2 py-3 transition-all active:scale-[0.95] hover:brightness-125`}
+              >
+                <cat.icon className="h-5 w-5 text-white/80" />
+                <span className="text-[10px] font-semibold text-white/80 text-center leading-tight">{cat.label}</span>
+              </Link>
+            ))}
+          </div>
+          {/* Desktop: horizontal pills */}
+          <div className="hidden sm:flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {[
               { label: "Escorts", href: "/escorts", icon: Sparkles },
               { label: "Masajistas", href: "/masajistas", icon: Hand },
@@ -403,10 +429,10 @@ export default function HomePage() {
               <Link
                 key={cat.href}
                 href={cat.href}
-                className="group flex shrink-0 items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 transition-all hover:border-fuchsia-500/25 hover:bg-fuchsia-500/[0.06] active:scale-[0.97]"
+                className="group flex shrink-0 items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-5 py-2.5 transition-all hover:border-fuchsia-500/25 hover:bg-fuchsia-500/[0.06] active:scale-[0.97]"
               >
                 <cat.icon className="h-4 w-4 text-fuchsia-400/80" />
-                <span className="text-xs font-medium text-white/75">{cat.label}</span>
+                <span className="text-sm font-medium text-white/75">{cat.label}</span>
               </Link>
             ))}
           </div>
