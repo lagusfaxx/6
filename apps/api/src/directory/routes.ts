@@ -841,25 +841,66 @@ directoryRouter.get(
     if (entityType === "establishment") profileTypeFilter = ["ESTABLISHMENT"];
     else if (entityType === "shop") profileTypeFilter = ["SHOP"];
 
-    /* ── build where clause ── */
+    /* ── resolve category reference (like /professionals endpoint) ── */
+    let categoryRef: { id: string; name: string; slug: string; displayName: string | null } | null = null;
+    if (categorySlug) {
+      const kindMap: Record<string, string> = {
+        establishment: "ESTABLISHMENT",
+        shop: "SHOP",
+        professional: "PROFESSIONAL",
+      };
+      try {
+        categoryRef = await findCategoryByRef(prisma, {
+          categorySlug,
+          kind: (kindMap[entityType] || "PROFESSIONAL") as any,
+        });
+        if (!categoryRef && entityType !== "professional") {
+          categoryRef = await findCategoryByRef(prisma, {
+            categorySlug,
+            kind: "PROFESSIONAL" as any,
+          });
+        }
+      } catch { /* proceed without */ }
+    }
+
+    /* ── build where clause — use AND to avoid OR overwrite ── */
     const where: Record<string, unknown> = {
       profileType: { in: profileTypeFilter },
       isActive: true,
       isVerified: true,
-      OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
     };
 
     if (genderFilter) where.gender = genderFilter;
     if (tierFilter) where.tier = tierFilter;
 
-    /* category filter: match primaryCategory OR serviceCategory */
-    if (categoryVariantsList.length) {
-      const catConditions = categoryVariantsList.flatMap((v) => [
-        { primaryCategory: { equals: v, mode: "insensitive" as const } },
-        { serviceCategory: { contains: v, mode: "insensitive" as const } },
-      ]);
-      where.OR = catConditions;
+    const andConditions: Record<string, unknown>[] = [
+      { OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }] },
+    ];
+
+    /* category filter: match via multiple paths */
+    if (categoryVariantsList.length || categoryRef) {
+      const catConditions: any[] = [];
+      // Text-based matching
+      for (const v of categoryVariantsList) {
+        catConditions.push({ primaryCategory: { equals: v, mode: "insensitive" as const } });
+        catConditions.push({ serviceCategory: { contains: v, mode: "insensitive" as const } });
+        catConditions.push({ services: { some: { category: { contains: v, mode: "insensitive" as const } } } });
+      }
+      // ID-based matching (most reliable — same approach as /professionals endpoint)
+      if (categoryRef?.id) {
+        catConditions.push({ categoryId: categoryRef.id });
+        catConditions.push({ services: { some: { categoryId: categoryRef.id, isActive: true } } });
+      }
+      // Slug-based matching via category relation
+      if (categoryVariantsList.length) {
+        catConditions.push({ category: { slug: { in: categoryVariantsList } } });
+      }
+      if (catConditions.length > 0) {
+        andConditions.push({ OR: catConditions });
+      }
     }
+
+    where.AND = andConditions;
 
     /* profileTags filter — must contain ALL requested tags */
     if (profileTagFilter.length) {
@@ -894,16 +935,31 @@ directoryRouter.get(
     const fallbackWhere: Record<string, unknown> = {
       profileType: where.profileType,
       isActive: true,
-      OR: where.OR,
+      isVerified: true,
     };
     if (genderFilter) fallbackWhere.gender = genderFilter;
     if (tierFilter) fallbackWhere.tier = tierFilter;
-    // Remove profileTags/serviceTags/primaryCategory filters for fallback
-    if (categoryVariantsList.length) {
-      fallbackWhere.OR = categoryVariantsList.map((v) => ({
-        serviceCategory: { contains: v, mode: "insensitive" as const },
-      }));
+    const fallbackAnd: Record<string, unknown>[] = [
+      { OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }] },
+    ];
+    if (categoryVariantsList.length || categoryRef) {
+      const catConditions: any[] = [];
+      for (const v of categoryVariantsList) {
+        catConditions.push({ serviceCategory: { contains: v, mode: "insensitive" as const } });
+        catConditions.push({ services: { some: { category: { contains: v, mode: "insensitive" as const } } } });
+      }
+      if (categoryRef?.id) {
+        catConditions.push({ categoryId: categoryRef.id });
+        catConditions.push({ services: { some: { categoryId: categoryRef.id, isActive: true } } });
+      }
+      if (categoryVariantsList.length) {
+        catConditions.push({ category: { slug: { in: categoryVariantsList } } });
+      }
+      if (catConditions.length > 0) {
+        fallbackAnd.push({ OR: catConditions });
+      }
     }
+    fallbackWhere.AND = fallbackAnd;
 
     let users: any[];
     let hasNewColumns = true;

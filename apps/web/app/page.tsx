@@ -144,12 +144,12 @@ const TIERS = [
 
 /* ── Categories config ── */
 const CATEGORIES = [
-  { label: "Escorts", href: "/servicios?category=escort", icon: Sparkles, color: "from-fuchsia-500 to-pink-500", bg: "bg-fuchsia-500/10", border: "border-fuchsia-500/20" },
-  { label: "Masajistas", href: "/servicios?category=masajes", icon: Hand, color: "from-violet-500 to-purple-500", bg: "bg-violet-500/10", border: "border-violet-500/20" },
-  { label: "Moteles", href: "/servicios?category=moteles", icon: Hotel, color: "from-amber-500 to-orange-500", bg: "bg-amber-500/10", border: "border-amber-500/20" },
-  { label: "Sex Shop", href: "/servicios?category=sexshop", icon: ShoppingBag, color: "from-rose-500 to-red-500", bg: "bg-rose-500/10", border: "border-rose-500/20" },
-  { label: "Despedidas", href: "/servicios?category=escort&serviceTags=despedidas", icon: PartyPopper, color: "from-emerald-500 to-teal-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-  { label: "Videollamadas", href: "/servicios?category=escort&serviceTags=videollamadas", icon: Video, color: "from-blue-500 to-cyan-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+  { label: "Escorts", href: "/escorts", icon: Sparkles, color: "from-fuchsia-500 to-pink-500", bg: "bg-fuchsia-500/10", border: "border-fuchsia-500/20" },
+  { label: "Masajistas", href: "/masajistas", icon: Hand, color: "from-violet-500 to-purple-500", bg: "bg-violet-500/10", border: "border-violet-500/20" },
+  { label: "Moteles", href: "/moteles", icon: Hotel, color: "from-amber-500 to-orange-500", bg: "bg-amber-500/10", border: "border-amber-500/20" },
+  { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, color: "from-rose-500 to-red-500", bg: "bg-rose-500/10", border: "border-rose-500/20" },
+  { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, color: "from-emerald-500 to-teal-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+  { label: "Videollamadas", href: "/escorts?serviceTags=videollamadas", icon: Video, color: "from-blue-500 to-cyan-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
   { label: "Cerca tuyo", href: "/servicios", icon: Navigation, color: "from-pink-500 to-fuchsia-500", bg: "bg-pink-500/10", border: "border-pink-500/20" },
 ] as const;
 
