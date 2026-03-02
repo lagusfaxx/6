@@ -169,6 +169,7 @@ profileRouter.get(
           distanceKm,
           availableNow: hasActiveSession,
           isActive: p.isActive,
+          profileType: p.profileType,
           userLevel: resolveProfessionalLevel(p.completedServices),
           completedServices: p.completedServices,
           profileViews: p.profileViews,
@@ -192,9 +193,13 @@ profileRouter.get(
       const near = enriched
         .filter((p) => p.distanceKm !== null)
         .sort((a, b) => {
+          // Distance first — closest profiles always on top
+          const distCmp = (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9);
+          if (Math.abs(distCmp) > 0.5) return distCmp;
+          // Tie-break by availability
           const availabilityCmp = compareByAvailabilityAndLastSeen(a, b);
           if (availabilityCmp !== 0) return availabilityCmp;
-          return (a.distanceKm ?? 1e9) - (b.distanceKm ?? 1e9);
+          return 0;
         });
       return res.json({
         profiles: near.slice(0, limit).map(({ createdAt, ...row }) => row),
