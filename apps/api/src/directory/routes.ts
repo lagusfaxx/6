@@ -12,6 +12,15 @@ import {
 
 export const directoryRouter = Router();
 
+const IS_DEV = process.env.NODE_ENV !== "production";
+
+/** Returns the membership-expiry filter unless the app is running in dev mode. */
+function membershipFilter() {
+  if (IS_DEV) return {};
+  const now = new Date();
+  return { OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }] };
+}
+
 function toRad(v: number) {
   return (v * Math.PI) / 180;
 }
@@ -123,7 +132,6 @@ function parseRangeKm(value: unknown, fallback: number) {
 directoryRouter.get(
   "/professionals",
   asyncHandler(async (req, res) => {
-    const now = new Date();
     const categoryId =
       typeof req.query.categoryId === "string" ? req.query.categoryId : "";
     const categorySlug =
@@ -144,7 +152,7 @@ directoryRouter.get(
       profileType: "PROFESSIONAL",
       isActive: true,
       isVerified: true,
-      OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
+      ...membershipFilter(),
     };
 
     let categoryRef = null;
@@ -429,7 +437,6 @@ directoryRouter.get(
 directoryRouter.get(
   "/professionals/recent",
   asyncHandler(async (req, res) => {
-    const now = new Date();
     const limit = Math.max(1, Math.min(12, Number(req.query.limit || 6)));
     const lat = req.query.lat ? Number(req.query.lat) : null;
     const lng = req.query.lng ? Number(req.query.lng) : null;
@@ -439,10 +446,7 @@ directoryRouter.get(
         profileType: "PROFESSIONAL",
         avatarUrl: { not: null },
         isVerified: true,
-        OR: [
-          { membershipExpiresAt: { gt: now } },
-          { membershipExpiresAt: null },
-        ],
+        ...membershipFilter(),
       },
       take: 120,
       select: {
@@ -651,7 +655,6 @@ directoryRouter.get(
 directoryRouter.get(
   "/establishments",
   asyncHandler(async (req, res) => {
-    const now = new Date();
     const categoryId =
       typeof req.query.categoryId === "string" ? req.query.categoryId : "";
     const categorySlug =
@@ -670,7 +673,7 @@ directoryRouter.get(
       profileType: "ESTABLISHMENT",
       isActive: true,
       isVerified: true,
-      OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
+      ...membershipFilter(),
     };
     const categoryRef = await findCategoryByRef(prisma, {
       categoryId: categoryId || null,
@@ -796,7 +799,6 @@ directoryRouter.get(
 directoryRouter.get(
   "/directory/search",
   asyncHandler(async (req, res) => {
-    const now = new Date();
 
     /* ── parse params ── */
     const entityType = (req.query.entityType as string) || "professional";
@@ -846,7 +848,7 @@ directoryRouter.get(
       profileType: { in: profileTypeFilter },
       isActive: true,
       isVerified: true,
-      OR: [{ membershipExpiresAt: { gt: now } }, { membershipExpiresAt: null }],
+      ...membershipFilter(),
     };
 
     if (genderFilter) where.gender = genderFilter;
@@ -894,8 +896,8 @@ directoryRouter.get(
     const fallbackWhere: Record<string, unknown> = {
       profileType: where.profileType,
       isActive: true,
-      OR: where.OR,
     };
+    if (where.OR) fallbackWhere.OR = where.OR;
     if (genderFilter) fallbackWhere.gender = genderFilter;
     if (tierFilter) fallbackWhere.tier = tierFilter;
     // Remove profileTags/serviceTags/primaryCategory filters for fallback
