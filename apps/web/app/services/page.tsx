@@ -571,8 +571,10 @@ export default function ServicesPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
-  const effectiveLocWithFallback = effectiveLoc ?? SANTIAGO_FALLBACK;
+  const effectiveLocWithFallback = useMemo<[number, number]>(
+    () => effectiveLoc ?? [-33.45, -70.66],
+    [effectiveLoc],
+  );
   const mapCenter: [number, number] | null = effectiveLocWithFallback;
   const locationLabel = locationCtx?.state.mode === "city"
     ? locationCtx.state.selectedCity?.name ?? null

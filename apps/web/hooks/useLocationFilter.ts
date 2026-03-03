@@ -89,12 +89,11 @@ export function useLocationFilter() {
 }
 
 export function useLocationFilterState(): LocationFilterContextValue {
-  const stored = readStored();
   const [state, setState] = useState<LocationFilterState>({
-    mode: (stored.mode as "gps" | "city") || "gps",
-    selectedCity: stored.selectedCity || null,
-    selectedCategory: stored.selectedCategory || null,
-    gpsLocation: stored.gpsLocation || null,
+    mode: "gps",
+    selectedCity: null,
+    selectedCategory: null,
+    gpsLocation: null,
   });
 
   useEffect(() => {
