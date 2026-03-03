@@ -131,7 +131,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   // Retry once on 429, respecting Retry-After header
   if (res.status === 429) {
     const retryAfter = res.headers.get("Retry-After");
-    const delaySec = retryAfter ? Math.min(Number(retryAfter) || 2, 5) : 2;
+    const parsed = retryAfter ? parseInt(retryAfter, 10) : NaN;
+    const delaySec = !isNaN(parsed) ? Math.max(1, Math.min(parsed, 5)) : 2;
     await new Promise((r) => setTimeout(r, delaySec * 1000));
     res = await fetch(url, opts);
   }
