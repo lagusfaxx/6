@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, MessageCircle, Eye, Sparkles, Flame } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
-import { apiFetch, resolveMediaUrl } from "../lib/api";
+import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import UserLevelBadge from "./UserLevelBadge";
 import MapboxMap from "./MapboxMap";
 import type { MapMarker } from "./MapboxMap";
@@ -203,6 +203,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
   const [results, setResults] = useState<DirectoryResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [rateLimitMsg, setRateLimitMsg] = useState<string | null>(null);
 
   /* ── location from context ── */
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
@@ -239,9 +240,14 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
       if (myFetch !== fetchRef.current) return;
       setResults(data.results ?? []);
       setTotal(data.total ?? 0);
-    } catch {
+      setRateLimitMsg(null);
+    } catch (err: any) {
       if (myFetch !== fetchRef.current) return;
-      setResults([]);
+      if (isRateLimitError(err)) {
+        setRateLimitMsg("Demasiadas solicitudes, intenta en unos segundos.");
+      } else {
+        setResults([]);
+      }
     } finally {
       if (myFetch === fetchRef.current) setLoading(false);
     }
@@ -505,6 +511,15 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
                 if (match) setPreviewProfile(match);
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* ── Rate-limit banner ── */}
+      {rateLimitMsg && (
+        <div className="max-w-7xl mx-auto px-4 pt-4">
+          <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-sm text-amber-300 text-center">
+            {rateLimitMsg}
           </div>
         </div>
       )}

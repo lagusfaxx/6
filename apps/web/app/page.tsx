@@ -3,7 +3,7 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { apiFetch, resolveMediaUrl } from "../lib/api";
+import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
@@ -349,11 +349,14 @@ export default function HomePage() {
           }
           const res = await apiFetch<{ profiles: DiscoverProfile[] }>(
             `/profiles/discover?${qp.toString()}`,
-          ).catch(() => ({ profiles: [] }));
-          next[section.key] = res.profiles || [];
+          ).catch((err) => {
+            if (isRateLimitError(err)) return null;
+            return { profiles: [] };
+          });
+          if (res) next[section.key] = res.profiles || [];
         }),
       );
-      setDiscoverSections(next);
+      setDiscoverSections((prev) => ({ ...prev, ...next }));
     };
     loadSections().catch(() =>
       setError("No se pudieron cargar las secciones destacadas."),

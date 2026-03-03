@@ -100,6 +100,7 @@ export function isAuthError(err: any): boolean {
 
 export function friendlyErrorMessage(err: any): string {
   const status = err?.status;
+  if (status === 429) return "Demasiadas solicitudes, intenta en unos segundos.";
   if (status === 401) return "Inicia sesión para continuar.";
   if (status === 403) return "No tienes permisos para realizar esta acción.";
   if (err?.body?.message) return err.body.message;
@@ -112,17 +113,29 @@ export function friendlyErrorMessage(err: any): string {
   return raw;
 }
 
+export function isRateLimitError(err: any): boolean {
+  return Boolean(err && err.status === 429);
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const base = getApiBase();
-  const res = await fetch(`${base}${path}`, {
-    ...init,
-    credentials: "include",
-    headers: {
-      // Let callers override Content-Type (e.g. FormData, file uploads)
-      ...(init?.headers || {}),
-      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" })
-    }
-  });
+  const url = `${base}${path}`;
+  const headers = {
+    ...(init?.headers || {}),
+    ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+  };
+  const opts: RequestInit = { ...init, credentials: "include", headers };
+
+  let res = await fetch(url, opts);
+
+  // Retry once on 429, respecting Retry-After header
+  if (res.status === 429) {
+    const retryAfter = res.headers.get("Retry-After");
+    const parsed = retryAfter ? parseInt(retryAfter, 10) : NaN;
+    const delaySec = !isNaN(parsed) ? Math.max(1, Math.min(parsed, 5)) : 2;
+    await new Promise((r) => setTimeout(r, delaySec * 1000));
+    res = await fetch(url, opts);
+  }
 
   if (!res.ok) {
     let body: any = null;
@@ -135,4 +148,37 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     throw new ApiHttpError(msg, res.status, body);
   }
   return (await res.json()) as T;
+}
+
+/* ─── In-memory GET cache with TTL + promise dedup ─── */
+const _cache = new Map<string, { data: any; ts: number }>();
+const _inflight = new Map<string, Promise<any>>();
+const DEFAULT_CACHE_TTL = 30_000; // 30 seconds
+
+export function cachedApiFetch<T>(
+  path: string,
+  ttl: number = DEFAULT_CACHE_TTL,
+): Promise<T> {
+  const now = Date.now();
+  const cached = _cache.get(path);
+  if (cached && now - cached.ts < ttl) {
+    return Promise.resolve(cached.data as T);
+  }
+
+  const inflight = _inflight.get(path);
+  if (inflight) return inflight as Promise<T>;
+
+  const promise = apiFetch<T>(path)
+    .then((data) => {
+      _cache.set(path, { data, ts: Date.now() });
+      _inflight.delete(path);
+      return data;
+    })
+    .catch((err) => {
+      _inflight.delete(path);
+      throw err;
+    });
+
+  _inflight.set(path, promise);
+  return promise;
 }
