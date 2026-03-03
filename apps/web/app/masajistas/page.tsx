@@ -7,6 +7,7 @@ export default function MasajistasPage() {
   return (
     <Suspense>
       <DirectoryPage
+        key="masajes"
         entityType="professional"
         categorySlug="masajes"
         title="Masajistas"

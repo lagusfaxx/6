@@ -7,6 +7,7 @@ export default function MotelPage() {
   return (
     <Suspense>
       <DirectoryPage
+        key="motel"
         entityType="establishment"
         categorySlug="motel"
         title="Moteles y Hoteles"
