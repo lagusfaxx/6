@@ -48,7 +48,7 @@ export const PRIMARY_CATEGORIES = [
   { key: "sexshop",   label: "Sex Shop",       route: "/sexshop" },
   { key: "trans",     label: "Trans",          route: "/escorts?profileTags=trans" },
   { key: "despedidas",label: "Despedidas",     route: "/escorts?serviceTags=despedidas" },
-  { key: "videos",    label: "Videollamadas",  route: "/escorts?serviceTags=videollamadas" },
+  { key: "videos",    label: "Videollamadas",  route: "/escorts?serviceTags=videollamada" },
 ] as const;
 
 export const PROFILE_TAGS_CATALOG = [
