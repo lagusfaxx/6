@@ -42,6 +42,8 @@ type Professional = {
   minDurationMinutes?: number | null;
   acceptsIncalls?: boolean | null;
   acceptsOutcalls?: boolean | null;
+  profileTags?: string[];
+  serviceTags?: string[];
   gallery: { id: string; url: string; type: string }[];
   completedServices?: number;
   profileViews?: number;
@@ -522,15 +524,43 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             </section>
           )}
 
-          {/* Service subcategories */}
-          {matchedSubcategories.length > 0 && (
+          {/* Profile tags — How they define themselves */}
+          {(professional?.profileTags?.length ?? 0) > 0 && (
             <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
               <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white/95">
                 <Sparkles className="h-4 w-4 text-fuchsia-400" />
+                Cómo define su perfil
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {professional!.profileTags!.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-500/10 px-3 py-1.5 text-xs font-medium text-fuchsia-100 capitalize"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Service tags — Services offered */}
+          {((professional?.serviceTags?.length ?? 0) > 0 || matchedSubcategories.length > 0) && (
+            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+              <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white/95">
+                <Sparkles className="h-4 w-4 text-violet-400" />
                 Servicios que ofrece
               </h2>
               <div className="flex flex-wrap gap-2">
-                {matchedSubcategories.map((sub) => (
+                {(professional?.serviceTags ?? []).map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex rounded-full border border-violet-300/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-100 capitalize"
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {matchedSubcategories.filter((sub) => !(professional?.serviceTags ?? []).some((t) => t.toLowerCase() === sub.toLowerCase())).map((sub) => (
                   <span
                     key={sub}
                     className="inline-flex rounded-full border border-violet-300/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-100"

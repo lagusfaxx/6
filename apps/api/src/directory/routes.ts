@@ -845,8 +845,7 @@ directoryRouter.get(
     /* ── build where clause ── */
     const where: Record<string, unknown> = {
       profileType: { in: profileTypeFilter },
-      isActive: true,
-      // DEV: isVerified + subscription filters removed during development
+      // DEV: isActive, isVerified, subscription filters removed during development
     };
 
     if (genderFilter) where.gender = genderFilter;

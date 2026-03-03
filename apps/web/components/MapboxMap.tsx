@@ -209,6 +209,17 @@ function MapboxMapComponent({
     };
   }, [token]);
 
+  // Reset interaction flag when userLocation deliberately changes (e.g. city picker)
+  const prevLocationRef = useRef(userLocation);
+  useEffect(() => {
+    const prev = prevLocationRef.current;
+    prevLocationRef.current = userLocation;
+    if (!prev || !userLocation) return;
+    if (prev[0] !== userLocation[0] || prev[1] !== userLocation[1]) {
+      userHasInteractedRef.current = false;
+    }
+  }, [userLocation?.[0], userLocation?.[1]]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapInitialized) return;
