@@ -373,7 +373,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3.5 text-sm font-bold transition hover:brightness-110 shadow-[0_8px_24px_rgba(168,85,247,0.3)]"
               >
                 <Sparkles className="h-4 w-4" />
-                Solicitar Profesional
+                Solicitar encuentro
               </Link>
               <div className="flex gap-2">
                 <Link

@@ -72,7 +72,7 @@ export default function ProfilePreviewPage() {
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[linear-gradient(180deg,rgba(14,7,22,0.75)_0%,rgba(12,6,20,0.96)_40%,rgba(12,6,20,0.98)_100%)] px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2.5">
           <button className="rounded-2xl bg-gradient-to-r from-fuchsia-500 via-violet-500 to-cyan-400 py-3 text-sm font-semibold">Enviar mensaje</button>
-          <button className="rounded-2xl border border-white/25 bg-white/5 py-3 text-sm font-medium">Solicitar Profesional</button>
+          <button className="rounded-2xl border border-white/25 bg-white/5 py-3 text-sm font-medium">Solicitar encuentro</button>
         </div>
       </div>
     </main>

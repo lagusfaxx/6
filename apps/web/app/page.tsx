@@ -32,6 +32,7 @@ import {
   Star,
   TrendingUp,
   Video,
+  X,
   Zap,
 } from "lucide-react";
 
@@ -91,6 +92,102 @@ type DiscoverProfile = {
   serviceTags?: string[];
   galleryUrls?: string[];
 };
+
+/* ── Install App Button ── */
+function InstallAppButton() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    setIsIOS(ios);
+    setIsStandalone(window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true);
+    const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  if (isStandalone) return null;
+
+  async function handleClick() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      setDeferredPrompt(null);
+    } else {
+      setShowInstructions(true);
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={handleClick}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-8 py-4 text-sm font-medium text-white/80 backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.08] sm:w-auto"
+      >
+        <Download className="h-4 w-4" />
+        Descargar App
+      </button>
+
+      {showInstructions && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md" onClick={() => setShowInstructions(false)}>
+          <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-white/10 bg-[#0e0e12] p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold">Instalar Uzeed</h3>
+              <button onClick={() => setShowInstructions(false)} className="rounded-full border border-white/10 bg-white/5 p-2 text-white/50 hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {isIOS ? (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Para instalar la app en tu iPhone o iPad:</p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">1</div>
+                    <p className="text-sm text-white/70 pt-1">Toca el botón <strong className="text-white">Compartir</strong> <span className="inline-block align-middle text-blue-400">(cuadrado con flecha)</span> en Safari</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">2</div>
+                    <p className="text-sm text-white/70 pt-1">Desliza y toca <strong className="text-white">&ldquo;Agregar a pantalla de inicio&rdquo;</strong></p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">3</div>
+                    <p className="text-sm text-white/70 pt-1">Confirma tocando <strong className="text-white">&ldquo;Agregar&rdquo;</strong></p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Para instalar la app en tu dispositivo:</p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">1</div>
+                    <p className="text-sm text-white/70 pt-1">Toca el menú <strong className="text-white">&#8942;</strong> (tres puntos) en tu navegador</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">2</div>
+                    <p className="text-sm text-white/70 pt-1">Selecciona <strong className="text-white">&ldquo;Instalar aplicación&rdquo;</strong> o <strong className="text-white">&ldquo;Agregar a pantalla de inicio&rdquo;</strong></p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">3</div>
+                    <p className="text-sm text-white/70 pt-1">Confirma la instalación</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-3 text-center text-xs text-fuchsia-200/80">
+              La app se abrirá como una aplicación nativa sin barra del navegador
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 /* ── Helpers ── */
 
@@ -331,13 +428,7 @@ export default function HomePage() {
               Explorar ahora
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
-            <a
-              href="#"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-8 py-4 text-sm font-medium text-white/80 backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.08] sm:w-auto"
-            >
-              <Download className="h-4 w-4" />
-              Descargar App
-            </a>
+            <InstallAppButton />
           </motion.div>
         </div>
       </section>

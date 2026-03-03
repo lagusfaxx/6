@@ -776,7 +776,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
               <div className="mt-4 space-y-2.5">
                 <button onClick={() => handleChatClick("request")} className="btn-primary w-full rounded-2xl py-3.5 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)]">
-                  Solicitar Profesional
+                  Solicitar encuentro
                 </button>
                 <button onClick={() => handleChatClick("message")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
                   Enviar mensaje
@@ -838,7 +838,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           <span>{durationLabel}</span>
         </div>
         <button onClick={() => handleChatClick("request")} className="btn-primary w-full rounded-2xl py-3 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)] mb-2">
-          Solicitar Profesional
+          Solicitar encuentro
         </button>
         <div className="grid grid-cols-2 gap-2.5">
           <button onClick={() => handleChatClick("message")} className="btn-secondary w-full rounded-2xl py-2.5 text-sm">

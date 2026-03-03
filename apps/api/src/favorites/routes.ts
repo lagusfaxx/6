@@ -22,13 +22,6 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
   if (!user) {
     return res.status(404).json({ error: "USER_NOT_FOUND" });
   }
-  
-  if (user.profileType !== "VIEWER") {
-    return res.status(403).json({ 
-      error: "NOT_ALLOWED",
-      message: "Solo los clientes pueden acceder a favoritos." 
-    });
-  }
 
   // Get favorites
   const favorites = await prisma.favorite.findMany({
@@ -183,13 +176,6 @@ favoritesRouter.post("/favorites/:professionalId", requireAuth, asyncHandler(asy
     return res.status(404).json({ error: "USER_NOT_FOUND" });
   }
 
-  if (user.profileType !== "VIEWER") {
-    return res.status(403).json({ 
-      error: "NOT_ALLOWED",
-      message: "Solo los clientes pueden guardar favoritos." 
-    });
-  }
-
   // Check if professional exists
   const professional = await prisma.user.findUnique({
     where: { id: professionalId },
@@ -255,13 +241,6 @@ favoritesRouter.delete("/favorites/:professionalId", requireAuth, asyncHandler(a
 
   if (!user) {
     return res.status(404).json({ error: "USER_NOT_FOUND" });
-  }
-
-  if (user.profileType !== "VIEWER") {
-    return res.status(403).json({ 
-      error: "NOT_ALLOWED",
-      message: "Solo los clientes pueden gestionar favoritos." 
-    });
   }
 
   // Delete favorite if exists
