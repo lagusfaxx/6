@@ -8,6 +8,8 @@ import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import UserLevelBadge from "./UserLevelBadge";
 import MapboxMap from "./MapboxMap";
+import type { MapMarker } from "./MapboxMap";
+import ProfilePreviewModal from "./ProfilePreviewModal";
 import Stories from "./Stories";
 import useMe from "../hooks/useMe";
 import { buildChatHref, buildLoginHref, buildCurrentPathWithSearch } from "../lib/chat";
@@ -35,6 +37,7 @@ export type DirectoryResult = {
   profileTags: string[];
   serviceTags: string[];
   gender: string | null;
+  profileType?: string | null;
 };
 
 /* Catalog constants (also used by TopHeader chips/mega menu) */
@@ -264,6 +267,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
   }
 
   const [showMap, setShowMap] = useState(true);
+  const [previewProfile, setPreviewProfile] = useState<DirectoryResult | null>(null);
 
   /* ── Map markers: only from current category's results ── */
   const mapMarkers = useMemo(
@@ -489,6 +493,10 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
               autoCenterOnDataChange
               showMarkersForArea
               renderHtmlMarkers
+              onMarkerSelect={(marker: MapMarker) => {
+                const match = displayed.find((p) => p.id === marker.id);
+                if (match) setPreviewProfile(match);
+              }}
             />
           </div>
         </div>
@@ -523,6 +531,28 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
           </div>
         )}
       </div>
+
+      {/* Profile Preview Modal (from map marker click) */}
+      {previewProfile && (
+        <ProfilePreviewModal
+          profile={{
+            id: previewProfile.id,
+            displayName: previewProfile.displayName,
+            username: previewProfile.username,
+            avatarUrl: previewProfile.avatarUrl,
+            coverUrl: previewProfile.coverUrl,
+            age: previewProfile.age,
+            distance: previewProfile.distance,
+            availableNow: previewProfile.availableNow,
+            userLevel: previewProfile.userLevel,
+            serviceCategory: previewProfile.serviceCategory,
+            profileTags: previewProfile.profileTags,
+            serviceTags: previewProfile.serviceTags,
+            profileType: previewProfile.profileType,
+          }}
+          onClose={() => setPreviewProfile(null)}
+        />
+      )}
     </div>
   );
 }

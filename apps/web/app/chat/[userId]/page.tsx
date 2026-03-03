@@ -105,8 +105,8 @@ type MeResponse = {
 };
 
 function statusLabel(status: string) {
-  if (status === "PENDIENTE_APROBACION") return "Pendiente";
-  if (status === "APROBADO") return "Propuesta enviada";
+  if (status === "PENDIENTE_APROBACION") return "Solicitud enviada";
+  if (status === "APROBADO") return "Propuesta recibida";
   if (status === "ACTIVO") return "Confirmada";
   if (status === "FINALIZADO") return "Finalizado";
   if (status === "RECHAZADO") return "Rechazada";
@@ -762,7 +762,7 @@ export default function ChatPage() {
               className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-xs font-semibold transition hover:brightness-110"
               disabled={requesting}
             >
-              Solicitar
+              Solicitar encuentro
             </button>
           )}
           {activeRequest && (
@@ -917,7 +917,7 @@ export default function ChatPage() {
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20">
                     <Calendar className="h-3.5 w-3.5 text-fuchsia-300" />
                   </div>
-                  <span className="text-xs font-semibold">Solicitud de servicio</span>
+                  <span className="text-xs font-semibold">Solicitud de encuentro</span>
                 </div>
                 <span
                   className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusColor(activeRequest.status)}`}
@@ -1009,6 +1009,24 @@ export default function ChatPage() {
                     <p className="text-xs text-amber-300/80">
                       Esperando confirmación del cliente
                     </p>
+                  </div>
+                )}
+
+                {/* Confirmed banner */}
+                {activeRequest.status === "ACTIVO" && (
+                  <div className="rounded-xl border border-emerald-500/25 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 p-3 text-center">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      <span className="text-sm font-bold text-emerald-300">Reserva confirmada</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-200/60">Contacto desbloqueado</p>
+                    {activeRequest.professionalPriceClp != null && activeRequest.professionalDurationM != null && (
+                      <div className="flex items-center justify-center gap-3 mt-2 text-xs text-white/60">
+                        <span>${Number(activeRequest.professionalPriceClp).toLocaleString("es-CL")}</span>
+                        <span className="text-white/20">·</span>
+                        <span>{activeRequest.professionalDurationM} min</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1340,192 +1358,154 @@ export default function ChatPage() {
         </button>
       </form>
 
-      {/* ── Request modal — Modern step-based wizard ── */}
-      {requestModalOpen && (() => {
-        const steps = [
-          { key: "when", label: "Cuándo", icon: Calendar },
-          { key: "where", label: "Dónde", icon: MapPin },
-          { key: "confirm", label: "Confirmar", icon: CheckCircle2 },
-        ] as const;
-        type StepKey = (typeof steps)[number]["key"];
-        const currentStepIdx = !requestDate || !requestTime ? 0 : !requestLocation.trim() ? 1 : 2;
-        const activeStep: StepKey = steps[currentStepIdx].key;
+      {/* ── Bottom sheet — Solicitar encuentro ── */}
+      {requestModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={() => setRequestModalOpen(false)}>
+          <div
+            className="relative w-full max-w-lg rounded-t-[28px] border-t border-x border-white/10 bg-[#0e0e14] shadow-[0_-20px_60px_rgba(0,0,0,0.6)] overflow-hidden max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="h-1 w-10 rounded-full bg-white/20" />
+            </div>
 
-        return (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 backdrop-blur-md" onClick={() => setRequestModalOpen(false)}>
-            <div className="relative w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl border border-white/10 bg-[#0e0e12] shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden max-h-[90vh] sm:max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pb-3 shrink-0">
+              <div>
+                <h2 className="text-lg font-bold">Solicitar encuentro</h2>
+                <p className="text-xs text-white/40">
+                  con <span className="text-fuchsia-300/80 font-medium">{other?.displayName || other?.username}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRequestModalOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white/50 transition hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-              {/* Header */}
-              <div className="flex items-center gap-3 border-b border-white/[0.08] px-5 py-4 shrink-0">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 border border-fuchsia-500/20">
-                  <Calendar className="h-5 w-5 text-fuchsia-300" />
+            <form onSubmit={submitServiceRequest} className="flex-1 overflow-y-auto px-5 space-y-5 pb-4">
+              {/* Date & Time — compact row */}
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-2 block">Fecha y hora</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none transition focus:border-fuchsia-500/40"
+                    value={requestDate}
+                    min={minRequestDate}
+                    onChange={(e) => setRequestDate(e.target.value)}
+                    required
+                    style={{ colorScheme: "dark" }}
+                  />
+                  <input
+                    type="time"
+                    className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none transition focus:border-fuchsia-500/40"
+                    value={requestTime}
+                    onChange={(e) => setRequestTime(e.target.value)}
+                    required
+                    style={{ colorScheme: "dark" }}
+                  />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-base font-bold">Solicitar Profesional</h2>
-                  <p className="text-xs text-white/45 truncate">
-                    Coordina con{" "}
-                    <span className="text-fuchsia-300/80 font-medium">{other?.displayName || other?.username}</span>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setRequestModalOpen(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/50 transition hover:bg-white/10 hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
               </div>
 
-              {/* Step indicator */}
-              <div className="flex items-center gap-1 px-5 pt-4 pb-2 shrink-0">
-                {steps.map((s, i) => {
-                  const StepIcon = s.icon;
-                  const isActive = i === currentStepIdx;
-                  const isDone = i < currentStepIdx;
-                  return (
-                    <div key={s.key} className="flex items-center gap-1 flex-1">
-                      <div className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
-                        isActive ? "bg-fuchsia-500/15 border border-fuchsia-500/30 text-fuchsia-300" :
-                        isDone ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" :
-                        "bg-white/[0.03] border border-white/[0.06] text-white/30"
-                      }`}>
-                        {isDone ? <CheckCircle2 className="h-3 w-3" /> : <StepIcon className="h-3 w-3" />}
-                        <span className="hidden sm:inline">{s.label}</span>
-                        <span className="sm:hidden">{i + 1}</span>
+              {/* Location — quick options */}
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-2 block">Ubicación</label>
+                <div className="space-y-2">
+                  {/* Quick pick buttons */}
+                  <div className="grid grid-cols-1 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setRequestLocation("Mi domicilio")}
+                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
+                        requestLocation === "Mi domicilio"
+                          ? "border-fuchsia-500/40 bg-fuchsia-500/10 text-white"
+                          : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.06]"
+                      }`}
+                    >
+                      <MapPin className="h-4 w-4 shrink-0 text-fuchsia-400/70" />
+                      <span className="font-medium">Mi domicilio</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRequestLocation("Hotel / Motel (a elegir)")}
+                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
+                        requestLocation === "Hotel / Motel (a elegir)"
+                          ? "border-amber-500/40 bg-amber-500/10 text-white"
+                          : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.06]"
+                      }`}
+                    >
+                      <Hotel className="h-4 w-4 shrink-0 text-amber-400/70" />
+                      <div>
+                        <span className="font-medium">Hotel / Motel</span>
+                        <span className="block text-[10px] text-white/35">Moteles y hoteles de la app</span>
                       </div>
-                      {i < steps.length - 1 && (
-                        <div className={`h-px flex-1 mx-1 ${isDone ? "bg-emerald-500/30" : "bg-white/[0.06]"}`} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Form content */}
-              <form onSubmit={submitServiceRequest} className="flex-1 overflow-y-auto px-5 pb-2">
-                {/* Step 1: When */}
-                <div className={`space-y-3 py-3 ${activeStep !== "when" && requestDate && requestTime ? "" : activeStep !== "when" ? "opacity-40 pointer-events-none" : ""}`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${activeStep === "when" ? "bg-fuchsia-500/20 text-fuchsia-300" : requestDate && requestTime ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-white/40"}`}>1</div>
-                    <span className="text-sm font-semibold text-white/80">¿Cuándo quieres agendar?</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRequestLocation("A coordinar por chat")}
+                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
+                        requestLocation === "A coordinar por chat"
+                          ? "border-violet-500/40 bg-violet-500/10 text-white"
+                          : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.06]"
+                      }`}
+                    >
+                      <Calendar className="h-4 w-4 shrink-0 text-violet-400/70" />
+                      <span className="font-medium">A coordinar por chat</span>
+                    </button>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2 pl-9">
-                    <label className="grid gap-1.5">
-                      <span className="text-[11px] font-medium text-white/50 uppercase tracking-wider">Fecha</span>
-                      <input
-                        type="date"
-                        className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition focus:border-fuchsia-500/40 focus:ring-1 focus:ring-fuchsia-500/20"
-                        value={requestDate}
-                        min={minRequestDate}
-                        onChange={(e) => setRequestDate(e.target.value)}
-                        required
-                        style={{ colorScheme: "dark" }}
-                      />
-                    </label>
-                    <label className="grid gap-1.5">
-                      <span className="text-[11px] font-medium text-white/50 uppercase tracking-wider">Hora</span>
-                      <input
-                        type="time"
-                        className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition focus:border-fuchsia-500/40 focus:ring-1 focus:ring-fuchsia-500/20"
-                        value={requestTime}
-                        onChange={(e) => setRequestTime(e.target.value)}
-                        required
-                        style={{ colorScheme: "dark" }}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div className="h-px bg-white/[0.06] my-1" />
-
-                {/* Step 2: Where */}
-                <div className={`space-y-3 py-3 ${activeStep !== "where" && requestLocation.trim() ? "" : activeStep !== "where" ? "opacity-40 pointer-events-none" : ""}`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${activeStep === "where" ? "bg-fuchsia-500/20 text-fuchsia-300" : requestLocation.trim() ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-white/40"}`}>2</div>
-                    <span className="text-sm font-semibold text-white/80">¿Dónde se encontrarán?</span>
-                  </div>
-                  <div className="pl-9 space-y-3">
+                  {/* Custom location input */}
+                  {requestLocation !== "Mi domicilio" && requestLocation !== "Hotel / Motel (a elegir)" && requestLocation !== "A coordinar por chat" && (
                     <input
-                      className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-fuchsia-500/40 focus:ring-1 focus:ring-fuchsia-500/20"
+                      className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-fuchsia-500/40"
                       value={requestLocation}
                       onChange={(e) => setRequestLocation(e.target.value)}
-                      placeholder="Ej: Metro Los Leones, Providencia"
-                      required
+                      placeholder="Otra ubicación..."
                     />
-                    <div className="flex flex-wrap gap-1.5">
-                      <Link
-                        href="/moteles"
-                        className="flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-300 transition hover:bg-amber-500/20"
-                      >
-                        <Hotel className="h-3 w-3" /> Buscar motel
-                      </Link>
-                    </div>
-                  </div>
+                  )}
+                  {(requestLocation === "Mi domicilio" || requestLocation === "Hotel / Motel (a elegir)" || requestLocation === "A coordinar por chat") && (
+                    <button
+                      type="button"
+                      onClick={() => setRequestLocation("")}
+                      className="text-[11px] text-white/35 hover:text-white/60 transition"
+                    >
+                      Escribir otra ubicación...
+                    </button>
+                  )}
                 </div>
-
-                {/* Divider */}
-                <div className="h-px bg-white/[0.06] my-1" />
-
-                {/* Step 3: Confirm */}
-                <div className={`space-y-3 py-3 ${activeStep !== "confirm" ? "opacity-40 pointer-events-none" : ""}`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${activeStep === "confirm" ? "bg-fuchsia-500/20 text-fuchsia-300" : "bg-white/10 text-white/40"}`}>3</div>
-                    <span className="text-sm font-semibold text-white/80">Confirma tu solicitud</span>
-                  </div>
-                  <div className="pl-9 space-y-3">
-                    {/* Summary */}
-                    {requestDate && requestTime && requestLocation.trim() && (
-                      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 space-y-2">
-                        <div className="flex items-center gap-2 text-xs text-white/60">
-                          <Calendar className="h-3.5 w-3.5 text-fuchsia-400/70" />
-                          <span>{new Date(requestDate + "T00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })}</span>
-                          <span className="text-white/30">·</span>
-                          <Clock className="h-3.5 w-3.5 text-fuchsia-400/70" />
-                          <span>{requestTime}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-white/60">
-                          <MapPin className="h-3.5 w-3.5 text-fuchsia-400/70" />
-                          <span>{requestLocation}</span>
-                        </div>
-                      </div>
-                    )}
-                    <textarea
-                      className="w-full min-h-[3rem] rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-fuchsia-500/40 focus:ring-1 focus:ring-fuchsia-500/20"
-                      value={requestComment}
-                      onChange={(e) => setRequestComment(e.target.value)}
-                      placeholder="Comentario adicional (opcional)"
-                    />
-                  </div>
-                </div>
-              </form>
-
-              {/* Footer */}
-              <div className="flex justify-between gap-2 px-5 py-4 border-t border-white/[0.06] shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setRequestModalOpen(false)}
-                  className="rounded-xl border border-white/15 bg-white/5 px-5 py-2.5 text-sm text-white/70 transition hover:bg-white/10"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    const form = (e.target as HTMLElement).closest(".flex-col")?.querySelector("form");
-                    if (form) form.requestSubmit();
-                  }}
-                  className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] disabled:opacity-50"
-                  disabled={requesting || !requestDate || !requestTime || !requestLocation.trim()}
-                >
-                  {requesting ? "Enviando..." : "Enviar solicitud"}
-                </button>
               </div>
+
+              {/* Optional note — minimal */}
+              <textarea
+                className="w-full min-h-[2.5rem] rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/20 transition focus:border-fuchsia-500/30"
+                value={requestComment}
+                onChange={(e) => setRequestComment(e.target.value)}
+                placeholder="Nota adicional (opcional)"
+                rows={1}
+              />
+            </form>
+
+            {/* Submit */}
+            <div className="px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 border-t border-white/[0.06] shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  const form = (e.target as HTMLElement).closest(".flex-col")?.querySelector("form");
+                  if (form) form.requestSubmit();
+                }}
+                className="w-full rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-4 text-sm font-bold text-white transition hover:brightness-110 shadow-[0_8px_32px_rgba(168,85,247,0.3)] disabled:opacity-40"
+                disabled={requesting || !requestDate || !requestTime || !requestLocation.trim()}
+              >
+                {requesting ? "Enviando..." : "Enviar solicitud"}
+              </button>
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 }

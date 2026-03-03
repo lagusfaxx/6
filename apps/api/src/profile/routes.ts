@@ -113,8 +113,7 @@ profileRouter.get(
 
     const profiles = await prisma.user.findMany({
       where: {
-        profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "CREATOR"] },
-        isVerified: true,
+        profileType: "PROFESSIONAL",
       },
       orderBy: { createdAt: "desc" },
       take: Math.max(limit * 3, 48),

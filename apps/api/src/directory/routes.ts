@@ -845,16 +845,15 @@ directoryRouter.get(
     /* ── build where clause ── */
     const where: Record<string, unknown> = {
       profileType: { in: profileTypeFilter },
-      isActive: true,
-      isVerified: true,
-      // DEV: subscription filter removed during development
+      // DEV: isActive, isVerified, subscription filters removed during development
     };
 
     if (genderFilter) where.gender = genderFilter;
     if (tierFilter) where.tier = tierFilter;
 
-    /* category filter: match primaryCategory OR serviceCategory */
-    if (categoryVariantsList.length) {
+    /* category filter: match primaryCategory OR serviceCategory
+       Skip for ESTABLISHMENT/SHOP — profileType alone is enough */
+    if (categoryVariantsList.length && profileTypeFilter[0] === "PROFESSIONAL") {
       const catConditions = categoryVariantsList.flatMap((v) => [
         { primaryCategory: { equals: v, mode: "insensitive" as const } },
         { serviceCategory: { contains: v, mode: "insensitive" as const } },
@@ -867,9 +866,9 @@ directoryRouter.get(
       where.profileTags = { hasEvery: profileTagFilter };
     }
 
-    /* serviceTags filter — must contain ALL requested tags */
+    /* serviceTags filter — match ANY of the requested tags */
     if (serviceTagFilter.length) {
-      where.serviceTags = { hasEvery: serviceTagFilter };
+      where.serviceTags = { hasSome: serviceTagFilter };
     }
 
     /* ── Select with new columns — fallback if migration not applied ── */
@@ -879,7 +878,7 @@ directoryRouter.get(
       longitude: true, lastSeen: true, isActive: true, isOnline: true,
       completedServices: true, profileViews: true, tier: true,
       gender: true, city: true, serviceCategory: true, createdAt: true,
-      primaryCategory: true, profileTags: true, serviceTags: true,
+      primaryCategory: true, profileTags: true, serviceTags: true, profileType: true,
       services: { where: { isActive: true }, select: { latitude: true, longitude: true, category: true }, take: 1, orderBy: { createdAt: "desc" as const } },
     };
     const fallbackSelect = {
@@ -887,7 +886,7 @@ directoryRouter.get(
       coverUrl: true, bio: true, birthdate: true, latitude: true,
       longitude: true, lastSeen: true, isActive: true, isOnline: true,
       completedServices: true, profileViews: true, tier: true,
-      gender: true, city: true, serviceCategory: true, createdAt: true,
+      gender: true, city: true, serviceCategory: true, createdAt: true, profileType: true,
       services: { where: { isActive: true }, select: { latitude: true, longitude: true, category: true }, take: 1, orderBy: { createdAt: "desc" as const } },
     };
 
@@ -967,6 +966,7 @@ directoryRouter.get(
         profileTags: hasNewColumns ? (u.profileTags ?? []) : [],
         serviceTags: hasNewColumns ? (u.serviceTags ?? []) : [],
         gender: u.gender,
+        profileType: u.profileType ?? "PROFESSIONAL",
         isMadura,
         createdAt: u.createdAt.toISOString(),
       };
