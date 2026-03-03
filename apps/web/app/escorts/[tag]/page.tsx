@@ -23,6 +23,7 @@ export default async function EscortsTagPage({ params }: Props) {
     <Suspense>
       {isMaduras ? (
         <DirectoryPage
+          key={`escort-maduras`}
           entityType="professional"
           categorySlug="escort"
           title={`Escorts ${label}`}
@@ -30,6 +31,7 @@ export default async function EscortsTagPage({ params }: Props) {
         />
       ) : (
         <DirectoryPage
+          key={`escort-${tag}`}
           entityType="professional"
           categorySlug="escort"
           title={`Escorts ${label}`}

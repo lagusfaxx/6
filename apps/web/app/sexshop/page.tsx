@@ -7,6 +7,7 @@ export default function SexShopPage() {
   return (
     <Suspense>
       <DirectoryPage
+        key="sexshop"
         entityType="shop"
         categorySlug="sexshop"
         title="Sex Shop"

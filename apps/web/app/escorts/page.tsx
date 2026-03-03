@@ -7,6 +7,7 @@ export default function EscortsPage() {
   return (
     <Suspense>
       <DirectoryPage
+        key="escort"
         entityType="professional"
         categorySlug="escort"
         title="Escorts"

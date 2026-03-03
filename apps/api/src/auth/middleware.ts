@@ -24,7 +24,9 @@ const PUBLIC_PREFIXES = [
   "/stories",           // ✅ stories visibles para invitados en el home
   "/banners",           // ✅ banners públicos en el home
   "/hot",               // ✅ trending content (Hot section)
-  "/webhooks/flow"      // Flow subscription webhooks
+  "/webhooks/flow",     // Flow subscription webhooks
+  "/directory",         // ✅ búsqueda pública de directorio (escorts, moteles, etc.)
+  "/shop/sexshops",     // ✅ listado público de sex shops y sus productos
 ];
 
 /**
