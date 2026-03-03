@@ -492,7 +492,7 @@ export default function HomePage() {
               { label: "Moteles", href: "/moteles", icon: Hotel, gradient: "from-amber-600/20 to-orange-600/20", borderColor: "border-amber-500/25" },
               { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, gradient: "from-rose-600/20 to-red-600/20", borderColor: "border-rose-500/25" },
               { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, gradient: "from-cyan-600/20 to-teal-600/20", borderColor: "border-cyan-500/25" },
-              { label: "Videos", href: "/escorts?serviceTags=videollamadas", icon: Video, gradient: "from-blue-600/20 to-indigo-600/20", borderColor: "border-blue-500/25" },
+              { label: "Videos", href: "/escorts?serviceTags=videollamada", icon: Video, gradient: "from-blue-600/20 to-indigo-600/20", borderColor: "border-blue-500/25" },
               { label: "Cerca tuyo", href: "/servicios", icon: Navigation, gradient: "from-emerald-600/20 to-green-600/20", borderColor: "border-emerald-500/25" },
               { label: "Hot", href: "/hot", icon: Flame, gradient: "from-orange-600/20 to-red-600/20", borderColor: "border-orange-500/25" },
             ].map((cat) => (
@@ -514,7 +514,7 @@ export default function HomePage() {
               { label: "Moteles", href: "/moteles", icon: Hotel },
               { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag },
               { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper },
-              { label: "Videollamadas", href: "/escorts?serviceTags=videollamadas", icon: Video },
+              { label: "Videollamadas", href: "/escorts?serviceTags=videollamada", icon: Video },
               { label: "Cerca tuyo", href: "/servicios", icon: Navigation },
             ].map((cat) => (
               <Link
