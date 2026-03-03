@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 
 export type ChileanCity = {
   name: string;
@@ -148,10 +148,13 @@ export function useLocationFilterState(): LocationFilterContextValue {
     }
   }, [setGps]);
 
-  const effectiveLocation: [number, number] | null =
-    state.mode === "city" && state.selectedCity
-      ? [state.selectedCity.lat, state.selectedCity.lng]
-      : state.gpsLocation;
+  const effectiveLocation = useMemo<[number, number] | null>(
+    () =>
+      state.mode === "city" && state.selectedCity
+        ? [state.selectedCity.lat, state.selectedCity.lng]
+        : state.gpsLocation,
+    [state.mode, state.selectedCity, state.gpsLocation],
+  );
 
   return { state, setCity, setCategory, setGps, useCurrentLocation, effectiveLocation };
 }
