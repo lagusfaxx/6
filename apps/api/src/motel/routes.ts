@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { Router } from "express";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -152,7 +152,7 @@ async function findRoomForBooking(establishmentId: string, roomId?: string | nul
 }
 
 function randomConfirmationCode() {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
+  return randomBytes(4).toString("hex").toUpperCase().slice(0, 6);
 }
 
 function mapsLinkFrom(address?: string | null, city?: string | null, fallback?: string | null) {

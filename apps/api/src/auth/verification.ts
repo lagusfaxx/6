@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomInt } from "crypto";
 import { Resend } from "resend";
 import { config } from "../config";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -26,7 +27,7 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 function generateCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(randomInt(100000, 1000000));
 }
 
 function buildEmailHtml(code: string): string {

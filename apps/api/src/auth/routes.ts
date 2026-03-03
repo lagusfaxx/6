@@ -1,5 +1,6 @@
 import { Router } from "express";
 import argon2 from "argon2";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { Prisma } from "@prisma/client";
 import { loginInputSchema, registerInputSchema } from "@uzeed/shared";
@@ -7,6 +8,14 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 
 export const authRouter = Router();
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "TOO_MANY_ATTEMPTS", message: "Demasiados intentos. Intenta de nuevo en 15 minutos." },
+});
 
 function persistSession(req: any): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -74,6 +83,7 @@ async function geocodeAddress(address: string) {
 
 authRouter.post(
   "/register",
+  authLimiter,
   asyncHandler(async (req, res) => {
     const payload = { ...req.body } as Record<string, any>;
     if (typeof payload.profileType === "string") {
@@ -287,6 +297,7 @@ authRouter.post(
 
 authRouter.post(
   "/login",
+  authLimiter,
   asyncHandler(async (req, res) => {
     const parsed = loginInputSchema.safeParse(req.body);
     if (!parsed.success)
