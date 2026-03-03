@@ -152,7 +152,7 @@ async function findRoomForBooking(establishmentId: string, roomId?: string | nul
 }
 
 function randomConfirmationCode() {
-  return randomBytes(4).toString("hex").toUpperCase().slice(0, 6);
+  return randomBytes(3).toString("hex").toUpperCase();
 }
 
 function mapsLinkFrom(address?: string | null, city?: string | null, fallback?: string | null) {
