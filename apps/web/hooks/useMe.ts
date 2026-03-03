@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "../lib/api";
+import { cachedApiFetch } from "../lib/api";
 
 type MeUser = {
   id: string;
@@ -25,7 +25,7 @@ export default function useMe() {
 
   useEffect(() => {
     let alive = true;
-    apiFetch<{ user: MeUser }>("/auth/me")
+    cachedApiFetch<{ user: MeUser }>("/auth/me")
       .then((r) => {
         if (!alive) return;
         setMe(r);
