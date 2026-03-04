@@ -73,12 +73,12 @@ type Props = {
 };
 
 /* ─── ProfileCard ────────────────────────────────────────── */
-function ProfileCard({ p, entityType }: { p: DirectoryResult; entityType: string }) {
+function ProfileCard({ p, entityType, categorySlug }: { p: DirectoryResult; entityType: string; categorySlug?: string }) {
   const { me } = useMe();
   const isAuthed = Boolean(me?.user?.id);
   let href: string;
   if (entityType === "establishment") {
-    href = `/establecimiento/${p.id}`;
+    href = categorySlug === "motel" ? `/hospedaje/${p.id}` : `/establecimiento/${p.id}`;
   } else if (entityType === "shop") {
     href = `/sexshop/${p.username || p.id}`;
   } else {
@@ -548,7 +548,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {displayed.map((p) => (
-              <ProfileCard key={p.id} p={p} entityType={entityType} />
+              <ProfileCard key={p.id} p={p} entityType={entityType} categorySlug={categorySlug} />
             ))}
           </div>
         )}
