@@ -507,6 +507,13 @@ model MotelRoom {
   name            String
   description     String?
   price           Int
+  roomType        String?
+  amenities       String[] @default([])
+  photoUrls       String[] @default([])
+  price3h         Int?
+  price6h         Int?
+  priceNight      Int?
+  location        String?
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -537,6 +544,9 @@ model MotelPromotion {
   title           String
   description     String?
   discountPercent Int?
+  discountClp     Int?
+  roomId          String?  @db.Uuid
+  roomIds         String[] @default([]) @db.Uuid
   startsAt        DateTime?
   endsAt          DateTime?
   isActive        Boolean  @default(true)
