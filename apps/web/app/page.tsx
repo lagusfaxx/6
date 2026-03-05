@@ -48,6 +48,16 @@ type Banner = {
 
 type UserLevel = "SILVER" | "GOLD" | "DIAMOND";
 
+type FeaturedBannerProfile = {
+  id: string;
+  name: string;
+  city?: string | null;
+  avatarUrl?: string | null;
+  coverUrl?: string | null;
+  category?: string | null;
+  age?: number | null;
+};
+
 type RecentProfessional = {
   id: string;
   name: string;
@@ -250,6 +260,7 @@ const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
 export default function HomePage() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
+  const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
   const [discoverSections, setDiscoverSections] = useState<
     Record<string, DiscoverProfile[]>
   >({});
@@ -271,6 +282,45 @@ export default function HomePage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    const profileBannerIds = banners
+      .map((b) => (b.linkUrl || "").startsWith("profile:") ? (b.linkUrl || "").slice("profile:".length) : "")
+      .filter(Boolean);
+
+    if (!profileBannerIds.length) {
+      setBannerProfiles({});
+      return;
+    }
+
+    Promise.all(
+      Array.from(new Set(profileBannerIds)).map(async (id) => {
+        try {
+          const res = await apiFetch<{ professional: any }>(`/professionals/${id}`);
+          const p = res?.professional;
+          if (!p) return null;
+          return [id, {
+            id,
+            name: p.name || "Perfil",
+            city: p.city ?? null,
+            avatarUrl: p.avatarUrl ?? null,
+            coverUrl: p.coverUrl ?? null,
+            category: p.category ?? null,
+            age: typeof p.age === "number" ? p.age : null,
+          } satisfies FeaturedBannerProfile] as const;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((entries) => {
+      const map: Record<string, FeaturedBannerProfile> = {};
+      for (const entry of entries) {
+        if (!entry) continue;
+        map[entry[0]] = entry[1];
+      }
+      setBannerProfiles(map);
+    });
+  }, [banners]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -398,6 +448,37 @@ export default function HomePage() {
   const nearProfiles = discoverSections["near"] || [];
   const newProfiles = discoverSections["new"] || [];
 
+  const bannerHref = (banner: Banner) => {
+    const profileId = (banner.linkUrl || "").startsWith("profile:") ? (banner.linkUrl || "").slice("profile:".length) : "";
+    return profileId ? `/profesional/${profileId}` : (banner.linkUrl || "#");
+  };
+
+  const renderProfileBanner = (banner: Banner) => {
+    const profileId = (banner.linkUrl || "").startsWith("profile:") ? (banner.linkUrl || "").slice("profile:".length) : "";
+    const profile = profileId ? bannerProfiles[profileId] : null;
+    const image = resolveMediaUrl(profile?.coverUrl || profile?.avatarUrl || banner.imageUrl) || profile?.coverUrl || profile?.avatarUrl || banner.imageUrl;
+
+    const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(image || "");
+    return (
+      <div className="relative h-full w-full">
+        {isVideo ? (
+          <video src={image} className="h-full w-full object-cover" autoPlay muted loop playsInline />
+        ) : (
+          <img src={image} alt={profile?.name || "Banner publicitario"} className="h-full w-full object-cover" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
+        <div className="absolute left-3 right-3 bottom-3 rounded-xl border border-fuchsia-300/20 bg-black/50 p-2 backdrop-blur-sm">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-fuchsia-200/80">Perfil destacado</div>
+          <div className="mt-0.5 truncate text-sm font-bold text-white">{profile?.name || banner.title}</div>
+          <div className="mt-1 flex items-center gap-1 text-[11px] text-white/80">
+            {profile?.city ? <MapPin className="h-3 w-3" /> : null}
+            <span className="truncate">{profile?.city || profile?.category || "Disponible ahora"}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
       {/* ═══ HERO — Compact, immersive ═══ */}
@@ -442,8 +523,8 @@ export default function HomePage() {
         {verticalBanners.length > 0 && (
           <div className="absolute right-0 top-0 hidden w-[200px] space-y-3 xl:block" style={{ marginRight: "-220px" }}>
             {verticalBanners.slice(0, 3).map((b) => (
-              <a key={b.id} href={b.linkUrl ?? "#"} className="block overflow-hidden rounded-xl border border-white/[0.08]">
-                <img src={resolveMediaUrl(b.imageUrl) ?? b.imageUrl} alt="Banner publicitario" className="h-[400px] w-[200px] object-cover" />
+              <a key={b.id} href={bannerHref(b)} className="block overflow-hidden rounded-xl border border-white/[0.08]">
+                {renderProfileBanner(b)}
               </a>
             ))}
           </div>
@@ -465,14 +546,10 @@ export default function HomePage() {
               {horizontalBanners.map((b) => (
                 <a
                   key={b.id}
-                  href={b.linkUrl ?? "#"}
+                  href={bannerHref(b)}
                   className="relative block h-[400px] w-[200px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08]"
                 >
-                  <img
-                    src={resolveMediaUrl(b.imageUrl) ?? b.imageUrl}
-                    alt="Banner publicitario"
-                    className="h-full w-full object-cover"
-                  />
+                  {renderProfileBanner(b)}
                 </a>
               ))}
             </div>

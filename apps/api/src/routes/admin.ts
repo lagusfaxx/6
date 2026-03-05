@@ -174,6 +174,17 @@ adminRouter.get("/admin/profiles", requireAdmin, async (req, res) => {
   res.json({ profiles, total });
 });
 
+
+adminRouter.get("/admin/profiles/:id/media-videos", requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const media = await prisma.profileMedia.findMany({
+    where: { ownerId: id, type: "VIDEO" },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, url: true, type: true, createdAt: true },
+  });
+  res.json({ media });
+});
+
 // Toggle profile active status
 adminRouter.put("/admin/profiles/:id/toggle", requireAdmin, async (req, res) => {
   const { id } = req.params;

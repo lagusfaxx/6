@@ -299,6 +299,17 @@ adminRouter.put("/verification/:id/reject", asyncHandler(async (req, res) => {
   return res.json({ profile: updated });
 }));
 
+
+adminRouter.get("/profiles/:id/media-videos", async (req, res) => {
+  const { id } = req.params;
+  const media = await prisma.profileMedia.findMany({
+    where: { ownerId: id, type: "VIDEO" },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, url: true, type: true, createdAt: true },
+  });
+  res.json({ media });
+});
+
 /* ══════════════════════════════════════════════════════════════
    BANNERS (Home Ads)
    ══════════════════════════════════════════════════════════════ */
