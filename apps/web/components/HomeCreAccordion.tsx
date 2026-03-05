@@ -1,15 +1,27 @@
-const summaryCards = [
+const highlights = [
   {
-    title: "Contacto protegido",
-    text: "El WhatsApp se habilita solo si la solicitud es aceptada.",
+    text: "Contacto protegido tras aceptación",
+    icon: (
+      <svg className="h-4 w-4 shrink-0 text-fuchsia-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M10 2a4 4 0 0 0-4 4v2H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V6a4 4 0 0 0-4-4Zm-2 4a2 2 0 1 1 4 0v2H8V6Z" fill="currentColor" />
+      </svg>
+    ),
   },
   {
-    title: "Perfiles revisados",
-    text: "Etiquetas como Verificada/Premium solo las asigna administración.",
+    text: "Perfiles revisados por administración",
+    icon: (
+      <svg className="h-4 w-4 shrink-0 text-fuchsia-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M10 1l2.39 4.84L18 6.71l-4 3.9.94 5.5L10 13.47 5.06 16.1 6 10.6l-4-3.9 5.61-.86L10 1Z" fill="currentColor" />
+      </svg>
+    ),
   },
   {
-    title: "Privacidad real",
-    text: "Ubicación aproximada. Sin direcciones exactas.",
+    text: "Ubicación aproximada, sin dirección exacta",
+    icon: (
+      <svg className="h-4 w-4 shrink-0 text-fuchsia-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M10 2a5.5 5.5 0 0 0-5.5 5.5C4.5 12.25 10 18 10 18s5.5-5.75 5.5-10.5A5.5 5.5 0 0 0 10 2Zm0 7.5a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z" fill="currentColor" />
+      </svg>
+    ),
   },
 ] as const;
 
@@ -55,66 +67,61 @@ const accordionItems = [
 export default function HomeCreAccordion() {
   return (
     <section className="mx-auto mt-8 w-full max-w-5xl">
-      <div className="overflow-hidden rounded-3xl border border-white/12 bg-white/[0.045] p-4 shadow-[0_20px_60px_rgba(2,6,23,0.42)] backdrop-blur-xl sm:p-5 md:p-6">
-        <div className="mb-4 border-b border-white/12 pb-3 sm:mb-5 sm:pb-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-fuchsia-200/95">
-            CRE · Confidencial · Revisado · Exclusivo
-          </p>
-          <h2 className="mt-1.5 text-2xl font-semibold tracking-tight text-white sm:text-[30px]">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg backdrop-blur-md sm:p-5 md:p-6">
+        {/* Header */}
+        <div className="mb-5">
+          <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-[30px]">
             Guía rápida
           </h2>
-          <p className="mt-1.5 text-sm text-white/75 sm:text-[15px]">
-            Cómo funciona UZEED, por qué es confidencial y cómo protegemos el contacto.
+          <p className="mt-1.5 text-sm text-white/65 sm:text-[15px]">
+            Cómo funciona UZEED y cómo protegemos el contacto.
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 md:items-start">
-          <div className="grid gap-2.5">
-            {summaryCards.map((card) => (
-              <article
-                key={card.title}
-                className="rounded-2xl border border-white/12 bg-black/25 px-4 py-3"
-              >
-                <h3 className="text-sm font-semibold text-white">{card.title}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-white/75">{card.text}</p>
-              </article>
-            ))}
-          </div>
+        {/* Highlights — pills */}
+        <div className="mb-5 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          {highlights.map((h) => (
+            <div
+              key={h.text}
+              className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-4 py-3 transition-colors hover:bg-white/[0.08]"
+            >
+              {h.icon}
+              <span className="text-sm text-white/80">{h.text}</span>
+            </div>
+          ))}
+        </div>
 
-          <div className="space-y-2.5">
-            {accordionItems.map((item) => (
-              <details
-                key={item.title}
-                className="group rounded-2xl border border-white/12 bg-black/20 px-4 py-3 transition-colors open:border-fuchsia-400/45 open:bg-fuchsia-500/[0.06]"
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-left text-sm font-semibold text-white sm:text-[15px]">
-                  {item.title}
-                  <svg
-                    className="h-4 w-4 shrink-0 text-white/65 transition-transform duration-200 group-open:rotate-180"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M5 7.5L10 12.5L15 7.5"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </summary>
+        {/* FAQ accordion */}
+        <div className="divide-y divide-white/10">
+          {accordionItems.map((item) => (
+            <details key={item.title} className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3.5 text-left text-sm font-semibold text-white sm:text-[15px]">
+                {item.title}
+                <svg
+                  className="h-4 w-4 shrink-0 text-white/50 transition-transform duration-200 group-open:rotate-180"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M5 7.5L10 12.5L15 7.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </summary>
 
-                <ul className="mt-2.5 space-y-1.5 border-t border-white/12 pt-2.5 text-sm leading-relaxed text-white/78">
-                  {item.lines.map((line) => (
-                    <li key={line} className="pl-3 before:mr-2 before:text-white/60 before:content-['•']">
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ))}
-          </div>
+              <ul className="pb-3.5 pl-1 space-y-1.5 text-sm leading-relaxed text-white/70">
+                {item.lines.map((line) => (
+                  <li key={line} className="pl-3 before:mr-2 before:text-fuchsia-400/60 before:content-['•']">
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))}
         </div>
       </div>
     </section>
