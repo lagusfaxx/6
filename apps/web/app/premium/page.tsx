@@ -33,8 +33,13 @@ export default function PremiumPage() {
         sort: "featured",
         limit: "60",
       });
-      const response = await apiFetch<{ profiles?: PremiumProfile[] }>(`/directory/search?${params.toString()}`);
-      setProfiles(response?.profiles ?? []);
+      const response = await apiFetch<{ results?: PremiumProfile[]; profiles?: PremiumProfile[] }>(`/directory/search?${params.toString()}`);
+      const items = Array.isArray(response?.results)
+        ? response.results
+        : Array.isArray(response?.profiles)
+          ? response.profiles
+          : [];
+      setProfiles(items);
     } catch {
       setError("No se pudo cargar la sección Premium.");
     } finally {
