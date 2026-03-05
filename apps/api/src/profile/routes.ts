@@ -10,6 +10,8 @@ import { isBusinessPlanActive } from "../lib/subscriptions";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 import { parseAndNormalizeTags } from "../lib/tags";
+
+const ADMIN_ONLY_PROFILE_TAGS = new Set(["premium", "verificada", "profesional con examenes"]);
 import {
   compareProfessionalLevelDesc,
   resolveProfessionalLevel,
@@ -552,7 +554,9 @@ async function updateProfile(req: any, res: any) {
     availabilityNote: availabilityNote ?? undefined,
     primaryCategory: primaryCategory != null ? String(primaryCategory) : undefined,
     profileTags: Array.isArray(profileTags)
-      ? profileTags.map((t: unknown) => String(t).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+      ? profileTags
+          .map((t: unknown) => String(t).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+          .filter((tag) => !ADMIN_ONLY_PROFILE_TAGS.has(tag))
       : undefined,
     serviceTags: Array.isArray(serviceTags)
       ? serviceTags.map((t: unknown) => String(t).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))

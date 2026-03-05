@@ -157,6 +157,7 @@ adminRouter.get("/profiles", asyncHandler(async (req, res) => {
         id: true, email: true, username: true, displayName: true,
         avatarUrl: true, coverUrl: true, profileType: true,
         isActive: true, isOnline: true, lastSeen: true, city: true,
+        isVerified: true, profileTags: true,
         tier: true, role: true, membershipExpiresAt: true,
         completedServices: true, profileViews: true,
         createdAt: true, updatedAt: true,
@@ -169,6 +170,35 @@ adminRouter.get("/profiles", asyncHandler(async (req, res) => {
   ]);
 
   return res.json({ profiles, total });
+}));
+
+const ADMIN_CONTROLLED_LABELS = new Set(["premium", "verificada", "profesional con examenes"]);
+
+adminRouter.put("/profiles/:id/labels", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { premium, verified, exams } = req.body ?? {};
+
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, profileTags: true },
+  });
+  if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const current = Array.isArray(user.profileTags) ? user.profileTags : [];
+  const baseTags = current.filter((tag) => !ADMIN_CONTROLLED_LABELS.has(tag));
+
+  const nextTags = [...baseTags];
+  if (premium === true) nextTags.push("premium");
+  if (verified === true) nextTags.push("verificada");
+  if (exams === true) nextTags.push("profesional con examenes");
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { profileTags: nextTags },
+    select: { id: true, username: true, profileTags: true },
+  });
+
+  return res.json({ profile: updated });
 }));
 
 adminRouter.put("/profiles/:id/toggle", asyncHandler(async (req, res) => {
