@@ -52,6 +52,7 @@ export default function AdminBannersPage() {
   const [uploading, setUploading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const selectedPreset = position === "VERTICAL" || position === "LEFT" || position === "RIGHT" ? "vertical" : "horizontal";
 
   async function load() {
     setError(null);
@@ -234,6 +235,7 @@ export default function AdminBannersPage() {
                 <Upload className="mx-auto h-8 w-8 text-white/30 mb-2" />
                 <div className="text-sm text-white/60">Arrastra o haz clic para subir</div>
                 <div className="text-xs text-white/30 mt-1">Imágenes (JPG, PNG, WebP) o Videos (MP4, MOV)</div>
+                <div className="text-xs text-fuchsia-200/70 mt-2">Para home lateral recomendado: 200px × 400px</div>
               </button>
             ) : (
               <div className="relative rounded-2xl overflow-hidden border border-white/10">
@@ -306,6 +308,30 @@ export default function AdminBannersPage() {
             />
           </div>
 
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+            <div className="mb-2 text-xs font-medium text-white/60">Vista previa en home</div>
+            <div className="flex justify-center rounded-xl border border-white/10 bg-[#0b0b0f] p-3">
+              <div className={selectedPreset === "vertical" ? "h-[400px] w-[200px]" : "h-[160px] w-[320px]"}>
+                {uploadPreview ? (
+                  isVideo ? (
+                    <video src={uploadPreview} className="h-full w-full rounded-lg object-cover" muted />
+                  ) : (
+                    <img src={uploadPreview} alt="Previsualización de banner" className="h-full w-full rounded-lg object-cover" />
+                  )
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-white/20 text-xs text-white/35">
+                    Sin archivo seleccionado
+                  </div>
+                )}
+              </div>
+            </div>
+            <p className="mt-2 text-[11px] text-white/45">
+              {selectedPreset === "vertical"
+                ? "Formato lateral aplicado (200 × 400)."
+                : "Formato horizontal aplicado para carrusel principal."}
+            </p>
+          </div>
+
           <button
             disabled={busy || !uploadFile}
             onClick={create}
@@ -372,12 +398,13 @@ function BannerCard({
 }) {
   const mediaSrc = resolveMediaUrl(b.imageUrl);
   const isVideoMedia = mediaSrc && (mediaSrc.endsWith(".mp4") || mediaSrc.endsWith(".mov") || mediaSrc.endsWith(".webm"));
+  const isVertical = ["VERTICAL", "LEFT", "RIGHT", "SIDEBAR"].includes((b.position || "").toUpperCase());
 
   return (
     <div className={`rounded-2xl border bg-white/[0.03] p-4 transition ${b.isActive ? "border-emerald-500/15" : "border-white/[0.06] opacity-60"}`}>
       <div className="flex gap-4">
         {/* Media preview */}
-        <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-xl bg-black/30">
+        <div className={`relative shrink-0 overflow-hidden rounded-xl bg-black/30 ${isVertical ? "h-[120px] w-[60px]" : "h-20 w-32"}`}>
           {mediaSrc ? (
             isVideoMedia ? (
               <video src={mediaSrc} muted className="h-full w-full object-cover" />
