@@ -9,6 +9,7 @@ import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
 import Stories from "../components/Stories";
 import ProfilePreviewModal from "../components/ProfilePreviewModal";
+import HomeCreAccordion from "../components/HomeCreAccordion";
 import {
   buildChatHref,
   buildCurrentPathWithSearch,
@@ -941,6 +942,8 @@ export default function HomePage() {
             </div>
           </motion.section>
         )}
+
+        <HomeCreAccordion />
       </div>
 
       {/* Profile Preview Modal */}
