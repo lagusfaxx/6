@@ -440,10 +440,10 @@ export default function HomePage() {
       <div className="relative mx-auto max-w-6xl overflow-hidden px-4 pb-16">
         {/* Vertical banner sidebar */}
         {verticalBanners.length > 0 && (
-          <div className="absolute right-0 top-0 hidden w-[160px] space-y-3 xl:block" style={{ marginRight: "-180px" }}>
+          <div className="absolute right-0 top-0 hidden w-[200px] space-y-3 xl:block" style={{ marginRight: "-220px" }}>
             {verticalBanners.slice(0, 3).map((b) => (
               <a key={b.id} href={b.linkUrl ?? "#"} className="block overflow-hidden rounded-xl border border-white/[0.08]">
-                <img src={b.imageUrl} alt={b.title} className="w-full object-cover" />
+                <img src={resolveMediaUrl(b.imageUrl) ?? b.imageUrl} alt="Banner publicitario" className="h-[400px] w-[200px] object-cover" />
               </a>
             ))}
           </div>
@@ -466,19 +466,13 @@ export default function HomePage() {
                 <a
                   key={b.id}
                   href={b.linkUrl ?? "#"}
-                  className="relative block w-[85vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] sm:w-[400px]"
+                  className="relative block h-[400px] w-[200px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08]"
                 >
                   <img
                     src={resolveMediaUrl(b.imageUrl) ?? b.imageUrl}
-                    alt={b.title}
-                    className="h-[140px] w-full object-cover sm:h-[160px]"
+                    alt="Banner publicitario"
+                    className="h-full w-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                  {b.title && b.title !== "Banner sin título" && (
-                    <div className="absolute bottom-3 left-3 right-3">
-                      <span className="text-xs font-semibold text-white drop-shadow-md">{b.title}</span>
-                    </div>
-                  )}
                 </a>
               ))}
             </div>
@@ -712,20 +706,6 @@ export default function HomePage() {
               Ver todas las experiencias <ChevronRight className="h-4 w-4" />
             </Link>
           </motion.section>
-        )}
-
-        {/* ═══ Horizontal banners ═══ */}
-        {horizontalBanners.length > 0 && (
-          <div className="mb-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {horizontalBanners.slice(0, 4).map((b) => (
-              <a key={b.id} href={b.linkUrl ?? "#"} className="group block overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:border-white/15 hover:bg-white/[0.06]">
-                <div className="overflow-hidden">
-                  <img src={resolveMediaUrl(b.imageUrl) ?? b.imageUrl} alt={b.title} className="h-28 w-full object-contain transition-transform duration-300 group-hover:scale-105" />
-                </div>
-                <div className="p-3 text-sm text-white/70">{b.title}</div>
-              </a>
-            ))}
-          </div>
         )}
 
         {/* ═══ CERCA DE TI — Grid for abundance ═══ */}
