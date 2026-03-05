@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
@@ -271,6 +271,11 @@ export default function HomePage() {
   const [recentLoading, setRecentLoading] = useState(true);
   const { me } = useMe();
   const [previewProfile, setPreviewProfile] = useState<any>(null);
+  const availableSectionRef = useRef<HTMLElement | null>(null);
+  const availableCarouselRef = useRef<HTMLDivElement | null>(null);
+  const [isAvailableInView, setIsAvailableInView] = useState(true);
+  const [isAvailableHovered, setIsAvailableHovered] = useState(false);
+  const [isAvailableInteracting, setIsAvailableInteracting] = useState(false);
   const isAuthed = Boolean(me?.user?.id);
 
   useEffect(() => {
@@ -449,8 +454,58 @@ export default function HomePage() {
   }, [recentPros]);
 
   const availableProfiles = discoverSections["available"] || [];
+  const availableCarouselProfiles = useMemo(
+    () => (availableProfiles.length > 0 ? [...availableProfiles, ...availableProfiles] : []),
+    [availableProfiles],
+  );
+  const shouldAutoScrollAvailable = availableProfiles.length > 1 && isAvailableInView && !isAvailableHovered && !isAvailableInteracting;
   const nearProfiles = discoverSections["near"] || [];
   const newProfiles = discoverSections["new"] || [];
+
+  useEffect(() => {
+    if (!availableSectionRef.current || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsAvailableInView(entry.isIntersecting),
+      { threshold: 0.35 },
+    );
+    observer.observe(availableSectionRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!availableCarouselRef.current) return;
+    availableCarouselRef.current.scrollTo({ left: 0, behavior: "auto" });
+  }, [availableProfiles]);
+
+  useEffect(() => {
+    if (!shouldAutoScrollAvailable || !availableCarouselRef.current) return;
+    const carousel = availableCarouselRef.current;
+    const loopWidth = carousel.scrollWidth / 2;
+    if (!loopWidth) return;
+
+    let rafId = 0;
+    let lastTs = 0;
+    const speedPxPerSecond = 24;
+
+    const tick = (ts: number) => {
+      if (!lastTs) {
+        lastTs = ts;
+      }
+      const delta = ts - lastTs;
+      lastTs = ts;
+
+      carousel.scrollLeft += (speedPxPerSecond * delta) / 1000;
+
+      if (carousel.scrollLeft >= loopWidth) {
+        carousel.scrollLeft -= loopWidth;
+      }
+
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [shouldAutoScrollAvailable, availableCarouselProfiles.length]);
 
   const bannerHref = (banner: Banner) => {
     const profileId = (banner.linkUrl || "").startsWith("profile:") ? (banner.linkUrl || "").slice("profile:".length) : "";
@@ -617,8 +672,7 @@ export default function HomePage() {
         </section>
 
         {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}
-        {availableProfiles.length > 0 && (
-          <section className="mb-8">
+        <section ref={availableSectionRef} className="mb-8">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock3 className="h-4 w-4 text-emerald-400" />
@@ -628,30 +682,55 @@ export default function HomePage() {
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
-            <div className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x">
-              {availableProfiles.slice(0, 8).map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setPreviewProfile(p)}
-                  className="group w-[130px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] text-left transition hover:border-fuchsia-500/20"
+            {availableProfiles.length > 0 ? (
+              <div
+                ref={availableCarouselRef}
+                className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x"
+                onMouseEnter={() => setIsAvailableHovered(true)}
+                onMouseLeave={() => {
+                  setIsAvailableHovered(false);
+                  setIsAvailableInteracting(false);
+                }}
+                onPointerDown={() => setIsAvailableInteracting(true)}
+                onPointerUp={() => setIsAvailableInteracting(false)}
+                onTouchStart={() => setIsAvailableInteracting(true)}
+                onTouchEnd={() => setIsAvailableInteracting(false)}
+              >
+                {availableCarouselProfiles.map((p, index) => (
+                  <button
+                    key={`${p.id}-${index}`}
+                    data-available-card="true"
+                    type="button"
+                    onClick={() => setPreviewProfile(p)}
+                    className="group w-[130px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.03] text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/30"
+                  >
+                    <div className="relative aspect-[3/4] overflow-hidden">
+                      <img src={resolveProfileImage(p)} alt={p.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                      <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-2 py-0.5 text-[9px] text-emerald-100">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
+                        Disponible
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <div className="truncate text-xs font-semibold text-white">{p.displayName}{p.age ? `, ${p.age}` : ""}</div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-5">
+                <p className="text-sm text-white/80">No hay perfiles disponibles en este momento.</p>
+                <p className="mt-1 text-xs text-white/50">Explora perfiles verificados y vuelve a intentar en unos minutos.</p>
+                <Link
+                  href="/servicios"
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2 text-xs font-medium text-fuchsia-200 transition hover:border-fuchsia-300/50 hover:bg-fuchsia-500/20"
                 >
-                  <div className="relative aspect-[3/4] overflow-hidden">
-                    <img src={resolveProfileImage(p)} alt={p.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
-                    <div className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-200 border border-emerald-300/20">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-                      Online
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute bottom-1.5 left-1.5 right-1.5">
-                      <div className="truncate text-xs font-semibold">{p.displayName}{p.age ? `, ${p.age}` : ""}</div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                  Ver perfiles <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            )}
           </section>
-        )}
 
         {/* ═══ TIER SECTIONS: Platino / Gold / Silver ═══ */}
         {TIERS.map((tier) => {
