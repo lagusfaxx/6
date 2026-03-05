@@ -480,21 +480,31 @@ export default function HomePage() {
   useEffect(() => {
     if (!shouldAutoScrollAvailable || !availableCarouselRef.current) return;
     const carousel = availableCarouselRef.current;
+    const loopWidth = carousel.scrollWidth / 2;
+    if (!loopWidth) return;
 
-    const timer = window.setInterval(() => {
-      const firstCard = carousel.querySelector<HTMLElement>("[data-available-card='true']");
-      if (!firstCard) return;
-      const cardStep = firstCard.offsetWidth + 10;
-      const loopLimit = carousel.scrollWidth / 2;
+    let rafId = 0;
+    let lastTs = 0;
+    const speedPxPerSecond = 24;
 
-      if (carousel.scrollLeft >= loopLimit - cardStep) {
-        carousel.scrollTo({ left: 0, behavior: "auto" });
+    const tick = (ts: number) => {
+      if (!lastTs) {
+        lastTs = ts;
+      }
+      const delta = ts - lastTs;
+      lastTs = ts;
+
+      carousel.scrollLeft += (speedPxPerSecond * delta) / 1000;
+
+      if (carousel.scrollLeft >= loopWidth) {
+        carousel.scrollLeft -= loopWidth;
       }
 
-      carousel.scrollTo({ left: carousel.scrollLeft + cardStep, behavior: "smooth" });
-    }, 3000);
+      rafId = window.requestAnimationFrame(tick);
+    };
 
-    return () => window.clearInterval(timer);
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
   }, [shouldAutoScrollAvailable, availableCarouselProfiles.length]);
 
   const bannerHref = (banner: Banner) => {
