@@ -421,6 +421,9 @@ export default function HomePage() {
     () => banners.filter((b) => (b.position || "").toUpperCase() === "VERTICAL" || (b.position || "").toUpperCase() === "SIDEBAR"),
     [banners],
   );
+  const sideBanners = useMemo(() => [...verticalBanners, ...horizontalBanners], [verticalBanners, horizontalBanners]);
+  const leftSideBanners = useMemo(() => sideBanners.filter((_, i) => i % 2 === 0).slice(0, 3), [sideBanners]);
+  const rightSideBanners = useMemo(() => sideBanners.filter((_, i) => i % 2 === 1).slice(0, 3), [sideBanners]);
 
   // Story profiles: available + recently active
   const storyProfiles = useMemo(() => {
@@ -456,15 +459,15 @@ export default function HomePage() {
   const renderProfileBanner = (banner: Banner) => {
     const profileId = (banner.linkUrl || "").startsWith("profile:") ? (banner.linkUrl || "").slice("profile:".length) : "";
     const profile = profileId ? bannerProfiles[profileId] : null;
-    const image = resolveMediaUrl(profile?.coverUrl || profile?.avatarUrl || banner.imageUrl) || profile?.coverUrl || profile?.avatarUrl || banner.imageUrl;
-
-    const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(image || "");
+    const mediaSrc = resolveMediaUrl(banner.imageUrl) || banner.imageUrl;
+    const fallbackImage = resolveMediaUrl(profile?.coverUrl || profile?.avatarUrl || "") || profile?.coverUrl || profile?.avatarUrl || "";
+    const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(mediaSrc || "") || (banner.title || "").toLowerCase().includes("video");
     return (
       <div className="relative h-full w-full">
         {isVideo ? (
-          <video src={image} className="h-full w-full object-cover" autoPlay muted loop playsInline />
+          <video src={mediaSrc} className="h-full w-full object-cover" autoPlay muted loop playsInline />
         ) : (
-          <img src={image} alt={profile?.name || "Banner publicitario"} className="h-full w-full object-cover" />
+          <img src={fallbackImage || mediaSrc} alt={profile?.name || "Banner publicitario"} className="h-full w-full object-cover" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
         <div className="absolute left-3 right-3 bottom-3 rounded-xl border border-fuchsia-300/20 bg-black/50 p-2 backdrop-blur-sm">
@@ -518,12 +521,21 @@ export default function HomePage() {
       </section>
 
       {/* Main content */}
-      <div className="relative mx-auto max-w-6xl overflow-hidden px-4 pb-16">
-        {/* Vertical banner sidebar */}
-        {verticalBanners.length > 0 && (
-          <div className="absolute right-0 top-0 hidden w-[200px] space-y-3 xl:block" style={{ marginRight: "-220px" }}>
-            {verticalBanners.slice(0, 3).map((b) => (
-              <a key={b.id} href={bannerHref(b)} className="block overflow-hidden rounded-xl border border-white/[0.08]">
+      <div className="relative mx-auto max-w-6xl overflow-visible px-4 pb-16">
+        {/* Side video banners (desktop) */}
+        {leftSideBanners.length > 0 && (
+          <div className="absolute left-0 top-0 hidden w-[200px] space-y-3 2xl:block" style={{ marginLeft: "-220px" }}>
+            {leftSideBanners.map((b) => (
+              <a key={`left-${b.id}`} href={bannerHref(b)} className="block h-[400px] overflow-hidden rounded-xl border border-white/[0.08]">
+                {renderProfileBanner(b)}
+              </a>
+            ))}
+          </div>
+        )}
+        {rightSideBanners.length > 0 && (
+          <div className="absolute right-0 top-0 hidden w-[200px] space-y-3 2xl:block" style={{ marginRight: "-220px" }}>
+            {rightSideBanners.map((b) => (
+              <a key={`right-${b.id}`} href={bannerHref(b)} className="block h-[400px] overflow-hidden rounded-xl border border-white/[0.08]">
                 {renderProfileBanner(b)}
               </a>
             ))}
@@ -542,7 +554,7 @@ export default function HomePage() {
         {/* ═══ BANNERS PUBLICITARIOS ═══ */}
         {horizontalBanners.length > 0 && (
           <section className="mb-6">
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 snap-x">
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 snap-x 2xl:hidden">
               {horizontalBanners.map((b) => (
                 <a
                   key={b.id}
