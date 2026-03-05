@@ -687,10 +687,10 @@ export default function DashboardServicesClient() {
           },
         );
         if (!res.ok) throw new Error("UPLOAD_FAILED");
-        showToast("Fotos agregadas.");
+        showToast("Media agregada (fotos/videos).");
         await loadPanel(user.id);
       } catch {
-        setField("error", "No se pudo subir la galeria.");
+        setField("error", "No se pudo subir la galería.");
       } finally {
         setField("busy", false);
       }
@@ -705,10 +705,10 @@ export default function DashboardServicesClient() {
       setField("busy", true);
       try {
         await apiFetch(`/profile/media/${id}`, { method: "DELETE" });
-        showToast("Foto eliminada.");
+        showToast("Elemento eliminado de la galería.");
         await loadPanel(user.id);
       } catch {
-        setField("error", "No se pudo eliminar la foto.");
+        setField("error", "No se pudo eliminar el elemento.");
         showToast("No se pudo eliminar.", "error");
       } finally {
         setField("busy", false);
@@ -852,7 +852,7 @@ export default function DashboardServicesClient() {
         if (user?.id) await loadPanel(user.id);
         showToast("Foto eliminada del producto.");
       } catch {
-        setField("error", "No se pudo eliminar la foto.");
+        setField("error", "No se pudo eliminar el elemento.");
       }
     },
     [user, setField, showToast, loadPanel],
