@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
-import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import { apiFetch } from "../../../lib/api";
 import Avatar from "../../../components/Avatar";
 import {
   ArrowLeft,
@@ -13,12 +13,10 @@ import {
   Trash2,
   X,
   Users,
-  Filter,
   ChevronLeft,
   ChevronRight,
   Eye,
   Shield,
-  Crown,
   Loader2,
   AlertTriangle,
 } from "lucide-react";
@@ -37,6 +35,8 @@ type Profile = {
   city: string | null;
   tier: string | null;
   role: string;
+  isVerified: boolean;
+  profileTags: string[];
   membershipExpiresAt: string | null;
   completedServices: number;
   profileViews: number;
@@ -54,6 +54,9 @@ const PROFILE_TYPES = [
 ];
 
 const PAGE_SIZE = 30;
+
+
+const hasLabel = (profile: Profile, label: string) => (profile.profileTags ?? []).includes(label);
 
 export default function AdminProfilesPage() {
   const { me, loading } = useMe();
@@ -136,6 +139,27 @@ export default function AdminProfilesPage() {
       await loadProfiles();
     } catch {
       setError("No se pudo eliminar el perfil.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function updateAdminLabel(profile: Profile, label: "premium" | "verificada" | "profesional con examenes", value: boolean) {
+    setBusy(profile.id);
+    setError(null);
+    try {
+      await apiFetch(`/admin/profiles/${profile.id}/labels`, {
+        method: "PUT",
+        body: JSON.stringify({
+          premium: label === "premium" ? value : hasLabel(profile, "premium"),
+          verified: label === "verificada" ? value : hasLabel(profile, "verificada"),
+          exams: label === "profesional con examenes" ? value : hasLabel(profile, "profesional con examenes"),
+        }),
+      });
+      setSuccess(`Etiqueta ${label} ${value ? "agregada" : "removida"} en ${profile.displayName || profile.username}.`);
+      await loadProfiles();
+    } catch {
+      setError("No se pudo actualizar la etiqueta del perfil.");
     } finally {
       setBusy(null);
     }
@@ -268,6 +292,15 @@ export default function AdminProfilesPage() {
                         {p.tier}
                       </span>
                     )}
+                    {hasLabel(p, "premium") && (
+                      <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-200">Premium</span>
+                    )}
+                    {hasLabel(p, "verificada") && (
+                      <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium text-emerald-200">Verificada</span>
+                    )}
+                    {hasLabel(p, "profesional con examenes") && (
+                      <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-200">Profesional con exámenes</span>
+                    )}
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40 flex-wrap">
                     <span>@{p.username}</span>
@@ -315,6 +348,42 @@ export default function AdminProfilesPage() {
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
+                <button
+                  disabled={busy === p.id}
+                  onClick={() => updateAdminLabel(p, "premium", !hasLabel(p, "premium"))}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
+                    hasLabel(p, "premium")
+                      ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
+                      : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  Premium
+                </button>
+                <button
+                  disabled={busy === p.id}
+                  onClick={() => updateAdminLabel(p, "verificada", !hasLabel(p, "verificada"))}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
+                    hasLabel(p, "verificada")
+                      ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200"
+                      : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  Verificada
+                </button>
+                <button
+                  disabled={busy === p.id}
+                  onClick={() => updateAdminLabel(p, "profesional con examenes", !hasLabel(p, "profesional con examenes"))}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
+                    hasLabel(p, "profesional con examenes")
+                      ? "border-blue-400/40 bg-blue-500/15 text-blue-200"
+                      : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  Profesional con exámenes
+                </button>
               </div>
 
               {/* Delete confirmation */}
