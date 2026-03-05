@@ -24,7 +24,7 @@ import {
   Settings,
   LogIn,
   Search,
-  Flame,
+  Crown,
 } from "lucide-react";
 import Avatar from "./Avatar";
 import useMe from "../hooks/useMe";
@@ -64,7 +64,7 @@ const MEGA_MENU = [
   { label: "Sex Shop", route: "/sexshop", icon: ShoppingBag },
   { label: "Despedidas", route: "/escorts?serviceTags=despedidas", icon: PartyPopper },
   { label: "Videollamadas", route: "/escorts?serviceTags=videollamada", icon: Video },
-  { label: "Hot", route: "/hot", icon: Flame },
+  { label: "Premium", route: "/premium", icon: Crown },
 ] as const;
 
 export default function TopHeader() {
