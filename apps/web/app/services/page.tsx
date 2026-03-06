@@ -185,6 +185,47 @@ function tierBorderClass(level?: string) {
   return "border-white/[0.08] hover:border-fuchsia-500/20";
 }
 
+/* ── Drag-to-scroll hook for carousels on desktop ── */
+function useDragScroll() {
+  const ref = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeftRef = useRef(0);
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    if (!el) return;
+    isDragging.current = true;
+    startX.current = e.clientX;
+    scrollLeftRef.current = el.scrollLeft;
+    el.setPointerCapture(e.pointerId);
+  }, []);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging.current) return;
+    const el = ref.current;
+    if (!el) return;
+    e.preventDefault();
+    el.scrollLeft = scrollLeftRef.current - (e.clientX - startX.current);
+  }, []);
+
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging.current) return;
+    const didDrag = Math.abs(e.clientX - startX.current) > 3;
+    isDragging.current = false;
+    const el = ref.current;
+    if (el) {
+      el.releasePointerCapture(e.pointerId);
+      if (didDrag) {
+        const stop = (ev: Event) => { ev.stopPropagation(); ev.preventDefault(); };
+        el.addEventListener("click", stop, { capture: true, once: true });
+      }
+    }
+  }, []);
+
+  return { ref, onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp };
+}
+
 /* ── Featured Card (Diamond / Gold) ── */
 const FeaturedCard = memo(function FeaturedCard({
   profile,
@@ -641,6 +682,9 @@ export default function ServicesPage() {
   const [detailGallery, setDetailGallery] = useState<string[]>([]);
   const [isMobileView, setIsMobileView] = useState(false);
   const fetchRef = useRef(0);
+  const featuredDrag = useDragScroll();
+  const diamondDrag = useDragScroll();
+  const goldDrag = useDragScroll();
 
   const toggleQuickFilter = (key: string) => {
     setActiveQuickFilters((prev) => {
@@ -1131,7 +1175,15 @@ export default function ServicesPage() {
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
+            <div
+              ref={featuredDrag.ref}
+              className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory cursor-grab active:cursor-grabbing select-none"
+              style={{ touchAction: "pan-x" }}
+              onPointerDown={featuredDrag.onPointerDown}
+              onPointerMove={featuredDrag.onPointerMove}
+              onPointerUp={featuredDrag.onPointerUp}
+              onPointerCancel={featuredDrag.onPointerCancel}
+            >
               {featuredProfiles.slice(0, 6).map((p) => (
                 <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
               ))}
@@ -1151,7 +1203,15 @@ export default function ServicesPage() {
             {diamondEscortProfiles.length > 0 && (
               <div className="mb-5">
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300/80">Diamond</h3>
-                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
+                <div
+                  ref={diamondDrag.ref}
+                  className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory cursor-grab active:cursor-grabbing select-none"
+                  style={{ touchAction: "pan-x" }}
+                  onPointerDown={diamondDrag.onPointerDown}
+                  onPointerMove={diamondDrag.onPointerMove}
+                  onPointerUp={diamondDrag.onPointerUp}
+                  onPointerCancel={diamondDrag.onPointerCancel}
+                >
                   {diamondEscortProfiles.map((p) => (
                     <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
                   ))}
@@ -1162,7 +1222,15 @@ export default function ServicesPage() {
             {goldEscortProfiles.length > 0 && (
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300/80">Gold</h3>
-                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
+                <div
+                  ref={goldDrag.ref}
+                  className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory cursor-grab active:cursor-grabbing select-none"
+                  style={{ touchAction: "pan-x" }}
+                  onPointerDown={goldDrag.onPointerDown}
+                  onPointerMove={goldDrag.onPointerMove}
+                  onPointerUp={goldDrag.onPointerUp}
+                  onPointerCancel={goldDrag.onPointerCancel}
+                >
                   {goldEscortProfiles.map((p) => (
                     <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
                   ))}
