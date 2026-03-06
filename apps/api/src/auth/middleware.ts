@@ -28,6 +28,10 @@ const PUBLIC_PREFIXES = [
   "/webhooks/flow",     // Flow subscription webhooks
   "/directory",         // ✅ búsqueda pública de directorio (escorts, moteles, etc.)
   "/shop/sexshops",     // ✅ listado público de sex shops y sus productos
+  "/videocall/config",  // ✅ config pública de videollamada por profesional
+  "/wallet/config",     // ✅ config pública de plataforma (rates)
+  "/live/active",       // ✅ listado público de streams activos
+  "/live",              // ✅ detalle público de stream
 ];
 
 /**
