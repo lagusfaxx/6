@@ -185,27 +185,60 @@ function tierBorderClass(level?: string) {
   return "border-white/[0.08] hover:border-fuchsia-500/20";
 }
 
-/* ── Drag-to-scroll hook for carousels on desktop ── */
+/* ── Drag-to-scroll hook for carousels on desktop with momentum ── */
 function useDragScroll() {
   const ref = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
   const scrollLeftRef = useRef(0);
+  const velocityRef = useRef(0);
+  const lastXRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const animationFrameRef = useRef<number | null>(null);
+
+  const stopMomentum = useCallback(() => {
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  }, []);
+
+  const applyMomentum = useCallback(() => {
+    const el = ref.current;
+    if (!el || Math.abs(velocityRef.current) < 0.5) {
+      stopMomentum();
+      return;
+    }
+    el.scrollLeft += velocityRef.current;
+    velocityRef.current *= 0.95; // friction
+    animationFrameRef.current = requestAnimationFrame(applyMomentum);
+  }, [stopMomentum]);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const el = ref.current;
     if (!el) return;
+    stopMomentum();
     isDragging.current = true;
     startX.current = e.clientX;
+    lastXRef.current = e.clientX;
+    lastTimeRef.current = Date.now();
     scrollLeftRef.current = el.scrollLeft;
+    velocityRef.current = 0;
     el.setPointerCapture(e.pointerId);
-  }, []);
+  }, [stopMomentum]);
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging.current) return;
     const el = ref.current;
     if (!el) return;
     e.preventDefault();
+    const now = Date.now();
+    const dt = now - lastTimeRef.current;
+    if (dt > 0) {
+      velocityRef.current = (lastXRef.current - e.clientX) / Math.max(dt, 8) * 16;
+    }
+    lastXRef.current = e.clientX;
+    lastTimeRef.current = now;
     el.scrollLeft = scrollLeftRef.current - (e.clientX - startX.current);
   }, []);
 
@@ -219,9 +252,13 @@ function useDragScroll() {
       if (didDrag) {
         const stop = (ev: Event) => { ev.stopPropagation(); ev.preventDefault(); };
         el.addEventListener("click", stop, { capture: true, once: true });
+        // Apply momentum scrolling
+        if (Math.abs(velocityRef.current) > 0.5) {
+          applyMomentum();
+        }
       }
     }
-  }, []);
+  }, [applyMomentum]);
 
   return { ref, onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp };
 }
@@ -1177,7 +1214,7 @@ export default function ServicesPage() {
             </div>
             <div
               ref={featuredDrag.ref}
-              className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory cursor-grab active:cursor-grabbing select-none"
+              className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-proximity scroll-smooth cursor-grab active:cursor-grabbing select-none"
               style={{ touchAction: "pan-x" }}
               onPointerDown={featuredDrag.onPointerDown}
               onPointerMove={featuredDrag.onPointerMove}
@@ -1205,7 +1242,7 @@ export default function ServicesPage() {
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300/80">Diamond</h3>
                 <div
                   ref={diamondDrag.ref}
-                  className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory cursor-grab active:cursor-grabbing select-none"
+                  className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-proximity scroll-smooth cursor-grab active:cursor-grabbing select-none"
                   style={{ touchAction: "pan-x" }}
                   onPointerDown={diamondDrag.onPointerDown}
                   onPointerMove={diamondDrag.onPointerMove}
@@ -1224,7 +1261,7 @@ export default function ServicesPage() {
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300/80">Gold</h3>
                 <div
                   ref={goldDrag.ref}
-                  className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory cursor-grab active:cursor-grabbing select-none"
+                  className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-proximity scroll-smooth cursor-grab active:cursor-grabbing select-none"
                   style={{ touchAction: "pan-x" }}
                   onPointerDown={goldDrag.onPointerDown}
                   onPointerMove={goldDrag.onPointerMove}
