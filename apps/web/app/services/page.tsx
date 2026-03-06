@@ -185,6 +185,12 @@ function tierBorderClass(level?: string) {
   return "border-white/[0.08] hover:border-fuchsia-500/20";
 }
 
+/* ── Momentum scrolling constants ── */
+const MOMENTUM_FRICTION = 0.95;
+const MIN_VELOCITY_THRESHOLD = 0.5;
+const MIN_TIME_DELTA_MS = 8;
+const VELOCITY_SCALE_FACTOR = 16;
+
 /* ── Drag-to-scroll hook for carousels on desktop with momentum ── */
 function useDragScroll() {
   const ref = useRef<HTMLDivElement>(null);
@@ -205,12 +211,12 @@ function useDragScroll() {
 
   const applyMomentum = useCallback(() => {
     const el = ref.current;
-    if (!el || Math.abs(velocityRef.current) < 0.5) {
+    if (!el || Math.abs(velocityRef.current) < MIN_VELOCITY_THRESHOLD) {
       stopMomentum();
       return;
     }
     el.scrollLeft += velocityRef.current;
-    velocityRef.current *= 0.95; // friction
+    velocityRef.current *= MOMENTUM_FRICTION;
     animationFrameRef.current = requestAnimationFrame(applyMomentum);
   }, [stopMomentum]);
 
@@ -235,7 +241,7 @@ function useDragScroll() {
     const now = Date.now();
     const dt = now - lastTimeRef.current;
     if (dt > 0) {
-      velocityRef.current = (lastXRef.current - e.clientX) / Math.max(dt, 8) * 16;
+      velocityRef.current = (lastXRef.current - e.clientX) / Math.max(dt, MIN_TIME_DELTA_MS) * VELOCITY_SCALE_FACTOR;
     }
     lastXRef.current = e.clientX;
     lastTimeRef.current = now;
@@ -252,8 +258,7 @@ function useDragScroll() {
       if (didDrag) {
         const stop = (ev: Event) => { ev.stopPropagation(); ev.preventDefault(); };
         el.addEventListener("click", stop, { capture: true, once: true });
-        // Apply momentum scrolling
-        if (Math.abs(velocityRef.current) > 0.5) {
+        if (Math.abs(velocityRef.current) > MIN_VELOCITY_THRESHOLD) {
           applyMomentum();
         }
       }
