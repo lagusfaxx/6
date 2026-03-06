@@ -669,13 +669,17 @@ export default function ServicesPage() {
   }, [filtered, profiles]);
 
   /* ── Separate featured (Diamond/Gold/Destacada) from standard ── */
+  const isFeatured = useCallback(
+    (p: ProfileResult) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD" || (p.profileTags ?? []).includes("destacada"),
+    [],
+  );
   const featuredProfiles = useMemo(
-    () => displayProfiles.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD" || (p.profileTags ?? []).includes("destacada")),
-    [displayProfiles],
+    () => displayProfiles.filter(isFeatured),
+    [displayProfiles, isFeatured],
   );
   const standardProfiles = useMemo(
-    () => displayProfiles.filter((p) => p.userLevel !== "DIAMOND" && p.userLevel !== "GOLD" && !(p.profileTags ?? []).includes("destacada")),
-    [displayProfiles],
+    () => displayProfiles.filter((p) => !isFeatured(p)),
+    [displayProfiles, isFeatured],
   );
 
   const handleMarkerSelect = useCallback(
