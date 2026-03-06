@@ -51,7 +51,13 @@ export function connectRealtime(handler: Handler) {
         }
       });
 
-      for (const evt of ["forum:newThread", "forum:newPost"] as const) {
+      for (const evt of [
+        "forum:newThread", "forum:newPost",
+        "videocall:booked", "videocall:started", "videocall:completed",
+        "videocall:cancelled", "videocall:noshow",
+        "live:started", "live:ended", "live:chat",
+        "live:viewer_joined", "live:viewer_left",
+      ] as const) {
         es.addEventListener(evt, (e: MessageEvent) => {
           try {
             handler({ type: evt, data: JSON.parse(String(e.data || "{}")) });

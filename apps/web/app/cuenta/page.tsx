@@ -12,7 +12,7 @@ import {
   User, Settings, Image, MapPin, MessageSquare, Heart,
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
-  TrendingUp, Zap, Shield,
+  TrendingUp, Zap, Shield, Wallet, Video,
 } from "lucide-react";
 
 const fadeUp = {
@@ -108,6 +108,11 @@ export default function AccountPage() {
       { label: "Ver mi perfil", description: "Como lo ven los clientes", href: publicProfileUrl, icon: Eye, color: "text-violet-400" },
     );
   }
+  if (isProfessional) {
+    quickActions.push(
+      { label: "Videollamadas", description: "Config y reservas", href: "/videocall", icon: Video, color: "text-emerald-400" },
+    );
+  }
   if (!canManageProfile) {
     quickActions.push(
       { label: "Explorar", description: "Descubre cerca tuyo", href: "/servicios", icon: Sparkles, color: "text-fuchsia-400" },
@@ -115,6 +120,10 @@ export default function AccountPage() {
       { label: "Favoritos", description: "Perfiles guardados", href: "/favoritos", icon: Heart, color: "text-rose-400" },
     );
   }
+  // Wallet for all authenticated users
+  quickActions.push(
+    { label: "Billetera", description: "Tokens y saldo", href: "/wallet", icon: Wallet, color: "text-amber-400" },
+  );
 
   const managementLinks: QuickLink[] = isMotelProfile
     ? [

@@ -14,6 +14,8 @@ import {
   LayoutDashboard,
   Edit3,
   Settings,
+  Wallet,
+  Video,
 } from "lucide-react";
 import useMe from "../hooks/useMe";
 import { useForumNotifications } from "./ForumNotifications";
@@ -72,9 +74,15 @@ export default function Nav() {
     ? [
         { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, protected: true },
         { href: "/dashboard/services", label: "Editar perfil", icon: Edit3, protected: true },
-        ...(isProfessional ? [{ href: "/dashboard/stories", label: "Subir story", icon: Camera, protected: true }] : []),
+        ...(isProfessional ? [
+          { href: "/dashboard/stories", label: "Subir story", icon: Camera, protected: true },
+          { href: "/videocall", label: "Videollamadas", icon: Video, protected: true },
+        ] : []),
+        { href: "/wallet", label: "Billetera", icon: Wallet, protected: true },
       ]
-    : [];
+    : isAuthed
+      ? [{ href: "/wallet", label: "Billetera", icon: Wallet, protected: true }]
+      : [];
 
   /* Mobile bottom items */
   const mobileItems: NavItem[] = isMotelProfile ? motelItems : mobileClientItems;
@@ -115,11 +123,11 @@ export default function Nav() {
             })}
           </div>
 
-          {/* Profile section for professionals */}
+          {/* Profile section */}
           {profileItems.length > 0 && (
             <div className="pt-3 mt-3 border-t border-white/[0.06]">
               <p className="px-4 mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/25">
-                Mi perfil
+                {hasProfile ? "Mi perfil" : "Mi cuenta"}
               </p>
               {profileItems.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
