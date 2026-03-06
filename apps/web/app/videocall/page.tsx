@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -54,7 +54,7 @@ const statusLabels: Record<string, string> = {
   NO_SHOW_PROFESSIONAL: "No-show",
 };
 
-export default function VideocallPage() {
+function VideocallPageContent() {
   const { me } = useMe();
   const params = useSearchParams();
   const professionalId = params?.get("professional") || null;
@@ -311,5 +311,13 @@ export default function VideocallPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VideocallPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0b14]" />}>
+      <VideocallPageContent />
+    </Suspense>
   );
 }
