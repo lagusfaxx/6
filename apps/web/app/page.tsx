@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
@@ -274,8 +274,11 @@ export default function HomePage() {
   const availableSectionRef = useRef<HTMLElement | null>(null);
   const availableCarouselRef = useRef<HTMLDivElement | null>(null);
   const [isAvailableInView, setIsAvailableInView] = useState(true);
-  const [isAvailableHovered, setIsAvailableHovered] = useState(false);
   const [isAvailableInteracting, setIsAvailableInteracting] = useState(false);
+  const isDraggingRef = useRef(false);
+  const didDragRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragScrollLeftRef = useRef(0);
   const isAuthed = Boolean(me?.user?.id);
 
   useEffect(() => {
@@ -458,7 +461,7 @@ export default function HomePage() {
     () => (availableProfiles.length > 0 ? [...availableProfiles, ...availableProfiles] : []),
     [availableProfiles],
   );
-  const shouldAutoScrollAvailable = availableProfiles.length > 1 && isAvailableInView && !isAvailableHovered && !isAvailableInteracting;
+  const shouldAutoScrollAvailable = availableProfiles.length > 1 && isAvailableInView && !isAvailableInteracting;
   const nearProfiles = discoverSections["near"] || [];
   const newProfiles = discoverSections["new"] || [];
 
@@ -506,6 +509,39 @@ export default function HomePage() {
     rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
   }, [shouldAutoScrollAvailable, availableCarouselProfiles.length]);
+
+  const handleAvailablePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const carousel = availableCarouselRef.current;
+    if (!carousel) return;
+    isDraggingRef.current = true;
+    didDragRef.current = false;
+    dragStartXRef.current = e.clientX;
+    dragScrollLeftRef.current = carousel.scrollLeft;
+    setIsAvailableInteracting(true);
+    carousel.setPointerCapture(e.pointerId);
+  }, []);
+
+  const handleAvailablePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    const carousel = availableCarouselRef.current;
+    if (!carousel) return;
+    e.preventDefault();
+    const dx = e.clientX - dragStartXRef.current;
+    if (Math.abs(dx) > 3) didDragRef.current = true;
+    carousel.scrollLeft = dragScrollLeftRef.current - dx;
+  }, []);
+
+  const handleAvailablePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsAvailableInteracting(false);
+    const carousel = availableCarouselRef.current;
+    if (carousel) carousel.releasePointerCapture(e.pointerId);
+  }, []);
+
+  const handleAvailableCardClick = useCallback((p: DiscoverProfile) => {
+    if (!didDragRef.current) setPreviewProfile(p);
+  }, []);
 
   const bannerHref = (banner: Banner) => {
     const profileId = (banner.linkUrl || "").startsWith("profile:") ? (banner.linkUrl || "").slice("profile:".length) : "";
@@ -685,24 +721,20 @@ export default function HomePage() {
             {availableProfiles.length > 0 ? (
               <div
                 ref={availableCarouselRef}
-                className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x"
-                onMouseEnter={() => setIsAvailableHovered(true)}
-                onMouseLeave={() => {
-                  setIsAvailableHovered(false);
-                  setIsAvailableInteracting(false);
-                }}
-                onPointerDown={() => setIsAvailableInteracting(true)}
-                onPointerUp={() => setIsAvailableInteracting(false)}
-                onTouchStart={() => setIsAvailableInteracting(true)}
-                onTouchEnd={() => setIsAvailableInteracting(false)}
+                className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 cursor-grab active:cursor-grabbing select-none"
+                style={{ touchAction: "pan-x" }}
+                onPointerDown={handleAvailablePointerDown}
+                onPointerMove={handleAvailablePointerMove}
+                onPointerUp={handleAvailablePointerUp}
+                onPointerCancel={handleAvailablePointerUp}
               >
                 {availableCarouselProfiles.map((p, index) => (
                   <button
                     key={`${p.id}-${index}`}
                     data-available-card="true"
                     type="button"
-                    onClick={() => setPreviewProfile(p)}
-                    className="group w-[130px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.03] text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/30"
+                    onClick={() => handleAvailableCardClick(p)}
+                    className="group w-[130px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.03] text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/30"
                   >
                     <div className="relative aspect-[3/4] overflow-hidden">
                       <img src={resolveProfileImage(p)} alt={p.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
