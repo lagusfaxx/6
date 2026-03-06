@@ -242,6 +242,8 @@ forumRouter.post(
     // Broadcast new post
     broadcast("forum:newPost", {
       threadId: id,
+      threadAuthorId: thread.authorId,
+      threadTitle: thread.title,
       post: {
         id: post.id,
         content: post.content,

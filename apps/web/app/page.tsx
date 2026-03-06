@@ -10,7 +10,6 @@ import UserLevelBadge from "../components/UserLevelBadge";
 import Stories from "../components/Stories";
 import ProfilePreviewModal from "../components/ProfilePreviewModal";
 import HomeCreAccordion from "../components/HomeCreAccordion";
-import ForumSideCard from "../components/ForumSideCard";
 import {
   buildChatHref,
   buildCurrentPathWithSearch,
@@ -1066,8 +1065,6 @@ export default function HomePage() {
 
         <HomeCreAccordion />
       </div>
-
-      <ForumSideCard />
 
       {/* Profile Preview Modal */}
       {previewProfile && (
