@@ -32,6 +32,7 @@ import {
   Weight,
   Scissors,
   CheckCircle,
+  ShieldCheck,
 } from "lucide-react";
 
 type ProfileResult = {
@@ -118,6 +119,61 @@ function tierOrder(level?: string) {
   return 2;
 }
 
+function hasServiceOrProfileTag(profile: ProfileResult, candidates: string[]) {
+  const normalize = (value: string) =>
+    value
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .trim()
+      .toLowerCase();
+  const wanted = new Set(candidates.map(normalize));
+  const tags = [...(profile.serviceTags || []), ...(profile.profileTags || [])]
+    .map((tag) => normalize(String(tag || "")));
+  return tags.some((tag) => wanted.has(tag));
+}
+
+function isEscortLikeProfile(profile: ProfileResult) {
+  if (profile.profileType !== "PROFESSIONAL") return false;
+  const normalizedCategory = String(profile.serviceCategory || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+  if (normalizedCategory.includes("escort")) return true;
+  return hasServiceOrProfileTag(profile, [
+    "videollamada",
+    "videollamadas",
+    "despedida",
+    "despedidas",
+    "masajista",
+    "masajistas",
+    "masajes",
+  ]);
+}
+
+function matchesProfessionalCategory(profile: ProfileResult, category: string) {
+  if (profile.profileType !== "PROFESSIONAL") return false;
+  if (category === "escort") return isEscortLikeProfile(profile);
+  if (category === "videollamada" || category === "videollamadas") {
+    return hasServiceOrProfileTag(profile, ["videollamada", "videollamadas"]);
+  }
+  if (category === "despedida" || category === "despedidas") {
+    return hasServiceOrProfileTag(profile, ["despedida", "despedidas"]);
+  }
+  if (category === "masajes" || category === "masajistas") {
+    return hasServiceOrProfileTag(profile, ["masaje", "masajes", "masajista", "masajistas"])
+      || String(profile.serviceCategory || "").toLowerCase().includes("masaj");
+  }
+  return true;
+}
+
+function hasExamsBadge(profile: ProfileResult) {
+  const tags = profile.profileTags || [];
+  return tags.some((tag) => {
+    const normalized = String(tag || "").trim().toLowerCase();
+    return normalized === "profesional con examenes" || normalized === "profesional con exámenes";
+  });
+}
+
 function tierBorderClass(level?: string) {
   if (level === "DIAMOND") return "border-cyan-400/30 hover:border-cyan-400/50 hover:shadow-[0_8px_32px_rgba(34,211,238,0.12)]";
   if (level === "GOLD") return "border-amber-400/30 hover:border-amber-400/50 hover:shadow-[0_8px_32px_rgba(251,191,36,0.12)]";
@@ -159,6 +215,11 @@ const FeaturedCard = memo(function FeaturedCard({
               {profile.availableNow && (
                 <span className="flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
+                </span>
+              )}
+              {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-2 py-0.5 text-[10px] font-semibold text-sky-100 shadow-lg">
+                  <ShieldCheck className="h-3 w-3" /> Con exámenes
                 </span>
               )}
             </div>
@@ -251,11 +312,18 @@ const ProfileCard = memo(function ProfileCard({
               {profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)}km`}
             </div>
           )}
-          {profile.availableNow ? (
-            <div className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/80 px-1.5 py-0.5 text-[9px] text-white font-medium backdrop-blur shadow">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
-            </div>
-          ) : null}
+          <div className="absolute left-1.5 top-1.5 flex flex-col gap-1">
+            {profile.availableNow ? (
+              <div className="flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/80 px-1.5 py-0.5 text-[9px] text-white font-medium backdrop-blur shadow">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
+              </div>
+            ) : null}
+            {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) ? (
+              <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
+              </div>
+            ) : null}
+          </div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-2">
             <div className="flex items-center gap-1">
@@ -403,6 +471,11 @@ function ProfileDetailPanel({
           {profile.serviceCategory && (
             <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-white/50">
               {profile.serviceCategory}
+            </span>
+          )}
+          {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/15 px-2.5 py-1 text-xs font-medium text-sky-100">
+              <ShieldCheck className="h-3 w-3" /> Con exámenes
             </span>
           )}
         </div>
@@ -601,7 +674,10 @@ export default function ServicesPage() {
         qp.set("types", "SHOP");
       } else {
         qp.set("types", "PROFESSIONAL");
-        qp.set("categorySlug", category);
+        const categoryHandledClientSide = new Set(["escort", "videollamada", "videollamadas", "despedida", "despedidas", "masajes", "masajistas"]);
+        if (!categoryHandledClientSide.has(category)) {
+          qp.set("categorySlug", category);
+        }
       }
     } else {
       qp.set("types", "PROFESSIONAL,ESTABLISHMENT,SHOP");
@@ -632,6 +708,11 @@ export default function ServicesPage() {
     const q = search.trim().toLowerCase();
     return [...profiles]
       .filter((profile) => {
+        if (category !== "all") {
+          if (category === "moteles" && profile.profileType !== "ESTABLISHMENT") return false;
+          if (category === "sexshop" && profile.profileType !== "SHOP") return false;
+          if (category !== "moteles" && category !== "sexshop" && !matchesProfessionalCategory(profile, category)) return false;
+        }
         if (q) {
           const text = `${profile.displayName || ""} ${profile.username || ""} ${profile.serviceCategory || ""} ${profile.city || ""}`.toLowerCase();
           if (!text.includes(q)) return false;
@@ -668,13 +749,41 @@ export default function ServicesPage() {
     });
   }, [filtered, profiles]);
 
+  const isFeaturedProfile = (profile: ProfileResult) => profile.userLevel === "DIAMOND" || profile.userLevel === "GOLD";
+
   /* ── Separate featured (Diamond/Gold) from standard ── */
   const featuredProfiles = useMemo(
-    () => displayProfiles.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD"),
+    () => displayProfiles.filter((p) => isFeaturedProfile(p)),
     [displayProfiles],
   );
   const standardProfiles = useMemo(
-    () => displayProfiles.filter((p) => p.userLevel !== "DIAMOND" && p.userLevel !== "GOLD"),
+    () => displayProfiles.filter((p) => !isFeaturedProfile(p)),
+    [displayProfiles],
+  );
+
+  const isAllCategoryView = category === "all";
+  const featuredEscortProfiles = useMemo(
+    () => displayProfiles.filter((p) => p.profileType === "PROFESSIONAL" && isFeaturedProfile(p)),
+    [displayProfiles],
+  );
+  const diamondEscortProfiles = useMemo(
+    () => featuredEscortProfiles.filter((p) => p.userLevel === "DIAMOND"),
+    [featuredEscortProfiles],
+  );
+  const goldEscortProfiles = useMemo(
+    () => featuredEscortProfiles.filter((p) => p.userLevel === "GOLD"),
+    [featuredEscortProfiles],
+  );
+  const escortProfiles = useMemo(
+    () => displayProfiles.filter((p) => p.profileType === "PROFESSIONAL" && !isFeaturedProfile(p)),
+    [displayProfiles],
+  );
+  const motelProfiles = useMemo(
+    () => displayProfiles.filter((p) => p.profileType === "ESTABLISHMENT"),
+    [displayProfiles],
+  );
+  const sexShopProfiles = useMemo(
+    () => displayProfiles.filter((p) => p.profileType === "SHOP"),
     [displayProfiles],
   );
 
@@ -995,7 +1104,7 @@ export default function ServicesPage() {
         )}
 
         {/* ═══ FEATURED SECTION (Diamond + Gold) ═══ */}
-        {featuredProfiles.length > 0 && (
+        {!isAllCategoryView && featuredProfiles.length > 0 && (
           <section className="mb-8">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1015,8 +1124,83 @@ export default function ServicesPage() {
           </section>
         )}
 
+        {/* ═══ ALL CATEGORY ORDERED SECTIONS ═══ */}
+        {isAllCategoryView && featuredEscortProfiles.length > 0 && (
+          <section className="mb-8">
+            <div className="mb-3 flex items-center gap-2">
+              <Crown className="h-5 w-5 text-amber-400" />
+              <h2 className="text-base font-bold">Escorts destacadas</h2>
+              <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 font-medium">Premium</span>
+            </div>
+
+            {diamondEscortProfiles.length > 0 && (
+              <div className="mb-5">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300/80">Diamond</h3>
+                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
+                  {diamondEscortProfiles.map((p) => (
+                    <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {goldEscortProfiles.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300/80">Gold</h3>
+                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
+                  {goldEscortProfiles.map((p) => (
+                    <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {isAllCategoryView && escortProfiles.length > 0 && (
+          <section className="mb-8">
+            <div className="mb-3 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-fuchsia-300" />
+              <h2 className="text-base font-bold">Escorts</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {escortProfiles.map((profile) => (
+                <ProfileCard key={profile.id} profile={profile} onPreview={setPreviewProfile} isAuthed={isAuthed} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {isAllCategoryView && motelProfiles.length > 0 && (
+          <section className="mb-8">
+            <div className="mb-3 flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-sky-300" />
+              <h2 className="text-base font-bold">Moteles</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {motelProfiles.map((profile) => (
+                <ProfileCard key={profile.id} profile={profile} onPreview={setPreviewProfile} isAuthed={isAuthed} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {isAllCategoryView && sexShopProfiles.length > 0 && (
+          <section>
+            <div className="mb-3 flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4 text-rose-300" />
+              <h2 className="text-base font-bold">Sex Shop</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {sexShopProfiles.map((profile) => (
+                <ProfileCard key={profile.id} profile={profile} onPreview={setPreviewProfile} isAuthed={isAuthed} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ═══ ALL PROFILES GRID ═══ */}
-        {standardProfiles.length > 0 && (
+        {!isAllCategoryView && standardProfiles.length > 0 && (
           <section>
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
