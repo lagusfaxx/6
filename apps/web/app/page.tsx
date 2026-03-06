@@ -299,6 +299,10 @@ export default function HomePage() {
   const dragScrollLeftRef = useRef(0);
   const isAuthed = Boolean(me?.user?.id);
 
+  /* ── Hoteles & Sexshop ── */
+  const [moteles, setMoteles] = useState<any[]>([]);
+  const [sexshops, setSexshops] = useState<any[]>([]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -438,6 +442,23 @@ export default function HomePage() {
     loadSections().catch(() =>
       setError("No se pudieron cargar las secciones destacadas."),
     );
+  }, [location]);
+
+  // ── Fetch moteles & sexshops ──
+  useEffect(() => {
+    const fetchDirectory = async (entityType: string, categorySlug: string) => {
+      const params = new URLSearchParams({ entityType, categorySlug, sort: "near", limit: "8" });
+      if (location) {
+        params.set("lat", String(location[0]));
+        params.set("lng", String(location[1]));
+        params.set("radiusKm", "100");
+      }
+      const res = await apiFetch<{ results: any[]; total: number }>(`/directory/search?${params.toString()}`);
+      return res?.results ?? [];
+    };
+
+    fetchDirectory("establishment", "motel").then(setMoteles).catch(() => {});
+    fetchDirectory("shop", "sexshop").then(setSexshops).catch(() => {});
   }, [location]);
 
   const horizontalBanners = useMemo(
@@ -1106,6 +1127,96 @@ export default function HomePage() {
                 </Link>
               ))}
             </motion.div>
+          </motion.section>
+        )}
+
+        {/* ═══ HOTELES / MOTELES ═══ */}
+        {moteles.length > 0 && (
+          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+            <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Hotel className="h-4 w-4 text-amber-400" />
+                <h2 className="text-xl font-bold">Hoteles y Moteles</h2>
+              </div>
+              <Link href="/moteles" className="group flex items-center gap-1 text-xs text-white/50 hover:text-amber-400">
+                Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </motion.div>
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
+              {moteles.map((item) => (
+                <motion.article key={item.id} variants={cardFade} className="group w-[65vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-amber-500/10 bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-amber-500/25 sm:w-auto">
+                  <Link href={`/establecimiento/${item.id}`} className="block">
+                    <div className="relative aspect-[4/3] bg-white/[0.04]">
+                      {(item.coverUrl || item.avatarUrl) ? (
+                        <img
+                          src={resolveMediaUrl(item.coverUrl || item.avatarUrl) ?? undefined}
+                          alt={item.displayName}
+                          className="h-full w-full object-cover transition group-hover:scale-105"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center"><Hotel className="h-10 w-10 text-white/10" /></div>
+                      )}
+                      {item.distance != null && (
+                        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
+                          <MapPin className="h-3 w-3" /> {item.distance.toFixed(1)} km
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3">
+                        <h3 className="truncate text-sm font-semibold">{item.displayName || item.username}</h3>
+                        {item.city && <p className="mt-0.5 text-[10px] text-white/50">{item.city}</p>}
+                      </div>
+                    </div>
+                  </Link>
+                </motion.article>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        {/* ═══ SEXSHOP ═══ */}
+        {sexshops.length > 0 && (
+          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+            <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="h-4 w-4 text-pink-400" />
+                <h2 className="text-xl font-bold">Sex Shop</h2>
+              </div>
+              <Link href="/sexshop" className="group flex items-center gap-1 text-xs text-white/50 hover:text-pink-400">
+                Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </motion.div>
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
+              {sexshops.map((item) => (
+                <motion.article key={item.id} variants={cardFade} className="group w-[65vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-pink-500/10 bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-pink-500/25 sm:w-auto">
+                  <Link href={`/establecimiento/${item.id}`} className="block">
+                    <div className="relative aspect-[4/3] bg-white/[0.04]">
+                      {(item.coverUrl || item.avatarUrl) ? (
+                        <img
+                          src={resolveMediaUrl(item.coverUrl || item.avatarUrl) ?? undefined}
+                          alt={item.displayName}
+                          className="h-full w-full object-cover transition group-hover:scale-105"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center"><ShoppingBag className="h-10 w-10 text-white/10" /></div>
+                      )}
+                      {item.distance != null && (
+                        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
+                          <MapPin className="h-3 w-3" /> {item.distance.toFixed(1)} km
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3">
+                        <h3 className="truncate text-sm font-semibold">{item.displayName || item.username}</h3>
+                        {item.city && <p className="mt-0.5 text-[10px] text-white/50">{item.city}</p>}
+                      </div>
+                    </div>
+                  </Link>
+                </motion.article>
+              ))}
+            </div>
           </motion.section>
         )}
 
