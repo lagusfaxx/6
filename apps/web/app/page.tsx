@@ -10,6 +10,7 @@ import UserLevelBadge from "../components/UserLevelBadge";
 import Stories from "../components/Stories";
 import ProfilePreviewModal from "../components/ProfilePreviewModal";
 import HomeCreAccordion from "../components/HomeCreAccordion";
+import ForumSideCard from "../components/ForumSideCard";
 import {
   buildChatHref,
   buildCurrentPathWithSearch,
@@ -34,7 +35,6 @@ import {
   TrendingUp,
   Video,
   X,
-  MessageSquare,
   Zap,
 } from "lucide-react";
 
@@ -103,15 +103,6 @@ type DiscoverProfile = {
   profileTags?: string[];
   serviceTags?: string[];
   galleryUrls?: string[];
-};
-
-type RecentForumThread = {
-  id: string;
-  title: string;
-  author: string;
-  category: string;
-  categorySlug: string;
-  lastPostAt: string;
 };
 
 /* ── Install App Button ── */
@@ -290,42 +281,6 @@ export default function HomePage() {
   const dragStartXRef = useRef(0);
   const dragScrollLeftRef = useRef(0);
   const isAuthed = Boolean(me?.user?.id);
-  const [forumThreads, setForumThreads] = useState<RecentForumThread[]>([]);
-
-  useEffect(() => {
-    apiFetch<{ threads: RecentForumThread[] }>("/forum/recent")
-      .then((r) => setForumThreads(r.threads ?? []))
-      .catch(() => {});
-  }, []);
-
-  // Listen for new forum threads via SSE to update widget
-  useEffect(() => {
-    const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
-    if (!apiBase) return;
-    let es: EventSource | null = null;
-    try {
-      es = new EventSource(`${apiBase}/realtime/stream`, { withCredentials: true });
-      es.addEventListener("forum:newThread", (ev) => {
-        try {
-          const data = JSON.parse(ev.data);
-          if (data.id && data.title) {
-            setForumThreads((prev) => {
-              const thread: RecentForumThread = {
-                id: data.id,
-                title: data.title,
-                author: data.author?.username ?? "Anónimo",
-                category: data.category?.name ?? "",
-                categorySlug: data.category?.slug ?? "",
-                lastPostAt: data.createdAt ?? new Date().toISOString(),
-              };
-              return [thread, ...prev.filter((t) => t.id !== data.id)].slice(0, 5);
-            });
-          }
-        } catch {}
-      });
-    } catch {}
-    return () => { es?.close(); };
-  }, []);
 
   useEffect(() => {
     (async () => {
@@ -688,6 +643,10 @@ export default function HomePage() {
             ))}
           </div>
         )}
+
+        {/* ═══ Two-column layout: main content + forum sidebar ═══ */}
+        <div className="flex gap-6 items-start">
+        <div className="min-w-0 flex-1">
 
         {error && (
           <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>
@@ -1109,50 +1068,11 @@ export default function HomePage() {
           </motion.section>
         )}
 
-        {/* ═══ Forum Widget — Recent Threads ═══ */}
-        {forumThreads.length > 0 && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp}>
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-600/20 to-violet-600/20 border border-fuchsia-500/20">
-                  <MessageSquare className="h-4 w-4 text-fuchsia-400" />
-                </div>
-                <h2 className="text-lg font-bold tracking-tight">Foro</h2>
-              </div>
-              <Link href="/foro" className="flex items-center gap-1 text-xs text-fuchsia-400 hover:text-fuchsia-300 transition">
-                Ver todo <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-            <div className="space-y-1.5">
-              {forumThreads.map((t) => {
-                const diff = Date.now() - new Date(t.lastPostAt).getTime();
-                const mins = Math.floor(diff / 60000);
-                const ago = mins < 1 ? "ahora" : mins < 60 ? `hace ${mins} min` : Math.floor(mins / 60) < 24 ? `hace ${Math.floor(mins / 60)}h` : `hace ${Math.floor(mins / 1440)}d`;
-                return (
-                  <Link
-                    key={t.id}
-                    href={`/foro/thread/${t.id}`}
-                    className="group flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 transition hover:border-fuchsia-500/20 hover:bg-white/[0.04]"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-medium truncate group-hover:text-fuchsia-300 transition">{t.title}</h3>
-                      <div className="mt-1 flex items-center gap-2 text-[11px] text-white/35">
-                        <span>{t.author}</span>
-                        <span>·</span>
-                        <span>{t.category}</span>
-                        <span>·</span>
-                        <span>{ago}</span>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-white/15 group-hover:text-fuchsia-400 transition" />
-                  </Link>
-                );
-              })}
-            </div>
-          </motion.section>
-        )}
-
         <HomeCreAccordion />
+        </div>{/* end main content column */}
+
+        <ForumSideCard />
+        </div>{/* end two-column layout */}
       </div>
 
       {/* Profile Preview Modal */}
