@@ -16,6 +16,7 @@ import {
   Settings,
 } from "lucide-react";
 import useMe from "../hooks/useMe";
+import { useForumNotifications } from "./ForumNotifications";
 
 type NavItem = {
   href: string;
@@ -52,6 +53,7 @@ export default function Nav() {
   const pathname = usePathname() || "/";
   const { me } = useMe();
   const isAuthed = Boolean(me?.user?.id);
+  const { badgeCount } = useForumNotifications();
 
   const role = String(me?.user?.role || "").toUpperCase();
   const ptype = String(me?.user?.profileType || "").toUpperCase();
@@ -103,6 +105,11 @@ export default function Nav() {
                 >
                   <Icon className={`h-4 w-4 ${active ? "text-fuchsia-400" : ""}`} />
                   {item.label}
+                  {item.href === "/foro" && badgeCount > 0 && (
+                    <span className="ml-auto min-w-[18px] rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white">
+                      {badgeCount > 9 ? "9+" : badgeCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}
