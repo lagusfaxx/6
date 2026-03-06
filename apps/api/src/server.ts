@@ -13,6 +13,10 @@ import { feedRouter } from "./routes/feed";
 import { adminRouter } from "./routes/admin";
 import { paymentsRouter } from "./routes/payments";
 import { webhooksRouter } from "./routes/webhooks";
+import { walletRouter } from "./routes/wallet";
+import { adminTokensRouter } from "./routes/adminTokens";
+import { videocallRouter } from "./routes/videocall";
+import { livestreamRouter } from "./routes/livestream";
 
 assertEnv();
 
@@ -73,6 +77,10 @@ app.use(meRouter);
 app.use(feedRouter);
 app.use(paymentsRouter);
 app.use(adminRouter);
+app.use(walletRouter);
+app.use(adminTokensRouter);
+app.use(videocallRouter);
+app.use(livestreamRouter);
 
 app.use((err: any, _req: any, res: any, _next: any) => {
   console.error(err);
