@@ -115,7 +115,7 @@ export default function WalletPage() {
       const form = new FormData();
       form.append("tokens", depositTokens);
       form.append("receipt", receiptFile);
-      await apiFetch("/wallet/deposit", { method: "POST", body: form, raw: true });
+      await apiFetch("/wallet/deposit", { method: "POST", body: form });
       setDepositMsg("Solicitud enviada. El admin revisará tu comprobante.");
       setDepositTokens("");
       setReceiptFile(null);
@@ -196,7 +196,7 @@ export default function WalletPage() {
           {(["overview", "deposit", ...(isProfessional ? ["withdraw"] : []), "history"] as const).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => setTab(t as "overview" | "deposit" | "withdraw" | "history")}
               className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-2 text-xs font-medium transition ${
                 tab === t
                   ? "border-fuchsia-500/30 bg-fuchsia-500/15 text-fuchsia-300"
