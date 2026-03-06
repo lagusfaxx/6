@@ -51,6 +51,16 @@ export function connectRealtime(handler: Handler) {
         }
       });
 
+      for (const evt of ["forum:newThread", "forum:newPost"] as const) {
+        es.addEventListener(evt, (e: MessageEvent) => {
+          try {
+            handler({ type: evt, data: JSON.parse(String(e.data || "{}")) });
+          } catch {
+            handler({ type: evt, data: null });
+          }
+        });
+      }
+
       es.onerror = () => {
         handler({ type: "disconnected", data: null });
         // Reconnect with backoff

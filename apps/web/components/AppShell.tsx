@@ -9,6 +9,7 @@ import PushNotificationsManager from "./PushNotificationsManager";
 import PresenceHeartbeat from "./PresenceHeartbeat";
 import LocationFilterProvider from "./LocationFilterProvider";
 import BackButton from "./BackButton";
+import { ForumNotificationProvider } from "./ForumNotifications";
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
@@ -65,24 +66,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <LocationFilterProvider>
-      <div
-        style={iosTextSizeFix}
-        className="flex min-h-[100svh] w-full bg-transparent text-white"
-      >
-        <Nav />
+      <ForumNotificationProvider>
+        <div
+          style={iosTextSizeFix}
+          className="flex min-h-[100svh] w-full bg-transparent text-white"
+        >
+          <Nav />
 
-        <div className="relative min-w-0 flex-1">
-          <TopHeader />
-          <PushNotificationsManager />
-          <PresenceHeartbeat />
-          {!isHome && <BackButton />}
-          {/* Reduced pt since we removed the category chips row from mobile header */}
-          <main className="flex-1 px-4 pt-[76px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[90px] md:pb-6">
-            {children}
-          </main>
-          <Footer />
+          <div className="relative min-w-0 flex-1">
+            <TopHeader />
+            <PushNotificationsManager />
+            <PresenceHeartbeat />
+            {!isHome && <BackButton />}
+            {/* Reduced pt since we removed the category chips row from mobile header */}
+            <main className="flex-1 px-4 pt-[76px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[90px] md:pb-6">
+              {children}
+            </main>
+            <Footer />
+          </div>
         </div>
-      </div>
+      </ForumNotificationProvider>
     </LocationFilterProvider>
   );
 }

@@ -31,6 +31,7 @@ import Avatar from "./Avatar";
 import useMe from "../hooks/useMe";
 import { apiFetch } from "../lib/api";
 import { CHILEAN_CITIES, LocationFilterContext } from "../hooks/useLocationFilter";
+import { useForumNotifications } from "./ForumNotifications";
 
 type NotificationItem = {
   id: string;
@@ -85,6 +86,7 @@ export default function TopHeader() {
 
   const locationFilter = useContext(LocationFilterContext);
 
+  const { badgeCount: forumBadge } = useForumNotifications();
   const isProfessional = (me?.user?.profileType ?? "").toUpperCase() === "PROFESSIONAL";
   const isEstablishment = (me?.user?.profileType ?? "").toUpperCase() === "ESTABLISHMENT";
   const isShop = (me?.user?.profileType ?? "").toUpperCase() === "SHOP";
@@ -209,9 +211,14 @@ export default function TopHeader() {
                 </Link>
                 <Link
                   href="/foro"
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${pathname.startsWith("/foro") ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25" : "text-white/60 hover:bg-white/10 hover:text-white/90"}`}
+                  className={`relative rounded-full px-3 py-1.5 text-xs font-medium transition ${pathname.startsWith("/foro") ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25" : "text-white/60 hover:bg-white/10 hover:text-white/90"}`}
                 >
                   Foro
+                  {forumBadge > 0 && (
+                    <span className="absolute -right-1 -top-1 min-w-[16px] rounded-full bg-fuchsia-500 px-1 py-[1px] text-center text-[9px] font-bold leading-none text-white shadow-[0_0_8px_rgba(217,70,239,0.6)]">
+                      {forumBadge > 9 ? "9+" : forumBadge}
+                    </span>
+                  )}
                 </Link>
               </nav>
 
@@ -377,6 +384,11 @@ export default function TopHeader() {
                 </button>
                 <button onClick={() => handleNavLink("/foro")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
                   <MessageSquare className="h-4 w-4 text-white/50" /> Foro
+                  {forumBadge > 0 && (
+                    <span className="ml-auto min-w-[18px] rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white">
+                      {forumBadge > 9 ? "9+" : forumBadge}
+                    </span>
+                  )}
                 </button>
                 {isAuthed && (
                   <>
