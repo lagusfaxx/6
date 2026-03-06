@@ -40,6 +40,7 @@ import { walletRouter } from "./routes/wallet";
 import { videocallRouter } from "./routes/videocall";
 import { livestreamRouter } from "./routes/livestream";
 import { signalingRouter } from "./routes/signaling";
+import { adminTokensRouter } from "./routes/adminTokens";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 
@@ -160,6 +161,7 @@ app.use("/", clientRouter);
 app.use("/shop", shopRouter);
 app.use("/", feedRouter);
 app.use("/admin", adminRouter);
+app.use("/", adminTokensRouter);
 app.use("/", plansRouter);
 app.use("/", profileRouter);
 app.use("/", directoryRouter);
