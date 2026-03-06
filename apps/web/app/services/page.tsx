@@ -32,8 +32,7 @@ import {
   Weight,
   Scissors,
   CheckCircle,
-  ShieldCheck,
-  Video,
+  Hotel,
 } from "lucide-react";
 
 type ProfileResult = {
@@ -98,6 +97,28 @@ function ownerHref(profile: ProfileResult) {
   return `/profesional/${profile.id}`;
 }
 
+function ctaLabel(profile: ProfileResult) {
+  if (profile.profileType === "ESTABLISHMENT") return "Reservar";
+  if (profile.profileType === "SHOP") return "Visitar tienda";
+  return "Mensaje";
+}
+
+function ctaIcon(profile: ProfileResult) {
+  if (profile.profileType === "ESTABLISHMENT") return Hotel;
+  if (profile.profileType === "SHOP") return ShoppingBag;
+  return MessageCircle;
+}
+
+function ctaHref(profile: ProfileResult, isAuthed: boolean) {
+  // Establishments and shops go to their profile page instead of chat
+  if (profile.profileType === "ESTABLISHMENT") return `/hospedaje/${profile.id}`;
+  if (profile.profileType === "SHOP") return `/sexshop/${profile.username}`;
+  // Professionals go to chat
+  return isAuthed
+    ? `/chat/${profile.userId || profile.id}`
+    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
+}
+
 function resolveCardImage(profile: ProfileResult) {
   return resolveMediaUrl(profile.coverUrl) ?? resolveMediaUrl(profile.avatarUrl);
 }
@@ -120,66 +141,6 @@ function tierOrder(level?: string) {
   return 2;
 }
 
-function hasServiceOrProfileTag(profile: ProfileResult, candidates: string[]) {
-  const normalize = (value: string) =>
-    value
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .trim()
-      .toLowerCase();
-  const wanted = new Set(candidates.map(normalize));
-  const tags = [...(profile.serviceTags || []), ...(profile.profileTags || [])]
-    .map((tag) => normalize(String(tag || "")));
-  return tags.some((tag) => wanted.has(tag));
-}
-
-function isEscortLikeProfile(profile: ProfileResult) {
-  if (profile.profileType !== "PROFESSIONAL") return false;
-  const normalizedCategory = String(profile.serviceCategory || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
-  if (normalizedCategory.includes("escort")) return true;
-  return hasServiceOrProfileTag(profile, [
-    "videollamada",
-    "videollamadas",
-    "despedida",
-    "despedidas",
-    "masajista",
-    "masajistas",
-    "masajes",
-  ]);
-}
-
-function matchesProfessionalCategory(profile: ProfileResult, category: string) {
-  if (profile.profileType !== "PROFESSIONAL") return false;
-  if (category === "escort") return isEscortLikeProfile(profile);
-  if (category === "videollamada" || category === "videollamadas") {
-    return hasServiceOrProfileTag(profile, ["videollamada", "videollamadas"]);
-  }
-  if (category === "despedida" || category === "despedidas") {
-    return hasServiceOrProfileTag(profile, ["despedida", "despedidas"]);
-  }
-  if (category === "masajes" || category === "masajistas") {
-    return hasServiceOrProfileTag(profile, ["masaje", "masajes", "masajista", "masajistas"])
-      || String(profile.serviceCategory || "").toLowerCase().includes("masaj");
-  }
-  return true;
-}
-
-function hasExamsBadge(profile: ProfileResult) {
-  const tags = profile.profileTags || [];
-  return tags.some((tag) => {
-    const normalized = String(tag || "").trim().toLowerCase();
-    return normalized === "profesional con examenes" || normalized === "profesional con exámenes";
-  });
-}
-
-function hasVideoCallBadge(profile: ProfileResult) {
-  if (profile.profileType !== "PROFESSIONAL") return false;
-  return hasServiceOrProfileTag(profile, ["videollamada", "videollamadas"]);
-}
-
 function tierBorderClass(level?: string) {
   if (level === "DIAMOND") return "border-cyan-400/30 hover:border-cyan-400/50 hover:shadow-[0_8px_32px_rgba(34,211,238,0.12)]";
   if (level === "GOLD") return "border-amber-400/30 hover:border-amber-400/50 hover:shadow-[0_8px_32px_rgba(251,191,36,0.12)]";
@@ -197,9 +158,9 @@ const FeaturedCard = memo(function FeaturedCard({
   isAuthed: boolean;
 }) {
   const img = resolveCardImage(profile);
-  const chatHref = isAuthed
-    ? `/chat/${profile.userId || profile.id}`
-    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
+  const actionHref = ctaHref(profile, isAuthed);
+  const ActionIcon = ctaIcon(profile);
+  const actionLabel = ctaLabel(profile);
 
   const isDiamond = profile.userLevel === "DIAMOND";
   const glowClass = isDiamond
@@ -207,7 +168,7 @@ const FeaturedCard = memo(function FeaturedCard({
     : "shadow-[0_4px_24px_rgba(251,191,36,0.12)]";
 
   return (
-    <div className={`group w-[75vw] shrink-0 snap-start overflow-hidden rounded-2xl border-2 ${isDiamond ? "border-cyan-400/30" : "border-amber-400/30"} bg-white/[0.03] transition-all duration-300 hover:-translate-y-1 ${glowClass} sm:w-auto`}>
+    <div className={`group w-[75vw] shrink-0 snap-start overflow-hidden rounded-2xl border-2 ${isDiamond ? "border-cyan-400/30" : "border-amber-400/30"} bg-white/[0.03] transition-all duration-300 hover:-translate-y-1 ${glowClass} sm:w-[340px] lg:w-[300px]`}>
       <button type="button" onClick={() => onPreview(profile)} className="block w-full text-left">
         <div className="relative aspect-[3/4] overflow-hidden bg-white/[0.04]">
           {img ? (
@@ -221,16 +182,6 @@ const FeaturedCard = memo(function FeaturedCard({
               {profile.availableNow && (
                 <span className="flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
-                </span>
-              )}
-              {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-2 py-0.5 text-[10px] font-semibold text-sky-100 shadow-lg">
-                  <ShieldCheck className="h-3 w-3" /> Con exámenes
-                </span>
-              )}
-              {hasVideoCallBadge(profile) && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-2 py-0.5 text-[10px] font-semibold text-violet-100 shadow-lg">
-                  <Video className="h-3 w-3" /> Videollamadas
                 </span>
               )}
             </div>
@@ -258,30 +209,20 @@ const FeaturedCard = memo(function FeaturedCard({
           </div>
         </div>
       </button>
-      {/* CTA — different per business type */}
+      {/* CTA */}
       <div className="flex gap-2 p-2">
-        {profile.profileType === "ESTABLISHMENT" ? (
-          <Link
-            href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 text-xs font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.25)]"
-          >
-            <Building2 className="h-3.5 w-3.5" /> Reservar
-          </Link>
-        ) : profile.profileType === "SHOP" ? (
-          <Link
-            href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 py-2.5 text-xs font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(244,63,94,0.25)]"
-          >
-            <ShoppingBag className="h-3.5 w-3.5" /> Visitar Tienda
-          </Link>
-        ) : (
-          <Link
-            href={chatHref}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-xs font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
-          >
-            <MessageCircle className="h-3.5 w-3.5" /> Mensaje
-          </Link>
-        )}
+        <Link
+          href={actionHref}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold transition hover:brightness-110 ${
+            profile.profileType === "ESTABLISHMENT"
+              ? "bg-gradient-to-r from-amber-500 to-orange-500 shadow-[0_4px_16px_rgba(245,158,11,0.25)]"
+              : profile.profileType === "SHOP"
+              ? "bg-gradient-to-r from-rose-500 to-pink-500 shadow-[0_4px_16px_rgba(244,63,94,0.25)]"
+              : "bg-gradient-to-r from-fuchsia-600 to-violet-600 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
+          }`}
+        >
+          <ActionIcon className="h-3.5 w-3.5" /> {actionLabel}
+        </Link>
         <Link
           href={ownerHref(profile)}
           className="flex items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-xs font-medium text-white/70 hover:bg-white/10 transition"
@@ -304,9 +245,9 @@ const ProfileCard = memo(function ProfileCard({
   isAuthed: boolean;
 }) {
   const img = resolveCardImage(profile);
-  const chatHref = isAuthed
-    ? `/chat/${profile.userId || profile.id}`
-    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
+  const actionHref = ctaHref(profile, isAuthed);
+  const ActionIcon = ctaIcon(profile);
+  const actionLabel = ctaLabel(profile);
 
   return (
     <div className={`group overflow-hidden rounded-2xl border ${tierBorderClass(profile.userLevel)} bg-white/[0.03] transition-all duration-200 hover:-translate-y-0.5`}>
@@ -323,23 +264,11 @@ const ProfileCard = memo(function ProfileCard({
               {profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)}km`}
             </div>
           )}
-          <div className="absolute left-1.5 top-1.5 flex flex-col gap-1">
-            {profile.availableNow ? (
-              <div className="flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/80 px-1.5 py-0.5 text-[9px] text-white font-medium backdrop-blur shadow">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
-              </div>
-            ) : null}
-            {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) ? (
-              <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
-                <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
-              </div>
-            ) : null}
-            {hasVideoCallBadge(profile) ? (
-              <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
-                <Video className="h-2.5 w-2.5" /> Videollamadas
-              </div>
-            ) : null}
-          </div>
+          {profile.availableNow ? (
+            <div className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/80 px-1.5 py-0.5 text-[9px] text-white font-medium backdrop-blur shadow">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
+            </div>
+          ) : null}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-2">
             <div className="flex items-center gap-1">
@@ -354,28 +283,18 @@ const ProfileCard = memo(function ProfileCard({
         </div>
       </button>
       <div className="flex gap-1.5 p-1.5">
-        {profile.profileType === "ESTABLISHMENT" ? (
-          <Link
-            href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-amber-500/90 to-orange-500/90 py-2 text-[11px] font-semibold transition hover:brightness-110"
-          >
-            <Building2 className="h-3 w-3" /> Reservar
-          </Link>
-        ) : profile.profileType === "SHOP" ? (
-          <Link
-            href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-rose-500/90 to-pink-500/90 py-2 text-[11px] font-semibold transition hover:brightness-110"
-          >
-            <ShoppingBag className="h-3 w-3" /> Visitar Tienda
-          </Link>
-        ) : (
-          <Link
-            href={chatHref}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2 text-[11px] font-semibold transition hover:brightness-110"
-          >
-            <MessageCircle className="h-3 w-3" /> Mensaje
-          </Link>
-        )}
+        <Link
+          href={actionHref}
+          className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2 text-[11px] font-semibold transition hover:brightness-110 ${
+            profile.profileType === "ESTABLISHMENT"
+              ? "bg-gradient-to-r from-amber-500/90 to-orange-500/90"
+              : profile.profileType === "SHOP"
+              ? "bg-gradient-to-r from-rose-500/90 to-pink-500/90"
+              : "bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90"
+          }`}
+        >
+          <ActionIcon className="h-3 w-3" /> {actionLabel}
+        </Link>
         <Link
           href={ownerHref(profile)}
           className="flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[11px] text-white/60 hover:bg-white/10 transition"
@@ -489,11 +408,6 @@ function ProfileDetailPanel({
               {profile.serviceCategory}
             </span>
           )}
-          {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/15 px-2.5 py-1 text-xs font-medium text-sky-100">
-              <ShieldCheck className="h-3 w-3" /> Con exámenes
-            </span>
-          )}
         </div>
 
         {/* Stats grid */}
@@ -585,36 +499,54 @@ function ProfileDetailPanel({
         )}
       </div>
 
-      {/* Action buttons - fixed at bottom, different per type */}
+      {/* Action buttons - fixed at bottom, contextual by type */}
       <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e17] p-3 flex gap-2">
         {profile.profileType === "ESTABLISHMENT" ? (
-          <Link
-            href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.25)]"
-          >
-            <Building2 className="h-4 w-4" /> Reservar
-          </Link>
+          <>
+            <Link
+              href={ownerHref(profile)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.25)]"
+            >
+              <Hotel className="h-4 w-4" /> Reservar
+            </Link>
+            <Link
+              href={ownerHref(profile)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
+            >
+              <Eye className="h-4 w-4" /> Ver Perfil
+            </Link>
+          </>
         ) : profile.profileType === "SHOP" ? (
-          <Link
-            href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(244,63,94,0.25)]"
-          >
-            <ShoppingBag className="h-4 w-4" /> Visitar Tienda
-          </Link>
+          <>
+            <Link
+              href={ownerHref(profile)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(244,63,94,0.25)]"
+            >
+              <ShoppingBag className="h-4 w-4" /> Visitar tienda
+            </Link>
+            <Link
+              href={ownerHref(profile)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
+            >
+              <Eye className="h-4 w-4" /> Ver Perfil
+            </Link>
+          </>
         ) : (
-          <Link
-            href={chatHref}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
-          >
-            <MessageCircle className="h-4 w-4" /> Chat
-          </Link>
+          <>
+            <Link
+              href={chatHref}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
+            >
+              <MessageCircle className="h-4 w-4" /> Chat
+            </Link>
+            <Link
+              href={ownerHref(profile)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
+            >
+              <Eye className="h-4 w-4" /> Ver Perfil
+            </Link>
+          </>
         )}
-        <Link
-          href={ownerHref(profile)}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
-        >
-          <Eye className="h-4 w-4" /> Ver Perfil
-        </Link>
       </div>
     </div>
   );
@@ -660,10 +592,8 @@ export default function ServicesPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const effectiveLocWithFallback = useMemo<[number, number]>(
-    () => effectiveLoc ?? [-33.45, -70.66],
-    [effectiveLoc],
-  );
+  const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
+  const effectiveLocWithFallback = effectiveLoc ?? SANTIAGO_FALLBACK;
   const mapCenter: [number, number] | null = effectiveLocWithFallback;
   const locationLabel = locationCtx?.state.mode === "city"
     ? locationCtx.state.selectedCity?.name ?? null
@@ -690,10 +620,7 @@ export default function ServicesPage() {
         qp.set("types", "SHOP");
       } else {
         qp.set("types", "PROFESSIONAL");
-        const categoryHandledClientSide = new Set(["escort", "videollamada", "videollamadas", "despedida", "despedidas", "masajes", "masajistas"]);
-        if (!categoryHandledClientSide.has(category)) {
-          qp.set("categorySlug", category);
-        }
+        qp.set("categorySlug", category);
       }
     } else {
       qp.set("types", "PROFESSIONAL,ESTABLISHMENT,SHOP");
@@ -724,11 +651,6 @@ export default function ServicesPage() {
     const q = search.trim().toLowerCase();
     return [...profiles]
       .filter((profile) => {
-        if (category !== "all") {
-          if (category === "moteles" && profile.profileType !== "ESTABLISHMENT") return false;
-          if (category === "sexshop" && profile.profileType !== "SHOP") return false;
-          if (category !== "moteles" && category !== "sexshop" && !matchesProfessionalCategory(profile, category)) return false;
-        }
         if (q) {
           const text = `${profile.displayName || ""} ${profile.username || ""} ${profile.serviceCategory || ""} ${profile.city || ""}`.toLowerCase();
           if (!text.includes(q)) return false;
@@ -765,41 +687,13 @@ export default function ServicesPage() {
     });
   }, [filtered, profiles]);
 
-  const isFeaturedProfile = (profile: ProfileResult) => profile.userLevel === "DIAMOND" || profile.userLevel === "GOLD";
-
   /* ── Separate featured (Diamond/Gold) from standard ── */
   const featuredProfiles = useMemo(
-    () => displayProfiles.filter((p) => isFeaturedProfile(p)),
+    () => displayProfiles.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD"),
     [displayProfiles],
   );
   const standardProfiles = useMemo(
-    () => displayProfiles.filter((p) => !isFeaturedProfile(p)),
-    [displayProfiles],
-  );
-
-  const isAllCategoryView = category === "all";
-  const featuredEscortProfiles = useMemo(
-    () => displayProfiles.filter((p) => p.profileType === "PROFESSIONAL" && isFeaturedProfile(p)),
-    [displayProfiles],
-  );
-  const diamondEscortProfiles = useMemo(
-    () => featuredEscortProfiles.filter((p) => p.userLevel === "DIAMOND"),
-    [featuredEscortProfiles],
-  );
-  const goldEscortProfiles = useMemo(
-    () => featuredEscortProfiles.filter((p) => p.userLevel === "GOLD"),
-    [featuredEscortProfiles],
-  );
-  const escortProfiles = useMemo(
-    () => displayProfiles.filter((p) => p.profileType === "PROFESSIONAL" && !isFeaturedProfile(p)),
-    [displayProfiles],
-  );
-  const motelProfiles = useMemo(
-    () => displayProfiles.filter((p) => p.profileType === "ESTABLISHMENT"),
-    [displayProfiles],
-  );
-  const sexShopProfiles = useMemo(
-    () => displayProfiles.filter((p) => p.profileType === "SHOP"),
+    () => displayProfiles.filter((p) => p.userLevel !== "DIAMOND" && p.userLevel !== "GOLD"),
     [displayProfiles],
   );
 
@@ -1120,7 +1014,7 @@ export default function ServicesPage() {
         )}
 
         {/* ═══ FEATURED SECTION (Diamond + Gold) ═══ */}
-        {!isAllCategoryView && featuredProfiles.length > 0 && (
+        {featuredProfiles.length > 0 && (
           <section className="mb-8">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1132,7 +1026,7 @@ export default function ServicesPage() {
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
               {featuredProfiles.slice(0, 6).map((p) => (
                 <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
               ))}
@@ -1140,83 +1034,8 @@ export default function ServicesPage() {
           </section>
         )}
 
-        {/* ═══ ALL CATEGORY ORDERED SECTIONS ═══ */}
-        {isAllCategoryView && featuredEscortProfiles.length > 0 && (
-          <section className="mb-8">
-            <div className="mb-3 flex items-center gap-2">
-              <Crown className="h-5 w-5 text-amber-400" />
-              <h2 className="text-base font-bold">Escorts destacadas</h2>
-              <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 font-medium">Premium</span>
-            </div>
-
-            {diamondEscortProfiles.length > 0 && (
-              <div className="mb-5">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300/80">Diamond</h3>
-                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:[&>*]:w-[260px] lg:[&>*]:w-[280px]">
-                  {diamondEscortProfiles.map((p) => (
-                    <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {goldEscortProfiles.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300/80">Gold</h3>
-                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:[&>*]:w-[260px] lg:[&>*]:w-[280px]">
-                  {goldEscortProfiles.map((p) => (
-                    <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
-        {isAllCategoryView && escortProfiles.length > 0 && (
-          <section className="mb-8">
-            <div className="mb-3 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-fuchsia-300" />
-              <h2 className="text-base font-bold">Escorts</h2>
-            </div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {escortProfiles.map((profile) => (
-                <ProfileCard key={profile.id} profile={profile} onPreview={setPreviewProfile} isAuthed={isAuthed} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {isAllCategoryView && motelProfiles.length > 0 && (
-          <section className="mb-8">
-            <div className="mb-3 flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-sky-300" />
-              <h2 className="text-base font-bold">Moteles</h2>
-            </div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {motelProfiles.map((profile) => (
-                <ProfileCard key={profile.id} profile={profile} onPreview={setPreviewProfile} isAuthed={isAuthed} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {isAllCategoryView && sexShopProfiles.length > 0 && (
-          <section>
-            <div className="mb-3 flex items-center gap-2">
-              <ShoppingBag className="h-4 w-4 text-rose-300" />
-              <h2 className="text-base font-bold">Sex Shop</h2>
-            </div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {sexShopProfiles.map((profile) => (
-                <ProfileCard key={profile.id} profile={profile} onPreview={setPreviewProfile} isAuthed={isAuthed} />
-              ))}
-            </div>
-          </section>
-        )}
-
         {/* ═══ ALL PROFILES GRID ═══ */}
-        {!isAllCategoryView && standardProfiles.length > 0 && (
+        {standardProfiles.length > 0 && (
           <section>
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
