@@ -119,6 +119,53 @@ function tierOrder(level?: string) {
   return 2;
 }
 
+function hasServiceOrProfileTag(profile: ProfileResult, candidates: string[]) {
+  const normalize = (value: string) =>
+    value
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .trim()
+      .toLowerCase();
+  const wanted = new Set(candidates.map(normalize));
+  const tags = [...(profile.serviceTags || []), ...(profile.profileTags || [])]
+    .map((tag) => normalize(String(tag || "")));
+  return tags.some((tag) => wanted.has(tag));
+}
+
+function isEscortLikeProfile(profile: ProfileResult) {
+  if (profile.profileType !== "PROFESSIONAL") return false;
+  const normalizedCategory = String(profile.serviceCategory || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+  if (normalizedCategory.includes("escort")) return true;
+  return hasServiceOrProfileTag(profile, [
+    "videollamada",
+    "videollamadas",
+    "despedida",
+    "despedidas",
+    "masajista",
+    "masajistas",
+    "masajes",
+  ]);
+}
+
+function matchesProfessionalCategory(profile: ProfileResult, category: string) {
+  if (profile.profileType !== "PROFESSIONAL") return false;
+  if (category === "escort") return isEscortLikeProfile(profile);
+  if (category === "videollamada" || category === "videollamadas") {
+    return hasServiceOrProfileTag(profile, ["videollamada", "videollamadas"]);
+  }
+  if (category === "despedida" || category === "despedidas") {
+    return hasServiceOrProfileTag(profile, ["despedida", "despedidas"]);
+  }
+  if (category === "masajes" || category === "masajistas") {
+    return hasServiceOrProfileTag(profile, ["masaje", "masajes", "masajista", "masajistas"])
+      || String(profile.serviceCategory || "").toLowerCase().includes("masaj");
+  }
+  return true;
+}
+
 function hasExamsBadge(profile: ProfileResult) {
   const tags = profile.profileTags || [];
   return tags.some((tag) => {
@@ -426,6 +473,11 @@ function ProfileDetailPanel({
               {profile.serviceCategory}
             </span>
           )}
+          {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/15 px-2.5 py-1 text-xs font-medium text-sky-100">
+              <ShieldCheck className="h-3 w-3" /> Con exámenes
+            </span>
+          )}
         </div>
 
         {/* Stats grid */}
@@ -622,7 +674,10 @@ export default function ServicesPage() {
         qp.set("types", "SHOP");
       } else {
         qp.set("types", "PROFESSIONAL");
-        qp.set("categorySlug", category);
+        const categoryHandledClientSide = new Set(["escort", "videollamada", "videollamadas", "despedida", "despedidas", "masajes", "masajistas"]);
+        if (!categoryHandledClientSide.has(category)) {
+          qp.set("categorySlug", category);
+        }
       }
     } else {
       qp.set("types", "PROFESSIONAL,ESTABLISHMENT,SHOP");
@@ -653,6 +708,11 @@ export default function ServicesPage() {
     const q = search.trim().toLowerCase();
     return [...profiles]
       .filter((profile) => {
+        if (category !== "all") {
+          if (category === "moteles" && profile.profileType !== "ESTABLISHMENT") return false;
+          if (category === "sexshop" && profile.profileType !== "SHOP") return false;
+          if (category !== "moteles" && category !== "sexshop" && !matchesProfessionalCategory(profile, category)) return false;
+        }
         if (q) {
           const text = `${profile.displayName || ""} ${profile.username || ""} ${profile.serviceCategory || ""} ${profile.city || ""}`.toLowerCase();
           if (!text.includes(q)) return false;
