@@ -21,6 +21,7 @@ import {
   Building2,
   ShoppingBag,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   MessageCircle,
   Crown,
@@ -184,6 +185,63 @@ function tierBorderClass(level?: string) {
   if (level === "DIAMOND") return "border-cyan-400/30 hover:border-cyan-400/50 hover:shadow-[0_8px_32px_rgba(34,211,238,0.12)]";
   if (level === "GOLD") return "border-amber-400/30 hover:border-amber-400/50 hover:shadow-[0_8px_32px_rgba(251,191,36,0.12)]";
   return "border-white/[0.08] hover:border-fuchsia-500/20";
+}
+
+/* ── Scrollable Row with arrows (desktop) ── */
+function ScrollableRow({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  const check = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 4);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    check();
+    el.addEventListener("scroll", check, { passive: true });
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", check); ro.disconnect(); };
+  }, [check]);
+
+  const scroll = (dir: number) => {
+    ref.current?.scrollBy({ left: dir * 300, behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative group/scroll">
+      {canLeft && (
+        <button
+          type="button"
+          onClick={() => scroll(-1)}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-black/70 border border-white/20 text-white shadow-lg hover:bg-black/90 transition"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+      )}
+      <div
+        ref={ref}
+        className={`scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:[&>*]:w-[260px] lg:[&>*]:w-[280px] ${className}`}
+      >
+        {children}
+      </div>
+      {canRight && (
+        <button
+          type="button"
+          onClick={() => scroll(1)}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-black/70 border border-white/20 text-white shadow-lg hover:bg-black/90 transition"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      )}
+    </div>
+  );
 }
 
 /* ── Featured Card (Diamond / Gold) ── */
@@ -1152,22 +1210,22 @@ export default function ServicesPage() {
             {diamondEscortProfiles.length > 0 && (
               <div className="mb-5">
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300/80">Diamond</h3>
-                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:[&>*]:w-[260px] lg:[&>*]:w-[280px]">
+                <ScrollableRow>
                   {diamondEscortProfiles.map((p) => (
                     <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
                   ))}
-                </div>
+                </ScrollableRow>
               </div>
             )}
 
             {goldEscortProfiles.length > 0 && (
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300/80">Gold</h3>
-                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:[&>*]:w-[260px] lg:[&>*]:w-[280px]">
+                <ScrollableRow>
                   {goldEscortProfiles.map((p) => (
                     <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
                   ))}
-                </div>
+                </ScrollableRow>
               </div>
             )}
           </section>
