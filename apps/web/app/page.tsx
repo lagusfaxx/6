@@ -644,10 +644,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* ═══ Two-column layout: main content + forum sidebar ═══ */}
-        <div className="flex gap-6 items-start">
-        <div className="min-w-0 flex-1">
-
         {error && (
           <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>
         )}
@@ -1069,11 +1065,9 @@ export default function HomePage() {
         )}
 
         <HomeCreAccordion />
-        </div>{/* end main content column */}
-
-        <ForumSideCard />
-        </div>{/* end two-column layout */}
       </div>
+
+      <ForumSideCard />
 
       {/* Profile Preview Modal */}
       {previewProfile && (
