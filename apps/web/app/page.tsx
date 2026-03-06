@@ -28,6 +28,7 @@ import {
   MapPin,
   Navigation,
   PartyPopper,
+  ShieldCheck,
   ShoppingBag,
   Sparkles,
   Star,
@@ -103,6 +104,23 @@ type DiscoverProfile = {
   serviceTags?: string[];
   galleryUrls?: string[];
 };
+
+/* ── Badge helpers (mirrors /servicios logic) ── */
+
+function hasExamsBadge(p: { profileTags?: string[] }) {
+  return (p.profileTags || []).some((t) => {
+    const n = String(t || "").trim().toLowerCase();
+    return n === "profesional con examenes" || n === "profesional con exámenes";
+  });
+}
+
+function hasVideoCallBadge(p: { serviceTags?: string[]; profileTags?: string[] }) {
+  const all = [...(p.serviceTags || []), ...(p.profileTags || [])];
+  return all.some((t) => {
+    const n = String(t || "").trim().toLowerCase();
+    return n === "videollamada" || n === "videollamadas";
+  });
+}
 
 /* ── Install App Button ── */
 function InstallAppButton() {
@@ -817,7 +835,19 @@ export default function HomePage() {
                             {p.distance.toFixed(1)} km
                           </div>
                         )}
-                        <UserLevelBadge level={p.userLevel} className="absolute left-3 top-3 px-2.5 py-1 text-[11px]" />
+                        <div className="absolute left-3 top-3 flex flex-col gap-1">
+                          <UserLevelBadge level={p.userLevel} className="px-2.5 py-1 text-[11px]" />
+                          {hasExamsBadge(p) && (
+                            <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                              <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
+                            </div>
+                          )}
+                          {hasVideoCallBadge(p) && (
+                            <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                              <Video className="h-2.5 w-2.5" /> Videollamadas
+                            </div>
+                          )}
+                        </div>
                         {p.availableNow && (
                           <div className="absolute left-3 bottom-12 flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-300/20 px-2 py-0.5 text-[10px] text-emerald-200">
                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
@@ -889,7 +919,19 @@ export default function HomePage() {
                           <MapPin className="h-3 w-3" /> {p.distance.toFixed(1)} km
                         </div>
                       )}
-                      <UserLevelBadge level={p.userLevel} className="absolute left-2 top-2 px-2 py-0.5 text-[10px]" />
+                      <div className="absolute left-2 top-2 flex flex-col gap-1">
+                        <UserLevelBadge level={p.userLevel} className="px-2 py-0.5 text-[10px]" />
+                        {hasExamsBadge(p) && (
+                          <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                            <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
+                          </div>
+                        )}
+                        {hasVideoCallBadge(p) && (
+                          <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                            <Video className="h-2.5 w-2.5" /> Videollamadas
+                          </div>
+                        )}
+                      </div>
                       <div className="absolute bottom-0 left-0 right-0 p-3">
                         <h3 className="text-sm font-semibold leading-tight">{p.name}{p.age ? `, ${p.age}` : ""}</h3>
                         <div className="mt-0.5 text-[10px] text-white/50">{formatLastSeenLabel(p.lastSeen)}</div>
@@ -941,11 +983,23 @@ export default function HomePage() {
                           {profile.distanceKm.toFixed(1)} km
                         </div>
                       )}
-                      {profile.availableNow && (
-                        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-200">
-                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Online
-                        </div>
-                      )}
+                      <div className="absolute left-2 top-2 flex flex-col gap-1">
+                        {profile.availableNow && (
+                          <div className="flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-200">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Online
+                          </div>
+                        )}
+                        {hasExamsBadge(profile as any) && (
+                          <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                            <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
+                          </div>
+                        )}
+                        {hasVideoCallBadge(profile as any) && (
+                          <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                            <Video className="h-2.5 w-2.5" /> Videollamadas
+                          </div>
+                        )}
+                      </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
                         <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
@@ -987,6 +1041,18 @@ export default function HomePage() {
                     <div className="relative aspect-[3/4] bg-white/[0.04]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
                       <UserLevelBadge level={profile.userLevel} className="absolute right-2 top-2 px-2 py-0.5 text-[10px]" />
+                      <div className="absolute left-2 top-2 flex flex-col gap-1">
+                        {hasExamsBadge(profile as any) && (
+                          <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                            <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
+                          </div>
+                        )}
+                        {hasVideoCallBadge(profile as any) && (
+                          <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                            <Video className="h-2.5 w-2.5" /> Videollamadas
+                          </div>
+                        )}
+                      </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
                         <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
