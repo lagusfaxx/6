@@ -79,6 +79,40 @@ export default function CategoryPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Listen for new threads via SSE
+  useEffect(() => {
+    if (!category) return;
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+    if (!apiBase) return;
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource(`${apiBase}/realtime/stream`, { withCredentials: true });
+      es.addEventListener("forum:newThread", (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          if (data.category?.slug === slug && data.id) {
+            const newThread: ThreadItem = {
+              id: data.id,
+              title: data.title,
+              author: data.author,
+              replyCount: 0,
+              views: 0,
+              isPinned: false,
+              isLocked: false,
+              lastPostAt: data.createdAt ?? new Date().toISOString(),
+              createdAt: data.createdAt ?? new Date().toISOString(),
+            };
+            setThreads((prev) => {
+              if (prev.some((t) => t.id === data.id)) return prev;
+              return [newThread, ...prev];
+            });
+          }
+        } catch {}
+      });
+    } catch {}
+    return () => { es?.close(); };
+  }, [category, slug]);
+
   const handleCreate = async () => {
     if (!newTitle.trim() || !newContent.trim() || !category) return;
     setCreating(true);

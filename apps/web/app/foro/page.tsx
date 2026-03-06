@@ -37,6 +37,36 @@ export default function ForumPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Listen for new threads via SSE to update category stats
+  useEffect(() => {
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+    if (!apiBase) return;
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource(`${apiBase}/realtime/stream`, { withCredentials: true });
+      es.addEventListener("forum:newThread", (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          if (data.category?.slug) {
+            setCategories((prev) =>
+              prev.map((cat) =>
+                cat.slug === data.category.slug
+                  ? {
+                      ...cat,
+                      threadCount: cat.threadCount + 1,
+                      lastActivity: data.createdAt ?? new Date().toISOString(),
+                      lastThread: { title: data.title, author: data.author?.username ?? "Anónimo" },
+                    }
+                  : cat
+              )
+            );
+          }
+        } catch {}
+      });
+    } catch {}
+    return () => { es?.close(); };
+  }, []);
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="mb-6 flex items-center gap-3">
