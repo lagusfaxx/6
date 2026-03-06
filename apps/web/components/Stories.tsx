@@ -2,7 +2,8 @@
 
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle, Radio } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import useMe from "../hooks/useMe";
@@ -23,6 +24,13 @@ type StoryGroup = {
   avatarUrl: string | null;
   profileHref: string;
   stories: StoryItem[];
+};
+
+type LiveStreamItem = {
+  id: string;
+  title: string | null;
+  viewerCount: number;
+  host: { id: string; displayName: string; username: string; avatarUrl: string | null };
 };
 
 const STORY_DURATION_MS = 5000;
@@ -244,22 +252,49 @@ function StoryViewer({
 export default function Stories({ showUpload = false }: { showUpload?: boolean }) {
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
+  const router = useRouter();
   const { me } = useMe();
 
   const isProfessional = (me?.user?.profileType ?? "").toUpperCase() === "PROFESSIONAL";
   const canUpload = showUpload || isProfessional;
 
   const [groups, setGroups] = useState<StoryGroup[]>([]);
+  const [liveStreams, setLiveStreams] = useState<LiveStreamItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewerGroupIdx, setViewerGroupIdx] = useState<number | null>(null);
+  const [goingLive, setGoingLive] = useState(false);
 
   useEffect(() => {
-    // No location filter — stories should be visible in all regions
+    let done = 0;
+    const checkDone = () => { done++; if (done >= 2) setLoading(false); };
+
     apiFetch<{ stories: StoryGroup[] }>("/stories/active")
       .then((d) => setGroups(d.stories ?? []))
       .catch(() => setGroups([]))
-      .finally(() => setLoading(false));
+      .finally(checkDone);
+
+    apiFetch<{ streams: LiveStreamItem[] }>("/live/active")
+      .then((d) => setLiveStreams(d.streams ?? []))
+      .catch(() => setLiveStreams([]))
+      .finally(checkDone);
   }, []);
+
+  const handleGoLive = async () => {
+    setGoingLive(true);
+    try {
+      const res = await apiFetch<{ stream: { id: string } }>("/live/start", {
+        method: "POST",
+        body: JSON.stringify({ title: null }),
+      });
+      router.push(`/live/${res.stream.id}`);
+    } catch (e: any) {
+      // If already streaming, redirect to existing stream
+      if (e?.body?.streamId) {
+        router.push(`/live/${e.body.streamId}`);
+      }
+      setGoingLive(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -280,7 +315,8 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
     );
   }
 
-  if (groups.length === 0 && !canUpload) return null;
+  const totalActive = groups.length + liveStreams.length;
+  if (totalActive === 0 && !canUpload) return null;
 
   return (
     <>
@@ -289,24 +325,56 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-white/90">Historias</span>
-            {groups.length > 0 && (
+            {totalActive > 0 && (
               <span className="rounded-full bg-fuchsia-500/15 border border-fuchsia-500/20 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
-                {groups.length} activas
+                {totalActive} activas
+              </span>
+            )}
+            {liveStreams.length > 0 && (
+              <span className="rounded-full bg-red-500/15 border border-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-300 flex items-center gap-1">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />
+                {liveStreams.length} en vivo
               </span>
             )}
           </div>
-          {isProfessional && (
-            <Link
-              href="/dashboard/stories"
-              className="text-[11px] text-fuchsia-400 hover:text-fuchsia-300 transition font-medium"
-            >
-              + Subir story
-            </Link>
-          )}
+          <div className="flex items-center gap-3">
+            {isProfessional && (
+              <button
+                onClick={handleGoLive}
+                disabled={goingLive}
+                className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 transition font-medium disabled:opacity-50"
+              >
+                <Radio className="h-3 w-3" />
+                {goingLive ? "Iniciando..." : "Ir en vivo"}
+              </button>
+            )}
+            {isProfessional && (
+              <Link
+                href="/dashboard/stories"
+                className="text-[11px] text-fuchsia-400 hover:text-fuchsia-300 transition font-medium"
+              >
+                + Subir story
+              </Link>
+            )}
+          </div>
         </div>
 
         <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
-          {/* Upload button for professionals */}
+          {/* Go Live button for professionals */}
+          {isProfessional && (
+            <div className="flex-shrink-0 flex flex-col items-center gap-2">
+              <button
+                onClick={handleGoLive}
+                disabled={goingLive}
+                className="relative h-20 w-20 rounded-full border-2 border-dashed border-red-500/50 bg-red-500/5 flex items-center justify-center text-red-400 hover:border-red-400 hover:bg-red-500/10 transition hover:shadow-[0_0_20px_rgba(239,68,68,0.25)] disabled:opacity-50"
+              >
+                <Radio className="h-7 w-7" />
+              </button>
+              <span className="text-[11px] text-red-300/60 font-medium">En vivo</span>
+            </div>
+          )}
+
+          {/* Upload story button for professionals */}
           {canUpload && (
             <div className="flex-shrink-0 flex flex-col items-center gap-2">
               <Link
@@ -319,6 +387,39 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
             </div>
           )}
 
+          {/* Active live streams — shown first with red ring */}
+          {liveStreams.map((s) => (
+            <Link
+              key={`live-${s.id}`}
+              href={`/live/${s.id}`}
+              className="flex-shrink-0 flex flex-col items-center gap-2 group"
+            >
+              <div className="relative h-20 w-20 rounded-full p-[3px] bg-gradient-to-tr from-red-600 via-red-500 to-orange-500 group-hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-shadow">
+                <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
+                  {s.host.avatarUrl ? (
+                    <img
+                      src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
+                      alt={s.host.displayName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-red-700/50 to-orange-700/50">
+                      {s.host.displayName[0]?.toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <span className="absolute bottom-0 right-0 flex items-center gap-0.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[8px] font-bold text-white shadow-lg border border-[#08090f]">
+                  <span className="h-1 w-1 animate-pulse rounded-full bg-white" />
+                  LIVE
+                </span>
+              </div>
+              <span className="max-w-[72px] truncate text-[11px] text-white/60 font-medium group-hover:text-white/80 transition">
+                {s.host.displayName.split(" ")[0]}
+              </span>
+            </Link>
+          ))}
+
+          {/* Stories */}
           {groups.map((g, i) => (
             <button
               key={g.userId}
