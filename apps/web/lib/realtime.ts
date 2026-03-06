@@ -57,6 +57,7 @@ export function connectRealtime(handler: Handler) {
         "videocall:cancelled", "videocall:noshow",
         "live:started", "live:ended", "live:chat",
         "live:viewer_joined", "live:viewer_left",
+        "signal:offer", "signal:answer", "signal:ice",
       ] as const) {
         es.addEventListener(evt, (e: MessageEvent) => {
           try {

@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 import { connectRealtime } from "../../../lib/realtime";
+import { WebRTCPeer, getLocalMedia } from "../../../lib/webrtc";
 import {
-  Radio, Users, Send, X, AlertTriangle, ShieldAlert,
+  Radio, Users, Send, X, ShieldAlert, Mic, MicOff, VideoIcon, VideoOff,
 } from "lucide-react";
 
 type Stream = {
@@ -39,7 +40,18 @@ export default function LiveStreamPage() {
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [joined, setJoined] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [videoReady, setVideoReady] = useState(false);
+  const [micOn, setMicOn] = useState(true);
+  const [camOn, setCamOn] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // WebRTC refs
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const peersRef = useRef<Map<string, WebRTCPeer>>(new Map());
+
+  const myId = me?.user?.id;
 
   useEffect(() => {
     apiFetch<{ stream: Stream }>(`/live/${id}`)
@@ -50,6 +62,25 @@ export default function LiveStreamPage() {
       .catch(() => router.push("/"))
       .finally(() => setLoading(false));
   }, [id, router]);
+
+  const isHost = stream ? myId === stream.host.id : false;
+
+  // Host: start camera when page loads
+  useEffect(() => {
+    if (!isHost || !stream?.isActive) return;
+    (async () => {
+      try {
+        const media = await getLocalMedia({ video: true, audio: true });
+        localStreamRef.current = media;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = media;
+        }
+        setVideoReady(true);
+      } catch {
+        // Camera access denied — still show page
+      }
+    })();
+  }, [isHost, stream?.isActive]);
 
   // Join stream
   const handleJoin = useCallback(async () => {
@@ -65,28 +96,147 @@ export default function LiveStreamPage() {
       if (joined) {
         apiFetch(`/live/${id}/leave`, { method: "POST" }).catch(() => {});
       }
+      // Cleanup all peers
+      for (const peer of peersRef.current.values()) {
+        peer.close();
+      }
+      localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, [joined, id]);
 
-  // SSE for live chat
+  // SSE for live chat + WebRTC signaling
   useEffect(() => {
-    if (!me?.user?.id || !joined) return;
-    const cleanup = connectRealtime((event) => {
-      if (event.type === "live:chat" && event.data?.streamId === id) {
+    if (!myId || (!joined && !isHost)) return;
+
+    const cleanup = connectRealtime(async (event) => {
+      const data = event.data;
+
+      // Chat messages
+      if (event.type === "live:chat" && data?.streamId === id) {
         setMessages((prev) => [...prev, {
-          id: event.data.messageId,
-          userId: event.data.userId,
-          userName: event.data.userName,
-          message: event.data.message,
-          createdAt: event.data.createdAt,
+          id: data.messageId,
+          userId: data.userId,
+          userName: data.userName,
+          message: data.message,
+          createdAt: data.createdAt,
         }]);
       }
-      if (event.type === "live:ended" && event.data?.streamId === id) {
+
+      if (event.type === "live:ended" && data?.streamId === id) {
         setStream((s) => s ? { ...s, isActive: false } : null);
+        for (const peer of peersRef.current.values()) peer.close();
+        peersRef.current.clear();
+      }
+
+      if (event.type === "live:viewer_joined" && data?.streamId === id) {
+        setStream((s) => s ? { ...s, viewerCount: data.viewerCount } : null);
+      }
+
+      if (event.type === "live:viewer_left" && data?.streamId === id) {
+        setStream((s) => s ? { ...s, viewerCount: data.viewerCount } : null);
+      }
+
+      // WebRTC signaling
+      if (!data?.fromUserId) return;
+      if (data.streamId && data.streamId !== id) return;
+
+      // Host receives offer from viewer (shouldn't happen in our flow)
+      // Viewer receives offer from host
+      if (event.type === "signal:offer" && !isHost) {
+        // Viewer: create peer, handle offer from host
+        const peer = new WebRTCPeer(data.fromUserId, {
+          onRemoteStream: (remoteStream) => {
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = remoteStream;
+            }
+            setVideoReady(true);
+          },
+        }, { streamId: id });
+
+        peersRef.current.set(data.fromUserId, peer);
+        await peer.handleOffer(data.sdp);
+      }
+
+      // Host receives answer from viewer
+      if (event.type === "signal:answer" && isHost) {
+        const peer = peersRef.current.get(data.fromUserId);
+        if (peer) {
+          await peer.handleAnswer(data.sdp);
+        }
+      }
+
+      if (event.type === "signal:ice") {
+        const peer = peersRef.current.get(data.fromUserId);
+        if (peer) {
+          await peer.handleIceCandidate(data.candidate);
+        }
+      }
+
+      // Host: when a viewer joins, send them an offer with the local stream
+      if (event.type === "live:viewer_joined" && isHost && data?.streamId === id && localStreamRef.current) {
+        // We need the viewer's userId — but the event doesn't include it directly.
+        // The viewer will request the stream by sending a signal:offer to the host.
+        // Actually, let's use a different approach: the viewer sends a "request" via
+        // a POST, and the host initiates the offer.
       }
     });
+
     return cleanup;
-  }, [me?.user?.id, joined, id]);
+  }, [myId, joined, isHost, id]);
+
+  // Viewer: after joining, request stream from host by sending a signal offer
+  useEffect(() => {
+    if (!joined || isHost || !stream?.host.id || !myId) return;
+
+    // Request the host to send us their stream
+    // We create a peer and send an offer; host will answer
+    const requestStream = async () => {
+      const peer = new WebRTCPeer(stream.host.id, {
+        onRemoteStream: (remoteStream) => {
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remoteStream;
+          }
+          setVideoReady(true);
+        },
+      }, { streamId: id });
+
+      // Add a receive-only transceiver so the host knows we want video
+      peer.pc.addTransceiver("video", { direction: "recvonly" });
+      peer.pc.addTransceiver("audio", { direction: "recvonly" });
+
+      peersRef.current.set(stream.host.id, peer);
+      await peer.createOffer();
+    };
+
+    requestStream();
+  }, [joined, isHost, stream?.host.id, myId, id]);
+
+  // Host: when receiving an offer from a viewer, add local tracks and answer
+  useEffect(() => {
+    if (!isHost || !myId) return;
+
+    const cleanup = connectRealtime(async (event) => {
+      const data = event.data;
+      if (event.type !== "signal:offer" || !data?.fromUserId) return;
+      if (data.streamId && data.streamId !== id) return;
+
+      // Host: create peer for this viewer, add local stream, handle their offer
+      const viewerId = data.fromUserId;
+      const existingPeer = peersRef.current.get(viewerId);
+      if (existingPeer) existingPeer.close();
+
+      const peer = new WebRTCPeer(viewerId, {}, { streamId: id });
+
+      if (localStreamRef.current) {
+        peer.addStream(localStreamRef.current);
+      }
+
+      peersRef.current.set(viewerId, peer);
+      await peer.handleOffer(data.sdp);
+    });
+
+    return cleanup;
+  }, [isHost, myId, id]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -96,16 +246,33 @@ export default function LiveStreamPage() {
     if (!chatInput.trim()) return;
     try {
       await apiFetch(`/live/${id}/chat`, { method: "POST", body: JSON.stringify({ message: chatInput.trim() }) });
-      // Optimistic: add to local
       setMessages((prev) => [...prev, {
         id: `local-${Date.now()}`,
-        userId: me?.user?.id || "",
+        userId: myId || "",
         userName: "Tú",
         message: chatInput.trim(),
         createdAt: new Date().toISOString(),
       }]);
       setChatInput("");
     } catch {}
+  };
+
+  const toggleMic = () => {
+    const track = localStreamRef.current?.getAudioTracks()[0];
+    if (track) { track.enabled = !track.enabled; setMicOn(track.enabled); }
+  };
+
+  const toggleCam = () => {
+    const track = localStreamRef.current?.getVideoTracks()[0];
+    if (track) { track.enabled = !track.enabled; setCamOn(track.enabled); }
+  };
+
+  const endStream = async () => {
+    for (const peer of peersRef.current.values()) peer.close();
+    peersRef.current.clear();
+    localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    await apiFetch(`/live/${id}/end`, { method: "POST" }).catch(() => {});
+    router.push("/");
   };
 
   // Age gate
@@ -129,8 +296,6 @@ export default function LiveStreamPage() {
 
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-[#0a0b14] text-white/30">Cargando...</div>;
   if (!stream) return <div className="flex min-h-screen items-center justify-center bg-[#0a0b14] text-white/30">Stream no encontrado</div>;
-
-  const isHost = me?.user?.id === stream.host.id;
 
   return (
     <div className="flex min-h-screen flex-col bg-black text-white">
@@ -165,27 +330,69 @@ export default function LiveStreamPage() {
 
       {/* Stream area */}
       <div className="relative flex flex-1 flex-col lg:flex-row">
-        {/* Video area placeholder */}
-        <div className="flex flex-1 items-center justify-center bg-gradient-to-br from-fuchsia-950/30 to-violet-950/30">
-          {stream.isActive ? (
+        {/* Video area */}
+        <div className="relative flex flex-1 items-center justify-center bg-gradient-to-br from-fuchsia-950/30 to-violet-950/30">
+          {/* Host: show local video */}
+          {isHost && (
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`h-full w-full object-cover ${!videoReady ? "hidden" : ""}`}
+              style={{ transform: "scaleX(-1)" }}
+            />
+          )}
+
+          {/* Viewer: show remote video from host */}
+          {!isHost && joined && (
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className={`h-full w-full object-cover ${!videoReady ? "hidden" : ""}`}
+            />
+          )}
+
+          {/* Fallback states */}
+          {stream.isActive && !videoReady && !isHost && !joined && (
             <div className="text-center">
               <Radio className="mx-auto mb-3 h-16 w-16 animate-pulse text-fuchsia-400/40" />
               <p className="text-sm text-white/30">Transmisión en vivo</p>
-              {!joined && !isHost && (
-                <button onClick={handleJoin} className="mt-4 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-semibold">
-                  Unirse al Live
-                </button>
-              )}
-              {isHost && (
-                <button onClick={async () => { await apiFetch(`/live/${id}/end`, { method: "POST" }); router.push("/"); }} className="mt-4 rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold">
-                  Finalizar Live
-                </button>
-              )}
+              <button onClick={handleJoin} className="mt-4 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-semibold">
+                Unirse al Live
+              </button>
             </div>
-          ) : (
+          )}
+
+          {stream.isActive && !videoReady && (isHost || joined) && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
+                <p className="text-xs text-white/30">Conectando video...</p>
+              </div>
+            </div>
+          )}
+
+          {!stream.isActive && (
             <div className="text-center">
               <p className="text-lg font-semibold text-white/40">Live finalizado</p>
               <button onClick={() => router.push("/")} className="mt-3 text-sm text-fuchsia-400 underline">Volver al inicio</button>
+            </div>
+          )}
+
+          {/* Host controls overlay */}
+          {isHost && stream.isActive && (
+            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-3">
+              <button onClick={toggleMic} className={`flex h-10 w-10 items-center justify-center rounded-full transition ${micOn ? "bg-white/20 text-white" : "bg-red-500/80 text-white"}`}>
+                {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+              </button>
+              <button onClick={toggleCam} className={`flex h-10 w-10 items-center justify-center rounded-full transition ${camOn ? "bg-white/20 text-white" : "bg-red-500/80 text-white"}`}>
+                {camOn ? <VideoIcon className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+              </button>
+              <button onClick={endStream} className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-lg shadow-red-500/30">
+                <X className="h-5 w-5" />
+              </button>
             </div>
           )}
         </div>

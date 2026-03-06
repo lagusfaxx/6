@@ -17,6 +17,7 @@ import { walletRouter } from "./routes/wallet";
 import { adminTokensRouter } from "./routes/adminTokens";
 import { videocallRouter } from "./routes/videocall";
 import { livestreamRouter } from "./routes/livestream";
+import { signalingRouter } from "./routes/signaling";
 
 assertEnv();
 
@@ -81,6 +82,7 @@ app.use(walletRouter);
 app.use(adminTokensRouter);
 app.use(videocallRouter);
 app.use(livestreamRouter);
+app.use(signalingRouter);
 
 app.use((err: any, _req: any, res: any, _next: any) => {
   console.error(err);

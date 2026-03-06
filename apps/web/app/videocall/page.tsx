@@ -281,14 +281,14 @@ export default function VideocallPage() {
                     {/* Action buttons */}
                     <div className="mt-3 flex gap-2">
                       {isProfessional && (b.status === "PENDING" || b.status === "CONFIRMED") && isNow && (
-                        <button onClick={() => handleAction(b.id, "start")} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium">
-                          <Play className="h-3.5 w-3.5" /> Iniciar Llamada
-                        </button>
+                        <Link href={`/videocall/room/${b.id}`} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium">
+                          <Play className="h-3.5 w-3.5" /> Entrar a la Sala
+                        </Link>
                       )}
                       {b.status === "IN_PROGRESS" && (
-                        <button onClick={() => handleAction(b.id, "complete")} className="flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium">
-                          <PhoneOff className="h-3.5 w-3.5" /> Finalizar
-                        </button>
+                        <Link href={`/videocall/room/${b.id}`} className="flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium">
+                          <Phone className="h-3.5 w-3.5" /> Unirse a la Llamada
+                        </Link>
                       )}
                       {!isProfessional && (b.status === "PENDING" || b.status === "CONFIRMED") && (
                         <>
