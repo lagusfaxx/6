@@ -96,6 +96,197 @@ enum PaymentIntentStatus {
   EXPIRED
 }
 
+// ── Token / Wallet System ──
+
+enum TokenDepositStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TokenTxType {
+  DEPOSIT
+  VIDEOCALL_HOLD
+  VIDEOCALL_RELEASE
+  VIDEOCALL_REFUND
+  VIDEOCALL_COMMISSION
+  WITHDRAWAL
+  PENALTY
+  ADJUSTMENT
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VideocallBookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED_CLIENT
+  NO_SHOW_PROFESSIONAL
+}
+
+model Wallet {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @db.Uuid
+  balance         Int      @default(0) // available tokens
+  heldBalance     Int      @default(0) // tokens held in escrow
+  totalEarned     Int      @default(0) // lifetime earned (professionals)
+  totalSpent      Int      @default(0) // lifetime spent (clients)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deposits     TokenDeposit[]
+  transactions TokenTransaction[]
+  withdrawals  WithdrawalRequest[]
+}
+
+model TokenDeposit {
+  id          String             @id @default(uuid()) @db.Uuid
+  walletId    String             @db.Uuid
+  amount      Int                // tokens requested
+  clpAmount   Int                // CLP paid
+  receiptUrl  String             // uploaded bank transfer receipt
+  status      TokenDepositStatus @default(PENDING)
+  reviewedBy  String?            @db.Uuid
+  reviewedAt  DateTime?
+  rejectReason String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([status])
+}
+
+model TokenTransaction {
+  id          String      @id @default(uuid()) @db.Uuid
+  walletId    String      @db.Uuid
+  type        TokenTxType
+  amount      Int         // positive = credit, negative = debit
+  balance     Int         // balance after this tx
+  referenceId String?     @db.Uuid // booking, deposit, withdrawal id
+  description String?
+  createdAt   DateTime    @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, createdAt])
+}
+
+model WithdrawalRequest {
+  id            String           @id @default(uuid()) @db.Uuid
+  walletId      String           @db.Uuid
+  amount        Int              // tokens to withdraw
+  clpAmount     Int              // CLP equivalent
+  bankName      String
+  accountType   String           // corriente, vista, ahorro
+  accountNumber String
+  holderName    String
+  holderRut     String
+  status        WithdrawalStatus @default(PENDING)
+  reviewedBy    String?          @db.Uuid
+  reviewedAt    DateTime?
+  rejectReason  String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([status])
+}
+
+// ── Videocall System ──
+
+model VideocallConfig {
+  id                String   @id @default(uuid()) @db.Uuid
+  professionalId    String   @unique @db.Uuid
+  pricePerMinute    Int      // tokens per minute
+  minDurationMin    Int      @default(5)
+  maxDurationMin    Int      @default(60)
+  availableSlots    Json?    // [{ day: 0-6, from: "09:00", to: "22:00" }]
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  professional User              @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  bookings     VideocallBooking[]
+}
+
+model VideocallBooking {
+  id               String                @id @default(uuid()) @db.Uuid
+  configId         String                @db.Uuid
+  clientId         String                @db.Uuid
+  professionalId   String                @db.Uuid
+  scheduledAt      DateTime
+  durationMinutes  Int
+  totalTokens      Int                   // total cost
+  platformFee      Int                   // 10% commission
+  professionalPay  Int                   // 90% to professional
+  status           VideocallBookingStatus @default(PENDING)
+  roomId           String?               // unique room id for the call
+  startedAt        DateTime?
+  endedAt          DateTime?
+  reminderSentAt   DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  config       VideocallConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  client       User            @relation("ClientVideocalls", fields: [clientId], references: [id], onDelete: Cascade)
+  professional User            @relation("ProfessionalVideocalls", fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([professionalId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+// ── Live Streaming ──
+
+model LiveStream {
+  id              String    @id @default(uuid()) @db.Uuid
+  hostId          String    @db.Uuid
+  title           String?
+  isActive        Boolean   @default(true)
+  viewerCount     Int       @default(0)
+  maxViewers      Int       @default(10)
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime?
+
+  host     User           @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  messages LiveChatMessage[]
+
+  @@index([hostId])
+  @@index([isActive])
+}
+
+model LiveChatMessage {
+  id         String   @id @default(uuid()) @db.Uuid
+  streamId   String   @db.Uuid
+  userId     String   @db.Uuid
+  message    String
+  createdAt  DateTime @default(now())
+
+  stream LiveStream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@index([streamId, createdAt])
+}
+
+// ── Platform Configuration ──
+
+model PlatformConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 model User {
   id                  String            @id @default(uuid()) @db.Uuid
   email               String            @unique
@@ -183,6 +374,11 @@ model User {
   stories                Story[]
   forumThreads           ForumThread[]
   forumPosts             ForumPost[]
+  wallet                 Wallet?
+  videocallConfig        VideocallConfig?
+  clientVideocalls       VideocallBooking[] @relation("ClientVideocalls")
+  professionalVideocalls VideocallBooking[] @relation("ProfessionalVideocalls")
+  liveStreams            LiveStream[]
 }
 
 model PushSubscription {

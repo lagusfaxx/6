@@ -131,13 +131,15 @@ export function ForumNotificationProvider({
     [markSeen],
   );
 
-  // ── Authenticated users: SSE for real-time contextual + discovery ──
+  // ── Real-time SSE for forum events (both authenticated & guest users) ──
   useEffect(() => {
-    if (!myId) return;
+    if (meLoading) return; // wait for auth check to complete
+
     const cleanup = connectRealtime((event) => {
       if (event.type === "forum:newThread" && event.data) {
         const d = event.data;
-        if (d.author?.id === myId) return;
+        // Skip own threads for authenticated users
+        if (myId && d.author?.id === myId) return;
         showDiscovery({
           id: `thread-${d.id}`,
           kind: "new-thread",
@@ -150,8 +152,10 @@ export function ForumNotificationProvider({
       }
       if (event.type === "forum:newPost" && event.data) {
         const d = event.data;
-        if (d.post?.author?.id === myId) return;
-        if (d.threadAuthorId === myId) {
+        // Skip own posts for authenticated users
+        if (myId && d.post?.author?.id === myId) return;
+        // Contextual toast only for authenticated thread owners
+        if (myId && d.threadAuthorId === myId) {
           addContextual({
             id: `post-${d.post?.id ?? Date.now()}`,
             kind: "reply",
@@ -174,9 +178,9 @@ export function ForumNotificationProvider({
       }
     });
     return cleanup;
-  }, [myId, addContextual, showDiscovery]);
+  }, [meLoading, myId, addContextual, showDiscovery]);
 
-  // ── Guest users: poll /forum/recent to detect new activity ──
+  // ── Guest fallback: poll /forum/recent in case SSE doesn't connect ──
   const lastKnownIdsRef = useRef<string[]>([]);
 
   useEffect(() => {

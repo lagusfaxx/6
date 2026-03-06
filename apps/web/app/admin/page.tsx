@@ -32,6 +32,14 @@ export default function AdminIndex() {
           <div className="text-lg font-semibold">Precios</div>
           <div className="text-sm text-white/70">Planes y reglas.</div>
         </Link>
+        <Link href="/admin/deposits" className="rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-4 hover:bg-fuchsia-500/10 transition">
+          <div className="text-lg font-semibold text-fuchsia-200">Depósitos de Tokens</div>
+          <div className="text-sm text-fuchsia-200/70">Aprobar o rechazar comprobantes de depósito.</div>
+        </Link>
+        <Link href="/admin/withdrawals" className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 hover:bg-emerald-500/10 transition">
+          <div className="text-lg font-semibold text-emerald-200">Solicitudes de Retiro</div>
+          <div className="text-sm text-emerald-200/70">Gestionar retiros de tokens a cuenta bancaria.</div>
+        </Link>
       </div>
     </div>
   );
