@@ -33,6 +33,7 @@ import {
   Scissors,
   CheckCircle,
   ShieldCheck,
+  Video,
 } from "lucide-react";
 
 type ProfileResult = {
@@ -166,6 +167,10 @@ function matchesProfessionalCategory(profile: ProfileResult, category: string) {
   return true;
 }
 
+function hasVideoCallBadge(profile: ProfileResult) {
+  return hasServiceOrProfileTag(profile, ["videollamada", "videollamadas"]);
+}
+
 function hasExamsBadge(profile: ProfileResult) {
   const tags = profile.profileTags || [];
   return tags.some((tag) => {
@@ -220,6 +225,11 @@ const FeaturedCard = memo(function FeaturedCard({
               {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-2 py-0.5 text-[10px] font-semibold text-sky-100 shadow-lg">
                   <ShieldCheck className="h-3 w-3" /> Con exámenes
+                </span>
+              )}
+              {profile.profileType === "PROFESSIONAL" && hasVideoCallBadge(profile) && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/20 px-2 py-0.5 text-[10px] font-semibold text-violet-100 shadow-lg">
+                  <Video className="h-3 w-3" /> Videollamada
                 </span>
               )}
             </div>
@@ -321,6 +331,11 @@ const ProfileCard = memo(function ProfileCard({
             {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) ? (
               <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
                 <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
+              </div>
+            ) : null}
+            {profile.profileType === "PROFESSIONAL" && hasVideoCallBadge(profile) ? (
+              <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/20 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                <Video className="h-2.5 w-2.5" /> Videollamada
               </div>
             ) : null}
           </div>
@@ -476,6 +491,11 @@ function ProfileDetailPanel({
           {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) && (
             <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/15 px-2.5 py-1 text-xs font-medium text-sky-100">
               <ShieldCheck className="h-3 w-3" /> Con exámenes
+            </span>
+          )}
+          {profile.profileType === "PROFESSIONAL" && hasVideoCallBadge(profile) && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/15 px-2.5 py-1 text-xs font-medium text-violet-100">
+              <Video className="h-3 w-3" /> Videollamada
             </span>
           )}
         </div>
@@ -1116,7 +1136,7 @@ export default function ServicesPage() {
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
               {featuredProfiles.slice(0, 6).map((p) => (
                 <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
               ))}
@@ -1136,7 +1156,7 @@ export default function ServicesPage() {
             {diamondEscortProfiles.length > 0 && (
               <div className="mb-5">
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300/80">Diamond</h3>
-                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
+                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
                   {diamondEscortProfiles.map((p) => (
                     <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
                   ))}
@@ -1147,7 +1167,7 @@ export default function ServicesPage() {
             {goldEscortProfiles.length > 0 && (
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300/80">Gold</h3>
-                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
+                <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
                   {goldEscortProfiles.map((p) => (
                     <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
                   ))}
