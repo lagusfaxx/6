@@ -35,6 +35,7 @@ import { motelRouter } from "./motel/routes";
 import { favoritesRouter } from "./favorites/routes";
 import { storiesRouter } from "./stories/routes";
 import { hotRouter } from "./hot/routes";
+import { forumRouter } from "./forum/routes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 
@@ -169,6 +170,7 @@ app.use("/", statsRouter);
 app.use("/", favoritesRouter);
 app.use("/", storiesRouter);
 app.use("/", hotRouter);
+app.use("/", forumRouter);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const requestId = (req as any).requestId;

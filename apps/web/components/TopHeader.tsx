@@ -12,6 +12,7 @@ import {
   Home,
   Heart,
   MessageCircle,
+  MessageSquare,
   User,
   Sparkles,
   HandMetal,
@@ -206,6 +207,12 @@ export default function TopHeader() {
                 >
                   Cerca tuyo
                 </Link>
+                <Link
+                  href="/foro"
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${pathname.startsWith("/foro") ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25" : "text-white/60 hover:bg-white/10 hover:text-white/90"}`}
+                >
+                  Foro
+                </Link>
               </nav>
 
               {/* Right: Location + Notifications + Avatar */}
@@ -367,6 +374,9 @@ export default function TopHeader() {
                 </button>
                 <button onClick={() => handleNavLink("/servicios")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
                   <Search className="h-4 w-4 text-white/50" /> Cerca tuyo
+                </button>
+                <button onClick={() => handleNavLink("/foro")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
+                  <MessageSquare className="h-4 w-4 text-white/50" /> Foro
                 </button>
                 {isAuthed && (
                   <>

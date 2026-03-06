@@ -79,6 +79,8 @@ enum NotificationType {
   MESSAGE_RECEIVED
   POST_PUBLISHED
   SERVICE_PUBLISHED
+  FORUM_REPLY
+  FORUM_NEW_THREAD
 }
 
 enum PaymentIntentPurpose {
@@ -179,6 +181,8 @@ model User {
   motelPromotions         MotelPromotion[] @relation("MotelPromotions")
   pushSubscriptions      PushSubscription[]
   stories                Story[]
+  forumThreads           ForumThread[]
+  forumPosts             ForumPost[]
 }
 
 model PushSubscription {
@@ -603,4 +607,53 @@ model ProfileReviewSurvey {
 
   @@unique([profileId, reviewerId])
   @@index([profileId])
+}
+
+// ── Forum System ──
+
+model ForumCategory {
+  id          String        @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String        @unique
+  description String?
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  threads ForumThread[]
+}
+
+model ForumThread {
+  id         String   @id @default(uuid()) @db.Uuid
+  categoryId String   @db.Uuid
+  authorId   String   @db.Uuid
+  title      String
+  isPinned   Boolean  @default(false)
+  isLocked   Boolean  @default(false)
+  views      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  lastPostAt DateTime @default(now())
+
+  category ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  posts    ForumPost[]
+
+  @@index([categoryId, lastPostAt])
+  @@index([authorId])
+}
+
+model ForumPost {
+  id        String   @id @default(uuid()) @db.Uuid
+  threadId  String   @db.Uuid
+  authorId  String   @db.Uuid
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  thread ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@index([authorId])
 }
