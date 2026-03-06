@@ -13,6 +13,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, Reply, X, ArrowRight } from "lucide-react";
 import { connectRealtime } from "../lib/realtime";
+import { apiFetch } from "../lib/api";
 import useMe from "../hooks/useMe";
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -73,7 +74,7 @@ export function ForumNotificationProvider({
   const seenRef = useRef(new Set<string>());
   const discoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname() || "/";
-  const { me } = useMe();
+  const { me, loading: meLoading } = useMe();
   const myId = me?.user?.id;
 
   // Clear badge when visiting /foro
@@ -130,16 +131,13 @@ export function ForumNotificationProvider({
     [markSeen],
   );
 
-  // SSE connection
+  // ── Authenticated users: SSE for real-time contextual + discovery ──
   useEffect(() => {
+    if (!myId) return;
     const cleanup = connectRealtime((event) => {
-      /* ── New thread ── */
       if (event.type === "forum:newThread" && event.data) {
         const d = event.data;
-        // Don't notify yourself
         if (d.author?.id === myId) return;
-
-        // Always discovery: new threads are social signals
         showDiscovery({
           id: `thread-${d.id}`,
           kind: "new-thread",
@@ -150,18 +148,10 @@ export function ForumNotificationProvider({
           timestamp: Date.now(),
         });
       }
-
-      /* ── New reply ── */
       if (event.type === "forum:newPost" && event.data) {
         const d = event.data;
-        const postAuthorId = d.post?.author?.id;
-        // Don't notify yourself
-        if (postAuthorId === myId) return;
-
-        const isMyThread = d.threadAuthorId === myId;
-
-        if (isMyThread) {
-          // Contextual: someone replied to YOUR thread
+        if (d.post?.author?.id === myId) return;
+        if (d.threadAuthorId === myId) {
           addContextual({
             id: `post-${d.post?.id ?? Date.now()}`,
             kind: "reply",
@@ -171,7 +161,6 @@ export function ForumNotificationProvider({
             timestamp: Date.now(),
           });
         } else {
-          // Discovery: activity in a thread you're not involved in
           showDiscovery({
             id: `post-${d.post?.id ?? Date.now()}`,
             kind: "new-activity",
@@ -186,6 +175,71 @@ export function ForumNotificationProvider({
     });
     return cleanup;
   }, [myId, addContextual, showDiscovery]);
+
+  // ── Guest users: poll /forum/recent to detect new activity ──
+  const lastKnownIdsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    // Wait until useMe resolves; only run for guests
+    if (meLoading || myId) return;
+
+    let alive = true;
+
+    // Seed initial state without showing nudges
+    apiFetch<{ threads: { id: string; title: string; author: string; category: string; lastPostAt: string }[] }>("/forum/recent")
+      .then((r) => {
+        if (!alive) return;
+        lastKnownIdsRef.current = (r.threads ?? []).map((t) => t.id);
+      })
+      .catch(() => {});
+
+    const interval = setInterval(() => {
+      apiFetch<{ threads: { id: string; title: string; author: string; category: string; lastPostAt: string }[] }>("/forum/recent")
+        .then((r) => {
+          if (!alive) return;
+          const threads = r.threads ?? [];
+          const prev = lastKnownIdsRef.current;
+          // Find threads that weren't in the previous snapshot
+          for (const t of threads) {
+            if (!prev.includes(t.id)) {
+              showDiscovery({
+                id: `poll-${t.id}`,
+                kind: "new-thread",
+                threadId: t.id,
+                title: t.title,
+                author: t.author,
+                category: t.category ?? "Foro",
+                timestamp: Date.now(),
+              });
+              break; // One nudge at a time
+            }
+          }
+          // Detect activity change on existing threads (lastPostAt changed)
+          if (threads.length > 0 && prev.includes(threads[0].id)) {
+            // Top thread is same but may have new replies — check if it moved to top
+            const prevTopIdx = prev.indexOf(threads[0].id);
+            if (prevTopIdx > 0) {
+              showDiscovery({
+                id: `poll-activity-${threads[0].id}-${Date.now()}`,
+                kind: "new-activity",
+                threadId: threads[0].id,
+                title: threads[0].title,
+                author: threads[0].author,
+                category: threads[0].category ?? "Foro",
+                timestamp: Date.now(),
+              });
+            }
+          }
+          lastKnownIdsRef.current = threads.map((t) => t.id);
+        })
+        .catch(() => {});
+    }, 5000);
+
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, [meLoading, myId, showDiscovery]);
 
   return (
     <Ctx.Provider value={{ badgeCount, clearBadge }}>
