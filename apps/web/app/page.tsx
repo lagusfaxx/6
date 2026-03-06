@@ -483,25 +483,34 @@ export default function HomePage() {
   useEffect(() => {
     if (!shouldAutoScrollAvailable || !availableCarouselRef.current) return;
     const carousel = availableCarouselRef.current;
-    const loopWidth = carousel.scrollWidth / 2;
-    if (!loopWidth) return;
 
     let rafId = 0;
     let lastTs = 0;
+    let position = carousel.scrollLeft;
+    let loopWidth = 0;
     const speedPxPerSecond = 24;
 
     const tick = (ts: number) => {
+      if (!loopWidth) {
+        loopWidth = carousel.scrollWidth / 2;
+        if (!loopWidth) {
+          rafId = window.requestAnimationFrame(tick);
+          return;
+        }
+      }
+
       if (!lastTs) {
         lastTs = ts;
+        rafId = window.requestAnimationFrame(tick);
+        return;
       }
+
       const delta = ts - lastTs;
       lastTs = ts;
 
-      carousel.scrollLeft += (speedPxPerSecond * delta) / 1000;
-
-      if (carousel.scrollLeft >= loopWidth) {
-        carousel.scrollLeft -= loopWidth;
-      }
+      position += (speedPxPerSecond * delta) / 1000;
+      if (position >= loopWidth) position -= loopWidth;
+      carousel.scrollLeft = position;
 
       rafId = window.requestAnimationFrame(tick);
     };
