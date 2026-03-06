@@ -36,6 +36,10 @@ import { favoritesRouter } from "./favorites/routes";
 import { storiesRouter } from "./stories/routes";
 import { hotRouter } from "./hot/routes";
 import { forumRouter } from "./forum/routes";
+import { walletRouter } from "./routes/wallet";
+import { videocallRouter } from "./routes/videocall";
+import { livestreamRouter } from "./routes/livestream";
+import { signalingRouter } from "./routes/signaling";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 
@@ -171,6 +175,10 @@ app.use("/", favoritesRouter);
 app.use("/", storiesRouter);
 app.use("/", hotRouter);
 app.use("/", forumRouter);
+app.use("/", walletRouter);
+app.use("/", videocallRouter);
+app.use("/", livestreamRouter);
+app.use("/", signalingRouter);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const requestId = (req as any).requestId;
