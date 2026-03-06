@@ -168,7 +168,7 @@ const FeaturedCard = memo(function FeaturedCard({
     : "shadow-[0_4px_24px_rgba(251,191,36,0.12)]";
 
   return (
-    <div className={`group w-[75vw] shrink-0 snap-start overflow-hidden rounded-2xl border-2 ${isDiamond ? "border-cyan-400/30" : "border-amber-400/30"} bg-white/[0.03] transition-all duration-300 hover:-translate-y-1 ${glowClass} sm:w-auto`}>
+    <div className={`group w-[75vw] shrink-0 snap-start overflow-hidden rounded-2xl border-2 ${isDiamond ? "border-cyan-400/30" : "border-amber-400/30"} bg-white/[0.03] transition-all duration-300 hover:-translate-y-1 ${glowClass} sm:w-[340px] lg:w-[300px]`}>
       <button type="button" onClick={() => onPreview(profile)} className="block w-full text-left">
         <div className="relative aspect-[3/4] overflow-hidden bg-white/[0.04]">
           {img ? (
@@ -1026,7 +1026,7 @@ export default function ServicesPage() {
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
               {featuredProfiles.slice(0, 6).map((p) => (
                 <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
               ))}
