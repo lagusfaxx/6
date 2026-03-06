@@ -144,7 +144,7 @@ export default function AdminProfilesPage() {
     }
   }
 
-  async function updateAdminLabel(profile: Profile, label: "premium" | "verificada" | "profesional con examenes", value: boolean) {
+  async function updateAdminLabel(profile: Profile, label: "premium" | "verificada" | "profesional con examenes" | "destacada", value: boolean) {
     setBusy(profile.id);
     setError(null);
     try {
@@ -154,6 +154,7 @@ export default function AdminProfilesPage() {
           premium: label === "premium" ? value : hasLabel(profile, "premium"),
           verified: label === "verificada" ? value : hasLabel(profile, "verificada"),
           exams: label === "profesional con examenes" ? value : hasLabel(profile, "profesional con examenes"),
+          featured: label === "destacada" ? value : hasLabel(profile, "destacada"),
         }),
       });
       setSuccess(`Etiqueta ${label} ${value ? "agregada" : "removida"} en ${profile.displayName || profile.username}.`);
@@ -301,6 +302,9 @@ export default function AdminProfilesPage() {
                     {hasLabel(p, "profesional con examenes") && (
                       <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-200">Profesional con exámenes</span>
                     )}
+                    {hasLabel(p, "destacada") && (
+                      <span className="rounded bg-fuchsia-500/20 px-1.5 py-0.5 text-[10px] font-medium text-fuchsia-200">⭐ Destacada</span>
+                    )}
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40 flex-wrap">
                     <span>@{p.username}</span>
@@ -383,6 +387,17 @@ export default function AdminProfilesPage() {
                   }`}
                 >
                   Profesional con exámenes
+                </button>
+                <button
+                  disabled={busy === p.id}
+                  onClick={() => updateAdminLabel(p, "destacada", !hasLabel(p, "destacada"))}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
+                    hasLabel(p, "destacada")
+                      ? "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200"
+                      : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  ⭐ Destacada
                 </button>
               </div>
 

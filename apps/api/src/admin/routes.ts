@@ -172,11 +172,11 @@ adminRouter.get("/profiles", asyncHandler(async (req, res) => {
   return res.json({ profiles, total });
 }));
 
-const ADMIN_CONTROLLED_LABELS = new Set(["premium", "verificada", "profesional con examenes"]);
+const ADMIN_CONTROLLED_LABELS = new Set(["premium", "verificada", "profesional con examenes", "destacada"]);
 
 adminRouter.put("/profiles/:id/labels", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { premium, verified, exams } = req.body ?? {};
+  const { premium, verified, exams, featured } = req.body ?? {};
 
   const user = await prisma.user.findUnique({
     where: { id },
@@ -191,6 +191,7 @@ adminRouter.put("/profiles/:id/labels", asyncHandler(async (req, res) => {
   if (premium === true) nextTags.push("premium");
   if (verified === true) nextTags.push("verificada");
   if (exams === true) nextTags.push("profesional con examenes");
+  if (featured === true) nextTags.push("destacada");
 
   const updated = await prisma.user.update({
     where: { id },

@@ -668,13 +668,13 @@ export default function ServicesPage() {
     });
   }, [filtered, profiles]);
 
-  /* ── Separate featured (Diamond/Gold) from standard ── */
+  /* ── Separate featured (Diamond/Gold/Destacada) from standard ── */
   const featuredProfiles = useMemo(
-    () => displayProfiles.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD"),
+    () => displayProfiles.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD" || (p.profileTags ?? []).includes("destacada")),
     [displayProfiles],
   );
   const standardProfiles = useMemo(
-    () => displayProfiles.filter((p) => p.userLevel !== "DIAMOND" && p.userLevel !== "GOLD"),
+    () => displayProfiles.filter((p) => p.userLevel !== "DIAMOND" && p.userLevel !== "GOLD" && !(p.profileTags ?? []).includes("destacada")),
     [displayProfiles],
   );
 
@@ -994,7 +994,7 @@ export default function ServicesPage() {
           </div>
         )}
 
-        {/* ═══ FEATURED SECTION (Diamond + Gold) ═══ */}
+        {/* ═══ FEATURED SECTION (Diamond + Gold + Destacada) ═══ */}
         {featuredProfiles.length > 0 && (
           <section className="mb-8">
             <div className="mb-3 flex items-center justify-between">
