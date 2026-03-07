@@ -16,7 +16,6 @@ type Booking = {
   scheduledAt: string;
   clientId: string;
   professionalId: string;
-  scheduledAt: string;
   durationMinutes: number;
   totalTokens: number;
   status: string;
