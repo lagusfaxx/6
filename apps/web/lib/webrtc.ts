@@ -68,6 +68,8 @@ function isAndroidPWA(): boolean {
 export async function getLocalMedia(
   opts: { video?: boolean | MediaTrackConstraints; audio?: boolean } = {},
 ): Promise<MediaStream> {
+  const wantsAudio = opts.audio !== false;
+  const wantsVideo = opts.video !== false;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     throw new DOMException(
       "Tu navegador no soporta acceso a cámara o micrófono en este contexto. Usa HTTPS o la app instalada.",
@@ -115,27 +117,41 @@ export async function getLocalMedia(
           };
 
   const constraints: MediaStreamConstraints = {
-    audio: opts.audio === false
-      ? false
-      : {
+    audio: wantsAudio
+      ? {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-        },
+        }
+      : false,
     video: videoConstraints,
   };
 
   try {
     return await navigator.mediaDevices.getUserMedia(constraints);
   } catch (firstError) {
-    // Fallback: if complex constraints fail on mobile, try minimal constraints
-    if (isIOS || isMobilePWA) {
+    const fallbackAttempts: MediaStreamConstraints[] = [];
+
+    // Fallback: if complex constraints fail on mobile, try minimal constraints.
+    if ((isIOS || isMobilePWA) && wantsAudio && wantsVideo) {
+      fallbackAttempts.push({ audio: true, video: true });
+    }
+
+    // Some devices/browsers fail when requesting both at once; try each one separately.
+    if (wantsAudio && wantsVideo) {
+      fallbackAttempts.push({ audio: true, video: false });
+      fallbackAttempts.push({ audio: false, video: true });
+    }
+
+    for (const fallback of fallbackAttempts) {
       try {
-        return await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        const stream = await navigator.mediaDevices.getUserMedia(fallback);
+        if (stream.getTracks().length > 0) return stream;
       } catch {
-        // Fall through to throw the original error
+        // continue trying next fallback
       }
     }
+
     throw firstError;
   }
 }

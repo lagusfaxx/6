@@ -66,6 +66,8 @@ export default function VideocallRoomPage() {
   const timerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const chatListRef = useRef<HTMLDivElement>(null);
+  const mediaInitializedRef = useRef(false);
+  const joinSentRef = useRef(false);
 
   // Load booking
   useEffect(() => {
@@ -89,10 +91,14 @@ export default function VideocallRoomPage() {
   const remotePerson = booking ? (isProfessional ? booking.client : booking.professional) : null;
 
   // Check if the room is open (5 minutes before scheduled time)
-  const scheduledAtMs = booking ? new Date(booking.scheduledAt).getTime() : 0;
   const roomOpen = booking
     ? Date.now() >= new Date(booking.scheduledAt).getTime() - 5 * 60 * 1000
     : false;
+
+  useEffect(() => {
+    mediaInitializedRef.current = false;
+    joinSentRef.current = false;
+  }, [bookingId]);
 
   // Initialize media and wait for call
   const initMedia = useCallback(async () => {
@@ -104,21 +110,46 @@ export default function VideocallRoomPage() {
         localVideoRef.current.srcObject = stream;
       }
     } catch (err) {
-      const isDenied = err instanceof DOMException && err.name === "NotAllowedError";
-      setMediaError(
-        isDenied
-          ? "Permisos de cámara o micrófono denegados. Actívalos en la configuración de tu navegador o app."
-          : "No se pudo acceder a cámara y micrófono. Verifica que tu navegador tenga permisos y vuelve a intentar.",
-      );
+      const mediaErr = err instanceof DOMException ? err : null;
+      const details = mediaErr?.message ? ` (${mediaErr.message})` : "";
+
+      if (mediaErr?.name === "NotAllowedError") {
+        setMediaError(
+          "Permisos de cámara o micrófono bloqueados. Si estás en incógnito o en iPhone PWA, cierra y abre la sala y acepta el permiso al aparecer el popup.",
+        );
+      } else if (mediaErr?.name === "NotReadableError") {
+        setMediaError(
+          "No se puede abrir cámara o micrófono porque otro proceso/dispositivo los está usando. Cierra Zoom/Meet/Instagram y reintenta." + details,
+        );
+      } else if (mediaErr?.name === "OverconstrainedError") {
+        setMediaError(
+          "Tu dispositivo no soporta la configuración solicitada de cámara/micrófono. Intenta nuevamente para usar un modo compatible." + details,
+        );
+      } else if (mediaErr?.name === "NotFoundError") {
+        setMediaError(
+          "No encontramos cámara o micrófono disponibles en este equipo. Verifica que estén conectados y habilitados." + details,
+        );
+      } else {
+        setMediaError(
+          "No se pudo acceder a cámara y/o micrófono. Verifica permisos del navegador y que no estén en uso por otra app." + details,
+        );
+      }
     }
     // Always transition to waiting so the room UI renders (even if media failed)
     setStatus("waiting");
   }, []);
 
   useEffect(() => {
-    if (booking && myId && roomOpen) {
+    if (!booking || !myId || !roomOpen) return;
+
+    if (!mediaInitializedRef.current) {
+      mediaInitializedRef.current = true;
       initMedia();
-      // Track that this user joined the room
+    }
+
+    if (!joinSentRef.current) {
+      joinSentRef.current = true;
+      // Track that this user joined the room (only once to avoid 429 loops)
       apiFetch(`/videocall/${bookingId}/join`, { method: "POST" }).catch(() => {});
     }
   }, [booking, myId, roomOpen, initMedia, bookingId]);
