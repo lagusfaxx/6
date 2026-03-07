@@ -13,6 +13,7 @@ import {
 
 type Booking = {
   id: string;
+  scheduledAt: string;
   clientId: string;
   professionalId: string;
   durationMinutes: number;
@@ -71,10 +72,9 @@ export default function VideocallRoomPage() {
   const remotePerson = booking ? (isProfessional ? booking.client : booking.professional) : null;
 
   // Check if the room is open (5 minutes before scheduled time)
+  const scheduledAtMs = booking ? new Date(booking.scheduledAt).getTime() : 0;
   const roomOpen = booking
-    ? Date.now() >= booking.scheduledAt
-      ? true
-      : Date.now() >= new Date(booking.scheduledAt).getTime() - 5 * 60 * 1000
+    ? Date.now() >= scheduledAtMs - 5 * 60 * 1000
     : false;
 
   // Initialize media and wait for call
