@@ -147,6 +147,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
   const [surveySubmitting, setSurveySubmitting] = useState(false);
   const [surveyError, setSurveyError] = useState<string | null>(null);
   const [surveySuccess, setSurveySuccess] = useState(false);
+  const [hasVideocall, setHasVideocall] = useState(false);
   const { me } = useMe();
 
   useEffect(() => {
@@ -205,6 +206,14 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       .then((res) => setFavorite(res.isFavorite))
       .catch(() => setFavorite(false));
   }, [me?.user?.profileType, professional]);
+
+  // Check if professional has videocall enabled
+  useEffect(() => {
+    if (!professional?.id) { setHasVideocall(false); return; }
+    apiFetch(`/videocall/config/${professional.id}`)
+      .then(() => setHasVideocall(true))
+      .catch(() => setHasVideocall(false));
+  }, [professional?.id]);
 
   useEffect(() => {
     setGalleryIndex(0);
@@ -812,13 +821,15 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                 <button onClick={() => handleChatClick("message")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
                   Enviar mensaje
                 </button>
-                <Link
-                  href={`/videocall?professional=${professional.id}`}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-sm font-medium text-violet-200 transition-colors hover:bg-violet-500/20"
-                >
-                  <Video className="h-4 w-4" />
-                  Agendar Videollamada
-                </Link>
+                {hasVideocall && (
+                  <Link
+                    href={`/videocall?professional=${professional.id}`}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-sm font-medium text-violet-200 transition-colors hover:bg-violet-500/20"
+                  >
+                    <Video className="h-4 w-4" />
+                    Agendar Videollamada
+                  </Link>
+                )}
                 <button
                   onClick={toggleFavorite}
                   className={`flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${
@@ -882,13 +893,15 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           <button onClick={() => handleChatClick("message")} className="btn-secondary w-full rounded-2xl py-2.5 text-sm">
             Mensaje
           </button>
-          <Link
-            href={`/videocall?professional=${professional.id}`}
-            className="flex items-center justify-center gap-1.5 rounded-2xl border border-violet-500/30 bg-violet-500/10 py-2.5 text-sm font-medium text-violet-200"
-          >
-            <Video className="h-3.5 w-3.5" />
-            Videollamada
-          </Link>
+          {hasVideocall && (
+            <Link
+              href={`/videocall?professional=${professional.id}`}
+              className="flex items-center justify-center gap-1.5 rounded-2xl border border-violet-500/30 bg-violet-500/10 py-2.5 text-sm font-medium text-violet-200"
+            >
+              <Video className="h-3.5 w-3.5" />
+              Videollamada
+            </Link>
+          )}
         <button
           onClick={toggleFavorite}
           className={`mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${

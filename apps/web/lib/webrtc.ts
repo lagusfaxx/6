@@ -17,6 +17,25 @@ const RTC_CONFIG: RTCConfiguration = {
 export async function getLocalMedia(
   opts: { video?: boolean | MediaTrackConstraints; audio?: boolean } = {},
 ): Promise<MediaStream> {
+  // On some mobile browsers, permissions may need to be requested explicitly
+  // before getUserMedia works. Try permissions API first if available.
+  if (navigator.permissions) {
+    try {
+      const camPerm = await navigator.permissions.query({ name: "camera" as PermissionName });
+      const micPerm = await navigator.permissions.query({ name: "microphone" as PermissionName });
+      // If denied, throw early with a clear message
+      if (camPerm.state === "denied" || micPerm.state === "denied") {
+        throw new DOMException(
+          "Permisos de cámara o micrófono denegados. Actívalos en la configuración de tu navegador.",
+          "NotAllowedError",
+        );
+      }
+    } catch (e) {
+      // permissions.query may not support camera/microphone on all browsers — continue
+      if (e instanceof DOMException && e.name === "NotAllowedError") throw e;
+    }
+  }
+
   const constraints: MediaStreamConstraints = {
     audio: opts.audio ?? true,
     video: opts.video ?? {

@@ -65,10 +65,12 @@ export default function LiveStreamPage() {
   }, [id, router]);
 
   const isHost = stream ? myId === stream.host.id : false;
+  const [needsManualPermission, setNeedsManualPermission] = useState(false);
 
   const initHostMedia = useCallback(async () => {
     try {
       setMediaError("");
+      setNeedsManualPermission(false);
       const media = await getLocalMedia({ video: true, audio: true });
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       localStreamRef.current = media;
@@ -78,11 +80,13 @@ export default function LiveStreamPage() {
       setVideoReady(true);
     } catch {
       setMediaError("No se otorgaron permisos de cámara y micrófono. Permítelos para iniciar el Live.");
+      setNeedsManualPermission(true);
       setVideoReady(false);
     }
   }, []);
 
-  // Host: start camera when page loads
+  // Host: start camera when page loads. On mobile browsers getUserMedia may
+  // fail without a user gesture, so we catch the error and show a button.
   useEffect(() => {
     if (!isHost || !stream?.isActive) return;
     initHostMedia();
@@ -395,16 +399,37 @@ export default function LiveStreamPage() {
 
           {stream.isActive && !videoReady && (isHost || joined) && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
-                <p className="text-xs text-white/30">Conectando video...</p>
-                {isHost && mediaError && (
-                  <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-left">
-                    <p className="text-xs text-red-300">{mediaError}</p>
-                    <button onClick={initHostMedia} className="mt-2 rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-white/20">
-                      Reintentar permisos
+              <div className="text-center px-6">
+                {isHost && needsManualPermission ? (
+                  <div className="mx-auto max-w-xs space-y-4">
+                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-fuchsia-500/20">
+                      <VideoIcon className="h-10 w-10 text-fuchsia-400" />
+                    </div>
+                    <p className="text-sm font-semibold text-white/80">Activar cámara y micrófono</p>
+                    <p className="text-xs text-white/50">Tu navegador necesita que actives los permisos manualmente para iniciar el Live.</p>
+                    <button
+                      onClick={initHostMedia}
+                      className="w-full rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold text-white"
+                    >
+                      Activar cámara y micrófono
                     </button>
+                    {mediaError && (
+                      <p className="text-[11px] text-red-300">{mediaError}</p>
+                    )}
                   </div>
+                ) : (
+                  <>
+                    <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
+                    <p className="text-xs text-white/30">Conectando video...</p>
+                    {isHost && mediaError && (
+                      <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-left">
+                        <p className="text-xs text-red-300">{mediaError}</p>
+                        <button onClick={initHostMedia} className="mt-2 rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-white/20">
+                          Reintentar permisos
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

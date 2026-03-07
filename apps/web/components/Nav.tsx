@@ -30,6 +30,7 @@ type NavItem = {
 const clientItems: NavItem[] = [
   { href: "/", label: "Inicio", icon: Home, protected: false },
   { href: "/servicios", label: "Cerca tuyo", icon: MapPin, protected: false },
+  { href: "/videocall", label: "Videollamadas", icon: Video, protected: false },
   { href: "/favoritos", label: "Favoritos", icon: Heart, protected: true },
   { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
   { href: "/foro", label: "Foro", icon: MessageSquare, protected: false },
@@ -76,7 +77,6 @@ export default function Nav() {
         { href: "/dashboard/services", label: "Editar perfil", icon: Edit3, protected: true },
         ...(isProfessional ? [
           { href: "/dashboard/stories", label: "Subir story", icon: Camera, protected: true },
-          { href: "/videocall", label: "Videollamadas", icon: Video, protected: true },
         ] : []),
         { href: "/wallet", label: "Billetera", icon: Wallet, protected: true },
       ]

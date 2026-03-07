@@ -49,6 +49,40 @@ const isWithinProfessionalAvailability = (scheduledDate: Date, durationMinutes: 
   });
 };
 
+// ── GET /videocall/professionals — list professionals with active videocall configs ──
+videocallRouter.get("/videocall/professionals", async (_req, res) => {
+  const configs = await prisma.videocallConfig.findMany({
+    where: { isActive: true },
+    include: {
+      professional: {
+        select: {
+          id: true,
+          displayName: true,
+          username: true,
+          avatarUrl: true,
+          coverUrl: true,
+          profileType: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const professionals = configs.map((c) => ({
+    id: c.professional.id,
+    displayName: c.professional.displayName,
+    username: c.professional.username,
+    avatarUrl: c.professional.avatarUrl,
+    coverUrl: (c.professional as any).coverUrl || null,
+    pricePerMinute: c.pricePerMinute,
+    minDurationMin: c.minDurationMin,
+    maxDurationMin: c.maxDurationMin,
+    availableSlots: c.availableSlots,
+  }));
+
+  res.json({ professionals });
+});
+
 // ── GET /videocall/config/:professionalId — get professional's VC config ──
 videocallRouter.get("/videocall/config/:professionalId", async (req, res) => {
   const config = await prisma.videocallConfig.findUnique({
@@ -237,10 +271,10 @@ videocallRouter.post("/videocall/:id/start", requireAuth, async (req, res) => {
 
   const now = Date.now();
   const startsAt = booking.scheduledAt.getTime();
-  const earlyWindow = startsAt - 10 * 60 * 1000;
+  const earlyWindow = startsAt - 5 * 60 * 1000;
   const lateWindow = startsAt + 10 * 60 * 1000;
   if (now < earlyWindow || now > lateWindow) {
-    return res.status(400).json({ error: "Solo puedes iniciar entre 10 min antes y 10 min después de la hora agendada" });
+    return res.status(400).json({ error: "La sala se abre 5 minutos antes de la hora agendada" });
   }
 
   await prisma.videocallBooking.update({
@@ -254,7 +288,45 @@ videocallRouter.post("/videocall/:id/start", requireAuth, async (req, res) => {
   res.json({ roomId: booking.roomId });
 });
 
-// ── POST /videocall/:id/complete — mark call as completed, release tokens ──
+// ── POST /videocall/:id/join — track that a user joined the room ──
+videocallRouter.post("/videocall/:id/join", requireAuth, async (req, res) => {
+  const userId = req.session.userId!;
+  const booking = await prisma.videocallBooking.findUnique({ where: { id: req.params.id } });
+  if (!booking) return res.status(404).json({ error: "Not found" });
+  if (booking.clientId !== userId && booking.professionalId !== userId) {
+    return res.status(403).json({ error: "Not your booking" });
+  }
+
+  const isClient = booking.clientId === userId;
+  const now = new Date();
+
+  // Check room is open (5 min before scheduled time)
+  const startsAt = booking.scheduledAt.getTime();
+  const earlyWindow = startsAt - 5 * 60 * 1000;
+  if (Date.now() < earlyWindow) {
+    return res.status(400).json({ error: "La sala aún no está disponible" });
+  }
+
+  const updateData = isClient
+    ? { clientJoinedAt: booking.clientJoinedAt || now }
+    : { professionalJoinedAt: booking.professionalJoinedAt || now };
+
+  await prisma.videocallBooking.update({
+    where: { id: booking.id },
+    data: updateData,
+  });
+
+  // Notify the other party
+  const otherUserId = isClient ? booking.professionalId : booking.clientId;
+  sendToUser(otherUserId, "videocall:user_joined", {
+    bookingId: booking.id,
+    role: isClient ? "client" : "professional",
+  });
+
+  res.json({ ok: true });
+});
+
+// ── POST /videocall/:id/complete — mark call as completed, handle token logic ──
 videocallRouter.post("/videocall/:id/complete", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const booking = await prisma.videocallBooking.findUnique({ where: { id: req.params.id } });
@@ -268,55 +340,106 @@ videocallRouter.post("/videocall/:id/complete", requireAuth, async (req, res) =>
 
   const clientWallet = await getOrCreateWallet(booking.clientId);
   const proWallet = await getOrCreateWallet(booking.professionalId);
+  const bothJoined = Boolean(booking.clientJoinedAt && booking.professionalJoinedAt);
 
-  // Release from escrow: deduct from held, credit professional
-  await prisma.$transaction([
-    prisma.videocallBooking.update({
-      where: { id: booking.id },
-      data: { status: "COMPLETED", endedAt: new Date() },
-    }),
-    // Remove from client's held balance
-    prisma.wallet.update({
-      where: { id: clientWallet.id },
-      data: {
-        heldBalance: { decrement: booking.totalTokens },
-        totalSpent: { increment: booking.totalTokens },
-      },
-    }),
-    // Credit professional (minus commission)
-    prisma.wallet.update({
-      where: { id: proWallet.id },
-      data: {
-        balance: { increment: booking.professionalPay },
-        totalEarned: { increment: booking.professionalPay },
-      },
-    }),
-    prisma.tokenTransaction.create({
-      data: {
-        walletId: clientWallet.id,
-        type: "VIDEOCALL_RELEASE",
-        amount: 0,
-        balance: clientWallet.balance,
-        referenceId: booking.id,
-        description: `Videollamada completada — ${booking.totalTokens} tokens liberados`,
-      },
-    }),
-    prisma.tokenTransaction.create({
-      data: {
-        walletId: proWallet.id,
-        type: "VIDEOCALL_RELEASE",
-        amount: booking.professionalPay,
-        balance: proWallet.balance + booking.professionalPay,
-        referenceId: booking.id,
-        description: `Ingreso videollamada: ${booking.professionalPay} tokens (${booking.totalTokens} - ${booking.platformFee} comisión)`,
-      },
-    }),
-  ]);
+  if (bothJoined) {
+    // Both users joined — release tokens to the professional
+    await prisma.$transaction([
+      prisma.videocallBooking.update({
+        where: { id: booking.id },
+        data: { status: "COMPLETED", endedAt: new Date() },
+      }),
+      prisma.wallet.update({
+        where: { id: clientWallet.id },
+        data: {
+          heldBalance: { decrement: booking.totalTokens },
+          totalSpent: { increment: booking.totalTokens },
+        },
+      }),
+      prisma.wallet.update({
+        where: { id: proWallet.id },
+        data: {
+          balance: { increment: booking.professionalPay },
+          totalEarned: { increment: booking.professionalPay },
+        },
+      }),
+      prisma.tokenTransaction.create({
+        data: {
+          walletId: clientWallet.id,
+          type: "VIDEOCALL_RELEASE",
+          amount: 0,
+          balance: clientWallet.balance,
+          referenceId: booking.id,
+          description: `Videollamada completada — ${booking.totalTokens} tokens liberados`,
+        },
+      }),
+      prisma.tokenTransaction.create({
+        data: {
+          walletId: proWallet.id,
+          type: "VIDEOCALL_RELEASE",
+          amount: booking.professionalPay,
+          balance: proWallet.balance + booking.professionalPay,
+          referenceId: booking.id,
+          description: `Ingreso videollamada: ${booking.professionalPay} tokens (${booking.totalTokens} - ${booking.platformFee} comisión)`,
+        },
+      }),
+    ]);
+  } else if (!booking.clientJoinedAt) {
+    // Client never joined — refund 100% to client
+    await prisma.$transaction([
+      prisma.videocallBooking.update({
+        where: { id: booking.id },
+        data: { status: "CANCELLED_CLIENT", endedAt: new Date() },
+      }),
+      prisma.wallet.update({
+        where: { id: clientWallet.id },
+        data: {
+          heldBalance: { decrement: booking.totalTokens },
+          balance: { increment: booking.totalTokens },
+        },
+      }),
+      prisma.tokenTransaction.create({
+        data: {
+          walletId: clientWallet.id,
+          type: "VIDEOCALL_REFUND",
+          amount: booking.totalTokens,
+          balance: clientWallet.balance + booking.totalTokens,
+          referenceId: booking.id,
+          description: `Reembolso: cliente no ingresó a la videollamada — ${booking.totalTokens} tokens devueltos`,
+        },
+      }),
+    ]);
+  } else if (!booking.professionalJoinedAt) {
+    // Professional never joined — refund 100% to client
+    await prisma.$transaction([
+      prisma.videocallBooking.update({
+        where: { id: booking.id },
+        data: { status: "NO_SHOW_PROFESSIONAL", endedAt: new Date() },
+      }),
+      prisma.wallet.update({
+        where: { id: clientWallet.id },
+        data: {
+          heldBalance: { decrement: booking.totalTokens },
+          balance: { increment: booking.totalTokens },
+        },
+      }),
+      prisma.tokenTransaction.create({
+        data: {
+          walletId: clientWallet.id,
+          type: "VIDEOCALL_REFUND",
+          amount: booking.totalTokens,
+          balance: clientWallet.balance + booking.totalTokens,
+          referenceId: booking.id,
+          description: `Reembolso: profesional no ingresó — ${booking.totalTokens} tokens devueltos`,
+        },
+      }),
+    ]);
+  }
 
   sendToUser(booking.clientId, "videocall:completed", { bookingId: booking.id });
   sendToUser(booking.professionalId, "videocall:completed", { bookingId: booking.id });
 
-  res.json({ ok: true });
+  res.json({ ok: true, bothJoined });
 });
 
 // ── POST /videocall/:id/noshow — professional didn't show up, refund client ──

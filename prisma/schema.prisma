@@ -231,10 +231,12 @@ model VideocallBooking {
   platformFee      Int                   // 10% commission
   professionalPay  Int                   // 90% to professional
   status           VideocallBookingStatus @default(PENDING)
-  roomId           String?               // unique room id for the call
-  startedAt        DateTime?
-  endedAt          DateTime?
-  reminderSentAt   DateTime?
+  roomId               String?               // unique room id for the call
+  startedAt            DateTime?
+  endedAt              DateTime?
+  clientJoinedAt       DateTime?             // when client entered the room
+  professionalJoinedAt DateTime?             // when professional entered the room
+  reminderSentAt       DateTime?
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
