@@ -8,8 +8,17 @@ import { WebRTCPeer, getLocalMedia } from "../../../../lib/webrtc";
 import useMe from "../../../../hooks/useMe";
 import {
   Mic, MicOff, VideoIcon, VideoOff, PhoneOff, Clock, User,
-  Maximize, Minimize, Volume2, VolumeX,
+  Maximize, Minimize, Volume2, VolumeX, Send, MessageCircle,
 } from "lucide-react";
+
+type ChatMessage = {
+  id: string;
+  bookingId: string;
+  fromUserId: string;
+  senderName: string;
+  message: string;
+  createdAt: string;
+};
 
 type Booking = {
   id: string;
@@ -38,6 +47,10 @@ export default function VideocallRoomPage() {
   const [error, setError] = useState("");
   const [mediaError, setMediaError] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [sendingChat, setSendingChat] = useState(false);
+  const [chatError, setChatError] = useState("");
 
   // Media controls
   const [micOn, setMicOn] = useState(true);
@@ -52,6 +65,7 @@ export default function VideocallRoomPage() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const chatListRef = useRef<HTMLDivElement>(null);
 
   // Load booking
   useEffect(() => {
@@ -143,10 +157,11 @@ export default function VideocallRoomPage() {
 
     const cleanup = connectRealtime(async (event) => {
       const data = event.data;
-      if (!data || data.fromUserId !== remoteUserId) return;
+      if (!data) return;
       if (data.bookingId && data.bookingId !== bookingId) return;
 
       if (event.type === "signal:offer") {
+        if (data.fromUserId !== remoteUserId) return;
         // I'm the callee — create peer, handle offer
         setStatus("connecting");
         const peer = createPeer();
@@ -156,6 +171,7 @@ export default function VideocallRoomPage() {
       }
 
       if (event.type === "signal:answer") {
+        if (data.fromUserId !== remoteUserId) return;
         // I'm the caller — set remote description
         if (peerRef.current) {
           await peerRef.current.handleAnswer(data.sdp);
@@ -163,9 +179,22 @@ export default function VideocallRoomPage() {
       }
 
       if (event.type === "signal:ice") {
+        if (data.fromUserId !== remoteUserId) return;
         if (peerRef.current) {
           await peerRef.current.handleIceCandidate(data.candidate);
         }
+      }
+
+      if (event.type === "videocall:chat" && data.bookingId === bookingId && data.fromUserId) {
+        const msg: ChatMessage = {
+          id: `${data.createdAt || Date.now()}-${data.fromUserId || "unknown"}`,
+          bookingId: data.bookingId,
+          fromUserId: data.fromUserId,
+          senderName: data.senderName || "Usuario",
+          message: data.message || "",
+          createdAt: data.createdAt || new Date().toISOString(),
+        };
+        setChatMessages((prev) => [...prev, msg]);
       }
 
       // If the other side started the videocall via API
@@ -284,6 +313,30 @@ export default function VideocallRoomPage() {
     const sec = s % 60;
     return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   };
+
+  const sendChat = async () => {
+    const message = chatInput.trim();
+    if (!message || !bookingId) return;
+
+    setChatError("");
+    setSendingChat(true);
+    try {
+      await apiFetch(`/videocall/${bookingId}/chat`, {
+        method: "POST",
+        body: JSON.stringify({ message }),
+      });
+      setChatInput("");
+    } catch (e: unknown) {
+      const messageText = e instanceof Error ? e.message : "No se pudo enviar el mensaje";
+      setChatError(messageText);
+    } finally {
+      setSendingChat(false);
+    }
+  };
+
+  useEffect(() => {
+    chatListRef.current?.scrollTo({ top: chatListRef.current.scrollHeight, behavior: "smooth" });
+  }, [chatMessages]);
 
   const maxSeconds = booking ? booking.durationMinutes * 60 : 0;
   const timeLeft = maxSeconds - elapsed;
@@ -474,6 +527,54 @@ export default function VideocallRoomPage() {
             )}
           </div>
         )}
+
+        {/* In-call chat */}
+        <div className="absolute left-3 top-3 z-20 flex h-[55%] w-[min(92vw,330px)] flex-col rounded-2xl border border-white/10 bg-[#0a0b14]/85 p-3 backdrop-blur sm:left-4 sm:top-4 sm:h-[60%]">
+          <div className="mb-2 flex items-center gap-2 border-b border-white/10 pb-2 text-sm font-semibold text-white/90">
+            <MessageCircle className="h-4 w-4" />
+            Chat de la llamada
+          </div>
+
+          <div ref={chatListRef} className="flex-1 space-y-2 overflow-y-auto pr-1">
+            {chatMessages.length === 0 && (
+              <p className="text-xs text-white/40">Escribe un mensaje para comunicarte sin micrófono.</p>
+            )}
+            {chatMessages.map((msg) => {
+              const mine = msg.fromUserId === myId;
+              return (
+                <div key={msg.id} className={`max-w-[90%] rounded-xl px-3 py-2 text-xs ${mine ? "ml-auto bg-violet-600/70" : "bg-white/10"}`}>
+                  <p className="mb-1 text-[10px] text-white/60">{mine ? "Tú" : msg.senderName}</p>
+                  <p className="break-words text-white/90">{msg.message}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {chatError && <p className="mt-1 text-[10px] text-red-300">{chatError}</p>}
+
+          <div className="mt-2 flex items-center gap-2 border-t border-white/10 pt-2">
+            <input
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  sendChat();
+                }
+              }}
+              maxLength={500}
+              placeholder="Escribe un mensaje..."
+              className="h-9 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 text-xs text-white outline-none placeholder:text-white/35"
+            />
+            <button
+              onClick={sendChat}
+              disabled={sendingChat || !chatInput.trim()}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white disabled:opacity-50"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
 
         {/* Local video (PiP) */}
         {status !== "ended" && (
