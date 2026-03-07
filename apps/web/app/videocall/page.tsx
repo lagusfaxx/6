@@ -808,8 +808,10 @@ function ClientDashboard({ me }: { me: any }) {
   // Build scheduledAt from selected date + time
   useEffect(() => {
     if (selectedDate && selectedTime) {
-      const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
-      setScheduledAt(`${dateStr}T${selectedTime}:00`);
+      const [h, m] = selectedTime.split(":").map(Number);
+      const localDate = new Date(selectedDate);
+      localDate.setHours(h, m, 0, 0);
+      setScheduledAt(localDate.toISOString());
     } else {
       setScheduledAt("");
     }
