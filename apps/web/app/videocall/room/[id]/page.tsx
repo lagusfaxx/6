@@ -13,7 +13,6 @@ import {
 
 type Booking = {
   id: string;
-  scheduledAt: string;
   clientId: string;
   professionalId: string;
   scheduledAt: string;
@@ -90,7 +89,6 @@ export default function VideocallRoomPage() {
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
-      setStatus("waiting");
     } catch (err) {
       const isDenied = err instanceof DOMException && err.name === "NotAllowedError";
       setMediaError(
@@ -99,6 +97,8 @@ export default function VideocallRoomPage() {
           : "No se pudo acceder a cámara y micrófono. Verifica que tu navegador tenga permisos y vuelve a intentar.",
       );
     }
+    // Always transition to waiting so the room UI renders (even if media failed)
+    setStatus("waiting");
   }, []);
 
   useEffect(() => {
@@ -290,7 +290,7 @@ export default function VideocallRoomPage() {
     );
   }
 
-  if (!booking || status === "loading") {
+  if (!booking) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0a0b14] text-white/30">
         Cargando videollamada...
@@ -395,6 +395,14 @@ export default function VideocallRoomPage() {
         {/* Placeholder when not connected */}
         {status !== "connected" && (
           <div className="text-center">
+            {status === "loading" && (
+              <div>
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/10 animate-pulse">
+                  <VideoIcon className="h-10 w-10 text-white/30" />
+                </div>
+                <p className="text-sm text-white/40">Preparando cámara y micrófono...</p>
+              </div>
+            )}
             {status === "waiting" && isProfessional && (booking.status === "PENDING" || booking.status === "CONFIRMED") && (
               <div>
                 <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20">
