@@ -13,17 +13,37 @@ const RTC_CONFIG: RTCConfiguration = {
   iceCandidatePoolSize: 10,
 };
 
-/* ── Get user media ── */
+/* ── Detect iOS / Android PWA ── */
+function isIOSPWA(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isStandalone = (window.navigator as any).standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+  return isIOS && isStandalone;
+}
+
+function isAndroidPWA(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const isAndroid = /Android/i.test(ua);
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+  return isAndroid && isStandalone;
+}
+
+/* ── Get user media with robust mobile PWA support ── */
 export async function getLocalMedia(
   opts: { video?: boolean | MediaTrackConstraints; audio?: boolean } = {},
 ): Promise<MediaStream> {
-  // On some mobile browsers, permissions may need to be requested explicitly
-  // before getUserMedia works. Try permissions API first if available.
-  if (navigator.permissions) {
+  // iOS PWA and some Android PWA don't support navigator.permissions for camera/mic.
+  // On iOS Safari (including PWA), getUserMedia may fail silently or require
+  // a user gesture. We skip the permissions API pre-check on mobile PWA
+  // and go directly to getUserMedia which triggers the native permission dialog.
+  const isMobilePWA = isIOSPWA() || isAndroidPWA();
+
+  if (!isMobilePWA && navigator.permissions) {
     try {
       const camPerm = await navigator.permissions.query({ name: "camera" as PermissionName });
       const micPerm = await navigator.permissions.query({ name: "microphone" as PermissionName });
-      // If denied, throw early with a clear message
       if (camPerm.state === "denied" || micPerm.state === "denied") {
         throw new DOMException(
           "Permisos de cámara o micrófono denegados. Actívalos en la configuración de tu navegador.",
@@ -36,16 +56,41 @@ export async function getLocalMedia(
     }
   }
 
+  // On iOS PWA, we need simpler constraints. Complex constraints may cause
+  // getUserMedia to fail on older iOS versions.
+  const isIOS = isIOSPWA() || (/iPad|iPhone|iPod/.test(navigator.userAgent || ""));
+
+  const videoConstraints: boolean | MediaTrackConstraints = opts.video === false
+    ? false
+    : opts.video && typeof opts.video === "object"
+      ? opts.video
+      : isIOS
+        ? { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }
+        : {
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30, max: 30 },
+            facingMode: "user",
+          };
+
   const constraints: MediaStreamConstraints = {
     audio: opts.audio ?? true,
-    video: opts.video ?? {
-      width: { ideal: 1280, max: 1920 },
-      height: { ideal: 720, max: 1080 },
-      frameRate: { ideal: 30, max: 30 },
-      facingMode: "user",
-    },
+    video: videoConstraints,
   };
-  return navigator.mediaDevices.getUserMedia(constraints);
+
+  try {
+    return await navigator.mediaDevices.getUserMedia(constraints);
+  } catch (firstError) {
+    // Fallback: if complex constraints fail on mobile, try minimal constraints
+    if (isIOS || isMobilePWA) {
+      try {
+        return await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      } catch {
+        // Fall through to throw the original error
+      }
+    }
+    throw firstError;
+  }
 }
 
 /* ── Signaling helpers ── */

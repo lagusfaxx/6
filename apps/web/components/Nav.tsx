@@ -13,9 +13,9 @@ import {
   Camera,
   LayoutDashboard,
   Edit3,
-  Settings,
   Wallet,
   Video,
+  Radio,
 } from "lucide-react";
 import useMe from "../hooks/useMe";
 import { useForumNotifications } from "./ForumNotifications";
@@ -31,6 +31,7 @@ const clientItems: NavItem[] = [
   { href: "/", label: "Inicio", icon: Home, protected: false },
   { href: "/servicios", label: "Cerca tuyo", icon: MapPin, protected: false },
   { href: "/videocall", label: "Videollamadas", icon: Video, protected: false },
+  { href: "/live", label: "En Vivo", icon: Radio, protected: false },
   { href: "/favoritos", label: "Favoritos", icon: Heart, protected: true },
   { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
   { href: "/foro", label: "Foro", icon: MessageSquare, protected: false },
