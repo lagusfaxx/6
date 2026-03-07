@@ -70,6 +70,13 @@ export default function VideocallRoomPage() {
   const remoteUserId = booking ? (isProfessional ? booking.clientId : booking.professionalId) : null;
   const remotePerson = booking ? (isProfessional ? booking.client : booking.professional) : null;
 
+  // Check if the room is open (5 minutes before scheduled time)
+  const roomOpen = booking
+    ? Date.now() >= booking.scheduledAt
+      ? true
+      : Date.now() >= new Date(booking.scheduledAt).getTime() - 5 * 60 * 1000
+    : false;
+
   // Initialize media and wait for call
   const initMedia = useCallback(async () => {
     try {
@@ -86,8 +93,12 @@ export default function VideocallRoomPage() {
   }, []);
 
   useEffect(() => {
-    if (booking && myId) initMedia();
-  }, [booking, myId, initMedia]);
+    if (booking && myId && roomOpen) {
+      initMedia();
+      // Track that this user joined the room
+      apiFetch(`/videocall/${bookingId}/join`, { method: "POST" }).catch(() => {});
+    }
+  }, [booking, myId, roomOpen, initMedia, bookingId]);
 
   // Create peer connection
   const createPeer = useCallback(() => {
@@ -274,6 +285,55 @@ export default function VideocallRoomPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0a0b14] text-white/30">
         Cargando videollamada...
+      </div>
+    );
+  }
+
+  // Room not yet open — show elegant countdown
+  if (!roomOpen) {
+    const scheduled = new Date(booking.scheduledAt);
+    const roomOpensAt = new Date(scheduled.getTime() - 5 * 60 * 1000);
+    const msUntil = roomOpensAt.getTime() - Date.now();
+    const minsUntil = Math.max(0, Math.ceil(msUntil / 60000));
+
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0b14] text-white px-6">
+        <div className="max-w-sm text-center">
+          <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20">
+            <Clock className="h-12 w-12 text-violet-300" />
+          </div>
+          <h2 className="mb-2 text-xl font-bold">Sala en preparación</h2>
+          <p className="mb-6 text-sm text-white/50">
+            La sala se abrirá {minsUntil > 0 ? `en ${minsUntil} minuto${minsUntil !== 1 ? "s" : ""}` : "en breve"}.
+          </p>
+          <div className="mb-6 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+            <div className="flex items-center gap-3">
+              {remotePerson?.avatarUrl ? (
+                <img src={resolveMediaUrl(remotePerson.avatarUrl) ?? undefined} alt="" className="h-10 w-10 rounded-xl object-cover" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
+                  <User className="h-5 w-5 text-white/30" />
+                </div>
+              )}
+              <div className="text-left">
+                <p className="text-sm font-semibold">{remotePerson?.displayName || remotePerson?.username}</p>
+                <p className="text-[11px] text-white/40">
+                  {scheduled.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })}
+                  {" "}
+                  {scheduled.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                  {" · "}
+                  {booking.durationMinutes} min
+                </p>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push("/videocall")}
+            className="text-sm text-violet-400 hover:text-violet-300"
+          >
+            Volver a videollamadas
+          </button>
+        </div>
       </div>
     );
   }
