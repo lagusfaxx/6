@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import { apiFetch, resolveMediaUrl, getApiBase } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 import { connectRealtime } from "../../../lib/realtime";
 import { WebRTCPeer, getLocalMedia } from "../../../lib/webrtc";
@@ -41,6 +41,7 @@ export default function LiveStreamPage() {
   const [joined, setJoined] = useState(false);
   const [loading, setLoading] = useState(true);
   const [videoReady, setVideoReady] = useState(false);
+  const [mediaError, setMediaError] = useState("");
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -65,22 +66,27 @@ export default function LiveStreamPage() {
 
   const isHost = stream ? myId === stream.host.id : false;
 
+  const initHostMedia = useCallback(async () => {
+    try {
+      setMediaError("");
+      const media = await getLocalMedia({ video: true, audio: true });
+      localStreamRef.current?.getTracks().forEach((t) => t.stop());
+      localStreamRef.current = media;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = media;
+      }
+      setVideoReady(true);
+    } catch {
+      setMediaError("No se otorgaron permisos de cámara y micrófono. Permítelos para iniciar el Live.");
+      setVideoReady(false);
+    }
+  }, []);
+
   // Host: start camera when page loads
   useEffect(() => {
     if (!isHost || !stream?.isActive) return;
-    (async () => {
-      try {
-        const media = await getLocalMedia({ video: true, audio: true });
-        localStreamRef.current = media;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = media;
-        }
-        setVideoReady(true);
-      } catch {
-        // Camera access denied — still show page
-      }
-    })();
-  }, [isHost, stream?.isActive]);
+    initHostMedia();
+  }, [isHost, stream?.isActive, initHostMedia]);
 
   // Join stream
   const handleJoin = useCallback(async () => {
@@ -275,6 +281,28 @@ export default function LiveStreamPage() {
     router.push("/");
   };
 
+  useEffect(() => {
+    if (!isHost || !stream?.isActive) return;
+
+    const endLiveBestEffort = () => {
+      const url = `${getApiBase().replace(/\/$/, "")}/live/${id}/end`;
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(url);
+        return;
+      }
+      fetch(url, { method: "POST", keepalive: true, credentials: "include" }).catch(() => {});
+    };
+
+    window.addEventListener("beforeunload", endLiveBestEffort);
+    window.addEventListener("pagehide", endLiveBestEffort);
+
+    return () => {
+      endLiveBestEffort();
+      window.removeEventListener("beforeunload", endLiveBestEffort);
+      window.removeEventListener("pagehide", endLiveBestEffort);
+    };
+  }, [id, isHost, stream?.isActive]);
+
   // Age gate
   if (!ageConfirmed) {
     return (
@@ -322,7 +350,7 @@ export default function LiveStreamPage() {
           <div className="flex items-center gap-1 text-xs text-white/40">
             <Users className="h-3.5 w-3.5" /> {stream.viewerCount}/{stream.maxViewers}
           </div>
-          <button onClick={() => router.push("/")} className="rounded-lg p-1.5 text-white/40 hover:bg-white/10">
+          <button onClick={isHost ? endStream : () => router.push("/")} className="rounded-lg p-1.5 text-white/40 hover:bg-white/10">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -370,6 +398,14 @@ export default function LiveStreamPage() {
               <div className="text-center">
                 <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
                 <p className="text-xs text-white/30">Conectando video...</p>
+                {isHost && mediaError && (
+                  <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-left">
+                    <p className="text-xs text-red-300">{mediaError}</p>
+                    <button onClick={initHostMedia} className="mt-2 rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-white/20">
+                      Reintentar permisos
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

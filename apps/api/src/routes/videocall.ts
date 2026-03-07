@@ -7,6 +7,48 @@ import { randomUUID } from "node:crypto";
 
 export const videocallRouter = Router();
 
+type AvailabilitySlot = {
+  day: number;
+  from: string;
+  to: string;
+};
+
+const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+const parseAvailabilitySlots = (raw: unknown): AvailabilitySlot[] => {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((slot) => {
+      if (!slot || typeof slot !== "object") return null;
+      const maybe = slot as Partial<AvailabilitySlot>;
+      const day = Number(maybe.day);
+      const from = String(maybe.from || "").trim();
+      const to = String(maybe.to || "").trim();
+      if (!Number.isInteger(day) || day < 0 || day > 6) return null;
+      if (!TIME_RE.test(from) || !TIME_RE.test(to) || from >= to) return null;
+      return { day, from, to };
+    })
+    .filter((slot): slot is AvailabilitySlot => Boolean(slot));
+};
+
+const isWithinProfessionalAvailability = (scheduledDate: Date, durationMinutes: number, slots: AvailabilitySlot[]) => {
+  if (!slots.length) return true;
+
+  const day = scheduledDate.getDay();
+  const startMinutes = scheduledDate.getHours() * 60 + scheduledDate.getMinutes();
+  const endMinutes = startMinutes + durationMinutes;
+
+  return slots.some((slot) => {
+    if (slot.day !== day) return false;
+    const [fromH, fromM] = slot.from.split(":").map(Number);
+    const [toH, toM] = slot.to.split(":").map(Number);
+    const slotStart = fromH * 60 + fromM;
+    const slotEnd = toH * 60 + toM;
+    return startMinutes >= slotStart && endMinutes <= slotEnd;
+  });
+};
+
 // ── GET /videocall/config/:professionalId — get professional's VC config ──
 videocallRouter.get("/videocall/config/:professionalId", async (req, res) => {
   const config = await prisma.videocallConfig.findUnique({
@@ -30,6 +72,7 @@ videocallRouter.put("/videocall/config", requireAuth, async (req, res) => {
   }
 
   const { pricePerMinute, minDurationMin, maxDurationMin, availableSlots, isActive } = req.body;
+  const normalizedSlots = availableSlots === undefined ? undefined : parseAvailabilitySlots(availableSlots);
 
   const config = await prisma.videocallConfig.upsert({
     where: { professionalId: userId },
@@ -37,7 +80,7 @@ videocallRouter.put("/videocall/config", requireAuth, async (req, res) => {
       ...(pricePerMinute != null && { pricePerMinute: parseInt(String(pricePerMinute), 10) }),
       ...(minDurationMin != null && { minDurationMin: parseInt(String(minDurationMin), 10) }),
       ...(maxDurationMin != null && { maxDurationMin: parseInt(String(maxDurationMin), 10) }),
-      ...(availableSlots !== undefined && { availableSlots }),
+      ...(normalizedSlots !== undefined && { availableSlots: normalizedSlots }),
       ...(isActive !== undefined && { isActive: Boolean(isActive) }),
     },
     create: {
@@ -45,7 +88,7 @@ videocallRouter.put("/videocall/config", requireAuth, async (req, res) => {
       pricePerMinute: parseInt(String(pricePerMinute || "10"), 10),
       minDurationMin: parseInt(String(minDurationMin || "5"), 10),
       maxDurationMin: parseInt(String(maxDurationMin || "60"), 10),
-      availableSlots: availableSlots || null,
+      availableSlots: normalizedSlots || null,
       isActive: isActive !== false,
     },
   });
@@ -70,6 +113,35 @@ videocallRouter.post("/videocall/book", requireAuth, async (req, res) => {
   if (!config || !config.isActive) return res.status(400).json({ error: "Videocalls not available" });
   if (duration < config.minDurationMin || duration > config.maxDurationMin) {
     return res.status(400).json({ error: `Duration must be ${config.minDurationMin}-${config.maxDurationMin} min` });
+  }
+
+  const availability = parseAvailabilitySlots(config.availableSlots);
+  if (!isWithinProfessionalAvailability(scheduledDate, duration, availability)) {
+    return res.status(400).json({ error: "Horario fuera de disponibilidad de la profesional" });
+  }
+
+  const nearbyBookings = await prisma.videocallBooking.findMany({
+    where: {
+      professionalId,
+      status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+      scheduledAt: {
+        gte: new Date(scheduledDate.getTime() - config.maxDurationMin * 60 * 1000),
+        lte: new Date(scheduledDate.getTime() + config.maxDurationMin * 60 * 1000),
+      },
+    },
+    select: { scheduledAt: true, durationMinutes: true },
+  });
+
+  const hasOverlap = nearbyBookings.some((item) => {
+    const existingStart = item.scheduledAt.getTime();
+    const existingEnd = existingStart + item.durationMinutes * 60 * 1000;
+    const requestedStart = scheduledDate.getTime();
+    const requestedEnd = requestedStart + duration * 60 * 1000;
+    return requestedStart < existingEnd && existingStart < requestedEnd;
+  });
+
+  if (hasOverlap) {
+    return res.status(400).json({ error: "Ese horario ya está reservado. Elige otro bloque." });
   }
 
   // Calculate cost
@@ -161,6 +233,14 @@ videocallRouter.post("/videocall/:id/start", requireAuth, async (req, res) => {
   if (booking.professionalId !== userId) return res.status(403).json({ error: "Not your booking" });
   if (booking.status !== "CONFIRMED" && booking.status !== "PENDING") {
     return res.status(400).json({ error: "Cannot start this booking" });
+  }
+
+  const now = Date.now();
+  const startsAt = booking.scheduledAt.getTime();
+  const earlyWindow = startsAt - 10 * 60 * 1000;
+  const lateWindow = startsAt + 10 * 60 * 1000;
+  if (now < earlyWindow || now > lateWindow) {
+    return res.status(400).json({ error: "Solo puedes iniciar entre 10 min antes y 10 min después de la hora agendada" });
   }
 
   await prisma.videocallBooking.update({
