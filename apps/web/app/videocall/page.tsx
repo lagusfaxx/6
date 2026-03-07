@@ -24,6 +24,7 @@ import {
   Settings,
   ToggleLeft,
   ToggleRight,
+  Lock,
 } from "lucide-react";
 
 /* ── Types ── */
@@ -80,8 +81,82 @@ const STATUS_UI: Record<string, { label: string; color: string }> = {
   NO_SHOW_PROFESSIONAL: { label: "No-show", color: "text-red-300 border-red-500/30 bg-red-500/10" },
 };
 
+type BookedSlot = {
+  start: string;
+  durationMinutes: number;
+};
+
 const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const DAY_NAMES_FULL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+/* Generate time blocks for a given day based on availability slots */
+function generateTimeBlocks(
+  date: Date,
+  availableSlots: AvailabilitySlot[],
+  bookedSlots: BookedSlot[],
+  duration: number,
+): { time: string; hour: number; minute: number; available: boolean; booked: boolean }[] {
+  const dayOfWeek = date.getDay();
+  const daySlots = availableSlots.filter((s) => s.day === dayOfWeek);
+  if (daySlots.length === 0) return [];
+
+  const blocks: { time: string; hour: number; minute: number; available: boolean; booked: boolean }[] = [];
+  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const now = new Date();
+
+  for (const slot of daySlots) {
+    const [fromH, fromM] = slot.from.split(":").map(Number);
+    const [toH, toM] = slot.to.split(":").map(Number);
+    const slotStartMin = fromH * 60 + fromM;
+    const slotEndMin = toH * 60 + toM;
+
+    // Generate blocks every 30 minutes within the slot
+    for (let min = slotStartMin; min + duration <= slotEndMin; min += 30) {
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+
+      // Check if this block is in the past
+      const blockDate = new Date(`${dateStr}T${timeStr}:00`);
+      if (blockDate <= now) continue;
+
+      // Check if this block overlaps with any existing booking
+      const blockStart = blockDate.getTime();
+      const blockEnd = blockStart + duration * 60 * 1000;
+
+      const isBooked = bookedSlots.some((bs) => {
+        const bStart = new Date(bs.start).getTime();
+        const bEnd = bStart + bs.durationMinutes * 60 * 1000;
+        return blockStart < bEnd && bStart < blockEnd;
+      });
+
+      blocks.push({ time: timeStr, hour: h, minute: m, available: true, booked: isBooked });
+    }
+  }
+
+  return blocks;
+}
+
+/* Get dates for next N days that have availability */
+function getAvailableDates(
+  availableSlots: AvailabilitySlot[],
+  daysAhead: number = 14,
+): Date[] {
+  const dates: Date[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const availableDays = new Set(availableSlots.map((s) => s.day));
+
+  for (let i = 0; i < daysAhead; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    if (availableDays.has(d.getDay())) {
+      dates.push(d);
+    }
+  }
+  return dates;
+}
 
 /* ── Booking Card (shared by both dashboards) ── */
 
@@ -639,6 +714,11 @@ function ClientDashboard({ me }: { me: any }) {
   const [bookMsg, setBookMsg] = useState("");
   const [walletBalance, setWalletBalance] = useState(0);
 
+  // Slot picker state
+  const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState<"explore" | "bookings">(professionalId ? "explore" : "bookings");
 
   // Load professionals
@@ -696,19 +776,28 @@ function ClientDashboard({ me }: { me: any }) {
     setSelectedPro(pro);
     setDuration(pro.minDurationMin || 10);
     setScheduledAt("");
+    setSelectedDate(null);
+    setSelectedTime(null);
     setBookMsg("");
+    setBookedSlots([]);
     apiFetch<{ config: Config }>(`/videocall/config/${pro.id}`)
       .then((r) => {
         setConfig(r.config);
         setDuration(r.config.minDurationMin || 10);
       })
       .catch(() => setConfig(null));
+    apiFetch<{ bookedSlots: BookedSlot[] }>(`/videocall/booked-slots/${pro.id}`)
+      .then((r) => setBookedSlots(r.bookedSlots || []))
+      .catch(() => {});
   };
 
   const closeModal = () => {
     setSelectedPro(null);
     setConfig(null);
     setBookMsg("");
+    setSelectedDate(null);
+    setSelectedTime(null);
+    setBookedSlots([]);
     if (professionalId) {
       router.replace("/videocall", { scroll: false });
     }
@@ -716,28 +805,32 @@ function ClientDashboard({ me }: { me: any }) {
 
   const totalCost = config ? config.pricePerMinute * duration : selectedPro ? selectedPro.pricePerMinute * duration : 0;
 
-  const bookingValidationMsg = useMemo(() => {
-    const slotSource = config?.availableSlots || selectedPro?.availableSlots;
-    if (!scheduledAt || !slotSource) return "";
-    const date = new Date(scheduledAt);
-    if (Number.isNaN(date.getTime())) return "Fecha inválida.";
-    const arr = Array.isArray(slotSource) ? slotSource : [];
-    if (!arr.length) return "";
-    const day = date.getDay();
-    const start = date.getHours() * 60 + date.getMinutes();
-    const end = start + duration;
-    const inSlot = arr.some((slot) => {
-      if (slot.day !== day) return false;
-      const [fh, fm] = slot.from.split(":").map(Number);
-      const [th, tm] = slot.to.split(":").map(Number);
-      return start >= fh * 60 + fm && end <= th * 60 + tm;
-    });
-    return inSlot ? "" : "Hora fuera de disponibilidad.";
-  }, [config, selectedPro, scheduledAt, duration]);
+  // Build scheduledAt from selected date + time
+  useEffect(() => {
+    if (selectedDate && selectedTime) {
+      const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
+      setScheduledAt(`${dateStr}T${selectedTime}:00`);
+    } else {
+      setScheduledAt("");
+    }
+  }, [selectedDate, selectedTime]);
+
+  // Regenerate time blocks when date or duration changes
+  const timeBlocks = useMemo(() => {
+    if (!selectedDate) return [];
+    const slots = config?.availableSlots || selectedPro?.availableSlots || [];
+    return generateTimeBlocks(selectedDate, Array.isArray(slots) ? slots : [], bookedSlots, duration);
+  }, [selectedDate, config, selectedPro, bookedSlots, duration]);
+
+  // Available dates from config
+  const availableDates = useMemo(() => {
+    const slots = config?.availableSlots || selectedPro?.availableSlots || [];
+    return getAvailableDates(Array.isArray(slots) ? slots : [], 14);
+  }, [config, selectedPro]);
 
   const handleBook = async () => {
     const proId = selectedPro?.id || professionalId;
-    if (!proId || !scheduledAt || bookingValidationMsg) return;
+    if (!proId || !scheduledAt) return;
     setBookLoading(true);
     setBookMsg("");
     try {
@@ -1029,7 +1122,7 @@ function ClientDashboard({ me }: { me: any }) {
               initial={{ y: 40, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0 }}
-              className="relative w-full max-w-md rounded-t-3xl border border-white/10 bg-[#12131f] p-6 shadow-2xl sm:rounded-3xl"
+              className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl border border-white/10 bg-[#12131f] p-6 shadow-2xl sm:rounded-3xl"
             >
               <button
                 onClick={closeModal}
@@ -1056,34 +1149,6 @@ function ClientDashboard({ me }: { me: any }) {
                 </div>
               </div>
 
-              {/* Availability */}
-              {config && Array.isArray(config.availableSlots) && config.availableSlots.length > 0 && (
-                <div className="mb-4 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
-                  <p className="mb-2 text-[11px] font-medium text-white/50">Disponibilidad</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {config.availableSlots.map((slot, idx) => (
-                      <span
-                        key={`${slot.day}-${idx}`}
-                        className="rounded-full border border-violet-400/20 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-200"
-                      >
-                        {DAY_NAMES[slot.day]} {slot.from}-{slot.to}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Date picker */}
-              <div className="mb-4">
-                <label className="mb-1.5 block text-xs text-white/50">Fecha y hora</label>
-                <input
-                  type="datetime-local"
-                  value={scheduledAt}
-                  onChange={(e) => setScheduledAt(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-violet-500/30"
-                />
-              </div>
-
               {/* Duration slider */}
               <div className="mb-4">
                 <label className="mb-1.5 block text-xs text-white/50">
@@ -1095,7 +1160,7 @@ function ClientDashboard({ me }: { me: any }) {
                   max={config?.maxDurationMin || selectedPro.maxDurationMin}
                   step={5}
                   value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value))}
+                  onChange={(e) => { setDuration(Number(e.target.value)); setSelectedTime(null); }}
                   className="w-full accent-violet-500"
                 />
                 <div className="flex justify-between text-[10px] text-white/25">
@@ -1104,21 +1169,91 @@ function ClientDashboard({ me }: { me: any }) {
                 </div>
               </div>
 
-              {/* Cost */}
-              <div className="mb-4 flex items-center justify-between rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
-                <span className="text-sm text-white/60">Costo total</span>
-                <span className="text-lg font-bold text-violet-300">{totalCost} tokens</span>
+              {/* Date picker - show available dates */}
+              <div className="mb-4">
+                <label className="mb-2 block text-xs text-white/50">Selecciona un día</label>
+                {availableDates.length === 0 ? (
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-center text-xs text-white/30">
+                    No hay horarios disponibles configurados
+                  </div>
+                ) : (
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {availableDates.map((d) => {
+                      const isSelected = selectedDate?.toDateString() === d.toDateString();
+                      const isToday = d.toDateString() === new Date().toDateString();
+                      return (
+                        <button
+                          key={d.toISOString()}
+                          onClick={() => { setSelectedDate(d); setSelectedTime(null); }}
+                          className={`flex shrink-0 flex-col items-center rounded-xl px-3 py-2 text-center transition ${
+                            isSelected
+                              ? "border border-violet-500/40 bg-violet-500/20 text-violet-200"
+                              : "border border-white/[0.06] bg-white/[0.02] text-white/60 hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          <span className="text-[10px] uppercase">{DAY_NAMES[d.getDay()]}</span>
+                          <span className="text-lg font-bold leading-tight">{d.getDate()}</span>
+                          <span className="text-[9px]">
+                            {isToday ? "Hoy" : d.toLocaleDateString("es-CL", { month: "short" })}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {/* Validation messages */}
-              {bookingValidationMsg && (
-                <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
-                  <Clock3 className="h-4 w-4 shrink-0" />
-                  {bookingValidationMsg}
+              {/* Time slots grid */}
+              {selectedDate && (
+                <div className="mb-4">
+                  <label className="mb-2 block text-xs text-white/50">Horarios disponibles</label>
+                  {timeBlocks.length === 0 ? (
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-center text-xs text-white/30">
+                      No hay horarios disponibles para este día
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                      {timeBlocks.map((block) => {
+                        const isSelected = selectedTime === block.time;
+                        return (
+                          <button
+                            key={block.time}
+                            onClick={() => !block.booked && setSelectedTime(block.time)}
+                            disabled={block.booked}
+                            className={`relative rounded-xl py-2.5 text-center text-xs font-medium transition ${
+                              block.booked
+                                ? "border border-red-500/15 bg-red-500/5 text-white/20 line-through cursor-not-allowed"
+                                : isSelected
+                                  ? "border border-violet-500/40 bg-violet-500/20 text-violet-200"
+                                  : "border border-white/[0.08] bg-white/[0.03] text-white/70 hover:bg-white/[0.06] hover:border-violet-500/20"
+                            }`}
+                          >
+                            {block.time}
+                            {block.booked && (
+                              <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-red-400/50" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {walletBalance < totalCost && (
+              {/* Cost - only show when time selected */}
+              {selectedTime && (
+                <div className="mb-4 flex items-center justify-between rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+                  <div>
+                    <span className="text-sm text-white/60">Costo total</span>
+                    <p className="text-[10px] text-white/30">
+                      {selectedDate?.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })} a las {selectedTime} · {duration} min
+                    </p>
+                  </div>
+                  <span className="text-lg font-bold text-violet-300">{totalCost} tokens</span>
+                </div>
+              )}
+
+              {selectedTime && walletBalance < totalCost && (
                 <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   Saldo insuficiente ({walletBalance} tokens).{" "}
@@ -1134,7 +1269,7 @@ function ClientDashboard({ me }: { me: any }) {
               {/* Book button */}
               <button
                 onClick={handleBook}
-                disabled={bookLoading || !scheduledAt || walletBalance < totalCost || Boolean(bookingValidationMsg)}
+                disabled={bookLoading || !scheduledAt || !selectedTime || walletBalance < totalCost}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40"
               >
                 <Calendar className="h-4 w-4" />

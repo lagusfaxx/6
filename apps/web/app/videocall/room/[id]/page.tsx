@@ -15,10 +15,14 @@ type Booking = {
   id: string;
   clientId: string;
   professionalId: string;
+  scheduledAt: string;
   durationMinutes: number;
   totalTokens: number;
   status: string;
   roomId: string | null;
+  startedAt: string | null;
+  clientJoinedAt: string | null;
+  professionalJoinedAt: string | null;
   client: { id: string; displayName: string; username: string; avatarUrl: string | null };
   professional: { id: string; displayName: string; username: string; avatarUrl: string | null };
 };
@@ -72,9 +76,7 @@ export default function VideocallRoomPage() {
 
   // Check if the room is open (5 minutes before scheduled time)
   const roomOpen = booking
-    ? Date.now() >= booking.scheduledAt
-      ? true
-      : Date.now() >= new Date(booking.scheduledAt).getTime() - 5 * 60 * 1000
+    ? Date.now() >= new Date(booking.scheduledAt).getTime() - 5 * 60 * 1000
     : false;
 
   // Initialize media and wait for call
