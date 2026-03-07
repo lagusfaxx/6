@@ -32,6 +32,7 @@ export default function VideocallRoomPage() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [status, setStatus] = useState<"loading" | "waiting" | "connecting" | "connected" | "ended">("loading");
   const [error, setError] = useState("");
+  const [mediaError, setMediaError] = useState("");
   const [elapsed, setElapsed] = useState(0);
 
   // Media controls
@@ -72,6 +73,7 @@ export default function VideocallRoomPage() {
   // Initialize media and wait for call
   const initMedia = useCallback(async () => {
     try {
+      setMediaError("");
       const stream = await getLocalMedia({ video: true, audio: true });
       localStreamRef.current = stream;
       if (localVideoRef.current) {
@@ -79,7 +81,7 @@ export default function VideocallRoomPage() {
       }
       setStatus("waiting");
     } catch {
-      setError("No se pudo acceder a cámara/micrófono. Verifica los permisos del navegador.");
+      setMediaError("No se pudo acceder a cámara y micrófono. Debes permitir permisos para unirte a la llamada.");
     }
   }, []);
 
@@ -166,8 +168,9 @@ export default function VideocallRoomPage() {
     // Notify server that call started
     try {
       await apiFetch(`/videocall/${bookingId}/start`, { method: "POST" });
-    } catch (e: any) {
-      setError(e?.message || "Error al iniciar");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Error al iniciar";
+      setError(message);
       return;
     }
 
@@ -299,7 +302,7 @@ export default function VideocallRoomPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {status === "connected" && (
+          {(status === "connected" || status === "connecting") && (
             <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1 text-xs font-mono">
               <Clock className="h-3 w-3" />
               <span className={timeLeft < 60 ? "text-red-300" : "text-emerald-300"}>
@@ -343,6 +346,17 @@ export default function VideocallRoomPage() {
                   <VideoIcon className="h-10 w-10 text-violet-400" />
                 </div>
                 <p className="text-sm text-white/50">Esperando que el profesional inicie la llamada...</p>
+              </div>
+            )}
+            {status === "waiting" && mediaError && (
+              <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-left">
+                <p className="text-sm text-red-300">{mediaError}</p>
+                <button
+                  onClick={initMedia}
+                  className="mt-3 rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20"
+                >
+                  Reintentar permisos
+                </button>
               </div>
             )}
             {status === "connecting" && (

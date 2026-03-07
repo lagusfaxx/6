@@ -7,6 +7,7 @@ import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle, Ra
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import useMe from "../hooks/useMe";
+import { getLocalMedia } from "../lib/webrtc";
 
 /* ─── Types ─────────────────────────────────────────────── */
 type StoryItem = {
@@ -263,6 +264,7 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
   const [loading, setLoading] = useState(true);
   const [viewerGroupIdx, setViewerGroupIdx] = useState<number | null>(null);
   const [goingLive, setGoingLive] = useState(false);
+  const [liveError, setLiveError] = useState("");
 
   useEffect(() => {
     let done = 0;
@@ -281,16 +283,26 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
 
   const handleGoLive = async () => {
     setGoingLive(true);
+    setLiveError("");
     try {
+      const testStream = await getLocalMedia({ video: true, audio: true });
+      testStream.getTracks().forEach((t) => t.stop());
+
       const res = await apiFetch<{ stream: { id: string } }>("/live/start", {
         method: "POST",
         body: JSON.stringify({ title: null }),
       });
       router.push(`/live/${res.stream.id}`);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      if (e instanceof Error && /permission|notallowed|denied/i.test(e.message)) {
+        setLiveError("Debes permitir cámara y micrófono para iniciar un Live.");
+      }
       // If already streaming, redirect to existing stream
-      if (e?.body?.streamId) {
-        router.push(`/live/${e.body.streamId}`);
+      const maybeApiError = e as { body?: { streamId?: string } };
+      if (maybeApiError?.body?.streamId) {
+        router.push(`/live/${maybeApiError.body.streamId}`);
+      } else if (!(e instanceof Error)) {
+        setLiveError("No se pudo iniciar el Live. Intenta nuevamente.");
       }
       setGoingLive(false);
     }
@@ -358,6 +370,10 @@ export default function Stories({ showUpload = false }: { showUpload?: boolean }
             )}
           </div>
         </div>
+
+        {liveError && (
+          <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{liveError}</p>
+        )}
 
         <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
           {/* Go Live button for professionals */}
