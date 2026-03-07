@@ -113,6 +113,8 @@ export default function VideocallRoomPage() {
   const createPeer = useCallback(() => {
     if (!remoteUserId || !localStreamRef.current) return null;
 
+    peerRef.current?.close();
+
     const peer = new WebRTCPeer(remoteUserId, {
       onRemoteStream: (stream) => {
         if (remoteVideoRef.current) {
@@ -175,10 +177,24 @@ export default function VideocallRoomPage() {
         setStatus("ended");
         clearInterval(timerRef.current);
       }
+
+      if (event.type === "videocall:user_joined" && data.bookingId === bookingId) {
+        setBooking((prev) => prev ? { ...prev, status: "IN_PROGRESS" } : prev);
+
+        // If I'm the professional and already waiting/connecting, re-send offer.
+        // This covers the case where the first offer was sent before the other side opened the room.
+        if (isProfessional && (status === "waiting" || status === "connecting")) {
+          const peer = createPeer();
+          if (peer) {
+            setStatus("connecting");
+            await peer.createOffer();
+          }
+        }
+      }
     });
 
     return cleanup;
-  }, [myId, booking, remoteUserId, bookingId, createPeer]);
+  }, [myId, booking, remoteUserId, bookingId, createPeer, isProfessional, status]);
 
   // Professional: start call and send offer
   const startCall = async () => {
