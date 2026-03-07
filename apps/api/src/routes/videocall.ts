@@ -97,6 +97,27 @@ videocallRouter.get("/videocall/config/:professionalId", async (req, res) => {
   res.json({ config });
 });
 
+// ── GET /videocall/booked-slots/:professionalId — existing bookings for slot display ──
+videocallRouter.get("/videocall/booked-slots/:professionalId", async (req, res) => {
+  const now = new Date();
+  const bookings = await prisma.videocallBooking.findMany({
+    where: {
+      professionalId: req.params.professionalId,
+      status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+      scheduledAt: { gte: now },
+    },
+    select: { scheduledAt: true, durationMinutes: true },
+    orderBy: { scheduledAt: "asc" },
+  });
+
+  const bookedSlots = bookings.map((b) => ({
+    start: b.scheduledAt.toISOString(),
+    durationMinutes: b.durationMinutes,
+  }));
+
+  res.json({ bookedSlots });
+});
+
 // ── PUT /videocall/config — professional sets/updates their VC config ──
 videocallRouter.put("/videocall/config", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
