@@ -1,11 +1,45 @@
 import { apiFetch } from "./api";
 
+const DEFAULT_TURN_SERVERS: RTCIceServer[] = [
+  {
+    urls: [
+      "turn:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:443",
+      "turns:openrelay.metered.ca:443",
+    ],
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+];
+
+function parseIceServerUrls(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 /* ── STUN/TURN servers ── */
-const ICE_SERVERS: RTCIceServer[] = [
+const STUN_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
   { urls: "stun:stun2.l.google.com:19302" },
   { urls: "stun:stun3.l.google.com:19302" },
+];
+
+const envTurnUrls = parseIceServerUrls(process.env.NEXT_PUBLIC_TURN_URLS);
+const envTurnServer = envTurnUrls.length > 0
+  ? [{
+      urls: envTurnUrls,
+      username: process.env.NEXT_PUBLIC_TURN_USERNAME,
+      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
+    } satisfies RTCIceServer]
+  : [];
+
+const ICE_SERVERS: RTCIceServer[] = [
+  ...STUN_SERVERS,
+  ...(envTurnServer.length > 0 ? envTurnServer : DEFAULT_TURN_SERVERS),
 ];
 
 const RTC_CONFIG: RTCConfiguration = {
@@ -34,6 +68,13 @@ function isAndroidPWA(): boolean {
 export async function getLocalMedia(
   opts: { video?: boolean | MediaTrackConstraints; audio?: boolean } = {},
 ): Promise<MediaStream> {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new DOMException(
+      "Tu navegador no soporta acceso a cámara o micrófono en este contexto. Usa HTTPS o la app instalada.",
+      "NotSupportedError",
+    );
+  }
+
   // iOS PWA and some Android PWA don't support navigator.permissions for camera/mic.
   // On iOS Safari (including PWA), getUserMedia may fail silently or require
   // a user gesture. We skip the permissions API pre-check on mobile PWA
@@ -74,7 +115,13 @@ export async function getLocalMedia(
           };
 
   const constraints: MediaStreamConstraints = {
-    audio: opts.audio ?? true,
+    audio: opts.audio === false
+      ? false
+      : {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
     video: videoConstraints,
   };
 
