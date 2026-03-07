@@ -87,8 +87,13 @@ export default function VideocallRoomPage() {
         localVideoRef.current.srcObject = stream;
       }
       setStatus("waiting");
-    } catch {
-      setMediaError("No se pudo acceder a cámara y micrófono. Debes permitir permisos para unirte a la llamada.");
+    } catch (err) {
+      const isDenied = err instanceof DOMException && err.name === "NotAllowedError";
+      setMediaError(
+        isDenied
+          ? "Permisos de cámara o micrófono denegados. Actívalos en la configuración de tu navegador o app."
+          : "No se pudo acceder a cámara y micrófono. Verifica que tu navegador tenga permisos y vuelve a intentar.",
+      );
     }
   }, []);
 

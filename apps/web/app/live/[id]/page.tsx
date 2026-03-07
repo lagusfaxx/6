@@ -78,8 +78,13 @@ export default function LiveStreamPage() {
         localVideoRef.current.srcObject = media;
       }
       setVideoReady(true);
-    } catch {
-      setMediaError("No se otorgaron permisos de cámara y micrófono. Permítelos para iniciar el Live.");
+    } catch (err) {
+      const isDenied = err instanceof DOMException && err.name === "NotAllowedError";
+      setMediaError(
+        isDenied
+          ? "Permisos de cámara o micrófono denegados. Actívalos en la configuración de tu navegador o app."
+          : "No se pudo acceder a cámara y micrófono. Verifica permisos y vuelve a intentar.",
+      );
       setNeedsManualPermission(true);
       setVideoReady(false);
     }

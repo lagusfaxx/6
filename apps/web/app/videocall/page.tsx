@@ -16,11 +16,14 @@ import {
   User,
   Clock3,
   Search,
-  Star,
-  ArrowRight,
   X,
   Play,
-  PhoneOff,
+  Plus,
+  Trash2,
+  Save,
+  Settings,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 
 /* ── Types ── */
@@ -78,14 +81,549 @@ const STATUS_UI: Record<string, { label: string; color: string }> = {
 };
 
 const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const DAY_NAMES_FULL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-/* ── Main component ── */
+/* ── Booking Card (shared by both dashboards) ── */
 
-function VideocallPageContent() {
-  const { me } = useMe();
-  const params = useSearchParams();
+function BookingCard({
+  b,
+  myId,
+  isProfessional,
+  onAction,
+}: {
+  b: Booking;
+  myId: string;
+  isProfessional: boolean;
+  onAction: (bookingId: string, action: string) => void;
+}) {
+  const other = myId === b.client.id ? b.professional : b.client;
+  const scheduled = new Date(b.scheduledAt);
+  const now = Date.now();
+  const roomOpensAt = scheduled.getTime() - 5 * 60 * 1000;
+  const canJoin = now >= roomOpensAt && now <= scheduled.getTime() + 15 * 60 * 1000;
+  const status = STATUS_UI[b.status] || { label: b.status, color: "text-white/60 border-white/20 bg-white/5" };
+
+  const msUntilRoom = roomOpensAt - now;
+  const minsUntilRoom = Math.ceil(msUntilRoom / 60000);
+
+  // Check if no-show reportable (10 min after scheduled)
+  const canReportNoShow = !isProfessional && (b.status === "PENDING" || b.status === "CONFIRMED") && now >= scheduled.getTime() + 10 * 60 * 1000;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+      <div className="p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {other.avatarUrl ? (
+              <img src={resolveMediaUrl(other.avatarUrl) ?? undefined} alt="" className="h-11 w-11 rounded-xl object-cover" />
+            ) : (
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10">
+                <User className="h-5 w-5 text-white/30" />
+              </div>
+            )}
+            <div>
+              <p className="text-sm font-semibold">{other.displayName || other.username}</p>
+              <p className="text-[11px] text-white/40">
+                {scheduled.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })}
+                {" "}
+                {scheduled.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                {" · "}
+                {b.durationMinutes} min · {isProfessional ? b.professionalPay : b.totalTokens} tokens
+              </p>
+            </div>
+          </div>
+          <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium ${status.color}`}>
+            {status.label}
+          </span>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {/* IN_PROGRESS: join call button */}
+          {b.status === "IN_PROGRESS" && (
+            <Link
+              href={`/videocall/room/${b.id}`}
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-semibold shadow-lg shadow-emerald-500/20"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              Unirse a la llamada
+            </Link>
+          )}
+
+          {/* PENDING/CONFIRMED: enter room if time is right */}
+          {(b.status === "PENDING" || b.status === "CONFIRMED") && canJoin && (
+            <Link
+              href={`/videocall/room/${b.id}`}
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2.5 text-xs font-semibold shadow-lg shadow-violet-500/20"
+            >
+              <Play className="h-3.5 w-3.5" />
+              Entrar a la sala
+            </Link>
+          )}
+
+          {/* Countdown to room opening */}
+          {(b.status === "PENDING" || b.status === "CONFIRMED") && !canJoin && msUntilRoom > 0 && (
+            <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs text-white/50">
+              <Clock3 className="h-3.5 w-3.5" />
+              Sala abre en {minsUntilRoom > 60 ? `${Math.floor(minsUntilRoom / 60)}h ${minsUntilRoom % 60}m` : `${minsUntilRoom} min`}
+            </div>
+          )}
+
+          {/* Client: cancel booking */}
+          {!isProfessional && (b.status === "PENDING" || b.status === "CONFIRMED") && (
+            <button
+              onClick={() => onAction(b.id, "cancel")}
+              className="flex items-center gap-1 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2.5 text-xs font-medium text-red-300 transition hover:bg-red-500/10"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              Cancelar
+            </button>
+          )}
+
+          {/* Client: report no-show */}
+          {canReportNoShow && (
+            <button
+              onClick={() => onAction(b.id, "noshow")}
+              className="flex items-center gap-1 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs font-medium text-amber-300 transition hover:bg-amber-500/10"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Reportar no-show
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Professional Dashboard ── */
+
+function ProfessionalDashboard({ me }: { me: any }) {
+  const myId = me?.user?.id;
+  const [activeTab, setActiveTab] = useState<"bookings" | "config">("bookings");
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Config state
+  const [config, setConfig] = useState<Config | null>(null);
+  const [configLoading, setConfigLoading] = useState(true);
+  const [pricePerMinute, setPricePerMinute] = useState(10);
+  const [minDuration, setMinDuration] = useState(5);
+  const [maxDuration, setMaxDuration] = useState(60);
+  const [isActive, setIsActive] = useState(true);
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+
+  // Load bookings
+  const loadBookings = useCallback(async () => {
+    try {
+      const res = await apiFetch<{ bookings: Booking[] }>("/videocall/bookings?role=professional");
+      setBookings(res.bookings || []);
+    } catch {}
+    setLoading(false);
+  }, []);
+
+  // Load config
+  const loadConfig = useCallback(async () => {
+    if (!myId) return;
+    try {
+      const res = await apiFetch<{ config: Config }>(`/videocall/config/${myId}`);
+      const c = res.config;
+      setConfig(c);
+      setPricePerMinute(c.pricePerMinute);
+      setMinDuration(c.minDurationMin);
+      setMaxDuration(c.maxDurationMin);
+      setIsActive(c.isActive);
+      setSlots(Array.isArray(c.availableSlots) ? c.availableSlots : []);
+    } catch {
+      // No config yet
+    }
+    setConfigLoading(false);
+  }, [myId]);
+
+  useEffect(() => {
+    loadBookings();
+    loadConfig();
+  }, [loadBookings, loadConfig]);
+
+  // Auto-refresh bookings
+  useEffect(() => {
+    const interval = setInterval(loadBookings, 30000);
+    return () => clearInterval(interval);
+  }, [loadBookings]);
+
+  const handleAction = async (bookingId: string, action: string) => {
+    try {
+      await apiFetch(`/videocall/${bookingId}/${action}`, { method: "POST" });
+      loadBookings();
+    } catch {}
+  };
+
+  const handleSaveConfig = async () => {
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      await apiFetch("/videocall/config", {
+        method: "PUT",
+        body: JSON.stringify({
+          pricePerMinute,
+          minDurationMin: minDuration,
+          maxDurationMin: maxDuration,
+          isActive,
+          availableSlots: slots,
+        }),
+      });
+      setSaveMsg("Configuración guardada correctamente.");
+      loadConfig();
+    } catch (e) {
+      setSaveMsg(e instanceof Error ? e.message : "Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addSlot = () => {
+    setSlots([...slots, { day: 1, from: "09:00", to: "18:00" }]);
+  };
+
+  const removeSlot = (idx: number) => {
+    setSlots(slots.filter((_, i) => i !== idx));
+  };
+
+  const updateSlot = (idx: number, field: keyof AvailabilitySlot, value: string | number) => {
+    setSlots(slots.map((s, i) => i === idx ? { ...s, [field]: value } : s));
+  };
+
+  const activeBookings = bookings.filter((b) => ["PENDING", "CONFIRMED", "IN_PROGRESS"].includes(b.status));
+  const pastBookings = bookings.filter((b) => !["PENDING", "CONFIRMED", "IN_PROGRESS"].includes(b.status));
+
+  return (
+    <div className="min-h-screen bg-[#0a0b14] text-white">
+      <div className="mx-auto max-w-5xl px-4 py-6 pb-28">
+        {/* Hero */}
+        <div className="mb-6 overflow-hidden rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-600/10 via-fuchsia-600/5 to-transparent p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 backdrop-blur">
+              <Video className="h-7 w-7 text-violet-200" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">Panel de Videollamadas</h1>
+              <p className="mt-1 text-sm text-white/50">
+                Gestiona tu configuración, horarios y próximas llamadas.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick stats */}
+          <div className="mt-4 flex flex-wrap gap-3">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300">
+              {activeBookings.length} próxima{activeBookings.length !== 1 ? "s" : ""}
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/50">
+              {isActive ? "Activo" : "Inactivo"}
+            </div>
+            {config && (
+              <div className="rounded-xl border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-xs text-violet-300">
+                {pricePerMinute} tokens/min
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-6 flex items-center gap-3">
+          <button
+            onClick={() => setActiveTab("bookings")}
+            className={`relative rounded-full px-5 py-2.5 text-sm font-medium transition ${
+              activeTab === "bookings"
+                ? "bg-violet-500/20 text-violet-200 border border-violet-500/30"
+                : "text-white/50 hover:text-white/70 border border-transparent"
+            }`}
+          >
+            Mis Llamadas
+            {activeBookings.length > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[10px] font-bold">
+                {activeBookings.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("config")}
+            className={`rounded-full px-5 py-2.5 text-sm font-medium transition ${
+              activeTab === "config"
+                ? "bg-violet-500/20 text-violet-200 border border-violet-500/30"
+                : "text-white/50 hover:text-white/70 border border-transparent"
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <Settings className="h-3.5 w-3.5" />
+              Configuración
+            </span>
+          </button>
+        </div>
+
+        {/* ── BOOKINGS TAB ── */}
+        {activeTab === "bookings" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-24 animate-pulse rounded-2xl bg-white/[0.04]" />
+                ))}
+              </div>
+            ) : (
+              <>
+                {activeBookings.length > 0 && (
+                  <div>
+                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/40">Próximas Llamadas</h3>
+                    <div className="space-y-3">
+                      {activeBookings.map((b) => (
+                        <BookingCard key={b.id} b={b} myId={myId} isProfessional onAction={handleAction} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {pastBookings.length > 0 && (
+                  <div>
+                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/40">Historial</h3>
+                    <div className="space-y-2">
+                      {pastBookings.slice(0, 20).map((b) => {
+                        const other = b.client;
+                        const scheduled = new Date(b.scheduledAt);
+                        const status = STATUS_UI[b.status] || { label: b.status, color: "text-white/60 border-white/20 bg-white/5" };
+                        return (
+                          <div key={b.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {other.avatarUrl ? (
+                                  <img src={resolveMediaUrl(other.avatarUrl) ?? undefined} alt="" className="h-9 w-9 rounded-lg object-cover" />
+                                ) : (
+                                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
+                                    <User className="h-4 w-4 text-white/30" />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="text-xs font-medium">{other.displayName || other.username}</p>
+                                  <p className="text-[10px] text-white/30">
+                                    {scheduled.toLocaleDateString("es-CL")} · {b.durationMinutes} min · {b.professionalPay} tokens
+                                  </p>
+                                </div>
+                              </div>
+                              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${status.color}`}>
+                                {status.label}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {bookings.length === 0 && (
+                  <div className="py-20 text-center">
+                    <Calendar className="mx-auto mb-4 h-12 w-12 text-white/15" />
+                    <p className="text-sm text-white/40">Aún no tienes videollamadas agendadas</p>
+                    <p className="mt-1 text-xs text-white/25">Cuando un cliente reserve una llamada, aparecerá aquí.</p>
+                  </div>
+                )}
+              </>
+            )}
+          </motion.div>
+        )}
+
+        {/* ── CONFIG TAB ── */}
+        {activeTab === "config" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            {configLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/[0.04]" />
+                ))}
+              </div>
+            ) : (
+              <>
+                {/* Active toggle */}
+                <div className="flex items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                  <div>
+                    <p className="text-sm font-semibold">Estado del servicio</p>
+                    <p className="text-xs text-white/40">
+                      {isActive ? "Los clientes pueden reservar videollamadas contigo" : "Tu perfil no aparecerá en la búsqueda"}
+                    </p>
+                  </div>
+                  <button onClick={() => setIsActive(!isActive)} className="shrink-0">
+                    {isActive ? (
+                      <ToggleRight className="h-8 w-8 text-emerald-400" />
+                    ) : (
+                      <ToggleLeft className="h-8 w-8 text-white/30" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Pricing */}
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                  <h4 className="mb-4 text-sm font-semibold">Precio y duración</h4>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1.5 block text-xs text-white/50">Precio por minuto (tokens)</label>
+                      <input
+                        type="number"
+                        value={pricePerMinute}
+                        onChange={(e) => setPricePerMinute(Math.max(1, Number(e.target.value)))}
+                        min={1}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-violet-500/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs text-white/50">Duración mínima (min)</label>
+                      <input
+                        type="number"
+                        value={minDuration}
+                        onChange={(e) => setMinDuration(Math.max(1, Number(e.target.value)))}
+                        min={1}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-violet-500/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs text-white/50">Duración máxima (min)</label>
+                      <input
+                        type="number"
+                        value={maxDuration}
+                        onChange={(e) => setMaxDuration(Math.max(minDuration, Number(e.target.value)))}
+                        min={minDuration}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-violet-500/30"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 rounded-xl border border-violet-500/15 bg-violet-500/5 px-3 py-2">
+                    <p className="text-xs text-violet-300">
+                      Ejemplo: Una llamada de {minDuration} min cuesta <strong>{pricePerMinute * minDuration} tokens</strong>, de {maxDuration} min cuesta <strong>{pricePerMinute * maxDuration} tokens</strong>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Availability Schedule */}
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-semibold">Horarios de disponibilidad</h4>
+                      <p className="text-xs text-white/40">Define los días y horas en que estás disponible</p>
+                    </div>
+                    <button
+                      onClick={addSlot}
+                      className="flex items-center gap-1 rounded-xl bg-violet-500/20 px-3 py-2 text-xs font-medium text-violet-300 transition hover:bg-violet-500/30"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Agregar
+                    </button>
+                  </div>
+
+                  {slots.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-white/10 p-6 text-center">
+                      <Calendar className="mx-auto mb-2 h-8 w-8 text-white/15" />
+                      <p className="text-xs text-white/30">Sin horarios configurados</p>
+                      <p className="text-[10px] text-white/20">Los clientes podrán reservar en cualquier momento</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {slots.map((slot, idx) => (
+                        <div key={idx} className="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                          <select
+                            value={slot.day}
+                            onChange={(e) => updateSlot(idx, "day", Number(e.target.value))}
+                            className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none focus:border-violet-500/30"
+                          >
+                            {DAY_NAMES_FULL.map((name, d) => (
+                              <option key={d} value={d} className="bg-[#12131f]">{name}</option>
+                            ))}
+                          </select>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="time"
+                              value={slot.from}
+                              onChange={(e) => updateSlot(idx, "from", e.target.value)}
+                              className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2 text-xs outline-none focus:border-violet-500/30"
+                            />
+                            <span className="text-xs text-white/30">a</span>
+                            <input
+                              type="time"
+                              value={slot.to}
+                              onChange={(e) => updateSlot(idx, "to", e.target.value)}
+                              className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2 text-xs outline-none focus:border-violet-500/30"
+                            />
+                          </div>
+                          <button
+                            onClick={() => removeSlot(idx)}
+                            className="ml-auto rounded-lg p-1.5 text-white/30 transition hover:bg-red-500/10 hover:text-red-300"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Weekly overview */}
+                  {slots.length > 0 && (
+                    <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">Resumen semanal</p>
+                      <div className="grid grid-cols-7 gap-1">
+                        {DAY_NAMES.map((name, d) => {
+                          const daySlots = slots.filter((s) => s.day === d);
+                          return (
+                            <div key={d} className="text-center">
+                              <p className="text-[10px] font-medium text-white/40">{name}</p>
+                              {daySlots.length > 0 ? (
+                                daySlots.map((s, i) => (
+                                  <p key={i} className="mt-0.5 text-[9px] text-emerald-300">{s.from}-{s.to}</p>
+                                ))
+                              ) : (
+                                <p className="mt-0.5 text-[9px] text-white/15">—</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Save button */}
+                <button
+                  onClick={handleSaveConfig}
+                  disabled={saving}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40"
+                >
+                  {saving ? (
+                    <Clock3 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {saving ? "Guardando..." : "Guardar Configuración"}
+                </button>
+
+                {saveMsg && (
+                  <p className={`text-center text-xs ${saveMsg.includes("correctamente") ? "text-emerald-300" : "text-red-300"}`}>
+                    {saveMsg}
+                  </p>
+                )}
+              </>
+            )}
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Client Dashboard ── */
+
+function ClientDashboard({ me }: { me: any }) {
   const router = useRouter();
+  const params = useSearchParams();
   const professionalId = params?.get("professional") || null;
+  const myId = me?.user?.id;
 
   const [professionals, setProfessionals] = useState<ProfessionalCard[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -101,11 +639,7 @@ function VideocallPageContent() {
   const [bookMsg, setBookMsg] = useState("");
   const [walletBalance, setWalletBalance] = useState(0);
 
-  const [activeTab, setActiveTab] = useState<"explore" | "bookings">(professionalId ? "explore" : "explore");
-
-  const isProfessional = me?.user?.profileType === "PROFESSIONAL";
-  const myId = me?.user?.id;
-  const isAuthed = Boolean(myId);
+  const [activeTab, setActiveTab] = useState<"explore" | "bookings">(professionalId ? "explore" : "bookings");
 
   // Load professionals
   useEffect(() => {
@@ -117,22 +651,27 @@ function VideocallPageContent() {
 
   // Load bookings
   const loadBookings = useCallback(async () => {
-    if (!isAuthed) return;
+    if (!myId) return;
     try {
-      const role = isProfessional ? "professional" : "client";
-      const res = await apiFetch<{ bookings: Booking[] }>(`/videocall/bookings?role=${role}`);
+      const res = await apiFetch<{ bookings: Booking[] }>("/videocall/bookings?role=client");
       setBookings(res.bookings || []);
     } catch {}
-  }, [isProfessional, isAuthed]);
+  }, [myId]);
 
   useEffect(() => {
     loadBookings();
-    if (isAuthed) {
+    if (myId) {
       apiFetch<{ balance: number }>("/wallet")
         .then((w) => setWalletBalance(w.balance))
         .catch(() => {});
     }
-  }, [loadBookings, isAuthed]);
+  }, [loadBookings, myId]);
+
+  // Auto-refresh bookings
+  useEffect(() => {
+    const interval = setInterval(loadBookings, 30000);
+    return () => clearInterval(interval);
+  }, [loadBookings]);
 
   // Auto-open booking modal if ?professional= in URL
   useEffect(() => {
@@ -153,13 +692,11 @@ function VideocallPageContent() {
     );
   }, [professionals, searchTerm]);
 
-  // Open booking modal for a professional
   const openBookingModal = (pro: ProfessionalCard) => {
     setSelectedPro(pro);
     setDuration(pro.minDurationMin || 10);
     setScheduledAt("");
     setBookMsg("");
-    // Load full config
     apiFetch<{ config: Config }>(`/videocall/config/${pro.id}`)
       .then((r) => {
         setConfig(r.config);
@@ -172,7 +709,6 @@ function VideocallPageContent() {
     setSelectedPro(null);
     setConfig(null);
     setBookMsg("");
-    // Clean URL param
     if (professionalId) {
       router.replace("/videocall", { scroll: false });
     }
@@ -181,11 +717,11 @@ function VideocallPageContent() {
   const totalCost = config ? config.pricePerMinute * duration : selectedPro ? selectedPro.pricePerMinute * duration : 0;
 
   const bookingValidationMsg = useMemo(() => {
-    const slots = config?.availableSlots || selectedPro?.availableSlots;
-    if (!scheduledAt || !slots) return "";
+    const slotSource = config?.availableSlots || selectedPro?.availableSlots;
+    if (!scheduledAt || !slotSource) return "";
     const date = new Date(scheduledAt);
     if (Number.isNaN(date.getTime())) return "Fecha inválida.";
-    const arr = Array.isArray(slots) ? slots : [];
+    const arr = Array.isArray(slotSource) ? slotSource : [];
     if (!arr.length) return "";
     const day = date.getDay();
     const start = date.getHours() * 60 + date.getMinutes();
@@ -236,22 +772,51 @@ function VideocallPageContent() {
     <div className="min-h-screen bg-[#0a0b14] text-white">
       <div className="mx-auto max-w-5xl px-4 py-6 pb-28">
         {/* Hero */}
-        <div className="mb-8 overflow-hidden rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-600/10 via-fuchsia-600/5 to-transparent p-6 sm:p-8">
+        <div className="mb-6 overflow-hidden rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-600/10 via-fuchsia-600/5 to-transparent p-6">
           <div className="flex items-start gap-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 backdrop-blur">
               <Video className="h-7 w-7 text-violet-200" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold sm:text-3xl">Videollamadas Privadas</h1>
+              <h1 className="text-2xl font-bold">Videollamadas</h1>
               <p className="mt-1 text-sm text-white/50">
                 Conecta con profesionales en videollamadas privadas. Pago seguro con tokens.
               </p>
             </div>
           </div>
+
+          {/* Quick stats */}
+          {myId && activeBookings.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-3">
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300">
+                {activeBookings.length} llamada{activeBookings.length !== 1 ? "s" : ""} programada{activeBookings.length !== 1 ? "s" : ""}
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/50">
+                Saldo: {walletBalance} tokens
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
         <div className="mb-6 flex items-center gap-3">
+          {myId && (
+            <button
+              onClick={() => setActiveTab("bookings")}
+              className={`relative rounded-full px-5 py-2.5 text-sm font-medium transition ${
+                activeTab === "bookings"
+                  ? "bg-violet-500/20 text-violet-200 border border-violet-500/30"
+                  : "text-white/50 hover:text-white/70 border border-transparent"
+              }`}
+            >
+              Mis Llamadas
+              {activeBookings.length > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[10px] font-bold">
+                  {activeBookings.length}
+                </span>
+              )}
+            </button>
+          )}
           <button
             onClick={() => setActiveTab("explore")}
             className={`rounded-full px-5 py-2.5 text-sm font-medium transition ${
@@ -262,24 +827,73 @@ function VideocallPageContent() {
           >
             Explorar
           </button>
-          {isAuthed && (
-            <button
-              onClick={() => setActiveTab("bookings")}
-              className={`relative rounded-full px-5 py-2.5 text-sm font-medium transition ${
-                activeTab === "bookings"
-                  ? "bg-violet-500/20 text-violet-200 border border-violet-500/30"
-                  : "text-white/50 hover:text-white/70 border border-transparent"
-              }`}
-            >
-              Mis Reservas
-              {activeBookings.length > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[10px] font-bold">
-                  {activeBookings.length}
-                </span>
-              )}
-            </button>
-          )}
         </div>
+
+        {/* ── BOOKINGS TAB ── */}
+        {activeTab === "bookings" && myId && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            {activeBookings.length > 0 && (
+              <div>
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/40">Próximas Llamadas</h3>
+                <div className="space-y-3">
+                  {activeBookings.map((b) => (
+                    <BookingCard key={b.id} b={b} myId={myId} isProfessional={false} onAction={handleAction} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {pastBookings.length > 0 && (
+              <div>
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/40">Historial</h3>
+                <div className="space-y-2">
+                  {pastBookings.slice(0, 20).map((b) => {
+                    const other = b.professional;
+                    const scheduled = new Date(b.scheduledAt);
+                    const status = STATUS_UI[b.status] || { label: b.status, color: "text-white/60 border-white/20 bg-white/5" };
+                    return (
+                      <div key={b.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {other.avatarUrl ? (
+                              <img src={resolveMediaUrl(other.avatarUrl) ?? undefined} alt="" className="h-9 w-9 rounded-lg object-cover" />
+                            ) : (
+                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
+                                <User className="h-4 w-4 text-white/30" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-xs font-medium">{other.displayName || other.username}</p>
+                              <p className="text-[10px] text-white/30">
+                                {scheduled.toLocaleDateString("es-CL")} · {b.durationMinutes} min · {b.totalTokens} tokens
+                              </p>
+                            </div>
+                          </div>
+                          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${status.color}`}>
+                            {status.label}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {bookings.length === 0 && (
+              <div className="py-20 text-center">
+                <Calendar className="mx-auto mb-4 h-12 w-12 text-white/15" />
+                <p className="text-sm text-white/40">Aún no tienes videollamadas</p>
+                <button
+                  onClick={() => setActiveTab("explore")}
+                  className="mt-4 text-sm text-violet-400 hover:text-violet-300"
+                >
+                  Explorar profesionales
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
 
         {/* ── EXPLORE TAB ── */}
         {activeTab === "explore" && (
@@ -318,7 +932,7 @@ function VideocallPageContent() {
                     animate={{ opacity: 1, y: 0 }}
                     className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition hover:border-violet-500/20 hover:bg-white/[0.05]"
                   >
-                    {/* Cover / gradient */}
+                    {/* Cover */}
                     <div className="relative h-32 overflow-hidden bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10">
                       {pro.coverUrl && (
                         <img
@@ -328,7 +942,6 @@ function VideocallPageContent() {
                         />
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b14] via-transparent to-transparent" />
-                      {/* Price badge */}
                       <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-violet-400/30 bg-[#0a0b14]/80 px-2.5 py-1 backdrop-blur">
                         <Coins className="h-3 w-3 text-violet-300" />
                         <span className="text-xs font-semibold text-violet-200">{pro.pricePerMinute}</span>
@@ -375,14 +988,13 @@ function VideocallPageContent() {
                         </div>
                       )}
 
-                      {/* Duration range */}
                       <div className="mt-3 flex items-center justify-between">
                         <span className="text-[10px] text-white/30">
                           {pro.minDurationMin}-{pro.maxDurationMin} min
                         </span>
                         <button
                           onClick={() => {
-                            if (!isAuthed) {
+                            if (!myId) {
                               router.push(`/login?next=${encodeURIComponent(`/videocall?professional=${pro.id}`)}`);
                               return;
                             }
@@ -397,154 +1009,6 @@ function VideocallPageContent() {
                     </div>
                   </motion.div>
                 ))}
-              </div>
-            )}
-          </motion.div>
-        )}
-
-        {/* ── BOOKINGS TAB ── */}
-        {activeTab === "bookings" && isAuthed && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            {/* Active bookings */}
-            {activeBookings.length > 0 && (
-              <div>
-                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/40">Próximas</h3>
-                <div className="space-y-3">
-                  {activeBookings.map((b) => {
-                    const other = myId === b.client.id ? b.professional : b.client;
-                    const scheduled = new Date(b.scheduledAt);
-                    const now = Date.now();
-                    const roomOpensAt = scheduled.getTime() - 5 * 60 * 1000;
-                    const canJoin = now >= roomOpensAt && now <= scheduled.getTime() + 10 * 60 * 1000;
-                    const status = STATUS_UI[b.status] || { label: b.status, color: "text-white/60 border-white/20 bg-white/5" };
-
-                    // Time until room opens
-                    const msUntilRoom = roomOpensAt - now;
-                    const minsUntilRoom = Math.ceil(msUntilRoom / 60000);
-
-                    return (
-                      <div key={b.id} className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
-                        <div className="p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              {other.avatarUrl ? (
-                                <img src={resolveMediaUrl(other.avatarUrl) ?? undefined} alt="" className="h-11 w-11 rounded-xl object-cover" />
-                              ) : (
-                                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10">
-                                  <User className="h-5 w-5 text-white/30" />
-                                </div>
-                              )}
-                              <div>
-                                <p className="text-sm font-semibold">{other.displayName || other.username}</p>
-                                <p className="text-[11px] text-white/40">
-                                  {scheduled.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })}
-                                  {" "}
-                                  {scheduled.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
-                                  {" · "}
-                                  {b.durationMinutes} min · {b.totalTokens} tokens
-                                </p>
-                              </div>
-                            </div>
-                            <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium ${status.color}`}>
-                              {status.label}
-                            </span>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            {b.status === "IN_PROGRESS" && (
-                              <Link
-                                href={`/videocall/room/${b.id}`}
-                                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-semibold shadow-lg shadow-emerald-500/20"
-                              >
-                                <Phone className="h-3.5 w-3.5" />
-                                Unirse a la llamada
-                              </Link>
-                            )}
-
-                            {(b.status === "PENDING" || b.status === "CONFIRMED") && canJoin && (
-                              <Link
-                                href={`/videocall/room/${b.id}`}
-                                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2.5 text-xs font-semibold shadow-lg shadow-violet-500/20"
-                              >
-                                <Play className="h-3.5 w-3.5" />
-                                Entrar a la sala
-                              </Link>
-                            )}
-
-                            {(b.status === "PENDING" || b.status === "CONFIRMED") && !canJoin && msUntilRoom > 0 && (
-                              <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs text-white/50">
-                                <Clock3 className="h-3.5 w-3.5" />
-                                Sala abre en {minsUntilRoom > 60 ? `${Math.floor(minsUntilRoom / 60)}h ${minsUntilRoom % 60}m` : `${minsUntilRoom} min`}
-                              </div>
-                            )}
-
-                            {!isProfessional && (b.status === "PENDING" || b.status === "CONFIRMED") && (
-                              <button
-                                onClick={() => handleAction(b.id, "cancel")}
-                                className="flex items-center gap-1 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2.5 text-xs font-medium text-red-300 transition hover:bg-red-500/10"
-                              >
-                                <XCircle className="h-3.5 w-3.5" />
-                                Cancelar
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Past bookings */}
-            {pastBookings.length > 0 && (
-              <div>
-                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/40">Historial</h3>
-                <div className="space-y-2">
-                  {pastBookings.map((b) => {
-                    const other = myId === b.client.id ? b.professional : b.client;
-                    const scheduled = new Date(b.scheduledAt);
-                    const status = STATUS_UI[b.status] || { label: b.status, color: "text-white/60 border-white/20 bg-white/5" };
-
-                    return (
-                      <div key={b.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {other.avatarUrl ? (
-                              <img src={resolveMediaUrl(other.avatarUrl) ?? undefined} alt="" className="h-9 w-9 rounded-lg object-cover" />
-                            ) : (
-                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
-                                <User className="h-4 w-4 text-white/30" />
-                              </div>
-                            )}
-                            <div>
-                              <p className="text-xs font-medium">{other.displayName || other.username}</p>
-                              <p className="text-[10px] text-white/30">
-                                {scheduled.toLocaleDateString("es-CL")} · {b.durationMinutes} min · {b.totalTokens} tokens
-                              </p>
-                            </div>
-                          </div>
-                          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${status.color}`}>
-                            {status.label}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {bookings.length === 0 && (
-              <div className="py-20 text-center">
-                <Calendar className="mx-auto mb-4 h-12 w-12 text-white/15" />
-                <p className="text-sm text-white/40">Aún no tienes videollamadas</p>
-                <button
-                  onClick={() => setActiveTab("explore")}
-                  className="mt-4 text-sm text-violet-400 hover:text-violet-300"
-                >
-                  Explorar profesionales
-                </button>
               </div>
             )}
           </motion.div>
@@ -567,7 +1031,6 @@ function VideocallPageContent() {
               exit={{ y: 40, opacity: 0 }}
               className="relative w-full max-w-md rounded-t-3xl border border-white/10 bg-[#12131f] p-6 shadow-2xl sm:rounded-3xl"
             >
-              {/* Close button */}
               <button
                 onClick={closeModal}
                 className="absolute right-4 top-4 rounded-full p-1.5 text-white/40 hover:bg-white/10"
@@ -663,7 +1126,7 @@ function VideocallPageContent() {
                 </div>
               )}
 
-              {/* Info box */}
+              {/* Info */}
               <div className="mb-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[11px] text-white/40">
                 <p>La sala se abre 5 minutos antes de la hora agendada. Los tokens se retienen de forma segura hasta que la llamada finalice.</p>
               </div>
@@ -689,6 +1152,19 @@ function VideocallPageContent() {
       </AnimatePresence>
     </div>
   );
+}
+
+/* ── Main component ── */
+
+function VideocallPageContent() {
+  const { me } = useMe();
+  const isProfessional = me?.user?.profileType === "PROFESSIONAL";
+
+  if (isProfessional) {
+    return <ProfessionalDashboard me={me} />;
+  }
+
+  return <ClientDashboard me={me} />;
 }
 
 export default function VideocallPage() {
