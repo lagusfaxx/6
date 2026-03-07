@@ -14,6 +14,34 @@ type AvailabilitySlot = {
 };
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const CL_TIMEZONE = "America/Santiago";
+
+const WEEKDAY_TO_INDEX: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+const getChileDayAndMinutes = (date: Date): { day: number; minutes: number } => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: CL_TIMEZONE,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const weekday = parts.find((p) => p.type === "weekday")?.value ?? "Sun";
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  const day = WEEKDAY_TO_INDEX[weekday] ?? 0;
+
+  return { day, minutes: hour * 60 + minute };
+};
 
 const parseAvailabilitySlots = (raw: unknown): AvailabilitySlot[] => {
   if (!Array.isArray(raw)) return [];
@@ -35,8 +63,7 @@ const parseAvailabilitySlots = (raw: unknown): AvailabilitySlot[] => {
 const isWithinProfessionalAvailability = (scheduledDate: Date, durationMinutes: number, slots: AvailabilitySlot[]) => {
   if (!slots.length) return true;
 
-  const day = scheduledDate.getDay();
-  const startMinutes = scheduledDate.getHours() * 60 + scheduledDate.getMinutes();
+  const { day, minutes: startMinutes } = getChileDayAndMinutes(scheduledDate);
   const endMinutes = startMinutes + durationMinutes;
 
   return slots.some((slot) => {
@@ -172,7 +199,10 @@ videocallRouter.post("/videocall/book", requireAuth, async (req, res) => {
 
   const availability = parseAvailabilitySlots(config.availableSlots);
   if (!isWithinProfessionalAvailability(scheduledDate, duration, availability)) {
-    return res.status(400).json({ error: "Horario fuera de disponibilidad de la profesional" });
+    return res.status(400).json({
+      error: "Horario fuera de disponibilidad de la profesional",
+      timezone: CL_TIMEZONE,
+    });
   }
 
   const nearbyBookings = await prisma.videocallBooking.findMany({
@@ -343,6 +373,45 @@ videocallRouter.post("/videocall/:id/join", requireAuth, async (req, res) => {
     bookingId: booking.id,
     role: isClient ? "client" : "professional",
   });
+
+  res.json({ ok: true });
+});
+
+
+// ── POST /videocall/:id/chat — send chat message during videocall ──
+videocallRouter.post("/videocall/:id/chat", requireAuth, async (req, res) => {
+  const userId = req.session.userId!;
+  const booking = await prisma.videocallBooking.findUnique({
+    where: { id: req.params.id },
+    include: {
+      client: { select: { id: true, username: true, displayName: true } },
+      professional: { select: { id: true, username: true, displayName: true } },
+    },
+  });
+
+  if (!booking) return res.status(404).json({ error: "Not found" });
+  if (booking.clientId !== userId && booking.professionalId !== userId) {
+    return res.status(403).json({ error: "Not your booking" });
+  }
+  if (!["PENDING", "CONFIRMED", "IN_PROGRESS"].includes(booking.status)) {
+    return res.status(400).json({ error: "La videollamada no está disponible para chat" });
+  }
+
+  const message = String(req.body?.message || "").trim();
+  if (!message) return res.status(400).json({ error: "Mensaje vacío" });
+  if (message.length > 500) return res.status(400).json({ error: "Mensaje demasiado largo (máximo 500 caracteres)" });
+
+  const sender = userId === booking.clientId ? booking.client : booking.professional;
+  const payload = {
+    bookingId: booking.id,
+    fromUserId: userId,
+    senderName: sender.displayName || sender.username,
+    message,
+    createdAt: new Date().toISOString(),
+  };
+
+  sendToUser(booking.clientId, "videocall:chat", payload);
+  sendToUser(booking.professionalId, "videocall:chat", payload);
 
   res.json({ ok: true });
 });
