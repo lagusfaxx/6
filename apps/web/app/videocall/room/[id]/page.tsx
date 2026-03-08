@@ -8,8 +8,17 @@ import { WebRTCPeer, getLocalMedia } from "../../../../lib/webrtc";
 import useMe from "../../../../hooks/useMe";
 import {
   Mic, MicOff, VideoIcon, VideoOff, PhoneOff, Clock, User,
-  Maximize, Minimize, Volume2, VolumeX,
+  Maximize, Minimize, Volume2, VolumeX, Send, MessageCircle,
 } from "lucide-react";
+
+type ChatMessage = {
+  id: string;
+  bookingId: string;
+  fromUserId: string;
+  senderName: string;
+  message: string;
+  createdAt: string;
+};
 
 type Booking = {
   id: string;
@@ -38,11 +47,17 @@ export default function VideocallRoomPage() {
   const [error, setError] = useState("");
   const [mediaError, setMediaError] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [sendingChat, setSendingChat] = useState(false);
+  const [chatError, setChatError] = useState("");
 
   // Media controls
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
-  const [remoteAudioOn, setRemoteAudioOn] = useState(true);
+  const [remoteAudioOn, setRemoteAudioOn] = useState(false);
+  const [remoteNeedsInteraction, setRemoteNeedsInteraction] = useState(false);
+  const [chatOpenMobile, setChatOpenMobile] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
   // Refs
@@ -52,6 +67,9 @@ export default function VideocallRoomPage() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const chatListRef = useRef<HTMLDivElement>(null);
+  const mediaInitializedRef = useRef(false);
+  const joinSentRef = useRef(false);
 
   // Load booking
   useEffect(() => {
@@ -75,10 +93,14 @@ export default function VideocallRoomPage() {
   const remotePerson = booking ? (isProfessional ? booking.client : booking.professional) : null;
 
   // Check if the room is open (5 minutes before scheduled time)
-  const scheduledAtMs = booking ? new Date(booking.scheduledAt).getTime() : 0;
   const roomOpen = booking
     ? Date.now() >= new Date(booking.scheduledAt).getTime() - 5 * 60 * 1000
     : false;
+
+  useEffect(() => {
+    mediaInitializedRef.current = false;
+    joinSentRef.current = false;
+  }, [bookingId]);
 
   // Initialize media and wait for call
   const initMedia = useCallback(async () => {
@@ -90,21 +112,46 @@ export default function VideocallRoomPage() {
         localVideoRef.current.srcObject = stream;
       }
     } catch (err) {
-      const isDenied = err instanceof DOMException && err.name === "NotAllowedError";
-      setMediaError(
-        isDenied
-          ? "Permisos de cámara o micrófono denegados. Actívalos en la configuración de tu navegador o app."
-          : "No se pudo acceder a cámara y micrófono. Verifica que tu navegador tenga permisos y vuelve a intentar.",
-      );
+      const mediaErr = err instanceof DOMException ? err : null;
+      const details = mediaErr?.message ? ` (${mediaErr.message})` : "";
+
+      if (mediaErr?.name === "NotAllowedError") {
+        setMediaError(
+          "Permisos de cámara o micrófono bloqueados. Si estás en incógnito o en iPhone PWA, cierra y abre la sala y acepta el permiso al aparecer el popup.",
+        );
+      } else if (mediaErr?.name === "NotReadableError") {
+        setMediaError(
+          "No se puede abrir cámara o micrófono porque otro proceso/dispositivo los está usando. Cierra Zoom/Meet/Instagram y reintenta." + details,
+        );
+      } else if (mediaErr?.name === "OverconstrainedError") {
+        setMediaError(
+          "Tu dispositivo no soporta la configuración solicitada de cámara/micrófono. Intenta nuevamente para usar un modo compatible." + details,
+        );
+      } else if (mediaErr?.name === "NotFoundError") {
+        setMediaError(
+          "No encontramos cámara o micrófono disponibles en este equipo. Verifica que estén conectados y habilitados." + details,
+        );
+      } else {
+        setMediaError(
+          "No se pudo acceder a cámara y/o micrófono. Verifica permisos del navegador y que no estén en uso por otra app." + details,
+        );
+      }
     }
     // Always transition to waiting so the room UI renders (even if media failed)
     setStatus("waiting");
   }, []);
 
   useEffect(() => {
-    if (booking && myId && roomOpen) {
+    if (!booking || !myId || !roomOpen) return;
+
+    if (!mediaInitializedRef.current) {
+      mediaInitializedRef.current = true;
       initMedia();
-      // Track that this user joined the room
+    }
+
+    if (!joinSentRef.current) {
+      joinSentRef.current = true;
+      // Track that this user joined the room (only once to avoid 429 loops)
       apiFetch(`/videocall/${bookingId}/join`, { method: "POST" }).catch(() => {});
     }
   }, [booking, myId, roomOpen, initMedia, bookingId]);
@@ -113,10 +160,21 @@ export default function VideocallRoomPage() {
   const createPeer = useCallback(() => {
     if (!remoteUserId || !localStreamRef.current) return null;
 
+    peerRef.current?.close();
+
     const peer = new WebRTCPeer(remoteUserId, {
-      onRemoteStream: (stream) => {
+      onRemoteStream: async (stream) => {
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
+          // Start muted to satisfy mobile autoplay policies; user can unmute manually.
+          remoteVideoRef.current.muted = true;
+          setRemoteAudioOn(false);
+          try {
+            await remoteVideoRef.current.play();
+            setRemoteNeedsInteraction(false);
+          } catch {
+            setRemoteNeedsInteraction(true);
+          }
         }
         setStatus("connected");
         // Start timer
@@ -141,10 +199,11 @@ export default function VideocallRoomPage() {
 
     const cleanup = connectRealtime(async (event) => {
       const data = event.data;
-      if (!data || data.fromUserId !== remoteUserId) return;
+      if (!data) return;
       if (data.bookingId && data.bookingId !== bookingId) return;
 
       if (event.type === "signal:offer") {
+        if (data.fromUserId !== remoteUserId) return;
         // I'm the callee — create peer, handle offer
         setStatus("connecting");
         const peer = createPeer();
@@ -154,6 +213,7 @@ export default function VideocallRoomPage() {
       }
 
       if (event.type === "signal:answer") {
+        if (data.fromUserId !== remoteUserId) return;
         // I'm the caller — set remote description
         if (peerRef.current) {
           await peerRef.current.handleAnswer(data.sdp);
@@ -161,9 +221,22 @@ export default function VideocallRoomPage() {
       }
 
       if (event.type === "signal:ice") {
+        if (data.fromUserId !== remoteUserId) return;
         if (peerRef.current) {
           await peerRef.current.handleIceCandidate(data.candidate);
         }
+      }
+
+      if (event.type === "videocall:chat" && data.bookingId === bookingId && data.fromUserId) {
+        const msg: ChatMessage = {
+          id: `${data.createdAt || Date.now()}-${data.fromUserId || "unknown"}`,
+          bookingId: data.bookingId,
+          fromUserId: data.fromUserId,
+          senderName: data.senderName || "Usuario",
+          message: data.message || "",
+          createdAt: data.createdAt || new Date().toISOString(),
+        };
+        setChatMessages((prev) => [...prev, msg]);
       }
 
       // If the other side started the videocall via API
@@ -175,10 +248,24 @@ export default function VideocallRoomPage() {
         setStatus("ended");
         clearInterval(timerRef.current);
       }
+
+      if (event.type === "videocall:user_joined" && data.bookingId === bookingId) {
+        setBooking((prev) => prev ? { ...prev, status: "IN_PROGRESS" } : prev);
+
+        // If I'm the professional and already waiting/connecting, re-send offer.
+        // This covers the case where the first offer was sent before the other side opened the room.
+        if (isProfessional && (status === "waiting" || status === "connecting")) {
+          const peer = createPeer();
+          if (peer) {
+            setStatus("connecting");
+            await peer.createOffer();
+          }
+        }
+      }
     });
 
     return cleanup;
-  }, [myId, booking, remoteUserId, bookingId, createPeer]);
+  }, [myId, booking, remoteUserId, bookingId, createPeer, isProfessional, status]);
 
   // Professional: start call and send offer
   const startCall = async () => {
@@ -235,10 +322,15 @@ export default function VideocallRoomPage() {
   };
 
   // Toggle remote audio
-  const toggleRemoteAudio = () => {
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.muted = !remoteVideoRef.current.muted;
-      setRemoteAudioOn(!remoteVideoRef.current.muted);
+  const toggleRemoteAudio = async () => {
+    if (!remoteVideoRef.current) return;
+    remoteVideoRef.current.muted = !remoteVideoRef.current.muted;
+    setRemoteAudioOn(!remoteVideoRef.current.muted);
+    try {
+      await remoteVideoRef.current.play();
+      setRemoteNeedsInteraction(false);
+    } catch {
+      setRemoteNeedsInteraction(true);
     }
   };
 
@@ -268,6 +360,30 @@ export default function VideocallRoomPage() {
     const sec = s % 60;
     return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   };
+
+  const sendChat = async () => {
+    const message = chatInput.trim();
+    if (!message || !bookingId) return;
+
+    setChatError("");
+    setSendingChat(true);
+    try {
+      await apiFetch(`/videocall/${bookingId}/chat`, {
+        method: "POST",
+        body: JSON.stringify({ message }),
+      });
+      setChatInput("");
+    } catch (e: unknown) {
+      const messageText = e instanceof Error ? e.message : "No se pudo enviar el mensaje";
+      setChatError(messageText);
+    } finally {
+      setSendingChat(false);
+    }
+  };
+
+  useEffect(() => {
+    chatListRef.current?.scrollTo({ top: chatListRef.current.scrollHeight, behavior: "smooth" });
+  }, [chatMessages]);
 
   const maxSeconds = booking ? booking.durationMinutes * 60 : 0;
   const timeLeft = maxSeconds - elapsed;
@@ -392,6 +508,15 @@ export default function VideocallRoomPage() {
           className={`h-full w-full object-cover ${status !== "connected" ? "hidden" : ""}`}
         />
 
+        {status === "connected" && remoteNeedsInteraction && (
+          <button
+            onClick={toggleRemoteAudio}
+            className="absolute top-4 left-1/2 z-20 -translate-x-1/2 rounded-xl bg-black/70 px-4 py-2 text-xs font-semibold text-white"
+          >
+            Toca para activar reproducción
+          </button>
+        )}
+
         {/* Placeholder when not connected */}
         {status !== "connected" && (
           <div className="text-center">
@@ -458,6 +583,64 @@ export default function VideocallRoomPage() {
             )}
           </div>
         )}
+
+        {/* In-call chat */}
+        <button
+          onClick={() => setChatOpenMobile((v) => !v)}
+          className="absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#0a0b14]/85 border border-white/15 text-white sm:hidden"
+        >
+          <MessageCircle className="h-4 w-4" />
+        </button>
+
+        <div className={`${chatOpenMobile ? "flex" : "hidden"} absolute inset-x-3 bottom-20 z-20 h-[50%] flex-col rounded-2xl border border-white/10 bg-[#0a0b14]/90 p-3 backdrop-blur sm:inset-auto sm:left-4 sm:top-4 sm:bottom-auto sm:h-[60%] sm:w-[330px] sm:flex`}>
+          <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2 text-sm font-semibold text-white/90">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4" />
+              Chat de la llamada
+            </div>
+            <button onClick={() => setChatOpenMobile(false)} className="text-xs text-white/60 sm:hidden">Cerrar</button>
+          </div>
+
+          <div ref={chatListRef} className="flex-1 space-y-2 overflow-y-auto pr-1">
+            {chatMessages.length === 0 && (
+              <p className="text-xs text-white/40">Escribe un mensaje para comunicarte sin micrófono.</p>
+            )}
+            {chatMessages.map((msg) => {
+              const mine = msg.fromUserId === myId;
+              return (
+                <div key={msg.id} className={`max-w-[90%] rounded-xl px-3 py-2 text-xs ${mine ? "ml-auto bg-violet-600/70" : "bg-white/10"}`}>
+                  <p className="mb-1 text-[10px] text-white/60">{mine ? "Tú" : msg.senderName}</p>
+                  <p className="break-words text-white/90">{msg.message}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {chatError && <p className="mt-1 text-[10px] text-red-300">{chatError}</p>}
+
+          <div className="mt-2 flex items-center gap-2 border-t border-white/10 pt-2">
+            <input
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  sendChat();
+                }
+              }}
+              maxLength={500}
+              placeholder="Escribe un mensaje..."
+              className="h-9 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 text-xs text-white outline-none placeholder:text-white/35"
+            />
+            <button
+              onClick={sendChat}
+              disabled={sendingChat || !chatInput.trim()}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white disabled:opacity-50"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
 
         {/* Local video (PiP) */}
         {status !== "ended" && (

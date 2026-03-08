@@ -88,6 +88,59 @@ type BookedSlot = {
 
 const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const DAY_NAMES_FULL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const CL_TIMEZONE = "America/Santiago";
+const WEEKDAY_TO_INDEX: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+type ChileDateParts = {
+  year: number;
+  month: number;
+  day: number;
+  weekday: number;
+  hour: number;
+  minute: number;
+};
+
+function getChileDateParts(date: Date): ChileDateParts {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: CL_TIMEZONE,
+    weekday: "short",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const find = (type: string, fallback: string) => parts.find((p) => p.type === type)?.value ?? fallback;
+  const weekdayRaw = find("weekday", "Sun");
+
+  return {
+    year: Number(find("year", "1970")),
+    month: Number(find("month", "01")),
+    day: Number(find("day", "01")),
+    weekday: WEEKDAY_TO_INDEX[weekdayRaw] ?? 0,
+    hour: Number(find("hour", "00")),
+    minute: Number(find("minute", "00")),
+  };
+}
+
+function getChileDateKey(date: Date): string {
+  const p = getChileDateParts(date);
+  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+}
+
+function formatChileDate(date: Date, opts: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat("es-CL", { ...opts, timeZone: CL_TIMEZONE }).format(date);
+}
 
 /* Generate time blocks for a given day based on availability slots */
 function generateTimeBlocks(
@@ -96,13 +149,15 @@ function generateTimeBlocks(
   bookedSlots: BookedSlot[],
   duration: number,
 ): { time: string; hour: number; minute: number; available: boolean; booked: boolean }[] {
-  const dayOfWeek = date.getDay();
-  const daySlots = availableSlots.filter((s) => s.day === dayOfWeek);
+  const chileDate = getChileDateParts(date);
+  const daySlots = availableSlots.filter((s) => s.day === chileDate.weekday);
   if (daySlots.length === 0) return [];
 
   const blocks: { time: string; hour: number; minute: number; available: boolean; booked: boolean }[] = [];
-  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-  const now = new Date();
+  const selectedDateKey = getChileDateKey(date);
+  const nowChile = getChileDateParts(new Date());
+  const nowDateKey = getChileDateKey(new Date());
+  const nowMinutes = nowChile.hour * 60 + nowChile.minute;
 
   for (const slot of daySlots) {
     const [fromH, fromM] = slot.from.split(":").map(Number);
@@ -110,23 +165,23 @@ function generateTimeBlocks(
     const slotStartMin = fromH * 60 + fromM;
     const slotEndMin = toH * 60 + toM;
 
-    // Generate blocks every 30 minutes within the slot
     for (let min = slotStartMin; min + duration <= slotEndMin; min += 30) {
       const h = Math.floor(min / 60);
       const m = min % 60;
       const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 
-      // Check if this block is in the past
-      const blockDate = new Date(`${dateStr}T${timeStr}:00`);
-      if (blockDate <= now) continue;
+      if (selectedDateKey === nowDateKey && min <= nowMinutes) continue;
 
-      // Check if this block overlaps with any existing booking
-      const blockStart = blockDate.getTime();
-      const blockEnd = blockStart + duration * 60 * 1000;
+      const blockStart = min;
+      const blockEnd = blockStart + duration;
 
       const isBooked = bookedSlots.some((bs) => {
-        const bStart = new Date(bs.start).getTime();
-        const bEnd = bStart + bs.durationMinutes * 60 * 1000;
+        const bookingDate = new Date(bs.start);
+        if (getChileDateKey(bookingDate) !== selectedDateKey) return false;
+
+        const bookingChile = getChileDateParts(bookingDate);
+        const bStart = bookingChile.hour * 60 + bookingChile.minute;
+        const bEnd = bStart + bs.durationMinutes;
         return blockStart < bEnd && bStart < blockEnd;
       });
 
@@ -143,15 +198,12 @@ function getAvailableDates(
   daysAhead: number = 14,
 ): Date[] {
   const dates: Date[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
   const availableDays = new Set(availableSlots.map((s) => s.day));
 
   for (let i = 0; i < daysAhead; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() + i);
-    if (availableDays.has(d.getDay())) {
+    const d = new Date(Date.now() + i * 24 * 60 * 60 * 1000);
+    const chileDay = getChileDateParts(d).weekday;
+    if (availableDays.has(chileDay)) {
       dates.push(d);
     }
   }
@@ -809,8 +861,8 @@ function ClientDashboard({ me }: { me: any }) {
   useEffect(() => {
     if (selectedDate && selectedTime) {
       const [h, m] = selectedTime.split(":").map(Number);
-      const localDate = new Date(selectedDate);
-      localDate.setHours(h, m, 0, 0);
+      const chile = getChileDateParts(selectedDate);
+      const localDate = new Date(chile.year, chile.month - 1, chile.day, h, m, 0, 0);
       setScheduledAt(localDate.toISOString());
     } else {
       setScheduledAt("");
@@ -1181,8 +1233,9 @@ function ClientDashboard({ me }: { me: any }) {
                 ) : (
                   <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                     {availableDates.map((d) => {
-                      const isSelected = selectedDate?.toDateString() === d.toDateString();
-                      const isToday = d.toDateString() === new Date().toDateString();
+                      const isSelected = selectedDate ? getChileDateKey(selectedDate) === getChileDateKey(d) : false;
+                      const isToday = getChileDateKey(d) === getChileDateKey(new Date());
+                      const chile = getChileDateParts(d);
                       return (
                         <button
                           key={d.toISOString()}
@@ -1193,10 +1246,10 @@ function ClientDashboard({ me }: { me: any }) {
                               : "border border-white/[0.06] bg-white/[0.02] text-white/60 hover:bg-white/[0.06]"
                           }`}
                         >
-                          <span className="text-[10px] uppercase">{DAY_NAMES[d.getDay()]}</span>
-                          <span className="text-lg font-bold leading-tight">{d.getDate()}</span>
+                          <span className="text-[10px] uppercase">{DAY_NAMES[chile.weekday]}</span>
+                          <span className="text-lg font-bold leading-tight">{chile.day}</span>
                           <span className="text-[9px]">
-                            {isToday ? "Hoy" : d.toLocaleDateString("es-CL", { month: "short" })}
+                            {isToday ? "Hoy" : formatChileDate(d, { month: "short" })}
                           </span>
                         </button>
                       );
@@ -1248,7 +1301,7 @@ function ClientDashboard({ me }: { me: any }) {
                   <div>
                     <span className="text-sm text-white/60">Costo total</span>
                     <p className="text-[10px] text-white/30">
-                      {selectedDate?.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })} a las {selectedTime} · {duration} min
+                      {selectedDate ? formatChileDate(selectedDate, { weekday: "short", day: "numeric", month: "short" }) : ""} a las {selectedTime} · {duration} min
                     </p>
                   </div>
                   <span className="text-lg font-bold text-violet-300">{totalCost} tokens</span>
