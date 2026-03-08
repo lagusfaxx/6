@@ -9,6 +9,7 @@ import useMe from "../../../../hooks/useMe";
 import {
   Mic, MicOff, VideoIcon, VideoOff, PhoneOff, Clock, User,
   Maximize, Minimize, Volume2, VolumeX, Send, MessageCircle,
+  Loader2, Wifi, WifiOff, AlertCircle,
 } from "lucide-react";
 
 type ChatMessage = {
@@ -47,6 +48,7 @@ export default function VideocallRoomPage() {
   const [error, setError] = useState("");
   const [mediaError, setMediaError] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [connectingElapsed, setConnectingElapsed] = useState(0);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [sendingChat, setSendingChat] = useState(false);
@@ -66,6 +68,7 @@ export default function VideocallRoomPage() {
   const peerRef = useRef<WebRTCPeer | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<any>(null);
+  const connectingTimerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const chatListRef = useRef<HTMLDivElement>(null);
   const mediaInitializedRef = useRef(false);
@@ -79,7 +82,6 @@ export default function VideocallRoomPage() {
       .then((res) => {
         const found = res.bookings.find((b) => b.id === bookingId);
         if (found) { setBooking(found); return; }
-        // Try as professional
         return apiFetch<{ bookings: Booking[] }>("/videocall/bookings?role=professional").then((r2) => {
           const found2 = r2.bookings.find((b) => b.id === bookingId);
           if (found2) setBooking(found2);
@@ -89,12 +91,10 @@ export default function VideocallRoomPage() {
       .catch(() => setError("Error al cargar la reserva"));
   }, [bookingId]);
 
-  // Determine roles
   const isProfessional = booking ? myId === booking.professionalId : false;
   const remoteUserId = booking ? (isProfessional ? booking.clientId : booking.professionalId) : null;
   const remotePerson = booking ? (isProfessional ? booking.client : booking.professional) : null;
 
-  // Check if the room is open (5 minutes before scheduled time)
   const roomOpen = booking
     ? Date.now() >= new Date(booking.scheduledAt).getTime() - 5 * 60 * 1000
     : false;
@@ -104,56 +104,37 @@ export default function VideocallRoomPage() {
     joinSentRef.current = false;
   }, [bookingId]);
 
-  // Initialize media and wait for call
+  // Initialize media
   const initMedia = useCallback(async () => {
     try {
       setMediaError("");
       const stream = await getLocalMedia({ video: true, audio: true });
       localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
     } catch (err) {
       const mediaErr = err instanceof DOMException ? err : null;
       const details = mediaErr?.message ? ` (${mediaErr.message})` : "";
-
       if (mediaErr?.name === "NotAllowedError") {
-        setMediaError(
-          "Permisos de cámara o micrófono bloqueados. Si estás en incógnito o en iPhone PWA, cierra y abre la sala y acepta el permiso al aparecer el popup.",
-        );
+        setMediaError("Permisos de cámara/micrófono bloqueados. Cierra y abre la sala y acepta los permisos.");
       } else if (mediaErr?.name === "NotReadableError") {
-        setMediaError(
-          "No se puede abrir cámara o micrófono porque otro proceso/dispositivo los está usando. Cierra Zoom/Meet/Instagram y reintenta." + details,
-        );
-      } else if (mediaErr?.name === "OverconstrainedError") {
-        setMediaError(
-          "Tu dispositivo no soporta la configuración solicitada de cámara/micrófono. Intenta nuevamente para usar un modo compatible." + details,
-        );
+        setMediaError("Cámara/micrófono en uso por otra app. Cierra Zoom/Meet y reintenta." + details);
       } else if (mediaErr?.name === "NotFoundError") {
-        setMediaError(
-          "No encontramos cámara o micrófono disponibles en este equipo. Verifica que estén conectados y habilitados." + details,
-        );
+        setMediaError("No se encontró cámara o micrófono." + details);
       } else {
-        setMediaError(
-          "No se pudo acceder a cámara y/o micrófono. Verifica permisos del navegador y que no estén en uso por otra app." + details,
-        );
+        setMediaError("No se pudo acceder a cámara/micrófono. Verifica permisos." + details);
       }
     }
-    // Always transition to waiting so the room UI renders (even if media failed)
     setStatus("waiting");
   }, []);
 
   useEffect(() => {
     if (!booking || !myId || !roomOpen) return;
-
     if (!mediaInitializedRef.current) {
       mediaInitializedRef.current = true;
       initMedia();
     }
-
     if (!joinSentRef.current) {
       joinSentRef.current = true;
-      // Track that this user joined the room (only once to avoid 429 loops)
       apiFetch(`/videocall/${bookingId}/join`, { method: "POST" }).catch(() => {});
     }
   }, [booking, myId, roomOpen, initMedia, bookingId]);
@@ -161,14 +142,12 @@ export default function VideocallRoomPage() {
   // Create peer connection
   const createPeer = useCallback(() => {
     if (!remoteUserId || !localStreamRef.current) return null;
-
     peerRef.current?.close();
 
     const peer = new WebRTCPeer(remoteUserId, {
       onRemoteStream: async (stream) => {
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
-          // Start muted to satisfy mobile autoplay policies; user can unmute manually.
           remoteVideoRef.current.muted = true;
           setRemoteAudioOn(false);
           try {
@@ -178,14 +157,23 @@ export default function VideocallRoomPage() {
             setRemoteNeedsInteraction(true);
           }
         }
+        // CRITICAL FIX: Timer starts ONLY when connected, not during connection
         setStatus("connected");
-        // Start timer
+        clearInterval(connectingTimerRef.current);
+        setConnectingElapsed(0);
         timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
       },
       onConnectionState: (state) => {
         if (state === "disconnected" || state === "failed" || state === "closed") {
           setStatus("ended");
           clearInterval(timerRef.current);
+          clearInterval(connectingTimerRef.current);
+        }
+      },
+      onIceState: (state) => {
+        // If ICE fails, try to reconnect
+        if (state === "failed" && isProfessional) {
+          setTimeout(() => sendOrRetryOffer().catch(() => {}), 2000);
         }
       },
     }, { bookingId });
@@ -193,13 +181,17 @@ export default function VideocallRoomPage() {
     peer.addStream(localStreamRef.current);
     peerRef.current = peer;
     return peer;
-  }, [remoteUserId, bookingId]);
+  }, [remoteUserId, bookingId, isProfessional]);
 
   const sendOrRetryOffer = useCallback(async () => {
     if (!isProfessional) return;
     const peer = createPeer();
     if (!peer) return;
     setStatus("connecting");
+    // Start connecting timer (separate from call timer)
+    clearInterval(connectingTimerRef.current);
+    setConnectingElapsed(0);
+    connectingTimerRef.current = setInterval(() => setConnectingElapsed((e) => e + 1), 1000);
     await peer.createOffer();
   }, [isProfessional, createPeer]);
 
@@ -214,42 +206,33 @@ export default function VideocallRoomPage() {
 
       if (event.type === "signal:offer") {
         if (data.fromUserId !== remoteUserId) return;
-        // I'm the callee — create peer, handle offer
         setStatus("connecting");
+        clearInterval(connectingTimerRef.current);
+        setConnectingElapsed(0);
+        connectingTimerRef.current = setInterval(() => setConnectingElapsed((e) => e + 1), 1000);
         const peer = createPeer();
-        if (peer) {
-          await peer.handleOffer(data.sdp);
-        }
+        if (peer) await peer.handleOffer(data.sdp);
       }
 
       if (event.type === "signal:answer") {
         if (data.fromUserId !== remoteUserId) return;
-        // I'm the caller — set remote description
-        if (peerRef.current) {
-          await peerRef.current.handleAnswer(data.sdp);
-        }
+        if (peerRef.current) await peerRef.current.handleAnswer(data.sdp);
       }
 
       if (event.type === "signal:ice") {
         if (data.fromUserId !== remoteUserId) return;
-        if (peerRef.current) {
-          await peerRef.current.handleIceCandidate(data.candidate);
-        }
+        if (peerRef.current) await peerRef.current.handleIceCandidate(data.candidate);
       }
 
       if (event.type === "videocall:chat" && data.bookingId === bookingId && data.fromUserId) {
-        const msg: ChatMessage = {
+        setChatMessages((prev) => [...prev, {
           id: `${data.createdAt || Date.now()}-${data.fromUserId || "unknown"}`,
-          bookingId: data.bookingId,
-          fromUserId: data.fromUserId,
-          senderName: data.senderName || "Usuario",
-          message: data.message || "",
+          bookingId: data.bookingId, fromUserId: data.fromUserId,
+          senderName: data.senderName || "Usuario", message: data.message || "",
           createdAt: data.createdAt || new Date().toISOString(),
-        };
-        setChatMessages((prev) => [...prev, msg]);
+        }]);
       }
 
-      // If the other side started the videocall via API
       if (event.type === "videocall:started" && data.bookingId === bookingId) {
         setBooking((prev) => prev ? { ...prev, status: "IN_PROGRESS" } : prev);
       }
@@ -257,13 +240,11 @@ export default function VideocallRoomPage() {
       if (event.type === "videocall:completed" && data.bookingId === bookingId) {
         setStatus("ended");
         clearInterval(timerRef.current);
+        clearInterval(connectingTimerRef.current);
       }
 
       if (event.type === "videocall:user_joined" && data.bookingId === bookingId) {
         setBooking((prev) => prev ? { ...prev, status: "IN_PROGRESS" } : prev);
-
-        // If I'm the professional and already waiting/connecting, re-send offer.
-        // This covers the case where the first offer was sent before the other side opened the room.
         if (isProfessional && (status === "waiting" || status === "connecting")) {
           await sendOrRetryOffer();
         }
@@ -273,20 +254,16 @@ export default function VideocallRoomPage() {
     return cleanup;
   }, [myId, booking, remoteUserId, bookingId, createPeer, isProfessional, status, sendOrRetryOffer]);
 
-  // Professional: start call and send offer
+  // Professional: start call
   const startCall = async () => {
     if (!booking || !isProfessional) return;
     setStatus("connecting");
-
-    // Notify server that call started
     try {
       await apiFetch(`/videocall/${bookingId}/start`, { method: "POST" });
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Error al iniciar";
-      setError(message);
+      setError(e instanceof Error ? e.message : "Error al iniciar");
       return;
     }
-
     await sendOrRetryOffer();
   };
 
@@ -294,115 +271,75 @@ export default function VideocallRoomPage() {
   const endCall = async () => {
     peerRef.current?.close();
     clearInterval(timerRef.current);
+    clearInterval(connectingTimerRef.current);
     clearInterval(offerRetryTimerRef.current);
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     setStatus("ended");
-
-    try {
-      await apiFetch(`/videocall/${bookingId}/complete`, { method: "POST" });
-    } catch {}
+    try { await apiFetch(`/videocall/${bookingId}/complete`, { method: "POST" }); } catch {}
   };
 
+  // Offer retry logic (faster retries for quicker connection)
   useEffect(() => {
     clearInterval(offerRetryTimerRef.current);
-
     if (!isProfessional || status !== "connecting") return;
-
     offerRetryCountRef.current = 0;
     offerRetryTimerRef.current = setInterval(() => {
       if (status !== "connecting") return;
-      if (offerRetryCountRef.current >= 4) {
+      if (offerRetryCountRef.current >= 5) {
         clearInterval(offerRetryTimerRef.current);
         return;
       }
       offerRetryCountRef.current += 1;
       sendOrRetryOffer().catch(() => {});
-    }, 6000);
-
+    }, 4000); // Faster retry: 4s instead of 6s
     return () => clearInterval(offerRetryTimerRef.current);
   }, [isProfessional, status, sendOrRetryOffer]);
 
-  // Toggle mic
   const toggleMic = () => {
-    const stream = localStreamRef.current;
-    if (!stream) return;
-    const audioTrack = stream.getAudioTracks()[0];
-    if (audioTrack) {
-      audioTrack.enabled = !audioTrack.enabled;
-      setMicOn(audioTrack.enabled);
-    }
+    const track = localStreamRef.current?.getAudioTracks()[0];
+    if (track) { track.enabled = !track.enabled; setMicOn(track.enabled); }
   };
 
-  // Toggle camera
   const toggleCam = () => {
-    const stream = localStreamRef.current;
-    if (!stream) return;
-    const videoTrack = stream.getVideoTracks()[0];
-    if (videoTrack) {
-      videoTrack.enabled = !videoTrack.enabled;
-      setCamOn(videoTrack.enabled);
-    }
+    const track = localStreamRef.current?.getVideoTracks()[0];
+    if (track) { track.enabled = !track.enabled; setCamOn(track.enabled); }
   };
 
-  // Toggle remote audio
   const toggleRemoteAudio = async () => {
     if (!remoteVideoRef.current) return;
     remoteVideoRef.current.muted = !remoteVideoRef.current.muted;
     setRemoteAudioOn(!remoteVideoRef.current.muted);
-    try {
-      await remoteVideoRef.current.play();
-      setRemoteNeedsInteraction(false);
-    } catch {
-      setRemoteNeedsInteraction(true);
-    }
+    try { await remoteVideoRef.current.play(); setRemoteNeedsInteraction(false); } catch { setRemoteNeedsInteraction(true); }
   };
 
-  // Fullscreen
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-      setFullscreen(false);
-    } else {
-      containerRef.current.requestFullscreen();
-      setFullscreen(true);
-    }
+    if (document.fullscreenElement) { document.exitFullscreen(); setFullscreen(false); }
+    else { containerRef.current.requestFullscreen(); setFullscreen(true); }
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       peerRef.current?.close();
       clearInterval(timerRef.current);
+      clearInterval(connectingTimerRef.current);
       clearInterval(offerRetryTimerRef.current);
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-  };
+  const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   const sendChat = async () => {
     const message = chatInput.trim();
     if (!message || !bookingId) return;
-
-    setChatError("");
-    setSendingChat(true);
+    setChatError(""); setSendingChat(true);
     try {
-      await apiFetch(`/videocall/${bookingId}/chat`, {
-        method: "POST",
-        body: JSON.stringify({ message }),
-      });
+      await apiFetch(`/videocall/${bookingId}/chat`, { method: "POST", body: JSON.stringify({ message }) });
       setChatInput("");
     } catch (e: unknown) {
-      const messageText = e instanceof Error ? e.message : "No se pudo enviar el mensaje";
-      setChatError(messageText);
-    } finally {
-      setSendingChat(false);
-    }
+      setChatError(e instanceof Error ? e.message : "No se pudo enviar");
+    } finally { setSendingChat(false); }
   };
 
   useEffect(() => {
@@ -412,19 +349,20 @@ export default function VideocallRoomPage() {
   const maxSeconds = booking ? booking.durationMinutes * 60 : 0;
   const timeLeft = maxSeconds - elapsed;
 
-  // Auto-end when time runs out
+  // Auto-end when time runs out (only counts actual call time)
   useEffect(() => {
-    if (status === "connected" && timeLeft <= 0 && booking) {
-      endCall();
-    }
+    if (status === "connected" && timeLeft <= 0 && booking) endCall();
   }, [status, timeLeft]);
 
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0a0b14] text-white">
-        <div className="text-center">
+        <div className="text-center max-w-sm px-6">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/15">
+            <AlertCircle className="h-8 w-8 text-red-400" />
+          </div>
           <p className="text-sm text-red-400 mb-4">{error}</p>
-          <button onClick={() => router.push("/videocall")} className="text-sm text-fuchsia-400 underline">Volver</button>
+          <button onClick={() => router.push("/videocall")} className="rounded-xl bg-white/10 px-6 py-2.5 text-sm font-medium transition hover:bg-white/15">Volver</button>
         </div>
       </div>
     );
@@ -432,13 +370,14 @@ export default function VideocallRoomPage() {
 
   if (!booking) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0b14] text-white/30">
-        Cargando videollamada...
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0b14] text-white gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
+        <p className="text-sm text-white/40">Cargando videollamada...</p>
       </div>
     );
   }
 
-  // Room not yet open — show elegant countdown
+  // Room not open yet
   if (!roomOpen) {
     const scheduled = new Date(booking.scheduledAt);
     const roomOpensAt = new Date(scheduled.getTime() - 5 * 60 * 1000);
@@ -453,35 +392,24 @@ export default function VideocallRoomPage() {
           </div>
           <h2 className="mb-2 text-xl font-bold">Sala en preparación</h2>
           <p className="mb-6 text-sm text-white/50">
-            La sala se abrirá {minsUntil > 0 ? `en ${minsUntil} minuto${minsUntil !== 1 ? "s" : ""}` : "en breve"}.
+            Se abre {minsUntil > 0 ? `en ${minsUntil} min` : "en breve"}.
           </p>
           <div className="mb-6 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
             <div className="flex items-center gap-3">
               {remotePerson?.avatarUrl ? (
                 <img src={resolveMediaUrl(remotePerson.avatarUrl) ?? undefined} alt="" className="h-10 w-10 rounded-xl object-cover" />
               ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-                  <User className="h-5 w-5 text-white/30" />
-                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10"><User className="h-5 w-5 text-white/30" /></div>
               )}
               <div className="text-left">
                 <p className="text-sm font-semibold">{remotePerson?.displayName || remotePerson?.username}</p>
                 <p className="text-[11px] text-white/40">
-                  {scheduled.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })}
-                  {" "}
-                  {scheduled.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
-                  {" · "}
-                  {booking.durationMinutes} min
+                  {scheduled.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })} {scheduled.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })} · {booking.durationMinutes} min
                 </p>
               </div>
             </div>
           </div>
-          <button
-            onClick={() => router.push("/videocall")}
-            className="text-sm text-violet-400 hover:text-violet-300"
-          >
-            Volver a videollamadas
-          </button>
+          <button onClick={() => router.push("/videocall")} className="text-sm text-violet-400 hover:text-violet-300">Volver</button>
         </div>
       </div>
     );
@@ -495,28 +423,33 @@ export default function VideocallRoomPage() {
           {remotePerson?.avatarUrl ? (
             <img src={resolveMediaUrl(remotePerson.avatarUrl) ?? undefined} alt="" className="h-9 w-9 rounded-full object-cover" />
           ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
-              <User className="h-4 w-4 text-white/30" />
-            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10"><User className="h-4 w-4 text-white/30" /></div>
           )}
           <div>
             <p className="text-sm font-semibold">{remotePerson?.displayName || remotePerson?.username}</p>
-            <p className="text-[10px] text-white/40">
-              {status === "waiting" && "Esperando..."}
-              {status === "connecting" && "Conectando..."}
-              {status === "connected" && "En llamada"}
-              {status === "ended" && "Llamada finalizada"}
-            </p>
+            <div className="flex items-center gap-1.5">
+              {status === "waiting" && <><div className="h-1.5 w-1.5 rounded-full bg-amber-400" /><p className="text-[10px] text-amber-300/70">Esperando...</p></>}
+              {status === "connecting" && <><Loader2 className="h-3 w-3 animate-spin text-amber-400" /><p className="text-[10px] text-amber-300/70">Conectando... {connectingElapsed > 0 ? formatTime(connectingElapsed) : ""}</p></>}
+              {status === "connected" && <><Wifi className="h-3 w-3 text-emerald-400" /><p className="text-[10px] text-emerald-300/70">En llamada</p></>}
+              {status === "ended" && <><WifiOff className="h-3 w-3 text-white/30" /><p className="text-[10px] text-white/30">Finalizada</p></>}
+            </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {(status === "connected" || status === "connecting") && (
-            <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1 text-xs font-mono">
+          {/* Timer - only shows actual call time (not connecting time) */}
+          {status === "connected" && (
+            <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-mono ${timeLeft < 60 ? "border-red-500/30 bg-red-500/20" : "border-emerald-500/30 bg-emerald-500/20"}`}>
               <Clock className="h-3 w-3" />
               <span className={timeLeft < 60 ? "text-red-300" : "text-emerald-300"}>
                 {formatTime(Math.max(0, timeLeft))}
               </span>
+            </div>
+          )}
+          {status === "connecting" && (
+            <div className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/15 px-3 py-1.5 text-[10px] font-medium text-amber-300">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Conectando
             </div>
           )}
         </div>
@@ -524,111 +457,94 @@ export default function VideocallRoomPage() {
 
       {/* Video area */}
       <div className="relative flex flex-1 items-center justify-center bg-gradient-to-br from-gray-950 to-black">
-        {/* Remote video (full) */}
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className={`h-full w-full object-cover ${status !== "connected" ? "hidden" : ""}`}
-        />
+        {/* Remote video */}
+        <video ref={remoteVideoRef} autoPlay playsInline className={`h-full w-full object-cover ${status !== "connected" ? "hidden" : ""}`} />
 
         {status === "connected" && remoteNeedsInteraction && (
-          <button
-            onClick={toggleRemoteAudio}
-            className="absolute top-4 left-1/2 z-20 -translate-x-1/2 rounded-xl bg-black/70 px-4 py-2 text-xs font-semibold text-white"
-          >
-            Toca para activar reproducción
+          <button onClick={toggleRemoteAudio} className="absolute top-4 left-1/2 z-20 -translate-x-1/2 rounded-xl bg-black/70 px-4 py-2 text-xs font-semibold text-white backdrop-blur">
+            Toca para activar audio
           </button>
         )}
 
-        {/* Placeholder when not connected */}
+        {/* Placeholder states */}
         {status !== "connected" && (
-          <div className="text-center">
+          <div className="text-center px-6">
             {status === "loading" && (
               <div>
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/10 animate-pulse">
-                  <VideoIcon className="h-10 w-10 text-white/30" />
-                </div>
+                <Loader2 className="mx-auto mb-4 h-16 w-16 animate-spin text-violet-400/50" />
                 <p className="text-sm text-white/40">Preparando cámara y micrófono...</p>
               </div>
             )}
             {status === "waiting" && isProfessional && (booking.status === "PENDING" || booking.status === "CONFIRMED") && (
               <div>
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20">
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-500/15">
                   <VideoIcon className="h-10 w-10 text-emerald-400" />
                 </div>
-                <p className="mb-4 text-sm text-white/50">Listo para iniciar la videollamada</p>
-                <button
-                  onClick={startCall}
-                  className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-8 py-3 text-sm font-semibold"
-                >
+                <p className="mb-2 text-sm font-medium">Listo para iniciar</p>
+                <p className="mb-5 text-xs text-white/40">La otra persona recibirá una notificación</p>
+                <button onClick={startCall} className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-8 py-3.5 text-sm font-semibold shadow-lg shadow-emerald-500/20 transition hover:opacity-90">
                   Iniciar Llamada
                 </button>
               </div>
             )}
             {status === "waiting" && !isProfessional && (
               <div>
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-violet-500/20 animate-pulse">
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-violet-500/15 animate-pulse">
                   <VideoIcon className="h-10 w-10 text-violet-400" />
                 </div>
-                <p className="text-sm text-white/50">Esperando que el profesional inicie la llamada...</p>
+                <p className="text-sm text-white/50">Esperando al profesional...</p>
+                <p className="mt-1 text-[10px] text-white/25">La llamada iniciará cuando se conecte</p>
               </div>
             )}
             {status === "waiting" && mediaError && (
-              <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-left">
+              <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-left">
                 <p className="text-sm text-red-300">{mediaError}</p>
-                <button
-                  onClick={initMedia}
-                  className="mt-3 rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20"
-                >
-                  Reintentar permisos
+                <button onClick={initMedia} className="mt-3 rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20 transition">
+                  Reintentar
                 </button>
               </div>
             )}
             {status === "connecting" && (
               <div>
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-amber-500/20 animate-pulse">
-                  <VideoIcon className="h-10 w-10 text-amber-400" />
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-amber-500/15">
+                  <Loader2 className="h-10 w-10 animate-spin text-amber-400" />
                 </div>
-                <p className="text-sm text-white/50">Estableciendo conexión WebRTC...</p>
+                <p className="text-sm font-medium text-white/70">Estableciendo conexión...</p>
+                <p className="mt-1 text-[10px] text-white/30">
+                  {connectingElapsed > 0 && `${formatTime(connectingElapsed)} · `}
+                  El tiempo de la llamada no se consume hasta que ambos estén conectados
+                </p>
               </div>
             )}
             {status === "ended" && (
               <div>
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/10">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
                   <PhoneOff className="h-8 w-8 text-white/30" />
                 </div>
                 <p className="mb-2 text-lg font-semibold text-white/50">Llamada finalizada</p>
-                <p className="mb-4 text-sm text-white/30">Duración: {formatTime(elapsed)}</p>
-                <button onClick={() => router.push("/videocall")} className="text-sm text-fuchsia-400 underline">
-                  Volver a Videollamadas
+                <p className="mb-5 text-sm text-white/30">Duración efectiva: {formatTime(elapsed)}</p>
+                <button onClick={() => router.push("/videocall")} className="rounded-xl bg-white/10 px-6 py-2.5 text-sm font-medium transition hover:bg-white/15">
+                  Volver
                 </button>
               </div>
             )}
           </div>
         )}
 
-        {/* In-call chat */}
-        <button
-          onClick={() => setChatOpen((v) => !v)}
-          className="absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#0a0b14]/85 border border-white/15 text-white"
-        >
+        {/* Chat button */}
+        <button onClick={() => setChatOpen((v) => !v)} className={`absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border transition ${chatOpen ? "bg-violet-600 border-violet-400/30" : "bg-[#0a0b14]/85 border-white/15"} text-white`}>
           <MessageCircle className="h-4 w-4" />
         </button>
 
+        {/* Chat panel */}
         <div className={`${chatOpen ? "flex" : "hidden"} absolute inset-x-3 bottom-20 z-20 h-[50%] flex-col rounded-2xl border border-white/10 bg-[#0a0b14]/90 p-3 backdrop-blur sm:inset-auto sm:right-4 sm:top-20 sm:bottom-auto sm:h-[55%] sm:w-[320px]`}>
           <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2 text-sm font-semibold text-white/90">
-            <div className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4" />
-              Chat de la llamada
-            </div>
+            <div className="flex items-center gap-2"><MessageCircle className="h-4 w-4" /> Chat</div>
             <button onClick={() => setChatOpen(false)} className="text-xs text-white/60">Cerrar</button>
           </div>
 
           <div ref={chatListRef} className="flex-1 space-y-2 overflow-y-auto pr-1">
-            {chatMessages.length === 0 && (
-              <p className="text-xs text-white/40">Escribe un mensaje para comunicarte sin micrófono.</p>
-            )}
+            {chatMessages.length === 0 && <p className="text-xs text-white/40">Escribe un mensaje.</p>}
             {chatMessages.map((msg) => {
               const mine = msg.fromUserId === myId;
               return (
@@ -643,24 +559,8 @@ export default function VideocallRoomPage() {
           {chatError && <p className="mt-1 text-[10px] text-red-300">{chatError}</p>}
 
           <div className="mt-2 flex items-center gap-2 border-t border-white/10 pt-2">
-            <input
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  sendChat();
-                }
-              }}
-              maxLength={500}
-              placeholder="Escribe un mensaje..."
-              className="h-9 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 text-xs text-white outline-none placeholder:text-white/35"
-            />
-            <button
-              onClick={sendChat}
-              disabled={sendingChat || !chatInput.trim()}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white disabled:opacity-50"
-            >
+            <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); sendChat(); } }} maxLength={500} placeholder="Escribe..." className="h-9 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 text-xs text-white outline-none placeholder:text-white/35" />
+            <button onClick={sendChat} disabled={sendingChat || !chatInput.trim()} className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white disabled:opacity-50">
               <Send className="h-4 w-4" />
             </button>
           </div>
@@ -669,14 +569,7 @@ export default function VideocallRoomPage() {
         {/* Local video (PiP) */}
         {status !== "ended" && (
           <div className="absolute bottom-4 right-4 h-36 w-28 overflow-hidden rounded-2xl border-2 border-white/20 shadow-xl sm:h-48 sm:w-36">
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="h-full w-full object-cover mirror"
-              style={{ transform: "scaleX(-1)" }}
-            />
+            <video ref={localVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" style={{ transform: "scaleX(-1)" }} />
             {!camOn && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80">
                 <VideoOff className="h-6 w-6 text-white/30" />
@@ -688,46 +581,21 @@ export default function VideocallRoomPage() {
 
       {/* Controls */}
       {status !== "ended" && (
-        <div className="flex items-center justify-center gap-4 border-t border-white/[0.06] bg-[#0a0b14] px-4 py-4">
-          <button
-            onClick={toggleMic}
-            className={`flex h-12 w-12 items-center justify-center rounded-full transition ${
-              micOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-500/80 text-white"
-            }`}
-          >
+        <div className="flex items-center justify-center gap-3 border-t border-white/[0.06] bg-[#0a0b14] px-4 py-4">
+          <button onClick={toggleMic} className={`flex h-12 w-12 items-center justify-center rounded-full transition ${micOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-500/80 text-white"}`}>
             {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
           </button>
-
-          <button
-            onClick={toggleCam}
-            className={`flex h-12 w-12 items-center justify-center rounded-full transition ${
-              camOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-500/80 text-white"
-            }`}
-          >
+          <button onClick={toggleCam} className={`flex h-12 w-12 items-center justify-center rounded-full transition ${camOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-500/80 text-white"}`}>
             {camOn ? <VideoIcon className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
           </button>
-
-          <button
-            onClick={toggleRemoteAudio}
-            className={`flex h-12 w-12 items-center justify-center rounded-full transition ${
-              remoteAudioOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-amber-500/80 text-white"
-            }`}
-          >
+          <button onClick={toggleRemoteAudio} className={`flex h-12 w-12 items-center justify-center rounded-full transition ${remoteAudioOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-amber-500/80 text-white"}`}>
             {remoteAudioOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
           </button>
-
-          <button
-            onClick={toggleFullscreen}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition"
-          >
+          <button onClick={toggleFullscreen} className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition">
             {fullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
           </button>
-
           {(status === "connected" || status === "connecting") && (
-            <button
-              onClick={endCall}
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-500 transition shadow-lg shadow-red-500/30"
-            >
+            <button onClick={endCall} className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-500 transition shadow-lg shadow-red-500/30">
               <PhoneOff className="h-6 w-6" />
             </button>
           )}
