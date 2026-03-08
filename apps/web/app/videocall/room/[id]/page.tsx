@@ -55,7 +55,9 @@ export default function VideocallRoomPage() {
   // Media controls
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
-  const [remoteAudioOn, setRemoteAudioOn] = useState(true);
+  const [remoteAudioOn, setRemoteAudioOn] = useState(false);
+  const [remoteNeedsInteraction, setRemoteNeedsInteraction] = useState(false);
+  const [chatOpenMobile, setChatOpenMobile] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
   // Refs
@@ -161,9 +163,18 @@ export default function VideocallRoomPage() {
     peerRef.current?.close();
 
     const peer = new WebRTCPeer(remoteUserId, {
-      onRemoteStream: (stream) => {
+      onRemoteStream: async (stream) => {
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
+          // Start muted to satisfy mobile autoplay policies; user can unmute manually.
+          remoteVideoRef.current.muted = true;
+          setRemoteAudioOn(false);
+          try {
+            await remoteVideoRef.current.play();
+            setRemoteNeedsInteraction(false);
+          } catch {
+            setRemoteNeedsInteraction(true);
+          }
         }
         setStatus("connected");
         // Start timer
@@ -311,10 +322,15 @@ export default function VideocallRoomPage() {
   };
 
   // Toggle remote audio
-  const toggleRemoteAudio = () => {
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.muted = !remoteVideoRef.current.muted;
-      setRemoteAudioOn(!remoteVideoRef.current.muted);
+  const toggleRemoteAudio = async () => {
+    if (!remoteVideoRef.current) return;
+    remoteVideoRef.current.muted = !remoteVideoRef.current.muted;
+    setRemoteAudioOn(!remoteVideoRef.current.muted);
+    try {
+      await remoteVideoRef.current.play();
+      setRemoteNeedsInteraction(false);
+    } catch {
+      setRemoteNeedsInteraction(true);
     }
   };
 
@@ -492,6 +508,15 @@ export default function VideocallRoomPage() {
           className={`h-full w-full object-cover ${status !== "connected" ? "hidden" : ""}`}
         />
 
+        {status === "connected" && remoteNeedsInteraction && (
+          <button
+            onClick={toggleRemoteAudio}
+            className="absolute top-4 left-1/2 z-20 -translate-x-1/2 rounded-xl bg-black/70 px-4 py-2 text-xs font-semibold text-white"
+          >
+            Toca para activar reproducción
+          </button>
+        )}
+
         {/* Placeholder when not connected */}
         {status !== "connected" && (
           <div className="text-center">
@@ -560,10 +585,20 @@ export default function VideocallRoomPage() {
         )}
 
         {/* In-call chat */}
-        <div className="absolute left-3 top-3 z-20 flex h-[55%] w-[min(92vw,330px)] flex-col rounded-2xl border border-white/10 bg-[#0a0b14]/85 p-3 backdrop-blur sm:left-4 sm:top-4 sm:h-[60%]">
-          <div className="mb-2 flex items-center gap-2 border-b border-white/10 pb-2 text-sm font-semibold text-white/90">
-            <MessageCircle className="h-4 w-4" />
-            Chat de la llamada
+        <button
+          onClick={() => setChatOpenMobile((v) => !v)}
+          className="absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#0a0b14]/85 border border-white/15 text-white sm:hidden"
+        >
+          <MessageCircle className="h-4 w-4" />
+        </button>
+
+        <div className={`${chatOpenMobile ? "flex" : "hidden"} absolute inset-x-3 bottom-20 z-20 h-[50%] flex-col rounded-2xl border border-white/10 bg-[#0a0b14]/90 p-3 backdrop-blur sm:inset-auto sm:left-4 sm:top-4 sm:bottom-auto sm:h-[60%] sm:w-[330px] sm:flex`}>
+          <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2 text-sm font-semibold text-white/90">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4" />
+              Chat de la llamada
+            </div>
+            <button onClick={() => setChatOpenMobile(false)} className="text-xs text-white/60 sm:hidden">Cerrar</button>
           </div>
 
           <div ref={chatListRef} className="flex-1 space-y-2 overflow-y-auto pr-1">
