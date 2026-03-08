@@ -205,7 +205,7 @@ function NextBookingBanner({ booking, myId, isProfessional }: { booking: Booking
             {booking.status === "IN_PROGRESS" ? "Unirse" : "Entrar"}
           </Link>
         ) : minsUntil > 0 ? (
-          <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs text-white/50">
+          <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-white/50">
             <Clock3 className="h-3.5 w-3.5" />
             {minsUntil > 60 ? `${Math.floor(minsUntil / 60)}h ${minsUntil % 60}m` : `${minsUntil} min`}
           </div>
@@ -230,7 +230,7 @@ function BookingCard({ b, myId, isProfessional, onAction }: {
   const canReportNoShow = !isProfessional && (b.status === "PENDING" || b.status === "CONFIRMED") && now >= scheduled.getTime() + 10 * 60 * 1000;
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] overflow-hidden transition hover:bg-white/[0.04]">
+    <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden transition hover:bg-white/[0.04]">
       <div className="p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -262,7 +262,7 @@ function BookingCard({ b, myId, isProfessional, onAction }: {
             </Link>
           )}
           {(b.status === "PENDING" || b.status === "CONFIRMED") && canJoin && (
-            <Link href={`/videocall/room/${b.id}`} className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2.5 text-xs font-semibold shadow-lg shadow-violet-500/20">
+            <Link href={`/videocall/room/${b.id}`} className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2.5 text-xs font-semibold shadow-[0_12px_30px_rgba(168,85,247,0.20)]">
               <Play className="h-3.5 w-3.5" /> Entrar a la sala
             </Link>
           )}
@@ -297,11 +297,11 @@ function CollapsibleHistory({ pastBookings, isProfessional }: { pastBookings: Bo
   const cancelledCount = pastBookings.length - completedCount;
 
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+    <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
       {/* Header */}
       <button
         onClick={() => hasMore && setExpanded(!expanded)}
-        className={`flex w-full items-center justify-between px-4 py-3 ${hasMore ? "cursor-pointer hover:bg-white/[0.02]" : "cursor-default"} transition`}
+        className={`flex w-full items-center justify-between px-4 py-3 ${hasMore ? "cursor-pointer hover:bg-white/[0.03]" : "cursor-default"} transition`}
       >
         <div className="flex items-center gap-3">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">Historial</h3>
@@ -357,7 +357,7 @@ function CollapsibleHistory({ pastBookings, isProfessional }: { pastBookings: Bo
       {hasMore && !expanded && (
         <button
           onClick={() => setExpanded(true)}
-          className="flex w-full items-center justify-center gap-1 border-t border-white/[0.04] py-2 text-[10px] text-white/20 hover:bg-white/[0.02] hover:text-white/30 transition"
+          className="flex w-full items-center justify-center gap-1 border-t border-white/[0.04] py-2 text-[10px] text-white/20 hover:bg-white/[0.03] hover:text-white/30 transition"
         >
           Ver todo <ChevronDown className="h-3 w-3" />
         </button>
@@ -446,13 +446,13 @@ function ProfessionalDashboard({ me }: { me: any }) {
   const completedCount = pastBookings.filter((b) => b.status === "COMPLETED").length;
 
   return (
-    <div className="min-h-screen bg-[#0a0b14] text-white">
+    <div className="min-h-screen text-white">
       <div className="mx-auto max-w-3xl px-4 py-6 pb-28">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25">
-              <Video className="h-6 w-6 text-violet-200" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500/25 to-violet-500/25 backdrop-blur-xl shadow-[0_0_20px_rgba(168,85,247,0.15)]">
+              <Video className="h-6 w-6 text-fuchsia-200" />
             </div>
             <div>
               <h1 className="text-xl font-bold">Videollamadas</h1>
@@ -460,7 +460,7 @@ function ProfessionalDashboard({ me }: { me: any }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-medium ${isActive ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-red-500/30 bg-red-500/10 text-red-300"}`}>
+            <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-medium backdrop-blur-xl ${isActive ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-red-500/30 bg-red-500/10 text-red-300"}`}>
               <div className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-emerald-400" : "bg-red-400"}`} />
               {isActive ? "Activo" : "Inactivo"}
             </div>
@@ -469,15 +469,15 @@ function ProfessionalDashboard({ me }: { me: any }) {
 
         {/* Stats row */}
         <div className="mb-5 grid grid-cols-3 gap-3">
-          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+          <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl px-4 py-3">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-white/30">Próximas</p>
             <p className="text-xl font-bold text-violet-300">{activeBookings.length}</p>
           </div>
-          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+          <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl px-4 py-3">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-white/30">Completadas</p>
             <p className="text-xl font-bold text-emerald-300">{completedCount}</p>
           </div>
-          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+          <div className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl px-4 py-3">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-white/30">Ganado</p>
             <p className="text-xl font-bold text-fuchsia-300">{totalEarned}</p>
           </div>
@@ -487,13 +487,13 @@ function ProfessionalDashboard({ me }: { me: any }) {
         {nextBooking && <NextBookingBanner booking={nextBooking} myId={myId} isProfessional />}
 
         {/* Tabs */}
-        <div className="mb-5 flex gap-1.5 rounded-2xl bg-white/[0.04] p-1">
-          <button onClick={() => setActiveTab("bookings")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition ${activeTab === "bookings" ? "bg-white/[0.1] text-white" : "text-white/40 hover:text-white/60"}`}>
+        <div className="mb-5 flex gap-1.5 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 p-1">
+          <button onClick={() => setActiveTab("bookings")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition ${activeTab === "bookings" ? "bg-white/10 text-white shadow-[0_2px_10px_rgba(168,85,247,0.15)]" : "text-white/40 hover:text-white/60"}`}>
             <CalendarDays className="h-3.5 w-3.5" />
             Llamadas
-            {activeBookings.length > 0 && <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-[9px] font-bold">{activeBookings.length}</span>}
+            {activeBookings.length > 0 && <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-fuchsia-500 text-[9px] font-bold">{activeBookings.length}</span>}
           </button>
-          <button onClick={() => setActiveTab("config")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition ${activeTab === "config" ? "bg-white/[0.1] text-white" : "text-white/40 hover:text-white/60"}`}>
+          <button onClick={() => setActiveTab("config")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition ${activeTab === "config" ? "bg-white/10 text-white shadow-[0_2px_10px_rgba(168,85,247,0.15)]" : "text-white/40 hover:text-white/60"}`}>
             <Settings className="h-3.5 w-3.5" /> Configuración
           </button>
         </div>
@@ -502,7 +502,7 @@ function ProfessionalDashboard({ me }: { me: any }) {
         {activeTab === "bookings" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             {loading ? (
-              <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-white/[0.04]" />)}</div>
+              <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-white/5" />)}</div>
             ) : (
               <>
                 {activeBookings.length > 0 && (
@@ -530,11 +530,11 @@ function ProfessionalDashboard({ me }: { me: any }) {
         {activeTab === "config" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             {configLoading ? (
-              <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/[0.04]" />)}</div>
+              <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/5" />)}</div>
             ) : (
               <>
                 {/* Active toggle */}
-                <div className="flex items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-4">
                   <div>
                     <p className="text-sm font-semibold">Estado del servicio</p>
                     <p className="text-[11px] text-white/40">{isActive ? "Visible para clientes" : "No visible"}</p>
@@ -545,20 +545,20 @@ function ProfessionalDashboard({ me }: { me: any }) {
                 </div>
 
                 {/* Pricing */}
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-4">
                   <h4 className="mb-4 text-sm font-semibold">Precio y duración</h4>
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
                       <label className="mb-1.5 block text-xs text-white/50">Tokens/min</label>
-                      <input type="number" value={pricePerMinute} onChange={(e) => setPricePerMinute(Math.max(1, Number(e.target.value)))} min={1} className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-violet-500/30" />
+                      <input type="number" value={pricePerMinute} onChange={(e) => setPricePerMinute(Math.max(1, Number(e.target.value)))} min={1} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-fuchsia-500/30 focus:ring-2 focus:ring-fuchsia-500/20" />
                     </div>
                     <div>
                       <label className="mb-1.5 block text-xs text-white/50">Min (min)</label>
-                      <input type="number" value={minDuration} onChange={(e) => setMinDuration(Math.max(1, Number(e.target.value)))} min={1} className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-violet-500/30" />
+                      <input type="number" value={minDuration} onChange={(e) => setMinDuration(Math.max(1, Number(e.target.value)))} min={1} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-fuchsia-500/30 focus:ring-2 focus:ring-fuchsia-500/20" />
                     </div>
                     <div>
                       <label className="mb-1.5 block text-xs text-white/50">Máx (min)</label>
-                      <input type="number" value={maxDuration} onChange={(e) => setMaxDuration(Math.max(minDuration, Number(e.target.value)))} min={minDuration} className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-violet-500/30" />
+                      <input type="number" value={maxDuration} onChange={(e) => setMaxDuration(Math.max(minDuration, Number(e.target.value)))} min={minDuration} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-fuchsia-500/30 focus:ring-2 focus:ring-fuchsia-500/20" />
                     </div>
                   </div>
                   <div className="mt-3 rounded-xl border border-violet-500/15 bg-violet-500/5 px-3 py-2">
@@ -569,7 +569,7 @@ function ProfessionalDashboard({ me }: { me: any }) {
                 </div>
 
                 {/* Availability */}
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-4">
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <h4 className="text-sm font-semibold">Horarios</h4>
@@ -588,13 +588,13 @@ function ProfessionalDashboard({ me }: { me: any }) {
                   ) : (
                     <div className="space-y-2">
                       {slots.map((slot, idx) => (
-                        <div key={idx} className="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                          <select value={slot.day} onChange={(e) => updateSlot(idx, "day", Number(e.target.value))} className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-xs outline-none">
-                            {DAY_NAMES_FULL.map((name, d) => <option key={d} value={d} className="bg-[#12131f]">{name}</option>)}
+                        <div key={idx} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                          <select value={slot.day} onChange={(e) => updateSlot(idx, "day", Number(e.target.value))} className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-xs outline-none">
+                            {DAY_NAMES_FULL.map((name, d) => <option key={d} value={d} className="bg-[#070816]">{name}</option>)}
                           </select>
-                          <input type="time" value={slot.from} onChange={(e) => updateSlot(idx, "from", e.target.value)} className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2 text-xs outline-none" />
+                          <input type="time" value={slot.from} onChange={(e) => updateSlot(idx, "from", e.target.value)} className="rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs outline-none" />
                           <span className="text-xs text-white/30">—</span>
-                          <input type="time" value={slot.to} onChange={(e) => updateSlot(idx, "to", e.target.value)} className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2 text-xs outline-none" />
+                          <input type="time" value={slot.to} onChange={(e) => updateSlot(idx, "to", e.target.value)} className="rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-xs outline-none" />
                           <button onClick={() => removeSlot(idx)} className="ml-auto rounded-lg p-1.5 text-white/30 transition hover:bg-red-500/10 hover:text-red-300">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -605,7 +605,7 @@ function ProfessionalDashboard({ me }: { me: any }) {
 
                   {/* Weekly overview */}
                   {slots.length > 0 && (
-                    <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                    <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
                       <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">Resumen semanal</p>
                       <div className="grid grid-cols-7 gap-1">
                         {DAY_NAMES.map((name, d) => {
@@ -622,7 +622,7 @@ function ProfessionalDashboard({ me }: { me: any }) {
                   )}
                 </div>
 
-                <button onClick={handleSaveConfig} disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40">
+                <button onClick={handleSaveConfig} disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40">
                   {saving ? <Clock3 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {saving ? "Guardando..." : "Guardar"}
                 </button>
@@ -760,13 +760,13 @@ function ClientDashboard({ me }: { me: any }) {
   const nextBooking = activeBookings[0];
 
   return (
-    <div className="min-h-screen bg-[#0a0b14] text-white">
+    <div className="min-h-screen text-white">
       <div className="mx-auto max-w-3xl px-4 py-6 pb-28">
         {/* Header */}
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25">
-              <Video className="h-6 w-6 text-violet-200" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500/25 to-violet-500/25 backdrop-blur-xl shadow-[0_0_20px_rgba(168,85,247,0.15)]">
+              <Video className="h-6 w-6 text-fuchsia-200" />
             </div>
             <div>
               <h1 className="text-xl font-bold">Videollamadas</h1>
@@ -774,7 +774,7 @@ function ClientDashboard({ me }: { me: any }) {
             </div>
           </div>
           {myId && (
-            <Link href="/wallet" className="flex items-center gap-1.5 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/10 px-3 py-2 text-xs font-medium text-fuchsia-300 transition hover:bg-fuchsia-500/15">
+            <Link href="/wallet" className="flex items-center gap-1.5 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/10 backdrop-blur-xl px-3 py-2 text-xs font-medium text-fuchsia-300 transition hover:bg-fuchsia-500/15">
               <Wallet className="h-3.5 w-3.5" />
               {walletBalance} tokens
             </Link>
@@ -785,15 +785,15 @@ function ClientDashboard({ me }: { me: any }) {
         {nextBooking && myId && <NextBookingBanner booking={nextBooking} myId={myId} isProfessional={false} />}
 
         {/* Tabs */}
-        <div className="mb-5 flex gap-1.5 rounded-2xl bg-white/[0.04] p-1">
+        <div className="mb-5 flex gap-1.5 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 p-1">
           {myId && (
-            <button onClick={() => setActiveTab("bookings")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition ${activeTab === "bookings" ? "bg-white/[0.1] text-white" : "text-white/40 hover:text-white/60"}`}>
+            <button onClick={() => setActiveTab("bookings")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition ${activeTab === "bookings" ? "bg-white/10 text-white shadow-[0_2px_10px_rgba(168,85,247,0.15)]" : "text-white/40 hover:text-white/60"}`}>
               <CalendarDays className="h-3.5 w-3.5" />
               Mis Llamadas
-              {activeBookings.length > 0 && <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-[9px] font-bold">{activeBookings.length}</span>}
+              {activeBookings.length > 0 && <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-fuchsia-500 text-[9px] font-bold">{activeBookings.length}</span>}
             </button>
           )}
-          <button onClick={() => setActiveTab("explore")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition ${activeTab === "explore" ? "bg-white/[0.1] text-white" : "text-white/40 hover:text-white/60"}`}>
+          <button onClick={() => setActiveTab("explore")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition ${activeTab === "explore" ? "bg-white/10 text-white shadow-[0_2px_10px_rgba(168,85,247,0.15)]" : "text-white/40 hover:text-white/60"}`}>
             <Search className="h-3.5 w-3.5" /> Explorar
           </button>
         </div>
@@ -825,11 +825,11 @@ function ClientDashboard({ me }: { me: any }) {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="relative mb-5">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
-              <input type="text" placeholder="Buscar profesional..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3 pl-11 pr-4 text-sm outline-none placeholder:text-white/30 focus:border-violet-500/30 transition" />
+              <input type="text" placeholder="Buscar profesional..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-500/30 focus:ring-2 focus:ring-fuchsia-500/20 transition" />
             </div>
 
             {loading ? (
-              <div className="grid gap-3 sm:grid-cols-2">{[1, 2, 3, 4].map((i) => <div key={i} className="h-48 animate-pulse rounded-2xl bg-white/[0.04]" />)}</div>
+              <div className="grid gap-3 sm:grid-cols-2">{[1, 2, 3, 4].map((i) => <div key={i} className="h-48 animate-pulse rounded-2xl bg-white/5" />)}</div>
             ) : filtered.length === 0 ? (
               <div className="py-20 text-center">
                 <Video className="mx-auto mb-4 h-12 w-12 text-white/15" />
@@ -846,13 +846,13 @@ function ClientDashboard({ me }: { me: any }) {
                       if (!myId) { router.push(`/login?next=${encodeURIComponent(`/videocall?professional=${pro.id}`)}`); return; }
                       openBookingModal(pro);
                     }}
-                    className="group text-left overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition hover:border-violet-500/20 hover:bg-white/[0.05]"
+                    className="group text-left overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl transition hover:border-fuchsia-500/25 hover:bg-white/[0.08] shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
                   >
                     {/* Cover */}
                     <div className="relative h-24 overflow-hidden bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10">
                       {pro.coverUrl && <img src={resolveMediaUrl(pro.coverUrl) ?? undefined} alt="" className="h-full w-full object-cover opacity-50 transition group-hover:opacity-70 group-hover:scale-105" />}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b14] via-transparent to-transparent" />
-                      <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-violet-400/30 bg-[#0a0b14]/80 px-2.5 py-1 backdrop-blur">
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#070816] via-transparent to-transparent" />
+                      <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-violet-400/30 bg-[#070816]/80 px-2.5 py-1 backdrop-blur">
                         <Coins className="h-3 w-3 text-violet-300" />
                         <span className="text-xs font-bold text-violet-200">{pro.pricePerMinute}</span>
                         <span className="text-[9px] text-white/40">/min</span>
@@ -864,9 +864,9 @@ function ClientDashboard({ me }: { me: any }) {
                       {/* Avatar */}
                       <div className="absolute -top-6 left-4">
                         {pro.avatarUrl ? (
-                          <img src={resolveMediaUrl(pro.avatarUrl) ?? undefined} alt="" className="h-12 w-12 rounded-xl border-2 border-[#0a0b14] object-cover shadow-lg" />
+                          <img src={resolveMediaUrl(pro.avatarUrl) ?? undefined} alt="" className="h-12 w-12 rounded-xl border-2 border-[#070816] object-cover shadow-lg" />
                         ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-[#0a0b14] bg-violet-500/20 shadow-lg"><User className="h-5 w-5 text-violet-300" /></div>
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-[#070816] bg-violet-500/20 shadow-lg"><User className="h-5 w-5 text-violet-300" /></div>
                         )}
                       </div>
 
@@ -876,11 +876,11 @@ function ClientDashboard({ me }: { me: any }) {
                       {Array.isArray(pro.availableSlots) && pro.availableSlots.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {pro.availableSlots.slice(0, 3).map((slot, idx) => (
-                            <span key={`${slot.day}-${idx}`} className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[8px] text-white/35">
+                            <span key={`${slot.day}-${idx}`} className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[8px] text-white/35">
                               {DAY_NAMES[slot.day]} {slot.from}-{slot.to}
                             </span>
                           ))}
-                          {pro.availableSlots.length > 3 && <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[8px] text-white/35">+{pro.availableSlots.length - 3}</span>}
+                          {pro.availableSlots.length > 3 && <span className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[8px] text-white/35">+{pro.availableSlots.length - 3}</span>}
                         </div>
                       )}
                     </div>
@@ -896,7 +896,7 @@ function ClientDashboard({ me }: { me: any }) {
       <AnimatePresence>
         {selectedPro && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center" onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
-            <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl border border-white/10 bg-[#12131f] p-6 shadow-2xl sm:rounded-3xl">
+            <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl border border-white/10 bg-white/10 backdrop-blur-2xl p-6 shadow-[0_18px_50px_rgba(0,0,0,0.45)] sm:rounded-3xl">
               <button onClick={closeModal} className="absolute right-4 top-4 rounded-full p-1.5 text-white/40 hover:bg-white/10"><X className="h-4 w-4" /></button>
 
               {/* Professional info */}
@@ -928,7 +928,7 @@ function ClientDashboard({ me }: { me: any }) {
                   <label className="text-xs font-medium text-white/60">Selecciona día</label>
                 </div>
                 {availableDates.length === 0 ? (
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-center text-xs text-white/30">Sin horarios disponibles</div>
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 text-center text-xs text-white/30">Sin horarios disponibles</div>
                 ) : (
                   <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                     {availableDates.map((d) => {
@@ -936,7 +936,7 @@ function ClientDashboard({ me }: { me: any }) {
                       const isToday = getChileDateKey(d) === getChileDateKey(new Date());
                       const chile = getChileDateParts(d);
                       return (
-                        <button key={d.toISOString()} onClick={() => { setSelectedDate(d); setSelectedTime(null); }} className={`flex shrink-0 flex-col items-center rounded-xl px-3 py-2 transition ${isSelected ? "border border-violet-500/40 bg-violet-500/20 text-violet-200" : "border border-white/[0.06] bg-white/[0.02] text-white/60 hover:bg-white/[0.06]"}`}>
+                        <button key={d.toISOString()} onClick={() => { setSelectedDate(d); setSelectedTime(null); }} className={`flex shrink-0 flex-col items-center rounded-xl px-3 py-2 transition ${isSelected ? "border border-violet-500/40 bg-violet-500/20 text-violet-200" : "border border-white/[0.06] bg-white/[0.03] text-white/60 hover:bg-white/[0.08]"}`}>
                           <span className="text-[10px] uppercase">{DAY_NAMES[chile.weekday]}</span>
                           <span className="text-lg font-bold leading-tight">{chile.day}</span>
                           <span className="text-[9px]">{isToday ? "Hoy" : formatChileDate(d, { month: "short" })}</span>
@@ -955,11 +955,11 @@ function ClientDashboard({ me }: { me: any }) {
                     <label className="text-xs font-medium text-white/60">Selecciona hora</label>
                   </div>
                   {timeBlocks.length === 0 ? (
-                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-center text-xs text-white/30">Sin horarios disponibles</div>
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 text-center text-xs text-white/30">Sin horarios disponibles</div>
                   ) : (
                     <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
                       {timeBlocks.map((block) => (
-                        <button key={block.time} onClick={() => !block.booked && setSelectedTime(block.time)} disabled={block.booked} className={`relative rounded-xl py-2.5 text-center text-xs font-medium transition ${block.booked ? "border border-red-500/15 bg-red-500/5 text-white/20 line-through cursor-not-allowed" : selectedTime === block.time ? "border border-violet-500/40 bg-violet-500/20 text-violet-200" : "border border-white/[0.08] bg-white/[0.03] text-white/70 hover:bg-white/[0.06]"}`}>
+                        <button key={block.time} onClick={() => !block.booked && setSelectedTime(block.time)} disabled={block.booked} className={`relative rounded-xl py-2.5 text-center text-xs font-medium transition ${block.booked ? "border border-red-500/15 bg-red-500/5 text-white/20 line-through cursor-not-allowed" : selectedTime === block.time ? "border border-violet-500/40 bg-violet-500/20 text-violet-200" : "border border-white/10 bg-white/5 text-white/70 hover:bg-white/[0.08]"}`}>
                           {block.time}
                           {block.booked && <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-red-400/50" />}
                         </button>
@@ -989,11 +989,11 @@ function ClientDashboard({ me }: { me: any }) {
                     </div>
                   )}
 
-                  <div className="mb-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[11px] text-white/40">
+                  <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[11px] text-white/40">
                     La sala se abre 5 min antes. Los tokens se retienen hasta que finalice la llamada.
                   </div>
 
-                  <button onClick={handleBook} disabled={bookLoading || !scheduledAt || walletBalance < totalCost} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40">
+                  <button onClick={handleBook} disabled={bookLoading || !scheduledAt || walletBalance < totalCost} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40">
                     {bookLoading ? <Clock3 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
                     {bookLoading ? "Reservando..." : "Confirmar Reserva"}
                   </button>
@@ -1023,7 +1023,7 @@ function VideocallPageContent() {
 
 export default function VideocallPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0a0b14]" />}>
+    <Suspense fallback={<div className="min-h-screen" />}>
       <VideocallPageContent />
     </Suspense>
   );
