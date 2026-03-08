@@ -240,6 +240,19 @@ export class WebRTCPeer {
     }
   }
 
+  /** Ensure transceivers exist for receiving even without local media */
+  ensureReceiveTransceivers() {
+    const transceivers = this.pc.getTransceivers();
+    const hasAudio = transceivers.some((t) => t.receiver.track.kind === "audio");
+    const hasVideo = transceivers.some((t) => t.receiver.track.kind === "video");
+    if (!hasAudio) {
+      this.pc.addTransceiver("audio", { direction: "recvonly" });
+    }
+    if (!hasVideo) {
+      this.pc.addTransceiver("video", { direction: "recvonly" });
+    }
+  }
+
   /** Create and send an SDP offer (caller side) */
   async createOffer(): Promise<RTCSessionDescriptionInit> {
     const offer = await this.pc.createOffer({
