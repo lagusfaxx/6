@@ -205,7 +205,7 @@ export default function WalletPage() {
             </div>
 
             {/* Mini stats row */}
-            <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className={`mt-4 grid gap-2 ${isProfessional ? "grid-cols-3" : "grid-cols-2"}`}>
               <div className="rounded-xl bg-white/[0.06] px-3 py-2">
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <Clock className="h-3 w-3 text-amber-300/70" />
@@ -215,15 +215,17 @@ export default function WalletPage() {
                   {balanceVisible ? wallet.heldBalance.toLocaleString() : "•••"}
                 </p>
               </div>
-              <div className="rounded-xl bg-white/[0.06] px-3 py-2">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <TrendingUp className="h-3 w-3 text-emerald-300/70" />
-                  <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-300/60">Ganado</span>
+              {isProfessional && (
+                <div className="rounded-xl bg-white/[0.06] px-3 py-2">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <TrendingUp className="h-3 w-3 text-emerald-300/70" />
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-300/60">Ganado</span>
+                  </div>
+                  <p className="text-sm font-bold text-emerald-300">
+                    {balanceVisible ? wallet.totalEarned.toLocaleString() : "•••"}
+                  </p>
                 </div>
-                <p className="text-sm font-bold text-emerald-300">
-                  {balanceVisible ? wallet.totalEarned.toLocaleString() : "•••"}
-                </p>
-              </div>
+              )}
               <div className="rounded-xl bg-white/[0.06] px-3 py-2">
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <TrendingDown className="h-3 w-3 text-violet-300/70" />

@@ -47,7 +47,7 @@ export default function VideocallRoomPage() {
   const [status, setStatus] = useState<"loading" | "waiting" | "connecting" | "connected" | "ended">("loading");
   const [error, setError] = useState("");
   const [mediaError, setMediaError] = useState("");
-  const [elapsed, setElapsed] = useState(0);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [connectingElapsed, setConnectingElapsed] = useState(0);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -69,6 +69,7 @@ export default function VideocallRoomPage() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<any>(null);
   const connectingTimerRef = useRef<any>(null);
+  const callStartedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const chatListRef = useRef<HTMLDivElement>(null);
   const mediaInitializedRef = useRef(false);
@@ -157,11 +158,11 @@ export default function VideocallRoomPage() {
             setRemoteNeedsInteraction(true);
           }
         }
-        // CRITICAL FIX: Timer starts ONLY when connected, not during connection
+        // Mark as connected - timer logic handled separately
         setStatus("connected");
+        callStartedRef.current = true;
         clearInterval(connectingTimerRef.current);
         setConnectingElapsed(0);
-        timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
       },
       onConnectionState: (state) => {
         if (state === "disconnected" || state === "failed" || state === "closed") {
@@ -328,6 +329,34 @@ export default function VideocallRoomPage() {
     };
   }, []);
 
+  // Timer: uses Date.now() against scheduledAt so it's accurate and never drifts
+  // Only ticks when status === "connected" AND we've passed scheduledAt
+  useEffect(() => {
+    clearInterval(timerRef.current);
+    if (status !== "connected" || !booking) return;
+
+    const scheduledMs = new Date(booking.scheduledAt).getTime();
+    const maxMs = booking.durationMinutes * 60 * 1000;
+
+    const tick = () => {
+      const now = Date.now();
+      // Time only counts from scheduledAt forward (not before)
+      const effectiveStart = Math.max(scheduledMs, scheduledMs); // always scheduledAt
+      const elapsedMs = Math.max(0, now - effectiveStart);
+      const remainingMs = Math.max(0, maxMs - elapsedMs);
+      setTimeLeft(Math.ceil(remainingMs / 1000));
+
+      if (remainingMs <= 0) {
+        clearInterval(timerRef.current);
+        endCall();
+      }
+    };
+
+    tick(); // immediate first tick
+    timerRef.current = setInterval(tick, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [status, booking]);
+
   const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   const sendChat = async () => {
@@ -346,13 +375,7 @@ export default function VideocallRoomPage() {
     chatListRef.current?.scrollTo({ top: chatListRef.current.scrollHeight, behavior: "smooth" });
   }, [chatMessages]);
 
-  const maxSeconds = booking ? booking.durationMinutes * 60 : 0;
-  const timeLeft = maxSeconds - elapsed;
-
-  // Auto-end when time runs out (only counts actual call time)
-  useEffect(() => {
-    if (status === "connected" && timeLeft <= 0 && booking) endCall();
-  }, [status, timeLeft]);
+  const elapsed = booking && timeLeft !== null ? booking.durationMinutes * 60 - timeLeft : 0;
 
   if (error) {
     return (
@@ -437,12 +460,12 @@ export default function VideocallRoomPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Timer - only shows actual call time (not connecting time) */}
-          {status === "connected" && (
+          {/* Timer - counts from scheduledAt, accurate with Date.now() */}
+          {status === "connected" && timeLeft !== null && (
             <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-mono ${timeLeft < 60 ? "border-red-500/30 bg-red-500/20" : "border-emerald-500/30 bg-emerald-500/20"}`}>
               <Clock className="h-3 w-3" />
               <span className={timeLeft < 60 ? "text-red-300" : "text-emerald-300"}>
-                {formatTime(Math.max(0, timeLeft))}
+                {formatTime(timeLeft)}
               </span>
             </div>
           )}
@@ -512,7 +535,7 @@ export default function VideocallRoomPage() {
                 <p className="text-sm font-medium text-white/70">Estableciendo conexión...</p>
                 <p className="mt-1 text-[10px] text-white/30">
                   {connectingElapsed > 0 && `${formatTime(connectingElapsed)} · `}
-                  El tiempo de la llamada no se consume hasta que ambos estén conectados
+                  El tiempo empieza a las {booking ? new Date(booking.scheduledAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : ""}
                 </p>
               </div>
             )}
