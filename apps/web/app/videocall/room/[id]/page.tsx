@@ -61,6 +61,7 @@ export default function VideocallRoomPage() {
   const [remoteNeedsInteraction, setRemoteNeedsInteraction] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [hasLocalStream, setHasLocalStream] = useState(false);
 
   // Refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -111,18 +112,21 @@ export default function VideocallRoomPage() {
       setMediaError("");
       const stream = await getLocalMedia({ video: true, audio: true });
       localStreamRef.current = stream;
+      setHasLocalStream(true);
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
     } catch (err) {
       const mediaErr = err instanceof DOMException ? err : null;
       const details = mediaErr?.message ? ` (${mediaErr.message})` : "";
+      setMicOn(false);
+      setCamOn(false);
       if (mediaErr?.name === "NotAllowedError") {
-        setMediaError("Permisos de cámara/micrófono bloqueados. Cierra y abre la sala y acepta los permisos.");
+        setMediaError("Permisos de cámara/micrófono bloqueados. Puedes continuar sin cámara, pero no podrán verte.");
       } else if (mediaErr?.name === "NotReadableError") {
         setMediaError("Cámara/micrófono en uso por otra app. Cierra Zoom/Meet y reintenta." + details);
       } else if (mediaErr?.name === "NotFoundError") {
-        setMediaError("No se encontró cámara o micrófono." + details);
+        setMediaError("No se encontró cámara o micrófono. Puedes continuar sin cámara." + details);
       } else {
-        setMediaError("No se pudo acceder a cámara/micrófono. Verifica permisos." + details);
+        setMediaError("No se pudo acceder a cámara/micrófono. Puedes continuar sin cámara." + details);
       }
     }
     setStatus("waiting");
@@ -140,9 +144,9 @@ export default function VideocallRoomPage() {
     }
   }, [booking, myId, roomOpen, initMedia, bookingId]);
 
-  // Create peer connection
+  // Create peer connection - works even without local media (client may deny permissions)
   const createPeer = useCallback(() => {
-    if (!remoteUserId || !localStreamRef.current) return null;
+    if (!remoteUserId) return null;
     peerRef.current?.close();
 
     const peer = new WebRTCPeer(remoteUserId, {
@@ -165,6 +169,15 @@ export default function VideocallRoomPage() {
         setConnectingElapsed(0);
       },
       onConnectionState: (state) => {
+        if (state === "connected") {
+          // WebRTC connected even without remote stream (e.g. audio-only)
+          if (!callStartedRef.current) {
+            setStatus("connected");
+            callStartedRef.current = true;
+            clearInterval(connectingTimerRef.current);
+            setConnectingElapsed(0);
+          }
+        }
         if (state === "disconnected" || state === "failed" || state === "closed") {
           setStatus("ended");
           clearInterval(timerRef.current);
@@ -179,7 +192,13 @@ export default function VideocallRoomPage() {
       },
     }, { bookingId });
 
-    peer.addStream(localStreamRef.current);
+    // Add local stream if available, otherwise ensure we can still receive
+    if (localStreamRef.current) {
+      peer.addStream(localStreamRef.current);
+    } else {
+      // No local media (permissions denied) - still need transceivers to receive remote stream
+      peer.ensureReceiveTransceivers();
+    }
     peerRef.current = peer;
     return peer;
   }, [remoteUserId, bookingId, isProfessional]);
@@ -589,13 +608,13 @@ export default function VideocallRoomPage() {
           </div>
         </div>
 
-        {/* Local video (PiP) */}
-        {status !== "ended" && (
-          <div className="absolute bottom-4 right-4 h-36 w-28 overflow-hidden rounded-2xl border-2 border-white/20 shadow-xl sm:h-48 sm:w-36">
+        {/* Local video (PiP) - compact on desktop */}
+        {status !== "ended" && hasLocalStream && (
+          <div className="absolute bottom-4 right-4 h-28 w-20 overflow-hidden rounded-xl border-2 border-white/20 shadow-xl sm:h-32 sm:w-24">
             <video ref={localVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" style={{ transform: "scaleX(-1)" }} />
             {!camOn && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-                <VideoOff className="h-6 w-6 text-white/30" />
+                <VideoOff className="h-5 w-5 text-white/30" />
               </div>
             )}
           </div>
@@ -605,12 +624,16 @@ export default function VideocallRoomPage() {
       {/* Controls */}
       {status !== "ended" && (
         <div className="flex items-center justify-center gap-3 border-t border-white/[0.06] bg-[#0a0b14] px-4 py-4">
-          <button onClick={toggleMic} className={`flex h-12 w-12 items-center justify-center rounded-full transition ${micOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-500/80 text-white"}`}>
-            {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-          </button>
-          <button onClick={toggleCam} className={`flex h-12 w-12 items-center justify-center rounded-full transition ${camOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-500/80 text-white"}`}>
-            {camOn ? <VideoIcon className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-          </button>
+          {hasLocalStream && (
+            <>
+              <button onClick={toggleMic} className={`flex h-12 w-12 items-center justify-center rounded-full transition ${micOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-500/80 text-white"}`}>
+                {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+              </button>
+              <button onClick={toggleCam} className={`flex h-12 w-12 items-center justify-center rounded-full transition ${camOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-500/80 text-white"}`}>
+                {camOn ? <VideoIcon className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+              </button>
+            </>
+          )}
           <button onClick={toggleRemoteAudio} className={`flex h-12 w-12 items-center justify-center rounded-full transition ${remoteAudioOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-amber-500/80 text-white"}`}>
             {remoteAudioOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
           </button>
