@@ -11,6 +11,7 @@ import {
   Clock3, Search, X, Play, Plus, Trash2, Save, Settings,
   ToggleLeft, ToggleRight, Lock, Wallet, Star, ArrowRight,
   CalendarDays, Timer, PhoneCall, CheckCircle, Ban,
+  ChevronDown, ChevronUp,
 } from "lucide-react";
 
 /* ── Types ── */
@@ -281,6 +282,90 @@ function BookingCard({ b, myId, isProfessional, onAction }: {
   );
 }
 
+/* ── Collapsible History ── */
+
+const HISTORY_PREVIEW_COUNT = 3;
+
+function CollapsibleHistory({ pastBookings, isProfessional }: { pastBookings: Booking[]; isProfessional: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? pastBookings : pastBookings.slice(0, HISTORY_PREVIEW_COUNT);
+  const hasMore = pastBookings.length > HISTORY_PREVIEW_COUNT;
+
+  if (pastBookings.length === 0) return null;
+
+  const completedCount = pastBookings.filter((b) => b.status === "COMPLETED").length;
+  const cancelledCount = pastBookings.length - completedCount;
+
+  return (
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+      {/* Header */}
+      <button
+        onClick={() => hasMore && setExpanded(!expanded)}
+        className={`flex w-full items-center justify-between px-4 py-3 ${hasMore ? "cursor-pointer hover:bg-white/[0.02]" : "cursor-default"} transition`}
+      >
+        <div className="flex items-center gap-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">Historial</h3>
+          <div className="flex items-center gap-1.5">
+            {completedCount > 0 && (
+              <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-400/70">
+                <CheckCircle className="h-2.5 w-2.5" /> {completedCount}
+              </span>
+            )}
+            {cancelledCount > 0 && (
+              <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[9px] font-medium text-red-400/70">
+                <Ban className="h-2.5 w-2.5" /> {cancelledCount}
+              </span>
+            )}
+          </div>
+        </div>
+        {hasMore && (
+          <div className="flex items-center gap-1 text-[10px] text-white/25">
+            {expanded ? "Menos" : `Ver ${pastBookings.length - HISTORY_PREVIEW_COUNT} más`}
+            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </div>
+        )}
+      </button>
+
+      {/* Items */}
+      <div className="divide-y divide-white/[0.04]">
+        {visible.map((b) => {
+          const other = isProfessional ? b.client : b.professional;
+          const status = STATUS_UI[b.status] || { label: b.status, color: "text-white/60", bg: "border-white/20 bg-white/5" };
+          const isCompleted = b.status === "COMPLETED";
+          return (
+            <div key={b.id} className="flex items-center gap-3 px-4 py-2.5 transition">
+              <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isCompleted ? "bg-emerald-500/10" : "bg-red-500/10"}`}>
+                {isCompleted ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400/60" /> : <Ban className="h-3.5 w-3.5 text-red-400/60" />}
+              </div>
+              <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium truncate text-white/70">{other.displayName || other.username}</p>
+                  <p className="text-[9px] text-white/25">
+                    {new Date(b.scheduledAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })} · {b.durationMinutes} min
+                  </p>
+                </div>
+                <span className={`shrink-0 text-[10px] font-medium ${isCompleted ? "text-emerald-400/50" : "text-red-400/50"}`}>
+                  {isProfessional ? b.professionalPay : b.totalTokens} tk
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Expand button at bottom */}
+      {hasMore && !expanded && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="flex w-full items-center justify-center gap-1 border-t border-white/[0.04] py-2 text-[10px] text-white/20 hover:bg-white/[0.02] hover:text-white/30 transition"
+        >
+          Ver todo <ChevronDown className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* ── Professional Dashboard ── */
 
 function ProfessionalDashboard({ me }: { me: any }) {
@@ -428,36 +513,7 @@ function ProfessionalDashboard({ me }: { me: any }) {
                     </div>
                   </div>
                 )}
-                {pastBookings.length > 0 && (
-                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">Historial</h3>
-                      <span className="text-[10px] text-white/25">{pastBookings.length} llamada{pastBookings.length !== 1 ? "s" : ""}</span>
-                    </div>
-                    <div className="divide-y divide-white/[0.04]">
-                      {pastBookings.slice(0, 20).map((b) => {
-                        const status = STATUS_UI[b.status] || { label: b.status, color: "text-white/60", bg: "border-white/20 bg-white/5" };
-                        const isCompleted = b.status === "COMPLETED";
-                        return (
-                          <div key={b.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition">
-                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${isCompleted ? "bg-emerald-500/10" : "bg-red-500/10"}`}>
-                              {isCompleted ? <CheckCircle className="h-4 w-4 text-emerald-400/70" /> : <Ban className="h-4 w-4 text-red-400/70" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="text-xs font-medium truncate">{b.client.displayName || b.client.username}</p>
-                                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-medium ${status.color} ${status.bg}`}>{status.label}</span>
-                              </div>
-                              <p className="text-[10px] text-white/30 mt-0.5">
-                                {new Date(b.scheduledAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })} · {b.durationMinutes} min · <span className="text-emerald-300/60">{b.professionalPay} tokens</span>
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                <CollapsibleHistory pastBookings={pastBookings} isProfessional />
                 {bookings.length === 0 && (
                   <div className="py-20 text-center">
                     <Calendar className="mx-auto mb-4 h-12 w-12 text-white/15" />
@@ -751,37 +807,7 @@ function ClientDashboard({ me }: { me: any }) {
                 <div className="space-y-3">{activeBookings.map((b) => <BookingCard key={b.id} b={b} myId={myId} isProfessional={false} onAction={handleAction} />)}</div>
               </div>
             )}
-            {pastBookings.length > 0 && (
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">Historial</h3>
-                  <span className="text-[10px] text-white/25">{pastBookings.length} llamada{pastBookings.length !== 1 ? "s" : ""}</span>
-                </div>
-                <div className="divide-y divide-white/[0.04]">
-                  {pastBookings.slice(0, 20).map((b) => {
-                    const other = b.professional;
-                    const status = STATUS_UI[b.status] || { label: b.status, color: "text-white/60", bg: "border-white/20 bg-white/5" };
-                    const isCompleted = b.status === "COMPLETED";
-                    return (
-                      <div key={b.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition">
-                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${isCompleted ? "bg-emerald-500/10" : "bg-red-500/10"}`}>
-                          {isCompleted ? <CheckCircle className="h-4 w-4 text-emerald-400/70" /> : <Ban className="h-4 w-4 text-red-400/70" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-xs font-medium truncate">{other.displayName || other.username}</p>
-                            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-medium ${status.color} ${status.bg}`}>{status.label}</span>
-                          </div>
-                          <p className="text-[10px] text-white/30 mt-0.5">
-                            {new Date(b.scheduledAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })} · {b.durationMinutes} min · <span className="text-violet-300/60">{b.totalTokens} tokens</span>
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            <CollapsibleHistory pastBookings={pastBookings} isProfessional={false} />
             {bookings.length === 0 && (
               <div className="py-20 text-center">
                 <Calendar className="mx-auto mb-4 h-12 w-12 text-white/15" />
