@@ -429,25 +429,29 @@ function ProfessionalDashboard({ me }: { me: any }) {
                   </div>
                 )}
                 {pastBookings.length > 0 && (
-                  <div>
-                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/40">Historial</h3>
-                    <div className="space-y-2">
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">Historial</h3>
+                      <span className="text-[10px] text-white/25">{pastBookings.length} llamada{pastBookings.length !== 1 ? "s" : ""}</span>
+                    </div>
+                    <div className="divide-y divide-white/[0.04]">
                       {pastBookings.slice(0, 20).map((b) => {
                         const status = STATUS_UI[b.status] || { label: b.status, color: "text-white/60", bg: "border-white/20 bg-white/5" };
+                        const isCompleted = b.status === "COMPLETED";
                         return (
-                          <div key={b.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                            <div className="flex items-center gap-3">
-                              {b.client.avatarUrl ? (
-                                <img src={resolveMediaUrl(b.client.avatarUrl) ?? undefined} alt="" className="h-9 w-9 rounded-lg object-cover" />
-                              ) : (
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10"><User className="h-4 w-4 text-white/30" /></div>
-                              )}
-                              <div>
-                                <p className="text-xs font-medium">{b.client.displayName || b.client.username}</p>
-                                <p className="text-[10px] text-white/30">{new Date(b.scheduledAt).toLocaleDateString("es-CL")} · {b.durationMinutes} min · {b.professionalPay} tokens</p>
-                              </div>
+                          <div key={b.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition">
+                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${isCompleted ? "bg-emerald-500/10" : "bg-red-500/10"}`}>
+                              {isCompleted ? <CheckCircle className="h-4 w-4 text-emerald-400/70" /> : <Ban className="h-4 w-4 text-red-400/70" />}
                             </div>
-                            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${status.color} ${status.bg}`}>{status.label}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-medium truncate">{b.client.displayName || b.client.username}</p>
+                                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-medium ${status.color} ${status.bg}`}>{status.label}</span>
+                              </div>
+                              <p className="text-[10px] text-white/30 mt-0.5">
+                                {new Date(b.scheduledAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })} · {b.durationMinutes} min · <span className="text-emerald-300/60">{b.professionalPay} tokens</span>
+                              </p>
+                            </div>
                           </div>
                         );
                       })}
@@ -748,22 +752,30 @@ function ClientDashboard({ me }: { me: any }) {
               </div>
             )}
             {pastBookings.length > 0 && (
-              <div>
-                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/40">Historial</h3>
-                <div className="space-y-2">
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">Historial</h3>
+                  <span className="text-[10px] text-white/25">{pastBookings.length} llamada{pastBookings.length !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="divide-y divide-white/[0.04]">
                   {pastBookings.slice(0, 20).map((b) => {
                     const other = b.professional;
                     const status = STATUS_UI[b.status] || { label: b.status, color: "text-white/60", bg: "border-white/20 bg-white/5" };
+                    const isCompleted = b.status === "COMPLETED";
                     return (
-                      <div key={b.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                        <div className="flex items-center gap-3">
-                          {other.avatarUrl ? <img src={resolveMediaUrl(other.avatarUrl) ?? undefined} alt="" className="h-9 w-9 rounded-lg object-cover" /> : <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10"><User className="h-4 w-4 text-white/30" /></div>}
-                          <div>
-                            <p className="text-xs font-medium">{other.displayName || other.username}</p>
-                            <p className="text-[10px] text-white/30">{new Date(b.scheduledAt).toLocaleDateString("es-CL")} · {b.durationMinutes} min · {b.totalTokens} tokens</p>
-                          </div>
+                      <div key={b.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition">
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${isCompleted ? "bg-emerald-500/10" : "bg-red-500/10"}`}>
+                          {isCompleted ? <CheckCircle className="h-4 w-4 text-emerald-400/70" /> : <Ban className="h-4 w-4 text-red-400/70" />}
                         </div>
-                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${status.color} ${status.bg}`}>{status.label}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-medium truncate">{other.displayName || other.username}</p>
+                            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[8px] font-medium ${status.color} ${status.bg}`}>{status.label}</span>
+                          </div>
+                          <p className="text-[10px] text-white/30 mt-0.5">
+                            {new Date(b.scheduledAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })} · {b.durationMinutes} min · <span className="text-violet-300/60">{b.totalTokens} tokens</span>
+                          </p>
+                        </div>
                       </div>
                     );
                   })}
