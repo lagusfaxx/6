@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import useMe from "../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import {
   Wallet, Upload, ArrowDownCircle, ArrowUpCircle, History,
-  ChevronRight, Coins, Ban, CheckCircle2, Clock, X, Send,
+  Coins, CheckCircle2, Clock, Send, TrendingUp, TrendingDown,
+  CreditCard, Eye, EyeOff, Copy, ChevronRight, Video,
+  ArrowRight, RefreshCw, AlertCircle, Shield, Banknote,
 } from "lucide-react";
 
 type WalletData = {
@@ -47,11 +50,6 @@ type Tx = {
   createdAt: string;
 };
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
-  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.3 } }),
-};
-
 const statusColors: Record<string, string> = {
   PENDING: "text-amber-400 bg-amber-500/10 border-amber-500/20",
   APPROVED: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
@@ -64,6 +62,17 @@ const statusLabels: Record<string, string> = {
   REJECTED: "Rechazado",
 };
 
+const txTypeIcons: Record<string, { icon: typeof Coins; color: string }> = {
+  DEPOSIT: { icon: ArrowDownCircle, color: "text-emerald-400 bg-emerald-500/15" },
+  VIDEOCALL_HOLD: { icon: Clock, color: "text-amber-400 bg-amber-500/15" },
+  VIDEOCALL_RELEASE: { icon: Video, color: "text-violet-400 bg-violet-500/15" },
+  VIDEOCALL_REFUND: { icon: RefreshCw, color: "text-blue-400 bg-blue-500/15" },
+  VIDEOCALL_COMMISSION: { icon: Shield, color: "text-fuchsia-400 bg-fuchsia-500/15" },
+  WITHDRAWAL: { icon: ArrowUpCircle, color: "text-orange-400 bg-orange-500/15" },
+  PENALTY: { icon: AlertCircle, color: "text-red-400 bg-red-500/15" },
+  ADJUSTMENT: { icon: Coins, color: "text-white/50 bg-white/10" },
+};
+
 export default function WalletPage() {
   const { me } = useMe();
   const [wallet, setWallet] = useState<WalletData | null>(null);
@@ -71,6 +80,7 @@ export default function WalletPage() {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [transactions, setTransactions] = useState<Tx[]>([]);
   const [tab, setTab] = useState<"overview" | "deposit" | "withdraw" | "history">("overview");
+  const [balanceVisible, setBalanceVisible] = useState(true);
 
   // Deposit form
   const [depositTokens, setDepositTokens] = useState("");
@@ -151,115 +161,291 @@ export default function WalletPage() {
 
   const rate = wallet?.tokenRateClp || 1000;
 
+  const quickAmounts = [5, 10, 25, 50, 100];
+
+  const recentTx = transactions.slice(0, 5);
+
   return (
     <div className="min-h-screen bg-[#0a0b14] text-white">
-      <div className="mx-auto max-w-2xl px-4 py-8 pb-28">
-        {/* Header */}
-        <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="mb-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-600/20 to-violet-600/20">
-              <Wallet className="h-6 w-6 text-fuchsia-400" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Mi Billetera</h1>
-              <p className="text-sm text-white/40">1 token = ${rate.toLocaleString("es-CL")} CLP</p>
-            </div>
-          </div>
-        </motion.div>
+      <div className="mx-auto max-w-lg px-4 py-6 pb-28">
 
-        {/* Balance Cards */}
+        {/* ── Main Balance Card ── */}
         {wallet && (
-          <motion.div initial="hidden" animate="visible" custom={1} variants={fadeUp} className="mb-6 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-600/10 to-transparent p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-fuchsia-300/60">Disponible</p>
-              <p className="mt-1 text-2xl font-bold text-fuchsia-300">{wallet.balance.toLocaleString()}</p>
-              <p className="text-[10px] text-white/30">${(wallet.balance * rate).toLocaleString("es-CL")} CLP</p>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 overflow-hidden rounded-3xl border border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-600/15 via-violet-600/10 to-transparent p-6"
+          >
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10">
+                  <Wallet className="h-5 w-5 text-fuchsia-300" />
+                </div>
+                <span className="text-sm font-medium text-white/60">Mi Billetera</span>
+              </div>
+              <button
+                onClick={() => setBalanceVisible(!balanceVisible)}
+                className="rounded-lg p-1.5 text-white/40 hover:bg-white/10 transition"
+              >
+                {balanceVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </button>
             </div>
-            <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-600/10 to-transparent p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-300/60">En retención</p>
-              <p className="mt-1 text-2xl font-bold text-amber-300">{wallet.heldBalance.toLocaleString()}</p>
-              <p className="text-[10px] text-white/30">${(wallet.heldBalance * rate).toLocaleString("es-CL")} CLP</p>
+
+            <div className="mt-2">
+              <p className="text-4xl font-bold tracking-tight">
+                {balanceVisible ? wallet.balance.toLocaleString() : "•••••"}
+              </p>
+              <p className="text-sm text-white/40 mt-0.5">
+                {balanceVisible
+                  ? `$${(wallet.balance * rate).toLocaleString("es-CL")} CLP`
+                  : "••••• CLP"
+                }
+              </p>
+              <p className="text-[10px] text-white/25 mt-1">1 token = ${rate.toLocaleString("es-CL")} CLP</p>
             </div>
-            <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-600/10 to-transparent p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-300/60">Total ganado</p>
-              <p className="mt-1 text-lg font-bold text-emerald-300">{wallet.totalEarned.toLocaleString()}</p>
+
+            {/* Mini stats row */}
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="rounded-xl bg-white/[0.06] px-3 py-2">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Clock className="h-3 w-3 text-amber-300/70" />
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-amber-300/60">Retenido</span>
+                </div>
+                <p className="text-sm font-bold text-amber-300">
+                  {balanceVisible ? wallet.heldBalance.toLocaleString() : "•••"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-white/[0.06] px-3 py-2">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <TrendingUp className="h-3 w-3 text-emerald-300/70" />
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-300/60">Ganado</span>
+                </div>
+                <p className="text-sm font-bold text-emerald-300">
+                  {balanceVisible ? wallet.totalEarned.toLocaleString() : "•••"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-white/[0.06] px-3 py-2">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <TrendingDown className="h-3 w-3 text-violet-300/70" />
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-violet-300/60">Gastado</span>
+                </div>
+                <p className="text-sm font-bold text-violet-300">
+                  {balanceVisible ? wallet.totalSpent.toLocaleString() : "•••"}
+                </p>
+              </div>
             </div>
-            <div className="rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-600/10 to-transparent p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/60">Total gastado</p>
-              <p className="mt-1 text-lg font-bold text-violet-300">{wallet.totalSpent.toLocaleString()}</p>
+
+            {/* Quick action buttons */}
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setTab("deposit")}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold transition hover:opacity-90"
+              >
+                <ArrowDownCircle className="h-4 w-4" />
+                Comprar
+              </button>
+              {isProfessional && (
+                <button
+                  onClick={() => setTab("withdraw")}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/15"
+                >
+                  <ArrowUpCircle className="h-4 w-4" />
+                  Retirar
+                </button>
+              )}
             </div>
           </motion.div>
         )}
 
-        {/* Tabs */}
-        <motion.div initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mb-6 flex gap-2 overflow-x-auto scrollbar-none">
-          {(["overview", "deposit", ...(isProfessional ? ["withdraw"] : []), "history"] as const).map((t) => (
+        {/* ── Tabs ── */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="mb-5 flex gap-1.5 overflow-x-auto scrollbar-none rounded-2xl bg-white/[0.04] p-1"
+        >
+          {(["overview", "deposit", ...(isProfessional ? ["withdraw" as const] : []), "history"] as const).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t as "overview" | "deposit" | "withdraw" | "history")}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-2 text-xs font-medium transition ${
+              onClick={() => setTab(t as any)}
+              className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2.5 text-xs font-medium transition ${
                 tab === t
-                  ? "border-fuchsia-500/30 bg-fuchsia-500/15 text-fuchsia-300"
-                  : "border-white/[0.08] bg-white/[0.03] text-white/50 hover:bg-white/[0.06]"
+                  ? "bg-white/[0.1] text-white shadow-sm"
+                  : "text-white/40 hover:text-white/60"
               }`}
             >
               {t === "overview" && <><Coins className="h-3.5 w-3.5" /> Resumen</>}
-              {t === "deposit" && <><ArrowDownCircle className="h-3.5 w-3.5" /> Comprar Tokens</>}
-              {t === "withdraw" && <><ArrowUpCircle className="h-3.5 w-3.5" /> Retirar</>}
+              {t === "deposit" && <><ArrowDownCircle className="h-3.5 w-3.5" /> Comprar</>}
+              {t === "withdraw" && <><Banknote className="h-3.5 w-3.5" /> Retirar</>}
               {t === "history" && <><History className="h-3.5 w-3.5" /> Historial</>}
             </button>
           ))}
         </motion.div>
 
         <AnimatePresence mode="wait">
+          {/* ── Overview Tab ── */}
+          {tab === "overview" && (
+            <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+              {/* Quick links */}
+              <div className="grid grid-cols-2 gap-3">
+                <Link href="/videocall" className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 transition hover:bg-white/[0.06]">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/15">
+                    <Video className="h-5 w-5 text-violet-300" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold">Videollamadas</p>
+                    <p className="text-[10px] text-white/30">Agendar llamada</p>
+                  </div>
+                </Link>
+                <button
+                  onClick={() => setTab("deposit")}
+                  className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 transition hover:bg-white/[0.06] text-left"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-fuchsia-500/15">
+                    <CreditCard className="h-5 w-5 text-fuchsia-300" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold">Recargar</p>
+                    <p className="text-[10px] text-white/30">Comprar tokens</p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Recent activity */}
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">Actividad reciente</h3>
+                  <button
+                    onClick={() => setTab("history")}
+                    className="flex items-center gap-1 text-[10px] text-violet-400 hover:text-violet-300"
+                  >
+                    Ver todo <ChevronRight className="h-3 w-3" />
+                  </button>
+                </div>
+                {recentTx.length > 0 ? (
+                  <div className="space-y-2">
+                    {recentTx.map((tx) => {
+                      const txMeta = txTypeIcons[tx.type] || txTypeIcons.ADJUSTMENT;
+                      const Icon = txMeta.icon;
+                      return (
+                        <div key={tx.id} className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${txMeta.color}`}>
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs text-white/80">{tx.description}</p>
+                            <p className="text-[10px] text-white/25">{new Date(tx.createdAt).toLocaleString("es-CL")}</p>
+                          </div>
+                          <span className={`ml-2 text-sm font-bold tabular-nums ${tx.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {tx.amount >= 0 ? "+" : ""}{tx.amount}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-white/[0.08] py-12 text-center">
+                    <Coins className="mx-auto mb-3 h-8 w-8 text-white/10" />
+                    <p className="text-sm text-white/30">Sin movimientos aún</p>
+                    <p className="text-[10px] text-white/15 mt-1">Tus transacciones aparecerán aquí</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {/* ── Deposit Tab ── */}
           {tab === "deposit" && (
-            <motion.div key="deposit" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+            <motion.div key="deposit" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
               <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
-                <h3 className="mb-4 text-sm font-semibold">Comprar Tokens por Transferencia</h3>
-                <p className="mb-4 text-xs text-white/40">
-                  Transfiere a la cuenta de UZEED, sube el comprobante y espera aprobación del administrador.
-                </p>
-
-                <div className="mb-4 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/60 mb-1">Datos Bancarios UZEED</p>
-                  <p className="text-xs text-white/70">Banco Estado · Cuenta Corriente</p>
-                  <p className="text-xs text-white/70">UZEED SpA · RUT: 77.xxx.xxx-x</p>
-                  <p className="text-xs text-white/70">N° Cuenta: 000-000-000</p>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-fuchsia-500/15">
+                    <CreditCard className="h-5 w-5 text-fuchsia-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold">Comprar Tokens</h3>
+                    <p className="text-[10px] text-white/40">Transfiere y sube tu comprobante</p>
+                  </div>
                 </div>
 
-                <label className="mb-1 block text-xs text-white/50">Cantidad de tokens</label>
+                {/* Bank details card */}
+                <div className="mb-5 rounded-xl border border-violet-500/20 bg-gradient-to-r from-violet-500/5 to-fuchsia-500/5 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/60">Datos Bancarios UZEED</p>
+                    <button
+                      onClick={() => navigator.clipboard?.writeText("Banco Estado · Cuenta Corriente · UZEED SpA · 000-000-000")}
+                      className="rounded-lg p-1 text-white/30 hover:bg-white/10 hover:text-white/50 transition"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-white/70">Banco Estado · Cuenta Corriente</p>
+                    <p className="text-xs text-white/70">UZEED SpA · RUT: 77.xxx.xxx-x</p>
+                    <p className="text-xs text-white/70">N° Cuenta: 000-000-000</p>
+                  </div>
+                </div>
+
+                {/* Quick amount selector */}
+                <label className="mb-2 block text-xs text-white/50">Cantidad de tokens</label>
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {quickAmounts.map((amount) => (
+                    <button
+                      key={amount}
+                      onClick={() => setDepositTokens(String(amount))}
+                      className={`rounded-xl border px-4 py-2 text-xs font-medium transition ${
+                        depositTokens === String(amount)
+                          ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-300"
+                          : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.06]"
+                      }`}
+                    >
+                      {amount} tokens
+                    </button>
+                  ))}
+                </div>
+
                 <input
                   type="number"
                   min="1"
                   value={depositTokens}
                   onChange={(e) => setDepositTokens(e.target.value)}
-                  placeholder="Ej: 10"
-                  className="mb-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-fuchsia-500/30"
+                  placeholder="O ingresa otra cantidad"
+                  className="mb-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-fuchsia-500/30 transition"
                 />
                 {depositTokens && (
-                  <p className="mb-3 text-xs text-white/40">
+                  <p className="mb-4 text-xs text-white/40">
                     = ${(parseInt(depositTokens || "0", 10) * rate).toLocaleString("es-CL")} CLP
                   </p>
                 )}
 
-                <label className="mb-1 block text-xs text-white/50">Comprobante de transferencia</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                  className="mb-4 w-full text-xs text-white/50 file:mr-3 file:rounded-full file:border-0 file:bg-fuchsia-500/20 file:px-4 file:py-2 file:text-xs file:text-fuchsia-300"
-                />
+                <label className="mb-1.5 block text-xs text-white/50">Comprobante de transferencia</label>
+                <div className="mb-5 rounded-xl border-2 border-dashed border-white/[0.1] bg-white/[0.02] p-4 text-center transition hover:border-fuchsia-500/20 hover:bg-white/[0.04]">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                    className="w-full text-xs text-white/50 file:mr-3 file:rounded-full file:border-0 file:bg-fuchsia-500/20 file:px-4 file:py-2 file:text-xs file:text-fuchsia-300 file:cursor-pointer"
+                  />
+                  {receiptFile && (
+                    <p className="mt-2 text-[10px] text-emerald-400 flex items-center justify-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> {receiptFile.name}
+                    </p>
+                  )}
+                </div>
 
                 <button
                   onClick={handleDeposit}
                   disabled={depositLoading || !depositTokens || !receiptFile}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3.5 text-sm font-semibold disabled:opacity-40 transition hover:opacity-90"
                 >
                   <Upload className="h-4 w-4" />
                   {depositLoading ? "Enviando..." : "Enviar Solicitud"}
                 </button>
-                {depositMsg && <p className="mt-2 text-center text-xs text-emerald-400">{depositMsg}</p>}
+                {depositMsg && (
+                  <p className={`mt-3 text-center text-xs ${depositMsg.includes("Error") ? "text-red-400" : "text-emerald-400"}`}>
+                    {depositMsg}
+                  </p>
+                )}
               </div>
 
               {/* Recent deposits */}
@@ -268,12 +454,17 @@ export default function WalletPage() {
                   <h4 className="mb-3 text-xs font-semibold text-white/50">Mis depósitos</h4>
                   <div className="space-y-2">
                     {deposits.map((d) => (
-                      <div key={d.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2">
-                        <div>
-                          <p className="text-sm font-medium">{d.amount} tokens</p>
-                          <p className="text-[10px] text-white/30">${d.clpAmount.toLocaleString("es-CL")} CLP · {new Date(d.createdAt).toLocaleDateString("es-CL")}</p>
+                      <div key={d.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-fuchsia-500/10">
+                            <ArrowDownCircle className="h-4 w-4 text-fuchsia-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{d.amount} tokens</p>
+                            <p className="text-[10px] text-white/30">${d.clpAmount.toLocaleString("es-CL")} · {new Date(d.createdAt).toLocaleDateString("es-CL")}</p>
+                          </div>
                         </div>
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusColors[d.status] || ""}`}>
+                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${statusColors[d.status] || ""}`}>
                           {statusLabels[d.status] || d.status}
                         </span>
                       </div>
@@ -286,40 +477,81 @@ export default function WalletPage() {
 
           {/* ── Withdraw Tab ── */}
           {tab === "withdraw" && isProfessional && (
-            <motion.div key="withdraw" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+            <motion.div key="withdraw" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
               <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
-                <h3 className="mb-4 text-sm font-semibold">Solicitar Retiro</h3>
-                <p className="mb-4 text-xs text-white/40">
-                  Ingresa tus datos bancarios y la cantidad de tokens a retirar. El admin procesará tu solicitud.
-                </p>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15">
+                    <Banknote className="h-5 w-5 text-emerald-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold">Solicitar Retiro</h3>
+                    <p className="text-[10px] text-white/40">Disponible: {wallet?.balance.toLocaleString() || 0} tokens</p>
+                  </div>
+                </div>
 
-                <label className="mb-1 block text-xs text-white/50">Tokens a retirar</label>
-                <input type="number" min="1" max={wallet?.balance || 0} value={withdrawTokens} onChange={(e) => setWithdrawTokens(e.target.value)} placeholder="Ej: 50" className="mb-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-fuchsia-500/30" />
-                {withdrawTokens && <p className="mb-3 text-xs text-white/40">= ${(parseInt(withdrawTokens || "0", 10) * rate).toLocaleString("es-CL")} CLP</p>}
+                <label className="mb-1.5 block text-xs text-white/50">Tokens a retirar</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={wallet?.balance || 0}
+                  value={withdrawTokens}
+                  onChange={(e) => setWithdrawTokens(e.target.value)}
+                  placeholder="Ej: 50"
+                  className="mb-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-emerald-500/30 transition"
+                />
+                {withdrawTokens && (
+                  <p className="mb-4 text-xs text-white/40">
+                    = ${(parseInt(withdrawTokens || "0", 10) * rate).toLocaleString("es-CL")} CLP
+                  </p>
+                )}
 
-                <label className="mb-1 block text-xs text-white/50">Banco</label>
-                <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Ej: Banco Estado" className="mb-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-fuchsia-500/30" />
+                <div className="mb-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">Datos bancarios</p>
 
-                <label className="mb-1 block text-xs text-white/50">Tipo de cuenta</label>
-                <select value={accountType} onChange={(e) => setAccountType(e.target.value)} className="mb-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-fuchsia-500/30">
-                  <option value="corriente">Corriente</option>
-                  <option value="vista">Vista / RUT</option>
-                  <option value="ahorro">Ahorro</option>
-                </select>
+                  <div>
+                    <label className="mb-1 block text-xs text-white/50">Banco</label>
+                    <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Ej: Banco Estado" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm outline-none focus:border-emerald-500/30 transition" />
+                  </div>
 
-                <label className="mb-1 block text-xs text-white/50">Número de cuenta</label>
-                <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="000-000-000" className="mb-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-fuchsia-500/30" />
+                  <div>
+                    <label className="mb-1 block text-xs text-white/50">Tipo de cuenta</label>
+                    <select value={accountType} onChange={(e) => setAccountType(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm outline-none focus:border-emerald-500/30">
+                      <option value="corriente">Corriente</option>
+                      <option value="vista">Vista / RUT</option>
+                      <option value="ahorro">Ahorro</option>
+                    </select>
+                  </div>
 
-                <label className="mb-1 block text-xs text-white/50">Nombre titular</label>
-                <input value={holderName} onChange={(e) => setHolderName(e.target.value)} className="mb-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-fuchsia-500/30" />
+                  <div>
+                    <label className="mb-1 block text-xs text-white/50">N° de cuenta</label>
+                    <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="000-000-000" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm outline-none focus:border-emerald-500/30 transition" />
+                  </div>
 
-                <label className="mb-1 block text-xs text-white/50">RUT titular</label>
-                <input value={holderRut} onChange={(e) => setHolderRut(e.target.value)} placeholder="12.345.678-9" className="mb-3 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none focus:border-fuchsia-500/30" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs text-white/50">Nombre titular</label>
+                      <input value={holderName} onChange={(e) => setHolderName(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm outline-none focus:border-emerald-500/30 transition" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-white/50">RUT titular</label>
+                      <input value={holderRut} onChange={(e) => setHolderRut(e.target.value)} placeholder="12.345.678-9" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm outline-none focus:border-emerald-500/30 transition" />
+                    </div>
+                  </div>
+                </div>
 
-                <button onClick={handleWithdraw} disabled={withdrawLoading || !withdrawTokens || !bankName || !accountNumber || !holderName || !holderRut} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 text-sm font-semibold disabled:opacity-50">
-                  <Send className="h-4 w-4" /> {withdrawLoading ? "Enviando..." : "Solicitar Retiro"}
+                <button
+                  onClick={handleWithdraw}
+                  disabled={withdrawLoading || !withdrawTokens || !bankName || !accountNumber || !holderName || !holderRut}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3.5 text-sm font-semibold disabled:opacity-40 transition hover:opacity-90"
+                >
+                  <Send className="h-4 w-4" />
+                  {withdrawLoading ? "Enviando..." : "Solicitar Retiro"}
                 </button>
-                {withdrawMsg && <p className="mt-2 text-center text-xs text-emerald-400">{withdrawMsg}</p>}
+                {withdrawMsg && (
+                  <p className={`mt-3 text-center text-xs ${withdrawMsg.includes("Error") ? "text-red-400" : "text-emerald-400"}`}>
+                    {withdrawMsg}
+                  </p>
+                )}
               </div>
 
               {withdrawals.length > 0 && (
@@ -327,12 +559,17 @@ export default function WalletPage() {
                   <h4 className="mb-3 text-xs font-semibold text-white/50">Mis retiros</h4>
                   <div className="space-y-2">
                     {withdrawals.map((w) => (
-                      <div key={w.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2">
-                        <div>
-                          <p className="text-sm font-medium">{w.amount} tokens → ${w.clpAmount.toLocaleString("es-CL")}</p>
-                          <p className="text-[10px] text-white/30">{w.bankName} · {new Date(w.createdAt).toLocaleDateString("es-CL")}</p>
+                      <div key={w.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
+                            <ArrowUpCircle className="h-4 w-4 text-emerald-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{w.amount} tokens</p>
+                            <p className="text-[10px] text-white/30">${w.clpAmount.toLocaleString("es-CL")} · {w.bankName} · {new Date(w.createdAt).toLocaleDateString("es-CL")}</p>
+                          </div>
                         </div>
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusColors[w.status] || ""}`}>
+                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-medium ${statusColors[w.status] || ""}`}>
                           {statusLabels[w.status] || w.status}
                         </span>
                       </div>
@@ -343,42 +580,35 @@ export default function WalletPage() {
             </motion.div>
           )}
 
-          {/* ── Overview Tab ── */}
-          {tab === "overview" && (
-            <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-3">
-              {transactions.slice(0, 10).map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-white/80">{tx.description}</p>
-                    <p className="text-[10px] text-white/30">{new Date(tx.createdAt).toLocaleString("es-CL")}</p>
-                  </div>
-                  <span className={`ml-3 text-sm font-semibold ${tx.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {tx.amount >= 0 ? "+" : ""}{tx.amount}
-                  </span>
-                </div>
-              ))}
-              {transactions.length === 0 && (
-                <div className="py-12 text-center text-sm text-white/30">Sin movimientos aún</div>
-              )}
-            </motion.div>
-          )}
-
           {/* ── History Tab ── */}
           {tab === "history" && (
-            <motion.div key="history" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-2">
-              {transactions.map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs text-white/70">{tx.description}</p>
-                    <p className="text-[10px] text-white/25">{new Date(tx.createdAt).toLocaleString("es-CL")} · Saldo: {tx.balance}</p>
-                  </div>
-                  <span className={`ml-3 text-xs font-bold ${tx.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {tx.amount >= 0 ? "+" : ""}{tx.amount}
-                  </span>
+            <motion.div key="history" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-2">
+              {transactions.length > 0 ? (
+                transactions.map((tx) => {
+                  const txMeta = txTypeIcons[tx.type] || txTypeIcons.ADJUSTMENT;
+                  const Icon = txMeta.icon;
+                  return (
+                    <div key={tx.id} className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${txMeta.color}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs text-white/70">{tx.description}</p>
+                        <p className="text-[10px] text-white/25">
+                          {new Date(tx.createdAt).toLocaleString("es-CL")} · Saldo: {tx.balance}
+                        </p>
+                      </div>
+                      <span className={`ml-2 text-xs font-bold tabular-nums ${tx.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {tx.amount >= 0 ? "+" : ""}{tx.amount}
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-2xl border border-dashed border-white/[0.08] py-12 text-center">
+                  <History className="mx-auto mb-3 h-8 w-8 text-white/10" />
+                  <p className="text-sm text-white/30">Sin transacciones</p>
                 </div>
-              ))}
-              {transactions.length === 0 && (
-                <div className="py-12 text-center text-sm text-white/30">Sin transacciones</div>
               )}
             </motion.div>
           )}

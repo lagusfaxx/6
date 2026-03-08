@@ -24,8 +24,6 @@ function parseIceServerUrls(raw: string | undefined): string[] {
 const STUN_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
-  { urls: "stun:stun2.l.google.com:19302" },
-  { urls: "stun:stun3.l.google.com:19302" },
 ];
 
 const envTurnUrls = parseIceServerUrls(process.env.NEXT_PUBLIC_TURN_URLS);
@@ -45,6 +43,9 @@ const ICE_SERVERS: RTCIceServer[] = [
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: ICE_SERVERS,
   iceCandidatePoolSize: 10,
+  iceTransportPolicy: "all",
+  bundlePolicy: "max-bundle",
+  rtcpMuxPolicy: "require",
 };
 
 /* ── Detect iOS / Android PWA ── */
@@ -77,10 +78,6 @@ export async function getLocalMedia(
     );
   }
 
-  // iOS PWA and some Android PWA don't support navigator.permissions for camera/mic.
-  // On iOS Safari (including PWA), getUserMedia may fail silently or require
-  // a user gesture. We skip the permissions API pre-check on mobile PWA
-  // and go directly to getUserMedia which triggers the native permission dialog.
   const isMobilePWA = isIOSPWA() || isAndroidPWA();
 
   if (!isMobilePWA && navigator.permissions) {
@@ -94,13 +91,10 @@ export async function getLocalMedia(
         );
       }
     } catch (e) {
-      // permissions.query may not support camera/microphone on all browsers — continue
       if (e instanceof DOMException && e.name === "NotAllowedError") throw e;
     }
   }
 
-  // On iOS PWA, we need simpler constraints. Complex constraints may cause
-  // getUserMedia to fail on older iOS versions.
   const isIOS = isIOSPWA() || (/iPad|iPhone|iPod/.test(navigator.userAgent || ""));
 
   const videoConstraints: boolean | MediaTrackConstraints = opts.video === false
@@ -132,12 +126,10 @@ export async function getLocalMedia(
   } catch (firstError) {
     const fallbackAttempts: MediaStreamConstraints[] = [];
 
-    // Fallback: if complex constraints fail on mobile, try minimal constraints.
     if ((isIOS || isMobilePWA) && wantsAudio && wantsVideo) {
       fallbackAttempts.push({ audio: true, video: true });
     }
 
-    // Some devices/browsers fail when requesting both at once; try each one separately.
     if (wantsAudio && wantsVideo) {
       fallbackAttempts.push({ audio: true, video: false });
       fallbackAttempts.push({ audio: false, video: true });
@@ -173,6 +165,7 @@ export type PeerEvents = {
   onRemoteStream?: (stream: MediaStream) => void;
   onConnectionState?: (state: RTCPeerConnectionState) => void;
   onIceState?: (state: RTCIceConnectionState) => void;
+  onIceGatheringComplete?: () => void;
 };
 
 export class WebRTCPeer {
@@ -183,6 +176,7 @@ export class WebRTCPeer {
   private events: PeerEvents;
   private pendingIce: RTCIceCandidateInit[] = [];
   private hasRemoteDesc = false;
+  private iceGatheringTimeout: any = null;
 
   constructor(
     targetUserId: string,
@@ -195,7 +189,7 @@ export class WebRTCPeer {
     this.events = events;
     this.pc = new RTCPeerConnection(RTC_CONFIG);
 
-    // Forward ICE candidates to remote via signaling
+    // Trickle ICE - send candidates immediately as they arrive
     this.pc.onicecandidate = (e) => {
       if (e.candidate) {
         sendSignal("ice", targetUserId, {
@@ -203,6 +197,14 @@ export class WebRTCPeer {
           streamId: this.streamId,
           candidate: e.candidate.toJSON(),
         });
+      }
+    };
+
+    // Track ICE gathering completion for timeout optimization
+    this.pc.onicegatheringstatechange = () => {
+      if (this.pc.iceGatheringState === "complete") {
+        clearTimeout(this.iceGatheringTimeout);
+        this.events.onIceGatheringComplete?.();
       }
     };
 
@@ -219,6 +221,15 @@ export class WebRTCPeer {
 
     this.pc.oniceconnectionstatechange = () => {
       this.events.onIceState?.(this.pc.iceConnectionState);
+
+      // Aggressive ICE restart on failure
+      if (this.pc.iceConnectionState === "failed") {
+        try {
+          this.pc.restartIce();
+        } catch {
+          // restartIce not supported on all browsers
+        }
+      }
     };
   }
 
@@ -231,9 +242,13 @@ export class WebRTCPeer {
 
   /** Create and send an SDP offer (caller side) */
   async createOffer(): Promise<RTCSessionDescriptionInit> {
-    const offer = await this.pc.createOffer();
+    const offer = await this.pc.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: true,
+    });
     await this.pc.setLocalDescription(offer);
 
+    // Send offer immediately (don't wait for ICE gathering)
     await sendSignal("offer", this.targetUserId, {
       bookingId: this.bookingId,
       streamId: this.streamId,
@@ -252,6 +267,7 @@ export class WebRTCPeer {
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
 
+    // Send answer immediately (trickle ICE)
     await sendSignal("answer", this.targetUserId, {
       bookingId: this.bookingId,
       streamId: this.streamId,
@@ -263,6 +279,7 @@ export class WebRTCPeer {
 
   /** Handle incoming SDP answer (caller side) */
   async handleAnswer(sdp: RTCSessionDescriptionInit) {
+    if (this.pc.signalingState !== "have-local-offer") return;
     await this.pc.setRemoteDescription(new RTCSessionDescription(sdp));
     this.hasRemoteDesc = true;
     await this.flushPendingIce();
@@ -274,22 +291,26 @@ export class WebRTCPeer {
       this.pendingIce.push(candidate);
       return;
     }
-    await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+    try {
+      await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch {
+      // ignore stale candidates
+    }
   }
 
   private async flushPendingIce() {
-    for (const c of this.pendingIce) {
-      try {
-        await this.pc.addIceCandidate(new RTCIceCandidate(c));
-      } catch {
-        // ignore stale candidates
-      }
-    }
+    const candidates = [...this.pendingIce];
     this.pendingIce = [];
+    await Promise.all(
+      candidates.map((c) =>
+        this.pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {})
+      )
+    );
   }
 
   /** Close connection and cleanup */
   close() {
+    clearTimeout(this.iceGatheringTimeout);
     this.pc.close();
   }
 }
