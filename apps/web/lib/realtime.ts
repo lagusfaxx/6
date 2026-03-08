@@ -9,6 +9,7 @@ export function connectRealtime(handler: Handler) {
   let es: EventSource | null = null;
   let closed = false;
   let retryTimer: any = null;
+  let retryAttempt = 0;
 
   const connect = () => {
     if (closed) return;
@@ -24,6 +25,7 @@ export function connectRealtime(handler: Handler) {
       });
 
       es.onopen = () => {
+        retryAttempt = 0;
         handler({ type: "connected", data: { ok: true } });
       };
 
@@ -54,7 +56,7 @@ export function connectRealtime(handler: Handler) {
       for (const evt of [
         "forum:newThread", "forum:newPost",
         "videocall:booked", "videocall:started", "videocall:completed",
-        "videocall:cancelled", "videocall:noshow",
+        "videocall:cancelled", "videocall:noshow", "videocall:user_joined", "videocall:chat",
         "live:started", "live:ended", "live:chat",
         "live:viewer_joined", "live:viewer_left",
         "signal:offer", "signal:answer", "signal:ice",
@@ -68,18 +70,28 @@ export function connectRealtime(handler: Handler) {
         });
       }
 
+      const scheduleReconnect = () => {
+        if (closed) return;
+        retryAttempt += 1;
+        const baseDelay = 1500;
+        const maxDelay = 30000;
+        const expDelay = Math.min(maxDelay, baseDelay * (2 ** Math.min(retryAttempt, 4)));
+        const jitter = Math.floor(Math.random() * 600);
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(connect, expDelay + jitter);
+      };
+
       es.onerror = () => {
         handler({ type: "disconnected", data: null });
-        // Reconnect with backoff
         es?.close();
         es = null;
-        if (closed) return;
-        clearTimeout(retryTimer);
-        retryTimer = setTimeout(connect, 1500);
+        scheduleReconnect();
       };
     } catch {
+      retryAttempt += 1;
+      const delay = Math.min(30000, 1500 * (2 ** Math.min(retryAttempt, 4)));
       clearTimeout(retryTimer);
-      retryTimer = setTimeout(connect, 1500);
+      retryTimer = setTimeout(connect, delay);
     }
   };
 
