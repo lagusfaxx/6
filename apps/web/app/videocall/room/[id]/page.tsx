@@ -499,8 +499,14 @@ export default function VideocallRoomPage() {
 
       {/* Video area */}
       <div className="relative flex flex-1 items-center justify-center bg-gradient-to-br from-gray-950 to-black">
-        {/* Remote video */}
-        <video ref={remoteVideoRef} autoPlay playsInline className={`h-full w-full object-cover ${status !== "connected" ? "hidden" : ""}`} />
+        {/* Remote video - object-contain avoids constant GPU rescaling */}
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className={`h-full w-full object-contain bg-black ${status !== "connected" ? "hidden" : ""}`}
+          style={{ transform: "translateZ(0)" }}
+        />
 
         {status === "connected" && remoteNeedsInteraction && (
           <button onClick={toggleRemoteAudio} className="absolute top-4 left-1/2 z-20 -translate-x-1/2 rounded-xl bg-black/70 px-4 py-2 text-xs font-semibold text-white backdrop-blur">
