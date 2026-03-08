@@ -57,7 +57,7 @@ export default function VideocallRoomPage() {
   const [camOn, setCamOn] = useState(true);
   const [remoteAudioOn, setRemoteAudioOn] = useState(false);
   const [remoteNeedsInteraction, setRemoteNeedsInteraction] = useState(false);
-  const [chatOpenMobile, setChatOpenMobile] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
   // Refs
@@ -70,6 +70,8 @@ export default function VideocallRoomPage() {
   const chatListRef = useRef<HTMLDivElement>(null);
   const mediaInitializedRef = useRef(false);
   const joinSentRef = useRef(false);
+  const offerRetryCountRef = useRef(0);
+  const offerRetryTimerRef = useRef<any>(null);
 
   // Load booking
   useEffect(() => {
@@ -193,6 +195,14 @@ export default function VideocallRoomPage() {
     return peer;
   }, [remoteUserId, bookingId]);
 
+  const sendOrRetryOffer = useCallback(async () => {
+    if (!isProfessional) return;
+    const peer = createPeer();
+    if (!peer) return;
+    setStatus("connecting");
+    await peer.createOffer();
+  }, [isProfessional, createPeer]);
+
   // Listen for signaling via SSE
   useEffect(() => {
     if (!myId || !booking || !remoteUserId) return;
@@ -255,17 +265,13 @@ export default function VideocallRoomPage() {
         // If I'm the professional and already waiting/connecting, re-send offer.
         // This covers the case where the first offer was sent before the other side opened the room.
         if (isProfessional && (status === "waiting" || status === "connecting")) {
-          const peer = createPeer();
-          if (peer) {
-            setStatus("connecting");
-            await peer.createOffer();
-          }
+          await sendOrRetryOffer();
         }
       }
     });
 
     return cleanup;
-  }, [myId, booking, remoteUserId, bookingId, createPeer, isProfessional, status]);
+  }, [myId, booking, remoteUserId, bookingId, createPeer, isProfessional, status, sendOrRetryOffer]);
 
   // Professional: start call and send offer
   const startCall = async () => {
@@ -281,16 +287,14 @@ export default function VideocallRoomPage() {
       return;
     }
 
-    const peer = createPeer();
-    if (peer) {
-      await peer.createOffer();
-    }
+    await sendOrRetryOffer();
   };
 
   // End call
   const endCall = async () => {
     peerRef.current?.close();
     clearInterval(timerRef.current);
+    clearInterval(offerRetryTimerRef.current);
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     setStatus("ended");
 
@@ -298,6 +302,25 @@ export default function VideocallRoomPage() {
       await apiFetch(`/videocall/${bookingId}/complete`, { method: "POST" });
     } catch {}
   };
+
+  useEffect(() => {
+    clearInterval(offerRetryTimerRef.current);
+
+    if (!isProfessional || status !== "connecting") return;
+
+    offerRetryCountRef.current = 0;
+    offerRetryTimerRef.current = setInterval(() => {
+      if (status !== "connecting") return;
+      if (offerRetryCountRef.current >= 4) {
+        clearInterval(offerRetryTimerRef.current);
+        return;
+      }
+      offerRetryCountRef.current += 1;
+      sendOrRetryOffer().catch(() => {});
+    }, 6000);
+
+    return () => clearInterval(offerRetryTimerRef.current);
+  }, [isProfessional, status, sendOrRetryOffer]);
 
   // Toggle mic
   const toggleMic = () => {
@@ -351,6 +374,7 @@ export default function VideocallRoomPage() {
     return () => {
       peerRef.current?.close();
       clearInterval(timerRef.current);
+      clearInterval(offerRetryTimerRef.current);
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
@@ -586,19 +610,19 @@ export default function VideocallRoomPage() {
 
         {/* In-call chat */}
         <button
-          onClick={() => setChatOpenMobile((v) => !v)}
-          className="absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#0a0b14]/85 border border-white/15 text-white sm:hidden"
+          onClick={() => setChatOpen((v) => !v)}
+          className="absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#0a0b14]/85 border border-white/15 text-white"
         >
           <MessageCircle className="h-4 w-4" />
         </button>
 
-        <div className={`${chatOpenMobile ? "flex" : "hidden"} absolute inset-x-3 bottom-20 z-20 h-[50%] flex-col rounded-2xl border border-white/10 bg-[#0a0b14]/90 p-3 backdrop-blur sm:inset-auto sm:left-4 sm:top-4 sm:bottom-auto sm:h-[60%] sm:w-[330px] sm:flex`}>
+        <div className={`${chatOpen ? "flex" : "hidden"} absolute inset-x-3 bottom-20 z-20 h-[50%] flex-col rounded-2xl border border-white/10 bg-[#0a0b14]/90 p-3 backdrop-blur sm:inset-auto sm:right-4 sm:top-20 sm:bottom-auto sm:h-[55%] sm:w-[320px]`}>
           <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2 text-sm font-semibold text-white/90">
             <div className="flex items-center gap-2">
               <MessageCircle className="h-4 w-4" />
               Chat de la llamada
             </div>
-            <button onClick={() => setChatOpenMobile(false)} className="text-xs text-white/60 sm:hidden">Cerrar</button>
+            <button onClick={() => setChatOpen(false)} className="text-xs text-white/60">Cerrar</button>
           </div>
 
           <div ref={chatListRef} className="flex-1 space-y-2 overflow-y-auto pr-1">
