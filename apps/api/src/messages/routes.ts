@@ -150,12 +150,23 @@ messagesRouter.post("/messages/:userId", requireAuth, asyncHandler(async (req, r
       body
     }
   });
+  const sender = await prisma.user.findUnique({
+    where: { id: me },
+    select: { displayName: true, username: true },
+  });
+  const senderName = sender?.displayName || sender?.username || "Alguien";
   await prisma.notification.create({
     data: {
       userId: other,
       type: "MESSAGE_RECEIVED",
-      data: { fromId: me, messageId: message.id }
-    }
+      data: {
+        title: "Nuevo mensaje",
+        body: `${senderName} te envió un mensaje`,
+        fromId: me,
+        messageId: message.id,
+        url: "/chats",
+      },
+    },
   });
 
   // Realtime push
@@ -183,12 +194,23 @@ messagesRouter.post("/messages/:userId/attachment", requireAuth, upload.single("
       body: `ATTACHMENT_IMAGE:${url}`
     }
   });
+  const attachSender = await prisma.user.findUnique({
+    where: { id: me },
+    select: { displayName: true, username: true },
+  });
+  const attachSenderName = attachSender?.displayName || attachSender?.username || "Alguien";
   await prisma.notification.create({
     data: {
       userId: other,
       type: "MESSAGE_RECEIVED",
-      data: { fromId: me, messageId: message.id }
-    }
+      data: {
+        title: "Nuevo mensaje",
+        body: `${attachSenderName} te envió una imagen`,
+        fromId: me,
+        messageId: message.id,
+        url: "/chats",
+      },
+    },
   });
 
   sendToUser(other, "message", { message });

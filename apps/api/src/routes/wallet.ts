@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../lib/auth";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { env } from "../lib/env";
+import { sendWithdrawalRequestEmail } from "../notifications/email";
 
 export const walletRouter = Router();
 
@@ -163,6 +164,15 @@ walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
       },
     }),
   ]);
+
+  // Send withdrawal request confirmation email
+  const user = await prisma.user.findUnique({
+    where: { id: req.session.userId! },
+    select: { email: true },
+  });
+  if (user?.email) {
+    sendWithdrawalRequestEmail(user.email, tokens, clpAmount).catch(() => {});
+  }
 
   res.json({ withdrawal });
 });
