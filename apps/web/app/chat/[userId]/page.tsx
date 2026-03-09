@@ -685,14 +685,14 @@ export default function ChatPage() {
           <div className="h-10 w-10 animate-pulse rounded-full bg-white/10" />
           <div className="space-y-2">
             <div className="h-4 w-32 animate-pulse rounded bg-white/10" />
-            <div className="h-3 w-20 animate-pulse rounded bg-white/[0.06]" />
+            <div className="h-3 w-20 animate-pulse rounded bg-white/10" />
           </div>
         </div>
         <div className="flex-1 space-y-3 p-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className={`flex ${i % 2 === 0 ? "justify-end" : ""}`}>
               <div
-                className={`h-12 animate-pulse rounded-2xl bg-white/[0.06] ${i % 2 === 0 ? "w-2/5" : "w-3/5"}`}
+                className={`h-12 animate-pulse rounded-2xl bg-white/10 ${i % 2 === 0 ? "w-2/5" : "w-3/5"}`}
               />
             </div>
           ))}
@@ -724,9 +724,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-160px)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.25)] md:h-[calc(100vh-160px)]">
+    <div className="mx-auto flex h-[calc(100dvh-160px)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-[0_10px_30px_rgba(0,0,0,0.35)] md:h-[calc(100vh-160px)]">
       {/* ── Header ── */}
-      <div className="relative flex shrink-0 items-center gap-3 border-b border-white/[0.08] bg-white/[0.04] px-4 py-3">
+      <div className="relative flex shrink-0 items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-3">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/15 to-transparent" />
         <Link
           href="/chat"
@@ -777,7 +777,7 @@ export default function ChatPage() {
 
       {/* ── Service request / booking cards ── */}
       {(hasMotelBooking || activeRequest) && (
-        <div className="shrink-0 space-y-2 border-b border-white/[0.06] bg-white/[0.02] px-4 py-3">
+        <div className="shrink-0 space-y-2 border-b border-white/10 bg-white/[0.03] px-4 py-3">
           {/* Motel booking card */}
           {hasMotelBooking && (
             <div className="rounded-xl border border-fuchsia-500/20 bg-gradient-to-r from-fuchsia-500/[0.08] to-violet-500/[0.05] p-3">
@@ -908,11 +908,11 @@ export default function ChatPage() {
 
           {/* Service request card */}
           {activeRequest && (
-            <div className="relative rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl overflow-hidden">
+            <div className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/30 to-transparent" />
 
               {/* Card header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20">
                     <Calendar className="h-3.5 w-3.5 text-fuchsia-300" />
@@ -929,7 +929,7 @@ export default function ChatPage() {
               {/* Card body */}
               <div className="px-4 py-3 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5">
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
                     <div className="flex items-center gap-1.5 text-[10px] font-medium text-white/40 mb-1">
                       <Calendar className="h-3 w-3" /> Fecha
                     </div>
@@ -937,7 +937,7 @@ export default function ChatPage() {
                       {activeRequest.requestedDate || "-"}
                     </div>
                   </div>
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5">
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
                     <div className="flex items-center gap-1.5 text-[10px] font-medium text-white/40 mb-1">
                       <Clock className="h-3 w-3" /> Hora
                     </div>
@@ -947,7 +947,7 @@ export default function ChatPage() {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
                   <div className="flex items-center gap-1.5 text-[10px] font-medium text-white/40 mb-1">
                     <MapPin className="h-3 w-3" /> Ubicación
                   </div>
@@ -957,7 +957,7 @@ export default function ChatPage() {
                 </div>
 
                 {activeRequest.clientComment && (
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5 text-xs text-white/60 italic">
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-xs text-white/60 italic">
                     &ldquo;{activeRequest.clientComment}&rdquo;
                   </div>
                 )}
@@ -1098,11 +1098,11 @@ export default function ChatPage() {
           {canReviewPendingRequest && (
             <form
               onSubmit={submitProposal}
-              className="relative rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl overflow-hidden"
+              className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden"
             >
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent" />
 
-              <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-3">
+              <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20">
                   <DollarSign className="h-3.5 w-3.5 text-violet-300" />
                 </div>
@@ -1118,7 +1118,7 @@ export default function ChatPage() {
                       <DollarSign className="h-3.5 w-3.5 text-violet-400/70" /> Valor (CLP)
                     </span>
                     <input
-                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
+                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
                       inputMode="numeric"
                       value={proposalPrice}
                       onChange={(e) => setProposalPrice(e.target.value)}
@@ -1130,7 +1130,7 @@ export default function ChatPage() {
                       <Clock className="h-3.5 w-3.5 text-violet-400/70" /> Duración
                     </span>
                     <select
-                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
+                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
                       value={proposalDuration}
                       onChange={(e) => setProposalDuration(e.target.value)}
                       style={{ colorScheme: "dark" }}
@@ -1145,7 +1145,7 @@ export default function ChatPage() {
                 <label className="grid gap-1.5">
                   <span className="text-xs font-medium text-white/50">Nota (opcional)</span>
                   <textarea
-                    className="min-h-[3rem] rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
+                    className="min-h-[3rem] rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
                     value={proposalComment}
                     onChange={(e) => setProposalComment(e.target.value)}
                     placeholder="Información adicional para el cliente"
@@ -1220,7 +1220,7 @@ export default function ChatPage() {
       >
         {!messages.length ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-white/[0.08] bg-gradient-to-br from-fuchsia-500/10 to-violet-500/10">
+            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-gradient-to-br from-fuchsia-500/10 to-violet-500/10">
               <Send className="h-5 w-5 text-white/30" />
             </div>
             <p className="text-xs text-white/40">Inicia la conversación</p>
@@ -1231,7 +1231,7 @@ export default function ChatPage() {
               <div key={group.date}>
                 {/* Date separator */}
                 <div className="my-4 flex items-center justify-center">
-                  <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-[10px] text-white/35">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] text-white/35">
                     {formatDate(group.date)}
                   </span>
                 </div>
@@ -1254,7 +1254,7 @@ export default function ChatPage() {
                         className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
                           isMine
                             ? "rounded-br-md bg-gradient-to-br from-fuchsia-600/80 to-violet-600/80 text-white"
-                            : "rounded-bl-md border border-white/[0.08] bg-white/[0.06] text-white/85"
+                            : "rounded-bl-md border border-white/10 bg-white/10 text-white/85"
                         }`}
                       >
                         {isImage && imageUrl ? (
@@ -1287,7 +1287,7 @@ export default function ChatPage() {
 
       {/* ── Attachment preview ── */}
       {attachmentPreview && (
-        <div className="shrink-0 border-t border-white/[0.06] bg-white/[0.02] px-4 py-2">
+        <div className="shrink-0 border-t border-white/10 bg-white/[0.03] px-4 py-2">
           <div className="flex items-center gap-3">
             <img
               src={attachmentPreview}
@@ -1321,7 +1321,7 @@ export default function ChatPage() {
       {/* ── Input bar ── */}
       <form
         onSubmit={send}
-        className="flex shrink-0 items-end gap-2 border-t border-white/[0.08] bg-white/[0.03] px-3 py-3"
+        className="flex shrink-0 items-end gap-2 border-t border-white/10 bg-white/5 px-3 py-3"
       >
         <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-white/40 transition hover:bg-white/10 hover:text-white/70">
           <Paperclip className="h-4.5 w-4.5" />
@@ -1362,7 +1362,7 @@ export default function ChatPage() {
       {requestModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={() => setRequestModalOpen(false)}>
           <div
-            className="relative w-full max-w-lg rounded-t-[28px] border-t border-x border-white/10 bg-[#0e0e14] shadow-[0_-20px_60px_rgba(0,0,0,0.6)] overflow-hidden max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300"
+            className="relative w-full max-w-lg rounded-t-[28px] border-t border-x border-white/10 bg-[#070816] shadow-[0_-20px_60px_rgba(0,0,0,0.6)] overflow-hidden max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drag handle */}
@@ -1394,7 +1394,7 @@ export default function ChatPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="date"
-                    className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none transition focus:border-fuchsia-500/40"
+                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none transition focus:border-fuchsia-500/40"
                     value={requestDate}
                     min={minRequestDate}
                     onChange={(e) => setRequestDate(e.target.value)}
@@ -1403,7 +1403,7 @@ export default function ChatPage() {
                   />
                   <input
                     type="time"
-                    className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none transition focus:border-fuchsia-500/40"
+                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none transition focus:border-fuchsia-500/40"
                     value={requestTime}
                     onChange={(e) => setRequestTime(e.target.value)}
                     required
@@ -1424,7 +1424,7 @@ export default function ChatPage() {
                       className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
                         requestLocation === "Mi domicilio"
                           ? "border-fuchsia-500/40 bg-fuchsia-500/10 text-white"
-                          : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.06]"
+                          : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
                       }`}
                     >
                       <MapPin className="h-4 w-4 shrink-0 text-fuchsia-400/70" />
@@ -1436,7 +1436,7 @@ export default function ChatPage() {
                       className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
                         requestLocation === "Hotel / Motel (a elegir)"
                           ? "border-amber-500/40 bg-amber-500/10 text-white"
-                          : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.06]"
+                          : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
                       }`}
                     >
                       <Hotel className="h-4 w-4 shrink-0 text-amber-400/70" />
@@ -1451,7 +1451,7 @@ export default function ChatPage() {
                       className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
                         requestLocation === "A coordinar por chat"
                           ? "border-violet-500/40 bg-violet-500/10 text-white"
-                          : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.06]"
+                          : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
                       }`}
                     >
                       <Calendar className="h-4 w-4 shrink-0 text-violet-400/70" />
@@ -1461,7 +1461,7 @@ export default function ChatPage() {
                   {/* Custom location input */}
                   {requestLocation !== "Mi domicilio" && requestLocation !== "Hotel / Motel (a elegir)" && requestLocation !== "A coordinar por chat" && (
                     <input
-                      className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-fuchsia-500/40"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-fuchsia-500/40"
                       value={requestLocation}
                       onChange={(e) => setRequestLocation(e.target.value)}
                       placeholder="Otra ubicación..."
@@ -1481,7 +1481,7 @@ export default function ChatPage() {
 
               {/* Optional note — minimal */}
               <textarea
-                className="w-full min-h-[2.5rem] rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/20 transition focus:border-fuchsia-500/30"
+                className="w-full min-h-[2.5rem] rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/20 transition focus:border-fuchsia-500/30"
                 value={requestComment}
                 onChange={(e) => setRequestComment(e.target.value)}
                 placeholder="Nota adicional (opcional)"
@@ -1490,7 +1490,7 @@ export default function ChatPage() {
             </form>
 
             {/* Submit */}
-            <div className="px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 border-t border-white/[0.06] shrink-0">
+            <div className="px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 border-t border-white/10 shrink-0">
               <button
                 type="button"
                 onClick={(e) => {
