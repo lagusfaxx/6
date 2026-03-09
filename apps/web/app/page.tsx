@@ -1205,7 +1205,7 @@ export default function HomePage() {
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
               {moteles.map((item) => (
                 <motion.article key={item.id} variants={cardFade} className="group w-[65vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-amber-500/10 bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-amber-500/25 sm:w-auto">
-                  <Link href={`/establecimiento/${item.id}`} className="block">
+                  <Link href={`/hospedaje/${item.id}`} className="block">
                     <div className="relative aspect-[4/3] bg-white/[0.04]">
                       {(item.coverUrl || item.avatarUrl) ? (
                         <img
@@ -1250,7 +1250,7 @@ export default function HomePage() {
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
               {sexshops.map((item) => (
                 <motion.article key={item.id} variants={cardFade} className="group w-[65vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-pink-500/10 bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-pink-500/25 sm:w-auto">
-                  <Link href={`/establecimiento/${item.id}`} className="block">
+                  <Link href={`/sexshop/${item.username || item.id}`} className="block">
                     <div className="relative aspect-[4/3] bg-white/[0.04]">
                       {(item.coverUrl || item.avatarUrl) ? (
                         <img
