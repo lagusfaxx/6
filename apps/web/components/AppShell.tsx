@@ -10,6 +10,7 @@ import PresenceHeartbeat from "./PresenceHeartbeat";
 import LocationFilterProvider from "./LocationFilterProvider";
 import BackButton from "./BackButton";
 import { ForumNotificationProvider } from "./ForumNotifications";
+import { ChatNotificationProvider } from "./ChatNotifications";
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
@@ -67,6 +68,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <LocationFilterProvider>
       <ForumNotificationProvider>
+        <ChatNotificationProvider>
         <div
           style={iosTextSizeFix}
           className="flex min-h-[100svh] w-full bg-transparent text-white"
@@ -85,6 +87,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Footer />
           </div>
         </div>
+        </ChatNotificationProvider>
       </ForumNotificationProvider>
     </LocationFilterProvider>
   );

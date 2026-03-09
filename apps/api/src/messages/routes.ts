@@ -38,6 +38,16 @@ const upload = multer({
 // Otherwise /messages/inbox is captured by /messages/:userId and Prisma will throw
 // "Inconsistent column data" (P2023) because "inbox" is not a UUID.
 
+messagesRouter.get("/messages/unread-count", requireAuth, asyncHandler(async (req, res) => {
+  const me = req.session.userId;
+  if (!me) return res.status(401).json({ error: "UNAUTHENTICATED" });
+  if (!isUUID(me)) return res.status(400).json({ error: "INVALID_USER_ID" });
+  const count = await prisma.message.count({
+    where: { toId: me, readAt: null }
+  });
+  return res.json({ count });
+}));
+
 messagesRouter.get("/messages/inbox", requireAuth, asyncHandler(async (req, res) => {
   const me = req.session.userId;
   if (!me) return res.status(401).json({ error: "UNAUTHENTICATED" });
@@ -177,8 +187,12 @@ messagesRouter.post("/messages/:userId", requireAuth, asyncHandler(async (req, r
     }
   } catch { /* non-critical — don't block message sending */ }
 
-  // Realtime push
-  sendToUser(other, "message", { message });
+  // Realtime push — include sender info for real-time UI updates
+  const sender = await prisma.user.findUnique({
+    where: { id: me },
+    select: { id: true, displayName: true, username: true, avatarUrl: true, profileType: true, city: true }
+  });
+  sendToUser(other, "message", { message, from: sender });
   return res.json({ message });
 }));
 
@@ -210,6 +224,10 @@ messagesRouter.post("/messages/:userId/attachment", requireAuth, upload.single("
     }
   });
 
-  sendToUser(other, "message", { message });
+  const sender = await prisma.user.findUnique({
+    where: { id: me },
+    select: { id: true, displayName: true, username: true, avatarUrl: true, profileType: true, city: true }
+  });
+  sendToUser(other, "message", { message, from: sender });
   return res.json({ message });
 }));
