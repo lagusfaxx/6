@@ -252,14 +252,18 @@ function HeroCounters() {
   }, []);
 
   useEffect(() => {
-    // Start animation after intro finishes (~4 seconds)
-    const timer = setTimeout(() => setAnimate(true), 4000);
+    // If splash was already shown (user navigated back to home), animate immediately;
+    // otherwise wait ~3s for the splash screen to finish before starting counters.
+    const splashAlreadyShown =
+      sessionStorage.getItem("uzeed_splash_shown") === "true";
+    const delay = splashAlreadyShown ? 200 : 3000;
+    const timer = setTimeout(() => setAnimate(true), delay);
     return () => clearTimeout(timer);
   }, []);
 
-  // Apply 20% margin above real values, rounded to nearest 10
-  const prosTarget = stats ? Math.ceil((stats.professionals * 1.2) / 10) * 10 : 0;
-  const servicesTarget = stats ? Math.ceil((stats.services * 1.2) / 10) * 10 : 0;
+  // Apply 50% margin above real values, rounded to nearest 10
+  const prosTarget = stats ? Math.ceil((stats.professionals * 1.5) / 10) * 10 : 0;
+  const servicesTarget = stats ? Math.ceil((stats.services * 1.5) / 10) * 10 : 0;
   const comunasFixed = 300;
 
   const prosCount = useAnimatedCounter(prosTarget, 2000, animate && prosTarget > 0);
@@ -268,7 +272,7 @@ function HeroCounters() {
 
   const counters = [
     { value: prosCount, suffix: "+", label: "profesionales", icon: Users },
-    { value: servicesCount, suffix: "+", label: "experiencias", icon: Sparkles },
+    { value: servicesCount, suffix: "+", label: "servicios completados", icon: Sparkles },
     { value: comunasCount, suffix: "+", label: "comunas", icon: MapPin },
   ];
 

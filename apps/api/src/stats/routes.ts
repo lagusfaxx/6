@@ -23,7 +23,7 @@ statsRouter.get("/stats/me", requireAuth, asyncHandler(async (req, res) => {
 statsRouter.get("/stats/platform", asyncHandler(async (_req, res) => {
   const [professionals, services] = await Promise.all([
     prisma.user.count({ where: { profileType: "PROFESSIONAL" } }),
-    prisma.serviceItem.count(),
+    prisma.serviceRequest.count({ where: { status: "FINALIZADO" } }),
   ]);
 
   res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600");
