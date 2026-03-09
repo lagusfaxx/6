@@ -3,7 +3,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, MessageCircle, Eye, Sparkles, Flame } from "lucide-react";
+import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, MessageCircle, Eye, Sparkles, Flame, Video } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import UserLevelBadge from "./UserLevelBadge";
@@ -38,6 +38,7 @@ export type DirectoryResult = {
   serviceTags: string[];
   gender: string | null;
   profileType?: string | null;
+  avgResponseMinutes?: number | null;
 };
 
 /* Catalog constants (also used by TopHeader chips/mega menu) */
@@ -119,6 +120,17 @@ function ProfileCard({ p, entityType, categorySlug }: { p: DirectoryResult; enti
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-emerald-500/30">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
                 Online
+              </span>
+            )}
+            {p.avgResponseMinutes != null && p.avgResponseMinutes <= 30 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-violet-500/30">
+                {p.avgResponseMinutes <= 5 ? "Responde al instante" : `Responde en ${p.avgResponseMinutes} min`}
+              </span>
+            )}
+            {p.serviceTags.some((t) => t.toLowerCase().includes("videollamada")) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-blue-500/30">
+                <Video className="h-2.5 w-2.5" />
+                Videollamada
               </span>
             )}
           </div>

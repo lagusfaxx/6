@@ -44,11 +44,33 @@ type NotificationItem = {
 function notificationLabel(item: NotificationItem): string {
   switch (item.type) {
     case "MESSAGE_RECEIVED":      return "Tienes un mensaje nuevo";
-    case "SERVICE_PUBLISHED":     return "Se publicó una solicitud de servicio";
+    case "SERVICE_PUBLISHED":     return (item.data?.title as string) || "Solicitud de servicio";
     case "POST_PUBLISHED":        return "Hay una actualización reciente";
     case "SUBSCRIPTION_STARTED":  return "Tu suscripción fue activada";
     case "SUBSCRIPTION_RENEWED":  return "Tu suscripción fue renovada";
+    case "FORUM_REPLY":           return "Nueva respuesta en el foro";
+    case "FORUM_NEW_THREAD":      return "Nuevo hilo en el foro";
     default:                      return "Nueva notificación";
+  }
+}
+
+function notificationUrl(item: NotificationItem): string | null {
+  const url = item.data?.url as string | undefined;
+  if (url) return url;
+  switch (item.type) {
+    case "MESSAGE_RECEIVED": {
+      const fromId = item.data?.fromId as string | undefined;
+      return fromId ? `/chat/${fromId}` : "/chats";
+    }
+    case "SERVICE_PUBLISHED":     return "/videocall";
+    case "FORUM_REPLY":
+    case "FORUM_NEW_THREAD": {
+      const threadId = item.data?.threadId as string | undefined;
+      return threadId ? `/foro/thread/${threadId}` : "/foro";
+    }
+    case "SUBSCRIPTION_STARTED":
+    case "SUBSCRIPTION_RENEWED":  return "/cuenta";
+    default:                      return null;
   }
 }
 
@@ -65,7 +87,7 @@ const MEGA_MENU = [
   { label: "Moteles", route: "/moteles", icon: Building2 },
   { label: "Sex Shop", route: "/sexshop", icon: ShoppingBag },
   { label: "Despedidas", route: "/escorts?serviceTags=despedidas", icon: PartyPopper },
-  { label: "Videollamadas", route: "/escorts?serviceTags=videollamada", icon: Video },
+  { label: "Videollamadas", route: "/videocall", icon: Video },
   { label: "Premium", route: "/premium", icon: Crown },
 ] as const;
 
@@ -127,11 +149,16 @@ export default function TopHeader() {
   const unreadCount  = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
   const recentItems  = notifications.slice(0, 5);
 
-  const markAsRead = async (id: string) => {
+  const handleNotificationClick = async (item: NotificationItem) => {
     try {
-      await apiFetch<{ ok: boolean }>(`/notifications/${id}/read`, { method: "POST" });
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
+      await apiFetch<{ ok: boolean }>(`/notifications/${item.id}/read`, { method: "POST" });
+      setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, readAt: new Date().toISOString() } : n)));
     } catch { /* silent */ }
+    const url = notificationUrl(item);
+    if (url) {
+      setPanelOpen(false);
+      router.push(url);
+    }
   };
 
   const locationLabel =
@@ -298,20 +325,31 @@ export default function TopHeader() {
                             <div className="px-3 py-4 text-sm text-white/70">Cargando…</div>
                           ) : recentItems.length ? (
                             <div className="space-y-1">
-                              {recentItems.map((item) => (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => markAsRead(item.id)}
-                                  className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left hover:bg-white/10"
-                                >
-                                  <div className={`mt-1 h-2.5 w-2.5 rounded-full ${item.readAt ? "bg-white/30" : "bg-fuchsia-400"}`} />
-                                  <div className="min-w-0">
-                                    <div className="text-sm text-white/95">{notificationLabel(item)}</div>
-                                    <div className="mt-1 text-[11px] text-white/55">{notificationTime(item.createdAt)}</div>
-                                  </div>
-                                </button>
-                              ))}
+                              {recentItems.map((item) => {
+                                const hasLink = !!notificationUrl(item);
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => handleNotificationClick(item)}
+                                    className={`flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-white/10 ${hasLink ? "cursor-pointer" : ""}`}
+                                  >
+                                    <div className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${item.readAt ? "bg-white/30" : "bg-fuchsia-400 shadow-[0_0_6px_rgba(217,70,239,0.5)]"}`} />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm text-white/95">{notificationLabel(item)}</div>
+                                      {item.data?.body ? (
+                                        <div className="mt-0.5 text-[11px] text-white/45 line-clamp-1">{String(item.data.body)}</div>
+                                      ) : null}
+                                      <div className="mt-1 text-[10px] text-white/40">{notificationTime(item.createdAt)}</div>
+                                    </div>
+                                    {hasLink && (
+                                      <svg className="mt-1.5 h-3.5 w-3.5 shrink-0 text-white/25" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                );
+                              })}
                             </div>
                           ) : (
                             <div className="px-3 py-4 text-sm text-white/65">No tienes notificaciones recientes.</div>

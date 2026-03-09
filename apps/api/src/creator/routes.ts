@@ -118,7 +118,7 @@ creatorRouter.post("/posts/mine", upload.array("files", 10), asyncHandler(async 
       data: subscriberIds.map((s) => ({
         userId: s.subscriberId,
         type: "POST_PUBLISHED",
-        data: { postId: post.id, creatorId: req.session.userId! }
+        data: { postId: post.id, creatorId: req.session.userId!, url: `/profesional/${req.session.userId!}` }
       }))
     });
   }
@@ -175,7 +175,7 @@ creatorRouter.post("/creator/posts", upload.array("files", 10), asyncHandler(asy
       data: subscriberIds.map((s) => ({
         userId: s.subscriberId,
         type: "POST_PUBLISHED",
-        data: { postId: post.id, creatorId: req.session.userId! }
+        data: { postId: post.id, creatorId: req.session.userId!, url: `/profesional/${req.session.userId!}` }
       }))
     });
   }

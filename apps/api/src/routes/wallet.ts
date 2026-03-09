@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../lib/auth";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { env } from "../lib/env";
+import { sendDepositConfirmationEmail, sendWithdrawalConfirmationEmail } from "../lib/transactionEmail";
 
 export const walletRouter = Router();
 
@@ -100,6 +101,12 @@ walletRouter.post("/wallet/deposit", requireAuth, upload.single("receipt"), asyn
     },
   });
 
+  // Send confirmation email (fire & forget)
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { email: true } });
+  if (user?.email) {
+    sendDepositConfirmationEmail(user.email, { tokens, clpAmount, date: new Date() }).catch(() => {});
+  }
+
   res.json({ deposit });
 });
 
@@ -163,6 +170,12 @@ walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
       },
     }),
   ]);
+
+  // Send confirmation email (fire & forget)
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { email: true } });
+  if (user?.email) {
+    sendWithdrawalConfirmationEmail(user.email, { tokens, clpAmount, bankName, date: new Date() }).catch(() => {});
+  }
 
   res.json({ withdrawal });
 });
