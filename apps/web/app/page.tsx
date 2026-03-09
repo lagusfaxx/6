@@ -33,6 +33,7 @@ import {
   Sparkles,
   Star,
   TrendingUp,
+  Users,
   Video,
   X,
   Zap,
@@ -215,6 +216,85 @@ function InstallAppButton() {
         </div>
       )}
     </>
+  );
+}
+
+/* ── Animated Hero Counters ── */
+
+function useAnimatedCounter(target: number, duration: number, start: boolean) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!start || target <= 0) return;
+    let raf: number;
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(eased * target));
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration, start]);
+  return value;
+}
+
+function HeroCounters() {
+  const [stats, setStats] = useState<{ professionals: number; services: number } | null>(null);
+  const [animate, setAnimate] = useState(false);
+
+  useEffect(() => {
+    apiFetch<{ professionals: number; services: number }>("/stats/platform")
+      .then((res) => setStats(res))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // Start animation after intro finishes (~4 seconds)
+    const timer = setTimeout(() => setAnimate(true), 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Apply ~20% margin above real values, rounded to nearest 10
+  const prosTarget = stats ? Math.ceil((stats.professionals * 1.2) / 10) * 10 : 0;
+  const servicesTarget = stats ? Math.ceil((stats.services * 1.2) / 10) * 10 : 0;
+
+  const prosCount = useAnimatedCounter(prosTarget, 2000, animate && prosTarget > 0);
+  const servicesCount = useAnimatedCounter(servicesTarget, 2000, animate && servicesTarget > 0);
+  const comunasCount = useAnimatedCounter(300, 2000, animate);
+
+  const counters = [
+    { value: prosCount, suffix: "+", label: "profesionales", icon: Users },
+    { value: servicesCount, suffix: "+", label: "experiencias", icon: Sparkles },
+    { value: comunasCount, suffix: "+", label: "comunas", icon: MapPin },
+  ];
+
+  return (
+    <motion.div
+      initial="hidden"
+      animate={animate ? "visible" : "hidden"}
+      variants={{
+        hidden: { opacity: 0, y: 16 },
+        visible: {
+          opacity: 1,
+          y: 0,
+          transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
+        },
+      }}
+      className="mt-8 flex items-center justify-center gap-6 sm:gap-10"
+    >
+      {counters.map((c, i) => (
+        <div key={i} className="flex flex-col items-center gap-1">
+          <c.icon className="mb-1 h-4 w-4 text-fuchsia-400/70" />
+          <span className="text-xl font-bold tabular-nums tracking-tight text-white/90 sm:text-2xl">
+            {c.value}{c.suffix}
+          </span>
+          <span className="text-[11px] text-white/40 sm:text-xs">{c.label}</span>
+        </div>
+      ))}
+    </motion.div>
   );
 }
 
@@ -667,6 +747,8 @@ export default function HomePage() {
             </Link>
             <InstallAppButton />
           </motion.div>
+
+          <HeroCounters />
         </div>
       </section>
 
