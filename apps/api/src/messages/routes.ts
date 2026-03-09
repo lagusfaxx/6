@@ -192,7 +192,7 @@ messagesRouter.post("/messages/:userId", requireAuth, asyncHandler(async (req, r
     where: { id: me },
     select: { id: true, displayName: true, username: true, avatarUrl: true, profileType: true, city: true }
   });
-  sendToUser(other, "message", { message, from: sender });
+  sendToUser(other, "message", { message, from: sender ?? undefined });
   return res.json({ message });
 }));
 
@@ -228,6 +228,6 @@ messagesRouter.post("/messages/:userId/attachment", requireAuth, upload.single("
     where: { id: me },
     select: { id: true, displayName: true, username: true, avatarUrl: true, profileType: true, city: true }
   });
-  sendToUser(other, "message", { message, from: sender });
+  sendToUser(other, "message", { message, from: sender ?? undefined });
   return res.json({ message });
 }));

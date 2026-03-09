@@ -108,7 +108,8 @@ export default function ChatInboxPage() {
                 : c
             );
             // Move updated conversation to top
-            const target = updated.find((c) => c.other.id === otherId)!;
+            const target = updated.find((c) => c.other.id === otherId);
+            if (!target) return updated;
             return [target, ...updated.filter((c) => c.other.id !== otherId)];
           }
 
