@@ -390,7 +390,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-hidden pb-40 md:pb-10">
       {/* Hero cover */}
       <section className="relative w-full overflow-hidden">
-        <div className="relative aspect-[5/4] w-full overflow-hidden md:aspect-[16/6]">
+        <div className="relative aspect-[8/5] w-full overflow-hidden md:aspect-[16/5]">
           {coverSrc ? (
             <img src={coverSrc} alt="Portada" className="absolute inset-0 h-full w-full object-cover object-center" />
           ) : (
@@ -423,8 +423,8 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           </div>
 
           <div className="absolute inset-x-0 bottom-0 bg-[#13061f]/55 backdrop-blur-md">
-            <div className="w-full px-4 py-4 md:px-8 md:py-7">
-              <div className="space-y-1.5 md:space-y-2">
+            <div className="w-full px-4 py-3 md:px-8 md:py-5">
+              <div className="space-y-1 md:space-y-1.5">
                 <h1 className="text-2xl font-semibold leading-none tracking-tight sm:text-3xl md:text-4xl">
                   {professional.name}
                   {professional.age ? `, ${professional.age}` : ""}
@@ -469,8 +469,8 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
         </div>
       </section>
 
-      <div className="mx-auto mt-4 grid w-full max-w-6xl min-w-0 gap-4 px-4 md:mt-6 md:grid-cols-[minmax(0,1fr)_340px] md:items-start md:gap-6 md:px-8">
-        <div className="min-w-0 space-y-4 md:space-y-5">
+      <div className="mx-auto mt-2 grid w-full max-w-6xl min-w-0 gap-3 px-4 md:mt-3 md:grid-cols-[minmax(0,1fr)_340px] md:items-start md:gap-4 md:px-8">
+        <div className="min-w-0 space-y-3 md:space-y-4">
           {/* Gallery */}
           <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] md:rounded-3xl">
             {selectedGalleryImage ? (
@@ -480,7 +480,18 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                 className="relative block w-full overflow-hidden border-b border-white/10"
               >
                 <div className="relative aspect-[4/5] w-full md:aspect-[16/9]">
-                  <img src={selectedGalleryImage} alt="Imagen destacada" className="absolute inset-0 h-full w-full object-cover" />
+                  <AnimatePresence mode="wait">
+                    <motion.img
+                      key={selectedGalleryImage}
+                      src={selectedGalleryImage}
+                      alt="Imagen destacada"
+                      className="absolute inset-0 h-full w-full object-cover"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                    />
+                  </AnimatePresence>
                 </div>
                 <span className="absolute bottom-3 right-3 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-xs text-white/90 backdrop-blur-md">
                   {galleryIndex + 1} / {gallery.length}
@@ -514,17 +525,17 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             )}
 
             {gallery.length > 1 && (
-              <div className="min-w-0 overflow-hidden px-3 py-3 md:px-4">
+              <div className="min-w-0 overflow-hidden px-3 py-2.5 md:px-4">
                 <div className="flex min-w-0 flex-nowrap gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {gallery.map((url, idx) => (
                     <button
                       type="button"
                       key={`${url}-${idx}`}
                       onClick={() => setGalleryIndex(idx)}
-                      className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border transition md:h-24 md:w-24 ${
+                      className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border transition-all duration-200 md:h-24 md:w-24 ${
                         idx === galleryIndex
-                          ? "border-fuchsia-300 shadow-[0_0_0_1px_rgba(232,121,249,0.5)]"
-                          : "border-white/10 opacity-80 hover:opacity-100"
+                          ? "border-fuchsia-300 shadow-[0_0_0_1px_rgba(232,121,249,0.5)] scale-[1.03]"
+                          : "border-white/10 opacity-80 hover:opacity-100 hover:scale-105 hover:brightness-110"
                       }`}
                     >
                       <img src={url} alt={`Galería ${idx + 1}`} className="absolute inset-0 h-full w-full object-cover" />
@@ -537,7 +548,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
           {/* About */}
           {cleanProfileText(professional.description) && (
-            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
               <h2 className="mb-2 text-base font-semibold text-white/95">Sobre mi</h2>
               <p className="whitespace-pre-line text-sm leading-relaxed text-white/75">{cleanProfileText(professional.description)}</p>
             </section>
@@ -545,7 +556,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
           {/* Profile tags — How they define themselves */}
           {(professional?.profileTags?.length ?? 0) > 0 && (
-            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
               <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white/95">
                 <Sparkles className="h-4 w-4 text-fuchsia-400" />
                 Cómo define su perfil
@@ -565,7 +576,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
           {/* Service tags — Services offered */}
           {((professional?.serviceTags?.length ?? 0) > 0 || matchedSubcategories.length > 0) && (
-            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
               <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white/95">
                 <Sparkles className="h-4 w-4 text-violet-400" />
                 Servicios que ofrece
@@ -593,7 +604,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
           {/* Physical info */}
           {hasDetailsSection && (
-            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
               <h2 className="mb-4 text-base font-semibold text-white/95">Información</h2>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-3">
                 {infoItems.map((item) => (
@@ -608,7 +619,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
           {/* Tags */}
           {hasStyleSection && (
-            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
               <h2 className="mb-3 text-base font-semibold text-white/95">Etiquetas</h2>
               <div className="flex flex-wrap gap-2">
                 {styleChips.map((chip) => (
@@ -625,7 +636,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
           {/* Review tags summary */}
           {reviewTags.length > 0 && (
-            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
               <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white/95">
                 <Award className="h-4 w-4 text-amber-400" />
                 Lo que dicen los clientes
@@ -646,7 +657,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
           {/* Reviews / Comments */}
           {reviews.length > 0 && (
-            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="flex items-center gap-2 text-base font-semibold text-white/95">
                   <MessageSquare className="h-4 w-4 text-fuchsia-400" />
@@ -709,7 +720,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           )}
 
           {/* Survey Rating Summary + Button */}
-          <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-6">
+          <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="flex items-center gap-2 text-base font-semibold text-white/95">
                 <Star className="h-4 w-4 text-amber-400" />
@@ -787,10 +798,10 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
 
         {/* Sidebar */}
         <aside className="hidden min-w-0 md:block">
-          <div className="sticky top-[88px] min-w-0 space-y-4">
+          <div className="sticky top-[88px] min-w-0 space-y-3">
             {/* Price card */}
-            <div className="rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(36,18,49,0.92)_0%,rgba(20,11,34,0.96)_100%)] p-5">
-              <div className="border-b border-white/10 pb-4">
+            <div className="rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(36,18,49,0.92)_0%,rgba(20,11,34,0.96)_100%)] p-4">
+              <div className="border-b border-white/10 pb-3">
                 <p className="text-3xl font-semibold leading-none text-white">{priceLabel}</p>
                 <p className="mt-1 flex items-center gap-1.5 text-sm text-white/65">
                   <Clock className="h-3.5 w-3.5" />
@@ -798,7 +809,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                 </p>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <span className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${availabilityState.className}`}>
                   <span className={`h-1.5 w-1.5 rounded-full ${availabilityState.dot}`} />
                   {availabilityState.label}
@@ -810,7 +821,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                 ))}
               </div>
 
-              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-white/75">
+              <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-2.5 text-sm text-white/75">
                 <p className="flex items-start gap-2">
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-fuchsia-400" />
                   <span>{professional.city ? `Zona aproximada: ${professional.city}` : "Zona referencial"}</span>
@@ -818,22 +829,22 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
               </div>
 
               {professional.availabilityNote && (
-                <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200/80 border border-amber-500/15">
+                <p className="mt-2.5 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200/80 border border-amber-500/15">
                   {professional.availabilityNote}
                 </p>
               )}
 
-              <div className="mt-4 space-y-2.5">
+              <div className="mt-3 space-y-2">
                 <button onClick={() => handleChatClick("request")} className="btn-primary w-full rounded-2xl py-3.5 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)]">
                   Solicitar encuentro
                 </button>
-                <button onClick={() => handleChatClick("message")} className="btn-secondary w-full rounded-2xl py-3 text-sm">
+                <button onClick={() => handleChatClick("message")} className="btn-secondary w-full rounded-2xl py-2.5 text-sm">
                   Enviar mensaje
                 </button>
                 {hasVideocall && (
                   <Link
                     href={`/videocall?professional=${professional.id}`}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-sm font-bold text-white shadow-[0_6px_20px_rgba(99,102,241,0.3)] transition-all hover:brightness-110"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-[0_6px_20px_rgba(99,102,241,0.3)] transition-all hover:brightness-110"
                   >
                     <Video className="h-4 w-4" />
                     Videollamada privada
@@ -841,7 +852,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                 )}
                 <button
                   onClick={toggleFavorite}
-                  className={`flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${
+                  className={`flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2 text-sm font-medium transition-colors ${
                     favorite
                       ? "border-rose-400/60 bg-rose-500/20 text-rose-100"
                       : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
