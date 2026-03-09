@@ -286,6 +286,11 @@ export default function DashboardServicesClient() {
             availabilityNote: fields.availabilityNote,
             baseRate: fields.baseRate,
             minDurationMinutes: fields.minDurationMinutes,
+            primaryCategory: fields.primaryCategory,
+            acceptsIncalls: fields.acceptsIncalls,
+            acceptsOutcalls: fields.acceptsOutcalls,
+            profileTags: JSON.stringify(fields.profileTags),
+            serviceTags: JSON.stringify(fields.serviceTags),
           });
         }, 0);
       } catch {

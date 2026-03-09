@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useDashboardForm } from "../../../../../hooks/useDashboardForm";
 import EditorCard from "../EditorCard";
 import FloatingInput from "../FloatingInput";
@@ -16,12 +18,32 @@ const PRIMARY_CATEGORY_OPTIONS = [
   { value: "videollamadas", label: "Videollamadas" },
 ];
 
+/* ── Collapsible section ── */
+function Section({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-white/[0.02]"
+      >
+        <span className="text-xs font-semibold text-white/70">{title}</span>
+        <ChevronDown className={`h-4 w-4 text-white/30 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && <div className="px-4 pb-4 space-y-4">{children}</div>}
+    </div>
+  );
+}
+
 export default function ProfileEditor() {
   const { state, setField } = useDashboardForm();
 
   return (
-    <EditorCard title="Informacion del perfil" subtitle="Datos visibles para clientes y buscadores." delay={0}>
-      <div className="grid gap-4">
+    <EditorCard title="Mi perfil" subtitle="Lo básico para que te encuentren." delay={0}>
+      <div className="space-y-3">
+
+        {/* ── Esenciales (siempre visible) ── */}
         <FloatingInput
           label="Nombre visible"
           value={state.displayName}
@@ -29,70 +51,6 @@ export default function ProfileEditor() {
           placeholder="Tu nombre o alias"
         />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FloatingSelect
-            label="Genero"
-            value={state.gender}
-            onChange={(v) => setField("gender", v)}
-            options={[
-              { value: "FEMALE", label: "Mujer" },
-              { value: "MALE", label: "Hombre" },
-              { value: "OTHER", label: "Otro" },
-            ]}
-          />
-          <FloatingInput
-            label="Fecha de nacimiento"
-            value={state.birthdate}
-            onChange={(v) => setField("birthdate", v)}
-            type="date"
-            max={new Date().toISOString().split("T")[0]}
-            hint="Debes ser mayor de 18 anos."
-          />
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/65">
-          La visibilidad en carruseles de disponibilidad es automática según tu
-          presencia (online/offline).
-        </div>
-
-        <FloatingTextarea
-          label="Descripcion general"
-          value={state.bio}
-          onChange={(v) => setField("bio", v)}
-          placeholder="Cuentale a tus clientes sobre ti..."
-          rows={4}
-        />
-
-        <FloatingTextarea
-          label="Descripcion de servicios"
-          value={state.serviceDescription}
-          onChange={(v) => setField("serviceDescription", v)}
-          placeholder="Describe lo que ofreces..."
-          rows={4}
-        />
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FloatingInput label="Estatura (cm)" value={state.heightCm} onChange={(v) => setField("heightCm", v)} type="number" min="0" />
-          <FloatingInput label="Peso (kg)" value={state.weightKg} onChange={(v) => setField("weightKg", v)} type="number" min="0" />
-        </div>
-        <FloatingInput label="Medidas" value={state.measurements} onChange={(v) => setField("measurements", v)} placeholder="Ej: 90-60-90" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FloatingInput label="Cabello" value={state.hairColor} onChange={(v) => setField("hairColor", v)} />
-          <FloatingInput label="Piel" value={state.skinTone} onChange={(v) => setField("skinTone", v)} />
-        </div>
-        <FloatingInput label="Idiomas" value={state.languages} onChange={(v) => setField("languages", v)} placeholder="Español, Inglés" />
-        <FloatingInput label="Estilo / tags" value={state.serviceStyleTags} onChange={(v) => setField("serviceStyleTags", v)} placeholder="GFE, VIP, discreto" />
-        <FloatingTextarea label="Disponibilidad" value={state.availabilityNote} onChange={(v) => setField("availabilityNote", v)} rows={2} placeholder="Solo agenda / Solo hotel / A domicilio" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FloatingInput label="Tarifa base (CLP)" value={state.baseRate} onChange={(v) => setField("baseRate", v)} type="number" min="0" />
-          <FloatingInput label="Duración mínima (min)" value={state.minDurationMinutes} onChange={(v) => setField("minDurationMinutes", v)} type="number" min="0" />
-        </div>
-        <div className="flex flex-wrap gap-4 text-xs text-white/70">
-          <label className="flex items-center gap-2"><input type="checkbox" checked={state.acceptsIncalls} onChange={(e) => setField("acceptsIncalls", e.target.checked)} /> Recibe</label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={state.acceptsOutcalls} onChange={(e) => setField("acceptsOutcalls", e.target.checked)} /> Se desplaza</label>
-        </div>
-
-        {/* ── Categoría principal ── */}
         <FloatingSelect
           label="Categoría principal"
           value={state.primaryCategory}
@@ -100,10 +58,73 @@ export default function ProfileEditor() {
           options={PRIMARY_CATEGORY_OPTIONS}
         />
 
-        {/* ── Cómo defines tu perfil (profile tags) ── */}
-        <div>
-          <p className="mb-2 text-xs font-semibold text-white/60">¿Cómo defines tu perfil?</p>
-          <p className="mb-2 text-[11px] text-white/35">Selecciona las que mejor te describen</p>
+        <FloatingTextarea
+          label="Sobre mí"
+          value={state.bio}
+          onChange={(v) => setField("bio", v)}
+          placeholder="Cuéntale a tus clientes sobre ti..."
+          rows={3}
+        />
+
+        <FloatingTextarea
+          label="Mis servicios"
+          value={state.serviceDescription}
+          onChange={(v) => setField("serviceDescription", v)}
+          placeholder="Describe lo que ofreces..."
+          rows={3}
+        />
+
+        {/* ── Datos personales ── */}
+        <Section title="Datos personales">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FloatingSelect
+              label="Género"
+              value={state.gender}
+              onChange={(v) => setField("gender", v)}
+              options={[
+                { value: "FEMALE", label: "Mujer" },
+                { value: "MALE", label: "Hombre" },
+                { value: "OTHER", label: "Otro" },
+              ]}
+            />
+            <FloatingInput
+              label="Fecha de nacimiento"
+              value={state.birthdate}
+              onChange={(v) => setField("birthdate", v)}
+              type="date"
+              max={new Date().toISOString().split("T")[0]}
+              hint="Debes ser mayor de 18 años."
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FloatingInput label="Estatura (cm)" value={state.heightCm} onChange={(v) => setField("heightCm", v)} type="number" min="0" />
+            <FloatingInput label="Peso (kg)" value={state.weightKg} onChange={(v) => setField("weightKg", v)} type="number" min="0" />
+          </div>
+          <FloatingInput label="Medidas" value={state.measurements} onChange={(v) => setField("measurements", v)} placeholder="Ej: 90-60-90" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FloatingInput label="Cabello" value={state.hairColor} onChange={(v) => setField("hairColor", v)} />
+            <FloatingInput label="Piel" value={state.skinTone} onChange={(v) => setField("skinTone", v)} />
+          </div>
+          <FloatingInput label="Idiomas" value={state.languages} onChange={(v) => setField("languages", v)} placeholder="Español, Inglés" />
+        </Section>
+
+        {/* ── Tarifas y disponibilidad ── */}
+        <Section title="Tarifas y disponibilidad">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FloatingInput label="Tarifa base (CLP)" value={state.baseRate} onChange={(v) => setField("baseRate", v)} type="number" min="0" />
+            <FloatingInput label="Duración mínima (min)" value={state.minDurationMinutes} onChange={(v) => setField("minDurationMinutes", v)} type="number" min="0" />
+          </div>
+          <FloatingTextarea label="Disponibilidad" value={state.availabilityNote} onChange={(v) => setField("availabilityNote", v)} rows={2} placeholder="Solo agenda / Solo hotel / A domicilio" />
+          <div className="flex flex-wrap gap-4 text-xs text-white/70">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={state.acceptsIncalls} onChange={(e) => setField("acceptsIncalls", e.target.checked)} className="accent-fuchsia-500" /> Recibe</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={state.acceptsOutcalls} onChange={(e) => setField("acceptsOutcalls", e.target.checked)} className="accent-fuchsia-500" /> Se desplaza</label>
+          </div>
+          <FloatingInput label="Estilo / tags" value={state.serviceStyleTags} onChange={(v) => setField("serviceStyleTags", v)} placeholder="GFE, VIP, discreto" />
+        </Section>
+
+        {/* ── Etiquetas de perfil ── */}
+        <Section title="¿Cómo defines tu perfil?">
+          <p className="text-[11px] text-white/35">Toca las que mejor te describen</p>
           <div className="flex flex-wrap gap-1.5">
             {PROFILE_TAGS_CATALOG.map((tag) => {
               const active = state.profileTags.includes(tag);
@@ -128,12 +149,11 @@ export default function ProfileEditor() {
               );
             })}
           </div>
-        </div>
+        </Section>
 
-        {/* ── Servicios que ofrezco (service tags) ── */}
-        <div>
-          <p className="mb-2 text-xs font-semibold text-white/60">Servicios que ofrezco</p>
-          <p className="mb-2 text-[11px] text-white/35">Selecciona todos los que apliquen</p>
+        {/* ── Servicios que ofrezco ── */}
+        <Section title="Servicios que ofrezco">
+          <p className="text-[11px] text-white/35">Selecciona todos los que apliquen</p>
           <div className="flex flex-wrap gap-1.5">
             {SERVICE_TAGS_CATALOG.map((tag) => {
               const active = state.serviceTags.includes(tag);
@@ -158,7 +178,8 @@ export default function ProfileEditor() {
               );
             })}
           </div>
-        </div>
+        </Section>
+
       </div>
     </EditorCard>
   );
