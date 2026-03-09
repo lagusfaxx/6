@@ -1259,6 +1259,7 @@ servicesRouter.post(
             professionalLevel: resolveProfessionalLevel(
               professional.completedServices,
             ),
+            url: `/calificar?serviceId=${service.id}`,
           },
         },
       });

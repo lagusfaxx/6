@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAdmin } from "../lib/auth";
+import {
+  sendDepositApprovedEmail,
+  sendWithdrawalApprovedEmail,
+  sendWithdrawalRejectedEmail,
+} from "../notifications/email";
 
 export const adminTokensRouter = Router();
 
@@ -34,7 +39,7 @@ adminTokensRouter.get("/admin/deposits", requireAdmin, async (req, res) => {
 adminTokensRouter.put("/admin/deposits/:id/approve", requireAdmin, async (req, res) => {
   const deposit = await prisma.tokenDeposit.findUnique({
     where: { id: req.params.id },
-    include: { wallet: true },
+    include: { wallet: { include: { user: { select: { email: true } } } } },
   });
   if (!deposit) return res.status(404).json({ error: "Not found" });
   if (deposit.status !== "PENDING") return res.status(400).json({ error: "Already processed" });
@@ -60,6 +65,12 @@ adminTokensRouter.put("/admin/deposits/:id/approve", requireAdmin, async (req, r
       },
     }),
   ]);
+
+  // Send confirmation email
+  const userEmail = deposit.wallet.user?.email;
+  if (userEmail) {
+    sendDepositApprovedEmail(userEmail, deposit.amount, deposit.clpAmount).catch(() => {});
+  }
 
   res.json({ ok: true });
 });
@@ -111,7 +122,10 @@ adminTokensRouter.get("/admin/withdrawals", requireAdmin, async (req, res) => {
 
 // ── PUT /admin/withdrawals/:id/approve — approve withdrawal ──
 adminTokensRouter.put("/admin/withdrawals/:id/approve", requireAdmin, async (req, res) => {
-  const wr = await prisma.withdrawalRequest.findUnique({ where: { id: req.params.id } });
+  const wr = await prisma.withdrawalRequest.findUnique({
+    where: { id: req.params.id },
+    include: { wallet: { include: { user: { select: { email: true } } } } },
+  });
   if (!wr) return res.status(404).json({ error: "Not found" });
   if (wr.status !== "PENDING") return res.status(400).json({ error: "Already processed" });
 
@@ -120,6 +134,12 @@ adminTokensRouter.put("/admin/withdrawals/:id/approve", requireAdmin, async (req
     data: { status: "APPROVED", reviewedBy: req.session.userId!, reviewedAt: new Date() },
   });
 
+  // Send confirmation email
+  const userEmail = wr.wallet.user?.email;
+  if (userEmail) {
+    sendWithdrawalApprovedEmail(userEmail, wr.amount, wr.clpAmount).catch(() => {});
+  }
+
   res.json({ ok: true });
 });
 
@@ -127,10 +147,12 @@ adminTokensRouter.put("/admin/withdrawals/:id/approve", requireAdmin, async (req
 adminTokensRouter.put("/admin/withdrawals/:id/reject", requireAdmin, async (req, res) => {
   const wr = await prisma.withdrawalRequest.findUnique({
     where: { id: req.params.id },
-    include: { wallet: true },
+    include: { wallet: { include: { user: { select: { email: true } } } } },
   });
   if (!wr) return res.status(404).json({ error: "Not found" });
   if (wr.status !== "PENDING") return res.status(400).json({ error: "Already processed" });
+
+  const rejectReason = req.body.reason || null;
 
   // Refund tokens back to wallet
   await prisma.$transaction([
@@ -140,7 +162,7 @@ adminTokensRouter.put("/admin/withdrawals/:id/reject", requireAdmin, async (req,
         status: "REJECTED",
         reviewedBy: req.session.userId!,
         reviewedAt: new Date(),
-        rejectReason: req.body.reason || null,
+        rejectReason,
       },
     }),
     prisma.wallet.update({
@@ -158,6 +180,12 @@ adminTokensRouter.put("/admin/withdrawals/:id/reject", requireAdmin, async (req,
       },
     }),
   ]);
+
+  // Send rejection email
+  const userEmail = wr.wallet.user?.email;
+  if (userEmail) {
+    sendWithdrawalRejectedEmail(userEmail, wr.amount, wr.clpAmount, rejectReason).catch(() => {});
+  }
 
   res.json({ ok: true });
 });
