@@ -71,14 +71,8 @@ async function sendBookingMessage(fromId: string, toId: string, text: string) {
     data: {
       userId: toId,
       type: "MESSAGE_RECEIVED",
-      data: {
-        title: "Mensaje de reserva",
-        body: body.slice(0, 100),
-        fromId,
-        messageId: message.id,
-        url: "/chats",
-      },
-    },
+      data: { fromId, messageId: message.id }
+    }
   });
   sendToUser(toId, "message", { message });
 }
@@ -379,7 +373,7 @@ motelRouter.post("/motels/:id/bookings", asyncHandler(async (req, res) => {
   const bookingId = randomUUID();
   const rows = await prisma.$queryRawUnsafe<any[]>(`INSERT INTO "MotelBooking" ("id", "establishmentId", "roomId", "clientId", "status", "durationType", "priceClp", "basePriceClp", "discountClp", "startAt", "note") VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'PENDIENTE', $5, $6, $7, $8, $9, $10) RETURNING *`, bookingId, establishmentId, fallbackRoom.id, clientId, durationType, priced.finalPriceClp, priced.basePriceClp, priced.discountClp, startAt, note);
   const booking = rows[0];
-  await prisma.notification.create({ data: { userId: establishmentId, type: "SERVICE_PUBLISHED", data: { title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}`, durationType, bookingId: booking.id, url: "/dashboard" } } });
+  await prisma.notification.create({ data: { userId: establishmentId, type: "SERVICE_PUBLISHED", data: { title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}`, durationType, bookingId: booking.id } } });
   sendToUser(establishmentId, "booking:new", { bookingId: booking.id });
 
   const roomName = fallbackRoom.name || "Habitación";
@@ -489,7 +483,7 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
   );
   const updated = updatedRows[0];
   const notifyUserId = isOwner ? booking.clientId : booking.establishmentId;
-  await prisma.notification.create({ data: { userId: notifyUserId, type: "SERVICE_PUBLISHED", data: { title: "Actualización de reserva", body: `Estado: ${nextStatus}`, status: nextStatus, bookingId: updated.id, url: "/chats" } } });
+  await prisma.notification.create({ data: { userId: notifyUserId, type: "SERVICE_PUBLISHED", data: { title: "Actualización de reserva", body: `Estado: ${nextStatus}`, status: nextStatus, bookingId: updated.id } } });
   sendToUser(notifyUserId, "booking:update", { bookingId: updated.id, status: nextStatus, rejectReason: updated.rejectReason, rejectNote: updated.rejectNote });
 
   if (isOwner && nextStatus === "ACEPTADA") {
