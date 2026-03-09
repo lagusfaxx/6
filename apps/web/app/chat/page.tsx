@@ -89,7 +89,7 @@ export default function ChatInboxPage() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5">
       {/* Header */}
-      <div className="relative rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.25)] p-5 overflow-hidden">
+      <div className="relative rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-[0_10px_30px_rgba(0,0,0,0.35)] p-5 overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
         <div className="flex items-center gap-3">
           <Link
@@ -118,7 +118,7 @@ export default function ChatInboxPage() {
       <div className="relative">
         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
         <input
-          className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3 pl-11 pr-4 text-sm text-white placeholder-white/35 outline-none backdrop-blur-xl transition focus:border-fuchsia-500/30 focus:ring-1 focus:ring-fuchsia-500/20"
+          className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-sm text-white placeholder-white/35 outline-none backdrop-blur-xl transition focus:border-fuchsia-500/30 focus:ring-2 focus:ring-fuchsia-500/20"
           placeholder="Buscar conversación..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -131,15 +131,15 @@ export default function ChatInboxPage() {
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4"
+              className="animate-pulse rounded-2xl border border-white/10 bg-white/5 p-4"
             >
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 shrink-0 rounded-full bg-white/10" />
                 <div className="flex-1 space-y-2">
                   <div className="h-4 w-1/3 rounded bg-white/10" />
-                  <div className="h-3 w-2/3 rounded bg-white/[0.06]" />
+                  <div className="h-3 w-2/3 rounded bg-white/[0.08]" />
                 </div>
-                <div className="h-3 w-10 rounded bg-white/[0.06]" />
+                <div className="h-3 w-10 rounded bg-white/[0.08]" />
               </div>
             </div>
           ))}
@@ -190,14 +190,14 @@ export default function ChatInboxPage() {
                 className={`group flex items-center gap-3 rounded-2xl border p-4 transition-all hover:-translate-y-0.5 ${
                   hasUnread
                     ? "border-fuchsia-500/20 bg-fuchsia-500/[0.06] shadow-[0_0_20px_rgba(168,85,247,0.08)]"
-                    : "border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.06]"
+                    : "border-white/10 bg-white/5 hover:border-white/15 hover:bg-white/[0.08]"
                 }`}
               >
                 {/* Avatar with online dot */}
                 <div className="relative shrink-0">
                   <Avatar src={c.other.avatarUrl} alt={c.other.username} size={48} />
                   {hasUnread && (
-                    <div className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#0e0e12] bg-gradient-to-r from-fuchsia-500 to-violet-500" />
+                    <div className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#070816] bg-gradient-to-r from-fuchsia-500 to-violet-500" />
                   )}
                 </div>
 
