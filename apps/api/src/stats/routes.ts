@@ -21,11 +21,20 @@ statsRouter.get("/stats/me", requireAuth, asyncHandler(async (req, res) => {
 
 // ✅ Public platform stats for homepage counters
 statsRouter.get("/stats/platform", asyncHandler(async (_req, res) => {
-  const [professionals, services] = await Promise.all([
+  const [professionals, services, videocallProfessionals] = await Promise.all([
     prisma.user.count({ where: { profileType: "PROFESSIONAL" } }),
     prisma.serviceRequest.count({ where: { status: "FINALIZADO" } }),
+    prisma.user.count({
+      where: {
+        profileType: "PROFESSIONAL",
+        OR: [
+          { serviceTags: { hasSome: ["videollamada", "videollamadas", "Videollamada", "Videollamadas"] } },
+          { profileTags: { hasSome: ["videollamada", "videollamadas", "Videollamada", "Videollamadas"] } },
+        ],
+      },
+    }),
   ]);
 
   res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600");
-  return res.json({ professionals, services });
+  return res.json({ professionals, services, videocallProfessionals });
 }));
