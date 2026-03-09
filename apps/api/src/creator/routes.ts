@@ -114,22 +114,11 @@ creatorRouter.post("/posts/mine", upload.array("files", 10), asyncHandler(async 
     select: { subscriberId: true }
   });
   if (subscriberIds.length) {
-    const creator = await prisma.user.findUnique({
-      where: { id: req.session.userId! },
-      select: { displayName: true, username: true },
-    });
-    const creatorName = creator?.displayName || creator?.username || "Un creador";
     await prisma.notification.createMany({
       data: subscriberIds.map((s) => ({
         userId: s.subscriberId,
         type: "POST_PUBLISHED",
-        data: {
-          title: "Nueva publicación",
-          body: `${creatorName} publicó nuevo contenido`,
-          postId: post.id,
-          creatorId: req.session.userId!,
-          url: `/perfil/${creator?.username || req.session.userId!}`,
-        },
+        data: { postId: post.id, creatorId: req.session.userId! }
       }))
     });
   }
@@ -182,22 +171,11 @@ creatorRouter.post("/creator/posts", upload.array("files", 10), asyncHandler(asy
     select: { subscriberId: true }
   });
   if (subscriberIds.length) {
-    const creator = await prisma.user.findUnique({
-      where: { id: req.session.userId! },
-      select: { displayName: true, username: true },
-    });
-    const creatorName = creator?.displayName || creator?.username || "Un creador";
     await prisma.notification.createMany({
       data: subscriberIds.map((s) => ({
         userId: s.subscriberId,
         type: "POST_PUBLISHED",
-        data: {
-          title: "Nueva publicación",
-          body: `${creatorName} publicó nuevo contenido`,
-          postId: post.id,
-          creatorId: req.session.userId!,
-          url: `/perfil/${creator?.username || req.session.userId!}`,
-        },
+        data: { postId: post.id, creatorId: req.session.userId! }
       }))
     });
   }
