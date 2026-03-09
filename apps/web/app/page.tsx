@@ -315,7 +315,10 @@ function VideollamadasBanner() {
         setCount(res.videocallProfessionals ?? 0);
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch((err) => {
+        console.warn("[VideollamadasBanner] failed to load stats", err);
+        setLoaded(true);
+      });
   }, []);
 
   const animatedCount = useAnimatedCounter(count, 1500, loaded && count > 0);
