@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import useMe from "../hooks/useMe";
 import { useForumNotifications } from "./ForumNotifications";
+import { useChatNotifications } from "./ChatNotifications";
 
 type NavItem = {
   href: string;
@@ -58,6 +59,7 @@ export default function Nav() {
   const { me } = useMe();
   const isAuthed = Boolean(me?.user?.id);
   const { badgeCount } = useForumNotifications();
+  const { unreadCount: chatUnread } = useChatNotifications();
 
   const role = String(me?.user?.role || "").toUpperCase();
   const ptype = String(me?.user?.profileType || "").toUpperCase();
@@ -117,6 +119,11 @@ export default function Nav() {
                   {item.href === "/foro" && badgeCount > 0 && (
                     <span className="ml-auto min-w-[18px] rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white">
                       {badgeCount > 9 ? "9+" : badgeCount}
+                    </span>
+                  )}
+                  {item.href === "/chats" && chatUnread > 0 && (
+                    <span className="ml-auto min-w-[18px] rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white">
+                      {chatUnread > 9 ? "9+" : chatUnread}
                     </span>
                   )}
                 </Link>
@@ -181,8 +188,13 @@ export default function Nav() {
                 href={href}
                 className="flex flex-col items-center gap-0.5 py-2 text-[10px] transition"
               >
-                <div className={`rounded-xl p-1.5 transition ${active ? "bg-fuchsia-500/15" : ""}`}>
+                <div className={`relative rounded-xl p-1.5 transition ${active ? "bg-fuchsia-500/15" : ""}`}>
                   <Icon className={`h-5 w-5 ${active ? "text-fuchsia-400" : "text-white/45"}`} />
+                  {item.href === "/chats" && chatUnread > 0 && (
+                    <span className="absolute -right-1 -top-1 min-w-[16px] rounded-full bg-fuchsia-500 px-1 py-[1px] text-center text-[9px] font-bold leading-none text-white shadow-[0_0_8px_rgba(217,70,239,0.6)]">
+                      {chatUnread > 9 ? "9+" : chatUnread}
+                    </span>
+                  )}
                 </div>
                 <span className={`${active ? "text-fuchsia-300 font-medium" : "text-white/45"}`}>
                   {item.label}

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { MessageCircle, Search, ArrowLeft, Sparkles } from "lucide-react";
 import { apiFetch, friendlyErrorMessage, isAuthError } from "../../lib/api";
+import { connectRealtime } from "../../lib/realtime";
 import Avatar from "../../components/Avatar";
 
 type Conversation = {
@@ -61,8 +62,7 @@ export default function ChatInboxPage() {
   const [search, setSearch] = useState("");
   const router = useRouter();
   const pathname = usePathname() || "/chats";
-
-  const load = () => {
+  const load = useCallback(() => {
     return apiFetch<{ conversations: Conversation[] }>("/messages/inbox")
       .then((r) => setConversations(r.conversations))
       .catch((e: any) => {
@@ -73,11 +73,77 @@ export default function ChatInboxPage() {
         setError(friendlyErrorMessage(e) || "No se pudo cargar los mensajes");
       })
       .finally(() => setLoading(false));
-  };
+  }, [router, pathname]);
 
   useEffect(() => {
     load();
-  }, [pathname, router]);
+  }, [load]);
+
+  // Listen for real-time new messages to update conversation list
+  useEffect(() => {
+    const disconnect = connectRealtime((event) => {
+      if (event.type === "message" && event.data?.message) {
+        const msg = event.data.message;
+        const from = event.data.from;
+
+        setConversations((prev) => {
+          const otherId = msg.fromId;
+          const existing = prev.find((c) => c.other.id === otherId);
+
+          if (existing) {
+            // Update existing conversation: new last message, increment unread, move to top
+            const updated = prev.map((c) =>
+              c.other.id === otherId
+                ? {
+                    ...c,
+                    lastMessage: {
+                      id: msg.id,
+                      body: msg.body,
+                      createdAt: msg.createdAt,
+                      fromId: msg.fromId,
+                      toId: msg.toId,
+                    },
+                    unreadCount: c.unreadCount + 1,
+                  }
+                : c
+            );
+            // Move updated conversation to top
+            const target = updated.find((c) => c.other.id === otherId);
+            if (!target) return updated;
+            return [target, ...updated.filter((c) => c.other.id !== otherId)];
+          }
+
+          if (from) {
+            // New conversation from SSE sender info
+            const newConv: Conversation = {
+              other: {
+                id: from.id,
+                displayName: from.displayName,
+                username: from.username,
+                avatarUrl: from.avatarUrl,
+                profileType: from.profileType,
+                city: from.city,
+              },
+              lastMessage: {
+                id: msg.id,
+                body: msg.body,
+                createdAt: msg.createdAt,
+                fromId: msg.fromId,
+                toId: msg.toId,
+              },
+              unreadCount: 1,
+            };
+            return [newConv, ...prev];
+          }
+
+          // Fallback: re-fetch inbox if we don't have sender info
+          load();
+          return prev;
+        });
+      }
+    });
+    return () => disconnect();
+  }, [load]);
 
   const filtered = conversations.filter((c) => {
     const target = `${c.other.displayName || ""} ${c.other.username}`.toLowerCase();
