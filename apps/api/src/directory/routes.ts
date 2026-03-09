@@ -524,9 +524,7 @@ directoryRouter.get(
       req.session.profileViewTracker = { ...tracker, [id]: nowTs };
     }
 
-    const u = await prisma.user.findUnique({
-      where: { id, profileType: "PROFESSIONAL" },
-      select: {
+    const baseDetailSelect = {
         id: true,
         username: true,
         displayName: true,
@@ -548,7 +546,6 @@ directoryRouter.get(
         profileTags: true,
         serviceTags: true,
         availabilityNote: true,
-        avgResponseMinutes: true,
         baseRate: true,
         minDurationMinutes: true,
         acceptsIncalls: true,
@@ -567,8 +564,27 @@ directoryRouter.get(
           take: 12,
           select: { id: true, url: true, type: true },
         },
-      },
-    });
+    };
+
+    let u: any;
+    try {
+      u = await prisma.user.findUnique({
+        where: { id, profileType: "PROFESSIONAL" },
+        select: { ...baseDetailSelect, avgResponseMinutes: true },
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError ||
+        err instanceof Prisma.PrismaClientValidationError
+      ) {
+        u = await prisma.user.findUnique({
+          where: { id, profileType: "PROFESSIONAL" },
+          select: baseDetailSelect,
+        });
+      } else {
+        throw err;
+      }
+    }
     if (!u) return res.status(404).json({ error: "not_found" });
 
     const reviews = await prisma.professionalReview.findMany({
