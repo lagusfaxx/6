@@ -248,7 +248,7 @@ function HeroCounters() {
   useEffect(() => {
     apiFetch<{ professionals: number; services: number }>("/stats/platform")
       .then((res) => setStats(res))
-      .catch(() => {});
+      .catch((err) => console.warn("[HeroCounters] failed to load platform stats", err));
   }, []);
 
   useEffect(() => {
@@ -257,13 +257,14 @@ function HeroCounters() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Apply ~20% margin above real values, rounded to nearest 10
+  // Apply 20% margin above real values, rounded to nearest 10
   const prosTarget = stats ? Math.ceil((stats.professionals * 1.2) / 10) * 10 : 0;
   const servicesTarget = stats ? Math.ceil((stats.services * 1.2) / 10) * 10 : 0;
+  const comunasFixed = 300;
 
   const prosCount = useAnimatedCounter(prosTarget, 2000, animate && prosTarget > 0);
   const servicesCount = useAnimatedCounter(servicesTarget, 2000, animate && servicesTarget > 0);
-  const comunasCount = useAnimatedCounter(300, 2000, animate);
+  const comunasCount = useAnimatedCounter(comunasFixed, 2000, animate);
 
   const counters = [
     { value: prosCount, suffix: "+", label: "profesionales", icon: Users },
