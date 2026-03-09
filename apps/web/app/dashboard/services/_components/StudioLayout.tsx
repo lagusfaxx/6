@@ -30,26 +30,26 @@ export default function StudioLayout({ user, profileType, loading, onSaveProfile
       <div className="studio-glow fixed inset-0 z-0" />
 
       {/* Header bar */}
-      <div className="sticky top-0 z-20 border-b border-white/[0.06] bg-[#0a0b1d]/80 backdrop-blur-xl">
-        <div className="flex items-center justify-between px-4 py-3 lg:px-6">
-          <div className="flex items-center gap-3">
+      <div className="sticky top-0 z-20 border-b border-white/[0.06] bg-[#070816]/90 backdrop-blur-xl">
+        <div className="flex items-center justify-between px-4 py-2.5 lg:px-6">
+          <div className="flex items-center gap-2.5">
             <Link
               href="/"
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-white/70 hover:bg-white/10 transition"
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/10 transition"
               aria-label="Volver al inicio"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3.5 w-3.5" />
             </Link>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-lg">
-              <Sparkles className="h-4 w-4 text-white" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-lg shadow-violet-500/20">
+              <Sparkles className="h-3.5 w-3.5 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-semibold text-white/90">Editar mi perfil</h1>
-              <p className="text-[10px] text-white/40">Cambia tu foto, datos y ubicación</p>
+              <h1 className="text-sm font-semibold text-white/90">Mi perfil</h1>
+              <p className="text-[10px] text-white/35 hidden sm:block">Edita tu perfil, fotos y ubicación</p>
             </div>
           </div>
           {isDirty && (
-            <span className="rounded-full bg-amber-500/15 border border-amber-500/20 px-2.5 py-1 text-[10px] font-medium text-amber-300">
+            <span className="rounded-full bg-amber-500/15 border border-amber-500/20 px-2.5 py-1 text-[10px] font-medium text-amber-300 animate-pulse">
               Sin guardar
             </span>
           )}
@@ -63,8 +63,8 @@ export default function StudioLayout({ user, profileType, loading, onSaveProfile
 
       {/* Desktop split-screen */}
       <div className="hidden lg:flex min-h-screen relative z-10">
-        {/* LEFT: Live Preview - 60% */}
-        <div className="w-[60%] sticky top-[57px] h-[calc(100vh-57px)] overflow-y-auto p-6 pr-3">
+        {/* LEFT: Live Preview - 55% */}
+        <div className="w-[55%] sticky top-[49px] h-[calc(100vh-49px)] overflow-y-auto p-6 pr-3">
           {loading ? (
             <SkeletonPreview />
           ) : (
@@ -72,8 +72,8 @@ export default function StudioLayout({ user, profileType, loading, onSaveProfile
           )}
         </div>
 
-        {/* RIGHT: Editor Panel - 40% */}
-        <div className="w-[40%] overflow-y-auto p-6 pl-3 min-h-screen">
+        {/* RIGHT: Editor Panel - 45% */}
+        <div className="w-[45%] overflow-y-auto p-6 pl-3 min-h-screen">
           <EditorPanel profileType={profileType} user={user} />
         </div>
       </div>
