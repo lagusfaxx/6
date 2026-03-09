@@ -291,9 +291,9 @@ function HeroCounters() {
       className="mt-8 flex items-center justify-center gap-6 sm:gap-10"
     >
       {counters.map((c, i) => (
-        <div key={i} className="flex flex-col items-center gap-1">
-          <c.icon className="mb-1 h-4 w-4 text-fuchsia-400/70" />
-          <span className="text-xl font-bold tabular-nums tracking-tight text-white/90 sm:text-2xl">
+        <div key={i} className="group/stat flex cursor-default flex-col items-center gap-1">
+          <c.icon className="mb-1 h-4 w-4 text-fuchsia-400/70 transition-all duration-150 group-hover/stat:text-fuchsia-400 group-hover/stat:drop-shadow-[0_0_6px_rgba(192,132,252,0.5)]" />
+          <span className="text-xl font-bold tabular-nums tracking-tight text-white/90 transition-transform duration-150 group-hover/stat:scale-110 sm:text-2xl">
             {c.value}{c.suffix}
           </span>
           <span className="text-[11px] text-white/40 sm:text-xs">{c.label}</span>
@@ -724,7 +724,7 @@ export default function HomePage() {
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#070816]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[url('/brand/bg.jpg')] bg-cover bg-center opacity-20" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#070816]/50 to-[#0e0e12]" />
-        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.12] blur-[120px]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.12] blur-[120px] animate-hero-drift" />
 
         <div className="relative mx-auto max-w-3xl text-center">
           <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-xs text-white/60 backdrop-blur-xl">
@@ -745,7 +745,7 @@ export default function HomePage() {
           <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp} className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
               href="/servicios"
-              className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-semibold shadow-[0_12px_40px_rgba(168,85,247,0.25)] transition-all duration-200 hover:scale-[1.03] sm:w-auto"
+              className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-semibold transition-all duration-200 hover:scale-[1.03] animate-btn-glow sm:w-auto"
             >
               Explorar ahora
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />

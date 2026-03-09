@@ -32,12 +32,23 @@ export default {
         floatUp: {
           "0%": { opacity: "0", transform: "translateY(12px)" },
           "100%": { opacity: "1", transform: "translateY(0)" }
+        },
+        heroGradientDrift: {
+          "0%, 100%": { transform: "translate(-50%, -50%) scale(1)" },
+          "33%": { transform: "translate(-48%, -52%) scale(1.03)" },
+          "66%": { transform: "translate(-52%, -48%) scale(0.97)" }
+        },
+        btnGlow: {
+          "0%, 100%": { boxShadow: "0 12px 40px rgba(168,85,247,0.25)" },
+          "50%": { boxShadow: "0 12px 50px rgba(168,85,247,0.4)" }
         }
       },
       animation: {
         "slide-in-right": "slideInRight 300ms ease-out",
         "fade-in": "fadeIn 200ms ease-out",
-        "float-up": "floatUp 300ms cubic-bezier(0.16,1,0.3,1)"
+        "float-up": "floatUp 300ms cubic-bezier(0.16,1,0.3,1)",
+        "hero-drift": "heroGradientDrift 25s ease-in-out infinite",
+        "btn-glow": "btnGlow 4s ease-in-out infinite"
       }
     }
   },
