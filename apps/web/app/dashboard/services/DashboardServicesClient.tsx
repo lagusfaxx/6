@@ -660,8 +660,8 @@ export default function DashboardServicesClient() {
         if (!res.ok) throw new Error("UPLOAD_FAILED");
         const data = await res.json();
         if (type === "avatar")
-          setField("avatarPreview", data?.user?.avatarUrl ?? data?.avatarUrl ?? null);
-        if (type === "cover") setField("coverPreview", data?.user?.coverUrl ?? data?.coverUrl ?? null);
+          setField("avatarPreview", data?.avatarUrl ?? null);
+        if (type === "cover") setField("coverPreview", data?.coverUrl ?? null);
         showToast("Imagen actualizada.");
         await loadPanel(user.id);
       } catch {
