@@ -7,12 +7,12 @@ type Props = {
 
 export default function MobileViewToggle({ mode, onToggle }: Props) {
   return (
-    <div className="sticky top-0 z-30 flex items-center justify-center gap-1 p-2 border-b border-white/[0.06] bg-black/80 backdrop-blur-xl">
+    <div className="sticky top-0 z-30 flex items-center justify-center gap-1 p-2 border-b border-white/[0.06] bg-[#070816]/90 backdrop-blur-xl">
       <button
         onClick={() => onToggle("edit")}
-        className={`rounded-xl px-5 py-2 text-sm font-medium transition-all duration-200 ${
+        className={`rounded-full px-5 py-1.5 text-xs font-medium transition-all duration-200 ${
           mode === "edit"
-            ? "bg-white/15 text-white shadow-sm"
+            ? "bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 text-white shadow-[0_2px_12px_rgba(168,85,247,0.2)]"
             : "text-white/40 hover:text-white/60"
         }`}
       >
@@ -20,9 +20,9 @@ export default function MobileViewToggle({ mode, onToggle }: Props) {
       </button>
       <button
         onClick={() => onToggle("preview")}
-        className={`rounded-xl px-5 py-2 text-sm font-medium transition-all duration-200 ${
+        className={`rounded-full px-5 py-1.5 text-xs font-medium transition-all duration-200 ${
           mode === "preview"
-            ? "bg-white/15 text-white shadow-sm"
+            ? "bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 text-white shadow-[0_2px_12px_rgba(168,85,247,0.2)]"
             : "text-white/40 hover:text-white/60"
         }`}
       >
