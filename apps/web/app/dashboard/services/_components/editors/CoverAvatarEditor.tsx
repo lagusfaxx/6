@@ -1,7 +1,7 @@
 "use client";
 
 import { type ChangeEvent } from "react";
-import { resolveMediaUrl } from "../../../../../lib/api";
+import { isVideoUrl, resolveMediaUrl } from "../../../../../lib/api";
 import Avatar from "../../../../../components/Avatar";
 import { useDashboardForm } from "../../../../../hooks/useDashboardForm";
 import EditorCard from "../EditorCard";
@@ -14,6 +14,7 @@ type Props = {
 export default function CoverAvatarEditor({ user, onUpload }: Props) {
   const { state } = useDashboardForm();
   const coverUrl = resolveMediaUrl(state.coverPreview || user?.coverUrl) ?? null;
+  const coverIsVideo = isVideoUrl(coverUrl);
   const avatarUrl = state.avatarPreview || user?.avatarUrl;
 
   return (
@@ -64,11 +65,23 @@ export default function CoverAvatarEditor({ user, onUpload }: Props) {
         <div>
           <div className="relative h-32 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.03] group">
             {coverUrl ? (
-              <img
-                src={coverUrl}
-                alt="Portada"
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-              />
+              coverIsVideo ? (
+                <video
+                  src={coverUrl}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls
+                />
+              ) : (
+                <img
+                  src={coverUrl}
+                  alt="Portada"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                />
+              )
             ) : (
               <div className="h-full w-full flex items-center justify-center">
                 <span className="text-xs text-white/20">Sin portada</span>
@@ -85,12 +98,16 @@ export default function CoverAvatarEditor({ user, onUpload }: Props) {
               </div>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 className="hidden"
                 onChange={(e) => onUpload("cover", e)}
               />
             </label>
           </div>
+          <p className="mt-2 text-xs text-white/55">
+            La portada es la imagen o video principal que se mostrará en las tarjetas de tu perfil dentro de la aplicación.
+            El archivo que subas aquí será el que verán las personas al explorar listados y resultados.
+          </p>
         </div>
       </div>
     </EditorCard>

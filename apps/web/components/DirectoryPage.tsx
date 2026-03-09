@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, MessageCircle, Eye, Sparkles, Flame } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
-import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
+import { apiFetch, isRateLimitError, isVideoUrl, resolveMediaUrl } from "../lib/api";
 import UserLevelBadge from "./UserLevelBadge";
 import MapboxMap from "./MapboxMap";
 import type { MapMarker } from "./MapboxMap";
@@ -86,6 +86,7 @@ function ProfileCard({ p, entityType, categorySlug }: { p: DirectoryResult; enti
   }
   const avatarSrc = p.avatarUrl ? resolveMediaUrl(p.avatarUrl) : null;
   const coverSrc  = p.coverUrl  ? resolveMediaUrl(p.coverUrl)  : null;
+  const coverIsVideo = isVideoUrl(coverSrc);
 
   const chatHref = isAuthed
     ? buildChatHref(p.id)
@@ -96,11 +97,22 @@ function ProfileCard({ p, entityType, categorySlug }: { p: DirectoryResult; enti
       {/* Cover / hero photo */}
       <Link href={href} className="relative aspect-[3/4] bg-[#111] overflow-hidden">
         {coverSrc || avatarSrc ? (
-          <img
-            src={coverSrc || avatarSrc!}
-            alt={p.displayName}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
+          coverIsVideo && coverSrc ? (
+            <video
+              src={coverSrc}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+          ) : (
+            <img
+              src={coverSrc || avatarSrc!}
+              alt={p.displayName}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          )
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-fuchsia-900/30 to-violet-900/30">
             <span className="text-4xl font-bold text-white/10 select-none">

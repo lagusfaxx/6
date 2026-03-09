@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { resolveMediaUrl } from "../../../../lib/api";
+import { isVideoUrl, resolveMediaUrl } from "../../../../lib/api";
 import Avatar from "../../../../components/Avatar";
 import type { DashboardFormState } from "../../../../hooks/useDashboardForm";
 
@@ -13,6 +13,7 @@ type Props = {
 
 function LivePreviewProfessional({ state, user }: Props) {
   const coverUrl = resolveMediaUrl(state.coverPreview || user?.coverUrl) ?? null;
+  const coverIsVideo = isVideoUrl(coverUrl);
   const avatarUrl = state.avatarPreview || user?.avatarUrl;
   const displayName = state.displayName || "Tu nombre";
   const bio = state.bio || "Agrega una descripcion para tu perfil...";
@@ -34,11 +35,22 @@ function LivePreviewProfessional({ state, user }: Props) {
         {/* Cover */}
         <div className="relative h-40 w-full bg-white/[0.04] group overflow-hidden">
           {coverUrl ? (
-            <img
-              src={coverUrl}
-              alt="Portada"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-            />
+            coverIsVideo ? (
+              <video
+                src={coverUrl}
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                autoPlay
+                muted
+                loop
+                playsInline
+              />
+            ) : (
+              <img
+                src={coverUrl}
+                alt="Portada"
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+              />
+            )
           ) : (
             <div className="h-full w-full bg-gradient-to-r from-violet-600/20 via-fuchsia-600/10 to-transparent" />
           )}
