@@ -327,21 +327,24 @@ function VideollamadasBanner() {
     <section className="mb-8">
       <Link
         href="/videocall"
-        className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-600/15 via-violet-600/10 to-fuchsia-600/15 px-5 py-4 transition-all hover:border-blue-500/35 hover:shadow-[0_8px_30px_rgba(59,130,246,0.15)]"
+        className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-indigo-400/25 bg-gradient-to-r from-indigo-600/20 via-blue-600/15 to-violet-600/10 px-5 py-4 backdrop-blur-sm transition-all hover:border-indigo-400/40 hover:shadow-[0_8px_32px_rgba(99,102,241,0.18)]"
       >
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25">
+        {/* subtle inner glow */}
+        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/[0.07] to-transparent" />
+
+        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
           <Video className="h-6 w-6 text-white" />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="relative flex-1 min-w-0">
           <h3 className="text-sm font-bold text-white">Videollamadas privadas</h3>
           {loaded && count > 0 && (
-            <p className="mt-0.5 text-xs font-medium text-blue-300/80">
+            <p className="mt-0.5 text-xs font-medium text-indigo-300/90">
               +{animatedCount} profesionales disponibles
             </p>
           )}
-          <p className="mt-0.5 text-xs text-white/50">Conecta al instante por videollamada. Inmediata, privada y segura.</p>
+          <p className="mt-0.5 text-xs text-white/45">Conecta al instante por videollamada. Inmediata, privada y segura.</p>
         </div>
-        <ChevronRight className="h-5 w-5 shrink-0 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-white/60" />
+        <ChevronRight className="relative h-5 w-5 shrink-0 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-white/60" />
       </Link>
     </section>
   );
