@@ -572,17 +572,21 @@ export default function HomePage() {
     dragStartXRef.current = e.clientX;
     dragScrollLeftRef.current = carousel.scrollLeft;
     setIsAvailableInteracting(true);
-    carousel.setPointerCapture(e.pointerId);
   }, []);
 
   const handleAvailablePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return;
     const carousel = availableCarouselRef.current;
     if (!carousel) return;
-    e.preventDefault();
     const dx = e.clientX - dragStartXRef.current;
-    if (Math.abs(dx) > 3) didDragRef.current = true;
-    carousel.scrollLeft = dragScrollLeftRef.current - dx;
+    if (Math.abs(dx) > 3) {
+      if (!didDragRef.current) {
+        didDragRef.current = true;
+        carousel.setPointerCapture(e.pointerId);
+      }
+      e.preventDefault();
+      carousel.scrollLeft = dragScrollLeftRef.current - dx;
+    }
   }, []);
 
   const handleAvailablePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -590,7 +594,7 @@ export default function HomePage() {
     isDraggingRef.current = false;
     setIsAvailableInteracting(false);
     const carousel = availableCarouselRef.current;
-    if (carousel) carousel.releasePointerCapture(e.pointerId);
+    if (carousel && didDragRef.current) carousel.releasePointerCapture(e.pointerId);
   }, []);
 
   const handleAvailableCardClick = useCallback((p: DiscoverProfile) => {
