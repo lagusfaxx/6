@@ -74,11 +74,6 @@ export function resolveMediaUrl(url: string | null | undefined): string | null {
   return `${base}${path}`;
 }
 
-export function isVideoUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
-  return /\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/i.test(url);
-}
-
 
 function flattenValidation(details: any): string | null {
   const fieldErrors = details?.fieldErrors as Record<string, string[] | undefined> | undefined;

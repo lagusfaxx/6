@@ -3,7 +3,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { apiFetch, isRateLimitError, isVideoUrl, resolveMediaUrl } from "../lib/api";
+import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
@@ -220,11 +220,12 @@ function InstallAppButton() {
 
 /* ── Helpers ── */
 
-function resolveProfileMedia(profile: DiscoverProfile | RecentProfessional) {
-  const cover = resolveMediaUrl((profile as any).coverUrl);
-  const avatar = resolveMediaUrl(profile.avatarUrl);
-  const src = cover ?? avatar ?? "/brand/isotipo-new.png";
-  return { src, isVideo: Boolean(cover && isVideoUrl(cover)) };
+function resolveProfileImage(profile: DiscoverProfile | RecentProfessional) {
+  return (
+    resolveMediaUrl((profile as any).coverUrl) ??
+    resolveMediaUrl(profile.avatarUrl) ??
+    "/brand/isotipo-new.png"
+  );
 }
 
 function formatLastSeenLabel(lastSeen?: string | null) {
@@ -790,7 +791,7 @@ export default function HomePage() {
                     className="group w-[130px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.03] text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/30"
                   >
                     <div className="relative aspect-[3/4] overflow-hidden">
-                      {(() => { const media = resolveProfileMedia(p); return media.isVideo ? (<video src={media.src} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" autoPlay muted loop playsInline />) : (<img src={media.src} alt={p.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />); })()}
+                      <img src={resolveProfileImage(p)} alt={p.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                       <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-2 py-0.5 text-[9px] text-emerald-100">
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
                         Disponible
@@ -843,26 +844,12 @@ export default function HomePage() {
                     >
                       <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
                         {p.avatarUrl || p.coverUrl ? (
-                          (() => {
-                            const media = resolveProfileMedia(p);
-                            return media.isVideo ? (
-                              <video
-                                src={media.src}
-                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                                autoPlay
-                                muted
-                                loop
-                                playsInline
-                              />
-                            ) : (
-                              <img
-                                src={media.src}
-                                alt={p.name}
-                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                                onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
-                              />
-                            );
-                          })()
+                          <img
+                            src={resolveProfileImage(p)}
+                            alt={p.name}
+                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                          />
                         ) : (
                           <div className="flex h-full items-center justify-center">
                             <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-30" />
@@ -947,26 +934,12 @@ export default function HomePage() {
                     className="group relative block w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] text-left transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20"
                   >
                     <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
-                      {(() => {
-                        const media = resolveProfileMedia(p);
-                        return media.isVideo ? (
-                          <video
-                            src={media.src}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                            autoPlay
-                            muted
-                            loop
-                            playsInline
-                          />
-                        ) : (
-                          <img
-                            src={media.src}
-                            alt={p.name}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
-                          />
-                        );
-                      })()}
+                      <img
+                        src={resolveProfileImage(p)}
+                        alt={p.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
                       {p.distance != null && (
                         <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
@@ -1031,7 +1004,7 @@ export default function HomePage() {
                 <motion.article key={profile.id} variants={cardFade} className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20">
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
                     <div className="relative aspect-[3/4] bg-white/[0.04]">
-                      {(() => { const media = resolveProfileMedia(profile); return media.isVideo ? (<video src={media.src} className="h-full w-full object-cover transition group-hover:scale-105" autoPlay muted loop playsInline />) : (<img src={media.src} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />); })()}
+                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
                       {profile.distanceKm != null && (
                         <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
                           {profile.distanceKm.toFixed(1)} km
@@ -1093,7 +1066,7 @@ export default function HomePage() {
                 <motion.article key={profile.id} variants={cardFade} className="group w-[65vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto">
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
                     <div className="relative aspect-[3/4] bg-white/[0.04]">
-                      {(() => { const media = resolveProfileMedia(profile); return media.isVideo ? (<video src={media.src} className="h-full w-full object-cover transition group-hover:scale-105" autoPlay muted loop playsInline />) : (<img src={media.src} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />); })()}
+                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
                       <UserLevelBadge level={profile.userLevel} className="absolute right-2 top-2 px-2 py-0.5 text-[10px]" />
                       <div className="absolute left-2 top-2 flex flex-col gap-1">
                         {hasExamsBadge(profile as any) && (

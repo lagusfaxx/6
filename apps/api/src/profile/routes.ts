@@ -630,10 +630,10 @@ profileRouter.post(
 profileRouter.post(
   "/profile/cover",
   requireAuth,
-  uploadMedia.single("file"),
+  uploadImage.single("file"),
   asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "NO_FILE" });
-    await validateUploadedFile(req.file, "image-or-video");
+    await validateUploadedFile(req.file, "image");
     const url = storageProvider.publicUrl(req.file.filename);
     const user = await prisma.user.update({
       where: { id: req.session.userId! },
