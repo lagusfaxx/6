@@ -87,38 +87,35 @@ export default function ChatInboxPage() {
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-5">
-      {/* Header */}
-      <div className="relative rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-[0_10px_30px_rgba(0,0,0,0.35)] p-5 overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
-        <div className="flex items-center gap-3">
-          <Link
-            href="/cuenta"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold tracking-tight">Mensajes</h1>
-              {totalUnread > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 text-[10px] font-bold leading-none text-white">
-                  {totalUnread}
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-white/40">
-              {conversations.length} conversacion{conversations.length !== 1 ? "es" : ""}
-            </p>
+    <div className="mx-auto w-full max-w-4xl">
+      {/* Header – clean section header, no card */}
+      <div className="flex items-center gap-3 pb-4 border-b border-white/[0.06]">
+        <Link
+          href="/cuenta"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-white/50 transition hover:bg-white/10 hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold tracking-tight">Mensajes</h1>
+            {totalUnread > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 text-[10px] font-bold leading-none text-white">
+                {totalUnread}
+              </span>
+            )}
           </div>
+          <p className="text-xs text-white/40">
+            {conversations.length} conversacion{conversations.length !== 1 ? "es" : ""}
+          </p>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+      {/* Search – integrated into layout */}
+      <div className="relative py-3">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/25" />
         <input
-          className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-sm text-white placeholder-white/35 outline-none backdrop-blur-xl transition focus:border-fuchsia-500/30 focus:ring-2 focus:ring-fuchsia-500/20"
+          className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] py-2.5 pl-10 pr-4 text-sm text-white placeholder-white/30 outline-none transition focus:border-fuchsia-500/30 focus:bg-white/[0.05] focus:ring-1 focus:ring-fuchsia-500/20"
           placeholder="Buscar conversación..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -127,25 +124,20 @@ export default function ChatInboxPage() {
 
       {/* Loading skeleton */}
       {loading ? (
-        <div className="space-y-3">
+        <div className="divide-y divide-white/[0.04]">
           {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="animate-pulse rounded-2xl border border-white/10 bg-white/5 p-4"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 shrink-0 rounded-full bg-white/10" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-1/3 rounded bg-white/10" />
-                  <div className="h-3 w-2/3 rounded bg-white/[0.08]" />
-                </div>
-                <div className="h-3 w-10 rounded bg-white/[0.08]" />
+            <div key={i} className="flex animate-pulse items-center gap-3 px-3 py-3">
+              <div className="h-11 w-11 shrink-0 rounded-full bg-white/10" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3.5 w-1/3 rounded bg-white/10" />
+                <div className="h-3 w-2/3 rounded bg-white/[0.06]" />
               </div>
+              <div className="h-3 w-10 rounded bg-white/[0.06]" />
             </div>
           ))}
         </div>
       ) : error ? (
-        <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-center text-sm text-red-200">
+        <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-5 text-center text-sm text-red-200">
           {error}
         </div>
       ) : !filtered.length ? (
@@ -176,8 +168,8 @@ export default function ChatInboxPage() {
           )}
         </div>
       ) : (
-        /* Conversation list */
-        <div className="space-y-2">
+        /* Conversation list – compact rows */
+        <div className="divide-y divide-white/[0.04]">
           {filtered.map((c) => {
             const isImage = c.lastMessage.body.startsWith("ATTACHMENT_IMAGE:");
             const preview = isImage ? "Imagen adjunta" : c.lastMessage.body;
@@ -187,42 +179,42 @@ export default function ChatInboxPage() {
               <Link
                 key={c.other.id}
                 href={`/chat/${c.other.id}`}
-                className={`group flex items-center gap-3 rounded-2xl border p-4 transition-all hover:-translate-y-0.5 ${
+                className={`group flex items-center gap-3 rounded-lg px-3 py-3 transition-colors ${
                   hasUnread
-                    ? "border-fuchsia-500/20 bg-fuchsia-500/[0.06] shadow-[0_0_20px_rgba(168,85,247,0.08)]"
-                    : "border-white/10 bg-white/5 hover:border-white/15 hover:bg-white/[0.08]"
+                    ? "bg-fuchsia-500/[0.07]"
+                    : "hover:bg-white/[0.04]"
                 }`}
               >
-                {/* Avatar with online dot */}
+                {/* Avatar */}
                 <div className="relative shrink-0">
-                  <Avatar src={c.other.avatarUrl} alt={c.other.username} size={48} />
+                  <Avatar src={c.other.avatarUrl} alt={c.other.username} size={44} />
                   {hasUnread && (
-                    <div className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-[#070816] bg-gradient-to-r from-fuchsia-500 to-violet-500" />
+                    <div className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-[#070816] bg-gradient-to-r from-fuchsia-500 to-violet-500" />
                   )}
                 </div>
 
-                {/* Info */}
+                {/* Name + preview */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className={`truncate text-sm ${hasUnread ? "font-semibold" : "font-medium text-white/90"}`}>
+                    <span className={`truncate text-[13px] leading-tight ${hasUnread ? "font-semibold text-white" : "font-medium text-white/85"}`}>
                       {c.other.displayName || c.other.username}
                     </span>
-                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${profileColor(c.other.profileType)}`}>
+                    <span className={`shrink-0 rounded-full border px-1.5 py-px text-[9px] font-medium leading-tight ${profileColor(c.other.profileType)}`}>
                       {profileLabel(c.other.profileType)}
                     </span>
                   </div>
-                  <p className={`mt-0.5 truncate text-xs ${hasUnread ? "text-white/70" : "text-white/40"}`}>
+                  <p className={`mt-0.5 truncate text-xs leading-tight ${hasUnread ? "text-white/60" : "text-white/35"}`}>
                     {preview}
                   </p>
                 </div>
 
                 {/* Timestamp + badge */}
-                <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <span className="text-[11px] text-white/35">
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className={`text-[11px] ${hasUnread ? "text-fuchsia-400/80" : "text-white/25"}`}>
                     {timeAgo(c.lastMessage.createdAt)}
                   </span>
                   {hasUnread && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1.5 text-[10px] font-bold leading-none text-white">
+                    <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500 px-1 text-[9px] font-bold leading-none text-white">
                       {c.unreadCount}
                     </span>
                   )}
