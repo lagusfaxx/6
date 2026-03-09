@@ -32,6 +32,7 @@ const PUBLIC_PREFIXES = [
   "/wallet/config",     // ✅ config pública de plataforma (rates)
   "/live/active",       // ✅ listado público de streams activos
   "/live",              // ✅ detalle público de stream
+  "/stats/platform",    // ✅ contadores públicos para hero del home
 ];
 
 /**
