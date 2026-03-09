@@ -274,28 +274,40 @@ const DIRTY_TRACKED_KEYS = [
   "availabilityNote",
   "baseRate",
   "minDurationMinutes",
+  "primaryCategory",
+  "acceptsIncalls",
+  "acceptsOutcalls",
 ] as const;
 
-type DirtySnapshot = Record<(typeof DIRTY_TRACKED_KEYS)[number], string>;
+const DIRTY_TRACKED_ARRAYS = ["profileTags", "serviceTags"] as const;
+
+type DirtySnapshot = Record<(typeof DIRTY_TRACKED_KEYS)[number], string | boolean> & Record<(typeof DIRTY_TRACKED_ARRAYS)[number], string>;
 
 function captureSnapshot(state: DashboardFormState): DirtySnapshot {
   const snap = {} as DirtySnapshot;
   for (const key of DIRTY_TRACKED_KEYS) {
-    snap[key] = state[key] as string;
+    snap[key] = state[key] as string | boolean;
+  }
+  for (const key of DIRTY_TRACKED_ARRAYS) {
+    snap[key] = JSON.stringify(state[key]);
   }
   return snap;
 }
 
 function computeIsDirty(state: DashboardFormState, snapshot: DirtySnapshot | null): boolean {
   if (!snapshot) return false;
-  return DIRTY_TRACKED_KEYS.some((key) => (state[key] as string) !== snapshot[key]);
+  return DIRTY_TRACKED_KEYS.some((key) => String(state[key]) !== String(snapshot[key]))
+    || DIRTY_TRACKED_ARRAYS.some((key) => JSON.stringify(state[key]) !== snapshot[key]);
 }
 
 function computeDirtyFields(state: DashboardFormState, snapshot: DirtySnapshot | null): Set<string> {
   if (!snapshot) return new Set();
   const dirty = new Set<string>();
   for (const key of DIRTY_TRACKED_KEYS) {
-    if ((state[key] as string) !== snapshot[key]) dirty.add(key);
+    if (String(state[key]) !== String(snapshot[key])) dirty.add(key);
+  }
+  for (const key of DIRTY_TRACKED_ARRAYS) {
+    if (JSON.stringify(state[key]) !== snapshot[key]) dirty.add(key);
   }
   return dirty;
 }
@@ -354,6 +366,9 @@ export function useDashboardFormReducer() {
     const fields: Partial<DashboardFormState> = {};
     for (const key of DIRTY_TRACKED_KEYS) {
       (fields as any)[key] = savedSnapshot.current[key];
+    }
+    for (const key of DIRTY_TRACKED_ARRAYS) {
+      try { (fields as any)[key] = JSON.parse(savedSnapshot.current[key]); } catch { /* skip */ }
     }
     dispatch({ type: "SET_MANY", fields });
   }, []);
