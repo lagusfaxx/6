@@ -548,6 +548,7 @@ directoryRouter.get(
         profileTags: true,
         serviceTags: true,
         availabilityNote: true,
+        avgResponseMinutes: true,
         baseRate: true,
         minDurationMinutes: true,
         acceptsIncalls: true,
@@ -643,6 +644,7 @@ directoryRouter.get(
         profileViews: u.profileViews,
         userLevel: resolveProfessionalLevel(u.completedServices),
         reviewTagsSummary: u.reviewTagsSummary,
+        avgResponseMinutes: (u as any).avgResponseMinutes ?? null,
       },
     });
   }),
@@ -879,6 +881,7 @@ directoryRouter.get(
       completedServices: true, profileViews: true, tier: true,
       gender: true, city: true, serviceCategory: true, createdAt: true,
       primaryCategory: true, profileTags: true, serviceTags: true, profileType: true,
+      avgResponseMinutes: true,
       services: { where: { isActive: true }, select: { latitude: true, longitude: true, category: true }, take: 1, orderBy: { createdAt: "desc" as const } },
     };
     const fallbackSelect = {
@@ -967,6 +970,7 @@ directoryRouter.get(
         serviceTags: hasNewColumns ? (u.serviceTags ?? []) : [],
         gender: u.gender,
         profileType: u.profileType ?? "PROFESSIONAL",
+        avgResponseMinutes: (u as any).avgResponseMinutes ?? null,
         isMadura,
         createdAt: u.createdAt.toISOString(),
       };

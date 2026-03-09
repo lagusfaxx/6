@@ -327,6 +327,7 @@ model User {
   primaryCategory     String?
   profileTags         String[]          @default([])
   serviceTags         String[]          @default([])
+  avgResponseMinutes  Int?
   availabilityNote    String?
   baseRate            Int?
   minDurationMinutes  Int?

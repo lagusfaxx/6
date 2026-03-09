@@ -1255,6 +1255,7 @@ servicesRouter.post(
             action: "REQUEST_REVIEW_TAGS",
             serviceRequestId: service.id,
             professionalId,
+            url: `/profesional/${professionalId}`,
             suggestedTags: QUICK_REVIEW_TAGS,
             professionalLevel: resolveProfessionalLevel(
               professional.completedServices,

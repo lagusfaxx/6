@@ -724,7 +724,7 @@ export default function HomePage() {
               { label: "Moteles", href: "/moteles", icon: Hotel, gradient: "from-amber-600/20 to-orange-600/20", borderColor: "border-amber-500/25" },
               { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, gradient: "from-rose-600/20 to-red-600/20", borderColor: "border-rose-500/25" },
               { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, gradient: "from-cyan-600/20 to-teal-600/20", borderColor: "border-cyan-500/25" },
-              { label: "Videos", href: "/escorts?serviceTags=videollamada", icon: Video, gradient: "from-blue-600/20 to-indigo-600/20", borderColor: "border-blue-500/25" },
+              { label: "Videollamadas", href: "/videocall", icon: Video, gradient: "from-blue-600/20 to-indigo-600/20", borderColor: "border-blue-500/25" },
               { label: "Cerca tuyo", href: "/servicios", icon: Navigation, gradient: "from-emerald-600/20 to-green-600/20", borderColor: "border-emerald-500/25" },
               { label: "Premium", href: "/premium", icon: Crown, gradient: "from-amber-600/20 to-yellow-600/20", borderColor: "border-amber-500/25" },
             ].map((cat) => (
@@ -746,7 +746,7 @@ export default function HomePage() {
               { label: "Moteles", href: "/moteles", icon: Hotel },
               { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag },
               { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper },
-              { label: "Videollamadas", href: "/escorts?serviceTags=videollamada", icon: Video },
+              { label: "Videollamadas", href: "/videocall", icon: Video },
               { label: "Cerca tuyo", href: "/servicios", icon: Navigation },
             ].map((cat) => (
               <Link
@@ -759,6 +759,23 @@ export default function HomePage() {
               </Link>
             ))}
           </div>
+        </section>
+
+        {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
+        <section className="mb-8">
+          <Link
+            href="/videocall"
+            className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-600/15 via-violet-600/10 to-fuchsia-600/15 px-5 py-4 transition-all hover:border-blue-500/35 hover:shadow-[0_8px_30px_rgba(59,130,246,0.15)]"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25">
+              <Video className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-bold text-white">Videollamadas privadas</h3>
+              <p className="mt-0.5 text-xs text-white/50">Conecta al instante con profesionales por videollamada. Seguro y discreto.</p>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-white/60" />
+          </Link>
         </section>
 
         {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAdmin } from "../lib/auth";
+import { sendDepositApprovedEmail, sendWithdrawalApprovedEmail } from "../lib/transactionEmail";
 
 export const adminTokensRouter = Router();
 
@@ -61,6 +62,15 @@ adminTokensRouter.put("/admin/deposits/:id/approve", requireAdmin, async (req, r
     }),
   ]);
 
+  // Send approval email (fire & forget)
+  const depositUser = await prisma.user.findFirst({
+    where: { wallet: { id: deposit.walletId } },
+    select: { email: true },
+  });
+  if (depositUser?.email) {
+    sendDepositApprovedEmail(depositUser.email, { tokens: deposit.amount, clpAmount: deposit.clpAmount }).catch(() => {});
+  }
+
   res.json({ ok: true });
 });
 
@@ -119,6 +129,15 @@ adminTokensRouter.put("/admin/withdrawals/:id/approve", requireAdmin, async (req
     where: { id: wr.id },
     data: { status: "APPROVED", reviewedBy: req.session.userId!, reviewedAt: new Date() },
   });
+
+  // Send approval email (fire & forget)
+  const wrUser = await prisma.user.findFirst({
+    where: { wallet: { id: wr.walletId } },
+    select: { email: true },
+  });
+  if (wrUser?.email) {
+    sendWithdrawalApprovedEmail(wrUser.email, { tokens: wr.amount, clpAmount: wr.clpAmount, bankName: wr.bankName }).catch(() => {});
+  }
 
   res.json({ ok: true });
 });

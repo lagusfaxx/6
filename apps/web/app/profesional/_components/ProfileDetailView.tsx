@@ -10,7 +10,7 @@ import SkeletonCard from "../../../components/SkeletonCard";
 import Link from "next/link";
 import {
   ImageIcon, MapPin, Star, X, Heart, Shield, Clock, Eye,
-  ChevronLeft, ChevronRight, MessageSquare, Award, Sparkles, Video,
+  ChevronLeft, ChevronRight, MessageSquare, Award, Sparkles, Video, Zap,
 } from "lucide-react";
 
 type Professional = {
@@ -50,6 +50,7 @@ type Professional = {
   profileViews?: number;
   userLevel?: string | null;
   reviewTagsSummary?: Record<string, number> | null;
+  avgResponseMinutes?: number | null;
 };
 
 type ReviewComment = {
@@ -400,10 +401,18 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           <div className="absolute inset-0 bg-gradient-to-t from-[#13061f]/90 via-[#13061f]/35 to-transparent" />
 
           <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4 md:p-6">
-            <span className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium backdrop-blur-md ${availabilityState.className}`}>
-              <span className={`h-2 w-2 rounded-full ${availabilityState.dot} ${availableNow ? "animate-pulse" : ""}`} />
-              {availabilityState.label}
-            </span>
+            <div className="flex flex-col gap-1.5">
+              <span className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium backdrop-blur-md ${availabilityState.className}`}>
+                <span className={`h-2 w-2 rounded-full ${availabilityState.dot} ${availableNow ? "animate-pulse" : ""}`} />
+                {availabilityState.label}
+              </span>
+              {professional.avgResponseMinutes != null && professional.avgResponseMinutes <= 30 && (
+                <span className="flex items-center gap-1.5 rounded-full border border-violet-300/40 bg-violet-500/20 px-3 py-1 text-xs font-medium text-violet-100 backdrop-blur-md">
+                  <Zap className="h-3 w-3 text-violet-300" />
+                  {professional.avgResponseMinutes <= 5 ? "Responde al instante" : `Responde en ${professional.avgResponseMinutes} min`}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur-md">
               <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
               <span>{professional.rating ? professional.rating.toFixed(1) : "–"}</span>
@@ -824,10 +833,10 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                 {hasVideocall && (
                   <Link
                     href={`/videocall?professional=${professional.id}`}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-sm font-medium text-violet-200 transition-colors hover:bg-violet-500/20"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-sm font-bold text-white shadow-[0_6px_20px_rgba(99,102,241,0.3)] transition-all hover:brightness-110"
                   >
                     <Video className="h-4 w-4" />
-                    Agendar Videollamada
+                    Videollamada privada
                   </Link>
                 )}
                 <button
@@ -896,7 +905,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           {hasVideocall && (
             <Link
               href={`/videocall?professional=${professional.id}`}
-              className="flex items-center justify-center gap-1.5 rounded-2xl border border-violet-500/30 bg-violet-500/10 py-2.5 text-sm font-medium text-violet-200"
+              className="flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 py-2.5 text-sm font-bold text-white shadow-[0_4px_16px_rgba(99,102,241,0.25)]"
             >
               <Video className="h-3.5 w-3.5" />
               Videollamada

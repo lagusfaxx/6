@@ -643,6 +643,25 @@ profileRouter.post(
   }),
 );
 
+// Set cover from an existing gallery media item
+profileRouter.post(
+  "/profile/cover-from-media",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { mediaId } = req.body as { mediaId?: string };
+    if (!mediaId) return res.status(400).json({ error: "MEDIA_ID_REQUIRED" });
+    const media = await prisma.profileMedia.findFirst({
+      where: { id: mediaId, ownerId: req.session.userId! },
+    });
+    if (!media) return res.status(404).json({ error: "MEDIA_NOT_FOUND" });
+    const user = await prisma.user.update({
+      where: { id: req.session.userId! },
+      data: { coverUrl: media.url },
+    });
+    return res.json({ user, coverUrl: media.url });
+  }),
+);
+
 profileRouter.get(
   "/profile/media",
   requireAuth,

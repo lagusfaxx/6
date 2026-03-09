@@ -154,9 +154,28 @@ messagesRouter.post("/messages/:userId", requireAuth, asyncHandler(async (req, r
     data: {
       userId: other,
       type: "MESSAGE_RECEIVED",
-      data: { fromId: me, messageId: message.id }
+      data: { fromId: me, messageId: message.id, url: `/chat/${me}` }
     }
   });
+
+  // Track response time — find last unanswered message from `other` to `me`
+  try {
+    const lastIncoming = await prisma.message.findFirst({
+      where: { fromId: other, toId: me },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+    if (lastIncoming) {
+      const diffMin = Math.round((Date.now() - lastIncoming.createdAt.getTime()) / 60000);
+      if (diffMin >= 0 && diffMin <= 1440) {
+        // Weighted rolling average (last 20 responses)
+        const user = await prisma.user.findUnique({ where: { id: me }, select: { avgResponseMinutes: true } });
+        const prev = user?.avgResponseMinutes ?? diffMin;
+        const newAvg = Math.round(prev * 0.9 + diffMin * 0.1);
+        await prisma.user.update({ where: { id: me }, data: { avgResponseMinutes: newAvg } });
+      }
+    }
+  } catch { /* non-critical — don't block message sending */ }
 
   // Realtime push
   sendToUser(other, "message", { message });
@@ -187,7 +206,7 @@ messagesRouter.post("/messages/:userId/attachment", requireAuth, upload.single("
     data: {
       userId: other,
       type: "MESSAGE_RECEIVED",
-      data: { fromId: me, messageId: message.id }
+      data: { fromId: me, messageId: message.id, url: `/chat/${me}` }
     }
   });
 
