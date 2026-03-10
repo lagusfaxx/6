@@ -57,7 +57,7 @@ export function connectRealtime(handler: Handler) {
         "forum:newThread", "forum:newPost",
         "videocall:booked", "videocall:started", "videocall:completed",
         "videocall:cancelled", "videocall:noshow", "videocall:user_joined", "videocall:chat",
-        "live:started", "live:ended", "live:chat",
+        "live:started", "live:ended", "live:chat", "notification:live_started",
         "live:viewer_joined", "live:viewer_left",
         "signal:offer", "signal:answer", "signal:ice",
       ] as const) {

@@ -58,8 +58,40 @@ export async function sendPushToUsers(
     where: { userId: { in: [...new Set(userIds)] } }
   });
 
+  return sendPushToSubscriptions(prisma, subscriptions, payload);
+}
+
+export async function sendPushToAllActiveSubscriptions(
+  prisma: PrismaClient,
+  payload: { title: string; body: string; data?: Record<string, any>; tag?: string },
+  options?: { excludeUserIds?: string[] }
+) {
+  if (!configureWebPush()) {
+    return { attempted: 0, results: [], error: "WEBPUSH_NOT_CONFIGURED" };
+  }
+
+  const excluded = new Set((options?.excludeUserIds || []).filter(Boolean));
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: excluded.size ? { userId: { notIn: [...excluded] } } : undefined,
+    orderBy: { createdAt: "desc" }
+  });
+
+  return sendPushToSubscriptions(prisma, subscriptions, payload);
+}
+
+async function sendPushToSubscriptions(
+  prisma: PrismaClient,
+  rawSubscriptions: Array<{ endpoint: string; p256dh: string; auth: string }>,
+  payload: { title: string; body: string; data?: Record<string, any>; tag?: string }
+) {
+  const deduped = Array.from(
+    new Map(rawSubscriptions.map((subscription) => [subscription.endpoint, subscription])).values()
+  );
+  if (!deduped.length) return { attempted: 0, results: [] };
+
   const results = await Promise.all(
-    subscriptions.map(async (subscription: any) => {
+    deduped.map(async (subscription: any) => {
       try {
         await webpush.sendNotification(
           {
@@ -94,5 +126,5 @@ export async function sendPushToUsers(
     })
   );
 
-  return { attempted: subscriptions.length, results };
+  return { attempted: deduped.length, results };
 }
