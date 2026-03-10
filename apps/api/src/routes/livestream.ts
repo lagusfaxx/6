@@ -2,7 +2,6 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../lib/auth";
 import { broadcast, sendToUser } from "../realtime/sse";
-import { sendPushToAllActiveSubscriptions } from "../notifications/push";
 
 export const livestreamRouter = Router();
 
@@ -27,50 +26,14 @@ livestreamRouter.post("/live/start", requireAuth, async (req, res) => {
     },
   });
 
-  const host = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { displayName: true, username: true, avatarUrl: true },
-  });
-
-  const hostName = host?.displayName || host?.username || "Una profesional";
-  const liveUrl = `/live/${stream.id}`;
-
   // Broadcast to all connected users that a new live started
-  const liveStartedPayload = {
+  broadcast("live:started", {
     streamId: stream.id,
     hostId: userId,
-    hostName,
-    hostAvatarUrl: host?.avatarUrl || null,
     title: stream.title,
-    notificationText: `🔴 ${hostName} está en vivo ahora`,
-    ctaUrl: liveUrl,
-    startedAt: stream.startedAt.toISOString(),
-  };
+  });
 
-  // In-app realtime event (host is filtered client-side by hostId)
-  broadcast("live:started", liveStartedPayload);
-
-  // Send web push to all active subscriptions (registered + prior granted guests on same device).
-  // Invalid tokens are auto-cleaned by push service when providers return 404/410.
-  const pushResult = await sendPushToAllActiveSubscriptions(
-    prisma as any,
-    {
-      title: "Live iniciado en UZEED",
-      body: `🔴 ${hostName} está en vivo ahora`,
-      tag: `live-started-${stream.id}`,
-      data: {
-        type: "live_started",
-        streamId: stream.id,
-        hostId: userId,
-        hostName,
-        hostAvatarUrl: host?.avatarUrl || null,
-        url: liveUrl,
-      },
-    },
-    { excludeUserIds: [userId] }
-  );
-
-  res.json({ stream, notification: { event: "live_started", push: pushResult } });
+  res.json({ stream });
 });
 
 // ── POST /live/:id/end — end the live stream ──

@@ -11,7 +11,6 @@ import LocationFilterProvider from "./LocationFilterProvider";
 import BackButton from "./BackButton";
 import { ForumNotificationProvider } from "./ForumNotifications";
 import { ChatNotificationProvider } from "./ChatNotifications";
-import LiveStartedNotifications from "./LiveStartedNotifications";
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
@@ -80,7 +79,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <TopHeader />
             <PushNotificationsManager />
             <PresenceHeartbeat />
-            <LiveStartedNotifications />
             {!isHome && <BackButton />}
             {/* Reduced pt since we removed the category chips row from mobile header */}
             <main className="flex-1 px-4 pt-[76px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[90px] md:pb-6">
