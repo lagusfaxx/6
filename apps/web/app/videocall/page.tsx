@@ -145,6 +145,41 @@ function getAvailableDates(availableSlots: AvailabilitySlot[], daysAhead = 14): 
   return dates;
 }
 
+function getAvailabilityLabel(availableSlots: AvailabilitySlot[] | null): { text: string; isNow: boolean } {
+  if (!availableSlots || availableSlots.length === 0) return { text: "Sin horario", isNow: false };
+  const now = new Date();
+  const chile = getChileDateParts(now);
+  const nowMinutes = chile.hour * 60 + chile.minute;
+
+  // Check if available right now
+  const todaySlots = availableSlots.filter((s) => s.day === chile.weekday);
+  for (const slot of todaySlots) {
+    const [fH, fM] = slot.from.split(":").map(Number);
+    const [tH, tM] = slot.to.split(":").map(Number);
+    if (nowMinutes >= fH * 60 + fM && nowMinutes < tH * 60 + tM) {
+      return { text: "Disponible ahora", isNow: true };
+    }
+  }
+
+  // Find next available slot
+  for (let i = 0; i < 7; i++) {
+    const targetDate = new Date(now);
+    targetDate.setDate(now.getDate() + i);
+    const target = getChileDateParts(targetDate);
+    const daySlots = availableSlots.filter((s) => s.day === target.weekday);
+    for (const slot of daySlots) {
+      const [fH, fM] = slot.from.split(":").map(Number);
+      const slotStart = fH * 60 + fM;
+      if (i === 0 && slotStart <= nowMinutes) continue;
+      const timeStr = slot.from;
+      if (i === 0) return { text: `Hoy a las ${timeStr}`, isNow: false };
+      if (i === 1) return { text: `Mañana a las ${timeStr}`, isNow: false };
+      return { text: `${DAY_NAMES_FULL[target.weekday]} a las ${timeStr}`, isNow: false };
+    }
+  }
+  return { text: "Sin horario próximo", isNow: false };
+}
+
 /* ── Next Booking Banner ── */
 
 function NextBookingBanner({ booking, myId, isProfessional }: { booking: Booking; myId: string; isProfessional: boolean }) {
@@ -660,7 +695,7 @@ function ClientDashboard({ me }: { me: any }) {
   const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"explore" | "bookings">(professionalId ? "explore" : "bookings");
+  const [activeTab, setActiveTab] = useState<"explore" | "bookings">("explore");
 
   useEffect(() => {
     apiFetch<{ professionals: ProfessionalCard[] }>("/videocall/professionals")
@@ -761,7 +796,7 @@ function ClientDashboard({ me }: { me: any }) {
 
   return (
     <div className="min-h-screen text-white">
-      <div className="mx-auto max-w-3xl px-4 py-6 pb-28">
+      <div className="mx-auto max-w-6xl px-4 py-6 pb-28">
         {/* Header */}
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -786,6 +821,9 @@ function ClientDashboard({ me }: { me: any }) {
 
         {/* Tabs */}
         <div className="mb-5 flex gap-1.5 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 p-1">
+          <button onClick={() => setActiveTab("explore")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition ${activeTab === "explore" ? "bg-white/10 text-white shadow-[0_2px_10px_rgba(168,85,247,0.15)]" : "text-white/40 hover:text-white/60"}`}>
+            <Search className="h-3.5 w-3.5" /> Explorar
+          </button>
           {myId && (
             <button onClick={() => setActiveTab("bookings")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition ${activeTab === "bookings" ? "bg-white/10 text-white shadow-[0_2px_10px_rgba(168,85,247,0.15)]" : "text-white/40 hover:text-white/60"}`}>
               <CalendarDays className="h-3.5 w-3.5" />
@@ -793,9 +831,6 @@ function ClientDashboard({ me }: { me: any }) {
               {activeBookings.length > 0 && <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-fuchsia-500 text-[9px] font-bold">{activeBookings.length}</span>}
             </button>
           )}
-          <button onClick={() => setActiveTab("explore")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition ${activeTab === "explore" ? "bg-white/10 text-white shadow-[0_2px_10px_rgba(168,85,247,0.15)]" : "text-white/40 hover:text-white/60"}`}>
-            <Search className="h-3.5 w-3.5" /> Explorar
-          </button>
         </div>
 
         {/* ── BOOKINGS ── */}
@@ -829,63 +864,84 @@ function ClientDashboard({ me }: { me: any }) {
             </div>
 
             {loading ? (
-              <div className="grid gap-3 sm:grid-cols-2">{[1, 2, 3, 4].map((i) => <div key={i} className="h-48 animate-pulse rounded-2xl bg-white/5" />)}</div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{[1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="h-48 animate-pulse rounded-2xl bg-white/5" />)}</div>
             ) : filtered.length === 0 ? (
               <div className="py-20 text-center">
                 <Video className="mx-auto mb-4 h-12 w-12 text-white/15" />
                 <p className="text-sm text-white/40">{searchTerm ? "Sin resultados." : "No hay profesionales disponibles."}</p>
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {filtered.map((pro) => (
-                  <motion.button
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filtered.map((pro) => {
+                  const availability = getAvailabilityLabel(pro.availableSlots);
+                  return (
+                  <motion.div
                     key={pro.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    onClick={() => {
-                      if (!myId) { router.push(`/login?next=${encodeURIComponent(`/videocall?professional=${pro.id}`)}`); return; }
-                      openBookingModal(pro);
-                    }}
                     className="group text-left overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl transition hover:border-fuchsia-500/25 hover:bg-white/[0.08] shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
                   >
-                    {/* Cover */}
-                    <div className="relative h-24 overflow-hidden bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10">
-                      {pro.coverUrl && <img src={resolveMediaUrl(pro.coverUrl) ?? undefined} alt="" className="h-full w-full object-cover opacity-50 transition group-hover:opacity-70 group-hover:scale-105" />}
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#070816] via-transparent to-transparent" />
-                      <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-violet-400/30 bg-[#070816]/80 px-2.5 py-1 backdrop-blur">
-                        <Coins className="h-3 w-3 text-violet-300" />
-                        <span className="text-xs font-bold text-violet-200">{pro.pricePerMinute}</span>
-                        <span className="text-[9px] text-white/40">/min</span>
-                      </div>
-                    </div>
-
-                    {/* Info */}
-                    <div className="relative px-4 pb-4 pt-8">
-                      {/* Avatar */}
-                      <div className="absolute -top-6 left-4">
-                        {pro.avatarUrl ? (
-                          <img src={resolveMediaUrl(pro.avatarUrl) ?? undefined} alt="" className="h-12 w-12 rounded-xl border-2 border-[#070816] object-cover shadow-lg" />
-                        ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-[#070816] bg-violet-500/20 shadow-lg"><User className="h-5 w-5 text-violet-300" /></div>
-                        )}
-                      </div>
-
-                      <h3 className="text-sm font-semibold">{pro.displayName || pro.username}</h3>
-                      <p className="text-[10px] text-white/35">@{pro.username} · {pro.minDurationMin}-{pro.maxDurationMin} min</p>
-
-                      {Array.isArray(pro.availableSlots) && pro.availableSlots.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {pro.availableSlots.slice(0, 3).map((slot, idx) => (
-                            <span key={`${slot.day}-${idx}`} className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[8px] text-white/35">
-                              {DAY_NAMES[slot.day]} {slot.from}-{slot.to}
-                            </span>
-                          ))}
-                          {pro.availableSlots.length > 3 && <span className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[8px] text-white/35">+{pro.availableSlots.length - 3}</span>}
+                    {/* Cover — clickable to book */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!myId) { router.push(`/login?next=${encodeURIComponent(`/videocall?professional=${pro.id}`)}`); return; }
+                        openBookingModal(pro);
+                      }}
+                      className="w-full text-left"
+                    >
+                      <div className="relative h-24 overflow-hidden bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10">
+                        {pro.coverUrl && <img src={resolveMediaUrl(pro.coverUrl) ?? undefined} alt="" className="h-full w-full object-cover opacity-50 transition group-hover:opacity-70 group-hover:scale-105" />}
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#070816] via-transparent to-transparent" />
+                        <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-violet-400/30 bg-[#070816]/80 px-2.5 py-1 backdrop-blur">
+                          <Coins className="h-3 w-3 text-violet-300" />
+                          <span className="text-xs font-bold text-violet-200">{pro.pricePerMinute}</span>
+                          <span className="text-[9px] text-white/40">/min</span>
                         </div>
-                      )}
+                        {/* Availability indicator */}
+                        <div className={`absolute left-3 top-3 flex items-center gap-1 rounded-full px-2 py-0.5 backdrop-blur text-[9px] font-medium ${availability.isNow ? "border border-emerald-400/40 bg-emerald-500/20 text-emerald-200" : "border border-white/10 bg-[#070816]/80 text-white/50"}`}>
+                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${availability.isNow ? "bg-emerald-400 animate-pulse" : "bg-white/30"}`} />
+                          {availability.text}
+                        </div>
+                      </div>
+
+                      {/* Info */}
+                      <div className="relative px-4 pb-3 pt-8">
+                        {/* Avatar */}
+                        <div className="absolute -top-6 left-4">
+                          {pro.avatarUrl ? (
+                            <img src={resolveMediaUrl(pro.avatarUrl) ?? undefined} alt="" className="h-12 w-12 rounded-xl border-2 border-[#070816] object-cover shadow-lg" />
+                          ) : (
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-[#070816] bg-violet-500/20 shadow-lg"><User className="h-5 w-5 text-violet-300" /></div>
+                          )}
+                        </div>
+
+                        <h3 className="text-sm font-semibold">{pro.displayName || pro.username}</h3>
+                        <p className="text-[10px] text-white/35">@{pro.username} · {pro.minDurationMin}-{pro.maxDurationMin} min</p>
+                      </div>
+                    </button>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2 px-4 pb-4">
+                      <button
+                        onClick={() => {
+                          if (!myId) { router.push(`/login?next=${encodeURIComponent(`/videocall?professional=${pro.id}`)}`); return; }
+                          openBookingModal(pro);
+                        }}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2 text-[11px] font-semibold transition hover:opacity-90"
+                      >
+                        <Video className="h-3 w-3" /> Videollamada
+                      </button>
+                      <Link
+                        href={`/profesional/${pro.id}`}
+                        className="flex items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-medium text-white/60 transition hover:bg-white/10 hover:text-white/80"
+                      >
+                        <User className="h-3 w-3" /> Perfil
+                      </Link>
                     </div>
-                  </motion.button>
-                ))}
+                  </motion.div>
+                  );
+                })}
               </div>
             )}
           </motion.div>
