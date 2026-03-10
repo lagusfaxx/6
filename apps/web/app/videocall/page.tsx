@@ -163,7 +163,8 @@ function getAvailabilityLabel(availableSlots: AvailabilitySlot[] | null): { text
 
   // Find next available slot
   for (let i = 0; i < 7; i++) {
-    const targetDate = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
+    const targetDate = new Date(now);
+    targetDate.setDate(now.getDate() + i);
     const target = getChileDateParts(targetDate);
     const daySlots = availableSlots.filter((s) => s.day === target.weekday);
     for (const slot of daySlots) {
