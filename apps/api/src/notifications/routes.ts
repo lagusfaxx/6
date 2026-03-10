@@ -7,8 +7,8 @@ import { removePushSubscription, savePushSubscription, sendPushToUsers } from ".
 export const notificationsRouter = Router();
 
 
-notificationsRouter.post("/notifications/push/subscribe", asyncHandler(async (req, res) => {
-  const userId = (req.session as any)?.userId as string | undefined;
+notificationsRouter.post("/notifications/push/subscribe", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
   const subscription = req.body?.subscription;
 
   await savePushSubscription(prisma as any, userId, subscription, req.get("user-agent"));
@@ -24,8 +24,8 @@ notificationsRouter.post("/notifications/push/subscribe", asyncHandler(async (re
   return res.json({ ok: true });
 }));
 
-notificationsRouter.post("/notifications/push/unsubscribe", asyncHandler(async (req, res) => {
-  const userId = (req.session as any)?.userId as string | undefined;
+notificationsRouter.post("/notifications/push/unsubscribe", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
   const endpoint = String(req.body?.endpoint || "").trim();
   if (!endpoint) return res.status(400).json({ error: "ENDPOINT_REQUIRED" });
 
@@ -33,9 +33,8 @@ notificationsRouter.post("/notifications/push/unsubscribe", asyncHandler(async (
   return res.json({ ok: true, removed: removed.count });
 }));
 
-notificationsRouter.post("/notifications/push/test", asyncHandler(async (req, res) => {
-  const userId = (req.session as any)?.userId as string | undefined;
-  if (!userId) return res.status(401).json({ error: "UNAUTHENTICATED" });
+notificationsRouter.post("/notifications/push/test", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
 
   const result = await sendPushToUsers(prisma as any, [userId], {
     title: "Notificación de prueba",

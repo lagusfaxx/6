@@ -267,7 +267,7 @@ model Notification {
   readAt    DateTime?
   createdAt DateTime         @default(now())
 
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model PaymentIntent {
