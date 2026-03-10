@@ -131,9 +131,10 @@ export function ForumNotificationProvider({
     [markSeen],
   );
 
-  // ── Real-time SSE for forum events (both authenticated & guest users) ──
+  // ── Real-time SSE for forum events (authenticated users only) ──
+  // Guests cannot connect to /realtime/stream (requires auth → 401).
   useEffect(() => {
-    if (meLoading) return; // wait for auth check to complete
+    if (meLoading || !myId) return; // skip SSE for guests
 
     const cleanup = connectRealtime((event) => {
       if (event.type === "forum:newThread" && event.data) {
@@ -237,7 +238,7 @@ export function ForumNotificationProvider({
           lastKnownIdsRef.current = threads.map((t) => t.id);
         })
         .catch(() => {});
-    }, 5000);
+    }, 60_000);
 
     return () => {
       alive = false;
