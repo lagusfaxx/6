@@ -161,7 +161,7 @@ export default function PushNotificationsManager() {
   }, []);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !me?.user?.id) return;
 
     let cancelled = false;
 
@@ -184,7 +184,7 @@ export default function PushNotificationsManager() {
     return () => {
       cancelled = true;
     };
-  }, [loading]);
+  }, [loading, me?.user?.id]);
 
   return (
     <>
