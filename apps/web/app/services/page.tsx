@@ -1094,7 +1094,7 @@ export default function ServicesPage() {
       <div className="mx-auto max-w-6xl px-4 py-4">
         {/* ── Stories ── */}
         <div className="mb-4">
-          <Stories showUpload />
+          <Stories />
         </div>
 
         {/* ── Map + Desktop Profile Panel ── */}
