@@ -262,6 +262,12 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     );
   }, [professional?.normalizedTags, styleChips]);
 
+  // Extra subcategories not already in serviceTags
+  const extraSubcategories = useMemo(
+    () => matchedSubcategories.filter((sub) => !(professional?.serviceTags ?? []).some((t) => t.toLowerCase() === sub.toLowerCase())),
+    [matchedSubcategories, professional?.serviceTags],
+  );
+
   const availabilityChips = useMemo(() => {
     if (!professional) return [] as string[];
     const chips: string[] = [];
@@ -460,7 +466,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                 {/* Profile tags — inline in hero */}
                 {(professional?.profileTags?.length ?? 0) > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    {professional!.profileTags!.map((tag) => (
+                    {(professional?.profileTags ?? []).map((tag) => (
                       <span
                         key={tag}
                         className="inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100 capitalize backdrop-blur-md"
@@ -586,8 +592,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                   {tag}
                 </span>
               ))}
-              {matchedSubcategories
-                .filter((sub) => !(professional?.serviceTags ?? []).some((t) => t.toLowerCase() === sub.toLowerCase()))
+              {extraSubcategories
                 .slice(0, Math.max(0, 6 - (professional?.serviceTags?.length ?? 0)))
                 .map((sub) => (
                   <span
@@ -597,9 +602,9 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                     {sub}
                   </span>
                 ))}
-              {((professional?.serviceTags?.length ?? 0) + matchedSubcategories.filter((sub) => !(professional?.serviceTags ?? []).some((t) => t.toLowerCase() === sub.toLowerCase())).length) > 6 && (
+              {((professional?.serviceTags?.length ?? 0) + extraSubcategories.length) > 6 && (
                 <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/40">
-                  +{((professional?.serviceTags?.length ?? 0) + matchedSubcategories.filter((sub) => !(professional?.serviceTags ?? []).some((t) => t.toLowerCase() === sub.toLowerCase())).length) - 6} más
+                  +{((professional?.serviceTags?.length ?? 0) + extraSubcategories.length) - 6} más
                 </span>
               )}
             </div>
@@ -627,7 +632,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                     {tag}
                   </span>
                 ))}
-                {matchedSubcategories.filter((sub) => !(professional?.serviceTags ?? []).some((t) => t.toLowerCase() === sub.toLowerCase())).map((sub) => (
+                {extraSubcategories.map((sub) => (
                   <span
                     key={sub}
                     className="inline-flex rounded-full border border-violet-300/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-100"
