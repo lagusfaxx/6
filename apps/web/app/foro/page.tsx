@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "../../lib/api";
+import useMe from "../../hooks/useMe";
 import { MessageSquare, Clock, ChevronRight, Layers } from "lucide-react";
 
 type ForumCategory = {
@@ -29,6 +30,8 @@ function timeAgo(iso: string): string {
 export default function ForumPage() {
   const [categories, setCategories] = useState<ForumCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const { me } = useMe();
+  const isAuthed = Boolean(me?.user?.id);
 
   useEffect(() => {
     apiFetch<{ categories: ForumCategory[] }>("/forum/categories")
@@ -37,8 +40,9 @@ export default function ForumPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Listen for new threads via SSE to update category stats
+  // Listen for new threads via SSE to update category stats (authenticated only)
   useEffect(() => {
+    if (!isAuthed) return;
     const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
     if (!apiBase) return;
     let es: EventSource | null = null;
@@ -65,7 +69,7 @@ export default function ForumPage() {
       });
     } catch {}
     return () => { es?.close(); };
-  }, []);
+  }, [isAuthed]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">

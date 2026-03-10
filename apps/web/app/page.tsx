@@ -546,6 +546,7 @@ export default function HomePage() {
   }, [location]);
 
   useEffect(() => {
+    const controller = new AbortController();
     const loadSections = async () => {
       const sections = [
         { key: "available", query: { sort: "availableNow", limit: "6" } },
@@ -565,22 +566,31 @@ export default function HomePage() {
           }
           const res = await apiFetch<{ profiles: DiscoverProfile[] }>(
             `/profiles/discover?${qp.toString()}`,
+            { signal: controller.signal },
           ).catch((err) => {
+            // On any error, preserve existing data (return null to skip update)
+            if (err?.name === "AbortError") return null;
             if (isRateLimitError(err)) return null;
-            return { profiles: [] };
+            return null;
           });
           if (res) next[section.key] = res.profiles || [];
         }),
       );
-      setDiscoverSections((prev) => ({ ...prev, ...next }));
+      if (!controller.signal.aborted) {
+        setDiscoverSections((prev) => ({ ...prev, ...next }));
+      }
     };
-    loadSections().catch(() =>
-      setError("No se pudieron cargar las secciones destacadas."),
-    );
+    loadSections().catch(() => {
+      if (!controller.signal.aborted) {
+        setError("No se pudieron cargar las secciones destacadas.");
+      }
+    });
+    return () => { controller.abort(); };
   }, [location]);
 
   // ── Fetch moteles & sexshops ──
   useEffect(() => {
+    const controller = new AbortController();
     const fetchDirectory = async (entityType: string, categorySlug: string) => {
       const params = new URLSearchParams({ entityType, categorySlug, sort: "near", limit: "8" });
       if (location) {
@@ -588,7 +598,10 @@ export default function HomePage() {
         params.set("lng", String(location[1]));
         params.set("radiusKm", "100");
       }
-      const res = await apiFetch<{ results: any[]; total: number }>(`/directory/search?${params.toString()}`);
+      const res = await apiFetch<{ results: any[]; total: number }>(
+        `/directory/search?${params.toString()}`,
+        { signal: controller.signal },
+      );
       return res?.results ?? [];
     };
 
@@ -596,7 +609,11 @@ export default function HomePage() {
     fetchDirectory("shop", "sexshop").then(setSexshops).catch(() => {});
 
     // Fetch active live streams
-    apiFetch<{ streams: any[] }>("/live/active").then((r) => setLiveStreams(r?.streams ?? [])).catch(() => {});
+    apiFetch<{ streams: any[] }>("/live/active", { signal: controller.signal })
+      .then((r) => setLiveStreams(r?.streams ?? []))
+      .catch(() => {});
+
+    return () => { controller.abort(); };
   }, [location]);
 
   const horizontalBanners = useMemo(
