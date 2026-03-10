@@ -262,6 +262,12 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
     );
   }, [professional?.normalizedTags, styleChips]);
 
+  // Extra subcategories not already in serviceTags
+  const extraSubcategories = useMemo(
+    () => matchedSubcategories.filter((sub) => !(professional?.serviceTags ?? []).some((t) => t.toLowerCase() === sub.toLowerCase())),
+    [matchedSubcategories, professional?.serviceTags],
+  );
+
   const availabilityChips = useMemo(() => {
     if (!professional) return [] as string[];
     const chips: string[] = [];
@@ -405,7 +411,15 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
           <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4 md:p-6">
             <div className="flex flex-col gap-1.5">
               <span className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium backdrop-blur-md ${availabilityState.className}`}>
-                <span className={`h-2 w-2 rounded-full ${availabilityState.dot} ${availableNow ? "animate-pulse" : ""}`} />
+                <span className="relative flex h-2 w-2">
+                  {availableNow && (
+                    <span
+                      className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-40"
+                      style={{ animationDuration: "2.5s" }}
+                    />
+                  )}
+                  <span className={`relative h-2 w-2 rounded-full ${availabilityState.dot} ${availableNow ? "shadow-[0_0_6px_2px_rgba(52,211,153,0.5)]" : ""}`} />
+                </span>
                 {availabilityState.label}
               </span>
               {professional.avgResponseMinutes != null && professional.avgResponseMinutes <= 30 && (
@@ -415,11 +429,16 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur-md">
+            <div className="flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur-md">
               <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
-              <span>{professional.rating ? professional.rating.toFixed(1) : "–"}</span>
-              {(professional.reviewCount ?? 0) > 0 && (
-                <span className="text-white/50">({professional.reviewCount})</span>
+              <span>{(surveySummary?.avgOverall ?? professional.rating)?.toFixed(1) ?? "–"}</span>
+              {(surveySummary?.count ?? professional.reviewCount ?? 0) > 0 && (
+                <>
+                  <span className="text-white/40">•</span>
+                  <span className="text-white/50">
+                    {surveySummary?.count ?? professional.reviewCount} reseña{(surveySummary?.count ?? professional.reviewCount ?? 0) !== 1 ? "s" : ""}
+                  </span>
+                </>
               )}
             </div>
           </div>
@@ -443,6 +462,20 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                     </>
                   )}
                 </div>
+
+                {/* Profile tags — inline in hero */}
+                {(professional?.profileTags?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {(professional?.profileTags ?? []).map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100 capitalize backdrop-blur-md"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Stats row */}
@@ -534,7 +567,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                       type="button"
                       key={`${url}-${idx}`}
                       onClick={() => setGalleryIndex(idx)}
-                      className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border transition-all duration-200 md:h-24 md:w-24 ${
+                      className={`relative w-20 shrink-0 overflow-hidden rounded-xl border transition-all duration-200 aspect-[3/4] md:w-24 ${
                         idx === galleryIndex
                           ? "border-fuchsia-300 shadow-[0_0_0_1px_rgba(232,121,249,0.5)] scale-[1.03]"
                           : "border-white/10 opacity-80 hover:opacity-100 hover:scale-105 hover:brightness-110"
@@ -548,6 +581,35 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
             )}
           </section>
 
+          {/* Service tags preview — compact highlight below gallery */}
+          {((professional?.serviceTags?.length ?? 0) > 0 || matchedSubcategories.length > 0) && (
+            <div className="flex min-w-0 flex-wrap gap-1.5 px-1">
+              {(professional?.serviceTags ?? []).slice(0, 6).map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex rounded-full border border-violet-300/20 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-100 capitalize"
+                >
+                  {tag}
+                </span>
+              ))}
+              {extraSubcategories
+                .slice(0, Math.max(0, 6 - (professional?.serviceTags?.length ?? 0)))
+                .map((sub) => (
+                  <span
+                    key={sub}
+                    className="inline-flex rounded-full border border-violet-300/20 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-100"
+                  >
+                    {sub}
+                  </span>
+                ))}
+              {((professional?.serviceTags?.length ?? 0) + extraSubcategories.length) > 6 && (
+                <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/40">
+                  +{((professional?.serviceTags?.length ?? 0) + extraSubcategories.length) - 6} más
+                </span>
+              )}
+            </div>
+          )}
+
           {/* About */}
           {cleanProfileText(professional.description) && (
             <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
@@ -555,28 +617,6 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
               <p className="whitespace-pre-line text-sm leading-relaxed text-white/75">{cleanProfileText(professional.description)}</p>
             </section>
           )}
-
-          {/* Profile tags — How they define themselves */}
-          {(professional?.profileTags?.length ?? 0) > 0 && (
-            <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white/95">
-                <Sparkles className="h-4 w-4 text-fuchsia-400" />
-                Cómo define su perfil
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {professional!.profileTags!.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-500/10 px-3 py-1.5 text-xs font-medium text-fuchsia-100 capitalize"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Service tags — Services offered */}
           {((professional?.serviceTags?.length ?? 0) > 0 || matchedSubcategories.length > 0) && (
             <section className="min-w-0 rounded-2xl bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
               <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white/95">
@@ -592,7 +632,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
                     {tag}
                   </span>
                 ))}
-                {matchedSubcategories.filter((sub) => !(professional?.serviceTags ?? []).some((t) => t.toLowerCase() === sub.toLowerCase())).map((sub) => (
+                {extraSubcategories.map((sub) => (
                   <span
                     key={sub}
                     className="inline-flex rounded-full border border-violet-300/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-100"
