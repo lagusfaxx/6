@@ -450,7 +450,9 @@ async function updateProfile(req: any, res: any) {
     primaryCategory,
     profileTags,
     serviceTags,
-  } = req.body as Record<string, string | boolean | string[] | null>;
+    coverPositionX,
+    coverPositionY,
+  } = req.body as Record<string, string | boolean | string[] | number | null>;
   const allowedGenders = new Set(["MALE", "FEMALE", "OTHER"]);
   const allowedPrefs = new Set(["MALE", "FEMALE", "ALL", "OTHER"]);
   const safeGender = gender && allowedGenders.has(gender) ? gender : undefined;
@@ -487,6 +489,13 @@ async function updateProfile(req: any, res: any) {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return undefined;
     return Math.max(0, Math.min(max, Math.round(parsed)));
+  };
+  const clampCoverPosition = (value: unknown) => {
+    if (value === undefined) return undefined;
+    if (value === null || value === "") return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return undefined;
+    return Math.max(0, Math.min(100, parsed));
   };
   const parseNullableBool = (value?: string | null) => {
     if (value === undefined) return undefined;
@@ -570,6 +579,8 @@ async function updateProfile(req: any, res: any) {
     longitude: longitude ? Number(longitude) : undefined,
     birthdate: safeBirthdate,
     isActive: safeIsActive,
+    coverPositionX: clampCoverPosition(coverPositionX),
+    coverPositionY: clampCoverPosition(coverPositionY),
   };
 
   let user: any;
@@ -587,6 +598,8 @@ async function updateProfile(req: any, res: any) {
       delete baseData.primaryCategory;
       delete baseData.profileTags;
       delete baseData.serviceTags;
+      delete baseData.coverPositionX;
+      delete baseData.coverPositionY;
       user = await prisma.user.update({
         where: { id: req.session.userId! },
         data: baseData,
@@ -635,11 +648,18 @@ profileRouter.post(
     if (!req.file) return res.status(400).json({ error: "NO_FILE" });
     await validateUploadedFile(req.file, "image");
     const url = storageProvider.publicUrl(req.file.filename);
+    const parseCoverPos = (raw: unknown) => {
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed)) return 50;
+      return Math.max(0, Math.min(100, parsed));
+    };
+    const coverPositionX = parseCoverPos(req.body?.coverPositionX);
+    const coverPositionY = parseCoverPos(req.body?.coverPositionY);
     const user = await prisma.user.update({
       where: { id: req.session.userId! },
-      data: { coverUrl: url },
+      data: { coverUrl: url, coverPositionX, coverPositionY },
     });
-    return res.json({ user });
+    return res.json({ user, coverUrl: url, coverPositionX: user.coverPositionX, coverPositionY: user.coverPositionY });
   }),
 );
 
@@ -656,9 +676,9 @@ profileRouter.post(
     if (!media) return res.status(404).json({ error: "MEDIA_NOT_FOUND" });
     const user = await prisma.user.update({
       where: { id: req.session.userId! },
-      data: { coverUrl: media.url },
+      data: { coverUrl: media.url, coverPositionX: 50, coverPositionY: 50 },
     });
-    return res.json({ user, coverUrl: media.url });
+    return res.json({ user, coverUrl: media.url, coverPositionX: user.coverPositionX, coverPositionY: user.coverPositionY });
   }),
 );
 

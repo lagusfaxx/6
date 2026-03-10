@@ -18,6 +18,8 @@ type Professional = {
   name: string;
   avatarUrl: string | null;
   coverUrl?: string | null;
+  coverPositionX?: number | null;
+  coverPositionY?: number | null;
   category: string | null;
   isActive: boolean;
   rating: number | null;
@@ -392,7 +394,7 @@ export default function ProfileDetailView({ id, username }: { id?: string; usern
       <section className="relative w-full overflow-hidden">
         <div className="relative aspect-[8/5] w-full overflow-hidden md:aspect-[16/5]">
           {coverSrc ? (
-            <img src={coverSrc} alt="Portada" className="absolute inset-0 h-full w-full object-cover object-center" />
+            <img src={coverSrc} alt="Portada" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `${professional.coverPositionX ?? 50}% ${professional.coverPositionY ?? 50}%` }} />
           ) : (
             <div className="grid h-full w-full place-items-center bg-gradient-to-br from-fuchsia-700/35 via-violet-700/30 to-slate-900">
               <ImageIcon className="h-10 w-10 text-white/50" />

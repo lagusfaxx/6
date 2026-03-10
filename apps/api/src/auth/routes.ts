@@ -374,7 +374,7 @@ authRouter.get(
       membershipExpiresAt: true, shopTrialEndsAt: true, createdAt: true,
       username: true, profileType: true, gender: true,
       preferenceGender: true, avatarUrl: true, address: true,
-      phone: true, bio: true, coverUrl: true, subscriptionPrice: true,
+      phone: true, bio: true, coverUrl: true, coverPositionX: true, coverPositionY: true, subscriptionPrice: true,
       serviceCategory: true, serviceDescription: true, heightCm: true,
       weightKg: true, measurements: true, hairColor: true,
       skinTone: true, languages: true, serviceStyleTags: true,

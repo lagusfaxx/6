@@ -86,6 +86,8 @@ export type DashboardFormState = {
   profileLocationVerified: boolean;
   avatarPreview: string | null;
   coverPreview: string | null;
+  coverPositionX: number;
+  coverPositionY: number;
   avatarUploading: boolean;
   coverUploading: boolean;
 
@@ -167,6 +169,8 @@ export const INITIAL_STATE: DashboardFormState = {
   profileLocationVerified: false,
   avatarPreview: null,
   coverPreview: null,
+  coverPositionX: 50,
+  coverPositionY: 50,
   avatarUploading: false,
   coverUploading: false,
   title: "",

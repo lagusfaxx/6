@@ -250,6 +250,8 @@ export default function DashboardServicesClient() {
           acceptsIncalls: Boolean(meRes?.user?.acceptsIncalls),
           acceptsOutcalls: Boolean(meRes?.user?.acceptsOutcalls),
           profileLocationVerified: Boolean(loadedLatitude && loadedLongitude),
+          coverPositionX: typeof meRes?.user?.coverPositionX === "number" ? meRes.user.coverPositionX : 50,
+          coverPositionY: typeof meRes?.user?.coverPositionY === "number" ? meRes.user.coverPositionY : 50,
           items:
             profileType !== "SHOP" ? (serviceRes?.items ?? []) : state.items,
           products:
@@ -501,6 +503,8 @@ export default function DashboardServicesClient() {
         longitude: state.profileLongitude
           ? Number(state.profileLongitude)
           : null,
+        coverPositionX: state.coverPositionX,
+        coverPositionY: state.coverPositionY,
       };
       if (state.birthdate) payload.birthdate = state.birthdate;
       await apiFetch("/profile", {
@@ -641,11 +645,21 @@ export default function DashboardServicesClient() {
 
   /* ─── Upload profile image ─── */
   const uploadProfileImage = useCallback(
-    async (type: "avatar" | "cover", event: ChangeEvent<HTMLInputElement>) => {
+    async (
+      type: "avatar" | "cover",
+      event: ChangeEvent<HTMLInputElement>,
+      coverPosition?: { x: number; y: number },
+    ) => {
       const file = event.target.files?.[0];
       if (!file || !user) return;
       const formData = new FormData();
       formData.append("file", file);
+      if (type === "cover") {
+        const nextX = coverPosition?.x ?? state.coverPositionX;
+        const nextY = coverPosition?.y ?? state.coverPositionY;
+        formData.append("coverPositionX", String(nextX));
+        formData.append("coverPositionY", String(nextY));
+      }
       if (type === "avatar") setField("avatarUploading", true);
       if (type === "cover") setField("coverUploading", true);
       try {
@@ -661,7 +675,11 @@ export default function DashboardServicesClient() {
         const data = await res.json();
         if (type === "avatar")
           setField("avatarPreview", data?.avatarUrl ?? null);
-        if (type === "cover") setField("coverPreview", data?.coverUrl ?? null);
+        if (type === "cover") {
+          setField("coverPreview", data?.coverUrl ?? null);
+          setField("coverPositionX", typeof data?.coverPositionX === "number" ? data.coverPositionX : 50);
+          setField("coverPositionY", typeof data?.coverPositionY === "number" ? data.coverPositionY : 50);
+        }
         showToast("Imagen actualizada.");
         await loadPanel(user.id);
       } catch {
@@ -671,7 +689,7 @@ export default function DashboardServicesClient() {
         if (type === "cover") setField("coverUploading", false);
       }
     },
-    [user, setField, showToast, loadPanel],
+    [user, state.coverPositionX, state.coverPositionY, setField, showToast, loadPanel],
   );
 
   /* ─── Upload gallery ─── */
