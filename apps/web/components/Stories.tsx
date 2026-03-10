@@ -250,14 +250,14 @@ function StoryViewer({
 }
 
 /* ─── Stories row ───────────────────────────────────────── */
-export default function Stories({ showUpload = false }: { showUpload?: boolean }) {
+export default function Stories() {
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
   const router = useRouter();
   const { me } = useMe();
 
   const isProfessional = (me?.user?.profileType ?? "").toUpperCase() === "PROFESSIONAL";
-  const canUpload = showUpload || isProfessional;
+  const canUpload = isProfessional;
 
   const [groups, setGroups] = useState<StoryGroup[]>([]);
   const [liveStreams, setLiveStreams] = useState<LiveStreamItem[]>([]);
