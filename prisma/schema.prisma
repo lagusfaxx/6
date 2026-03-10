@@ -313,6 +313,8 @@ model User {
   lastSeen            DateTime?
   avatarUrl           String?
   coverUrl            String?
+  coverPositionX      Float?
+  coverPositionY      Float?
   bio                 String?
   birthdate           DateTime?
   serviceCategory     String?

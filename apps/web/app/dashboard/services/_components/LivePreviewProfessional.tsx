@@ -38,6 +38,7 @@ function LivePreviewProfessional({ state, user }: Props) {
               src={coverUrl}
               alt="Portada"
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+              style={{ objectPosition: `${state.coverPositionX}% ${state.coverPositionY}%` }}
             />
           ) : (
             <div className="h-full w-full bg-gradient-to-r from-violet-600/20 via-fuchsia-600/10 to-transparent" />
