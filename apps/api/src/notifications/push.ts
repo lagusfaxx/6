@@ -21,7 +21,7 @@ function configureWebPush() {
 
 export async function savePushSubscription(
   prisma: PrismaClient,
-  userId: string,
+  userId: string | undefined,
   rawSubscription: any,
   userAgent?: string
 ) {
@@ -33,15 +33,19 @@ export async function savePushSubscription(
     throw new Error("INVALID_PUSH_SUBSCRIPTION");
   }
 
+  const updateData = userId
+    ? { userId, p256dh, auth, userAgent }
+    : { p256dh, auth, userAgent };
+
   return prisma.pushSubscription.upsert({
     where: { endpoint },
-    create: { userId, endpoint, p256dh, auth, userAgent },
-    update: { userId, p256dh, auth, userAgent }
+    create: { userId: (userId ?? null) as any, endpoint, p256dh, auth, userAgent },
+    update: updateData
   });
 }
 
-export async function removePushSubscription(prisma: PrismaClient, userId: string, endpoint: string) {
-  return prisma.pushSubscription.deleteMany({ where: { userId, endpoint } });
+export async function removePushSubscription(prisma: PrismaClient, userId: string | undefined, endpoint: string) {
+  return prisma.pushSubscription.deleteMany({ where: userId ? { userId, endpoint } : { endpoint } });
 }
 
 export async function sendPushToUsers(
