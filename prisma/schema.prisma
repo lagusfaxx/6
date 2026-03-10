@@ -272,7 +272,7 @@ model LiveStream {
 model LiveChatMessage {
   id         String   @id @default(uuid()) @db.Uuid
   streamId   String   @db.Uuid
-  userId     String   @db.Uuid
+  userId     String?  @db.Uuid
   message    String
   createdAt  DateTime @default(now())
 
@@ -388,7 +388,7 @@ model User {
 
 model PushSubscription {
   id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @db.Uuid
+  userId     String?  @db.Uuid
   endpoint   String   @unique
   p256dh     String
   auth       String
@@ -396,7 +396,7 @@ model PushSubscription {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
 }
@@ -529,7 +529,7 @@ model Notification {
   readAt    DateTime?
   createdAt DateTime         @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
 model PaymentIntent {
@@ -772,7 +772,7 @@ model Story {
   expiresAt DateTime
   createdAt DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([expiresAt])
