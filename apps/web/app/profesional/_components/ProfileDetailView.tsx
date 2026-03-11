@@ -134,6 +134,25 @@ function splitCsv(value?: string | null) {
     .filter(Boolean);
 }
 
+function normalizeTag(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+const PROFILE_PROS = {
+  exams: [
+    "Profesional con Exámenes",
+    "Profesional con Examenes",
+    "Con Exámenes",
+    "Con Examenes",
+  ],
+  verified: ["Verificada", "Verificado"],
+  premium: ["Premium"],
+} as const;
+
 /** Strip emoji and AI-generated filler text from bio/descriptions */
 function cleanProfileText(text: string | null | undefined): string | null {
   if (!text) return null;
@@ -345,19 +364,68 @@ export default function ProfileDetailView({
     [professional?.serviceStyleTags],
   );
 
+  const profilePros = useMemo(() => {
+    const tags = professional?.profileTags ?? [];
+    const normalized = new Set(tags.map((tag) => normalizeTag(tag)));
+    return [
+      {
+        key: "exams",
+        label: "Profesional con Exámenes",
+        icon: Sparkles,
+        className:
+          "border-emerald-300/40 bg-emerald-500/15 text-emerald-100",
+        iconClassName: "text-emerald-300",
+        aliases: PROFILE_PROS.exams,
+      },
+      {
+        key: "verified",
+        label: "Verificada",
+        icon: Shield,
+        className:
+          "border-cyan-300/40 bg-cyan-500/15 text-cyan-100",
+        iconClassName: "text-cyan-300",
+        aliases: PROFILE_PROS.verified,
+      },
+      {
+        key: "premium",
+        label: "Premium",
+        icon: Gem,
+        className:
+          "border-amber-300/45 bg-amber-500/15 text-amber-100 shadow-[0_0_10px_rgba(251,191,36,0.18)]",
+        iconClassName: "text-amber-300",
+        aliases: PROFILE_PROS.premium,
+      },
+    ].filter((item) =>
+      item.aliases.some((alias) => normalized.has(normalizeTag(alias))),
+    );
+  }, [professional?.profileTags]);
+
+  const descriptiveStyleChips = useMemo(
+    () =>
+      styleChips.filter((chip) => {
+        const value = normalizeTag(chip);
+        return ![
+          ...PROFILE_PROS.exams,
+          ...PROFILE_PROS.verified,
+          ...PROFILE_PROS.premium,
+        ].some((pro) => normalizeTag(pro) === value);
+      }),
+    [styleChips],
+  );
+
   // Match service subcategories from tags
   const matchedSubcategories = useMemo(() => {
     const tags = (professional?.normalizedTags || []).map((t) =>
       t.toLowerCase(),
     );
-    const fromStyle = styleChips.map((c) => c.toLowerCase());
+    const fromStyle = descriptiveStyleChips.map((c) => c.toLowerCase());
     const all = [...tags, ...fromStyle];
     return SERVICE_SUBCATEGORIES.filter((sub) =>
       all.some(
         (t) => t.includes(sub.toLowerCase()) || sub.toLowerCase().includes(t),
       ),
     );
-  }, [professional?.normalizedTags, styleChips]);
+  }, [professional?.normalizedTags, descriptiveStyleChips]);
 
   // Extra subcategories not already in serviceTags
   const extraSubcategories = useMemo(
@@ -418,7 +486,7 @@ export default function ProfileDetailView({
 
   const hasDetailsSection = infoItems.length > 0;
   const hasStyleSection =
-    styleChips.length > 0 || matchedSubcategories.length > 0;
+    descriptiveStyleChips.length > 0 || matchedSubcategories.length > 0;
   const hasRatesSection = typeof professional?.baseRate === "number";
 
   // Review tags as sorted array
@@ -632,14 +700,15 @@ export default function ProfileDetailView({
                 </div>
 
                 {/* Profile tags — inline in hero */}
-                {(professional?.profileTags?.length ?? 0) > 0 && (
+                {profilePros.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    {(professional?.profileTags ?? []).map((tag) => (
+                    {profilePros.map((pro) => (
                       <span
-                        key={tag}
-                        className="inline-flex rounded-2xl border border-fuchsia-300/40 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100 capitalize backdrop-blur-md"
+                        key={pro.key}
+                        className={`inline-flex items-center gap-1.5 rounded-2xl border px-2.5 py-1 text-[11px] font-semibold backdrop-blur-md ${pro.className}`}
                       >
-                        {tag}
+                        <pro.icon className={`h-3.5 w-3.5 ${pro.iconClassName}`} />
+                        {pro.label}
                       </span>
                     ))}
                   </div>
@@ -871,7 +940,7 @@ export default function ProfileDetailView({
                 Etiquetas
               </h2>
               <div className="flex flex-wrap gap-2">
-                {styleChips.map((chip) => (
+                {descriptiveStyleChips.map((chip) => (
                   <span
                     key={chip}
                     className="inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100"
