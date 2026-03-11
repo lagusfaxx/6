@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, MessageCircle, Eye, Sparkles, Flame, Video } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
+import { filterUserTags } from "../lib/constants";
 import UserLevelBadge from "./UserLevelBadge";
 import MapboxMap from "./MapboxMap";
 import type { MapMarker } from "./MapboxMap";
@@ -161,9 +162,9 @@ function ProfileCard({ p, entityType, categorySlug }: { p: DirectoryResult; enti
 
       {/* Tags row + CTA */}
       <div className="p-2 space-y-2">
-        {p.profileTags.length > 0 && (
+        {filterUserTags(p.profileTags).length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {p.profileTags.slice(0, 3).map((t) => (
+            {filterUserTags(p.profileTags).slice(0, 3).map((t) => (
               <span key={t} className="rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 px-2 py-0.5 text-[10px] text-fuchsia-300 capitalize">
                 {t}
               </span>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ApiHttpError, apiFetch, resolveMediaUrl } from "../../../lib/api";
+import { filterUserTags } from "../../../lib/constants";
 import {
   buildChatHref,
   buildCurrentPathWithSearch,
@@ -634,7 +635,7 @@ export default function ProfileDetailView({
                 {/* Profile tags — inline in hero */}
                 {(professional?.profileTags?.length ?? 0) > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    {(professional?.profileTags ?? []).map((tag) => (
+                    {filterUserTags(professional?.profileTags ?? []).map((tag) => (
                       <span
                         key={tag}
                         className="inline-flex rounded-2xl border border-fuchsia-300/40 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100 capitalize backdrop-blur-md"

@@ -4,6 +4,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "r
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
+import { filterUserTags } from "../lib/constants";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
@@ -1045,7 +1046,7 @@ export default function HomePage() {
                           </div>
                           {(p.serviceCategory || (p.profileTags && p.profileTags.length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {p.profileTags?.map((tag) => (
+                              {filterUserTags(p.profileTags ?? []).map((tag) => (
                                 <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
                               ))}
                               {p.serviceCategory && (
@@ -1120,7 +1121,7 @@ export default function HomePage() {
                         <div className="mt-0.5 text-[10px] text-white/50">{formatLastSeenLabel(p.lastSeen)}</div>
                         {(p.serviceCategory || (p.profileTags && p.profileTags.length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {p.profileTags?.map((tag) => (
+                            {filterUserTags(p.profileTags ?? []).map((tag) => (
                               <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
                             ))}
                             {p.serviceCategory && (
@@ -1188,7 +1189,7 @@ export default function HomePage() {
                         <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
                         {((profile as any).profileTags?.length > 0 || (profile as any).serviceTags?.length > 0 || profile.serviceCategory) && (
                           <div className="flex flex-wrap gap-0.5 mt-0.5">
-                            {(profile as any).profileTags?.slice(0, 2).map((tag: string) => (
+                            {filterUserTags((profile as any).profileTags ?? []).slice(0, 2).map((tag: string) => (
                               <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
                             ))}
                             {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
@@ -1242,7 +1243,7 @@ export default function HomePage() {
                         <div className="mt-0.5 text-[10px] text-white/45">{formatLastSeenLabel(profile.lastActiveAt || profile.lastSeen)}</div>
                         {((profile as any).profileTags?.length > 0 || (profile as any).serviceTags?.length > 0) && (
                           <div className="flex flex-wrap gap-0.5 mt-0.5">
-                            {(profile as any).profileTags?.slice(0, 2).map((tag: string) => (
+                            {filterUserTags((profile as any).profileTags ?? []).slice(0, 2).map((tag: string) => (
                               <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
                             ))}
                             {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (

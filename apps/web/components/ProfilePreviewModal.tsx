@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
+import { filterUserTags } from "../lib/constants";
 import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcase, Loader2, Sparkles, Hotel, ShoppingBag, CalendarCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import UserLevelBadge from "./UserLevelBadge";
@@ -144,9 +145,9 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
       ? "shadow-[0_0_30px_rgba(251,191,36,0.15)]"
       : "";
 
-  const displayTags = fullProfile?.profileTags?.length
+  const displayTags = filterUserTags(fullProfile?.profileTags?.length
     ? fullProfile.profileTags
-    : (fullProfile?.normalizedTags?.length ? fullProfile.normalizedTags : (profile.profileTags || []));
+    : (fullProfile?.normalizedTags?.length ? fullProfile.normalizedTags : (profile.profileTags || [])));
 
   const displayServiceTags = fullProfile?.serviceTags?.length
     ? fullProfile.serviceTags

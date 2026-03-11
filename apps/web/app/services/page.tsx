@@ -3,6 +3,7 @@
 import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
+import { filterUserTags } from "../../lib/constants";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
 import useMe from "../../hooks/useMe";
 import MapboxMap from "../../components/MapboxMap";
@@ -605,7 +606,7 @@ function ProfileDetailPanel({
           <div className="mt-4 px-4">
             <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Etiquetas</h4>
             <div className="flex flex-wrap gap-1.5">
-              {profile.profileTags.map((tag) => (
+              {filterUserTags(profile.profileTags).map((tag) => (
                 <span key={tag} className="rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] text-fuchsia-300/80">
                   {tag}
                 </span>
