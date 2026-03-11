@@ -4,20 +4,20 @@ import Link from "next/link";
 
 const footerLinks = {
   "Explorar": [
-    { label: "Escort", href: "/servicios?category=escort" },
-    { label: "Masajes", href: "/servicios?category=masajes" },
-    { label: "Trans", href: "/servicios?category=trans" },
+    { label: "Escorts Premium", href: "/servicios?category=escort" },
+    { label: "Masajistas Eróticas", href: "/servicios?category=masajes" },
+    { label: "Escorts Trans Chile", href: "/servicios?category=trans" },
     { label: "Moteles", href: "/servicios?type=space" },
-    { label: "Sex Shop", href: "/sexshops" },
+    { label: "Sex Shop Online", href: "/sexshops" },
     { label: "Videollamadas", href: "/servicios?category=videollamadas" },
   ],
   "Ciudades": [
-    { label: "Santiago", href: "/servicios?city=santiago" },
-    { label: "Viña del Mar", href: "/servicios?city=vina-del-mar" },
-    { label: "Valparaíso", href: "/servicios?city=valparaiso" },
-    { label: "Concepción", href: "/servicios?city=concepcion" },
-    { label: "Antofagasta", href: "/servicios?city=antofagasta" },
-    { label: "Temuco", href: "/servicios?city=temuco" },
+    { label: "Escorts en Santiago", href: "/servicios?city=santiago" },
+    { label: "Putas en Viña del Mar", href: "/servicios?city=vina-del-mar" },
+    { label: "Maracas en Valparaíso", href: "/servicios?city=valparaiso" },
+    { label: "Escorts en Concepción", href: "/servicios?city=concepcion" },
+    { label: "Putas en Antofagasta", href: "/servicios?city=antofagasta" },
+    { label: "Escorts en Temuco", href: "/servicios?city=temuco" },
   ],
   "Cuenta": [
     { label: "Iniciar sesión", href: "/login" },
@@ -98,6 +98,12 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} UZEED. Solo mayores de 18.
           </span>
         </div>
+      </div>
+
+      <div className="w-full border-t border-white/5 mt-10 py-6 text-center">
+        <p className="text-[10px] text-gray-700 tracking-widest uppercase leading-relaxed px-4 max-w-6xl mx-auto">
+          UZEED Chile: Las mejores putas, escorts y maracas en Santiago • Servicios en Las Condes, Providencia y Vitacura • Prostitutas verificadas en Viña del Mar y Valparaíso • Escorts en Calama, Antofagasta e Iquique • Masajistas eróticas y Sexcall • Maracas baratas y perfiles con exámenes al día • Putas en Santiago, Maipú y La Florida • Sexo incógnito disponible hoy.
+        </p>
       </div>
     </footer>
   );
