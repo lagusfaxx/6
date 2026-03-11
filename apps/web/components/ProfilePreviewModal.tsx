@@ -151,6 +151,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
 
   const displayTags = filterUserTags(rawDisplayTags);
 
+  // System badges only live in profileTags, not in normalizedTags
   const allProfileTags = fullProfile?.profileTags?.length
     ? fullProfile.profileTags
     : (profile.profileTags || []);

@@ -38,3 +38,4 @@ export function hasPremiumBadge(tags: string[] | null | undefined): boolean {
 export function hasVerifiedBadge(tags: string[] | null | undefined): boolean {
   return (tags || []).some((t) => t.toLowerCase().trim() === "verificada");
 }
+
