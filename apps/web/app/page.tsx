@@ -8,6 +8,7 @@ import { LocationFilterContext } from "../hooks/useLocationFilter";
 import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
+import StatusBadgeIcon from "../components/StatusBadgeIcon";
 import Stories from "../components/Stories";
 import ProfilePreviewModal from "../components/ProfilePreviewModal";
 import HomeCreAccordion from "../components/HomeCreAccordion";
@@ -1021,16 +1022,6 @@ export default function HomePage() {
                         )}
                         <div className="absolute left-3 top-3 flex flex-col gap-1">
                           <UserLevelBadge level={p.userLevel} className="px-2.5 py-1 text-[11px]" />
-                          {hasPremiumBadge(p.profileTags) && (
-                            <div className="inline-flex items-center gap-1 rounded-full border border-amber-300/40 bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-100 backdrop-blur shadow">
-                              <Crown className="h-2.5 w-2.5" /> Premium
-                            </div>
-                          )}
-                          {hasVerifiedBadge(p.profileTags) && (
-                            <div className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-medium text-emerald-100 backdrop-blur shadow">
-                              <ShieldCheck className="h-2.5 w-2.5" /> Verificada
-                            </div>
-                          )}
                           {hasExamsBadge(p) && (
                             <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
                               <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
@@ -1049,7 +1040,11 @@ export default function HomePage() {
                           </div>
                         )}
                         <div className="absolute bottom-0 left-0 right-0 p-4">
-                          <h3 className="text-lg font-semibold leading-tight">{p.name}</h3>
+                          <h3 className="flex items-center gap-1 text-lg font-semibold leading-tight">
+                            {p.name}
+                            {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
+                            {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
+                          </h3>
                           <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
                             {p.age && <span>{p.age} años</span>}
                             <span>{formatLastSeenLabel(p.lastSeen)}</span>
@@ -1115,16 +1110,6 @@ export default function HomePage() {
                       )}
                       <div className="absolute left-2 top-2 flex flex-col gap-1">
                         <UserLevelBadge level={p.userLevel} className="px-2 py-0.5 text-[10px]" />
-                        {hasPremiumBadge(p.profileTags) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-amber-300/40 bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-100 backdrop-blur shadow">
-                            <Crown className="h-2.5 w-2.5" /> Premium
-                          </div>
-                        )}
-                        {hasVerifiedBadge(p.profileTags) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-medium text-emerald-100 backdrop-blur shadow">
-                            <ShieldCheck className="h-2.5 w-2.5" /> Verificada
-                          </div>
-                        )}
                         {hasExamsBadge(p) && (
                           <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
                             <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
@@ -1137,7 +1122,11 @@ export default function HomePage() {
                         )}
                       </div>
                       <div className="absolute bottom-0 left-0 right-0 p-3">
-                        <h3 className="text-sm font-semibold leading-tight">{p.name}{p.age ? `, ${p.age}` : ""}</h3>
+                        <h3 className="flex items-center gap-1 text-sm font-semibold leading-tight">
+                          {p.name}{p.age ? `, ${p.age}` : ""}
+                          {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
+                          {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
+                        </h3>
                         <div className="mt-0.5 text-[10px] text-white/50">{formatLastSeenLabel(p.lastSeen)}</div>
                         {(p.serviceCategory || (filterUserTags(p.profileTags).length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
                           <div className="flex flex-wrap gap-1 mt-1">
@@ -1193,16 +1182,6 @@ export default function HomePage() {
                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Online
                           </div>
                         )}
-                        {hasPremiumBadge((profile as any).profileTags) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-amber-300/40 bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-100 backdrop-blur shadow">
-                            <Crown className="h-2.5 w-2.5" /> Premium
-                          </div>
-                        )}
-                        {hasVerifiedBadge((profile as any).profileTags) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-medium text-emerald-100 backdrop-blur shadow">
-                            <ShieldCheck className="h-2.5 w-2.5" /> Verificada
-                          </div>
-                        )}
                         {hasExamsBadge(profile as any) && (
                           <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
                             <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
@@ -1216,7 +1195,11 @@ export default function HomePage() {
                       </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
+                        <div className="flex items-center gap-1 truncate text-xs font-semibold">
+                          {profile.displayName}{profile.age ? `, ${profile.age}` : ""}
+                          {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
+                          {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
+                        </div>
                         {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0 || profile.serviceCategory) && (
                           <div className="flex flex-wrap gap-0.5 mt-0.5">
                             {filterUserTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
@@ -1256,16 +1239,6 @@ export default function HomePage() {
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
                       <UserLevelBadge level={profile.userLevel} className="absolute right-2 top-2 px-2 py-0.5 text-[10px]" />
                       <div className="absolute left-2 top-2 flex flex-col gap-1">
-                        {hasPremiumBadge((profile as any).profileTags) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-amber-300/40 bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-100 backdrop-blur shadow">
-                            <Crown className="h-2.5 w-2.5" /> Premium
-                          </div>
-                        )}
-                        {hasVerifiedBadge((profile as any).profileTags) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-medium text-emerald-100 backdrop-blur shadow">
-                            <ShieldCheck className="h-2.5 w-2.5" /> Verificada
-                          </div>
-                        )}
                         {hasExamsBadge(profile as any) && (
                           <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
                             <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
@@ -1279,7 +1252,11 @@ export default function HomePage() {
                       </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
+                        <div className="flex items-center gap-1 truncate text-xs font-semibold">
+                          {profile.displayName}{profile.age ? `, ${profile.age}` : ""}
+                          {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
+                          {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
+                        </div>
                         <div className="mt-0.5 text-[10px] text-white/45">{formatLastSeenLabel(profile.lastActiveAt || profile.lastSeen)}</div>
                         {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0) && (
                           <div className="flex flex-wrap gap-0.5 mt-0.5">
@@ -1320,7 +1297,11 @@ export default function HomePage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold">{p.name}</div>
+                    <div className="flex items-center gap-1 truncate text-sm font-semibold">
+                      {p.name}
+                      {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
+                      {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
+                    </div>
                     <div className="mt-0.5 flex items-center gap-2 text-xs text-white/45">
                       {p.age && <span>{p.age} años</span>}
                       {p.distance != null && <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{p.distance.toFixed(1)} km</span>}

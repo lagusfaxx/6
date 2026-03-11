@@ -11,6 +11,7 @@ import UserLevelBadge from "../../components/UserLevelBadge";
 import ProfilePreviewModal from "../../components/ProfilePreviewModal";
 import Stories from "../../components/Stories";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../lib/systemBadges";
+import StatusBadgeIcon from "../../components/StatusBadgeIcon";
 import {
   MapPin,
   Search,
@@ -306,8 +307,10 @@ const FeaturedCard = memo(function FeaturedCard({
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
           {/* Info */}
           <div className="absolute bottom-0 left-0 right-0 p-3">
-            <div className="text-base font-bold leading-tight">
+            <div className="flex items-center gap-1 text-base font-bold leading-tight">
               {profile.displayName || profile.username}
+              {hasPremiumBadge(profile.profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
+              {hasVerifiedBadge(profile.profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
               {profile.age ? <span className="text-white/60 font-normal">, {profile.age}</span> : ""}
             </div>
             <div className="mt-0.5 flex items-center gap-2 text-[11px] text-white/50">
@@ -505,8 +508,10 @@ function ProfileDetailPanel({
               )}
             </div>
             <div className="min-w-0 pb-1">
-              <h3 className="truncate text-lg font-bold leading-tight">
+              <h3 className="flex items-center gap-1 truncate text-lg font-bold leading-tight">
                 {profile.displayName || profile.username}
+                {hasPremiumBadge(profile.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
+                {hasVerifiedBadge(profile.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
                 {profile.age ? <span className="font-normal text-white/50">, {profile.age}</span> : ""}
               </h3>
               {profile.city && (
@@ -598,24 +603,6 @@ function ProfileDetailPanel({
             <p className="whitespace-pre-line text-sm leading-relaxed text-white/60">
               {profile.bio || profile.serviceDescription}
             </p>
-          </div>
-        )}
-
-        {/* System badges */}
-        {profile.profileTags && (hasPremiumBadge(profile.profileTags) || hasVerifiedBadge(profile.profileTags)) && (
-          <div className="mt-4 px-4">
-            <div className="flex flex-wrap gap-1.5">
-              {hasPremiumBadge(profile.profileTags) && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/30 bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
-                  <Crown className="h-3 w-3" /> Premium
-                </span>
-              )}
-              {hasVerifiedBadge(profile.profileTags) && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-200">
-                  <ShieldCheck className="h-3 w-3" /> Verificada
-                </span>
-              )}
-            </div>
           </div>
         )}
 

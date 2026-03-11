@@ -33,6 +33,7 @@ import {
   Gem,
 } from "lucide-react";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
+import StatusBadgeIcon from "../../../components/StatusBadgeIcon";
 
 type Professional = {
   id: string;
@@ -617,9 +618,11 @@ export default function ProfileDetailView({
           <div className="absolute inset-x-0 bottom-0 bg-[#13061f]/55 backdrop-blur-md">
             <div className="w-full px-4 py-3 md:px-8 md:py-5">
               <div className="space-y-1 md:space-y-1.5">
-                <h1 className="text-2xl font-semibold leading-none tracking-tight sm:text-3xl md:text-4xl">
+                <h1 className="flex items-center gap-1.5 text-2xl font-semibold leading-none tracking-tight sm:text-3xl md:text-4xl">
                   {professional.name}
                   {professional.age ? `, ${professional.age}` : ""}
+                  {hasPremiumBadge(professional?.profileTags) && <StatusBadgeIcon type="premium" size="h-5 w-5" />}
+                  {hasVerifiedBadge(professional?.profileTags) && <StatusBadgeIcon type="verificada" size="h-5 w-5" />}
                 </h1>
                 <div className="flex flex-wrap items-center gap-2 text-sm tracking-wide text-white/80 md:text-base">
                   <span className="flex items-center gap-1">
@@ -633,22 +636,6 @@ export default function ProfileDetailView({
                     </>
                   )}
                 </div>
-
-                {/* System badges — inline in hero */}
-                {(hasPremiumBadge(professional?.profileTags) || hasVerifiedBadge(professional?.profileTags)) && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {hasPremiumBadge(professional?.profileTags) && (
-                      <span className="inline-flex items-center gap-1 rounded-2xl border border-amber-300/40 bg-amber-500/20 px-2.5 py-1 text-[11px] font-semibold text-amber-100 backdrop-blur-md">
-                        <Crown className="h-3 w-3 text-amber-300" /> Premium
-                      </span>
-                    )}
-                    {hasVerifiedBadge(professional?.profileTags) && (
-                      <span className="inline-flex items-center gap-1 rounded-2xl border border-emerald-300/40 bg-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 backdrop-blur-md">
-                        <ShieldCheck className="h-3 w-3 text-emerald-300" /> Verificada
-                      </span>
-                    )}
-                  </div>
-                )}
 
                 {/* Profile tags — inline in hero (user-defined only) */}
                 {filterUserTags(professional?.profileTags).length > 0 && (

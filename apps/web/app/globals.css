@@ -717,3 +717,15 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 .uzeed-animate-fade-in {
   animation: uzeed-fade-in 0.2s ease-out;
 }
+
+/* ── Status badge icon idle shimmer ── */
+@keyframes uzeed-badge-pulse {
+  0%, 100% { opacity: 0.85; filter: brightness(1); }
+  50% { opacity: 1; filter: brightness(1.25); }
+}
+.uzeed-badge-shimmer-gold {
+  animation: uzeed-badge-pulse 3s ease-in-out infinite;
+}
+.uzeed-badge-shimmer-emerald {
+  animation: uzeed-badge-pulse 3.5s ease-in-out 0.5s infinite;
+}

@@ -7,6 +7,7 @@ import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, Mess
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
+import StatusBadgeIcon from "./StatusBadgeIcon";
 import UserLevelBadge from "./UserLevelBadge";
 import MapboxMap from "./MapboxMap";
 import type { MapMarker } from "./MapboxMap";
@@ -123,16 +124,6 @@ function ProfileCard({ p, entityType, categorySlug }: { p: DirectoryResult; enti
                 Online
               </span>
             )}
-            {hasPremiumBadge(p.profileTags) && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-amber-500/30">
-                <Crown className="h-2.5 w-2.5" /> Premium
-              </span>
-            )}
-            {hasVerifiedBadge(p.profileTags) && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-emerald-500/30">
-                <ShieldCheck className="h-2.5 w-2.5" /> Verificada
-              </span>
-            )}
             {p.avgResponseMinutes != null && p.avgResponseMinutes <= 30 && (
               <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-violet-500/30">
                 {p.avgResponseMinutes <= 5 ? "Responde al instante" : `Responde en ${p.avgResponseMinutes} min`}
@@ -150,8 +141,10 @@ function ProfileCard({ p, entityType, categorySlug }: { p: DirectoryResult; enti
 
         {/* Bottom info */}
         <div className="absolute bottom-0 left-0 right-0 p-3">
-          <div className="font-semibold text-white text-sm leading-tight truncate">
+          <div className="flex items-center gap-1 font-semibold text-white text-sm leading-tight truncate">
             {p.displayName}
+            {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
+            {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
             {p.age ? <span className="text-white/60 ml-1 font-normal">{p.age}</span> : null}
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-white/50 mt-0.5">
