@@ -67,7 +67,11 @@ export default function StatusBadgeIcon({ type, size = "h-3.5 w-3.5" }: StatusBa
     return () => document.removeEventListener("click", handler, { capture: true });
   }, [showTooltip]);
 
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   return (
     <span className="relative inline-flex items-center">
