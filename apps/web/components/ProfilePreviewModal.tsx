@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
-import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcase, Loader2, Sparkles, Hotel, ShoppingBag, CalendarCheck } from "lucide-react";
+import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcase, Loader2, Sparkles, Hotel, ShoppingBag, CalendarCheck, Crown, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import UserLevelBadge from "./UserLevelBadge";
+import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import useMe from "../hooks/useMe";
 
 type Props = {
@@ -144,9 +145,15 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
       ? "shadow-[0_0_30px_rgba(251,191,36,0.15)]"
       : "";
 
-  const displayTags = fullProfile?.profileTags?.length
+  const rawDisplayTags = fullProfile?.profileTags?.length
     ? fullProfile.profileTags
     : (fullProfile?.normalizedTags?.length ? fullProfile.normalizedTags : (profile.profileTags || []));
+
+  const displayTags = filterUserTags(rawDisplayTags);
+
+  const allProfileTags = fullProfile?.profileTags?.length
+    ? fullProfile.profileTags
+    : (profile.profileTags || []);
 
   const displayServiceTags = fullProfile?.serviceTags?.length
     ? fullProfile.serviceTags
@@ -234,6 +241,20 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
               </h3>
               <UserLevelBadge level={(fullProfile?.userLevel || profile.userLevel) as any} className="px-2 py-0.5 text-[10px]" />
             </div>
+            {(hasPremiumBadge(allProfileTags) || hasVerifiedBadge(allProfileTags)) && (
+              <div className="mt-1 flex items-center gap-1.5">
+                {hasPremiumBadge(allProfileTags) && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-100">
+                    <Crown className="h-3 w-3" /> Premium
+                  </span>
+                )}
+                {hasVerifiedBadge(allProfileTags) && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-100">
+                    <ShieldCheck className="h-3 w-3" /> Verificada
+                  </span>
+                )}
+              </div>
+            )}
             {(fullProfile?.serviceCategory || profile.serviceCategory) && (
               <div className="mt-1 text-xs text-white/60">{fullProfile?.serviceCategory || profile.serviceCategory}</div>
             )}

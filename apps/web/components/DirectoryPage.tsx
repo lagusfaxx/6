@@ -3,9 +3,10 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, MessageCircle, Eye, Sparkles, Flame, Video } from "lucide-react";
+import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, MessageCircle, Eye, Sparkles, Flame, Video, Crown, ShieldCheck } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
+import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import UserLevelBadge from "./UserLevelBadge";
 import MapboxMap from "./MapboxMap";
 import type { MapMarker } from "./MapboxMap";
@@ -122,6 +123,16 @@ function ProfileCard({ p, entityType, categorySlug }: { p: DirectoryResult; enti
                 Online
               </span>
             )}
+            {hasPremiumBadge(p.profileTags) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-amber-500/30">
+                <Crown className="h-2.5 w-2.5" /> Premium
+              </span>
+            )}
+            {hasVerifiedBadge(p.profileTags) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-emerald-500/30">
+                <ShieldCheck className="h-2.5 w-2.5" /> Verificada
+              </span>
+            )}
             {p.avgResponseMinutes != null && p.avgResponseMinutes <= 30 && (
               <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-violet-500/30">
                 {p.avgResponseMinutes <= 5 ? "Responde al instante" : `Responde en ${p.avgResponseMinutes} min`}
@@ -161,9 +172,9 @@ function ProfileCard({ p, entityType, categorySlug }: { p: DirectoryResult; enti
 
       {/* Tags row + CTA */}
       <div className="p-2 space-y-2">
-        {p.profileTags.length > 0 && (
+        {filterUserTags(p.profileTags).length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {p.profileTags.slice(0, 3).map((t) => (
+            {filterUserTags(p.profileTags).slice(0, 3).map((t) => (
               <span key={t} className="rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 px-2 py-0.5 text-[10px] text-fuchsia-300 capitalize">
                 {t}
               </span>
