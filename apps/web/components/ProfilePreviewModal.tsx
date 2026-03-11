@@ -6,6 +6,7 @@ import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcas
 import { useEffect, useState } from "react";
 import UserLevelBadge from "./UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
+import StatusBadgeIcon from "./StatusBadgeIcon";
 import useMe from "../hooks/useMe";
 
 type Props = {
@@ -236,26 +237,14 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
           {/* Info overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4">
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold sm:text-xl">
+              <h3 className="flex items-center gap-1 text-lg font-bold sm:text-xl">
                 {fullProfile?.displayName || profile.displayName || profile.username}
                 {(fullProfile?.age || profile.age) ? `, ${fullProfile?.age || profile.age}` : ""}
+                {hasPremiumBadge(allProfileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
+                {hasVerifiedBadge(allProfileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
               </h3>
               <UserLevelBadge level={(fullProfile?.userLevel || profile.userLevel) as any} className="px-2 py-0.5 text-[10px]" />
             </div>
-            {(hasPremiumBadge(allProfileTags) || hasVerifiedBadge(allProfileTags)) && (
-              <div className="mt-1 flex items-center gap-1.5">
-                {hasPremiumBadge(allProfileTags) && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-100">
-                    <Crown className="h-3 w-3" /> Premium
-                  </span>
-                )}
-                {hasVerifiedBadge(allProfileTags) && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-100">
-                    <ShieldCheck className="h-3 w-3" /> Verificada
-                  </span>
-                )}
-              </div>
-            )}
             {(fullProfile?.serviceCategory || profile.serviceCategory) && (
               <div className="mt-1 text-xs text-white/60">{fullProfile?.serviceCategory || profile.serviceCategory}</div>
             )}
