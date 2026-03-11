@@ -99,6 +99,12 @@ export default function Footer() {
           </span>
         </div>
       </div>
+
+      <div className="w-full border-t border-white/5 mt-10 py-6 text-center">
+        <p className="text-[10px] text-gray-700 tracking-widest uppercase leading-relaxed px-4 max-w-6xl mx-auto">
+          UZEED Chile: Las mejores putas, escorts y maracas en Santiago • Servicios en Las Condes, Providencia y Vitacura • Prostitutas verificadas en Viña del Mar y Valparaíso • Escorts en Calama, Antofagasta e Iquique • Masajistas eróticas y Sexcall • Maracas baratas y perfiles con exámenes al día • Putas en Santiago, Maipú y La Florida • Sexo incógnito disponible hoy.
+        </p>
+      </div>
     </footer>
   );
 }
