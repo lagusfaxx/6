@@ -93,6 +93,8 @@ function ProfileCard({ p, entityType, categorySlug }: { p: DirectoryResult; enti
     ? buildChatHref(p.id)
     : buildLoginHref(buildCurrentPathWithSearch());
 
+  const userTags = filterUserTags(p.profileTags);
+
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-fuchsia-500/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
       {/* Cover / hero photo */}
@@ -162,9 +164,9 @@ function ProfileCard({ p, entityType, categorySlug }: { p: DirectoryResult; enti
 
       {/* Tags row + CTA */}
       <div className="p-2 space-y-2">
-        {filterUserTags(p.profileTags).length > 0 && (
+        {userTags.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {filterUserTags(p.profileTags).slice(0, 3).map((t) => (
+            {userTags.slice(0, 3).map((t) => (
               <span key={t} className="rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 px-2 py-0.5 text-[10px] text-fuchsia-300 capitalize">
                 {t}
               </span>
