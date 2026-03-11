@@ -19,6 +19,8 @@ import {
   X,
   Heart,
   Shield,
+  ShieldCheck,
+  Crown,
   Clock,
   Eye,
   ChevronLeft,
@@ -30,6 +32,7 @@ import {
   Zap,
   Gem,
 } from "lucide-react";
+import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
 
 type Professional = {
   id: string;
@@ -631,10 +634,26 @@ export default function ProfileDetailView({
                   )}
                 </div>
 
-                {/* Profile tags — inline in hero */}
-                {(professional?.profileTags?.length ?? 0) > 0 && (
+                {/* System badges — inline in hero */}
+                {(hasPremiumBadge(professional?.profileTags) || hasVerifiedBadge(professional?.profileTags)) && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    {(professional?.profileTags ?? []).map((tag) => (
+                    {hasPremiumBadge(professional?.profileTags) && (
+                      <span className="inline-flex items-center gap-1 rounded-2xl border border-amber-300/40 bg-amber-500/20 px-2.5 py-1 text-[11px] font-semibold text-amber-100 backdrop-blur-md">
+                        <Crown className="h-3 w-3 text-amber-300" /> Premium
+                      </span>
+                    )}
+                    {hasVerifiedBadge(professional?.profileTags) && (
+                      <span className="inline-flex items-center gap-1 rounded-2xl border border-emerald-300/40 bg-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 backdrop-blur-md">
+                        <ShieldCheck className="h-3 w-3 text-emerald-300" /> Verificada
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Profile tags — inline in hero (user-defined only) */}
+                {filterUserTags(professional?.profileTags).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {filterUserTags(professional?.profileTags).map((tag) => (
                       <span
                         key={tag}
                         className="inline-flex rounded-2xl border border-fuchsia-300/40 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100 capitalize backdrop-blur-md"

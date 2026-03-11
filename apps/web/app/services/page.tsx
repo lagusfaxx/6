@@ -10,6 +10,7 @@ import type { MapMarker } from "../../components/MapboxMap";
 import UserLevelBadge from "../../components/UserLevelBadge";
 import ProfilePreviewModal from "../../components/ProfilePreviewModal";
 import Stories from "../../components/Stories";
+import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../lib/systemBadges";
 import {
   MapPin,
   Search,
@@ -600,12 +601,30 @@ function ProfileDetailPanel({
           </div>
         )}
 
-        {/* Profile tags */}
-        {profile.profileTags && profile.profileTags.length > 0 && (
+        {/* System badges */}
+        {profile.profileTags && (hasPremiumBadge(profile.profileTags) || hasVerifiedBadge(profile.profileTags)) && (
+          <div className="mt-4 px-4">
+            <div className="flex flex-wrap gap-1.5">
+              {hasPremiumBadge(profile.profileTags) && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/30 bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                  <Crown className="h-3 w-3" /> Premium
+                </span>
+              )}
+              {hasVerifiedBadge(profile.profileTags) && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-200">
+                  <ShieldCheck className="h-3 w-3" /> Verificada
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Profile tags (user-defined only) */}
+        {filterUserTags(profile.profileTags).length > 0 && (
           <div className="mt-4 px-4">
             <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Etiquetas</h4>
             <div className="flex flex-wrap gap-1.5">
-              {profile.profileTags.map((tag) => (
+              {filterUserTags(profile.profileTags).map((tag) => (
                 <span key={tag} className="rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] text-fuchsia-300/80">
                   {tag}
                 </span>
