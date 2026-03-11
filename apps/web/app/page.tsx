@@ -17,7 +17,6 @@ import {
 } from "../lib/chat";
 import {
   ArrowRight,
-  BadgeCheck,
   ChevronRight,
   Clock3,
   Crown,
@@ -122,34 +121,6 @@ function hasVideoCallBadge(p: { serviceTags?: string[]; profileTags?: string[] }
     const n = String(t || "").trim().toLowerCase();
     return n === "videollamada" || n === "videollamadas";
   });
-}
-
-function normalizeTag(tag: string) {
-  return String(tag || "").trim().toLowerCase();
-}
-
-function isPremiumTag(tag: string) {
-  return normalizeTag(tag) === "premium";
-}
-
-function isVerifiedTag(tag: string) {
-  return normalizeTag(tag) === "verificada";
-}
-
-function isStatusTag(tag: string) {
-  return isPremiumTag(tag) || isVerifiedTag(tag);
-}
-
-function getStatusBadges(tags?: string[]) {
-  const list = tags || [];
-  return {
-    hasPremium: list.some(isPremiumTag),
-    hasVerified: list.some(isVerifiedTag),
-  };
-}
-
-function getServiceAttributeTags(tags?: string[]) {
-  return (tags || []).filter((tag) => !isStatusTag(tag));
 }
 
 /* ── Install App Button ── */
@@ -1054,16 +1025,6 @@ export default function HomePage() {
                               <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                             </div>
                           )}
-                          {getStatusBadges(p.profileTags).hasPremium && (
-                            <div className="premium-status-badge inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#2c1f00]">
-                              PREMIUM
-                            </div>
-                          )}
-                          {getStatusBadges(p.profileTags).hasVerified && (
-                            <div className="verified-status-badge inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white">
-                              <BadgeCheck className="h-3 w-3" /> Verificada
-                            </div>
-                          )}
                           {hasVideoCallBadge(p) && (
                             <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
                               <Video className="h-2.5 w-2.5" /> Videollamadas
@@ -1082,9 +1043,9 @@ export default function HomePage() {
                             {p.age && <span>{p.age} años</span>}
                             <span>{formatLastSeenLabel(p.lastSeen)}</span>
                           </div>
-                          {(p.serviceCategory || getServiceAttributeTags(p.profileTags).length > 0 || (p.serviceTags && p.serviceTags.length > 0)) && (
+                          {(p.serviceCategory || (p.profileTags && p.profileTags.length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {getServiceAttributeTags(p.profileTags).map((tag) => (
+                              {p.profileTags?.map((tag) => (
                                 <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
                               ))}
                               {p.serviceCategory && (
@@ -1148,16 +1109,6 @@ export default function HomePage() {
                             <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                           </div>
                         )}
-                        {getStatusBadges(p.profileTags).hasPremium && (
-                          <div className="premium-status-badge inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#2c1f00]">
-                            PREMIUM
-                          </div>
-                        )}
-                        {getStatusBadges(p.profileTags).hasVerified && (
-                          <div className="verified-status-badge inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white">
-                            <BadgeCheck className="h-3 w-3" /> Verificada
-                          </div>
-                        )}
                         {hasVideoCallBadge(p) && (
                           <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
                             <Video className="h-2.5 w-2.5" /> Videollamadas
@@ -1167,9 +1118,9 @@ export default function HomePage() {
                       <div className="absolute bottom-0 left-0 right-0 p-3">
                         <h3 className="text-sm font-semibold leading-tight">{p.name}{p.age ? `, ${p.age}` : ""}</h3>
                         <div className="mt-0.5 text-[10px] text-white/50">{formatLastSeenLabel(p.lastSeen)}</div>
-                        {(p.serviceCategory || getServiceAttributeTags(p.profileTags).length > 0 || (p.serviceTags && p.serviceTags.length > 0)) && (
+                        {(p.serviceCategory || (p.profileTags && p.profileTags.length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {getServiceAttributeTags(p.profileTags).map((tag) => (
+                            {p.profileTags?.map((tag) => (
                               <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
                             ))}
                             {p.serviceCategory && (
@@ -1226,16 +1177,6 @@ export default function HomePage() {
                             <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                           </div>
                         )}
-                        {getStatusBadges((profile as any).profileTags).hasPremium && (
-                          <div className="premium-status-badge inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#2c1f00]">
-                            PREMIUM
-                          </div>
-                        )}
-                        {getStatusBadges((profile as any).profileTags).hasVerified && (
-                          <div className="verified-status-badge inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white">
-                            <BadgeCheck className="h-3 w-3" /> Verificada
-                          </div>
-                        )}
                         {hasVideoCallBadge(profile as any) && (
                           <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
                             <Video className="h-2.5 w-2.5" /> Videollamadas
@@ -1245,9 +1186,9 @@ export default function HomePage() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
                         <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
-                        {(getServiceAttributeTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0 || profile.serviceCategory) && (
+                        {((profile as any).profileTags?.length > 0 || (profile as any).serviceTags?.length > 0 || profile.serviceCategory) && (
                           <div className="flex flex-wrap gap-0.5 mt-0.5">
-                            {getServiceAttributeTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
+                            {(profile as any).profileTags?.slice(0, 2).map((tag: string) => (
                               <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
                             ))}
                             {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
@@ -1289,16 +1230,6 @@ export default function HomePage() {
                             <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                           </div>
                         )}
-                        {getStatusBadges((profile as any).profileTags).hasPremium && (
-                          <div className="premium-status-badge inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#2c1f00]">
-                            PREMIUM
-                          </div>
-                        )}
-                        {getStatusBadges((profile as any).profileTags).hasVerified && (
-                          <div className="verified-status-badge inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white">
-                            <BadgeCheck className="h-3 w-3" /> Verificada
-                          </div>
-                        )}
                         {hasVideoCallBadge(profile as any) && (
                           <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
                             <Video className="h-2.5 w-2.5" /> Videollamadas
@@ -1309,9 +1240,9 @@ export default function HomePage() {
                       <div className="absolute bottom-0 left-0 right-0 p-2">
                         <div className="truncate text-xs font-semibold">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</div>
                         <div className="mt-0.5 text-[10px] text-white/45">{formatLastSeenLabel(profile.lastActiveAt || profile.lastSeen)}</div>
-                        {(getServiceAttributeTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0) && (
+                        {((profile as any).profileTags?.length > 0 || (profile as any).serviceTags?.length > 0) && (
                           <div className="flex flex-wrap gap-0.5 mt-0.5">
-                            {getServiceAttributeTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
+                            {(profile as any).profileTags?.slice(0, 2).map((tag: string) => (
                               <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
                             ))}
                             {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
