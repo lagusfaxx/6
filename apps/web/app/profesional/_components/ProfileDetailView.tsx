@@ -1131,11 +1131,15 @@ export default function ProfileDetailView({
                 </Link>
               </div>
 
-              <div className="grid gap-3">
-                {forumComments.map((comment) => (
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                {forumComments.map((comment, index) => (
                   <article
                     key={comment.id}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 backdrop-blur-sm"
+                    className={`px-4 py-3 md:px-4.5 ${
+                      index !== forumComments.length - 1
+                        ? "border-b border-white/8"
+                        : ""
+                    }`}
                   >
                     <div className="mb-1.5 flex items-center justify-between gap-3">
                       <p className="text-xs font-medium text-white/75">
@@ -1143,7 +1147,7 @@ export default function ProfileDetailView({
                       </p>
                       <p className="text-[11px] text-white/45">{timeAgo(comment.createdAt)}</p>
                     </div>
-                    <p className="line-clamp-4 text-sm leading-relaxed text-white/70">
+                    <p className="line-clamp-3 text-sm leading-relaxed text-white/68">
                       {comment.content}
                     </p>
                   </article>
