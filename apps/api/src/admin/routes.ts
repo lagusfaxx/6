@@ -629,7 +629,6 @@ adminRouter.get(
   asyncHandler(async (_req, res) => {
     const banners = await prisma.banner.findMany({
       orderBy: [
-        { position: "asc" },
         { sortOrder: "asc" },
         { createdAt: "desc" },
       ],
@@ -641,23 +640,53 @@ adminRouter.get(
 adminRouter.post(
   "/banners",
   asyncHandler(async (req, res) => {
-    const { title, imageUrl, linkUrl, position, isActive, sortOrder } =
+    const {
+      title,
+      imageUrl,
+      linkUrl,
+      position,
+      isActive,
+      sortOrder,
+      professionalId,
+      promoImageUrl,
+      startsAt,
+      endsAt,
+    } =
       req.body ?? {};
-    if (!title || !imageUrl)
+    if (!title)
       return res
         .status(400)
-        .json({ error: "VALIDATION", message: "title and imageUrl required" });
+        .json({ error: "VALIDATION", message: "title required" });
+
+    const kind = position ? String(position).toUpperCase() : "RIGHT";
+    const isPopupPromo = kind === "POPUP_PROMO";
+
+    if (isPopupPromo) {
+      if (!professionalId) {
+        return res.status(400).json({ error: "VALIDATION", message: "professionalId required for popup promo" });
+      }
+      if (!promoImageUrl && !imageUrl) {
+        return res.status(400).json({ error: "VALIDATION", message: "promoImageUrl required for popup promo" });
+      }
+    } else if (!imageUrl) {
+      return res.status(400).json({ error: "VALIDATION", message: "imageUrl required" });
+    }
+
     const banner = await prisma.banner.create({
       data: {
         title: String(title),
-        imageUrl: String(imageUrl),
+        imageUrl: String(imageUrl || promoImageUrl || ""),
         linkUrl: linkUrl ? String(linkUrl) : null,
-        position: position ? String(position) : "RIGHT",
+        position: kind,
         isActive: typeof isActive === "boolean" ? isActive : true,
         sortOrder:
           typeof sortOrder === "number"
             ? sortOrder
             : parseInt(String(sortOrder ?? "0"), 10) || 0,
+        professionalId: professionalId ? String(professionalId) : null,
+        promoImageUrl: promoImageUrl ? String(promoImageUrl) : null,
+        startsAt: startsAt ? new Date(String(startsAt)) : null,
+        endsAt: endsAt ? new Date(String(endsAt)) : null,
       },
     });
     return res.json({ banner });
@@ -681,8 +710,18 @@ adminRouter.put(
   "/banners/:id",
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { title, imageUrl, linkUrl, position, isActive, sortOrder } =
-      req.body ?? {};
+    const {
+      title,
+      imageUrl,
+      linkUrl,
+      position,
+      isActive,
+      sortOrder,
+      professionalId,
+      promoImageUrl,
+      startsAt,
+      endsAt,
+    } = req.body ?? {};
     const banner = await prisma.banner.update({
       where: { id },
       data: {
@@ -701,6 +740,10 @@ adminRouter.put(
                   : parseInt(String(sortOrder), 10) || 0,
             }
           : {}),
+        ...(professionalId !== undefined ? { professionalId: professionalId ? String(professionalId) : null } : {}),
+        ...(promoImageUrl !== undefined ? { promoImageUrl: promoImageUrl ? String(promoImageUrl) : null } : {}),
+        ...(startsAt !== undefined ? { startsAt: startsAt ? new Date(String(startsAt)) : null } : {}),
+        ...(endsAt !== undefined ? { endsAt: endsAt ? new Date(String(endsAt)) : null } : {}),
       },
     });
     return res.json({ banner });
