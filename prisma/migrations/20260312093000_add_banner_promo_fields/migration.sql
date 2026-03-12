@@ -1,0 +1,5 @@
+ALTER TABLE "Banner"
+ADD COLUMN "professionalId" UUID,
+ADD COLUMN "promoImageUrl" TEXT,
+ADD COLUMN "startsAt" TIMESTAMP(3),
+ADD COLUMN "endsAt" TIMESTAMP(3);

@@ -15,17 +15,21 @@ import {
   X,
   Loader2,
   RefreshCw,
-  Video,
+  Image as ImageIcon,
 } from "lucide-react";
 
 type Banner = {
   id: string;
   title: string;
   imageUrl: string;
+  promoImageUrl?: string | null;
+  professionalId?: string | null;
   linkUrl?: string | null;
   position: string;
   isActive: boolean;
   sortOrder: number;
+  startsAt?: string | null;
+  endsAt?: string | null;
   createdAt: string;
 };
 
@@ -36,7 +40,7 @@ type AdminProfile = {
   city?: string | null;
 };
 
-type ProfileVideo = { id: string; url: string; type: "VIDEO"; createdAt: string };
+type UploadResponse = { url: string };
 
 function extractProfileId(linkUrl?: string | null) {
   if (!linkUrl) return null;
@@ -52,10 +56,11 @@ export default function AdminBannersPage() {
   const [items, setItems] = useState<Banner[]>([]);
   const [profiles, setProfiles] = useState<AdminProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState("");
-  const [position, setPosition] = useState("INLINE");
   const [sortOrder, setSortOrder] = useState("0");
-  const [videos, setVideos] = useState<ProfileVideo[]>([]);
-  const [selectedVideoId, setSelectedVideoId] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  const [promoImageUrl, setPromoImageUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -83,24 +88,6 @@ export default function AdminBannersPage() {
     }
   }
 
-  async function loadVideos(profileId: string) {
-    if (!profileId) {
-      setVideos([]);
-      setSelectedVideoId("");
-      return;
-    }
-    try {
-      const res = await apiFetch<{ media: ProfileVideo[] }>(`/admin/profiles/${profileId}/media-videos`);
-      const list = res?.media ?? [];
-      setVideos(list);
-      setSelectedVideoId(list[0]?.id || "");
-    } catch {
-      setVideos([]);
-      setSelectedVideoId("");
-      setError("No se pudieron cargar videos del perfil.");
-    }
-  }
-
   useEffect(() => {
     if (!loading && isAdmin) {
       loadBanners();
@@ -109,19 +96,34 @@ export default function AdminBannersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, isAdmin]);
 
-  useEffect(() => {
-    loadVideos(selectedProfileId);
-  }, [selectedProfileId]);
+  async function onUploadImage(file?: File | null) {
+    if (!file) return;
+    setUploadingImage(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await apiFetch<UploadResponse>("/admin/banners/upload", {
+        method: "POST",
+        body: form,
+      });
+      if (!res?.url) throw new Error("UPLOAD_FAILED");
+      setPromoImageUrl(res.url);
+    } catch {
+      setError("No se pudo subir la foto promocional.");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
 
   async function create() {
-    if (!selectedProfileId || !selectedVideoId) {
-      setError("Debes elegir perfil y video.");
+    if (!selectedProfileId || !promoImageUrl) {
+      setError("Debes elegir perfil y subir foto promocional.");
       return;
     }
     const profile = profiles.find((p) => p.id === selectedProfileId);
-    const video = videos.find((v) => v.id === selectedVideoId);
-    if (!profile || !video) {
-      setError("Perfil o video inválido.");
+    if (!profile) {
+      setError("Perfil inválido.");
       return;
     }
 
@@ -133,21 +135,27 @@ export default function AdminBannersPage() {
         method: "POST",
         body: JSON.stringify({
           title: `Anuncio video · ${profile.displayName || profile.username || "Perfil"}`,
-          imageUrl: video.url,
+          imageUrl: promoImageUrl,
+          promoImageUrl,
+          professionalId: profile.id,
           linkUrl: `profile:${profile.id}`,
-          position,
+          position: "POPUP_PROMO",
           sortOrder: parseInt(sortOrder || "0", 10) || 0,
           isActive: true,
+          startsAt: startsAt || null,
+          endsAt: endsAt || null,
         }),
       });
 
-      setPosition("INLINE");
       setSortOrder("0");
+      setStartsAt("");
+      setEndsAt("");
+      setPromoImageUrl("");
       setShowCreate(false);
-      setSuccess("Banner de video creado.");
+      setSuccess("Promoción popup creada.");
       await loadBanners();
     } catch {
-      setError("No se pudo crear el banner.");
+      setError("No se pudo crear la promoción popup.");
     } finally {
       setBusy(false);
     }
@@ -159,25 +167,18 @@ export default function AdminBannersPage() {
     try {
       const profile = profiles.find((p) => p.id === profileId);
       if (!profile) throw new Error("BAD_PROFILE");
-      const res = await apiFetch<{ media: ProfileVideo[] }>(`/admin/profiles/${profileId}/media-videos`);
-      const latest = res?.media?.[0];
-      if (!latest) {
-        setError("Ese perfil no tiene videos para anuncios.");
-        return;
-      }
-
       await apiFetch(`/admin/banners/${banner.id}`, {
         method: "PUT",
         body: JSON.stringify({
-          title: `Anuncio video · ${profile.displayName || profile.username || "Perfil"}`,
-          imageUrl: latest.url,
+          title: `Popup promocional · ${profile.displayName || profile.username || "Perfil"}`,
+          professionalId: profile.id,
           linkUrl: `profile:${profile.id}`,
         }),
       });
-      setSuccess("Perfil/video del banner actualizado.");
+      setSuccess("Perfil promocionado actualizado.");
       await loadBanners();
     } catch {
-      setError("No se pudo actualizar el banner con video del perfil.");
+      setError("No se pudo actualizar la promoción.");
     } finally {
       setBusy(false);
     }
@@ -225,7 +226,6 @@ export default function AdminBannersPage() {
   const activeBanners = items.filter((b) => b.isActive);
   const inactiveBanners = items.filter((b) => !b.isActive);
   const selectedProfile = profiles.find((p) => p.id === selectedProfileId) || null;
-  const selectedVideo = videos.find((v) => v.id === selectedVideoId) || null;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 text-white">
@@ -235,12 +235,12 @@ export default function AdminBannersPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold">Banners de video (profesionales)</h1>
+            <h1 className="text-xl font-bold">Promociones popup (profesionales)</h1>
             <p className="text-xs text-white/40">{items.length} banner{items.length !== 1 ? "s" : ""} · {activeBanners.length} activo{activeBanners.length !== 1 ? "s" : ""}</p>
           </div>
         </div>
         <button onClick={() => setShowCreate((v) => !v)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2.5 text-sm font-semibold transition hover:brightness-110">
-          <Plus className="h-4 w-4" /> Nuevo banner
+          <Plus className="h-4 w-4" /> Nueva promoción
         </button>
       </div>
 
@@ -254,27 +254,18 @@ export default function AdminBannersPage() {
 
       {showCreate && (
         <div className="mt-4 rounded-2xl border border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-500/[0.05] to-violet-500/[0.03] p-5">
-          <h2 className="text-lg font-semibold mb-4">Crear anuncio de video</h2>
+          <h2 className="text-lg font-semibold mb-4">Crear popup promocional</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <select className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" value={selectedProfileId} onChange={(e) => setSelectedProfileId(e.target.value)}>
               {profiles.map((p) => (
                 <option key={p.id} value={p.id}>{p.displayName || p.username || p.id}</option>
               ))}
             </select>
-            <select className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" value={selectedVideoId} onChange={(e) => setSelectedVideoId(e.target.value)}>
-              <option value="">Selecciona video del perfil</option>
-              {videos.map((v, idx) => (
-                <option key={v.id} value={v.id}>Video #{videos.length - idx}</option>
-              ))}
-            </select>
-            <select className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" value={position} onChange={(e) => setPosition(e.target.value)}>
-              <option value="INLINE">Inline (home)</option>
-              <option value="HORIZONTAL">Horizontal</option>
-              <option value="LEFT">Lateral izquierdo</option>
-              <option value="RIGHT">Lateral derecho</option>
-              <option value="VERTICAL">Vertical</option>
-            </select>
             <input className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} placeholder="Orden" />
+            <input className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} placeholder="Inicio (opcional)" />
+            <input className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} placeholder="Fin (opcional)" />
+            <input className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" value={promoImageUrl} onChange={(e) => setPromoImageUrl(e.target.value)} placeholder="URL de foto promocional" />
+            <input className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-fuchsia-500/20 file:px-3 file:py-1.5 file:text-fuchsia-200" type="file" accept="image/*" onChange={(e) => onUploadImage(e.target.files?.[0] ?? null)} />
           </div>
 
           <button type="button" onClick={loadProfiles} className="mt-3 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80 flex items-center gap-2">
@@ -282,18 +273,18 @@ export default function AdminBannersPage() {
           </button>
 
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
-            <div className="mb-2 text-xs font-medium text-white/60">Previsualización anuncio video 200 × 400</div>
+            <div className="mb-2 text-xs font-medium text-white/60">Previsualización popup promocional</div>
             <div className="mx-auto h-[400px] w-[200px] overflow-hidden rounded-xl border border-white/10 bg-black/40">
-              {selectedProfile && selectedVideo ? (
-                <ProfileVideoBannerPreview profile={selectedProfile} videoUrl={selectedVideo.url} />
+              {selectedProfile && promoImageUrl ? (
+                <ProfileVideoBannerPreview profile={selectedProfile} imageUrl={promoImageUrl} />
               ) : (
-                <div className="flex h-full items-center justify-center text-xs text-white/40">Selecciona perfil y video</div>
+                <div className="flex h-full items-center justify-center text-xs text-white/40">Selecciona perfil y foto</div>
               )}
             </div>
           </div>
 
-          <button disabled={busy || !selectedProfileId || !selectedVideoId} onClick={create} className="mt-4 flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-semibold disabled:opacity-50">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Crear anuncio
+          <button disabled={busy || uploadingImage || !selectedProfileId || !promoImageUrl} onClick={create} className="mt-4 flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-semibold disabled:opacity-50">
+            {busy || uploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Crear promoción
           </button>
         </div>
       )}
@@ -319,16 +310,16 @@ export default function AdminBannersPage() {
   );
 }
 
-function ProfileVideoBannerPreview({ profile, videoUrl }: { profile: AdminProfile; videoUrl: string }) {
-  const src = resolveMediaUrl(videoUrl) || videoUrl;
+function ProfileVideoBannerPreview({ profile, imageUrl }: { profile: AdminProfile; imageUrl: string }) {
+  const src = resolveMediaUrl(imageUrl) || imageUrl;
   return (
     <div className="relative h-full w-full">
-      <video src={src} className="h-full w-full object-cover" autoPlay muted loop playsInline />
+      <img src={src} className="h-full w-full object-cover" alt={profile.displayName || profile.username || "Promoción"} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
       <div className="absolute left-3 right-3 bottom-3 rounded-lg border border-white/20 bg-black/50 p-2">
         <div className="flex items-center gap-2">
-          <Video className="h-4 w-4 text-fuchsia-300" />
-          <p className="truncate text-[11px] font-semibold text-white">Anuncio de video</p>
+          <ImageIcon className="h-4 w-4 text-fuchsia-300" />
+          <p className="truncate text-[11px] font-semibold text-white">Popup promocional</p>
         </div>
         <p className="mt-1 truncate text-xs text-white">{profile.displayName || profile.username || "Perfil"}</p>
       </div>
@@ -352,13 +343,13 @@ function BannerCard({
   onReplaceProfile: (banner: Banner, profileId: string) => void;
 }) {
   const [nextProfileId, setNextProfileId] = useState(extractProfileId(banner.linkUrl) || "");
-  const mediaSrc = resolveMediaUrl(banner.imageUrl) ?? banner.imageUrl;
+  const mediaSrc = resolveMediaUrl(banner.promoImageUrl || banner.imageUrl) ?? banner.promoImageUrl ?? banner.imageUrl;
 
   return (
     <div className={`rounded-2xl border bg-white/[0.03] p-4 transition ${banner.isActive ? "border-emerald-500/15" : "border-white/[0.06] opacity-60"}`}>
       <div className="flex gap-4">
-        <div className="relative h-[120px] w-[60px] shrink-0 overflow-hidden rounded-xl bg-black/30">
-          <video src={mediaSrc} className="h-full w-full object-cover" muted loop playsInline />
+          <div className="relative h-[120px] w-[60px] shrink-0 overflow-hidden rounded-xl bg-black/30">
+          <img src={mediaSrc} className="h-full w-full object-cover" alt={banner.title} />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -366,6 +357,8 @@ function BannerCard({
           <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40">
             <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px]">{banner.position}</span>
             <span>Orden: {banner.sortOrder}</span>
+            {banner.startsAt ? <span>Desde: {new Date(banner.startsAt).toLocaleDateString()}</span> : null}
+            {banner.endsAt ? <span>Hasta: {new Date(banner.endsAt).toLocaleDateString()}</span> : null}
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -376,7 +369,7 @@ function BannerCard({
               ))}
             </select>
             <button disabled={busy || !nextProfileId} onClick={() => onReplaceProfile(banner, nextProfileId)} className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/10 px-2.5 py-1.5 text-xs text-fuchsia-300 disabled:opacity-50">
-              Cambiar perfil (video más reciente)
+              Cambiar perfil asociado
             </button>
           </div>
         </div>

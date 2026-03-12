@@ -23,6 +23,7 @@ const PUBLIC_PREFIXES = [
   "/profiles",          // ✅ perfil público por username/slug
   "/stories",           // ✅ stories visibles para invitados en el home
   "/banners",           // ✅ banners públicos en el home
+  "/popup-promotions",  // ✅ popup promociones públicas home
   "/hot",               // ✅ trending content (Hot section)
   "/forum",             // ✅ forum public read (categories, threads, recent)
   "/webhooks/flow",     // Flow subscription webhooks
@@ -154,4 +155,3 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     return next();
   });
 }
-

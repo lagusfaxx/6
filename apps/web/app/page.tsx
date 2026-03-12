@@ -12,6 +12,7 @@ import StatusBadgeIcon from "../components/StatusBadgeIcon";
 import Stories from "../components/Stories";
 import ProfilePreviewModal from "../components/ProfilePreviewModal";
 import HomeCreAccordion from "../components/HomeCreAccordion";
+import PromoSidebarPopup from "../components/PromoSidebarPopup";
 import {
   buildChatHref,
   buildCurrentPathWithSearch,
@@ -49,6 +50,21 @@ type Banner = {
   imageUrl: string;
   linkUrl?: string | null;
   position: string;
+};
+
+type PopupPromotion = {
+  id: string;
+  sortOrder: number;
+  promoImageUrl: string;
+  professional: {
+    id: string;
+    name: string;
+    username?: string | null;
+    isOnline?: boolean;
+    rating: number | null;
+    reviewsCount: number;
+    profileUrl: string;
+  };
 };
 
 type UserLevel = "SILVER" | "GOLD" | "DIAMOND";
@@ -413,6 +429,7 @@ const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
 export default function HomePage() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
+  const [popupPromotions, setPopupPromotions] = useState<PopupPromotion[]>([]);
   const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
   const [discoverSections, setDiscoverSections] = useState<
     Record<string, DiscoverProfile[]>
@@ -447,6 +464,17 @@ export default function HomePage() {
         setBanners(res?.banners ?? []);
       } catch {
         // banners opcionales
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiFetch<{ promotions: PopupPromotion[] }>("/popup-promotions");
+        setPopupPromotions(res?.promotions ?? []);
+      } catch {
+        setPopupPromotions([]);
       }
     })();
   }, []);
@@ -785,6 +813,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
+      <PromoSidebarPopup promotions={popupPromotions} />
       {/* ═══ HERO — Compact, immersive ═══ */}
       <section className="relative flex min-h-[50vh] items-center justify-center overflow-hidden px-4 md:min-h-[55vh]">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#070816]" />
