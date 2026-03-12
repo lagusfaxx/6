@@ -469,14 +469,25 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    (async () => {
+    let mounted = true;
+
+    const loadPromotions = async () => {
       try {
         const res = await apiFetch<{ promotions: PopupPromotion[] }>("/popup-promotions");
-        setPopupPromotions(res?.promotions ?? []);
+        if (mounted) setPopupPromotions(res?.promotions ?? []);
       } catch {
-        setPopupPromotions([]);
+        if (mounted) setPopupPromotions([]);
       }
-    })();
+
+    };
+
+    loadPromotions();
+    const id = window.setInterval(loadPromotions, 30_000);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(id);
+    };
   }, []);
 
   useEffect(() => {

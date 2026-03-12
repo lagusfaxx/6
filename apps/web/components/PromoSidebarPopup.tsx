@@ -21,22 +21,34 @@ type PopupPromotion = {
   };
 };
 
-const DISMISS_KEY = "uzeed_popup_promos_dismissed_at";
+const DISMISS_KEY = "uzeed_popup_promos_dismissed";
 const DISMISS_COOLDOWN_MS = 1000 * 60 * 30;
 const ROTATION_MS = 5000;
 
 export default function PromoSidebarPopup({ promotions }: { promotions: PopupPromotion[] }) {
   const [index, setIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
+  const signature = useMemo(() => promotions.map((p) => p.id).join("|"), [promotions]);
 
   useEffect(() => {
     const raw = window.sessionStorage.getItem(DISMISS_KEY);
     if (!raw) return;
-    const when = Number(raw);
+    let parsed: { when?: number; signature?: string } | null = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = { when: Number(raw) };
+    }
+    const when = Number(parsed?.when);
+    const dismissedSignature = String(parsed?.signature || "");
+    if (dismissedSignature && dismissedSignature !== signature) {
+      setDismissed(false);
+      return;
+    }
     if (Number.isFinite(when) && Date.now() - when < DISMISS_COOLDOWN_MS) {
       setDismissed(true);
     }
-  }, []);
+  }, [signature]);
 
   useEffect(() => {
     if (dismissed || promotions.length <= 1) return;
@@ -48,7 +60,7 @@ export default function PromoSidebarPopup({ promotions }: { promotions: PopupPro
 
   useEffect(() => {
     setIndex(0);
-  }, [promotions.length]);
+  }, [promotions.length, signature]);
 
   const current = useMemo(() => promotions[index] ?? null, [promotions, index]);
 
@@ -72,7 +84,7 @@ export default function PromoSidebarPopup({ promotions }: { promotions: PopupPro
           aria-label="Cerrar promoción"
           onClick={() => {
             setDismissed(true);
-            window.sessionStorage.setItem(DISMISS_KEY, String(Date.now()));
+            window.sessionStorage.setItem(DISMISS_KEY, JSON.stringify({ when: Date.now(), signature }));
           }}
           className="absolute right-3 top-3 z-10 rounded-full border border-white/25 bg-black/35 p-1.5 text-white/80 hover:bg-black/50"
         >
