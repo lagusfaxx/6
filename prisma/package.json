@@ -16,6 +16,7 @@
     "migrate:deploy": "prisma migrate deploy --schema=schema.prisma",
     "db:seed": "prisma db seed --schema=schema.prisma",
     "seed:test": "node scripts/seed-test-profiles.js",
-    "clean:test": "node scripts/clean-test-profiles.js"
+    "clean:test": "node scripts/clean-test-profiles.js",
+    "forum:backfill:professionals": "node scripts/backfill-professional-forum-threads.js"
   }
 }

@@ -62,6 +62,40 @@ function formatDate(iso: string): string {
   }).format(new Date(iso));
 }
 
+function parseOfficialProfilePost(content: string) {
+  const lines = content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const nameLine = lines.find((line) => line.toLowerCase().startsWith("hilo oficial de"));
+  const nicknameLine = lines.find((line) => line.toLowerCase().startsWith("nickname:"));
+  const photoLine = lines.find((line) => line.toLowerCase().startsWith("foto:"));
+  const profileLine = lines.find((line) => line.toLowerCase().startsWith("ver perfil:"));
+
+  const nickname = nicknameLine?.replace(/^nickname:\s*/i, "").trim() || null;
+  const photoUrlRaw = photoLine?.replace(/^foto:\s*/i, "").trim() || null;
+  const profileUrlRaw = profileLine?.replace(/^ver perfil:\s*/i, "").trim() || null;
+
+  if (!nameLine || !nickname || !profileUrlRaw) return null;
+
+  const displayName = nameLine
+    .replace(/^hilo oficial de\s*/i, "")
+    .replace(/\.$/, "")
+    .trim();
+
+  const profilePath = profileUrlRaw.startsWith("/")
+    ? profileUrlRaw
+    : `/${profileUrlRaw}`;
+
+  return {
+    displayName,
+    nickname,
+    photoUrl: photoUrlRaw ? resolveMediaUrl(photoUrlRaw) || photoUrlRaw : null,
+    profilePath,
+  };
+}
+
 export default function ThreadPage() {
   const params = useParams();
   const threadId = params?.id as string;
@@ -226,30 +260,67 @@ export default function ThreadPage() {
 
       {/* Posts */}
       <div className="space-y-3">
-        {posts.map((post, idx) => (
-          <div key={post.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-            <div className="flex items-start gap-3">
-              <Avatar src={post.author.avatarUrl} alt={post.author.username} size={36} className="shrink-0 border-white/20" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-semibold text-white/90">{post.author.username}</span>
-                  {idx === 0 && (
-                    <span className="rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 px-1.5 py-0.5 text-[9px] text-fuchsia-300 font-medium">OP</span>
+        {posts.map((post, idx) => {
+          const officialProfile = idx === 0 ? parseOfficialProfilePost(post.content) : null;
+
+          return (
+            <div key={post.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="flex items-start gap-3">
+                <Avatar src={post.author.avatarUrl} alt={post.author.username} size={36} className="shrink-0 border-white/20" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="font-semibold text-white/90">{post.author.username}</span>
+                    {idx === 0 && (
+                      <span className="rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 px-1.5 py-0.5 text-[9px] text-fuchsia-300 font-medium">OP</span>
+                    )}
+                    <span className="text-white/30">{timeAgo(post.createdAt)}</span>
+                    {isAdmin && (
+                      <button type="button" onClick={() => handleDeletePost(post.id)} className="ml-auto rounded-md p-1 text-white/20 hover:text-red-400 hover:bg-red-500/10 transition">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  {officialProfile ? (
+                    <div className="mt-3 rounded-2xl border border-fuchsia-400/20 bg-gradient-to-br from-fuchsia-500/10 to-violet-500/10 p-3">
+                      <div className="flex items-center gap-3">
+                        {officialProfile.photoUrl ? (
+                          <img
+                            src={officialProfile.photoUrl}
+                            alt={officialProfile.displayName || officialProfile.nickname}
+                            className="h-14 w-14 rounded-xl object-cover border border-white/20"
+                          />
+                        ) : (
+                          <div className="grid h-14 w-14 place-items-center rounded-xl border border-white/15 bg-white/5 text-xs text-white/50">
+                            Sin foto
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-white/90">
+                            {officialProfile.displayName || officialProfile.nickname}
+                          </p>
+                          <p className="truncate text-xs text-fuchsia-200/80">
+                            {officialProfile.nickname}
+                          </p>
+                        </div>
+                        <Link
+                          href={officialProfile.profilePath}
+                          className="shrink-0 rounded-xl border border-fuchsia-300/40 bg-fuchsia-500/20 px-3 py-2 text-xs font-medium text-fuchsia-100 transition hover:bg-fuchsia-500/30"
+                        >
+                          Ver perfil
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-sm text-white/80 whitespace-pre-wrap break-words leading-relaxed">
+                      {post.content}
+                    </div>
                   )}
-                  <span className="text-white/30">{timeAgo(post.createdAt)}</span>
-                  {isAdmin && (
-                    <button type="button" onClick={() => handleDeletePost(post.id)} className="ml-auto rounded-md p-1 text-white/20 hover:text-red-400 hover:bg-red-500/10 transition">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-                <div className="mt-2 text-sm text-white/80 whitespace-pre-wrap break-words leading-relaxed">
-                  {post.content}
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div ref={bottomRef} />
