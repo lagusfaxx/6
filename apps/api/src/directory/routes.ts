@@ -589,24 +589,54 @@ directoryRouter.get(
     }
     if (!u) return res.status(404).json({ error: "not_found" });
 
-    const reviews = await prisma.professionalReview.findMany({
-      where: { serviceRequest: { professionalId: id } },
-      select: {
-        id: true,
-        hearts: true,
-        comment: true,
-        createdAt: true,
-        serviceRequest: {
-          select: {
-            client: {
-              select: { displayName: true, username: true },
+    const [reviews, forumThread] = await Promise.all([
+      prisma.professionalReview.findMany({
+        where: { serviceRequest: { professionalId: id } },
+        select: {
+          id: true,
+          hearts: true,
+          comment: true,
+          createdAt: true,
+          serviceRequest: {
+            select: {
+              client: {
+                select: { displayName: true, username: true },
+              },
             },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.forumThread.findFirst({
+        where: { authorId: id },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          category: { select: { slug: true, name: true } },
+          posts: {
+            where: {
+              NOT: {
+                authorId: id,
+              },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: {
+              id: true,
+              content: true,
+              createdAt: true,
+              author: {
+                select: {
+                  displayName: true,
+                  username: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
     const rating = reviews.length
       ? reviews.reduce((a, r) => a + r.hearts, 0) / reviews.length
       : null;
@@ -620,6 +650,18 @@ directoryRouter.get(
         ? {
             displayName: r.serviceRequest.client.displayName,
             username: r.serviceRequest.client.username,
+          }
+        : null,
+    }));
+
+    const profileForumComments = (forumThread?.posts || []).map((post) => ({
+      id: post.id,
+      content: post.content,
+      createdAt: post.createdAt.toISOString(),
+      author: post.author
+        ? {
+            displayName: post.author.displayName,
+            username: post.author.username,
           }
         : null,
     }));
@@ -665,6 +707,15 @@ directoryRouter.get(
         userLevel: resolveProfessionalLevel(u.completedServices),
         reviewTagsSummary: u.reviewTagsSummary,
         avgResponseMinutes: (u as any).avgResponseMinutes ?? null,
+        forumThread: forumThread
+          ? {
+              id: forumThread.id,
+              categorySlug: forumThread.category.slug,
+              categoryName: forumThread.category.name,
+              url: `/foro/thread/${forumThread.id}`,
+              comments: profileForumComments,
+            }
+          : null,
       },
     });
   }),
