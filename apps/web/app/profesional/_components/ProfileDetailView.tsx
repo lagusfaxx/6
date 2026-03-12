@@ -1121,7 +1121,7 @@ export default function ProfileDetailView({
               <div className="mb-4 flex items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-base font-semibold text-white/95">
                   <MessageSquare className="h-4 w-4 text-fuchsia-300" />
-                  Comentarios bonitos del foro
+                  Comentarios recientes del foro
                 </h2>
                 <Link
                   href={professional.forumThread.url}
