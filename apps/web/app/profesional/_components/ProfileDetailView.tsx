@@ -35,6 +35,13 @@ import {
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
 import StatusBadgeIcon from "../../../components/StatusBadgeIcon";
 
+type ForumComment = {
+  id: string;
+  content: string;
+  createdAt: string;
+  author?: { displayName?: string | null; username: string } | null;
+};
+
 type Professional = {
   id: string;
   name: string;
@@ -75,6 +82,13 @@ type Professional = {
   userLevel?: string | null;
   reviewTagsSummary?: Record<string, number> | null;
   avgResponseMinutes?: number | null;
+  forumThread?: {
+    id: string;
+    categorySlug: string;
+    categoryName: string;
+    url: string;
+    comments: ForumComment[];
+  } | null;
 };
 
 type ReviewComment = {
@@ -437,6 +451,8 @@ export default function ProfileDetailView({
 
   const reviews = professional?.recentReviews || [];
   const displayedReviews = showAllReviews ? reviews : reviews.slice(0, 3);
+
+  const forumComments = (professional?.forumThread?.comments || []).slice(0, 5);
 
   function redirectToLoginIfNeeded() {
     if (me?.user) return false;
@@ -1098,6 +1114,48 @@ export default function ProfileDetailView({
               </p>
             )}
           </section>
+
+          {/* Comentarios del foro */}
+          {professional.forumThread && forumComments.length > 0 && (
+            <section className="min-w-0 rounded-3xl border border-fuchsia-400/20 bg-gradient-to-b from-fuchsia-500/10 via-violet-500/5 to-transparent p-4 md:p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="flex items-center gap-2 text-base font-semibold text-white/95">
+                  <MessageSquare className="h-4 w-4 text-fuchsia-300" />
+                  Comentarios recientes del foro
+                </h2>
+                <Link
+                  href={professional.forumThread.url}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-fuchsia-400/30 bg-fuchsia-500/15 px-3 py-2 text-xs font-medium text-fuchsia-200 transition hover:bg-fuchsia-500/25"
+                >
+                  Ver hilo completo
+                </Link>
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                {forumComments.map((comment, index) => (
+                  <article
+                    key={comment.id}
+                    className={`px-4 py-3 md:px-4.5 ${
+                      index !== forumComments.length - 1
+                        ? "border-b border-white/8"
+                        : ""
+                    }`}
+                  >
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <p className="text-xs font-medium text-white/75">
+                        {comment.author?.displayName || comment.author?.username || "Usuario"}
+                      </p>
+                      <p className="text-[11px] text-white/45">{timeAgo(comment.createdAt)}</p>
+                    </div>
+                    <p className="line-clamp-3 text-sm leading-relaxed text-white/68">
+                      {comment.content}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
         </div>
 
         {/* Sidebar */}
