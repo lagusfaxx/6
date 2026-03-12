@@ -5,7 +5,11 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../lib/auth";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { env } from "../lib/env";
-import { sendDepositConfirmationEmail, sendWithdrawalConfirmationEmail } from "../lib/transactionEmail";
+import {
+  sendDepositConfirmationEmail,
+  sendWithdrawalConfirmationEmail,
+} from "../lib/transactionEmail";
+import { emitAdminEvent } from "../lib/adminEvents";
 
 export const walletRouter = Router();
 
@@ -13,7 +17,10 @@ const storage = new LocalStorageProvider(
   path.join(process.cwd(), env.UPLOADS_DIR),
   "/uploads",
 );
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
 
 /* ── Helper: get or create wallet ── */
 async function getOrCreateWallet(userId: string) {
@@ -26,19 +33,25 @@ async function getOrCreateWallet(userId: string) {
 
 /* ── Helper: get token rate (CLP per token) ── */
 async function getTokenRate(): Promise<number> {
-  const cfg = await prisma.platformConfig.findUnique({ where: { key: "token_rate_clp" } });
+  const cfg = await prisma.platformConfig.findUnique({
+    where: { key: "token_rate_clp" },
+  });
   return cfg ? parseInt(cfg.value, 10) : 1000;
 }
 
 /* ── Helper: platform commission % ── */
 async function getCommissionPercent(): Promise<number> {
-  const cfg = await prisma.platformConfig.findUnique({ where: { key: "platform_commission_percent" } });
+  const cfg = await prisma.platformConfig.findUnique({
+    where: { key: "platform_commission_percent" },
+  });
   return cfg ? parseInt(cfg.value, 10) : 10;
 }
 
 /* ── Helper: no-show penalty tokens ── */
 async function getNoShowPenalty(): Promise<number> {
-  const cfg = await prisma.platformConfig.findUnique({ where: { key: "noshow_penalty_tokens" } });
+  const cfg = await prisma.platformConfig.findUnique({
+    where: { key: "noshow_penalty_tokens" },
+  });
   return cfg ? parseInt(cfg.value, 10) : 50;
 }
 
@@ -67,48 +80,68 @@ walletRouter.get("/wallet/transactions", requireAuth, async (req, res) => {
     take: limit,
     skip: offset,
   });
-  const total = await prisma.tokenTransaction.count({ where: { walletId: wallet.id } });
+  const total = await prisma.tokenTransaction.count({
+    where: { walletId: wallet.id },
+  });
   res.json({ transactions, total });
 });
 
 // ── POST /wallet/deposit — request token deposit with receipt ──
-walletRouter.post("/wallet/deposit", requireAuth, upload.single("receipt"), async (req, res) => {
-  const file = req.file;
-  if (!file) return res.status(400).json({ error: "Receipt image required" });
+walletRouter.post(
+  "/wallet/deposit",
+  requireAuth,
+  upload.single("receipt"),
+  async (req, res) => {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: "Receipt image required" });
 
-  const tokens = parseInt(String(req.body.tokens || "0"), 10);
-  if (tokens < 1) return res.status(400).json({ error: "Minimum 1 token" });
+    const tokens = parseInt(String(req.body.tokens || "0"), 10);
+    if (tokens < 1) return res.status(400).json({ error: "Minimum 1 token" });
 
-  const rate = await getTokenRate();
-  const clpAmount = tokens * rate;
+    const rate = await getTokenRate();
+    const clpAmount = tokens * rate;
 
-  // Save receipt file
-  const saved = await storage.save({
-    buffer: file.buffer,
-    filename: file.originalname,
-    mimeType: file.mimetype,
-    folder: "receipts",
-  });
+    // Save receipt file
+    const saved = await storage.save({
+      buffer: file.buffer,
+      filename: file.originalname,
+      mimeType: file.mimetype,
+      folder: "receipts",
+    });
 
-  const wallet = await getOrCreateWallet(req.session.userId!);
+    const wallet = await getOrCreateWallet(req.session.userId!);
 
-  const deposit = await prisma.tokenDeposit.create({
-    data: {
-      walletId: wallet.id,
+    const deposit = await prisma.tokenDeposit.create({
+      data: {
+        walletId: wallet.id,
+        amount: tokens,
+        clpAmount,
+        receiptUrl: saved.url,
+      },
+    });
+
+    // Send confirmation email (fire & forget)
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId! },
+      select: { email: true, username: true },
+    });
+    if (user?.email) {
+      sendDepositConfirmationEmail(user.email, {
+        tokens,
+        clpAmount,
+        date: new Date(),
+      }).catch(() => {});
+    }
+
+    await emitAdminEvent({
+      type: "deposit_submitted",
+      user: user?.username || null,
       amount: tokens,
-      clpAmount,
-      receiptUrl: saved.url,
-    },
-  });
+    }).catch(() => {});
 
-  // Send confirmation email (fire & forget)
-  const user = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { email: true } });
-  if (user?.email) {
-    sendDepositConfirmationEmail(user.email, { tokens, clpAmount, date: new Date() }).catch(() => {});
-  }
-
-  res.json({ deposit });
-});
+    res.json({ deposit });
+  },
+);
 
 // ── GET /wallet/deposits — my deposit history ──
 walletRouter.get("/wallet/deposits", requireAuth, async (req, res) => {
@@ -123,10 +156,23 @@ walletRouter.get("/wallet/deposits", requireAuth, async (req, res) => {
 
 // ── POST /wallet/withdraw — request withdrawal ──
 walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
-  const { amount, bankName, accountType, accountNumber, holderName, holderRut } = req.body;
+  const {
+    amount,
+    bankName,
+    accountType,
+    accountNumber,
+    holderName,
+    holderRut,
+  } = req.body;
   const tokens = parseInt(String(amount || "0"), 10);
   if (tokens < 1) return res.status(400).json({ error: "Minimum 1 token" });
-  if (!bankName || !accountType || !accountNumber || !holderName || !holderRut) {
+  if (
+    !bankName ||
+    !accountType ||
+    !accountNumber ||
+    !holderName ||
+    !holderRut
+  ) {
     return res.status(400).json({ error: "All bank details required" });
   }
 
@@ -143,9 +189,12 @@ walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
     where: { id: wallet.id, balance: { gte: tokens } },
     data: { balance: { decrement: tokens } },
   });
-  if (updated.count === 0) return res.status(400).json({ error: "Insufficient balance" });
+  if (updated.count === 0)
+    return res.status(400).json({ error: "Insufficient balance" });
 
-  const updatedWallet = await prisma.wallet.findUnique({ where: { id: wallet.id } });
+  const updatedWallet = await prisma.wallet.findUnique({
+    where: { id: wallet.id },
+  });
 
   const [withdrawal] = await prisma.$transaction([
     prisma.withdrawalRequest.create({
@@ -172,10 +221,24 @@ walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
   ]);
 
   // Send confirmation email (fire & forget)
-  const user = await prisma.user.findUnique({ where: { id: req.session.userId! }, select: { email: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: req.session.userId! },
+    select: { email: true, username: true },
+  });
   if (user?.email) {
-    sendWithdrawalConfirmationEmail(user.email, { tokens, clpAmount, bankName, date: new Date() }).catch(() => {});
+    sendWithdrawalConfirmationEmail(user.email, {
+      tokens,
+      clpAmount,
+      bankName,
+      date: new Date(),
+    }).catch(() => {});
   }
+
+  await emitAdminEvent({
+    type: "withdrawal_requested",
+    user: user?.username || null,
+    amount: tokens,
+  }).catch(() => {});
 
   res.json({ withdrawal });
 });
@@ -199,4 +262,9 @@ walletRouter.get("/wallet/config", async (_req, res) => {
 });
 
 // ── Export helpers for other modules ──
-export { getOrCreateWallet, getTokenRate, getCommissionPercent, getNoShowPenalty };
+export {
+  getOrCreateWallet,
+  getTokenRate,
+  getCommissionPercent,
+  getNoShowPenalty,
+};
