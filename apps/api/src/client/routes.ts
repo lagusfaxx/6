@@ -51,6 +51,7 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
         isActive: true,
         position: "POPUP_PROMO",
         professionalId: { not: null },
+        promoImageUrl: { not: null },
         OR: [{ startsAt: null }, { startsAt: { lte: now } }],
         AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }],
       },
@@ -58,7 +59,6 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
       select: {
         id: true,
         sortOrder: true,
-        imageUrl: true,
         promoImageUrl: true,
         professionalId: true,
       },
@@ -100,14 +100,13 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
     const payload = promotions
       .map((promo) => {
         const pro = promo.professionalId ? byId.get(promo.professionalId) : null;
-        const image = promo.promoImageUrl || promo.imageUrl;
-        if (!pro || !image) return null;
+        if (!pro || !promo.promoImageUrl) return null;
         const stats = ratings.get(pro.id);
         const rating = stats ? Number((stats.sum / stats.count).toFixed(2)) : null;
         return {
           id: promo.id,
           sortOrder: promo.sortOrder,
-          promoImageUrl: image,
+          promoImageUrl: promo.promoImageUrl,
           professional: {
             id: pro.id,
             name: pro.displayName || pro.username || "Profesional",
