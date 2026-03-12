@@ -31,7 +31,10 @@ export function connectRealtime(handler: Handler) {
 
       es.addEventListener("message", (e: MessageEvent) => {
         try {
-          handler({ type: "message", data: JSON.parse(String(e.data || "{}")) });
+          handler({
+            type: "message",
+            data: JSON.parse(String(e.data || "{}")),
+          });
         } catch {
           handler({ type: "message", data: null });
         }
@@ -39,7 +42,10 @@ export function connectRealtime(handler: Handler) {
 
       es.addEventListener("service_request", (e: MessageEvent) => {
         try {
-          handler({ type: "service_request", data: JSON.parse(String(e.data || "{}")) });
+          handler({
+            type: "service_request",
+            data: JSON.parse(String(e.data || "{}")),
+          });
         } catch {
           handler({ type: "service_request", data: null });
         }
@@ -54,12 +60,24 @@ export function connectRealtime(handler: Handler) {
       });
 
       for (const evt of [
-        "forum:newThread", "forum:newPost",
-        "videocall:booked", "videocall:started", "videocall:completed",
-        "videocall:cancelled", "videocall:noshow", "videocall:user_joined", "videocall:chat",
-        "live:started", "live:ended", "live:chat",
-        "live:viewer_joined", "live:viewer_left",
-        "signal:offer", "signal:answer", "signal:ice",
+        "forum:newThread",
+        "forum:newPost",
+        "videocall:booked",
+        "videocall:started",
+        "videocall:completed",
+        "videocall:cancelled",
+        "videocall:noshow",
+        "videocall:user_joined",
+        "videocall:chat",
+        "live:started",
+        "live:ended",
+        "live:chat",
+        "live:viewer_joined",
+        "live:viewer_left",
+        "signal:offer",
+        "signal:answer",
+        "signal:ice",
+        "admin_event",
       ] as const) {
         es.addEventListener(evt, (e: MessageEvent) => {
           try {
@@ -75,7 +93,10 @@ export function connectRealtime(handler: Handler) {
         retryAttempt += 1;
         const baseDelay = 1500;
         const maxDelay = 30000;
-        const expDelay = Math.min(maxDelay, baseDelay * (2 ** Math.min(retryAttempt, 4)));
+        const expDelay = Math.min(
+          maxDelay,
+          baseDelay * 2 ** Math.min(retryAttempt, 4),
+        );
         const jitter = Math.floor(Math.random() * 600);
         clearTimeout(retryTimer);
         retryTimer = setTimeout(connect, expDelay + jitter);
@@ -89,7 +110,7 @@ export function connectRealtime(handler: Handler) {
       };
     } catch {
       retryAttempt += 1;
-      const delay = Math.min(30000, 1500 * (2 ** Math.min(retryAttempt, 4)));
+      const delay = Math.min(30000, 1500 * 2 ** Math.min(retryAttempt, 4));
       clearTimeout(retryTimer);
       retryTimer = setTimeout(connect, delay);
     }

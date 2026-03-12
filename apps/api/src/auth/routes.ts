@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { loginInputSchema, registerInputSchema } from "@uzeed/shared";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
+import { emitAdminEvent } from "../lib/adminEvents";
 
 export const authRouter = Router();
 
@@ -52,7 +53,9 @@ function normalizeForumCategoryInput(value: string | null | undefined) {
     .trim();
 }
 
-async function resolveForumCategoryId(primaryCategory: string | null | undefined) {
+async function resolveForumCategoryId(
+  primaryCategory: string | null | undefined,
+) {
   const normalized = normalizeForumCategoryInput(primaryCategory);
 
   const targetGroup =
@@ -174,13 +177,11 @@ authRouter.post(
           email: payload.email,
           username: payload.username,
         });
-        return res
-          .status(400)
-          .json({
-            error: "PROFILE_TYPE_INVALID",
-            message:
-              "Tipo de perfil inválido. Actualiza la página e intenta nuevamente.",
-          });
+        return res.status(400).json({
+          error: "PROFILE_TYPE_INVALID",
+          message:
+            "Tipo de perfil inválido. Actualiza la página e intenta nuevamente.",
+        });
       }
       return res
         .status(400)
@@ -234,12 +235,10 @@ authRouter.post(
     if (birthdate) {
       const parsedBirthdate = new Date(birthdate);
       if (Number.isNaN(parsedBirthdate.getTime())) {
-        return res
-          .status(400)
-          .json({
-            error: "BIRTHDATE_INVALID",
-            message: "La fecha de nacimiento no es válida.",
-          });
+        return res.status(400).json({
+          error: "BIRTHDATE_INVALID",
+          message: "La fecha de nacimiento no es válida.",
+        });
       }
       const now = new Date();
       let age = now.getFullYear() - parsedBirthdate.getFullYear();
@@ -248,12 +247,10 @@ authRouter.post(
         age -= 1;
       }
       if (age < 18) {
-        return res
-          .status(400)
-          .json({
-            error: "BIRTHDATE_UNDERAGE",
-            message: "Debes ser mayor de 18 años.",
-          });
+        return res.status(400).json({
+          error: "BIRTHDATE_UNDERAGE",
+          message: "Debes ser mayor de 18 años.",
+        });
       }
       safeBirthdate = parsedBirthdate;
     }
@@ -374,6 +371,13 @@ authRouter.post(
       });
     }
 
+    if (isBusinessProfile) {
+      await emitAdminEvent({
+        type: "profile_verification_requested",
+        user: user.username || null,
+      }).catch(() => {});
+    }
+
     await persistSession(req);
     return res.json({
       user: {
@@ -469,18 +473,45 @@ authRouter.get(
     if (!req.session.userId)
       return res.status(401).json({ error: "UNAUTHENTICATED" });
     const baseSelect = {
-      id: true, email: true, displayName: true, role: true,
-      membershipExpiresAt: true, shopTrialEndsAt: true, createdAt: true,
-      username: true, profileType: true, gender: true,
-      preferenceGender: true, avatarUrl: true, address: true,
-      phone: true, bio: true, coverUrl: true, coverPositionX: true, coverPositionY: true, subscriptionPrice: true,
-      serviceCategory: true, serviceDescription: true, heightCm: true,
-      weightKg: true, measurements: true, hairColor: true,
-      skinTone: true, languages: true, serviceStyleTags: true,
-      availabilityNote: true, baseRate: true, minDurationMinutes: true,
-      acceptsIncalls: true, acceptsOutcalls: true, city: true,
-      latitude: true, longitude: true, allowFreeMessages: true,
-      birthdate: true, isVerified: true,
+      id: true,
+      email: true,
+      displayName: true,
+      role: true,
+      membershipExpiresAt: true,
+      shopTrialEndsAt: true,
+      createdAt: true,
+      username: true,
+      profileType: true,
+      gender: true,
+      preferenceGender: true,
+      avatarUrl: true,
+      address: true,
+      phone: true,
+      bio: true,
+      coverUrl: true,
+      coverPositionX: true,
+      coverPositionY: true,
+      subscriptionPrice: true,
+      serviceCategory: true,
+      serviceDescription: true,
+      heightCm: true,
+      weightKg: true,
+      measurements: true,
+      hairColor: true,
+      skinTone: true,
+      languages: true,
+      serviceStyleTags: true,
+      availabilityNote: true,
+      baseRate: true,
+      minDurationMinutes: true,
+      acceptsIncalls: true,
+      acceptsOutcalls: true,
+      city: true,
+      latitude: true,
+      longitude: true,
+      allowFreeMessages: true,
+      birthdate: true,
+      isVerified: true,
     };
     const extendedSelect = {
       ...baseSelect,
