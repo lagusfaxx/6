@@ -799,11 +799,11 @@ export default function HomePage() {
           </motion.div>
 
           <motion.h1 initial="hidden" animate="visible" custom={1} variants={fadeUp} className="text-3xl font-bold leading-[1.1] tracking-tight md:text-5xl">
-            <span className="bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">Escorts, putas y experiencias reales cerca de ti</span>
+            <span className="bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
           </motion.h1>
 
           <motion.h2 initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mx-auto mt-4 max-w-2xl text-sm font-medium text-white/70 md:text-base">
-            Las mejores putas, escorts y maracas en Santiago, Las Condes y Viña: profesionales verificadas con disponibilidad hoy.
+            Las mejores Escorts y Putas en Santiago, Las Condes y regiones. Todo lo que buscas en un entorno discreto, verificado y premium.
           </motion.h2>
 
           <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp} className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
