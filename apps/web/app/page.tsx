@@ -231,7 +231,6 @@ type RecentProfessional = {
   userLevel: UserLevel;
   completedServices: number;
   profileViews: number;
-  profileScore: number;
   lastSeen?: string | null;
   availableNow?: boolean;
   bio?: string | null;
@@ -257,7 +256,6 @@ type DiscoverProfile = {
   userLevel: UserLevel;
   completedServices: number;
   profileViews: number;
-  profileScore: number;
   lastSeen?: string | null;
   lastActiveAt?: string | null;
   bio?: string | null;
@@ -558,6 +556,13 @@ const cardFade = {
   },
 };
 
+/* ── Tier config ── */
+const TIERS = [
+  { key: "DIAMOND", label: "Platino", icon: Crown, gradient: "from-cyan-400 to-blue-500", border: "border-cyan-400/30", bg: "bg-cyan-500/10" },
+  { key: "GOLD", label: "Gold", icon: Star, gradient: "from-amber-400 to-yellow-500", border: "border-amber-400/30", bg: "bg-amber-500/10" },
+  { key: "SILVER", label: "Silver", icon: Sparkles, gradient: "from-slate-300 to-slate-400", border: "border-slate-400/30", bg: "bg-slate-500/10" },
+] as const;
+
 /* ── Page ── */
 
 const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
@@ -698,7 +703,6 @@ export default function HomePage() {
                 : "SILVER",
             completedServices: Number(p.completedServices || 0),
             profileViews: Number(p.profileViews || 0),
-            profileScore: Number(p.profileScore || 0),
             lastSeen: p.lastSeen ?? null,
             bio: p.bio ?? null,
             serviceCategory: p.serviceCategory ?? null,
@@ -707,6 +711,9 @@ export default function HomePage() {
             galleryUrls: p.galleryUrls ?? [],
           }),
         );
+
+        // Sort by distance first — closest profiles always on top
+        mapped.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
 
         setRecentPros(mapped);
       })
@@ -816,18 +823,14 @@ export default function HomePage() {
     }).slice(0, 15);
   }, [discoverSections]);
 
-  const featuredProfiles = useMemo(() => {
-    return [...recentPros]
-      .filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD")
-      .sort((a, b) => {
-        const scoreCmp = (b.profileScore || 0) - (a.profileScore || 0);
-        if (scoreCmp !== 0) return scoreCmp;
-        const activityCmp = (Date.parse(b.lastSeen || "") || 0) - (Date.parse(a.lastSeen || "") || 0);
-        if (activityCmp !== 0) return activityCmp;
-        return (b.profileViews || 0) - (a.profileViews || 0);
-      });
+  // Tier-based sections — already sorted by distance from API
+  const tierProfiles = useMemo(() => {
+    return {
+      DIAMOND: recentPros.filter((p) => p.userLevel === "DIAMOND").slice(0, 6),
+      GOLD: recentPros.filter((p) => p.userLevel === "GOLD").slice(0, 6),
+      SILVER: recentPros.filter((p) => p.userLevel === "SILVER").slice(0, 6),
+    };
   }, [recentPros]);
-  const [featuredIndex, setFeaturedIndex] = useState(0);
 
   const availableProfiles = discoverSections["available"] || [];
   const availableCarouselProfiles = useMemo(
@@ -835,6 +838,7 @@ export default function HomePage() {
     [availableProfiles],
   );
   const shouldAutoScrollAvailable = availableProfiles.length > 1 && isAvailableInView && !isAvailableInteracting;
+  const nearProfiles = discoverSections["near"] || [];
   const newProfiles = discoverSections["new"] || [];
 
   useEffect(() => {
@@ -890,19 +894,6 @@ export default function HomePage() {
     rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
   }, [shouldAutoScrollAvailable, availableCarouselProfiles.length]);
-
-  useEffect(() => {
-    if (!featuredProfiles.length) return;
-    setFeaturedIndex((prev) => prev % featuredProfiles.length);
-  }, [featuredProfiles.length]);
-
-  useEffect(() => {
-    if (featuredProfiles.length <= 1) return;
-    const timer = window.setInterval(() => {
-      setFeaturedIndex((prev) => (prev + 1) % featuredProfiles.length);
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [featuredProfiles.length]);
 
   const handleAvailablePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const carousel = availableCarouselRef.current;
@@ -1189,44 +1180,246 @@ export default function HomePage() {
         {/* ═══ PUBLICIDAD / PROMOCIONADO ═══ */}
         <PromoShowcaseSection promotions={promoShowcase} />
 
-        {/* ═══ DESTACADAS (Gold + Platino) ═══ */}
-        {featuredProfiles.length > 0 && (
+        {/* ═══ TIER SECTIONS: Platino / Gold / Silver ═══ */}
+        {TIERS.map((tier) => {
+          const profiles = tierProfiles[tier.key] || [];
+          if (!profiles.length) return null;
+          const Icon = tier.icon;
+          return (
+            <motion.section key={tier.key} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+              <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
+                <div className="flex items-center gap-2">
+                  <Icon className={`h-5 w-5 bg-gradient-to-r ${tier.gradient} bg-clip-text text-transparent`} />
+                  <h2 className="text-xl font-bold">{tier.label}</h2>
+                </div>
+                <Link href="/profesionales" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
+                  Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+              </motion.div>
+              <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
+                {profiles.map((p) => (
+                  <motion.div key={p.id} variants={cardFade} className="w-[70vw] shrink-0 snap-start sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
+                      className={`group relative block w-full overflow-hidden rounded-2xl border ${tier.border} bg-white/[0.03] text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]`}
+                    >
+                      <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                        {p.avatarUrl || p.coverUrl ? (
+                          <img
+                            src={resolveProfileImage(p)}
+                            alt={p.name}
+                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-30" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        {p.distance != null && (
+                          <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80 backdrop-blur-xl">
+                            <MapPin className="h-3 w-3" />
+                            {p.distance.toFixed(1)} km
+                          </div>
+                        )}
+                        <div className="absolute left-3 top-3 flex flex-col gap-1">
+                          <UserLevelBadge level={p.userLevel} className="px-2.5 py-1 text-[11px]" />
+                          {hasExamsBadge(p) && (
+                            <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                              <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
+                            </div>
+                          )}
+                          {hasVideoCallBadge(p) && (
+                            <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                              <Video className="h-2.5 w-2.5" /> Videollamadas
+                            </div>
+                          )}
+                        </div>
+                        {p.availableNow && (
+                          <div className="absolute left-3 bottom-12 flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-300/20 px-2 py-0.5 text-[10px] text-emerald-200">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                            Disponible
+                          </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                          <h3 className="flex items-center gap-1 text-lg font-semibold leading-tight">
+                            {p.name}
+                            {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
+                            {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
+                          </h3>
+                          <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
+                            {p.age && <span>{p.age} años</span>}
+                            <span>{formatLastSeenLabel(p.lastSeen)}</span>
+                          </div>
+                          {(p.serviceCategory || (filterUserTags(p.profileTags).length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {filterUserTags(p.profileTags).map((tag) => (
+                                <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                              ))}
+                              {p.serviceCategory && (
+                                <span className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{p.serviceCategory}</span>
+                              )}
+                              {p.serviceTags?.slice(0, 10).map((tag) => (
+                                <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.section>
+          );
+        })}
+
+        {/* ═══ DESTACADAS ═══ */}
+        {recentPros.length > 0 && (
+          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+            <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Flame className="h-4 w-4 text-fuchsia-400" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-fuchsia-400/80">Destacadas</span>
+                </div>
+                <h2 className="text-xl font-bold tracking-tight md:text-2xl">Experiencias cerca de ti</h2>
+              </div>
+              <Link href="/profesionales" className="group hidden items-center gap-1.5 text-sm text-white/50 transition hover:text-white sm:flex">
+                Ver todas <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </motion.div>
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
+              {recentPros.slice(0, 8).map((p) => (
+                <motion.div key={p.id} variants={cardFade} className="w-[65vw] shrink-0 snap-start sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
+                    className="group relative block w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] text-left transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20"
+                  >
+                    <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                      <img
+                        src={resolveProfileImage(p)}
+                        alt={p.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                      {p.distance != null && (
+                        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
+                          <MapPin className="h-3 w-3" /> {p.distance.toFixed(1)} km
+                        </div>
+                      )}
+                      <div className="absolute left-2 top-2 flex flex-col gap-1">
+                        <UserLevelBadge level={p.userLevel} className="px-2 py-0.5 text-[10px]" />
+                        {hasExamsBadge(p) && (
+                          <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                            <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
+                          </div>
+                        )}
+                        {hasVideoCallBadge(p) && (
+                          <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                            <Video className="h-2.5 w-2.5" /> Videollamadas
+                          </div>
+                        )}
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 p-3">
+                        <h3 className="flex items-center gap-1 text-sm font-semibold leading-tight">
+                          {p.name}{p.age ? `, ${p.age}` : ""}
+                          {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
+                          {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
+                        </h3>
+                        <div className="mt-0.5 text-[10px] text-white/50">{formatLastSeenLabel(p.lastSeen)}</div>
+                        {(p.serviceCategory || (filterUserTags(p.profileTags).length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {filterUserTags(p.profileTags).map((tag) => (
+                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                            {p.serviceCategory && (
+                              <span className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{p.serviceCategory}</span>
+                            )}
+                            {p.serviceTags?.slice(0, 10).map((tag) => (
+                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </motion.div>
+              ))}
+            </div>
+            <Link href="/profesionales" className="mt-3 flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] py-3 text-sm text-white/60 transition hover:bg-white/[0.06] sm:hidden">
+              Ver todas las experiencias <ChevronRight className="h-4 w-4" />
+            </Link>
+          </motion.section>
+        )}
+
+        {/* ═══ CERCA DE TI — Grid for abundance ═══ */}
+        {nearProfiles.length > 0 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Star className="h-5 w-5 text-amber-300" />
-                <h2 className="text-xl font-bold">Destacadas</h2>
+                <Navigation className="h-4 w-4 text-fuchsia-300" />
+                <h2 className="text-xl font-bold">Cerca de ti</h2>
               </div>
-              <Link href="/profesionales" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
-                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              <Link href="/servicios?sort=near" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
+                Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </motion.div>
-
-            <motion.article key={featuredProfiles[featuredIndex]?.id} variants={cardFade} className="w-full">
-              <button
-                type="button"
-                onClick={() => {
-                  const p = featuredProfiles[featuredIndex];
-                  if (!p) return;
-                  setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance });
-                }}
-                className="group relative block w-full overflow-hidden rounded-2xl border border-amber-400/30 bg-white/[0.03] text-left transition-all duration-200 hover:-translate-y-1"
-              >
-                {featuredProfiles[featuredIndex] && (
-                  <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
-                    <img src={resolveProfileImage(featuredProfiles[featuredIndex] as any)} alt={featuredProfiles[featuredIndex].name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-black/10" />
-                    <div className="absolute right-3 top-3">
-                      <UserLevelBadge level={featuredProfiles[featuredIndex].userLevel} className="px-2.5 py-1 text-[11px]" />
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {nearProfiles.map((profile) => (
+                <motion.article key={profile.id} variants={cardFade} className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20">
+                  <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
+                    <div className="relative aspect-[3/4] bg-white/[0.04]">
+                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
+                      {profile.distanceKm != null && (
+                        <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
+                          {profile.distanceKm.toFixed(1)} km
+                        </div>
+                      )}
+                      <div className="absolute left-2 top-2 flex flex-col gap-1">
+                        {profile.availableNow && (
+                          <div className="flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-200">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Online
+                          </div>
+                        )}
+                        {hasExamsBadge(profile as any) && (
+                          <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                            <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
+                          </div>
+                        )}
+                        {hasVideoCallBadge(profile as any) && (
+                          <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                            <Video className="h-2.5 w-2.5" /> Videollamadas
+                          </div>
+                        )}
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-2">
+                        <div className="flex items-center gap-1 truncate text-xs font-semibold">
+                          {profile.displayName}{profile.age ? `, ${profile.age}` : ""}
+                          {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
+                          {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
+                        </div>
+                        {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0 || profile.serviceCategory) && (
+                          <div className="flex flex-wrap gap-0.5 mt-0.5">
+                            {filterUserTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
+                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                            {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
+                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                      <div className="text-lg font-semibold text-white">{featuredProfiles[featuredIndex].name}{featuredProfiles[featuredIndex].age ? `, ${featuredProfiles[featuredIndex].age}` : ""}</div>
-                      <div className="mt-1 text-xs text-white/70">{formatLastSeenLabel(featuredProfiles[featuredIndex].lastSeen)}</div>
-                    </div>
-                  </div>
-                )}
-              </button>
-            </motion.article>
+                  </button>
+                </motion.article>
+              ))}
+            </div>
           </motion.section>
         )}
 

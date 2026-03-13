@@ -13,7 +13,7 @@ import { findCategoryByRef } from "../lib/categories";
 import { obfuscateLocation } from "../lib/locationPrivacy";
 import { isUUID } from "../lib/validators";
 import { sendToUser } from "../realtime/sse";
-import { getProfileRanking } from "../lib/profileRanking";
+import { resolveProfessionalLevel } from "../lib/professionalLevel";
 
 export const servicesRouter = Router();
 
@@ -171,7 +171,6 @@ servicesRouter.get(
         lastSeen: true,
         phone: true,
         completedServices: true,
-        profileViews: true,
         totalEarnedClp: true,
         membershipExpiresAt: true,
         shopTrialEndsAt: true,
@@ -212,12 +211,7 @@ servicesRouter.get(
           baseRate: p.baseRate,
           lastSeen: p.lastSeen ? p.lastSeen.toISOString() : null,
           phone: p.phone || null,
-          userLevel: getProfileRanking({
-            baseRate: p.baseRate,
-            profileViews: p.profileViews,
-            lastActiveAt: p.lastSeen,
-            completedServices: p.completedServices,
-          }).calculatedTier,
+          userLevel: resolveProfessionalLevel(p.totalEarnedClp),
           profileTags: p.profileTags ?? [],
           serviceTags: p.serviceTags ?? [],
         };
@@ -1256,7 +1250,7 @@ servicesRouter.post(
           completedServices: { increment: 1 },
           totalEarnedClp: { increment: priceClp },
         },
-        select: { baseRate: true, profileViews: true, lastSeen: true, completedServices: true },
+        select: { totalEarnedClp: true },
       });
 
       await tx.notification.create({
@@ -1271,12 +1265,9 @@ servicesRouter.post(
             professionalId,
             url: `/profesional/${professionalId}`,
             suggestedTags: QUICK_REVIEW_TAGS,
-            professionalLevel: getProfileRanking({
-              baseRate: professional.baseRate,
-              profileViews: professional.profileViews,
-              lastActiveAt: professional.lastSeen,
-              completedServices: professional.completedServices,
-            }).calculatedTier,
+            professionalLevel: resolveProfessionalLevel(
+              professional.totalEarnedClp,
+            ),
           },
         },
       });
