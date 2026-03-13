@@ -164,6 +164,7 @@ adminRouter.get(
           "withdrawal_requested",
           "profile_verification_requested",
           "content_reported",
+          "deletion_requested",
         ].includes(String(n.data.type || "")),
       )
       .map((n) => {
