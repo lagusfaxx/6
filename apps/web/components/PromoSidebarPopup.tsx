@@ -78,7 +78,7 @@ export default function PromoSidebarPopup({ promotions }: { promotions: PopupPro
         onMouseLeave={() => setIsHovered(false)}
         onPointerDown={() => setIsInteracting(true)}
         onFocusCapture={() => setIsInteracting(true)}
-        className="fixed left-1/2 top-[85px] z-40 w-[90vw] max-w-[320px] -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-[rgba(25,20,45,0.65)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-[12px] md:left-auto md:right-5 md:top-[110px] md:w-[250px] md:max-w-[260px] md:translate-x-0"
+        className="fixed left-1/2 top-[calc(env(safe-area-inset-top)+104px)] z-[120] w-[92vw] max-w-[340px] -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-[rgba(25,20,45,0.65)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-[12px] lg:left-auto lg:right-5 lg:top-[110px] lg:w-[250px] lg:max-w-[260px] lg:translate-x-0"
       >
         <button
           type="button"
@@ -87,13 +87,13 @@ export default function PromoSidebarPopup({ promotions }: { promotions: PopupPro
             setDismissed(true);
             window.sessionStorage.setItem(DISMISS_KEY, "1");
           }}
-          className="absolute right-1.5 top-1.5 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-sm transition hover:bg-black/70 active:scale-95"
+          className="absolute right-1.5 top-1.5 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-sm transition hover:bg-black/70 active:scale-95"
         >
           <X className="h-3.5 w-3.5" />
         </button>
 
-        <div className="flex h-[98px] items-center gap-2.5 p-2.5 md:h-auto md:items-start md:gap-3 md:p-3">
-          <img src={imageSrc} alt={current.professional.name} className="h-[76px] w-[58px] shrink-0 rounded-[10px] object-cover md:h-[80px] md:w-[60px]" />
+        <div className="flex h-[98px] items-center gap-2.5 p-2.5 pr-10 lg:h-auto lg:items-start lg:gap-3 lg:p-3 lg:pr-3">
+          <img src={imageSrc} alt={current.professional.name} className="h-[76px] w-[58px] shrink-0 rounded-[10px] object-cover lg:h-[80px] lg:w-[60px]" />
 
           <div className="min-w-0 flex-1 space-y-1">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fuchsia-200/80">Destacada</p>
