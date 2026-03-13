@@ -68,7 +68,7 @@ type PopupPromotion = {
 };
 
 function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) {
-  const showcasePromotions = promotions.slice(0, 4);
+  const showcasePromotions = promotions;
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -77,13 +77,16 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
     setActiveIndex((prev) => prev % showcasePromotions.length);
   }, [showcasePromotions.length]);
 
+  // Dynamic duration: GOLD = 10s, STANDARD = 5s
   useEffect(() => {
     if (showcasePromotions.length <= 1 || isPaused) return;
-    const interval = window.setInterval(() => {
+    const currentPromo = showcasePromotions[activeIndex];
+    const duration = currentPromo?.adTier === "GOLD" ? 10000 : 5000;
+    const timeout = window.setTimeout(() => {
       setActiveIndex((prev) => (prev + 1) % showcasePromotions.length);
-    }, 5000);
-    return () => window.clearInterval(interval);
-  }, [isPaused, showcasePromotions.length]);
+    }, duration);
+    return () => window.clearTimeout(timeout);
+  }, [isPaused, showcasePromotions.length, activeIndex, showcasePromotions]);
 
   if (!showcasePromotions.length) return null;
 
@@ -160,23 +163,39 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
           ) : null}
         </Link>
 
-        {/* Carousel dots */}
+        {/* Progress bars */}
         {showcasePromotions.length > 1 ? (
-          <div className="mt-2 flex items-center justify-center gap-1.5">
+          <div className="mt-2 flex items-center justify-center gap-1">
             {showcasePromotions.map((promo, idx) => {
-              const isActive = idx === activeIndex;
+              const isCurrent = idx === activeIndex;
               const dotIsGold = promo.adTier === "GOLD";
+              const duration = dotIsGold ? 10 : 5;
               return (
                 <button
-                  key={`promo-dot-${promo.id}`}
+                  key={`promo-bar-${promo.id}`}
                   type="button"
                   aria-label={`Ir al banner ${idx + 1}`}
                   onClick={() => {
                     setIsPaused(true);
                     setActiveIndex(idx);
                   }}
-                  className={`transition-all duration-300 ${isActive ? `h-2 w-5 rounded-full ${dotIsGold ? "bg-amber-400" : "bg-fuchsia-400"}` : "h-2 w-2 rounded-full bg-white/20 hover:bg-white/40"}`}
-                />
+                  className={`relative overflow-hidden rounded-full transition-all duration-300 ${dotIsGold ? "h-1.5 flex-[2]" : "h-1 flex-1"} ${isCurrent ? "" : "opacity-40 hover:opacity-70"}`}
+                  style={{ maxWidth: dotIsGold ? 60 : 40 }}
+                >
+                  <div className={`absolute inset-0 ${dotIsGold ? "bg-amber-400/30" : "bg-white/15"}`} />
+                  {isCurrent && !isPaused && (
+                    <div
+                      className={`absolute inset-y-0 left-0 rounded-full ${dotIsGold ? "bg-amber-400" : "bg-fuchsia-400"}`}
+                      style={{ animation: `promo-progress ${duration}s linear forwards` }}
+                    />
+                  )}
+                  {isCurrent && isPaused && (
+                    <div className={`absolute inset-y-0 left-0 rounded-full ${dotIsGold ? "bg-amber-400" : "bg-fuchsia-400"}`} style={{ width: "50%" }} />
+                  )}
+                  {!isCurrent && idx < activeIndex && (
+                    <div className={`absolute inset-0 rounded-full ${dotIsGold ? "bg-amber-400/60" : "bg-white/30"}`} />
+                  )}
+                </button>
               );
             })}
           </div>
