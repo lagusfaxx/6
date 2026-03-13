@@ -37,6 +37,7 @@ import {
   CheckCircle,
   ShieldCheck,
   Video,
+  Phone,
 } from "lucide-react";
 
 type ProfileResult = {
@@ -69,6 +70,7 @@ type ProfileResult = {
   galleryUrls?: string[] | null;
   profileTags?: string[];
   serviceTags?: string[];
+  phone?: string | null;
   userId?: string | null;
 };
 
@@ -94,6 +96,12 @@ const SORT_OPTIONS = [
   { key: "newest", label: "Nuevas" },
   { key: "available", label: "Disponibles" },
 ] as const;
+
+function formatWhatsAppUrl(phone: string) {
+  const cleaned = phone.replace(/[^0-9+]/g, "");
+  const num = cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
+  return `https://wa.me/${num}`;
+}
 
 function ownerHref(profile: ProfileResult) {
   if (profile.profileType === "ESTABLISHMENT") return `/hospedaje/${profile.id}`;
@@ -344,6 +352,17 @@ const FeaturedCard = memo(function FeaturedCard({
             <MessageCircle className="h-3.5 w-3.5" /> Mensaje
           </Link>
         )}
+        {profile.profileType === "PROFESSIONAL" && profile.phone && (
+          <a
+            href={formatWhatsAppUrl(profile.phone)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-300 hover:bg-emerald-500/20 transition"
+            title="WhatsApp"
+          >
+            <Phone className="h-3.5 w-3.5" />
+          </a>
+        )}
         <Link
           href={ownerHref(profile)}
           className="flex items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-xs font-medium text-white/70 hover:bg-white/10 transition"
@@ -437,6 +456,17 @@ const ProfileCard = memo(function ProfileCard({
           >
             <MessageCircle className="h-3 w-3" /> Mensaje
           </Link>
+        )}
+        {profile.profileType === "PROFESSIONAL" && profile.phone && (
+          <a
+            href={formatWhatsAppUrl(profile.phone)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-2 text-[11px] text-emerald-300 hover:bg-emerald-500/20 transition"
+            title="WhatsApp"
+          >
+            <Phone className="h-3 w-3" />
+          </a>
         )}
         <Link
           href={ownerHref(profile)}
@@ -672,6 +702,17 @@ function ProfileDetailPanel({
           >
             <MessageCircle className="h-4 w-4" /> Chat
           </Link>
+        )}
+        {profile.profileType === "PROFESSIONAL" && profile.phone && (
+          <a
+            href={formatWhatsAppUrl(profile.phone)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20"
+            title="WhatsApp"
+          >
+            <Phone className="h-4 w-4" />
+          </a>
         )}
         <Link
           href={ownerHref(profile)}

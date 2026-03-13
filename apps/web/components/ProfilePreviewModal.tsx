@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
-import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcase, Loader2, Sparkles, Hotel, ShoppingBag, CalendarCheck, Crown, ShieldCheck } from "lucide-react";
+import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcase, Loader2, Sparkles, Hotel, ShoppingBag, CalendarCheck, Crown, ShieldCheck, Phone } from "lucide-react";
 import { useEffect, useState } from "react";
 import UserLevelBadge from "./UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
@@ -51,8 +51,15 @@ type FullProfile = {
   baseRate: number | null;
   heightCm: number | null;
   gender: string | null;
+  phone: string | null;
   availableNow?: boolean;
 };
+
+function formatWhatsAppUrl(phone: string) {
+  const cleaned = phone.replace(/[^0-9+]/g, "");
+  const num = cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
+  return `https://wa.me/${num}`;
+}
 
 export default function ProfilePreviewModal({ profile, onClose }: Props) {
   const { me } = useMe();
@@ -91,6 +98,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
           baseRate: p.baseRate || null,
           heightCm: p.heightCm || null,
           gender: p.gender || null,
+          phone: p.phone || null,
           availableNow: p.isOnline || p.availableNow || profile.availableNow,
         });
       })
@@ -395,6 +403,18 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                   <MessageCircle className="h-4 w-4" />
                   Mensaje
                 </Link>
+                {fullProfile?.phone && (
+                  <a
+                    href={formatWhatsAppUrl(fullProfile.phone)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={onClose}
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+                  >
+                    <Phone className="h-4 w-4" />
+                    WhatsApp
+                  </a>
+                )}
                 <Link
                   href={profileHref}
                   onClick={onClose}

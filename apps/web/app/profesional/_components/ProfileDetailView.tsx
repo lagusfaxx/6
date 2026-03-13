@@ -31,6 +31,7 @@ import {
   Video,
   Zap,
   Gem,
+  Phone,
 } from "lucide-react";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
 import StatusBadgeIcon from "../../../components/StatusBadgeIcon";
@@ -76,6 +77,7 @@ type Professional = {
   acceptsOutcalls?: boolean | null;
   profileTags?: string[];
   serviceTags?: string[];
+  phone?: string | null;
   gallery: { id: string; url: string; type: string }[];
   completedServices?: number;
   profileViews?: number;
@@ -466,6 +468,12 @@ export default function ProfileDetailView({
     window.location.href = buildChatHref(professional.id, { mode });
   }
 
+  function formatWhatsAppUrl(phone: string) {
+    const cleaned = phone.replace(/[^0-9+]/g, "");
+    const num = cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
+    return `https://wa.me/${num}`;
+  }
+
   async function toggleFavorite() {
     if (!professional) return;
     if (!me?.user) {
@@ -564,7 +572,7 @@ export default function ProfileDetailView({
     <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-hidden pb-40 md:pb-10">
       {/* Hero cover */}
       <section className="relative w-full overflow-hidden">
-        <div className="relative aspect-[8/5] w-full overflow-hidden md:aspect-[16/5]">
+        <div className="relative aspect-[9/6] w-full overflow-hidden md:aspect-[16/5]">
           {coverSrc ? (
             <img
               src={coverSrc}
@@ -579,12 +587,13 @@ export default function ProfileDetailView({
               <ImageIcon className="h-10 w-10 text-white/50" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#13061f] via-transparent to-black/40" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0c0614] via-[#0c0614]/30 to-black/30" />
 
-          <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4 md:p-6">
+          {/* Top floating badges */}
+          <div className="absolute inset-x-0 top-0 flex items-start justify-between p-4 md:p-6">
             <div className="flex flex-col gap-1.5">
               <span
-                className={`flex items-center gap-1.5 rounded-2xl border px-3 py-1 text-xs font-medium backdrop-blur-md ${availabilityState.className}`}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium backdrop-blur-xl ${availabilityState.className}`}
               >
                 <span className="relative flex h-2 w-2">
                   {availableNow && (
@@ -601,7 +610,7 @@ export default function ProfileDetailView({
               </span>
               {professional.avgResponseMinutes != null &&
                 professional.avgResponseMinutes <= 30 && (
-                  <span className="flex items-center gap-1.5 rounded-2xl border border-violet-300/40 bg-violet-500/20 px-3 py-1 text-xs font-medium text-violet-100 backdrop-blur-md">
+                  <span className="flex items-center gap-1.5 rounded-full border border-violet-300/30 bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-100 backdrop-blur-xl">
                     <Zap className="h-3 w-3 text-violet-300" />
                     {professional.avgResponseMinutes <= 5
                       ? "Responde al instante"
@@ -609,7 +618,7 @@ export default function ProfileDetailView({
                   </span>
                 )}
             </div>
-            <div className="flex items-center gap-1.5 rounded-2xl border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur-md">
+            <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/30 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-xl">
               <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
               <span>
                 {(surveySummary?.avgOverall ?? professional.rating)?.toFixed(
@@ -618,7 +627,7 @@ export default function ProfileDetailView({
               </span>
               {(surveySummary?.count ?? professional.reviewCount ?? 0) > 0 && (
                 <>
-                  <span className="text-white/40">•</span>
+                  <span className="text-white/30">•</span>
                   <span className="text-white/50">
                     {surveySummary?.count ?? professional.reviewCount} reseña
                     {(surveySummary?.count ?? professional.reviewCount ?? 0) !==
@@ -631,45 +640,48 @@ export default function ProfileDetailView({
             </div>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 bg-[#13061f]/55 backdrop-blur-md">
-            <div className="w-full px-4 py-3 md:px-8 md:py-5">
-              <div className="space-y-1 md:space-y-1.5">
-                <h1 className="flex items-center gap-1.5 text-2xl font-semibold leading-none tracking-tight sm:text-3xl md:text-4xl">
-                  {professional.name}
-                  {professional.age ? `, ${professional.age}` : ""}
-                  {hasPremiumBadge(professional?.profileTags) && <StatusBadgeIcon type="premium" size="h-5 w-5" />}
-                  {hasVerifiedBadge(professional?.profileTags) && <StatusBadgeIcon type="verificada" size="h-5 w-5" />}
-                </h1>
-                <div className="flex flex-wrap items-center gap-2 text-sm tracking-wide text-white/80 md:text-base">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5 text-fuchsia-400" />
-                    {professional.city || "Ubicación no especificada"}
-                  </span>
-                  {professional.category && (
-                    <>
-                      <span className="text-white/30">·</span>
-                      <span>{professional.category}</span>
-                    </>
-                  )}
-                </div>
+          {/* Bottom info overlay */}
+          <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-16 md:px-8 md:pb-6 bg-gradient-to-t from-[#0c0614] via-[#0c0614]/80 to-transparent">
+            <div className="space-y-2 md:space-y-2.5">
+              <h1 className="flex items-center gap-2 text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl">
+                {professional.name}
+                {professional.age ? <span className="text-white/60 font-normal">, {professional.age}</span> : ""}
+                {hasPremiumBadge(professional?.profileTags) && <StatusBadgeIcon type="premium" size="h-5 w-5" />}
+                {hasVerifiedBadge(professional?.profileTags) && <StatusBadgeIcon type="verificada" size="h-5 w-5" />}
+              </h1>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/70 md:text-base">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-fuchsia-400" />
+                  {professional.city || "Ubicación no especificada"}
+                </span>
+                {professional.category && (
+                  <>
+                    <span className="text-white/20">·</span>
+                    <span>{professional.category}</span>
+                  </>
+                )}
+              </div>
 
-                {/* Profile tags — inline in hero (user-defined only) */}
-                {filterUserTags(professional?.profileTags).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {filterUserTags(professional?.profileTags).map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex rounded-2xl border border-fuchsia-300/40 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100 capitalize backdrop-blur-md"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+              {/* Profile tags + stats in one row */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {filterUserTags(professional?.profileTags).slice(0, 5).map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100 capitalize backdrop-blur-sm"
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {professional.userLevel && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-100 backdrop-blur-sm">
+                    <Gem className="h-3 w-3 text-amber-300" />
+                    {professional.userLevel}
+                  </span>
                 )}
               </div>
 
               {/* Stats row */}
-              <div className="mt-3 flex items-center gap-4 text-xs text-white/50">
+              <div className="flex items-center gap-4 text-xs text-white/45">
                 {(professional.completedServices ?? 0) > 0 && (
                   <span className="flex items-center gap-1">
                     <Shield className="h-3.5 w-3.5 text-emerald-400" />
@@ -682,22 +694,16 @@ export default function ProfileDetailView({
                     {professional.profileViews} vistas
                   </span>
                 )}
-                {professional.userLevel && (
-                  <span className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-300/35 bg-gradient-to-r from-amber-300/20 via-yellow-200/15 to-white/5 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-100 shadow-[0_0_14px_rgba(251,191,36,0.22)]">
-                    <Gem className="h-3.5 w-3.5 text-amber-300" />
-                    {professional.userLevel}
-                  </span>
-                )}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="mx-auto mt-2 grid w-full max-w-6xl min-w-0 gap-3 px-4 md:mt-3 md:grid-cols-[minmax(0,1fr)_340px] md:items-start md:gap-4 md:px-8">
-        <div className="min-w-0 space-y-3 md:space-y-4">
+      <div className="mx-auto mt-3 grid w-full max-w-6xl min-w-0 gap-4 px-4 md:mt-4 md:grid-cols-[minmax(0,1fr)_360px] md:items-start md:gap-5 md:px-8">
+        <div className="min-w-0 space-y-4">
           {/* Gallery */}
-          <section className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-transparent">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent">
             {selectedGalleryImage ? (
               <motion.button
                 type="button"
@@ -827,7 +833,7 @@ export default function ProfileDetailView({
           {(cleanProfileText(professional.description) ||
             (professional?.serviceTags?.length ?? 0) > 0 ||
             matchedSubcategories.length > 0) && (
-            <section className="min-w-0 rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-transparent p-4 md:p-5">
+            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
               <h2 className="mb-4 text-base font-semibold text-white/95">Perfil</h2>
 
               {cleanProfileText(professional.description) && (
@@ -871,7 +877,7 @@ export default function ProfileDetailView({
 
           {/* Physical info */}
           {hasDetailsSection && (
-            <section className="min-w-0 rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-transparent p-4 md:p-5">
+            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
               <h2 className="mb-4 text-base font-semibold text-white/95">
                 Información
               </h2>
@@ -895,7 +901,7 @@ export default function ProfileDetailView({
 
           {/* Tags */}
           {hasStyleSection && (
-            <section className="min-w-0 rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-transparent p-4 md:p-5">
+            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
               <h2 className="mb-3 text-base font-semibold text-white/95">
                 Etiquetas
               </h2>
@@ -914,7 +920,7 @@ export default function ProfileDetailView({
 
           {/* Review tags summary */}
           {reviewTags.length > 0 && (
-            <section className="min-w-0 rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-transparent p-4 md:p-5">
+            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
               <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white/95">
                 <Award className="h-4 w-4 text-amber-400" />
                 Lo que dicen los clientes
@@ -937,7 +943,7 @@ export default function ProfileDetailView({
 
           {/* Reviews / Comments */}
           {reviews.length > 0 && (
-            <section className="min-w-0 rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-transparent p-4 md:p-5">
+            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="flex items-center gap-2 text-base font-semibold text-white/95">
                   <MessageSquare className="h-4 w-4 text-fuchsia-400" />
@@ -1012,7 +1018,7 @@ export default function ProfileDetailView({
           )}
 
           {/* Survey Rating Summary + Button */}
-          <section className="min-w-0 rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-transparent p-4 md:p-5">
+          <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="flex items-center gap-2 text-base font-semibold text-white/95">
                 <Star className="h-4 w-4 text-amber-400" />
@@ -1163,56 +1169,57 @@ export default function ProfileDetailView({
 
         {/* Sidebar */}
         <aside className="hidden min-w-0 md:block">
-          <div className="sticky top-[88px] min-w-0 space-y-3">
+          <div className="sticky top-[88px] min-w-0 space-y-4">
             {/* Price card */}
-            <div className="rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(36,18,49,0.92)_0%,rgba(20,11,34,0.96)_100%)] p-6">
-              <div className="border-b border-white/10 pb-3">
-                <p className="text-3xl font-semibold leading-none text-white">
-                  {priceLabel}
-                </p>
-                <p className="mt-1 flex items-center gap-1.5 text-sm text-white/65">
-                  <Clock className="h-3.5 w-3.5" />
-                  {durationLabel}
-                </p>
-              </div>
+            <div className="overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-white/[0.02] shadow-[0_4px_40px_rgba(0,0,0,0.3)]">
+              <div className="p-6">
+                <div className="border-b border-white/[0.08] pb-4">
+                  <p className="text-3xl font-bold leading-none text-white tracking-tight">
+                    {priceLabel}
+                  </p>
+                  <p className="mt-1.5 flex items-center gap-1.5 text-sm text-white/60">
+                    <Clock className="h-3.5 w-3.5" />
+                    {durationLabel}
+                  </p>
+                </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span
-                  className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${availabilityState.className}`}
-                >
+                <div className="mt-4 flex flex-wrap gap-2">
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${availabilityState.dot}`}
-                  />
-                  {availabilityState.label}
-                </span>
-                {availabilityChips.map((chip) => (
-                  <span
-                    key={chip}
-                    className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-white/80"
+                    className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${availabilityState.className}`}
                   >
-                    {chip}
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${availabilityState.dot}`}
+                    />
+                    {availabilityState.label}
                   </span>
-                ))}
-              </div>
+                  {availabilityChips.map((chip) => (
+                    <span
+                      key={chip}
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/70"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
 
-              <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-2.5 text-sm text-white/75">
-                <p className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-fuchsia-400" />
-                  <span>
-                    {professional.city
-                      ? `Zona aproximada: ${professional.city}`
-                      : "Zona referencial"}
-                  </span>
-                </p>
-              </div>
+                <div className="mt-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3 text-sm text-white/70">
+                  <p className="flex items-start gap-2">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-fuchsia-400" />
+                    <span>
+                      {professional.city
+                        ? `Zona aproximada: ${professional.city}`
+                        : "Zona referencial"}
+                    </span>
+                  </p>
+                </div>
 
-              {professional.availabilityNote && (
-                <p className="mt-2.5 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200/80 border border-amber-500/15">
-                  {professional.availabilityNote}
-                </p>
-              )}
+                {professional.availabilityNote && (
+                  <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200/80 border border-amber-500/15">
+                    {professional.availabilityNote}
+                  </p>
+                )}
 
-              <div className="mt-3 space-y-2">
+                <div className="mt-4 space-y-2.5">
                 <button
                   onClick={() => handleChatClick("request")}
                   className="btn-primary w-full rounded-2xl py-3.5 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)] transition-transform duration-200 hover:scale-105 hover:shadow-[0_0_24px_rgba(168,85,247,0.45)]"
@@ -1234,6 +1241,17 @@ export default function ProfileDetailView({
                     Videollamada privada
                   </Link>
                 )}
+                {professional.phone && (
+                  <a
+                    href={formatWhatsAppUrl(professional.phone)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition-all hover:bg-emerald-500/20"
+                  >
+                    <Phone className="h-4 w-4" />
+                    WhatsApp
+                  </a>
+                )}
                 <button
                   onClick={toggleFavorite}
                   className={`flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2 text-sm font-medium transition-all ${
@@ -1248,15 +1266,16 @@ export default function ProfileDetailView({
                   {favorite ? "Guardado en favoritos" : "Agregar a favoritos"}
                 </button>
               </div>
+              </div>
             </div>
 
             {/* Service summary */}
             {cleanProfileText(professional.serviceSummary) && (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/45">
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
                   Descripcion del servicio
                 </h3>
-                <p className="text-sm leading-relaxed text-white/70">
+                <p className="text-sm leading-relaxed text-white/65">
                   {cleanProfileText(professional.serviceSummary)}
                 </p>
               </div>
@@ -1323,7 +1342,7 @@ export default function ProfileDetailView({
       </AnimatePresence>
 
       {/* Mobile bottom bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[linear-gradient(180deg,rgba(14,7,22,0.75)_0%,rgba(12,6,20,0.96)_40%,rgba(12,6,20,0.98)_100%)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0c0614]/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-2xl md:hidden">
         <div className="mb-2 text-center text-sm font-medium text-white/90">
           <span>{priceLabel}</span>
           <span className="mx-2 text-white/40">·</span>
@@ -1335,11 +1354,12 @@ export default function ProfileDetailView({
         >
           Solicitar encuentro
         </button>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => handleChatClick("message")}
-            className="btn-secondary w-full rounded-2xl py-2.5 text-sm"
+            className="btn-secondary flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm"
           >
+            <MessageSquare className="h-3.5 w-3.5" />
             Mensaje
           </button>
           {hasVideocall && (
@@ -1348,12 +1368,23 @@ export default function ProfileDetailView({
               className="flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 py-2.5 text-sm font-bold text-white shadow-[0_4px_16px_rgba(99,102,241,0.25)]"
             >
               <Video className="h-3.5 w-3.5" />
-              Videollamada
+              Video
             </Link>
+          )}
+          {professional.phone && (
+            <a
+              href={formatWhatsAppUrl(professional.phone)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 py-2.5 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              WhatsApp
+            </a>
           )}
           <button
             onClick={toggleFavorite}
-            className={`mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all ${
+            className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all col-span-full ${
               favorite
                 ? "border-rose-400/60 bg-rose-500/20 text-rose-100"
                 : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
