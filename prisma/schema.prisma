@@ -344,6 +344,7 @@ model User {
   flowCustomerId      String?           @unique
   flowSubscriptionId  String?           @unique
   completedServices   Int               @default(0)
+  totalEarnedClp      Int               @default(0)
   profileViews        Int               @default(0)
   reviewTagsSummary   Json?
   createdAt           DateTime          @default(now())
