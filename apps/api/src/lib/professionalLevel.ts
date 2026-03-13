@@ -1,4 +1,6 @@
-export type ProfessionalMeritLevel = "SILVER" | "GOLD" | "DIAMOND";
+import { compareProfessionalLevelDesc, type ProfessionalTier } from "./profileRanking";
+
+export type ProfessionalMeritLevel = ProfessionalTier;
 
 export function resolveProfessionalLevel(
   totalEarnedClp: number | null | undefined,
@@ -11,14 +13,4 @@ export function resolveProfessionalLevel(
   return "SILVER";
 }
 
-export function compareProfessionalLevelDesc(
-  a: ProfessionalMeritLevel,
-  b: ProfessionalMeritLevel,
-) {
-  const rank: Record<ProfessionalMeritLevel, number> = {
-    DIAMOND: 3,
-    GOLD: 2,
-    SILVER: 1,
-  };
-  return rank[b] - rank[a];
-}
+export { compareProfessionalLevelDesc };
