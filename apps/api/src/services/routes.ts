@@ -213,7 +213,7 @@ servicesRouter.get(
           phone: p.phone || null,
           userLevel: resolveProfessionalLevel({
             baseRate: p.baseRate,
-            profileViews: (p as any).profileViews,
+            profileViews: p.profileViews,
             lastSeen: p.lastSeen,
             completedServices: p.completedServices,
           }),
