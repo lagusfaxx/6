@@ -61,6 +61,7 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
         sortOrder: true,
         promoImageUrl: true,
         professionalId: true,
+        adTier: true,
       },
     });
 
@@ -98,6 +99,7 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
     }
 
     const payload = promotions
+      .slice(0, 2)
       .map((promo) => {
         const pro = promo.professionalId ? byId.get(promo.professionalId) : null;
         if (!pro || !promo.promoImageUrl) return null;
@@ -107,6 +109,7 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
           id: promo.id,
           sortOrder: promo.sortOrder,
           promoImageUrl: promo.promoImageUrl,
+          adTier: promo.adTier === "GOLD" ? "GOLD" : "STANDARD",
           professional: {
             id: pro.id,
             name: pro.displayName || pro.username || "Profesional",

@@ -12,7 +12,6 @@ import StatusBadgeIcon from "../components/StatusBadgeIcon";
 import Stories from "../components/Stories";
 import ProfilePreviewModal from "../components/ProfilePreviewModal";
 import HomeCreAccordion from "../components/HomeCreAccordion";
-import PromoSidebarPopup from "../components/PromoSidebarPopup";
 import {
   buildChatHref,
   buildCurrentPathWithSearch,
@@ -56,6 +55,7 @@ type PopupPromotion = {
   id: string;
   sortOrder: number;
   promoImageUrl: string;
+  adTier?: "STANDARD" | "GOLD";
   professional: {
     id: string;
     name: string;
@@ -66,6 +66,52 @@ type PopupPromotion = {
     profileUrl: string;
   };
 };
+
+function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) {
+  if (!promotions.length) return null;
+
+  return (
+    <section className="mb-8">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {promotions.slice(0, 2).map((promo) => {
+          const imageSrc = resolveMediaUrl(promo.promoImageUrl) || promo.promoImageUrl;
+          const isGold = promo.adTier === "GOLD";
+          if (!imageSrc) return null;
+
+          return (
+            <Link
+              key={promo.id}
+              href={promo.professional.profileUrl}
+              className={`group relative overflow-hidden rounded-2xl bg-white/5 p-[1px] backdrop-blur-2xl transition hover:-translate-y-0.5 ${isGold ? "shadow-[0_0_32px_rgba(245,158,11,0.25)]" : "border border-white/10"}`}
+            >
+              {isGold && (
+                <div className="pointer-events-none absolute -inset-[40%] z-0 animate-[spin_5s_linear_infinite] bg-conic-to-r from-[#FFD700] via-[#B8860B] to-[#FFD700] opacity-80" />
+              )}
+              <div className="relative z-10 flex h-full min-h-[150px] items-center gap-3 rounded-[15px] border border-white/10 bg-[#130f24]/85 p-3 md:min-h-[170px] md:gap-4 md:p-4">
+                {isGold && (
+                  <span className="absolute left-3 top-3 rounded-full border border-amber-300/50 bg-amber-300/20 px-2 py-0.5 text-[10px] font-semibold tracking-[0.2em] text-amber-100">
+                    GOLD
+                  </span>
+                )}
+
+                <img src={imageSrc} alt={promo.professional.name} className="h-[120px] w-[90px] shrink-0 rounded-xl object-cover md:h-[140px] md:w-[105px]" />
+
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-fuchsia-200/80">Anuncio destacado</p>
+                  <h3 className="mt-1 truncate text-base font-bold text-white md:text-lg">{promo.professional.name}</h3>
+                  <p className="mt-1 text-xs text-white/70">{promo.professional.isOnline ? "Disponible ahora" : "Revisar disponibilidad"}</p>
+                  <div className="mt-2 inline-flex items-center rounded-full border border-fuchsia-400/35 bg-fuchsia-500/10 px-2.5 py-1 text-xs font-semibold text-fuchsia-100">
+                    Ver perfil
+                  </div>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 type UserLevel = "SILVER" | "GOLD" | "DIAMOND";
 
@@ -429,7 +475,7 @@ const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
 export default function HomePage() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
-  const [popupPromotions, setPopupPromotions] = useState<PopupPromotion[]>([]);
+  const [promoShowcase, setPromoShowcase] = useState<PopupPromotion[]>([]);
   const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
   const [discoverSections, setDiscoverSections] = useState<
     Record<string, DiscoverProfile[]>
@@ -474,9 +520,9 @@ export default function HomePage() {
     const loadPromotions = async () => {
       try {
         const res = await apiFetch<{ promotions: PopupPromotion[] }>("/popup-promotions");
-        if (mounted) setPopupPromotions(res?.promotions ?? []);
+        if (mounted) setPromoShowcase(res?.promotions ?? []);
       } catch {
-        if (mounted) setPopupPromotions([]);
+        if (mounted) setPromoShowcase([]);
       }
 
     };
@@ -824,7 +870,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
-      <PromoSidebarPopup promotions={popupPromotions} />
       {/* ═══ HERO — Compact, immersive ═══ */}
       <section className="relative flex min-h-[50vh] items-center justify-center overflow-hidden px-4 md:min-h-[55vh]">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#070816]" />
@@ -955,6 +1000,8 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+
+        <PromoShowcaseSection promotions={promoShowcase} />
 
         {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
         <VideollamadasBanner />

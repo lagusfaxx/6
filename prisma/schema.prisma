@@ -778,6 +778,11 @@ model Story {
   @@index([expiresAt])
 }
 
+enum BannerAdTier {
+  STANDARD
+  GOLD
+}
+
 model Banner {
   id        String   @id @default(uuid()) @db.Uuid
   title     String
@@ -788,6 +793,7 @@ model Banner {
   sortOrder Int      @default(0)
   professionalId String? @db.Uuid
   promoImageUrl  String?
+  adTier BannerAdTier @default(STANDARD)
   startsAt DateTime?
   endsAt   DateTime?
   createdAt DateTime @default(now())

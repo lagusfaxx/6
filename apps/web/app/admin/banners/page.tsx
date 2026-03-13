@@ -31,6 +31,7 @@ type Banner = {
   startsAt?: string | null;
   endsAt?: string | null;
   createdAt: string;
+  adTier?: "STANDARD" | "GOLD";
 };
 
 type AdminProfile = {
@@ -60,6 +61,7 @@ export default function AdminBannersPage() {
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [promoImageUrl, setPromoImageUrl] = useState("");
+  const [adTier, setAdTier] = useState<"STANDARD" | "GOLD">("STANDARD");
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -144,6 +146,7 @@ export default function AdminBannersPage() {
           isActive: true,
           startsAt: startsAt || null,
           endsAt: endsAt || null,
+          adTier,
         }),
       });
 
@@ -151,11 +154,12 @@ export default function AdminBannersPage() {
       setStartsAt("");
       setEndsAt("");
       setPromoImageUrl("");
+      setAdTier("STANDARD");
       setShowCreate(false);
-      setSuccess("Promoción popup creada.");
+      setSuccess("Banner promocional creado.");
       await loadBanners();
     } catch {
-      setError("No se pudo crear la promoción popup.");
+      setError("No se pudo crear el banner promocional.");
     } finally {
       setBusy(false);
     }
@@ -170,7 +174,7 @@ export default function AdminBannersPage() {
       await apiFetch(`/admin/banners/${banner.id}`, {
         method: "PUT",
         body: JSON.stringify({
-          title: `Popup promocional · ${profile.displayName || profile.username || "Perfil"}`,
+          title: `Banner promocional · ${profile.displayName || profile.username || "Perfil"}`,
           professionalId: profile.id,
           linkUrl: `profile:${profile.id}`,
         }),
@@ -193,6 +197,21 @@ export default function AdminBannersPage() {
       await loadBanners();
     } catch {
       setError("No se pudo actualizar.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+
+  async function updateTier(b: Banner, nextTier: "STANDARD" | "GOLD") {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiFetch(`/admin/banners/${b.id}`, { method: "PUT", body: JSON.stringify({ adTier: nextTier }) });
+      setSuccess("Nivel del banner actualizado.");
+      await loadBanners();
+    } catch {
+      setError("No se pudo actualizar el nivel del banner.");
     } finally {
       setBusy(false);
     }
@@ -235,7 +254,7 @@ export default function AdminBannersPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold">Promociones popup (profesionales)</h1>
+            <h1 className="text-xl font-bold">Banners promocionales home (profesionales)</h1>
             <p className="text-xs text-white/40">{items.length} banner{items.length !== 1 ? "s" : ""} · {activeBanners.length} activo{activeBanners.length !== 1 ? "s" : ""}</p>
           </div>
         </div>
@@ -254,7 +273,7 @@ export default function AdminBannersPage() {
 
       {showCreate && (
         <div className="mt-4 rounded-2xl border border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-500/[0.05] to-violet-500/[0.03] p-5">
-          <h2 className="text-lg font-semibold mb-4">Crear popup promocional</h2>
+          <h2 className="text-lg font-semibold mb-4">Crear banner promocional</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <select className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" value={selectedProfileId} onChange={(e) => setSelectedProfileId(e.target.value)}>
               {profiles.map((p) => (
@@ -265,6 +284,10 @@ export default function AdminBannersPage() {
             <input className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} placeholder="Inicio (opcional)" />
             <input className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} placeholder="Fin (opcional)" />
             <input className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" value={promoImageUrl} onChange={(e) => setPromoImageUrl(e.target.value)} placeholder="URL de foto promocional" />
+            <select className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm" value={adTier} onChange={(e) => setAdTier((e.target.value === "GOLD" ? "GOLD" : "STANDARD"))}>
+              <option value="STANDARD">Estándar</option>
+              <option value="GOLD">Gold</option>
+            </select>
             <input className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-fuchsia-500/20 file:px-3 file:py-1.5 file:text-fuchsia-200" type="file" accept="image/*" onChange={(e) => onUploadImage(e.target.files?.[0] ?? null)} />
           </div>
 
@@ -273,10 +296,10 @@ export default function AdminBannersPage() {
           </button>
 
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
-            <div className="mb-2 text-xs font-medium text-white/60">Previsualización popup promocional</div>
+            <div className="mb-2 text-xs font-medium text-white/60">Previsualización banner promocional</div>
             <div className="mx-auto h-[400px] w-[200px] overflow-hidden rounded-xl border border-white/10 bg-black/40">
               {selectedProfile && promoImageUrl ? (
-                <ProfileVideoBannerPreview profile={selectedProfile} imageUrl={promoImageUrl} />
+                <ProfileVideoBannerPreview profile={selectedProfile} imageUrl={promoImageUrl} adTier={adTier} />
               ) : (
                 <div className="flex h-full items-center justify-center text-xs text-white/40">Selecciona perfil y foto</div>
               )}
@@ -293,7 +316,7 @@ export default function AdminBannersPage() {
         <div className="mt-6">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/70"><Eye className="h-4 w-4 text-emerald-400" /> Activos ({activeBanners.length})</h3>
           <div className="space-y-3">
-            {activeBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={remove} onReplaceProfile={replaceProfile} />)}
+            {activeBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={remove} onReplaceProfile={replaceProfile} onUpdateTier={updateTier} />)}
           </div>
         </div>
       )}
@@ -302,7 +325,7 @@ export default function AdminBannersPage() {
         <div className="mt-6">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/70"><EyeOff className="h-4 w-4 text-white/30" /> Desactivados ({inactiveBanners.length})</h3>
           <div className="space-y-3">
-            {inactiveBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={remove} onReplaceProfile={replaceProfile} />)}
+            {inactiveBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={remove} onReplaceProfile={replaceProfile} onUpdateTier={updateTier} />)}
           </div>
         </div>
       )}
@@ -310,16 +333,16 @@ export default function AdminBannersPage() {
   );
 }
 
-function ProfileVideoBannerPreview({ profile, imageUrl }: { profile: AdminProfile; imageUrl: string }) {
+function ProfileVideoBannerPreview({ profile, imageUrl, adTier }: { profile: AdminProfile; imageUrl: string; adTier: "STANDARD" | "GOLD" }) {
   const src = resolveMediaUrl(imageUrl) || imageUrl;
   return (
     <div className="relative h-full w-full">
       <img src={src} className="h-full w-full object-cover" alt={profile.displayName || profile.username || "Promoción"} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-      <div className="absolute left-3 right-3 bottom-3 rounded-lg border border-white/20 bg-black/50 p-2">
+      <div className={`absolute left-3 right-3 bottom-3 rounded-lg border bg-black/50 p-2 ${adTier === "GOLD" ? "border-amber-300/60 shadow-[0_0_20px_rgba(245,158,11,0.3)]" : "border-white/20"}`}>
         <div className="flex items-center gap-2">
           <ImageIcon className="h-4 w-4 text-fuchsia-300" />
-          <p className="truncate text-[11px] font-semibold text-white">Popup promocional</p>
+          <p className="truncate text-[11px] font-semibold text-white">Banner promocional {adTier === "GOLD" ? "· GOLD" : "· ESTÁNDAR"}</p>
         </div>
         <p className="mt-1 truncate text-xs text-white">{profile.displayName || profile.username || "Perfil"}</p>
       </div>
@@ -334,6 +357,7 @@ function BannerCard({
   onToggle,
   onRemove,
   onReplaceProfile,
+  onUpdateTier,
 }: {
   banner: Banner;
   busy: boolean;
@@ -341,6 +365,7 @@ function BannerCard({
   onToggle: (b: Banner) => void;
   onRemove: (id: string) => void;
   onReplaceProfile: (banner: Banner, profileId: string) => void;
+  onUpdateTier: (banner: Banner, nextTier: "STANDARD" | "GOLD") => void;
 }) {
   const [nextProfileId, setNextProfileId] = useState(extractProfileId(banner.linkUrl) || "");
   const mediaSrc = resolveMediaUrl(banner.promoImageUrl || banner.imageUrl) ?? banner.promoImageUrl ?? banner.imageUrl;
@@ -355,6 +380,7 @@ function BannerCard({
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold truncate">{banner.title}</div>
           <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40">
+            <span className={`rounded px-1.5 py-0.5 text-[10px] ${banner.adTier === "GOLD" ? "bg-amber-500/20 text-amber-200" : "bg-white/10 text-white/70"}`}>{banner.adTier === "GOLD" ? "GOLD" : "ESTÁNDAR"}</span>
             <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px]">{banner.position}</span>
             <span>Orden: {banner.sortOrder}</span>
             {banner.startsAt ? <span>Desde: {new Date(banner.startsAt).toLocaleDateString()}</span> : null}
@@ -370,6 +396,9 @@ function BannerCard({
             </select>
             <button disabled={busy || !nextProfileId} onClick={() => onReplaceProfile(banner, nextProfileId)} className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/10 px-2.5 py-1.5 text-xs text-fuchsia-300 disabled:opacity-50">
               Cambiar perfil asociado
+            </button>
+            <button disabled={busy} onClick={() => onUpdateTier(banner, banner.adTier === "GOLD" ? "STANDARD" : "GOLD")} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-200 disabled:opacity-50">
+              Nivel: {banner.adTier === "GOLD" ? "Cambiar a Estándar" : "Cambiar a Gold"}
             </button>
           </div>
         </div>
