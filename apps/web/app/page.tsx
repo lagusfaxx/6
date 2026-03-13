@@ -107,7 +107,7 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
         </span>
       </div>
       <div
-        className="relative mx-auto w-full max-w-3xl"
+        className="relative mx-auto w-full max-w-[742px]"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
         onPointerDown={() => setIsPaused(true)}
@@ -115,7 +115,7 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
       >
         <Link
           href={activePromo.professional.profileUrl}
-          className={`group promo-showcase-card relative block h-[140px] sm:h-[160px] max-h-[33vh] w-full overflow-hidden rounded-xl border bg-[#0c0a14] shadow-lg ${isGold ? "promo-showcase-card--gold border-transparent" : "border-white/10"}`}
+          className={`group promo-showcase-card relative block aspect-[742/158] md:aspect-[742/200] w-full overflow-hidden rounded-xl border bg-[#0c0a14] shadow-lg ${isGold ? "promo-showcase-card--gold border-transparent" : "border-white/10"}`}
         >
           <AnimatePresence mode="wait">
             <motion.div
