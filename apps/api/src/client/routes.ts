@@ -73,7 +73,7 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
       .map((p) => p.professionalId)
       .filter((id): id is string => Boolean(id));
 
-    const [pros, reviews] = await Promise.all([
+    const [pros, profileReviews] = await Promise.all([
       prisma.user.findMany({
         where: { id: { in: professionalIds }, isActive: true, profileType: "PROFESSIONAL" },
         select: {
@@ -84,18 +84,17 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
           lastSeen: true,
         },
       }),
-      prisma.professionalReview.findMany({
-        where: { serviceRequest: { professionalId: { in: professionalIds } } },
-        select: { hearts: true, serviceRequest: { select: { professionalId: true } } },
+      prisma.profileReviewSurvey.findMany({
+        where: { profileId: { in: professionalIds } },
+        select: { profileId: true, overallScore: true },
       }),
     ]);
 
     const byId = new Map(pros.map((p) => [p.id, p]));
     const ratings = new Map<string, { sum: number; count: number }>();
-    for (const review of reviews) {
-      const pid = review.serviceRequest.professionalId;
-      const current = ratings.get(pid) ?? { sum: 0, count: 0 };
-      ratings.set(pid, { sum: current.sum + review.hearts, count: current.count + 1 });
+    for (const review of profileReviews) {
+      const current = ratings.get(review.profileId) ?? { sum: 0, count: 0 };
+      ratings.set(review.profileId, { sum: current.sum + review.overallScore, count: current.count + 1 });
     }
 
     const payload = promotions
@@ -103,7 +102,8 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
         const pro = promo.professionalId ? byId.get(promo.professionalId) : null;
         if (!pro || !promo.promoImageUrl) return null;
         const stats = ratings.get(pro.id);
-        const rating = stats ? Number((stats.sum / stats.count).toFixed(2)) : null;
+        // overallScore is 1-10, convert to 1-5 scale for stars
+        const rating = stats ? Number(((stats.sum / stats.count) / 2).toFixed(1)) : null;
         return {
           id: promo.id,
           sortOrder: promo.sortOrder,
