@@ -558,7 +558,6 @@ const cardFade = {
 
 /* ── Tier config ── */
 const TIERS = [
-  { key: "DIAMOND", label: "Platino", icon: Crown, gradient: "from-cyan-400 to-blue-500", border: "border-cyan-400/30", bg: "bg-cyan-500/10" },
   { key: "GOLD", label: "Gold", icon: Star, gradient: "from-amber-400 to-yellow-500", border: "border-amber-400/30", bg: "bg-amber-500/10" },
   { key: "SILVER", label: "Silver", icon: Sparkles, gradient: "from-slate-300 to-slate-400", border: "border-slate-400/30", bg: "bg-slate-500/10" },
 ] as const;
@@ -826,11 +825,24 @@ export default function HomePage() {
   // Tier-based sections — already sorted by distance from API
   const tierProfiles = useMemo(() => {
     return {
-      DIAMOND: recentPros.filter((p) => p.userLevel === "DIAMOND").slice(0, 6),
       GOLD: recentPros.filter((p) => p.userLevel === "GOLD").slice(0, 6),
       SILVER: recentPros.filter((p) => p.userLevel === "SILVER").slice(0, 6),
     };
   }, [recentPros]);
+
+  // Destacadas carousel: DIAMOND + GOLD profiles
+  const featuredCarouselProfiles = useMemo(() => {
+    return recentPros.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD").slice(0, 12);
+  }, [recentPros]);
+  const [featuredIndex, setFeaturedIndex] = useState(0);
+
+  useEffect(() => {
+    if (featuredCarouselProfiles.length <= 1) return;
+    const interval = window.setInterval(() => {
+      setFeaturedIndex((prev) => (prev + 1) % featuredCarouselProfiles.length);
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [featuredCarouselProfiles.length]);
 
   const availableProfiles = discoverSections["available"] || [];
   const availableCarouselProfiles = useMemo(
@@ -1276,84 +1288,118 @@ export default function HomePage() {
           );
         })}
 
-        {/* ═══ DESTACADAS ═══ */}
-        {recentPros.length > 0 && (
+        {/* ═══ DESTACADAS — Carousel con perfiles Gold y Diamond ═══ */}
+        {featuredCarouselProfiles.length > 0 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Flame className="h-4 w-4 text-fuchsia-400" />
-                  <span className="text-xs font-medium uppercase tracking-wider text-fuchsia-400/80">Destacadas</span>
-                </div>
-                <h2 className="text-xl font-bold tracking-tight md:text-2xl">Experiencias cerca de ti</h2>
+              <div className="flex items-center gap-2">
+                <Crown className="h-5 w-5 text-amber-400" />
+                <h2 className="text-xl font-bold">Destacadas</h2>
+                <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 font-medium">Premium</span>
               </div>
-              <Link href="/profesionales" className="group hidden items-center gap-1.5 text-sm text-white/50 transition hover:text-white sm:flex">
-                Ver todas <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              <Link href="/profesionales" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
+                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </motion.div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
-              {recentPros.slice(0, 8).map((p) => (
-                <motion.div key={p.id} variants={cardFade} className="w-[65vw] shrink-0 snap-start sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
-                    className="group relative block w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] text-left transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20"
-                  >
-                    <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
-                      <img
-                        src={resolveProfileImage(p)}
-                        alt={p.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-                      {p.distance != null && (
-                        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
-                          <MapPin className="h-3 w-3" /> {p.distance.toFixed(1)} km
-                        </div>
-                      )}
-                      <div className="absolute left-2 top-2 flex flex-col gap-1">
-                        <UserLevelBadge level={p.userLevel} className="px-2 py-0.5 text-[10px]" />
-                        {hasExamsBadge(p) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
-                            <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
-                          </div>
-                        )}
-                        {hasVideoCallBadge(p) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
-                            <Video className="h-2.5 w-2.5" /> Videollamadas
-                          </div>
-                        )}
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 p-3">
-                        <h3 className="flex items-center gap-1 text-sm font-semibold leading-tight">
-                          {p.name}{p.age ? `, ${p.age}` : ""}
-                          {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
-                          {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
-                        </h3>
-                        <div className="mt-0.5 text-[10px] text-white/50">{formatLastSeenLabel(p.lastSeen)}</div>
-                        {(p.serviceCategory || (filterUserTags(p.profileTags).length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {filterUserTags(p.profileTags).map((tag) => (
-                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
-                            ))}
-                            {p.serviceCategory && (
-                              <span className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{p.serviceCategory}</span>
+            <div className="relative overflow-hidden rounded-2xl">
+              <AnimatePresence mode="wait">
+                {(() => {
+                  const p = featuredCarouselProfiles[featuredIndex];
+                  if (!p) return null;
+                  return (
+                    <motion.div
+                      key={p.id + "-" + featuredIndex}
+                      initial={{ opacity: 0, x: 40 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -40 }}
+                      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
+                        className="group relative block w-full overflow-hidden rounded-2xl border border-amber-400/20 bg-white/[0.03] text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+                      >
+                        <div className="relative aspect-[3/4] max-h-[480px] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                          {p.avatarUrl || p.coverUrl ? (
+                            <img
+                              src={resolveProfileImage(p)}
+                              alt={p.name}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center">
+                              <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-30" />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                          {p.distance != null && (
+                            <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80 backdrop-blur-xl">
+                              <MapPin className="h-3 w-3" />
+                              {p.distance.toFixed(1)} km
+                            </div>
+                          )}
+                          <div className="absolute left-3 top-3 flex flex-col gap-1">
+                            <UserLevelBadge level={p.userLevel} className="px-2.5 py-1 text-[11px]" />
+                            {hasExamsBadge(p) && (
+                              <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                                <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
+                              </div>
                             )}
-                            {p.serviceTags?.slice(0, 10).map((tag) => (
-                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
-                            ))}
+                            {hasVideoCallBadge(p) && (
+                              <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                                <Video className="h-2.5 w-2.5" /> Videollamadas
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                </motion.div>
-              ))}
+                          {p.availableNow && (
+                            <div className="absolute left-3 bottom-20 flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-300/20 px-2 py-0.5 text-[10px] text-emerald-200">
+                              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                              Disponible
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 p-4">
+                            <h3 className="flex items-center gap-1 text-lg font-semibold leading-tight">
+                              {p.name}{p.age ? `, ${p.age}` : ""}
+                              {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
+                              {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
+                            </h3>
+                            <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
+                              {p.serviceCategory && <span>{p.serviceCategory}</span>}
+                              <span>{formatLastSeenLabel(p.lastSeen)}</span>
+                            </div>
+                            {(filterUserTags(p.profileTags).length > 0 || (p.serviceTags && p.serviceTags.length > 0)) && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {filterUserTags(p.profileTags).map((tag) => (
+                                  <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                                ))}
+                                {p.serviceTags?.slice(0, 6).map((tag) => (
+                                  <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    </motion.div>
+                  );
+                })()}
+              </AnimatePresence>
+              {/* Dot indicators */}
+              {featuredCarouselProfiles.length > 1 && (
+                <div className="mt-3 flex justify-center gap-1.5">
+                  {featuredCarouselProfiles.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      aria-label={`Ver perfil ${i + 1}`}
+                      onClick={() => setFeaturedIndex(i)}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${i === featuredIndex ? "w-4 bg-amber-400" : "w-1.5 bg-white/20 hover:bg-white/40"}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-            <Link href="/profesionales" className="mt-3 flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] py-3 text-sm text-white/60 transition hover:bg-white/[0.06] sm:hidden">
-              Ver todas las experiencias <ChevronRight className="h-4 w-4" />
-            </Link>
           </motion.section>
         )}
 
