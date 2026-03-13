@@ -78,7 +78,7 @@ export default function PromoSidebarPopup({ promotions }: { promotions: PopupPro
         onMouseLeave={() => setIsHovered(false)}
         onPointerDown={() => setIsInteracting(true)}
         onFocusCapture={() => setIsInteracting(true)}
-        className="fixed left-1/2 top-[calc(env(safe-area-inset-top)+108px)] z-[55] w-[90vw] max-w-[320px] -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-[rgba(25,20,45,0.65)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-[12px] md:left-auto md:right-5 md:top-[110px] md:w-[250px] md:max-w-[260px] md:translate-x-0"
+        className="fixed left-1/2 top-[calc(env(safe-area-inset-top)+108px)] z-40 w-[90vw] max-w-[320px] -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-[rgba(25,20,45,0.65)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-[12px] md:left-auto md:right-5 md:top-[110px] md:w-[250px] md:max-w-[260px] md:translate-x-0"
       >
         <button
           type="button"
