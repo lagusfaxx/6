@@ -72,7 +72,7 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
       .map((p) => p.professionalId)
       .filter((id): id is string => Boolean(id));
 
-    const [pros, reviewSurveys] = await Promise.all([
+    const [pros, reviews] = await Promise.all([
       prisma.user.findMany({
         where: { id: { in: professionalIds }, isActive: true, profileType: "PROFESSIONAL" },
         select: {
@@ -83,21 +83,18 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
           lastSeen: true,
         },
       }),
-      prisma.profileReviewSurvey.findMany({
-        where: { profileId: { in: professionalIds } },
-        select: { profileId: true, overallScore: true },
+      prisma.professionalReview.findMany({
+        where: { serviceRequest: { professionalId: { in: professionalIds } } },
+        select: { hearts: true, serviceRequest: { select: { professionalId: true } } },
       }),
     ]);
 
     const byId = new Map(pros.map((p) => [p.id, p]));
     const ratings = new Map<string, { sum: number; count: number }>();
-    for (const review of reviewSurveys) {
-      const pid = review.profileId;
+    for (const review of reviews) {
+      const pid = review.serviceRequest.professionalId;
       const current = ratings.get(pid) ?? { sum: 0, count: 0 };
-      ratings.set(pid, {
-        sum: current.sum + Number(review.overallScore || 0),
-        count: current.count + 1,
-      });
+      ratings.set(pid, { sum: current.sum + review.hearts, count: current.count + 1 });
     }
 
     const payload = promotions

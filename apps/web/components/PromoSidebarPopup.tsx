@@ -87,9 +87,9 @@ export default function PromoSidebarPopup({ promotions }: { promotions: PopupPro
             setDismissed(true);
             window.sessionStorage.setItem(DISMISS_KEY, "1");
           }}
-          className="absolute right-2 top-2 z-30 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/25 bg-black/70 text-white shadow-[0_4px_16px_rgba(0,0,0,0.45)] transition hover:bg-black/85 active:scale-95 md:right-1.5 md:top-1.5 md:h-7 md:w-7"
+          className="absolute right-1.5 top-1.5 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-sm transition hover:bg-black/70 active:scale-95"
         >
-          <X className="h-4 w-4 md:h-3.5 md:w-3.5" />
+          <X className="h-3.5 w-3.5" />
         </button>
 
         <div className="flex h-[98px] items-center gap-2.5 p-2.5 md:h-auto md:items-start md:gap-3 md:p-3">
