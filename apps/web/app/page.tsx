@@ -558,7 +558,6 @@ const cardFade = {
 
 /* ── Tier config ── */
 const TIERS = [
-  { key: "GOLD", label: "Gold", icon: Star, gradient: "from-amber-400 to-yellow-500", border: "border-amber-400/30", bg: "bg-amber-500/10" },
   { key: "SILVER", label: "Silver", icon: Sparkles, gradient: "from-slate-300 to-slate-400", border: "border-slate-400/30", bg: "bg-slate-500/10" },
 ] as const;
 
@@ -825,7 +824,6 @@ export default function HomePage() {
   // Tier-based sections — already sorted by distance from API
   const tierProfiles = useMemo(() => {
     return {
-      GOLD: recentPros.filter((p) => p.userLevel === "GOLD").slice(0, 6),
       SILVER: recentPros.filter((p) => p.userLevel === "SILVER").slice(0, 6),
     };
   }, [recentPros]);
