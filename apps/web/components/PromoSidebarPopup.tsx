@@ -87,13 +87,13 @@ export default function PromoSidebarPopup({ promotions }: { promotions: PopupPro
             setDismissed(true);
             window.sessionStorage.setItem(DISMISS_KEY, "1");
           }}
-          className="absolute right-1.5 top-1.5 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-sm transition hover:bg-black/70 active:scale-95"
+          className="absolute right-1.5 top-1.5 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-sm transition hover:bg-black/70 active:scale-95"
         >
           <X className="h-3.5 w-3.5" />
         </button>
 
-        <div className="flex h-[98px] items-center gap-2.5 p-2.5 md:h-auto md:items-start md:gap-3 md:p-3">
-          <img src={imageSrc} alt={current.professional.name} className="h-[76px] w-[58px] shrink-0 rounded-[10px] object-cover md:h-[80px] md:w-[60px]" />
+        <div className="flex h-[98px] items-center gap-2.5 p-2.5 pr-10 lg:h-auto lg:items-start lg:gap-3 lg:p-3 lg:pr-3">
+          <img src={imageSrc} alt={current.professional.name} className="h-[76px] w-[58px] shrink-0 rounded-[10px] object-cover lg:h-[80px] lg:w-[60px]" />
 
           <div className="min-w-0 flex-1 space-y-1">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fuchsia-200/80">Destacada</p>
