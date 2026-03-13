@@ -732,7 +732,11 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 
 /* ── Home featured promo showcase ── */
 .promo-showcase-card--gold {
-  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.2), 0 14px 42px rgba(245, 158, 11, 0.2);
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.25), 0 16px 48px rgba(245, 158, 11, 0.25), 0 0 80px rgba(255, 215, 0, 0.08);
+}
+
+.promo-showcase-card--gold:hover {
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.35), 0 20px 56px rgba(245, 158, 11, 0.3), 0 0 100px rgba(255, 215, 0, 0.12);
 }
 
 .promo-showcase-gold-border {
@@ -750,14 +754,14 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   content: "";
   position: absolute;
   inset: -40%;
-  background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.1) 50%, transparent 65%);
+  background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
   transform: translateX(-120%) rotate(12deg);
   animation: promo-gold-shimmer 3s ease-in-out infinite;
 }
 
 .promo-showcase-gold-glow {
-  background: radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.35), rgba(245, 158, 11, 0.08) 55%, transparent 75%);
-  filter: blur(16px);
+  background: radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.3), rgba(245, 158, 11, 0.1) 55%, transparent 75%);
+  filter: blur(20px);
   animation: promo-gold-breathe 2.8s ease-in-out infinite;
 }
 
@@ -771,6 +775,6 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 }
 
 @keyframes promo-gold-breathe {
-  0%, 100% { opacity: 0.5; }
+  0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }
 }
