@@ -2,7 +2,7 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import useMe from "../hooks/useMe";
@@ -68,46 +68,105 @@ type PopupPromotion = {
 };
 
 function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) {
-  if (!promotions.length) return null;
+  const showcasePromotions = promotions.slice(0, 2);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    if (!showcasePromotions.length) return;
+    setActiveIndex((prev) => prev % showcasePromotions.length);
+  }, [showcasePromotions.length]);
+
+  useEffect(() => {
+    if (showcasePromotions.length <= 1 || isPaused) return;
+    const interval = window.setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % showcasePromotions.length);
+    }, 6000);
+    return () => window.clearInterval(interval);
+  }, [isPaused, showcasePromotions.length]);
+
+  if (!showcasePromotions.length) return null;
+
+  const activePromo = showcasePromotions[activeIndex];
+  const imageSrc = resolveMediaUrl(activePromo.promoImageUrl) || activePromo.promoImageUrl;
+  const isGold = activePromo.adTier === "GOLD";
+  const rating = Math.max(0, Math.min(5, Math.round(Number(activePromo.professional.rating || 0))));
 
   return (
     <section className="mb-8">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {promotions.slice(0, 2).map((promo) => {
-          const imageSrc = resolveMediaUrl(promo.promoImageUrl) || promo.promoImageUrl;
-          const isGold = promo.adTier === "GOLD";
-          if (!imageSrc) return null;
-
-          return (
-            <Link
-              key={promo.id}
-              href={promo.professional.profileUrl}
-              className={`group relative overflow-hidden rounded-2xl bg-white/5 p-[1px] backdrop-blur-2xl transition hover:-translate-y-0.5 ${isGold ? "shadow-[0_0_32px_rgba(245,158,11,0.25)]" : "border border-white/10"}`}
+      <div
+        className="relative mx-auto w-full max-w-5xl"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        onPointerDown={() => setIsPaused(true)}
+        onPointerUp={() => setIsPaused(false)}
+      >
+        <Link
+          href={activePromo.professional.profileUrl}
+          className={`group promo-showcase-card relative block aspect-[16/7] w-full overflow-hidden rounded-2xl border bg-[#0c0a14] ${isGold ? "promo-showcase-card--gold border-transparent" : "border-white/10"}`}
+        >
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activePromo.id}
+              initial={{ opacity: 0, x: 28, filter: "blur(6px)" }}
+              animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, x: -28, filter: "blur(4px)" }}
+              transition={{ duration: 0.65, ease: "easeOut" }}
+              className="absolute inset-0"
             >
-              {isGold && (
-                <div className="pointer-events-none absolute -inset-[40%] z-0 animate-[spin_5s_linear_infinite] bg-conic-to-r from-[#FFD700] via-[#B8860B] to-[#FFD700] opacity-80" />
-              )}
-              <div className="relative z-10 flex h-full min-h-[150px] items-center gap-3 rounded-[15px] border border-white/10 bg-[#130f24]/85 p-3 md:min-h-[170px] md:gap-4 md:p-4">
-                {isGold && (
-                  <span className="absolute left-3 top-3 rounded-full border border-amber-300/50 bg-amber-300/20 px-2 py-0.5 text-[10px] font-semibold tracking-[0.2em] text-amber-100">
-                    GOLD
-                  </span>
-                )}
+              <img src={imageSrc} alt={activePromo.professional.name} className="h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
 
-                <img src={imageSrc} alt={promo.professional.name} className="h-[120px] w-[90px] shrink-0 rounded-xl object-cover md:h-[140px] md:w-[105px]" />
-
-                <div className="min-w-0">
+              <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
+                <div className="max-w-[85%]">
                   <p className="text-[10px] uppercase tracking-[0.16em] text-fuchsia-200/80">Anuncio destacado</p>
-                  <h3 className="mt-1 truncate text-base font-bold text-white md:text-lg">{promo.professional.name}</h3>
-                  <p className="mt-1 text-xs text-white/70">{promo.professional.isOnline ? "Disponible ahora" : "Revisar disponibilidad"}</p>
-                  <div className="mt-2 inline-flex items-center rounded-full border border-fuchsia-400/35 bg-fuchsia-500/10 px-2.5 py-1 text-xs font-semibold text-fuchsia-100">
+                  <h3 className="mt-1 truncate text-lg font-bold text-white sm:text-xl">{activePromo.professional.name}</h3>
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-amber-200/95">
+                    {Array.from({ length: 5 }).map((_, idx) => (
+                      <Star key={`promo-star-${idx}`} className={`h-3.5 w-3.5 ${idx < rating ? "fill-current" : "text-white/35"}`} />
+                    ))}
+                    <span className="text-white/70">{activePromo.professional.reviewsCount} reseñas</span>
+                  </div>
+                  <div className={`mt-3 inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold ${isGold ? "border border-[#FFD700]/80 bg-[#FDB931]/20 text-[#FFE8A3]" : "border border-white/25 bg-white/10 text-white/90 backdrop-blur-md"}`}>
                     Ver perfil
                   </div>
                 </div>
               </div>
-            </Link>
-          );
-        })}
+            </motion.div>
+          </AnimatePresence>
+
+          {isGold ? (
+            <>
+              <div className="promo-showcase-gold-border pointer-events-none absolute inset-0 rounded-2xl" />
+              <div className="promo-showcase-gold-shimmer pointer-events-none absolute inset-0 rounded-2xl" />
+              <div className="promo-showcase-gold-glow pointer-events-none absolute -inset-2 -z-10 rounded-[20px]" />
+              <span className="absolute left-3 top-3 rounded-md border border-[#FFD700]/70 bg-gradient-to-r from-[#FFD700] to-[#FDB931] px-2.5 py-1 text-[10px] font-bold tracking-widest text-[#2b1a00]">
+                GOLD
+              </span>
+            </>
+          ) : null}
+        </Link>
+
+        {showcasePromotions.length > 1 ? (
+          <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
+            {showcasePromotions.map((promo, idx) => {
+              const isActive = idx === activeIndex;
+              const dotIsGold = promo.adTier === "GOLD";
+              return (
+                <button
+                  key={`promo-dot-${promo.id}`}
+                  type="button"
+                  aria-label={`Ir al banner ${idx + 1}`}
+                  onClick={() => {
+                    setIsPaused(true);
+                    setActiveIndex(idx);
+                  }}
+                  className={`h-2.5 w-2.5 rounded-full transition-all ${isActive ? dotIsGold ? "bg-amber-300 shadow-[0_0_12px_rgba(255,215,0,0.9)]" : "bg-white" : "bg-white/35"}`}
+                />
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     </section>
   );

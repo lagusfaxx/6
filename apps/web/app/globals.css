@@ -729,3 +729,48 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 .uzeed-badge-shimmer-emerald {
   animation: uzeed-badge-pulse 3.5s ease-in-out 0.5s infinite;
 }
+
+/* ── Home featured promo showcase ── */
+.promo-showcase-card--gold {
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.2), 0 14px 42px rgba(245, 158, 11, 0.2);
+}
+
+.promo-showcase-gold-border {
+  border: 2px solid transparent;
+  background: linear-gradient(#0c0a14, #0c0a14) padding-box,
+    conic-gradient(from 0deg, #ffd700, #fdb931, #ffd700, #fdb931, #ffd700) border-box;
+  animation: promo-gold-sweep 3.2s linear infinite;
+}
+
+.promo-showcase-gold-shimmer {
+  overflow: hidden;
+}
+
+.promo-showcase-gold-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.1) 50%, transparent 65%);
+  transform: translateX(-120%) rotate(12deg);
+  animation: promo-gold-shimmer 3s ease-in-out infinite;
+}
+
+.promo-showcase-gold-glow {
+  background: radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.35), rgba(245, 158, 11, 0.08) 55%, transparent 75%);
+  filter: blur(16px);
+  animation: promo-gold-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes promo-gold-sweep {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes promo-gold-shimmer {
+  0% { transform: translateX(-120%) rotate(12deg); }
+  55%, 100% { transform: translateX(120%) rotate(12deg); }
+}
+
+@keyframes promo-gold-breathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
