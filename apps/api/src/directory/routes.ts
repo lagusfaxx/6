@@ -455,6 +455,7 @@ directoryRouter.get(
         isActive: true,
         lastSeen: true,
         completedServices: true,
+        totalEarnedClp: true,
         profileViews: true,
         services: {
           where: { isActive: true },
@@ -474,7 +475,7 @@ directoryRouter.get(
           lat != null && lng != null && profLat != null && profLng != null
             ? haversineKm(lat, lng, profLat, profLng)
             : null;
-        const userLevel = resolveProfessionalLevel(u.completedServices);
+        const userLevel = resolveProfessionalLevel(u.totalEarnedClp);
         return {
           id: u.id,
           name: u.displayName || u.username,
@@ -556,6 +557,7 @@ directoryRouter.get(
         phone: true,
         serviceCategory: true,
         completedServices: true,
+        totalEarnedClp: true,
         profileViews: true,
         reviewTagsSummary: true,
         category: {
@@ -706,7 +708,7 @@ directoryRouter.get(
         gallery: u.profileMedia,
         completedServices: u.completedServices,
         profileViews: u.profileViews,
-        userLevel: resolveProfessionalLevel(u.completedServices),
+        userLevel: resolveProfessionalLevel(u.totalEarnedClp),
         reviewTagsSummary: u.reviewTagsSummary,
         avgResponseMinutes: (u as any).avgResponseMinutes ?? null,
         forumThread: forumThread
@@ -951,7 +953,7 @@ directoryRouter.get(
       id: true, username: true, displayName: true, avatarUrl: true,
       coverUrl: true, bio: true, birthdate: true, latitude: true,
       longitude: true, lastSeen: true, isActive: true, isOnline: true,
-      completedServices: true, profileViews: true, tier: true,
+      completedServices: true, totalEarnedClp: true, profileViews: true, tier: true,
       gender: true, city: true, serviceCategory: true, createdAt: true,
       primaryCategory: true, profileTags: true, serviceTags: true, profileType: true,
       avgResponseMinutes: true,
@@ -961,7 +963,7 @@ directoryRouter.get(
       id: true, username: true, displayName: true, avatarUrl: true,
       coverUrl: true, bio: true, birthdate: true, latitude: true,
       longitude: true, lastSeen: true, isActive: true, isOnline: true,
-      completedServices: true, profileViews: true, tier: true,
+      completedServices: true, totalEarnedClp: true, profileViews: true, tier: true,
       gender: true, city: true, serviceCategory: true, createdAt: true, profileType: true,
       services: { where: { isActive: true }, select: { latitude: true, longitude: true, category: true }, take: 1, orderBy: { createdAt: "desc" as const } },
     };
@@ -1016,7 +1018,7 @@ directoryRouter.get(
       const userIsOnline = u.lastSeen
         ? Date.now() - u.lastSeen.getTime() <= AVAIL_MS
         : false;
-      const level = resolveProfessionalLevel(u.completedServices);
+      const level = resolveProfessionalLevel(u.totalEarnedClp);
       const isMadura = age != null && age >= 40;
       const obf = obfuscateLocation(userLat, userLng, `user:${u.id}`, 600);
 
