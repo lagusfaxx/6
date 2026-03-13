@@ -1145,8 +1145,6 @@ export default function HomePage() {
             )}
           </section>
 
-        <PromoShowcaseSection promotions={promoShowcase} />
-
         {/* ═══ BANNERS PUBLICITARIOS ═══ */}
         {horizontalBanners.length > 0 && (
           <section className="mb-8 2xl:hidden">
