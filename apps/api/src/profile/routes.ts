@@ -10,12 +10,12 @@ import { isBusinessPlanActive } from "../lib/subscriptions";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 import { parseAndNormalizeTags } from "../lib/tags";
-import {
-  compareProfessionalLevelDesc,
-  getProfileRanking,
-} from "../lib/profileRanking";
 
 const ADMIN_ONLY_PROFILE_TAGS = new Set(["premium", "verificada", "profesional con examenes"]);
+import {
+  compareProfessionalLevelDesc,
+  resolveProfessionalLevel,
+} from "../lib/professionalLevel";
 
 export const profileRouter = Router();
 
@@ -140,7 +140,6 @@ profileRouter.get(
         completedServices: true,
         totalEarnedClp: true,
         profileViews: true,
-        baseRate: true,
         profileTags: true,
         serviceTags: true,
         serviceCategory: true,
@@ -159,12 +158,6 @@ profileRouter.get(
             : null;
         const hasActiveSession =
           Boolean(p.isOnline) && computeAvailableNow(p.lastSeen);
-        const ranking = getProfileRanking({
-          baseRate: p.baseRate,
-          profileViews: p.profileViews,
-          lastActiveAt: p.lastSeen,
-          completedServices: p.completedServices,
-        });
 
         return {
           id: p.id,
@@ -179,8 +172,7 @@ profileRouter.get(
           availableNow: hasActiveSession,
           isActive: p.isActive,
           profileType: p.profileType,
-          userLevel: ranking.calculatedTier,
-          profileScore: ranking.profileScore,
+          userLevel: resolveProfessionalLevel(p.totalEarnedClp),
           completedServices: p.completedServices,
           profileViews: p.profileViews,
           lastActiveAt: p.lastSeen ? p.lastSeen.toISOString() : null,
@@ -232,8 +224,6 @@ profileRouter.get(
         if (availabilityCmp !== 0) return availabilityCmp;
         const levelCmp = compareProfessionalLevelDesc(a.userLevel, b.userLevel);
         if (levelCmp !== 0) return levelCmp;
-        const scoreCmp = (b.profileScore || 0) - (a.profileScore || 0);
-        if (scoreCmp !== 0) return scoreCmp;
         return (b.profileViews || 0) - (a.profileViews || 0);
       });
       return res.json({
@@ -246,8 +236,6 @@ profileRouter.get(
         if (availabilityCmp !== 0) return availabilityCmp;
         const levelCmp = compareProfessionalLevelDesc(a.userLevel, b.userLevel);
         if (levelCmp !== 0) return levelCmp;
-        const scoreCmp = (b.profileScore || 0) - (a.profileScore || 0);
-        if (scoreCmp !== 0) return scoreCmp;
         if (a.isActive !== b.isActive)
           return Number(b.isActive) - Number(a.isActive);
         return (b.profileViews || 0) - (a.profileViews || 0);
