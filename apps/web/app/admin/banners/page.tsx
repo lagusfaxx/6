@@ -520,7 +520,7 @@ function BannerImageCropper({
         <input
           type="range"
           min="1"
-          max="2.5"
+          max="3"
           step="0.05"
           value={zoom}
           onChange={(e) => onZoomChange(parseFloat(e.target.value))}
