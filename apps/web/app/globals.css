@@ -740,10 +740,7 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 }
 
 .promo-showcase-gold-border {
-  border: 2px solid transparent;
-  background: linear-gradient(#0c0a14, #0c0a14) padding-box,
-    conic-gradient(from 0deg, #ffd700, #fdb931, #ffd700, #fdb931, #ffd700) border-box;
-  animation: promo-gold-sweep 3.2s linear infinite;
+  border: 2px solid rgba(255, 215, 0, 0.4);
 }
 
 .promo-showcase-gold-shimmer {
@@ -754,19 +751,15 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   content: "";
   position: absolute;
   inset: -40%;
-  background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
+  background: linear-gradient(120deg, transparent 35%, rgba(255, 215, 0, 0.08) 50%, transparent 65%);
   transform: translateX(-120%) rotate(12deg);
   animation: promo-gold-shimmer 3s ease-in-out infinite;
 }
 
 .promo-showcase-gold-glow {
-  background: radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.3), rgba(245, 158, 11, 0.1) 55%, transparent 75%);
-  filter: blur(20px);
+  background: radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.05) 55%, transparent 75%);
+  filter: blur(16px);
   animation: promo-gold-breathe 2.8s ease-in-out infinite;
-}
-
-@keyframes promo-gold-sweep {
-  to { transform: rotate(360deg); }
 }
 
 @keyframes promo-gold-shimmer {
@@ -775,6 +768,6 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 }
 
 @keyframes promo-gold-breathe {
-  0%, 100% { opacity: 0.45; }
-  50% { opacity: 1; }
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.9; }
 }
