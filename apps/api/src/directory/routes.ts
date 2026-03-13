@@ -7,8 +7,8 @@ import { obfuscateLocation } from "../lib/locationPrivacy";
 import { parseAndNormalizeTags } from "../lib/tags";
 import {
   compareProfessionalLevelDesc,
-  resolveProfessionalLevel,
-} from "../lib/professionalLevel";
+  getProfileRanking,
+} from "../lib/profileRanking";
 
 export const directoryRouter = Router();
 
@@ -455,6 +455,7 @@ directoryRouter.get(
         isActive: true,
         lastSeen: true,
         completedServices: true,
+        baseRate: true,
         totalEarnedClp: true,
         profileViews: true,
         services: {
@@ -475,7 +476,13 @@ directoryRouter.get(
           lat != null && lng != null && profLat != null && profLng != null
             ? haversineKm(lat, lng, profLat, profLng)
             : null;
-        const userLevel = resolveProfessionalLevel(u.totalEarnedClp);
+        const ranking = getProfileRanking({
+          baseRate: u.baseRate,
+          profileViews: u.profileViews,
+          lastActiveAt: u.lastSeen,
+          completedServices: u.completedServices,
+        });
+        const userLevel = ranking.calculatedTier;
         return {
           id: u.id,
           name: u.displayName || u.username,
@@ -487,6 +494,7 @@ directoryRouter.get(
           profileViews: u.profileViews,
           completedServices: u.completedServices,
           userLevel,
+          profileScore: ranking.profileScore,
           lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
         };
       })
@@ -495,11 +503,13 @@ directoryRouter.get(
         // Distance first — closest profiles always on top
         const distCmp = (a.distance ?? 1e9) - (b.distance ?? 1e9);
         if (Math.abs(distCmp) > 0.5) return distCmp;
-        // Tie-break by tier level
+        // Premium order: score → recent activity → views
+        const scoreCmp = (b.profileScore || 0) - (a.profileScore || 0);
+        if (scoreCmp !== 0) return scoreCmp;
         const levelCmp = compareProfessionalLevelDesc(a.userLevel, b.userLevel);
         if (levelCmp !== 0) return levelCmp;
-        if (a.isActive !== b.isActive)
-          return Number(b.isActive) - Number(a.isActive);
+        const lastSeenCmp = (Date.parse(b.lastSeen || "") || 0) - (Date.parse(a.lastSeen || "") || 0);
+        if (lastSeenCmp !== 0) return lastSeenCmp;
         return (b.profileViews || 0) - (a.profileViews || 0);
       })
       .slice(0, limit);
@@ -708,7 +718,18 @@ directoryRouter.get(
         gallery: u.profileMedia,
         completedServices: u.completedServices,
         profileViews: u.profileViews,
-        userLevel: resolveProfessionalLevel(u.totalEarnedClp),
+        userLevel: getProfileRanking({
+          baseRate: u.baseRate,
+          profileViews: u.profileViews,
+          lastActiveAt: u.lastSeen,
+          completedServices: u.completedServices,
+        }).calculatedTier,
+        profileScore: getProfileRanking({
+          baseRate: u.baseRate,
+          profileViews: u.profileViews,
+          lastActiveAt: u.lastSeen,
+          completedServices: u.completedServices,
+        }).profileScore,
         reviewTagsSummary: u.reviewTagsSummary,
         avgResponseMinutes: (u as any).avgResponseMinutes ?? null,
         forumThread: forumThread
@@ -953,7 +974,7 @@ directoryRouter.get(
       id: true, username: true, displayName: true, avatarUrl: true,
       coverUrl: true, bio: true, birthdate: true, latitude: true,
       longitude: true, lastSeen: true, isActive: true, isOnline: true,
-      completedServices: true, totalEarnedClp: true, profileViews: true, tier: true,
+      completedServices: true, baseRate: true, totalEarnedClp: true, profileViews: true, tier: true,
       gender: true, city: true, serviceCategory: true, createdAt: true,
       primaryCategory: true, profileTags: true, serviceTags: true, profileType: true,
       avgResponseMinutes: true,
@@ -963,7 +984,7 @@ directoryRouter.get(
       id: true, username: true, displayName: true, avatarUrl: true,
       coverUrl: true, bio: true, birthdate: true, latitude: true,
       longitude: true, lastSeen: true, isActive: true, isOnline: true,
-      completedServices: true, totalEarnedClp: true, profileViews: true, tier: true,
+      completedServices: true, baseRate: true, totalEarnedClp: true, profileViews: true, tier: true,
       gender: true, city: true, serviceCategory: true, createdAt: true, profileType: true,
       services: { where: { isActive: true }, select: { latitude: true, longitude: true, category: true }, take: 1, orderBy: { createdAt: "desc" as const } },
     };
@@ -1018,7 +1039,13 @@ directoryRouter.get(
       const userIsOnline = u.lastSeen
         ? Date.now() - u.lastSeen.getTime() <= AVAIL_MS
         : false;
-      const level = resolveProfessionalLevel(u.totalEarnedClp);
+      const ranking = getProfileRanking({
+        baseRate: u.baseRate,
+        profileViews: u.profileViews,
+        lastActiveAt: u.lastSeen,
+        completedServices: u.completedServices,
+      });
+      const level = ranking.calculatedTier;
       const isMadura = age != null && age >= 40;
       const obf = obfuscateLocation(userLat, userLng, `user:${u.id}`, 600);
 
@@ -1035,6 +1062,7 @@ directoryRouter.get(
         availableNow: userIsOnline,
         isActive: u.isActive,
         userLevel: level,
+        profileScore: ranking.profileScore,
         completedServices: u.completedServices,
         profileViews: u.profileViews,
         lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
@@ -1074,12 +1102,14 @@ directoryRouter.get(
         if (a.availableNow !== b.availableNow)
           return Number(b.availableNow) - Number(a.availableNow);
       }
-      // featured: tier → availability → views
+      // featured: score → activity recency → views
+      const scoreCmp = (b.profileScore ?? 0) - (a.profileScore ?? 0);
+      if (scoreCmp !== 0) return scoreCmp;
       const lvlCmp =
         (LEVEL_ORDER[a.userLevel] ?? 3) - (LEVEL_ORDER[b.userLevel] ?? 3);
       if (lvlCmp !== 0) return lvlCmp;
-      if (a.availableNow !== b.availableNow)
-        return Number(b.availableNow) - Number(a.availableNow);
+      const activityCmp = (Date.parse(b.lastSeen || "") || 0) - (Date.parse(a.lastSeen || "") || 0);
+      if (activityCmp !== 0) return activityCmp;
       return (b.profileViews ?? 0) - (a.profileViews ?? 0);
     });
 

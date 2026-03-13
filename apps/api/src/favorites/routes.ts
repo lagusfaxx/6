@@ -2,7 +2,7 @@ import { Router } from "express";
 import { prisma } from "../db";
 import { requireAuth } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
-import { resolveProfessionalLevel } from "../lib/professionalLevel";
+import { getProfileRanking } from "../lib/profileRanking";
 
 export const favoritesRouter = Router();
 
@@ -35,6 +35,9 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
           avatarUrl: true,
           isActive: true,
           completedServices: true,
+          profileViews: true,
+          lastSeen: true,
+          baseRate: true,
           totalEarnedClp: true,
           category: {
             select: {
@@ -90,6 +93,9 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
           displayName: true,
           avatarUrl: true,
           completedServices: true,
+          profileViews: true,
+          lastSeen: true,
+          baseRate: true,
           totalEarnedClp: true,
           category: {
             select: {
@@ -129,7 +135,12 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
                    "Profesional",
           isActive: fav.professional.isActive,
           rating,
-          userLevel: resolveProfessionalLevel(fav.professional.totalEarnedClp)
+          userLevel: getProfileRanking({
+            baseRate: fav.professional.baseRate,
+            profileViews: fav.professional.profileViews,
+            lastActiveAt: fav.professional.lastSeen,
+            completedServices: fav.professional.completedServices,
+          }).calculatedTier
         }
       };
     }),
@@ -146,7 +157,12 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
         id: service.professional.id,
         name: service.professional.displayName || service.professional.username,
         avatarUrl: service.professional.avatarUrl,
-        userLevel: resolveProfessionalLevel(service.professional.totalEarnedClp),
+        userLevel: getProfileRanking({
+          baseRate: service.professional.baseRate,
+          profileViews: service.professional.profileViews,
+          lastActiveAt: service.professional.lastSeen,
+          completedServices: service.professional.completedServices,
+        }).calculatedTier,
         category: service.professional.category?.displayName || 
                  service.professional.category?.name || 
                  service.professional.serviceCategory || 
