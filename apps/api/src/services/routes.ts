@@ -171,7 +171,6 @@ servicesRouter.get(
         lastSeen: true,
         phone: true,
         completedServices: true,
-        totalEarnedClp: true,
         membershipExpiresAt: true,
         shopTrialEndsAt: true,
         profileTags: true,
@@ -211,7 +210,7 @@ servicesRouter.get(
           baseRate: p.baseRate,
           lastSeen: p.lastSeen ? p.lastSeen.toISOString() : null,
           phone: p.phone || null,
-          userLevel: resolveProfessionalLevel(p.totalEarnedClp),
+          userLevel: resolveProfessionalLevel(p.completedServices),
           profileTags: p.profileTags ?? [],
           serviceTags: p.serviceTags ?? [],
         };
@@ -1239,19 +1238,14 @@ servicesRouter.post(
 
       if (transition.count === 0) return null;
 
-      const service = await tx.serviceRequest.findUnique({ where: { id } });
-      if (!service) return null;
-
-      const priceClp = service.professionalPriceClp ?? 0;
-
       const professional = await tx.user.update({
         where: { id: professionalId },
-        data: {
-          completedServices: { increment: 1 },
-          totalEarnedClp: { increment: priceClp },
-        },
-        select: { totalEarnedClp: true },
+        data: { completedServices: { increment: 1 } },
+        select: { completedServices: true },
       });
+
+      const service = await tx.serviceRequest.findUnique({ where: { id } });
+      if (!service) return null;
 
       await tx.notification.create({
         data: {
@@ -1266,7 +1260,7 @@ servicesRouter.post(
             url: `/profesional/${professionalId}`,
             suggestedTags: QUICK_REVIEW_TAGS,
             professionalLevel: resolveProfessionalLevel(
-              professional.totalEarnedClp,
+              professional.completedServices,
             ),
           },
         },

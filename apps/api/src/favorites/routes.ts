@@ -35,7 +35,6 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
           avatarUrl: true,
           isActive: true,
           completedServices: true,
-          totalEarnedClp: true,
           category: {
             select: {
               name: true,
@@ -90,7 +89,6 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
           displayName: true,
           avatarUrl: true,
           completedServices: true,
-          totalEarnedClp: true,
           category: {
             select: {
               name: true,
@@ -129,7 +127,7 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
                    "Profesional",
           isActive: fav.professional.isActive,
           rating,
-          userLevel: resolveProfessionalLevel(fav.professional.totalEarnedClp)
+          userLevel: resolveProfessionalLevel(fav.professional.completedServices)
         }
       };
     }),
@@ -146,7 +144,7 @@ favoritesRouter.get("/favorites", requireAuth, asyncHandler(async (req, res) => 
         id: service.professional.id,
         name: service.professional.displayName || service.professional.username,
         avatarUrl: service.professional.avatarUrl,
-        userLevel: resolveProfessionalLevel(service.professional.totalEarnedClp),
+        userLevel: resolveProfessionalLevel(service.professional.completedServices),
         category: service.professional.category?.displayName || 
                  service.professional.category?.name || 
                  service.professional.serviceCategory || 
