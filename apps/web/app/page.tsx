@@ -93,15 +93,15 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
   const rating = Math.max(0, Math.min(5, Math.round(Number(activePromo.professional.rating || 0))));
 
   return (
-    <section className="mb-8">
-      {/* Label above the ad */}
-      <div className="mb-2 flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/[0.08] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-fuchsia-300">
-          <Sparkles className="h-3 w-3" /> Publicidad
+    <section className="mb-6">
+      {/* Label */}
+      <div className="mb-1.5 flex items-center gap-2">
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-white/30">
+          Publicidad
         </span>
       </div>
       <div
-        className="relative mx-auto w-full max-w-5xl"
+        className="relative mx-auto w-full max-w-3xl"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
         onPointerDown={() => setIsPaused(true)}
@@ -109,52 +109,42 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
       >
         <Link
           href={activePromo.professional.profileUrl}
-          className={`group promo-showcase-card relative block aspect-[16/7] w-full overflow-hidden rounded-2xl border bg-[#0c0a14] shadow-[0_8px_40px_rgba(0,0,0,0.5)] ${isGold ? "promo-showcase-card--gold border-transparent" : "border-fuchsia-500/15"}`}
+          className={`group promo-showcase-card relative block h-[140px] sm:h-[160px] w-full overflow-hidden rounded-xl border bg-[#0c0a14] shadow-lg ${isGold ? "promo-showcase-card--gold border-transparent" : "border-white/10"}`}
         >
           <AnimatePresence mode="wait">
             <motion.div
               key={activePromo.id}
-              initial={{ opacity: 0, scale: 1.04 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.97 }}
-              transition={{ duration: 0.55, ease: "easeOut" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
               className="absolute inset-0"
             >
               <img src={imageSrc} alt={activePromo.professional.name} className="h-full w-full object-cover" />
-              {/* Gradient overlays for readability */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-black/10" />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/20" />
 
-              {/* Top-left sponsored label */}
-              <div className="absolute left-3 top-3 sm:left-4 sm:top-4">
-                <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest backdrop-blur-md ${isGold ? "border border-[#FFD700]/60 bg-[#FFD700]/15 text-[#FFE8A3]" : "border border-white/15 bg-black/40 text-white/70"}`}>
-                  <Zap className="h-3 w-3" /> Anuncio
-                </span>
-              </div>
-
-              {/* Online indicator */}
-              {activePromo.professional.isOnline && (
-                <div className="absolute right-3 top-3 sm:right-4 sm:top-4 flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-black/50 px-2.5 py-1 text-[10px] font-medium text-emerald-300 backdrop-blur-md">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /> Online
-                </div>
-              )}
-
-              {/* Bottom content area */}
-              <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6">
-                <div className="flex items-end justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-xl font-bold text-white sm:text-2xl drop-shadow-lg">{activePromo.professional.name}</h3>
-                    <div className="mt-1.5 flex items-center gap-2 text-xs">
-                      <div className="flex items-center gap-0.5 text-amber-300">
-                        {Array.from({ length: 5 }).map((_, idx) => (
-                          <Star key={`promo-star-${idx}`} className={`h-3.5 w-3.5 ${idx < rating ? "fill-current" : "text-white/25"}`} />
-                        ))}
-                      </div>
-                      <span className="text-white/60">({activePromo.professional.reviewsCount})</span>
+              {/* Content — horizontal layout */}
+              <div className="absolute inset-0 flex items-center p-4 sm:p-5">
+                <div className="min-w-0 flex-1">
+                  <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest ${isGold ? "bg-[#FFD700]/20 text-[#FFE8A3]" : "bg-white/10 text-white/50"}`}>
+                    <Zap className="h-2.5 w-2.5" /> Anuncio
+                  </span>
+                  <h3 className="mt-1 truncate text-sm font-bold text-white sm:text-base">{activePromo.professional.name}</h3>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[10px]">
+                    <div className="flex items-center gap-0.5 text-amber-300">
+                      {Array.from({ length: 5 }).map((_, idx) => (
+                        <Star key={`promo-star-${idx}`} className={`h-3 w-3 ${idx < rating ? "fill-current" : "text-white/20"}`} />
+                      ))}
                     </div>
+                    <span className="text-white/50">({activePromo.professional.reviewsCount})</span>
+                    {activePromo.professional.isOnline && (
+                      <span className="flex items-center gap-1 text-emerald-300">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Online
+                      </span>
+                    )}
                   </div>
-                  <div className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all group-hover:scale-105 group-hover:shadow-lg ${isGold ? "bg-gradient-to-r from-[#FFD700] to-[#FDB931] text-[#2b1a00] shadow-[0_4px_20px_rgba(253,185,49,0.4)]" : "bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white shadow-[0_4px_20px_rgba(168,85,247,0.4)]"}`}>
-                    Ver perfil <ArrowRight className="h-3.5 w-3.5" />
+                  <div className={`mt-2 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-bold transition-all group-hover:scale-105 ${isGold ? "bg-gradient-to-r from-[#FFD700] to-[#FDB931] text-[#2b1a00]" : "bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white"}`}>
+                    Ver perfil <ArrowRight className="h-3 w-3" />
                   </div>
                 </div>
               </div>
@@ -163,19 +153,16 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
 
           {isGold ? (
             <>
-              <div className="promo-showcase-gold-border pointer-events-none absolute inset-0 rounded-2xl" />
-              <div className="promo-showcase-gold-shimmer pointer-events-none absolute inset-0 rounded-2xl" />
-              <div className="promo-showcase-gold-glow pointer-events-none absolute -inset-2 -z-10 rounded-[20px]" />
-              <span className="absolute right-3 bottom-[4.5rem] sm:right-6 sm:bottom-[5rem] rounded-md border border-[#FFD700]/70 bg-gradient-to-r from-[#FFD700] to-[#FDB931] px-2 py-0.5 text-[9px] font-bold tracking-widest text-[#2b1a00] shadow-lg">
-                GOLD
-              </span>
+              <div className="promo-showcase-gold-border pointer-events-none absolute inset-0 rounded-xl" />
+              <div className="promo-showcase-gold-shimmer pointer-events-none absolute inset-0 rounded-xl" />
+              <div className="promo-showcase-gold-glow pointer-events-none absolute -inset-1 -z-10 rounded-xl" />
             </>
           ) : null}
         </Link>
 
         {/* Carousel dots */}
         {showcasePromotions.length > 1 ? (
-          <div className="mt-3 flex items-center justify-center gap-2">
+          <div className="mt-2 flex items-center justify-center gap-1.5">
             {showcasePromotions.map((promo, idx) => {
               const isActive = idx === activeIndex;
               const dotIsGold = promo.adTier === "GOLD";
@@ -188,7 +175,7 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
                     setIsPaused(true);
                     setActiveIndex(idx);
                   }}
-                  className={`transition-all duration-300 ${isActive ? `h-2.5 w-7 rounded-full ${dotIsGold ? "bg-amber-400 shadow-[0_0_12px_rgba(255,215,0,0.7)]" : "bg-fuchsia-400 shadow-[0_0_10px_rgba(192,132,252,0.6)]"}` : "h-2.5 w-2.5 rounded-full bg-white/25 hover:bg-white/45"}`}
+                  className={`transition-all duration-300 ${isActive ? `h-2 w-5 rounded-full ${dotIsGold ? "bg-amber-400" : "bg-fuchsia-400"}` : "h-2 w-2 rounded-full bg-white/20 hover:bg-white/40"}`}
                 />
               );
             })}
@@ -937,29 +924,25 @@ export default function HomePage() {
     return (
       <div className="group/ad relative h-full w-full overflow-hidden">
         {isVideo ? (
-          <video src={mediaSrc} className="h-full w-full object-cover transition-transform duration-700 group-hover/ad:scale-110" autoPlay muted loop playsInline />
+          <video src={mediaSrc} className="h-full w-full object-cover transition-transform duration-500 group-hover/ad:scale-105" autoPlay muted loop playsInline />
         ) : (
-          <img src={fallbackImage || mediaSrc} alt={profile?.name || "Banner publicitario"} className="h-full w-full object-cover transition-transform duration-700 group-hover/ad:scale-110" />
+          <img src={fallbackImage || mediaSrc} alt={profile?.name || "Banner publicitario"} className="h-full w-full object-cover transition-transform duration-500 group-hover/ad:scale-105" />
         )}
-        {/* Multi-layer gradient for depth */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent" />
-        {/* Sponsored label */}
-        <div className="absolute left-2 top-2 z-10">
-          <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-black/50 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-widest text-white/50 backdrop-blur-md">
-            <Zap className="h-2.5 w-2.5" /> Ad
-          </span>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+        {/* Ad label */}
+        <div className="absolute left-1.5 top-1.5">
+          <span className="rounded bg-black/40 px-1 py-0.5 text-[7px] font-semibold uppercase tracking-widest text-white/40 backdrop-blur-sm">Ad</span>
         </div>
         {/* Content */}
-        <div className="absolute inset-x-0 bottom-0 p-3">
-          <div className="truncate text-sm font-bold text-white drop-shadow-lg">{profile?.name || banner.title}</div>
+        <div className="absolute inset-x-0 bottom-0 p-2">
+          <div className="truncate text-xs font-bold text-white">{profile?.name || banner.title}</div>
           {(profile?.city || profile?.category) && (
-            <div className="mt-0.5 flex items-center gap-1 text-[10px] text-white/70">
+            <div className="mt-0.5 flex items-center gap-0.5 text-[9px] text-white/60">
               {profile?.city && <MapPin className="h-2.5 w-2.5" />}
               <span className="truncate">{profile?.city || profile?.category}</span>
             </div>
           )}
-          <div className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-lg transition-all group-hover/ad:shadow-fuchsia-500/30">
+          <div className="mt-1.5 flex items-center justify-center gap-0.5 rounded-md bg-gradient-to-r from-fuchsia-600 to-violet-600 px-2 py-1 text-[9px] font-bold text-white">
             Ver perfil <ArrowRight className="h-2.5 w-2.5" />
           </div>
         </div>
@@ -1009,18 +992,18 @@ export default function HomePage() {
       <div className="relative mx-auto max-w-6xl overflow-visible px-4 pb-16">
         {/* Side ad banners (desktop) */}
         {leftSideBanners.length > 0 && (
-          <div className="absolute left-0 top-0 hidden w-[200px] space-y-4 2xl:block" style={{ marginLeft: "-220px" }}>
+          <div className="absolute left-0 top-0 hidden w-[160px] space-y-3 2xl:block" style={{ marginLeft: "-180px" }}>
             {leftSideBanners.map((b) => (
-              <a key={`left-${b.id}`} href={bannerHref(b)} className="group block h-[380px] overflow-hidden rounded-2xl border border-fuchsia-500/10 bg-[#0c0a14] shadow-[0_4px_24px_rgba(0,0,0,0.4)] transition-all duration-300 hover:border-fuchsia-500/25 hover:shadow-[0_8px_32px_rgba(168,85,247,0.15)] hover:-translate-y-1">
+              <a key={`left-${b.id}`} href={bannerHref(b)} className="group block h-[260px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0a14] shadow-md transition-all duration-300 hover:border-fuchsia-500/20 hover:shadow-lg hover:-translate-y-0.5">
                 {renderProfileBanner(b)}
               </a>
             ))}
           </div>
         )}
         {rightSideBanners.length > 0 && (
-          <div className="absolute right-0 top-0 hidden w-[200px] space-y-4 2xl:block" style={{ marginRight: "-220px" }}>
+          <div className="absolute right-0 top-0 hidden w-[160px] space-y-3 2xl:block" style={{ marginRight: "-180px" }}>
             {rightSideBanners.map((b) => (
-              <a key={`right-${b.id}`} href={bannerHref(b)} className="group block h-[380px] overflow-hidden rounded-2xl border border-fuchsia-500/10 bg-[#0c0a14] shadow-[0_4px_24px_rgba(0,0,0,0.4)] transition-all duration-300 hover:border-fuchsia-500/25 hover:shadow-[0_8px_32px_rgba(168,85,247,0.15)] hover:-translate-y-1">
+              <a key={`right-${b.id}`} href={bannerHref(b)} className="group block h-[260px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0a14] shadow-md transition-all duration-300 hover:border-fuchsia-500/20 hover:shadow-lg hover:-translate-y-0.5">
                 {renderProfileBanner(b)}
               </a>
             ))}
@@ -1044,12 +1027,12 @@ export default function HomePage() {
                 <Zap className="h-3 w-3" /> Publicidad
               </span>
             </div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x">
+            <div className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x">
               {horizontalBanners.map((b) => (
                 <a
                   key={b.id}
                   href={bannerHref(b)}
-                  className="relative block h-[360px] w-[200px] shrink-0 snap-start overflow-hidden rounded-2xl border border-fuchsia-500/10 bg-[#0c0a14] shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/25 hover:shadow-[0_8px_28px_rgba(168,85,247,0.15)]"
+                  className="relative block h-[240px] w-[150px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0a14] shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/20 hover:shadow-lg"
                 >
                   {renderProfileBanner(b)}
                 </a>
