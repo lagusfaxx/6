@@ -1,14 +1,25 @@
 export type ProfessionalMeritLevel = "SILVER" | "GOLD" | "DIAMOND";
 
+import {
+  calculateProfileScore,
+  getTierFromScore,
+  type ProfileMetrics,
+} from "./profileRanking";
+
+/**
+ * Score-based professional level resolver.
+ * Uses real profile metrics: price, views, activity, completed services.
+ * Accepts either a ProfileMetrics object or a single number (backward compat).
+ */
 export function resolveProfessionalLevel(
-  completedServices: number | null | undefined,
+  metrics: ProfileMetrics | number | null | undefined,
 ): ProfessionalMeritLevel {
-  const total = Number.isFinite(Number(completedServices))
-    ? Number(completedServices)
-    : 0;
-  if (total > 20) return "DIAMOND";
-  if (total >= 10) return "GOLD";
-  return "SILVER";
+  if (typeof metrics === "number" || metrics === null || metrics === undefined) {
+    return getTierFromScore(
+      calculateProfileScore({ completedServices: metrics as number | null }),
+    );
+  }
+  return getTierFromScore(calculateProfileScore(metrics));
 }
 
 export function compareProfessionalLevelDesc(

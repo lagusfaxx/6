@@ -171,6 +171,7 @@ servicesRouter.get(
         lastSeen: true,
         phone: true,
         completedServices: true,
+        profileViews: true,
         membershipExpiresAt: true,
         shopTrialEndsAt: true,
         profileTags: true,
@@ -210,7 +211,12 @@ servicesRouter.get(
           baseRate: p.baseRate,
           lastSeen: p.lastSeen ? p.lastSeen.toISOString() : null,
           phone: p.phone || null,
-          userLevel: resolveProfessionalLevel(p.completedServices),
+          userLevel: resolveProfessionalLevel({
+            baseRate: p.baseRate,
+            profileViews: (p as any).profileViews,
+            lastSeen: p.lastSeen,
+            completedServices: p.completedServices,
+          }),
           profileTags: p.profileTags ?? [],
           serviceTags: p.serviceTags ?? [],
         };
