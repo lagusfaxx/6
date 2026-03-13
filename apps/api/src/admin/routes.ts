@@ -652,6 +652,9 @@ adminRouter.post(
       startsAt,
       endsAt,
       adTier,
+      imageFocusX,
+      imageFocusY,
+      imageZoom,
     } =
       req.body ?? {};
     if (!title)
@@ -689,6 +692,9 @@ adminRouter.post(
         startsAt: startsAt ? new Date(String(startsAt)) : null,
         endsAt: endsAt ? new Date(String(endsAt)) : null,
         adTier: String(adTier || "STANDARD").toUpperCase() === "GOLD" ? "GOLD" : "STANDARD",
+        imageFocusX: typeof imageFocusX === "number" ? Math.max(0, Math.min(100, imageFocusX)) : 50,
+        imageFocusY: typeof imageFocusY === "number" ? Math.max(0, Math.min(100, imageFocusY)) : 20,
+        imageZoom: typeof imageZoom === "number" ? Math.max(1, Math.min(3, imageZoom)) : 1,
       },
     });
     return res.json({ banner });
@@ -724,6 +730,9 @@ adminRouter.put(
       startsAt,
       endsAt,
       adTier,
+      imageFocusX,
+      imageFocusY,
+      imageZoom,
     } = req.body ?? {};
     const banner = await prisma.banner.update({
       where: { id },
@@ -748,6 +757,9 @@ adminRouter.put(
         ...(startsAt !== undefined ? { startsAt: startsAt ? new Date(String(startsAt)) : null } : {}),
         ...(endsAt !== undefined ? { endsAt: endsAt ? new Date(String(endsAt)) : null } : {}),
         ...(adTier !== undefined ? { adTier: String(adTier).toUpperCase() === "GOLD" ? "GOLD" : "STANDARD" } : {}),
+        ...(imageFocusX !== undefined ? { imageFocusX: Math.max(0, Math.min(100, Number(imageFocusX) || 50)) } : {}),
+        ...(imageFocusY !== undefined ? { imageFocusY: Math.max(0, Math.min(100, Number(imageFocusY) || 20)) } : {}),
+        ...(imageZoom !== undefined ? { imageZoom: Math.max(1, Math.min(3, Number(imageZoom) || 1)) } : {}),
       },
     });
     return res.json({ banner });

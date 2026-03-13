@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
@@ -16,6 +16,10 @@ import {
   Loader2,
   RefreshCw,
   Image as ImageIcon,
+  Smartphone,
+  Monitor,
+  Move,
+  ZoomIn,
 } from "lucide-react";
 
 type Banner = {
@@ -32,6 +36,9 @@ type Banner = {
   endsAt?: string | null;
   createdAt: string;
   adTier?: "STANDARD" | "GOLD";
+  imageFocusX?: number;
+  imageFocusY?: number;
+  imageZoom?: number;
 };
 
 type AdminProfile = {
@@ -63,6 +70,10 @@ export default function AdminBannersPage() {
   const [promoImageUrl, setPromoImageUrl] = useState("");
   const [adTier, setAdTier] = useState<"STANDARD" | "GOLD">("STANDARD");
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageFocusX, setImageFocusX] = useState(50);
+  const [imageFocusY, setImageFocusY] = useState(20);
+  const [imageZoom, setImageZoom] = useState(1);
+  const [previewMode, setPreviewMode] = useState<"mobile" | "desktop">("mobile");
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -147,6 +158,9 @@ export default function AdminBannersPage() {
           startsAt: startsAt || null,
           endsAt: endsAt || null,
           adTier,
+          imageFocusX,
+          imageFocusY,
+          imageZoom,
         }),
       });
 
@@ -155,6 +169,9 @@ export default function AdminBannersPage() {
       setEndsAt("");
       setPromoImageUrl("");
       setAdTier("STANDARD");
+      setImageFocusX(50);
+      setImageFocusY(20);
+      setImageZoom(1);
       setShowCreate(false);
       setSuccess("Banner promocional creado.");
       await loadBanners();
@@ -296,14 +313,62 @@ export default function AdminBannersPage() {
           </button>
 
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
-            <div className="mb-2 text-xs font-medium text-white/60">Previsualización banner promocional</div>
-            <div className="mx-auto h-[400px] w-[200px] overflow-hidden rounded-xl border border-white/10 bg-black/40">
-              {selectedProfile && promoImageUrl ? (
-                <ProfileVideoBannerPreview profile={selectedProfile} imageUrl={promoImageUrl} adTier={adTier} />
-              ) : (
-                <div className="flex h-full items-center justify-center text-xs text-white/40">Selecciona perfil y foto</div>
-              )}
-            </div>
+            <div className="mb-3 text-xs font-medium text-white/60">Encuadre de imagen promocional</div>
+
+            {promoImageUrl ? (
+              <div className="space-y-4">
+                {/* Image cropper */}
+                <BannerImageCropper
+                  imageUrl={promoImageUrl}
+                  focusX={imageFocusX}
+                  focusY={imageFocusY}
+                  zoom={imageZoom}
+                  onFocusChange={(x, y) => { setImageFocusX(x); setImageFocusY(y); }}
+                  onZoomChange={setImageZoom}
+                />
+
+                {/* Preview mode toggle */}
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode("mobile")}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${previewMode === "mobile" ? "bg-fuchsia-500/20 text-fuchsia-200 border border-fuchsia-500/30" : "bg-white/5 text-white/50 border border-white/10"}`}
+                  >
+                    <Smartphone className="h-3.5 w-3.5" /> Mobile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode("desktop")}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${previewMode === "desktop" ? "bg-fuchsia-500/20 text-fuchsia-200 border border-fuchsia-500/30" : "bg-white/5 text-white/50 border border-white/10"}`}
+                  >
+                    <Monitor className="h-3.5 w-3.5" /> Desktop
+                  </button>
+                </div>
+
+                {/* Preview banner */}
+                <div className="flex justify-center">
+                  <div className={`overflow-hidden rounded-xl border border-white/10 bg-black/40 ${previewMode === "mobile" ? "h-[240px] w-[150px]" : "h-[260px] w-[160px]"}`}>
+                    {selectedProfile ? (
+                      <ProfileVideoBannerPreview
+                        profile={selectedProfile}
+                        imageUrl={promoImageUrl}
+                        adTier={adTier}
+                        focusX={imageFocusX}
+                        focusY={imageFocusY}
+                        zoom={imageZoom}
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-xs text-white/40">Selecciona un perfil</div>
+                    )}
+                  </div>
+                </div>
+                <p className="text-center text-[10px] text-white/30">
+                  {previewMode === "mobile" ? "Vista mobile (150×240)" : "Vista desktop (160×260)"}
+                </p>
+              </div>
+            ) : (
+              <div className="flex h-[200px] items-center justify-center text-xs text-white/40">Sube o pega URL de foto para ajustar encuadre</div>
+            )}
           </div>
 
           <button disabled={busy || uploadingImage || !selectedProfileId || !promoImageUrl} onClick={create} className="mt-4 flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-semibold disabled:opacity-50">
@@ -333,11 +398,33 @@ export default function AdminBannersPage() {
   );
 }
 
-function ProfileVideoBannerPreview({ profile, imageUrl, adTier }: { profile: AdminProfile; imageUrl: string; adTier: "STANDARD" | "GOLD" }) {
+function ProfileVideoBannerPreview({
+  profile,
+  imageUrl,
+  adTier,
+  focusX = 50,
+  focusY = 20,
+  zoom = 1,
+}: {
+  profile: AdminProfile;
+  imageUrl: string;
+  adTier: "STANDARD" | "GOLD";
+  focusX?: number;
+  focusY?: number;
+  zoom?: number;
+}) {
   const src = resolveMediaUrl(imageUrl) || imageUrl;
   return (
-    <div className="relative h-full w-full">
-      <img src={src} className="h-full w-full object-cover" alt={profile.displayName || profile.username || "Promoción"} />
+    <div className="relative h-full w-full overflow-hidden">
+      <img
+        src={src}
+        className="h-full w-full object-cover transition-transform duration-300"
+        style={{
+          objectPosition: `${focusX}% ${focusY}%`,
+          transform: zoom > 1 ? `scale(${zoom})` : undefined,
+        }}
+        alt={profile.displayName || profile.username || "Promoción"}
+      />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
       <div className={`absolute left-3 right-3 bottom-3 rounded-lg border bg-black/50 p-2 ${adTier === "GOLD" ? "border-amber-300/60 shadow-[0_0_20px_rgba(245,158,11,0.3)]" : "border-white/20"}`}>
         <div className="flex items-center gap-2">
@@ -345,6 +432,107 @@ function ProfileVideoBannerPreview({ profile, imageUrl, adTier }: { profile: Adm
           <p className="truncate text-[11px] font-semibold text-white">Banner promocional {adTier === "GOLD" ? "· GOLD" : "· ESTÁNDAR"}</p>
         </div>
         <p className="mt-1 truncate text-xs text-white">{profile.displayName || profile.username || "Perfil"}</p>
+      </div>
+    </div>
+  );
+}
+
+function BannerImageCropper({
+  imageUrl,
+  focusX,
+  focusY,
+  zoom,
+  onFocusChange,
+  onZoomChange,
+}: {
+  imageUrl: string;
+  focusX: number;
+  focusY: number;
+  zoom: number;
+  onFocusChange: (x: number, y: number) => void;
+  onZoomChange: (z: number) => void;
+}) {
+  const src = resolveMediaUrl(imageUrl) || imageUrl;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    isDragging.current = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!isDragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      onFocusChange(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
+    },
+    [onFocusChange],
+  );
+
+  const handlePointerUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-[10px] text-white/40">
+        <Move className="h-3 w-3" /> Arrastra sobre la imagen para elegir el punto de enfoque
+      </div>
+      <div
+        ref={containerRef}
+        className="relative mx-auto h-[300px] w-full max-w-[280px] cursor-crosshair overflow-hidden rounded-xl border border-white/15 bg-black/40"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+      >
+        <img
+          src={src}
+          className="h-full w-full object-cover pointer-events-none select-none"
+          style={{
+            objectPosition: `${focusX}% ${focusY}%`,
+            transform: zoom > 1 ? `scale(${zoom})` : undefined,
+          }}
+          alt="Encuadre"
+          draggable={false}
+        />
+        {/* Crosshair indicator */}
+        <div
+          className="pointer-events-none absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-fuchsia-400 shadow-[0_0_8px_rgba(217,70,239,0.5)]"
+          style={{ left: `${focusX}%`, top: `${focusY}%` }}
+        >
+          <div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-400" />
+        </div>
+        {/* Grid overlay */}
+        <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="border border-white/[0.06]" />
+          ))}
+        </div>
+      </div>
+
+      {/* Zoom slider */}
+      <div className="flex items-center gap-3 px-4">
+        <ZoomIn className="h-3.5 w-3.5 text-white/40 shrink-0" />
+        <input
+          type="range"
+          min="1"
+          max="3"
+          step="0.05"
+          value={zoom}
+          onChange={(e) => onZoomChange(parseFloat(e.target.value))}
+          className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-fuchsia-500 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-fuchsia-400"
+        />
+        <span className="text-[10px] text-white/40 shrink-0 w-8 text-right">{zoom.toFixed(1)}×</span>
+      </div>
+
+      <div className="flex justify-center gap-4 text-[10px] text-white/30">
+        <span>X: {focusX.toFixed(0)}%</span>
+        <span>Y: {focusY.toFixed(0)}%</span>
+        <span>Zoom: {zoom.toFixed(2)}×</span>
       </div>
     </div>
   );

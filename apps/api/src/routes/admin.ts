@@ -75,7 +75,7 @@ adminRouter.get("/admin/banners", requireAdmin, async (_req, res) => {
 });
 
 adminRouter.post("/admin/banners", requireAdmin, async (req, res) => {
-  const { title, imageUrl, linkUrl, position, isActive, sortOrder, adTier } = req.body ?? {};
+  const { title, imageUrl, linkUrl, position, isActive, sortOrder, adTier, imageFocusX, imageFocusY, imageZoom } = req.body ?? {};
   if (!title || !imageUrl) return res.status(400).json({ error: "VALIDATION", message: "title and imageUrl required" });
   const banner = await prisma.banner.create({
     data: {
@@ -85,7 +85,10 @@ adminRouter.post("/admin/banners", requireAdmin, async (req, res) => {
       position: position ? String(position) : "RIGHT",
       isActive: typeof isActive === "boolean" ? isActive : true,
       sortOrder: typeof sortOrder === "number" ? sortOrder : parseInt(String(sortOrder ?? "0"), 10) || 0,
-      adTier: String(adTier || "STANDARD").toUpperCase() === "GOLD" ? "GOLD" : "STANDARD"
+      adTier: String(adTier || "STANDARD").toUpperCase() === "GOLD" ? "GOLD" : "STANDARD",
+      imageFocusX: typeof imageFocusX === "number" ? Math.max(0, Math.min(100, imageFocusX)) : 50,
+      imageFocusY: typeof imageFocusY === "number" ? Math.max(0, Math.min(100, imageFocusY)) : 20,
+      imageZoom: typeof imageZoom === "number" ? Math.max(1, Math.min(3, imageZoom)) : 1,
     }
   });
   res.json({ banner });
@@ -93,7 +96,7 @@ adminRouter.post("/admin/banners", requireAdmin, async (req, res) => {
 
 adminRouter.put("/admin/banners/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { title, imageUrl, linkUrl, position, isActive, sortOrder, adTier } = req.body ?? {};
+  const { title, imageUrl, linkUrl, position, isActive, sortOrder, adTier, imageFocusX, imageFocusY, imageZoom } = req.body ?? {};
   const banner = await prisma.banner.update({
     where: { id },
     data: {
@@ -103,7 +106,10 @@ adminRouter.put("/admin/banners/:id", requireAdmin, async (req, res) => {
       ...(position !== undefined ? { position: String(position) } : {}),
       ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
       ...(sortOrder !== undefined ? { sortOrder: typeof sortOrder === "number" ? sortOrder : parseInt(String(sortOrder), 10) || 0 } : {}),
-      ...(adTier !== undefined ? { adTier: String(adTier).toUpperCase() === "GOLD" ? "GOLD" : "STANDARD" } : {})
+      ...(adTier !== undefined ? { adTier: String(adTier).toUpperCase() === "GOLD" ? "GOLD" : "STANDARD" } : {}),
+      ...(imageFocusX !== undefined ? { imageFocusX: Math.max(0, Math.min(100, Number(imageFocusX) || 50)) } : {}),
+      ...(imageFocusY !== undefined ? { imageFocusY: Math.max(0, Math.min(100, Number(imageFocusY) || 20)) } : {}),
+      ...(imageZoom !== undefined ? { imageZoom: Math.max(1, Math.min(3, Number(imageZoom) || 1)) } : {}),
     }
   });
   res.json({ banner });

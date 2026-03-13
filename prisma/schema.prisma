@@ -794,6 +794,9 @@ model Banner {
   professionalId String? @db.Uuid
   promoImageUrl  String?
   adTier BannerAdTier @default(STANDARD)
+  imageFocusX Float  @default(50)
+  imageFocusY Float  @default(20)
+  imageZoom   Float  @default(1)
   startsAt DateTime?
   endsAt   DateTime?
   createdAt DateTime @default(now())
