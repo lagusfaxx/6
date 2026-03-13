@@ -1,13 +1,13 @@
 export type ProfessionalMeritLevel = "SILVER" | "GOLD" | "DIAMOND";
 
 export function resolveProfessionalLevel(
-  totalEarnedClp: number | null | undefined,
+  completedServices: number | null | undefined,
 ): ProfessionalMeritLevel {
-  const value = Number.isFinite(Number(totalEarnedClp))
-    ? Number(totalEarnedClp)
+  const total = Number.isFinite(Number(completedServices))
+    ? Number(completedServices)
     : 0;
-  if (value > 140_000) return "DIAMOND";
-  if (value >= 90_000) return "GOLD";
+  if (total > 20) return "DIAMOND";
+  if (total >= 10) return "GOLD";
   return "SILVER";
 }
 
