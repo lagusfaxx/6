@@ -100,7 +100,7 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
       {/* Label */}
       <div className="mb-1.5 flex items-center gap-2">
         <span className="text-[9px] font-semibold uppercase tracking-wider text-white/30">
-          Publicidad
+          Promocionado
         </span>
       </div>
       <div
@@ -112,7 +112,7 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
       >
         <Link
           href={activePromo.professional.profileUrl}
-          className={`group promo-showcase-card relative block h-[140px] sm:h-[160px] w-full overflow-hidden rounded-xl border bg-[#0c0a14] shadow-lg ${isGold ? "promo-showcase-card--gold border-transparent" : "border-white/10"}`}
+          className={`group promo-showcase-card relative block h-[140px] sm:h-[160px] max-h-[33vh] w-full overflow-hidden rounded-xl border bg-[#0c0a14] shadow-lg ${isGold ? "promo-showcase-card--gold border-transparent" : "border-white/10"}`}
         >
           <AnimatePresence mode="wait">
             <motion.div
@@ -130,7 +130,7 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
               <div className="absolute inset-0 flex items-center p-4 sm:p-5">
                 <div className="min-w-0 flex-1">
                   <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest ${isGold ? "bg-[#FFD700]/20 text-[#FFE8A3]" : "bg-white/10 text-white/50"}`}>
-                    <Zap className="h-2.5 w-2.5" /> Anuncio
+                    <Zap className="h-2.5 w-2.5" /> Promocionado
                   </span>
                   <h3 className="mt-1 truncate text-sm font-bold text-white sm:text-base">{activePromo.professional.name}</h3>
                   <div className="mt-0.5 flex items-center gap-1.5 text-[10px]">
@@ -950,7 +950,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         {/* Ad label */}
         <div className="absolute left-1.5 top-1.5">
-          <span className="rounded bg-black/40 px-1 py-0.5 text-[7px] font-semibold uppercase tracking-widest text-white/40 backdrop-blur-sm">Ad</span>
+          <span className="rounded bg-black/40 px-1 py-0.5 text-[7px] font-semibold uppercase tracking-widest text-white/40 backdrop-blur-sm">Promocionado</span>
         </div>
         {/* Content */}
         <div className="absolute inset-x-0 bottom-0 p-2">
@@ -1043,7 +1043,7 @@ export default function HomePage() {
           <section className="mb-8 2xl:hidden">
             <div className="mb-2 flex items-center gap-2">
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
-                <Zap className="h-3 w-3" /> Publicidad
+                <Zap className="h-3 w-3" /> Promocionado
               </span>
             </div>
             <div className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x">
@@ -1107,8 +1107,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        <PromoShowcaseSection promotions={promoShowcase} />
-
         {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
         <VideollamadasBanner />
 
@@ -1168,6 +1166,9 @@ export default function HomePage() {
               </div>
             )}
           </section>
+
+        {/* ═══ PUBLICIDAD / PROMOCIONADO ═══ */}
+        <PromoShowcaseSection promotions={promoShowcase} />
 
         {/* ═══ TIER SECTIONS: Platino / Gold / Silver ═══ */}
         {TIERS.map((tier) => {
