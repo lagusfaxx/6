@@ -49,6 +49,9 @@ type Banner = {
   imageUrl: string;
   linkUrl?: string | null;
   position: string;
+  imageFocusX?: number;
+  imageFocusY?: number;
+  imageZoom?: number;
 };
 
 type PopupPromotion = {
@@ -940,12 +943,19 @@ export default function HomePage() {
     const mediaSrc = resolveMediaUrl(banner.imageUrl) || banner.imageUrl;
     const fallbackImage = resolveMediaUrl(profile?.coverUrl || profile?.avatarUrl || "") || profile?.coverUrl || profile?.avatarUrl || "";
     const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(mediaSrc || "") || (banner.title || "").toLowerCase().includes("video");
+    const focusX = banner.imageFocusX ?? 50;
+    const focusY = banner.imageFocusY ?? 20;
+    const zoom = banner.imageZoom ?? 1;
+    const imgStyle: React.CSSProperties = {
+      objectPosition: `${focusX}% ${focusY}%`,
+      ...(zoom > 1 ? { transform: `scale(${zoom})` } : {}),
+    };
     return (
       <div className="group/ad relative h-full w-full overflow-hidden">
         {isVideo ? (
           <video src={mediaSrc} className="h-full w-full object-cover transition-transform duration-500 group-hover/ad:scale-105" autoPlay muted loop playsInline />
         ) : (
-          <img src={fallbackImage || mediaSrc} alt={profile?.name || "Banner publicitario"} className="h-full w-full object-cover transition-transform duration-500 group-hover/ad:scale-105" />
+          <img src={fallbackImage || mediaSrc} alt={profile?.name || "Banner publicitario"} className="h-full w-full object-cover transition-transform duration-500 group-hover/ad:scale-105" style={imgStyle} />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         {/* Ad label */}
