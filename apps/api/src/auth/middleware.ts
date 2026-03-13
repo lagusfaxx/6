@@ -34,6 +34,7 @@ const PUBLIC_PREFIXES = [
   "/live/active",       // ✅ listado público de streams activos
   "/live",              // ✅ detalle público de stream
   "/stats/platform",    // ✅ contadores públicos para hero del home
+  "/privacy",           // ✅ solicitudes públicas de eliminación de cuenta/datos
 ];
 
 /**

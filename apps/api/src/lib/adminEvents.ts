@@ -7,7 +7,8 @@ export type AdminEventType =
   | "deposit_submitted"
   | "withdrawal_requested"
   | "profile_verification_requested"
-  | "content_reported";
+  | "content_reported"
+  | "deletion_requested";
 
 type AdminEventInput = {
   type: AdminEventType;
@@ -40,6 +41,11 @@ const ADMIN_EVENT_CONFIG: Record<
     title: "Contenido reportado",
     body: "Se reportó contenido para moderación.",
     url: "/admin/moderation",
+  },
+  deletion_requested: {
+    title: "Solicitud de eliminación",
+    body: "Un usuario solicitó eliminar su cuenta o datos.",
+    url: "/admin/privacy-requests",
   },
 };
 

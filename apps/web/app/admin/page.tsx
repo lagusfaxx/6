@@ -55,6 +55,10 @@ const notificationFallback: Record<string, { title: string; url: string }> = {
     url: "/admin/verifications",
   },
   content_reported: { title: "Contenido reportado", url: "/admin/moderation" },
+  deletion_requested: {
+    title: "Solicitud de eliminación",
+    url: "/admin/privacy-requests",
+  },
 };
 
 export default function AdminIndex() {
@@ -253,6 +257,11 @@ export default function AdminIndex() {
             title="Solicitudes de Retiro"
             subtitle={`${metrics.pendingWithdrawals} pendientes`}
             tone="emerald"
+          />
+          <ActionCard
+            href="/admin/privacy-requests"
+            title="Solicitudes de Privacidad"
+            subtitle="Eliminación de cuentas y datos"
           />
         </div>
       </section>

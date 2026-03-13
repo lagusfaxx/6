@@ -41,6 +41,7 @@ import { videocallRouter } from "./routes/videocall";
 import { livestreamRouter } from "./routes/livestream";
 import { signalingRouter } from "./routes/signaling";
 import { adminTokensRouter } from "./routes/adminTokens";
+import { privacyRouter } from "./privacy/routes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 
@@ -181,6 +182,7 @@ app.use("/", walletRouter);
 app.use("/", videocallRouter);
 app.use("/", livestreamRouter);
 app.use("/", signalingRouter);
+app.use("/", privacyRouter);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const requestId = (req as any).requestId;
