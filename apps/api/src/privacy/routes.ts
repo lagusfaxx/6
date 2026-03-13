@@ -17,7 +17,7 @@ privacyRouter.post(
     if (!type || !["account", "data"].includes(type)) {
       return res.status(400).json({ error: "INVALID_TYPE", message: "Tipo debe ser 'account' o 'data'." });
     }
-    if (!email || typeof email !== "string" || !email.includes("@")) {
+    if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: "INVALID_EMAIL", message: "Debes proporcionar un correo válido." });
     }
 
@@ -32,7 +32,7 @@ privacyRouter.post(
       targetId: type,
     });
 
-    console.info("[privacy] deletion request", { type, email: sanitizedEmail, message: sanitizedMessage });
+    console.info("[privacy] deletion request", { type, timestamp: new Date().toISOString() });
 
     return res.json({
       ok: true,
