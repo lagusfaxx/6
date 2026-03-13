@@ -28,7 +28,13 @@ const ROTATION_MS = 5000;
 export default function PromoSidebarPopup({ promotions }: { promotions: PopupPromotion[] }) {
   const [index, setIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
-  const signature = useMemo(() => promotions.map((p) => p.id).join("|"), [promotions]);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false);
+  const validPromotions = useMemo(
+    () => promotions.filter((p) => Boolean((resolveMediaUrl(p.promoImageUrl) || p.promoImageUrl || "").trim())),
+    [promotions],
+  );
 
   useEffect(() => {
     const raw = window.sessionStorage.getItem(DISMISS_KEY);
@@ -51,12 +57,12 @@ export default function PromoSidebarPopup({ promotions }: { promotions: PopupPro
   }, [signature]);
 
   useEffect(() => {
-    if (dismissed || promotions.length <= 1) return;
+    if (dismissed || !isVisible || isHovered || isInteracting || validPromotions.length <= 1) return;
     const id = window.setInterval(() => {
       setIndex((prev) => (prev + 1) % promotions.length);
     }, ROTATION_MS);
     return () => window.clearInterval(id);
-  }, [dismissed, promotions.length]);
+  }, [dismissed, isVisible, isHovered, isInteracting, validPromotions.length]);
 
   useEffect(() => {
     setIndex(0);
@@ -76,8 +82,12 @@ export default function PromoSidebarPopup({ promotions }: { promotions: PopupPro
         initial={{ opacity: 0, x: 24, y: 12 }}
         animate={{ opacity: 1, x: 0, y: 0 }}
         exit={{ opacity: 0, x: 20, y: 8 }}
-        transition={{ duration: 0.28 }}
-        className="fixed bottom-4 right-4 z-40 w-[min(92vw,340px)] overflow-hidden rounded-3xl border border-fuchsia-300/20 bg-[#140d22]/90 shadow-2xl shadow-fuchsia-900/30 backdrop-blur-xl md:bottom-6 md:right-6"
+        transition={{ duration: 0.32, ease: "easeOut" }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onPointerDown={() => setIsInteracting(true)}
+        onFocusCapture={() => setIsInteracting(true)}
+        className="fixed left-1/2 top-[calc(env(safe-area-inset-top)+108px)] z-40 w-[90vw] max-w-[320px] -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-[rgba(25,20,45,0.65)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-[12px] md:left-auto md:right-5 md:top-[110px] md:w-[250px] md:max-w-[260px] md:translate-x-0"
       >
         <button
           type="button"
@@ -86,41 +96,41 @@ export default function PromoSidebarPopup({ promotions }: { promotions: PopupPro
             setDismissed(true);
             window.sessionStorage.setItem(DISMISS_KEY, JSON.stringify({ when: Date.now(), signature }));
           }}
-          className="absolute right-3 top-3 z-10 rounded-full border border-white/25 bg-black/35 p-1.5 text-white/80 hover:bg-black/50"
+          className="absolute right-1.5 top-1.5 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-sm transition hover:bg-black/70 active:scale-95"
         >
           <X className="h-4 w-4" />
         </button>
 
-        <div className="relative">
-          <img src={imageSrc} alt={current.professional.name} className="h-64 w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#120a1f] via-[#120a1f]/30 to-transparent" />
-        </div>
+        <div className="flex h-[98px] items-center gap-2.5 p-2.5 pr-10 lg:h-auto lg:items-start lg:gap-3 lg:p-3 lg:pr-3">
+          <img src={imageSrc} alt={current.professional.name} className="h-[76px] w-[58px] shrink-0 rounded-[10px] object-cover lg:h-[80px] lg:w-[60px]" />
 
-        <div className="space-y-2 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-200/80">Destacada</p>
-          <div className="text-xl font-bold text-white">{current.professional.name}</div>
-          <div className="flex items-center gap-2 text-xs text-white/80">
-            <Circle className={`h-2.5 w-2.5 ${current.professional.isOnline ? "fill-emerald-400 text-emerald-400" : "fill-white/30 text-white/30"}`} />
-            <span>{current.professional.isOnline ? "Disponible ahora" : "Consultar disponibilidad"}</span>
-          </div>
-          <div className="flex items-center gap-1 text-sm text-white/80">
-            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-            {current.professional.rating != null ? (
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fuchsia-200/80">Destacada</p>
+            <div className="truncate text-sm font-bold text-white">{current.professional.name}</div>
+            <div className="flex items-center gap-1.5 text-[11px] text-white/80">
+              <Circle className={`h-2.5 w-2.5 ${current.professional.isOnline ? "fill-emerald-400 text-emerald-400" : "fill-white/30 text-white/30"}`} />
+              <span>{current.professional.isOnline ? "Disponible" : "Consultar disponibilidad"}</span>
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-white/80">
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+              {current.professional.rating != null && current.professional.reviewsCount > 0 ? (
               <span>
                 {current.professional.rating.toFixed(1)}
-                {current.professional.reviewsCount > 0 ? ` (${current.professional.reviewsCount})` : ""}
+                {` (${current.professional.reviewsCount})`}
               </span>
             ) : (
               <span>Sin reseñas todavía</span>
             )}
-          </div>
+            </div>
 
-          <Link
-            href={current.professional.profileUrl}
-            className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110"
-          >
-            Ver perfil
-          </Link>
+            <Link
+              href={current.professional.profileUrl}
+              onClick={() => setIsInteracting(true)}
+              className="mt-1 inline-flex h-[30px] items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 text-[13px] font-semibold text-white transition hover:brightness-110"
+            >
+              Ver perfil
+            </Link>
+          </div>
         </div>
       </motion.aside>
     </AnimatePresence>
