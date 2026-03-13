@@ -1085,6 +1085,8 @@ export default function HomePage() {
           </div>
         </section>
 
+        <PromoShowcaseSection promotions={promoShowcase} />
+
         {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
         <VideollamadasBanner />
 
