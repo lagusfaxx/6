@@ -651,6 +651,7 @@ adminRouter.post(
       promoImageUrl,
       startsAt,
       endsAt,
+      adTier,
     } =
       req.body ?? {};
     if (!title)
@@ -687,6 +688,7 @@ adminRouter.post(
         promoImageUrl: promoImageUrl ? String(promoImageUrl) : null,
         startsAt: startsAt ? new Date(String(startsAt)) : null,
         endsAt: endsAt ? new Date(String(endsAt)) : null,
+        adTier: String(adTier || "STANDARD").toUpperCase() === "GOLD" ? "GOLD" : "STANDARD",
       },
     });
     return res.json({ banner });
@@ -721,6 +723,7 @@ adminRouter.put(
       promoImageUrl,
       startsAt,
       endsAt,
+      adTier,
     } = req.body ?? {};
     const banner = await prisma.banner.update({
       where: { id },
@@ -744,6 +747,7 @@ adminRouter.put(
         ...(promoImageUrl !== undefined ? { promoImageUrl: promoImageUrl ? String(promoImageUrl) : null } : {}),
         ...(startsAt !== undefined ? { startsAt: startsAt ? new Date(String(startsAt)) : null } : {}),
         ...(endsAt !== undefined ? { endsAt: endsAt ? new Date(String(endsAt)) : null } : {}),
+        ...(adTier !== undefined ? { adTier: String(adTier).toUpperCase() === "GOLD" ? "GOLD" : "STANDARD" } : {}),
       },
     });
     return res.json({ banner });

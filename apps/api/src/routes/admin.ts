@@ -75,7 +75,7 @@ adminRouter.get("/admin/banners", requireAdmin, async (_req, res) => {
 });
 
 adminRouter.post("/admin/banners", requireAdmin, async (req, res) => {
-  const { title, imageUrl, linkUrl, position, isActive, sortOrder } = req.body ?? {};
+  const { title, imageUrl, linkUrl, position, isActive, sortOrder, adTier } = req.body ?? {};
   if (!title || !imageUrl) return res.status(400).json({ error: "VALIDATION", message: "title and imageUrl required" });
   const banner = await prisma.banner.create({
     data: {
@@ -84,7 +84,8 @@ adminRouter.post("/admin/banners", requireAdmin, async (req, res) => {
       linkUrl: linkUrl ? String(linkUrl) : null,
       position: position ? String(position) : "RIGHT",
       isActive: typeof isActive === "boolean" ? isActive : true,
-      sortOrder: typeof sortOrder === "number" ? sortOrder : parseInt(String(sortOrder ?? "0"), 10) || 0
+      sortOrder: typeof sortOrder === "number" ? sortOrder : parseInt(String(sortOrder ?? "0"), 10) || 0,
+      adTier: String(adTier || "STANDARD").toUpperCase() === "GOLD" ? "GOLD" : "STANDARD"
     }
   });
   res.json({ banner });
@@ -92,7 +93,7 @@ adminRouter.post("/admin/banners", requireAdmin, async (req, res) => {
 
 adminRouter.put("/admin/banners/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { title, imageUrl, linkUrl, position, isActive, sortOrder } = req.body ?? {};
+  const { title, imageUrl, linkUrl, position, isActive, sortOrder, adTier } = req.body ?? {};
   const banner = await prisma.banner.update({
     where: { id },
     data: {
@@ -101,7 +102,8 @@ adminRouter.put("/admin/banners/:id", requireAdmin, async (req, res) => {
       ...(linkUrl !== undefined ? { linkUrl: linkUrl ? String(linkUrl) : null } : {}),
       ...(position !== undefined ? { position: String(position) } : {}),
       ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
-      ...(sortOrder !== undefined ? { sortOrder: typeof sortOrder === "number" ? sortOrder : parseInt(String(sortOrder), 10) || 0 } : {})
+      ...(sortOrder !== undefined ? { sortOrder: typeof sortOrder === "number" ? sortOrder : parseInt(String(sortOrder), 10) || 0 } : {}),
+      ...(adTier !== undefined ? { adTier: String(adTier).toUpperCase() === "GOLD" ? "GOLD" : "STANDARD" } : {})
     }
   });
   res.json({ banner });
