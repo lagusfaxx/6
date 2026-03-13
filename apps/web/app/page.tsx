@@ -832,15 +832,17 @@ export default function HomePage() {
   const featuredCarouselProfiles = useMemo(() => {
     return recentPros.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD").slice(0, 12);
   }, [recentPros]);
-  const [featuredIndex, setFeaturedIndex] = useState(0);
+  const FEATURED_PAGE_SIZE = 3;
+  const featuredPageCount = Math.max(1, Math.ceil(featuredCarouselProfiles.length / FEATURED_PAGE_SIZE));
+  const [featuredPage, setFeaturedPage] = useState(0);
 
   useEffect(() => {
-    if (featuredCarouselProfiles.length <= 1) return;
+    if (featuredPageCount <= 1) return;
     const interval = window.setInterval(() => {
-      setFeaturedIndex((prev) => (prev + 1) % featuredCarouselProfiles.length);
+      setFeaturedPage((prev) => (prev + 1) % featuredPageCount);
     }, 5000);
     return () => window.clearInterval(interval);
-  }, [featuredCarouselProfiles.length]);
+  }, [featuredPageCount]);
 
   const availableProfiles = discoverSections["available"] || [];
   const availableCarouselProfiles = useMemo(
@@ -1301,23 +1303,24 @@ export default function HomePage() {
             </motion.div>
             <div className="relative overflow-hidden rounded-2xl">
               <AnimatePresence mode="wait">
-                {(() => {
-                  const p = featuredCarouselProfiles[featuredIndex];
-                  if (!p) return null;
-                  return (
-                    <motion.div
-                      key={p.id + "-" + featuredIndex}
-                      initial={{ opacity: 0, x: 40 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -40 }}
-                      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                    >
+                <motion.div
+                  key={`featured-page-${featuredPage}`}
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -40 }}
+                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3"
+                >
+                  {featuredCarouselProfiles
+                    .slice(featuredPage * FEATURED_PAGE_SIZE, featuredPage * FEATURED_PAGE_SIZE + FEATURED_PAGE_SIZE)
+                    .map((p) => (
                       <button
+                        key={p.id}
                         type="button"
                         onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
                         className="group relative block w-full overflow-hidden rounded-2xl border border-amber-400/20 bg-white/[0.03] text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
                       >
-                        <div className="relative aspect-[3/4] max-h-[480px] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                        <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
                           {p.avatarUrl || p.coverUrl ? (
                             <img
                               src={resolveProfileImage(p)}
@@ -1379,20 +1382,19 @@ export default function HomePage() {
                           </div>
                         </div>
                       </button>
-                    </motion.div>
-                  );
-                })()}
+                    ))}
+                </motion.div>
               </AnimatePresence>
-              {/* Dot indicators */}
-              {featuredCarouselProfiles.length > 1 && (
+              {/* Dot indicators — one per page of 3 */}
+              {featuredPageCount > 1 && (
                 <div className="mt-3 flex justify-center gap-1.5">
-                  {featuredCarouselProfiles.map((_, i) => (
+                  {Array.from({ length: featuredPageCount }, (_, i) => (
                     <button
                       key={i}
                       type="button"
-                      aria-label={`Ver perfil ${i + 1}`}
-                      onClick={() => setFeaturedIndex(i)}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${i === featuredIndex ? "w-4 bg-amber-400" : "w-1.5 bg-white/20 hover:bg-white/40"}`}
+                      aria-label={`Ver página ${i + 1}`}
+                      onClick={() => setFeaturedPage(i)}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${i === featuredPage ? "w-4 bg-amber-400" : "w-1.5 bg-white/20 hover:bg-white/40"}`}
                     />
                   ))}
                 </div>
