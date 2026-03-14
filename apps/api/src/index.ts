@@ -40,6 +40,7 @@ import { walletRouter } from "./routes/wallet";
 import { videocallRouter } from "./routes/videocall";
 import { livestreamRouter } from "./routes/livestream";
 import { signalingRouter } from "./routes/signaling";
+import { livekitRouter } from "./routes/livekit";
 import { adminTokensRouter } from "./routes/adminTokens";
 import { privacyRouter } from "./privacy/routes";
 import { prisma } from "./db";
@@ -182,6 +183,7 @@ app.use("/", walletRouter);
 app.use("/", videocallRouter);
 app.use("/", livestreamRouter);
 app.use("/", signalingRouter);
+app.use("/", livekitRouter);
 app.use("/", privacyRouter);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {

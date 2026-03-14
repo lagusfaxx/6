@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiFetch, resolveMediaUrl } from "../../../../lib/api";
 import { connectRealtime } from "../../../../lib/realtime";
-import { WebRTCPeer, getLocalMedia } from "../../../../lib/webrtc";
 import useMe from "../../../../hooks/useMe";
+import { getLivekitToken } from "../../../../lib/livekit";
+import { Room, RoomEvent, type RemoteParticipant, Track } from "livekit-client";
 import {
   Mic, MicOff, VideoIcon, VideoOff, PhoneOff, Clock, User,
   Maximize, Minimize, Volume2, VolumeX, Send, MessageCircle,
@@ -37,6 +38,8 @@ type Booking = {
   professional: { id: string; displayName: string; username: string; avatarUrl: string | null };
 };
 
+type RtcState = "connecting" | "connected" | "reconnecting" | "disconnected" | "error";
+
 export default function VideocallRoomPage() {
   const { id: bookingId } = useParams<{ id: string }>();
   const router = useRouter();
@@ -53,8 +56,8 @@ export default function VideocallRoomPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [sendingChat, setSendingChat] = useState(false);
   const [chatError, setChatError] = useState("");
+  const [rtcState, setRtcState] = useState<RtcState>("disconnected");
 
-  // Media controls
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [remoteAudioOn, setRemoteAudioOn] = useState(false);
@@ -63,22 +66,16 @@ export default function VideocallRoomPage() {
   const [fullscreen, setFullscreen] = useState(false);
   const [hasLocalStream, setHasLocalStream] = useState(false);
 
-  // Refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const peerRef = useRef<WebRTCPeer | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<any>(null);
   const connectingTimerRef = useRef<any>(null);
-  const callStartedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const chatListRef = useRef<HTMLDivElement>(null);
   const mediaInitializedRef = useRef(false);
   const joinSentRef = useRef(false);
-  const offerRetryCountRef = useRef(0);
-  const offerRetryTimerRef = useRef<any>(null);
+  const roomRef = useRef<Room | null>(null);
 
-  // Load booking
   useEffect(() => {
     apiFetch<{ bookings: Booking[] }>("/videocall/bookings?role=client")
       .then((res) => {
@@ -94,7 +91,6 @@ export default function VideocallRoomPage() {
   }, [bookingId]);
 
   const isProfessional = booking ? myId === booking.professionalId : false;
-  const remoteUserId = booking ? (isProfessional ? booking.clientId : booking.professionalId) : null;
   const remotePerson = booking ? (isProfessional ? booking.client : booking.professional) : null;
 
   const roomOpen = booking
@@ -106,53 +102,64 @@ export default function VideocallRoomPage() {
     joinSentRef.current = false;
   }, [bookingId]);
 
-  // Initialize media
-  const initMedia = useCallback(async () => {
-    try {
-      setMediaError("");
-      const stream = await getLocalMedia({ video: true, audio: true });
-      localStreamRef.current = stream;
-      setHasLocalStream(true);
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-    } catch (err) {
-      const mediaErr = err instanceof DOMException ? err : null;
-      const details = mediaErr?.message ? ` (${mediaErr.message})` : "";
-      setMicOn(false);
-      setCamOn(false);
-      if (mediaErr?.name === "NotAllowedError") {
-        setMediaError("Permisos de cámara/micrófono bloqueados. Puedes continuar sin cámara, pero no podrán verte.");
-      } else if (mediaErr?.name === "NotReadableError") {
-        setMediaError("Cámara/micrófono en uso por otra app. Cierra Zoom/Meet y reintenta." + details);
-      } else if (mediaErr?.name === "NotFoundError") {
-        setMediaError("No se encontró cámara o micrófono. Puedes continuar sin cámara." + details);
-      } else {
-        setMediaError("No se pudo acceder a cámara/micrófono. Puedes continuar sin cámara." + details);
-      }
+  const cleanupRoom = useCallback(async () => {
+    if (roomRef.current) {
+      roomRef.current.removeAllListeners();
+      await roomRef.current.disconnect(true);
+      roomRef.current = null;
     }
-    setStatus("waiting");
   }, []);
 
-  useEffect(() => {
-    if (!booking || !myId || !roomOpen) return;
-    if (!mediaInitializedRef.current) {
-      mediaInitializedRef.current = true;
-      initMedia();
+  const attachRemoteVideo = useCallback((participant: RemoteParticipant) => {
+    if (!remoteVideoRef.current) return;
+    const pub = Array.from(participant.trackPublications.values())
+      .find((trackPub) => trackPub.isSubscribed && trackPub.track && trackPub.track.kind === Track.Kind.Video);
+    if (pub?.track && pub.track.kind === Track.Kind.Video) {
+      pub.track.attach(remoteVideoRef.current);
     }
-    if (!joinSentRef.current) {
-      joinSentRef.current = true;
-      apiFetch(`/videocall/${bookingId}/join`, { method: "POST" }).catch(() => {});
-    }
-  }, [booking, myId, roomOpen, initMedia, bookingId]);
+  }, []);
 
-  // Create peer connection - works even without local media (client may deny permissions)
-  const createPeer = useCallback(() => {
-    if (!remoteUserId) return null;
-    peerRef.current?.close();
+  const connectRoom = useCallback(async () => {
+    if (!booking?.roomId) return;
 
-    const peer = new WebRTCPeer(remoteUserId, {
-      onRemoteStream: async (stream) => {
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = stream;
+    setStatus("connecting");
+    setRtcState("connecting");
+    clearInterval(connectingTimerRef.current);
+    setConnectingElapsed(0);
+    connectingTimerRef.current = setInterval(() => setConnectingElapsed((e) => e + 1), 1000);
+
+    const room = new Room({ adaptiveStream: true, dynacast: true });
+    roomRef.current = room;
+
+    room
+      .on(RoomEvent.ConnectionStateChanged, (state) => {
+        if (state === "connected") {
+          setRtcState("connected");
+          setStatus("connected");
+          clearInterval(connectingTimerRef.current);
+          setConnectingElapsed(0);
+        }
+        if (state === "connecting") setRtcState("connecting");
+        if (state === "reconnecting") {
+          setRtcState("reconnecting");
+          setStatus("connecting");
+        }
+        if (state === "disconnected") {
+          setRtcState("disconnected");
+          if (status !== "ended") setStatus("ended");
+        }
+      })
+      .on(RoomEvent.Reconnected, () => {
+        setRtcState("connected");
+        setStatus("connected");
+      })
+      .on(RoomEvent.Reconnecting, () => {
+        setRtcState("reconnecting");
+        setStatus("connecting");
+      })
+      .on(RoomEvent.TrackSubscribed, async (track) => {
+        if (remoteVideoRef.current && track.kind === Track.Kind.Video) {
+          track.attach(remoteVideoRef.current);
           remoteVideoRef.current.muted = true;
           setRemoteAudioOn(false);
           try {
@@ -161,88 +168,59 @@ export default function VideocallRoomPage() {
           } catch {
             setRemoteNeedsInteraction(true);
           }
+          setStatus("connected");
         }
-        // Mark as connected - timer logic handled separately
-        setStatus("connected");
-        callStartedRef.current = true;
-        clearInterval(connectingTimerRef.current);
-        setConnectingElapsed(0);
-      },
-      onConnectionState: (state) => {
-        if (state === "connected") {
-          // WebRTC connected even without remote stream (e.g. audio-only)
-          if (!callStartedRef.current) {
-            setStatus("connected");
-            callStartedRef.current = true;
-            clearInterval(connectingTimerRef.current);
-            setConnectingElapsed(0);
-          }
-        }
-        if (state === "disconnected" || state === "failed" || state === "closed") {
-          setStatus("ended");
-          clearInterval(timerRef.current);
-          clearInterval(connectingTimerRef.current);
-        }
-      },
-      onIceState: (state) => {
-        // If ICE fails, try to reconnect
-        if (state === "failed" && isProfessional) {
-          setTimeout(() => sendOrRetryOffer().catch(() => {}), 2000);
-        }
-      },
-    }, { bookingId });
+      })
+      .on(RoomEvent.ParticipantConnected, (participant) => {
+        attachRemoteVideo(participant);
+      })
+      .on(RoomEvent.ParticipantDisconnected, () => {
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      });
 
-    // Add local stream if available, otherwise ensure we can still receive
-    if (localStreamRef.current) {
-      peer.addStream(localStreamRef.current);
-    } else {
-      // No local media (permissions denied) - still need transceivers to receive remote stream
-      peer.ensureReceiveTransceivers();
+    try {
+      const tokenRes = await getLivekitToken({
+        kind: "videocall",
+        bookingId: booking.id,
+        roomName: `videocall:${booking.roomId}`,
+      });
+      await room.connect(tokenRes.url, tokenRes.token, { autoSubscribe: true });
+      await room.localParticipant.enableCameraAndMicrophone();
+      setHasLocalStream(true);
+      if (localVideoRef.current) {
+        const cameraPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+        if (cameraPub?.track && cameraPub.track.kind === Track.Kind.Video) {
+          cameraPub.track.attach(localVideoRef.current);
+        }
+      }
+    } catch (err) {
+      setRtcState("error");
+      setStatus("waiting");
+      setError(err instanceof Error ? err.message : "No se pudo conectar la videollamada");
+      clearInterval(connectingTimerRef.current);
     }
-    peerRef.current = peer;
-    return peer;
-  }, [remoteUserId, bookingId, isProfessional]);
+  }, [attachRemoteVideo, booking, status]);
 
-  const sendOrRetryOffer = useCallback(async () => {
-    if (!isProfessional) return;
-    const peer = createPeer();
-    if (!peer) return;
-    setStatus("connecting");
-    // Start connecting timer (separate from call timer)
-    clearInterval(connectingTimerRef.current);
-    setConnectingElapsed(0);
-    connectingTimerRef.current = setInterval(() => setConnectingElapsed((e) => e + 1), 1000);
-    await peer.createOffer();
-  }, [isProfessional, createPeer]);
-
-  // Listen for signaling via SSE
   useEffect(() => {
-    if (!myId || !booking || !remoteUserId) return;
+    if (!booking || !myId || !roomOpen) return;
+    if (!mediaInitializedRef.current) {
+      mediaInitializedRef.current = true;
+      setMediaError("");
+      setStatus("waiting");
+    }
+    if (!joinSentRef.current) {
+      joinSentRef.current = true;
+      apiFetch(`/videocall/${bookingId}/join`, { method: "POST" }).catch(() => {});
+    }
+  }, [booking, myId, roomOpen, bookingId]);
+
+  useEffect(() => {
+    if (!myId || !booking) return;
 
     const cleanup = connectRealtime(async (event) => {
       const data = event.data;
       if (!data) return;
       if (data.bookingId && data.bookingId !== bookingId) return;
-
-      if (event.type === "signal:offer") {
-        if (data.fromUserId !== remoteUserId) return;
-        setStatus("connecting");
-        clearInterval(connectingTimerRef.current);
-        setConnectingElapsed(0);
-        connectingTimerRef.current = setInterval(() => setConnectingElapsed((e) => e + 1), 1000);
-        const peer = createPeer();
-        if (peer) await peer.handleOffer(data.sdp);
-      }
-
-      if (event.type === "signal:answer") {
-        if (data.fromUserId !== remoteUserId) return;
-        if (peerRef.current) await peerRef.current.handleAnswer(data.sdp);
-      }
-
-      if (event.type === "signal:ice") {
-        if (data.fromUserId !== remoteUserId) return;
-        if (peerRef.current) await peerRef.current.handleIceCandidate(data.candidate);
-      }
 
       if (event.type === "videocall:chat" && data.bookingId === bookingId && data.fromUserId) {
         setChatMessages((prev) => [...prev, {
@@ -255,74 +233,62 @@ export default function VideocallRoomPage() {
 
       if (event.type === "videocall:started" && data.bookingId === bookingId) {
         setBooking((prev) => prev ? { ...prev, status: "IN_PROGRESS" } : prev);
+        if (status === "waiting") await connectRoom();
       }
 
       if (event.type === "videocall:completed" && data.bookingId === bookingId) {
         setStatus("ended");
         clearInterval(timerRef.current);
         clearInterval(connectingTimerRef.current);
+        cleanupRoom().catch(() => {});
       }
 
       if (event.type === "videocall:user_joined" && data.bookingId === bookingId) {
         setBooking((prev) => prev ? { ...prev, status: "IN_PROGRESS" } : prev);
-        if (isProfessional && (status === "waiting" || status === "connecting")) {
-          await sendOrRetryOffer();
-        }
       }
     });
 
     return cleanup;
-  }, [myId, booking, remoteUserId, bookingId, createPeer, isProfessional, status, sendOrRetryOffer]);
+  }, [myId, booking, bookingId, status, connectRoom, cleanupRoom]);
 
-  // Professional: start call
   const startCall = async () => {
     if (!booking || !isProfessional) return;
     setStatus("connecting");
     try {
       await apiFetch(`/videocall/${bookingId}/start`, { method: "POST" });
+      await connectRoom();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Error al iniciar");
-      return;
+      setStatus("waiting");
     }
-    await sendOrRetryOffer();
   };
 
-  // End call
   const endCall = async () => {
-    peerRef.current?.close();
+    await cleanupRoom();
     clearInterval(timerRef.current);
     clearInterval(connectingTimerRef.current);
-    clearInterval(offerRetryTimerRef.current);
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
     setStatus("ended");
     try { await apiFetch(`/videocall/${bookingId}/complete`, { method: "POST" }); } catch {}
   };
 
-  // Offer retry logic (faster retries for quicker connection)
-  useEffect(() => {
-    clearInterval(offerRetryTimerRef.current);
-    if (!isProfessional || status !== "connecting") return;
-    offerRetryCountRef.current = 0;
-    offerRetryTimerRef.current = setInterval(() => {
-      if (status !== "connecting") return;
-      if (offerRetryCountRef.current >= 5) {
-        clearInterval(offerRetryTimerRef.current);
-        return;
-      }
-      offerRetryCountRef.current += 1;
-      sendOrRetryOffer().catch(() => {});
-    }, 4000); // Faster retry: 4s instead of 6s
-    return () => clearInterval(offerRetryTimerRef.current);
-  }, [isProfessional, status, sendOrRetryOffer]);
-
   const toggleMic = () => {
-    const track = localStreamRef.current?.getAudioTracks()[0];
-    if (track) { track.enabled = !track.enabled; setMicOn(track.enabled); }
+    const participant = roomRef.current?.localParticipant;
+    if (!participant) return;
+    const enabled = !micOn;
+    participant.setMicrophoneEnabled(enabled).catch(() => {
+      setMediaError("No se pudo cambiar el micrófono");
+    });
+    setMicOn(enabled);
   };
 
   const toggleCam = () => {
-    const track = localStreamRef.current?.getVideoTracks()[0];
-    if (track) { track.enabled = !track.enabled; setCamOn(track.enabled); }
+    const participant = roomRef.current?.localParticipant;
+    if (!participant) return;
+    const enabled = !camOn;
+    participant.setCameraEnabled(enabled).catch(() => {
+      setMediaError("No se pudo cambiar la cámara");
+    });
+    setCamOn(enabled);
   };
 
   const toggleRemoteAudio = async () => {
@@ -340,16 +306,12 @@ export default function VideocallRoomPage() {
 
   useEffect(() => {
     return () => {
-      peerRef.current?.close();
+      cleanupRoom().catch(() => {});
       clearInterval(timerRef.current);
       clearInterval(connectingTimerRef.current);
-      clearInterval(offerRetryTimerRef.current);
-      localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  }, [cleanupRoom]);
 
-  // Timer: uses Date.now() against scheduledAt so it's accurate and never drifts
-  // Only ticks when status === "connected" AND we've passed scheduledAt
   useEffect(() => {
     clearInterval(timerRef.current);
     if (status !== "connected" || !booking) return;
@@ -359,9 +321,7 @@ export default function VideocallRoomPage() {
 
     const tick = () => {
       const now = Date.now();
-      // Time only counts from scheduledAt forward (not before)
-      const effectiveStart = Math.max(scheduledMs, scheduledMs); // always scheduledAt
-      const elapsedMs = Math.max(0, now - effectiveStart);
+      const elapsedMs = Math.max(0, now - scheduledMs);
       const remainingMs = Math.max(0, maxMs - elapsedMs);
       setTimeLeft(Math.ceil(remainingMs / 1000));
 
@@ -371,7 +331,7 @@ export default function VideocallRoomPage() {
       }
     };
 
-    tick(); // immediate first tick
+    tick();
     timerRef.current = setInterval(tick, 1000);
     return () => clearInterval(timerRef.current);
   }, [status, booking]);
@@ -419,7 +379,6 @@ export default function VideocallRoomPage() {
     );
   }
 
-  // Room not open yet
   if (!roomOpen) {
     const scheduled = new Date(booking.scheduledAt);
     const roomOpensAt = new Date(scheduled.getTime() - 5 * 60 * 1000);
@@ -459,7 +418,6 @@ export default function VideocallRoomPage() {
 
   return (
     <div ref={containerRef} className="flex min-h-screen flex-col bg-black text-white">
-      {/* Top bar */}
       <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#0a0b14] px-4 py-3">
         <div className="flex items-center gap-3">
           {remotePerson?.avatarUrl ? (
@@ -471,7 +429,7 @@ export default function VideocallRoomPage() {
             <p className="text-sm font-semibold">{remotePerson?.displayName || remotePerson?.username}</p>
             <div className="flex items-center gap-1.5">
               {status === "waiting" && <><div className="h-1.5 w-1.5 rounded-full bg-amber-400" /><p className="text-[10px] text-amber-300/70">Esperando...</p></>}
-              {status === "connecting" && <><Loader2 className="h-3 w-3 animate-spin text-amber-400" /><p className="text-[10px] text-amber-300/70">Conectando... {connectingElapsed > 0 ? formatTime(connectingElapsed) : ""}</p></>}
+              {status === "connecting" && <><Loader2 className="h-3 w-3 animate-spin text-amber-400" /><p className="text-[10px] text-amber-300/70">{rtcState === "reconnecting" ? "Reconectando" : "Conectando"}... {connectingElapsed > 0 ? formatTime(connectingElapsed) : ""}</p></>}
               {status === "connected" && <><Wifi className="h-3 w-3 text-emerald-400" /><p className="text-[10px] text-emerald-300/70">En llamada</p></>}
               {status === "ended" && <><WifiOff className="h-3 w-3 text-white/30" /><p className="text-[10px] text-white/30">Finalizada</p></>}
             </div>
@@ -479,7 +437,6 @@ export default function VideocallRoomPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Timer - counts from scheduledAt, accurate with Date.now() */}
           {status === "connected" && timeLeft !== null && (
             <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-mono ${timeLeft < 60 ? "border-red-500/30 bg-red-500/20" : "border-emerald-500/30 bg-emerald-500/20"}`}>
               <Clock className="h-3 w-3" />
@@ -491,15 +448,13 @@ export default function VideocallRoomPage() {
           {status === "connecting" && (
             <div className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/15 px-3 py-1.5 text-[10px] font-medium text-amber-300">
               <Loader2 className="h-3 w-3 animate-spin" />
-              Conectando
+              {rtcState === "reconnecting" ? "Reconectando" : "Conectando"}
             </div>
           )}
         </div>
       </div>
 
-      {/* Video area */}
       <div className="relative flex flex-1 items-center justify-center bg-gradient-to-br from-gray-950 to-black">
-        {/* Remote video - object-contain avoids constant GPU rescaling */}
         <video
           ref={remoteVideoRef}
           autoPlay
@@ -514,7 +469,6 @@ export default function VideocallRoomPage() {
           </button>
         )}
 
-        {/* Placeholder states */}
         {status !== "connected" && (
           <div className="text-center px-6">
             {status === "loading" && (
@@ -547,9 +501,6 @@ export default function VideocallRoomPage() {
             {status === "waiting" && mediaError && (
               <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-left">
                 <p className="text-sm text-red-300">{mediaError}</p>
-                <button onClick={initMedia} className="mt-3 rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20 transition">
-                  Reintentar
-                </button>
               </div>
             )}
             {status === "connecting" && (
@@ -579,12 +530,10 @@ export default function VideocallRoomPage() {
           </div>
         )}
 
-        {/* Chat button */}
         <button onClick={() => setChatOpen((v) => !v)} className={`absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border transition ${chatOpen ? "bg-violet-600 border-violet-400/30" : "bg-[#0a0b14]/85 border-white/15"} text-white`}>
           <MessageCircle className="h-4 w-4" />
         </button>
 
-        {/* Chat panel */}
         <div className={`${chatOpen ? "flex" : "hidden"} absolute inset-x-3 bottom-20 z-20 h-[50%] flex-col rounded-2xl border border-white/10 bg-[#0a0b14]/90 p-3 backdrop-blur sm:inset-auto sm:right-4 sm:top-20 sm:bottom-auto sm:h-[55%] sm:w-[320px]`}>
           <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2 text-sm font-semibold text-white/90">
             <div className="flex items-center gap-2"><MessageCircle className="h-4 w-4" /> Chat</div>
@@ -614,7 +563,6 @@ export default function VideocallRoomPage() {
           </div>
         </div>
 
-        {/* Local video (PiP) - compact on desktop */}
         {status !== "ended" && hasLocalStream && (
           <div className="absolute bottom-4 right-4 h-28 w-20 overflow-hidden rounded-xl border-2 border-white/20 shadow-xl sm:h-32 sm:w-24">
             <video ref={localVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" style={{ transform: "scaleX(-1)" }} />
@@ -627,7 +575,6 @@ export default function VideocallRoomPage() {
         )}
       </div>
 
-      {/* Controls */}
       {status !== "ended" && (
         <div className="flex items-center justify-center gap-3 border-t border-white/[0.06] bg-[#0a0b14] px-4 py-4">
           {hasLocalStream && (

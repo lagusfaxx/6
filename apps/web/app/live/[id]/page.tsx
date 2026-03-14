@@ -6,7 +6,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch, resolveMediaUrl, getApiBase } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 import { connectRealtime } from "../../../lib/realtime";
-import { WebRTCPeer, getLocalMedia } from "../../../lib/webrtc";
+import { getLocalMedia } from "../../../lib/webrtc";
+import { getLivekitToken } from "../../../lib/livekit";
+import { Room, RoomEvent, Track } from "livekit-client";
 import {
   Radio, Users, Send, X, ShieldAlert, Mic, MicOff, VideoIcon, VideoOff,
 } from "lucide-react";
@@ -30,6 +32,8 @@ type ChatMsg = {
   createdAt: string;
 };
 
+type RtcState = "connecting" | "connected" | "reconnecting" | "disconnected" | "error";
+
 export default function LiveStreamPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -44,13 +48,15 @@ export default function LiveStreamPage() {
   const [mediaError, setMediaError] = useState("");
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+  const [needsManualPermission, setNeedsManualPermission] = useState(false);
+  const [rtcState, setRtcState] = useState<RtcState>("disconnected");
+  const [rtcError, setRtcError] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // WebRTC refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const peersRef = useRef<Map<string, WebRTCPeer>>(new Map());
+  const roomRef = useRef<Room | null>(null);
 
   const myId = me?.user?.id;
 
@@ -65,7 +71,6 @@ export default function LiveStreamPage() {
   }, [id, router]);
 
   const isHost = stream ? myId === stream.host.id : false;
-  const [needsManualPermission, setNeedsManualPermission] = useState(false);
 
   const initHostMedia = useCallback(async () => {
     try {
@@ -90,14 +95,92 @@ export default function LiveStreamPage() {
     }
   }, []);
 
-  // Host: start camera when page loads. On mobile browsers getUserMedia may
-  // fail without a user gesture, so we catch the error and show a button.
   useEffect(() => {
     if (!isHost || !stream?.isActive) return;
     initHostMedia();
   }, [isHost, stream?.isActive, initHostMedia]);
 
-  // Join stream
+  const cleanupRoom = useCallback(async () => {
+    if (roomRef.current) {
+      roomRef.current.removeAllListeners();
+      await roomRef.current.disconnect(true);
+      roomRef.current = null;
+    }
+  }, []);
+
+  const attachRemoteTrack = useCallback((room: Room) => {
+    if (!remoteVideoRef.current) return;
+    const publication = Array.from(room.remoteParticipants.values())
+      .flatMap((participant) => Array.from(participant.trackPublications.values()))
+      .find((pub) => pub.isSubscribed && pub.track && pub.track.kind === Track.Kind.Video);
+
+    if (publication?.track && publication.track.kind === Track.Kind.Video) {
+      publication.track.attach(remoteVideoRef.current);
+      setVideoReady(true);
+    }
+  }, []);
+
+  const connectToLivekit = useCallback(async () => {
+    if (!stream || !myId || !stream.isActive) return;
+
+    setRtcError("");
+    setRtcState("connecting");
+
+    const room = new Room({ adaptiveStream: true, dynacast: true });
+    roomRef.current = room;
+
+    room
+      .on(RoomEvent.Reconnecting, () => setRtcState("reconnecting"))
+      .on(RoomEvent.Reconnected, () => setRtcState("connected"))
+      .on(RoomEvent.Disconnected, () => {
+        setRtcState("disconnected");
+        if (!isHost) setVideoReady(false);
+      })
+      .on(RoomEvent.ConnectionStateChanged, (state) => {
+        if (state === "connected") setRtcState("connected");
+        if (state === "connecting") setRtcState("connecting");
+        if (state === "reconnecting") setRtcState("reconnecting");
+        if (state === "disconnected") setRtcState("disconnected");
+      })
+      .on(RoomEvent.TrackSubscribed, (track) => {
+        if (!isHost && remoteVideoRef.current && track.kind === Track.Kind.Video) {
+          track.attach(remoteVideoRef.current);
+          setVideoReady(true);
+        }
+      })
+      .on(RoomEvent.TrackUnsubscribed, (track) => {
+        track.detach();
+      })
+      .on(RoomEvent.ParticipantConnected, () => {
+        setStream((prev) => prev ? { ...prev, viewerCount: prev.viewerCount + 1 } : prev);
+      })
+      .on(RoomEvent.ParticipantDisconnected, () => {
+        setStream((prev) => prev ? { ...prev, viewerCount: Math.max(0, prev.viewerCount - 1) } : prev);
+      });
+
+    try {
+      const tokenRes = await getLivekitToken({
+        kind: "live",
+        streamId: stream.id,
+        roomName: `live:${stream.id}`,
+      });
+
+      await room.connect(tokenRes.url, tokenRes.token, { autoSubscribe: true });
+
+      if (isHost) {
+        await room.localParticipant.enableCameraAndMicrophone();
+      } else {
+        attachRemoteTrack(room);
+      }
+
+      setRtcState("connected");
+    } catch (error) {
+      setRtcState("error");
+      setRtcError(error instanceof Error ? error.message : "No se pudo conectar al Live.");
+      setVideoReady(false);
+    }
+  }, [attachRemoteTrack, isHost, myId, stream]);
+
   const handleJoin = useCallback(async () => {
     try {
       await apiFetch(`/live/${id}/join`, { method: "POST" });
@@ -105,28 +188,31 @@ export default function LiveStreamPage() {
     } catch {}
   }, [id]);
 
-  // Leave on unmount
+  useEffect(() => {
+    if (!myId || !stream?.isActive) return;
+    if (!isHost && !joined) return;
+    connectToLivekit();
+
+    return () => {
+      cleanupRoom().catch(() => {});
+    };
+  }, [myId, stream?.isActive, joined, isHost, connectToLivekit, cleanupRoom]);
+
   useEffect(() => {
     return () => {
       if (joined) {
         apiFetch(`/live/${id}/leave`, { method: "POST" }).catch(() => {});
       }
-      // Cleanup all peers
-      for (const peer of peersRef.current.values()) {
-        peer.close();
-      }
+      cleanupRoom().catch(() => {});
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [joined, id]);
+  }, [joined, id, cleanupRoom]);
 
-  // SSE for live chat + WebRTC signaling
   useEffect(() => {
     if (!myId || (!joined && !isHost)) return;
 
     const cleanup = connectRealtime(async (event) => {
       const data = event.data;
-
-      // Chat messages
       if (event.type === "live:chat" && data?.streamId === id) {
         setMessages((prev) => [...prev, {
           id: data.messageId,
@@ -139,8 +225,7 @@ export default function LiveStreamPage() {
 
       if (event.type === "live:ended" && data?.streamId === id) {
         setStream((s) => s ? { ...s, isActive: false } : null);
-        for (const peer of peersRef.current.values()) peer.close();
-        peersRef.current.clear();
+        cleanupRoom().catch(() => {});
       }
 
       if (event.type === "live:viewer_joined" && data?.streamId === id) {
@@ -150,108 +235,10 @@ export default function LiveStreamPage() {
       if (event.type === "live:viewer_left" && data?.streamId === id) {
         setStream((s) => s ? { ...s, viewerCount: data.viewerCount } : null);
       }
-
-      // WebRTC signaling
-      if (!data?.fromUserId) return;
-      if (data.streamId && data.streamId !== id) return;
-
-      // Host receives offer from viewer (shouldn't happen in our flow)
-      // Viewer receives offer from host
-      if (event.type === "signal:offer" && !isHost) {
-        // Viewer: create peer, handle offer from host
-        const peer = new WebRTCPeer(data.fromUserId, {
-          onRemoteStream: (remoteStream) => {
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = remoteStream;
-            }
-            setVideoReady(true);
-          },
-        }, { streamId: id });
-
-        peersRef.current.set(data.fromUserId, peer);
-        await peer.handleOffer(data.sdp);
-      }
-
-      // Host receives answer from viewer
-      if (event.type === "signal:answer" && isHost) {
-        const peer = peersRef.current.get(data.fromUserId);
-        if (peer) {
-          await peer.handleAnswer(data.sdp);
-        }
-      }
-
-      if (event.type === "signal:ice") {
-        const peer = peersRef.current.get(data.fromUserId);
-        if (peer) {
-          await peer.handleIceCandidate(data.candidate);
-        }
-      }
-
-      // Host: when a viewer joins, send them an offer with the local stream
-      if (event.type === "live:viewer_joined" && isHost && data?.streamId === id && localStreamRef.current) {
-        // We need the viewer's userId — but the event doesn't include it directly.
-        // The viewer will request the stream by sending a signal:offer to the host.
-        // Actually, let's use a different approach: the viewer sends a "request" via
-        // a POST, and the host initiates the offer.
-      }
     });
 
     return cleanup;
-  }, [myId, joined, isHost, id]);
-
-  // Viewer: after joining, request stream from host by sending a signal offer
-  useEffect(() => {
-    if (!joined || isHost || !stream?.host.id || !myId) return;
-
-    // Request the host to send us their stream
-    // We create a peer and send an offer; host will answer
-    const requestStream = async () => {
-      const peer = new WebRTCPeer(stream.host.id, {
-        onRemoteStream: (remoteStream) => {
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream;
-          }
-          setVideoReady(true);
-        },
-      }, { streamId: id });
-
-      // Add a receive-only transceiver so the host knows we want video
-      peer.pc.addTransceiver("video", { direction: "recvonly" });
-      peer.pc.addTransceiver("audio", { direction: "recvonly" });
-
-      peersRef.current.set(stream.host.id, peer);
-      await peer.createOffer();
-    };
-
-    requestStream();
-  }, [joined, isHost, stream?.host.id, myId, id]);
-
-  // Host: when receiving an offer from a viewer, add local tracks and answer
-  useEffect(() => {
-    if (!isHost || !myId) return;
-
-    const cleanup = connectRealtime(async (event) => {
-      const data = event.data;
-      if (event.type !== "signal:offer" || !data?.fromUserId) return;
-      if (data.streamId && data.streamId !== id) return;
-
-      // Host: create peer for this viewer, add local stream, handle their offer
-      const viewerId = data.fromUserId;
-      const existingPeer = peersRef.current.get(viewerId);
-      if (existingPeer) existingPeer.close();
-
-      const peer = new WebRTCPeer(viewerId, {}, { streamId: id });
-
-      if (localStreamRef.current) {
-        peer.addStream(localStreamRef.current);
-      }
-
-      peersRef.current.set(viewerId, peer);
-      await peer.handleOffer(data.sdp);
-    });
-
-    return cleanup;
-  }, [isHost, myId, id]);
+  }, [myId, joined, isHost, id, cleanupRoom]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -273,18 +260,23 @@ export default function LiveStreamPage() {
   };
 
   const toggleMic = () => {
-    const track = localStreamRef.current?.getAudioTracks()[0];
-    if (track) { track.enabled = !track.enabled; setMicOn(track.enabled); }
+    const participant = roomRef.current?.localParticipant;
+    if (!participant) return;
+    const enabled = !micOn;
+    participant.setMicrophoneEnabled(enabled).catch(() => {});
+    setMicOn(enabled);
   };
 
   const toggleCam = () => {
-    const track = localStreamRef.current?.getVideoTracks()[0];
-    if (track) { track.enabled = !track.enabled; setCamOn(track.enabled); }
+    const participant = roomRef.current?.localParticipant;
+    if (!participant) return;
+    const enabled = !camOn;
+    participant.setCameraEnabled(enabled).catch(() => {});
+    setCamOn(enabled);
   };
 
   const endStream = async () => {
-    for (const peer of peersRef.current.values()) peer.close();
-    peersRef.current.clear();
+    await cleanupRoom();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     await apiFetch(`/live/${id}/end`, { method: "POST" }).catch(() => {});
     router.push("/");
@@ -312,7 +304,6 @@ export default function LiveStreamPage() {
     };
   }, [id, isHost, stream?.isActive]);
 
-  // Age gate
   if (!ageConfirmed) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0a0b14] p-4">
@@ -336,7 +327,6 @@ export default function LiveStreamPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-black text-white">
-      {/* Stream header */}
       <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#0a0b14] px-4 py-3">
         <div className="flex items-center gap-3">
           {stream.host.avatarUrl ? (
@@ -365,11 +355,8 @@ export default function LiveStreamPage() {
         </div>
       </div>
 
-      {/* Stream area */}
       <div className="relative flex flex-1 flex-col lg:flex-row">
-        {/* Video area */}
         <div className="relative flex flex-1 items-center justify-center bg-gradient-to-br from-fuchsia-950/30 to-violet-950/30">
-          {/* Host: show local video */}
           {isHost && (
             <video
               ref={localVideoRef}
@@ -381,7 +368,6 @@ export default function LiveStreamPage() {
             />
           )}
 
-          {/* Viewer: show remote video from host */}
           {!isHost && joined && (
             <video
               ref={remoteVideoRef}
@@ -391,7 +377,6 @@ export default function LiveStreamPage() {
             />
           )}
 
-          {/* Fallback states */}
           {stream.isActive && !videoReady && !isHost && !joined && (
             <div className="text-center">
               <Radio className="mx-auto mb-3 h-16 w-16 animate-pulse text-fuchsia-400/40" />
@@ -426,6 +411,8 @@ export default function LiveStreamPage() {
                   <>
                     <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
                     <p className="text-xs text-white/30">Conectando video...</p>
+                    {rtcError && <p className="mt-2 text-xs text-red-300">{rtcError}</p>}
+                    {rtcState === "reconnecting" && <p className="mt-1 text-[11px] text-amber-300">Reconectando…</p>}
                     {isHost && mediaError && (
                       <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-left">
                         <p className="text-xs text-red-300">{mediaError}</p>
@@ -447,7 +434,6 @@ export default function LiveStreamPage() {
             </div>
           )}
 
-          {/* Host controls overlay */}
           {isHost && stream.isActive && (
             <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-3">
               <button onClick={toggleMic} className={`flex h-10 w-10 items-center justify-center rounded-full transition ${micOn ? "bg-white/20 text-white" : "bg-red-500/80 text-white"}`}>
@@ -463,7 +449,6 @@ export default function LiveStreamPage() {
           )}
         </div>
 
-        {/* Chat panel */}
         {(joined || isHost) && (
           <div className="flex w-full flex-col border-t border-white/[0.06] bg-[#0a0b14] lg:w-80 lg:border-l lg:border-t-0">
             <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2">
