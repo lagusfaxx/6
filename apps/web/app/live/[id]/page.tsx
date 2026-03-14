@@ -10,7 +10,7 @@ import { getLocalMedia } from "../../../lib/webrtc";
 import { getLivekitToken } from "../../../lib/livekit";
 import { Room, RoomEvent, Track } from "livekit-client";
 import {
-  Radio, Users, Send, X, ShieldAlert, Mic, MicOff, VideoIcon, VideoOff,
+  Radio, Users, Send, X, ShieldAlert, Mic, MicOff, VideoIcon, VideoOff, Camera,
 } from "lucide-react";
 
 type Stream = {
@@ -95,10 +95,25 @@ export default function LiveStreamPage() {
     }
   }, []);
 
+  // On mobile PWA, getUserMedia MUST be triggered by a user gesture (tap).
+  // Calling it from useEffect is silently blocked by iOS/Android WebKit.
+  // Detect PWA standalone mode and skip auto-init so the user sees a button.
+  const isMobilePWA = typeof window !== "undefined" && (
+    (window.matchMedia("(display-mode: standalone)").matches) ||
+    ((window.navigator as any).standalone === true)
+  );
+
   useEffect(() => {
     if (!isHost || !stream?.isActive) return;
+    if (isMobilePWA) {
+      // On mobile PWA: show the permission button instead of auto-requesting.
+      // getUserMedia requires a user gesture on mobile WebKit.
+      setNeedsManualPermission(true);
+      return;
+    }
+    // On desktop: auto-request permissions (works without user gesture)
     initHostMedia();
-  }, [isHost, stream?.isActive, initHostMedia]);
+  }, [isHost, stream?.isActive, initHostMedia, isMobilePWA]);
 
   const cleanupRoom = useCallback(async () => {
     if (roomRef.current) {
@@ -407,42 +422,50 @@ export default function LiveStreamPage() {
             </div>
           )}
 
-          {stream.isActive && !videoReady && (isHost || joined) && (
+          {stream.isActive && !videoReady && isHost && needsManualPermission && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center px-6">
-                {isHost && needsManualPermission ? (
-                  <div className="mx-auto max-w-xs space-y-4">
-                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-fuchsia-500/20">
-                      <VideoIcon className="h-10 w-10 text-fuchsia-400" />
-                    </div>
-                    <p className="text-sm font-semibold text-white/80">Activar cámara y micrófono</p>
-                    <p className="text-xs text-white/50">Tu navegador necesita que actives los permisos manualmente para iniciar el Live.</p>
-                    <button
-                      onClick={initHostMedia}
-                      className="w-full rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold text-white"
-                    >
-                      Activar cámara y micrófono
-                    </button>
-                    {mediaError && (
-                      <p className="text-[11px] text-red-300">{mediaError}</p>
-                    )}
+                <div className="mx-auto max-w-xs space-y-4">
+                  <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-fuchsia-500/20">
+                    <Camera className="h-10 w-10 text-fuchsia-400" />
                   </div>
-                ) : (
-                  <>
-                    <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
-                    <p className="text-xs text-white/30">Conectando video...</p>
-                    {rtcError && <p className="mt-2 text-xs text-red-300">{rtcError}</p>}
-                    {rtcState === "reconnecting" && <p className="mt-1 text-[11px] text-amber-300">Reconectando…</p>}
-                    {isHost && mediaError && (
-                      <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-left">
-                        <p className="text-xs text-red-300">{mediaError}</p>
-                        <button onClick={initHostMedia} className="mt-2 rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-white/20">
-                          Reintentar permisos
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
+                  <p className="text-sm font-semibold text-white/80">Iniciar cámara y micrófono</p>
+                  <p className="text-xs text-white/50">
+                    Toca el botón para activar la cámara y el micrófono. Tu navegador te pedirá permiso.
+                  </p>
+                  <button
+                    onClick={initHostMedia}
+                    className="w-full rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-4 text-base font-semibold text-white active:scale-95 transition-transform"
+                  >
+                    Activar cámara y micrófono
+                  </button>
+                  {mediaError && (
+                    <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3">
+                      <p className="text-[11px] text-red-300">{mediaError}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {stream.isActive && !videoReady && isHost && !needsManualPermission && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center px-6">
+                <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
+                <p className="text-xs text-white/30">Conectando video...</p>
+                {rtcError && <p className="mt-2 text-xs text-red-300">{rtcError}</p>}
+                {rtcState === "reconnecting" && <p className="mt-1 text-[11px] text-amber-300">Reconectando…</p>}
+              </div>
+            </div>
+          )}
+
+          {stream.isActive && !videoReady && !isHost && joined && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center px-6">
+                <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
+                <p className="text-xs text-white/30">Conectando al live...</p>
+                {rtcError && <p className="mt-2 text-xs text-red-300">{rtcError}</p>}
               </div>
             </div>
           )}
