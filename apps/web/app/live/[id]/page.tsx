@@ -292,9 +292,17 @@ export default function LiveStreamPage() {
     } catch (error) {
       setRtcState("error");
       setRtcError(error instanceof Error ? error.message : "No se pudo conectar al Live.");
-      setVideoReady(false);
+      // Only reset videoReady for viewer; the host's local camera preview is still valid
+      if (!isHostRef.current) setVideoReady(false);
     }
   }, [attachRemoteTrack, myId]);
+
+  const retryLivekit = useCallback(async () => {
+    await cleanupRoom();
+    setRtcState("disconnected");
+    setRtcError("");
+    connectToLivekit();
+  }, [cleanupRoom, connectToLivekit]);
 
   const handleJoin = useCallback(async () => {
     try {
@@ -506,7 +514,6 @@ export default function LiveStreamPage() {
     if (!isHost || !stream?.isActive) return;
     const endLiveBestEffort = () => {
       const url = `${getApiBase().replace(/\/$/, "")}/live/${id}/end`;
-      if (navigator.sendBeacon) { navigator.sendBeacon(url); return; }
       fetch(url, { method: "POST", keepalive: true, credentials: "include" }).catch(() => {});
     };
     window.addEventListener("beforeunload", endLiveBestEffort);
@@ -648,24 +655,35 @@ export default function LiveStreamPage() {
           )}
 
           {/* Host: connecting state */}
-          {stream.isActive && !videoReady && isHost && !needsManualPermission && (
+          {stream.isActive && !videoReady && isHost && !needsManualPermission && rtcState !== "error" && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center px-6">
                 <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
                 <p className="text-xs text-white/30">Conectando video...</p>
-                {rtcError && <p className="mt-2 text-xs text-red-300">{rtcError}</p>}
                 {rtcState === "reconnecting" && <p className="mt-1 text-[11px] text-amber-300">Reconectando…</p>}
               </div>
             </div>
           )}
 
+          {/* Host/Viewer: RTC error with retry */}
+          {stream.isActive && rtcState === "error" && (isHost || joined) && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60">
+              <div className="text-center px-6">
+                <Radio className="mx-auto mb-3 h-12 w-12 text-red-400/60" />
+                <p className="text-xs text-red-300 mb-3">{rtcError || "Error de conexión"}</p>
+                <button onClick={retryLivekit} className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-semibold text-white active:scale-95 transition-transform">
+                  Reintentar conexión
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Viewer: connecting state */}
-          {stream.isActive && !videoReady && !isHost && joined && (
+          {stream.isActive && !videoReady && !isHost && joined && rtcState !== "error" && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center px-6">
                 <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
                 <p className="text-xs text-white/30">Conectando al live...</p>
-                {rtcError && <p className="mt-2 text-xs text-red-300">{rtcError}</p>}
               </div>
             </div>
           )}
