@@ -255,14 +255,16 @@ model VideocallBooking {
 // ── Live Streaming ──
 
 model LiveStream {
-  id              String    @id @default(uuid()) @db.Uuid
-  hostId          String    @db.Uuid
-  title           String?
-  isActive        Boolean   @default(true)
-  viewerCount     Int       @default(0)
-  maxViewers      Int       @default(10)
-  startedAt       DateTime  @default(now())
-  endedAt         DateTime?
+  id               String    @id @default(uuid()) @db.Uuid
+  hostId           String    @db.Uuid
+  title            String?
+  isActive         Boolean   @default(true)
+  viewerCount      Int       @default(0)
+  maxViewers       Int       @default(10)
+  privateShowPrice Int?      // tokens — host-configured price for private shows
+  totalTipsEarned  Int       @default(0) // running total of tips received this stream
+  startedAt        DateTime  @default(now())
+  endedAt          DateTime?
 
   host         User              @relation(fields: [hostId], references: [id], onDelete: Cascade)
   messages     LiveChatMessage[]
