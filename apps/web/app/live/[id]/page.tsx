@@ -301,7 +301,7 @@ export default function LiveStreamPage() {
     await cleanupRoom();
     setRtcState("disconnected");
     setRtcError("");
-    connectToLivekit();
+    await connectToLivekit();
   }, [cleanupRoom, connectToLivekit]);
 
   const handleJoin = useCallback(async () => {
