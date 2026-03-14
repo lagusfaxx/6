@@ -113,6 +113,8 @@ enum TokenTxType {
   WITHDRAWAL
   PENALTY
   ADJUSTMENT
+  TIP
+  PRIVATE_SHOW
 }
 
 enum WithdrawalStatus {
@@ -262,12 +264,72 @@ model LiveStream {
   startedAt       DateTime  @default(now())
   endedAt         DateTime?
 
-  host     User           @relation(fields: [hostId], references: [id], onDelete: Cascade)
-  messages LiveChatMessage[]
+  host         User              @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  messages     LiveChatMessage[]
+  tips         LiveTip[]
+  tipOptions   LiveTipOption[]
+  privateShows PrivateShow[]
 
   @@index([hostId])
   @@index([isActive])
 }
+
+// ── Live Tips ──
+
+model LiveTip {
+  id         String   @id @default(uuid()) @db.Uuid
+  streamId   String   @db.Uuid
+  senderId   String   @db.Uuid
+  receiverId String   @db.Uuid
+  amount     Int      // tokens
+  message    String?  // optional message with tip
+  optionId   String?  @db.Uuid // if tip was for a redeemable option
+  createdAt  DateTime @default(now())
+
+  stream LiveStream    @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  option LiveTipOption? @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@index([streamId, createdAt])
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model LiveTipOption {
+  id          String   @id @default(uuid()) @db.Uuid
+  streamId    String?  @db.Uuid // null = global option for this host
+  hostId      String   @db.Uuid
+  label       String   // e.g. "Flash", "Dance", "Song Request"
+  price       Int      // tokens
+  emoji       String?  // optional emoji icon
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stream LiveStream? @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  tips   LiveTip[]
+
+  @@index([hostId])
+}
+
+// ── Private Shows ──
+
+model PrivateShow {
+  id         String   @id @default(uuid()) @db.Uuid
+  streamId   String   @db.Uuid
+  hostId     String   @db.Uuid
+  buyerId    String   @db.Uuid
+  price      Int      // tokens paid
+  isActive   Boolean  @default(true)
+  startedAt  DateTime @default(now())
+  endedAt    DateTime?
+
+  stream LiveStream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+
+  @@index([streamId])
+  @@index([buyerId])
+}
+
 
 model LiveChatMessage {
   id         String   @id @default(uuid()) @db.Uuid

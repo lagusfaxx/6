@@ -110,17 +110,25 @@ export default function VideocallRoomPage() {
     }
   }, []);
 
+  // Use refs to avoid stale closures in connectRoom callbacks
+  const bookingRef = useRef(booking);
+  useEffect(() => { bookingRef.current = booking; }, [booking]);
+  const statusRef = useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
+
   const attachRemoteVideo = useCallback((participant: RemoteParticipant) => {
-    if (!remoteVideoRef.current) return;
+    const videoEl = remoteVideoRef.current;
+    if (!videoEl) return;
     const pub = Array.from(participant.trackPublications.values())
       .find((trackPub) => trackPub.isSubscribed && trackPub.track && trackPub.track.kind === Track.Kind.Video);
     if (pub?.track && pub.track.kind === Track.Kind.Video) {
-      pub.track.attach(remoteVideoRef.current);
+      pub.track.attach(videoEl);
     }
   }, []);
 
   const connectRoom = useCallback(async () => {
-    if (!booking?.roomId) return;
+    const b = bookingRef.current;
+    if (!b?.roomId) return;
 
     setStatus("connecting");
     setRtcState("connecting");
@@ -146,7 +154,7 @@ export default function VideocallRoomPage() {
         }
         if (state === "disconnected") {
           setRtcState("disconnected");
-          if (status !== "ended") setStatus("ended");
+          if (statusRef.current !== "ended") setStatus("ended");
         }
       })
       .on(RoomEvent.Reconnected, () => {
@@ -158,17 +166,25 @@ export default function VideocallRoomPage() {
         setStatus("connecting");
       })
       .on(RoomEvent.TrackSubscribed, async (track) => {
-        if (remoteVideoRef.current && track.kind === Track.Kind.Video) {
-          track.attach(remoteVideoRef.current);
-          remoteVideoRef.current.muted = true;
-          setRemoteAudioOn(false);
-          try {
-            await remoteVideoRef.current.play();
-            setRemoteNeedsInteraction(false);
-          } catch {
-            setRemoteNeedsInteraction(true);
-          }
-          setStatus("connected");
+        if (track.kind === Track.Kind.Video) {
+          const tryAttach = async () => {
+            const videoEl = remoteVideoRef.current;
+            if (videoEl) {
+              track.attach(videoEl);
+              videoEl.muted = true;
+              setRemoteAudioOn(false);
+              try {
+                await videoEl.play();
+                setRemoteNeedsInteraction(false);
+              } catch {
+                setRemoteNeedsInteraction(true);
+              }
+              setStatus("connected");
+            } else {
+              requestAnimationFrame(() => tryAttach());
+            }
+          };
+          tryAttach();
         }
       })
       .on(RoomEvent.ParticipantConnected, (participant) => {
@@ -181,8 +197,8 @@ export default function VideocallRoomPage() {
     try {
       const tokenRes = await getLivekitToken({
         kind: "videocall",
-        bookingId: booking.id,
-        roomName: `videocall:${booking.roomId}`,
+        bookingId: b.id,
+        roomName: `videocall:${b.roomId}`,
       });
       await room.connect(tokenRes.url, tokenRes.token, { autoSubscribe: true });
       await room.localParticipant.enableCameraAndMicrophone();
@@ -199,7 +215,7 @@ export default function VideocallRoomPage() {
       setError(err instanceof Error ? err.message : "No se pudo conectar la videollamada");
       clearInterval(connectingTimerRef.current);
     }
-  }, [attachRemoteVideo, booking, status]);
+  }, [attachRemoteVideo]);
 
   useEffect(() => {
     if (!booking || !myId || !roomOpen) return;
