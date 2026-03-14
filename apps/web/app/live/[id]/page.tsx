@@ -606,7 +606,7 @@ export default function LiveStreamPage() {
   // ── Age gate ──
   if (!ageConfirmed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0b14] p-4">
+      <div className="flex h-dvh items-center justify-center bg-[#0a0b14] p-4">
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="max-w-sm rounded-3xl border border-red-500/20 bg-[#12131f] p-8 text-center">
           <ShieldAlert className="mx-auto mb-4 h-12 w-12 text-red-400" />
           <h2 className="mb-2 text-xl font-bold text-white">Contenido para mayores de 18</h2>
@@ -620,17 +620,17 @@ export default function LiveStreamPage() {
     );
   }
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center bg-[#0a0b14] text-white/30">Cargando...</div>;
-  if (!stream) return <div className="flex min-h-screen items-center justify-center bg-[#0a0b14] text-white/30">Stream no encontrado</div>;
+  if (loading) return <div className="flex h-dvh items-center justify-center bg-[#0a0b14] text-white/30">Cargando...</div>;
+  if (!stream) return <div className="flex h-dvh items-center justify-center bg-[#0a0b14] text-white/30">Stream no encontrado</div>;
 
   /* ═══════════════════════════════════════════════
      HOST VIEW — Professional Control Panel
      ═══════════════════════════════════════════════ */
   if (isHost) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#0a0b14] text-white">
+      <div className="flex h-dvh max-h-screen flex-col overflow-hidden bg-[#0a0b14] text-white">
         {/* ── Host Top Bar ── */}
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/30 to-rose-500/30">
               <Radio className="h-5 w-5 text-fuchsia-300" />
@@ -653,9 +653,9 @@ export default function LiveStreamPage() {
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col lg:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           {/* ── Video Preview (smaller for host) ── */}
-          <div className="relative flex aspect-video max-h-[40vh] items-center justify-center bg-black lg:max-h-none lg:flex-1">
+          <div className="relative flex h-[35vh] min-h-0 flex-shrink-0 items-center justify-center bg-black lg:h-auto lg:flex-1 lg:flex-shrink">
             <video
               ref={localVideoRef}
               autoPlay playsInline muted
@@ -734,7 +734,7 @@ export default function LiveStreamPage() {
           </div>
 
           {/* ── Host Sidebar Panel ── */}
-          <div className="flex w-full flex-col border-t border-white/[0.06] lg:w-96 lg:border-l lg:border-t-0">
+          <div className="flex min-h-0 w-full flex-1 flex-col border-t border-white/[0.06] lg:w-96 lg:flex-initial lg:border-l lg:border-t-0">
             {/* Stats bar */}
             <div className="grid grid-cols-3 gap-px border-b border-white/[0.06] bg-white/[0.02]">
               <div className="flex flex-col items-center py-3">
@@ -779,7 +779,7 @@ export default function LiveStreamPage() {
               {/* ── CHAT TAB ── */}
               {hostPanelTab === "chat" && (
                 <>
-                  <div className="flex-1 overflow-y-auto px-3 py-2 scrollbar-thin" style={{ maxHeight: "50vh" }}>
+                  <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 scrollbar-thin">
                     {messages.length === 0 && (
                       <p className="py-8 text-center text-xs text-white/20">Sin mensajes aún</p>
                     )}
@@ -1002,10 +1002,10 @@ export default function LiveStreamPage() {
      VIEWER VIEW — with expandable video + transparent overlay
      ═══════════════════════════════════════════════ */
   return (
-    <div className="flex min-h-screen flex-col bg-black text-white">
+    <div className="flex h-dvh max-h-screen flex-col overflow-hidden bg-black text-white">
       {/* ── Viewer Header (hides in expanded mode) ── */}
       {!isExpanded && (
-        <div className="flex items-center justify-between border-b border-white/[0.08] bg-[#0a0b14] px-4 py-3">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#0a0b14] px-4 py-3">
           <div className="flex items-center gap-3">
             {stream.host.avatarUrl ? (
               <img src={resolveMediaUrl(stream.host.avatarUrl) ?? undefined} alt="" className="h-9 w-9 rounded-full object-cover" />
@@ -1045,10 +1045,10 @@ export default function LiveStreamPage() {
         </div>
       )}
 
-      <div className={`relative flex flex-1 ${isExpanded ? "flex-col" : "flex-col lg:flex-row"}`}>
+      <div className={`relative flex min-h-0 flex-1 ${isExpanded ? "flex-col" : "flex-col lg:flex-row"}`}>
         {/* ── Video Area ── */}
         <div className={`relative flex items-center justify-center bg-gradient-to-br from-fuchsia-950/30 to-violet-950/30 ${
-          isExpanded ? "fixed inset-0 z-40" : "flex-1 aspect-video lg:aspect-auto"
+          isExpanded ? "fixed inset-0 z-40" : "h-[40vh] flex-shrink-0 lg:h-auto lg:flex-1 lg:flex-shrink"
         }`}>
           {/* Remote video */}
           {joined && (
@@ -1269,7 +1269,7 @@ export default function LiveStreamPage() {
 
         {/* ── Sidebar: Chat + Tips (normal mode only) ── */}
         {!isExpanded && (joined || isHost) && (
-          <div className="flex w-full flex-col border-t border-white/[0.06] bg-[#0a0b14] lg:w-80 lg:border-l lg:border-t-0">
+          <div className="flex min-h-0 w-full flex-1 flex-col border-t border-white/[0.06] bg-[#0a0b14] lg:w-80 lg:flex-initial lg:border-l lg:border-t-0">
             {/* Chat header */}
             <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
               <span className="text-xs font-semibold text-white/50">Chat en vivo</span>
@@ -1366,7 +1366,7 @@ export default function LiveStreamPage() {
             </AnimatePresence>
 
             {/* Chat messages */}
-            <div className="flex-1 overflow-y-auto px-3 py-2 scrollbar-thin" style={{ maxHeight: "50vh" }}>
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 scrollbar-thin">
               {messages.length === 0 && (
                 <p className="py-8 text-center text-xs text-white/20">Sin mensajes aún</p>
               )}
