@@ -18,6 +18,7 @@ import { adminTokensRouter } from "./routes/adminTokens";
 import { videocallRouter } from "./routes/videocall";
 import { livestreamRouter } from "./routes/livestream";
 import { signalingRouter } from "./routes/signaling";
+import { livekitRouter } from "./routes/livekit";
 
 assertEnv();
 
@@ -83,6 +84,7 @@ app.use(adminTokensRouter);
 app.use(videocallRouter);
 app.use(livestreamRouter);
 app.use(signalingRouter);
+app.use(livekitRouter);
 
 app.use((err: any, _req: any, res: any, _next: any) => {
   console.error(err);
