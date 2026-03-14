@@ -115,28 +115,33 @@ livestreamRouter.get("/live/active", async (_req, res) => {
 
 // ── GET /live/:id — get stream details ──
 livestreamRouter.get("/live/:id", async (req, res) => {
-  const stream = await prisma.liveStream.findUnique({
-    where: { id: req.params.id },
-    include: {
-      host: {
-        select: { id: true, displayName: true, username: true, avatarUrl: true },
+  try {
+    const stream = await prisma.liveStream.findUnique({
+      where: { id: req.params.id },
+      include: {
+        host: {
+          select: { id: true, displayName: true, username: true, avatarUrl: true },
+        },
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        },
+        tipOptions: {
+          where: { isActive: true },
+          orderBy: { sortOrder: "asc" },
+        },
+        privateShows: {
+          where: { isActive: true },
+          select: { id: true, buyerId: true, price: true, isActive: true },
+        },
       },
-      messages: {
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      },
-      tipOptions: {
-        where: { isActive: true },
-        orderBy: { sortOrder: "asc" },
-      },
-      privateShows: {
-        where: { isActive: true },
-        select: { id: true, buyerId: true, price: true, isActive: true },
-      },
-    },
-  });
-  if (!stream) return res.status(404).json({ error: "Not found" });
-  res.json({ stream });
+    });
+    if (!stream) return res.status(404).json({ error: "Not found" });
+    res.json({ stream });
+  } catch (err) {
+    console.error("Error fetching stream:", err);
+    res.status(500).json({ error: "Error loading stream" });
+  }
 });
 
 // ── PUT /live/:id/config — professional updates stream config (title, private show price) ──
