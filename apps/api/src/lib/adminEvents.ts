@@ -86,15 +86,19 @@ export async function emitAdminEvent(input: AdminEventInput) {
   await prisma.notification.createMany({
     data: adminIds.map((adminId) => ({
       userId: adminId,
-      type: "MESSAGE_RECEIVED",
+      type: "ADMIN_EVENT" as any,
       data: payload,
     })),
+  }).catch((err) => {
+    console.error("[adminEvents] Failed to create admin notifications:", err?.message || err);
   });
 
   await sendPushToUsers(prisma as any, adminIds, {
     title: meta.title,
     body: meta.body,
     data: payload,
-    tag: `admin-${input.type}`,
-  }).catch(() => {});
+    tag: `admin-${input.type}-${Date.now()}`,
+  }).catch((err) => {
+    console.error("[adminEvents] Failed to send push to admins:", err?.message || err);
+  });
 }

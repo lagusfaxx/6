@@ -184,20 +184,22 @@ walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
   const rate = await getTokenRate();
   const clpAmount = tokens * rate;
 
-  // Deduct from balance atomically
-  const updated = await prisma.wallet.updateMany({
-    where: { id: wallet.id, balance: { gte: tokens } },
-    data: { balance: { decrement: tokens } },
-  });
-  if (updated.count === 0)
-    return res.status(400).json({ error: "Insufficient balance" });
+  // Use interactive transaction to prevent race conditions
+  const withdrawal = await prisma.$transaction(async (tx) => {
+    // Lock the wallet row and verify balance inside the transaction
+    const currentWallet = await tx.wallet.findUnique({ where: { id: wallet.id } });
+    if (!currentWallet || currentWallet.balance < tokens) {
+      throw new Error("INSUFFICIENT_BALANCE");
+    }
 
-  const updatedWallet = await prisma.wallet.findUnique({
-    where: { id: wallet.id },
-  });
+    await tx.wallet.update({
+      where: { id: wallet.id },
+      data: { balance: { decrement: tokens } },
+    });
 
-  const [withdrawal] = await prisma.$transaction([
-    prisma.withdrawalRequest.create({
+    const newBalance = currentWallet.balance - tokens;
+
+    const wd = await tx.withdrawalRequest.create({
       data: {
         walletId: wallet.id,
         amount: tokens,
@@ -208,17 +210,27 @@ walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
         holderName,
         holderRut,
       },
-    }),
-    prisma.tokenTransaction.create({
+    });
+
+    await tx.tokenTransaction.create({
       data: {
         walletId: wallet.id,
         type: "WITHDRAWAL",
         amount: -tokens,
-        balance: updatedWallet!.balance,
+        balance: newBalance,
         description: `Solicitud de retiro: ${tokens} tokens ($${clpAmount.toLocaleString("es-CL")} CLP)`,
       },
-    }),
-  ]);
+    });
+
+    return wd;
+  }).catch((err) => {
+    if (err?.message === "INSUFFICIENT_BALANCE") return null;
+    throw err;
+  });
+
+  if (!withdrawal) {
+    return res.status(400).json({ error: "Insufficient balance" });
+  }
 
   // Send confirmation email (fire & forget)
   const user = await prisma.user.findUnique({

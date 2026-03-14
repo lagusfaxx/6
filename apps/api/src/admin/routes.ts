@@ -611,15 +611,15 @@ adminRouter.put(
   }),
 );
 
-adminRouter.get("/profiles/:id/media-videos", async (req, res) => {
+adminRouter.get("/profiles/:id/media-videos", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const media = await prisma.profileMedia.findMany({
     where: { ownerId: id, type: "VIDEO" },
     orderBy: { createdAt: "desc" },
     select: { id: true, url: true, type: true, createdAt: true },
   });
-  res.json({ media });
-});
+  return res.json({ media });
+}));
 
 /* ══════════════════════════════════════════════════════════════
    BANNERS (Home Ads)

@@ -33,10 +33,16 @@ export async function savePushSubscription(
     throw new Error("INVALID_PUSH_SUBSCRIPTION");
   }
 
+  // Delete any existing subscription for this endpoint from OTHER users
+  // to prevent cross-user notification leaks, then upsert for current user
+  await prisma.pushSubscription.deleteMany({
+    where: { endpoint, userId: { not: userId } }
+  });
+
   return prisma.pushSubscription.upsert({
     where: { endpoint },
     create: { userId, endpoint, p256dh, auth, userAgent },
-    update: { userId, p256dh, auth, userAgent }
+    update: { p256dh, auth, userAgent }
   });
 }
 

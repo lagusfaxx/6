@@ -118,8 +118,10 @@ creatorRouter.post("/posts/mine", upload.array("files", 10), asyncHandler(async 
       data: subscriberIds.map((s) => ({
         userId: s.subscriberId,
         type: "POST_PUBLISHED",
-        data: { postId: post.id, creatorId: req.session.userId!, url: `/profesional/${req.session.userId!}` }
+        data: { title: "Nueva publicación", body: parsed.data.title || "Nuevo contenido disponible", postId: post.id, creatorId: req.session.userId!, url: `/profesional/${req.session.userId!}` }
       }))
+    }).catch((err) => {
+      console.error("[creator] Failed to notify subscribers:", err?.message || err);
     });
   }
 
@@ -175,8 +177,10 @@ creatorRouter.post("/creator/posts", upload.array("files", 10), asyncHandler(asy
       data: subscriberIds.map((s) => ({
         userId: s.subscriberId,
         type: "POST_PUBLISHED",
-        data: { postId: post.id, creatorId: req.session.userId!, url: `/profesional/${req.session.userId!}` }
+        data: { title: "Nueva publicación", body: parsed.data.title || "Nuevo contenido disponible", postId: post.id, creatorId: req.session.userId!, url: `/profesional/${req.session.userId!}` }
       }))
+    }).catch((err) => {
+      console.error("[creator] Failed to notify subscribers:", err?.message || err);
     });
   }
 

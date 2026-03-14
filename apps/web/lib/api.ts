@@ -117,6 +117,22 @@ export function isRateLimitError(err: any): boolean {
   return Boolean(err && err.status === 429);
 }
 
+/** Validate redirect target is a safe relative path (prevents open redirect) */
+export function safeRedirect(target: string | null | undefined, fallback = "/"): string {
+  if (!target) return fallback;
+  const trimmed = target.trim();
+  // Only allow relative paths starting with /
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return fallback;
+  // Block protocol-relative URLs and javascript: schemes
+  try {
+    const url = new URL(trimmed, "http://localhost");
+    if (url.hostname !== "localhost") return fallback;
+  } catch {
+    return fallback;
+  }
+  return trimmed;
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const base = getApiBase();
   const url = `${base}${path}`;

@@ -262,9 +262,12 @@ forumRouter.post(
             title: "Respuesta en el foro",
             body: `${post.author.username} respondió en "${thread.title}"`,
             threadId: id,
+            postId: post.id,
             url: `/foro/thread/${id}`,
           },
         },
+      }).catch((err) => {
+        console.error("[forum] Failed to notify thread author:", err?.message || err);
       });
     }
 

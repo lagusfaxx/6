@@ -95,10 +95,12 @@ khipuRouter.post("/payments/charge-intent", requireAuth, asyncHandler(async (req
 khipuRouter.post("/webhooks/khipu/subscription", asyncHandler(async (req, res) => {
   const rawBody: Buffer | undefined = (req as any).rawBody;
   const sig = req.header("x-khipu-signature");
-  if (sig && rawBody) {
-    const ok = verifyKhipuSignature(rawBody, sig);
-    if (!ok) return res.status(401).json({ error: "INVALID_SIGNATURE" });
+  if (!sig || !rawBody) {
+    console.error("[khipu] Missing signature or raw body in webhook request");
+    return res.status(401).json({ error: "SIGNATURE_REQUIRED" });
   }
+  const sigValid = verifyKhipuSignature(rawBody, sig);
+  if (!sigValid) return res.status(401).json({ error: "INVALID_SIGNATURE" });
 
   const { subscription_id, status } = req.body as { subscription_id?: string; status?: string };
   if (!subscription_id || !status) return res.status(400).json({ error: "INVALID_PAYLOAD" });
@@ -144,10 +146,12 @@ khipuRouter.post("/webhooks/khipu/subscription", asyncHandler(async (req, res) =
 khipuRouter.post("/webhooks/khipu/charge", asyncHandler(async (req, res) => {
   const rawBody: Buffer | undefined = (req as any).rawBody;
   const sig = req.header("x-khipu-signature");
-  if (sig && rawBody) {
-    const ok = verifyKhipuSignature(rawBody, sig);
-    if (!ok) return res.status(401).json({ error: "INVALID_SIGNATURE" });
+  if (!sig || !rawBody) {
+    console.error("[khipu] Missing signature or raw body in webhook request");
+    return res.status(401).json({ error: "SIGNATURE_REQUIRED" });
   }
+  const sigValid = verifyKhipuSignature(rawBody, sig);
+  if (!sigValid) return res.status(401).json({ error: "INVALID_SIGNATURE" });
 
   const body = req.body as { payment_id?: string; paymentId?: string; transaction_id?: string };
   const paymentId = body.payment_id || body.paymentId;

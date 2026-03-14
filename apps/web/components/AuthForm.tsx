@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { apiFetch, friendlyErrorMessage } from "../lib/api";
+import { apiFetch, friendlyErrorMessage, safeRedirect } from "../lib/api";
 import { Eye, EyeOff, FileText } from "lucide-react";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
 
@@ -181,8 +181,8 @@ export default function AuthForm({
         const override = onSuccess?.(res);
         const next = searchParams.get("next");
         const redirectTo =
-          override && "redirect" in override ? override.redirect : next || "/";
-        if (redirectTo) window.location.replace(redirectTo);
+          override && "redirect" in override ? override.redirect : safeRedirect(next);
+        if (redirectTo) window.location.replace(safeRedirect(redirectTo));
         return;
       } else {
         await apiFetch("/auth/login", {
@@ -191,7 +191,7 @@ export default function AuthForm({
         });
       }
       const next = searchParams.get("next");
-      window.location.replace(next || "/");
+      window.location.replace(safeRedirect(next));
     } catch (err: any) {
       const detailed = err?.body?.details
         ? flattenValidation(err.body.details)
