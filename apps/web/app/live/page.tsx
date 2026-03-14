@@ -38,7 +38,6 @@ export default function LivePage() {
   const [loading, setLoading] = useState(true);
   const [startingLive, setStartingLive] = useState(false);
   const [liveTitle, setLiveTitle] = useState("");
-  const [livePrivatePrice, setLivePrivatePrice] = useState("");
   const [showStartModal, setShowStartModal] = useState(false);
   const [error, setError] = useState("");
 
@@ -63,13 +62,9 @@ export default function LivePage() {
     setStartingLive(true);
     setError("");
     try {
-      const privatePrice = parseInt(livePrivatePrice, 10);
       const res = await apiFetch<{ stream: { id: string } }>("/live/start", {
         method: "POST",
-        body: JSON.stringify({
-          title: liveTitle.trim() || null,
-          privateShowPrice: privatePrice > 0 ? privatePrice : null,
-        }),
+        body: JSON.stringify({ title: liveTitle.trim() || null }),
       });
       router.push(`/live/${res.stream.id}`);
     } catch (e: unknown) {
@@ -235,20 +230,8 @@ export default function LivePage() {
                 />
               </div>
 
-              <div className="mb-4">
-                <label className="mb-1.5 block text-xs text-white/50">Precio Show Privado (opcional)</label>
-                <input
-                  type="number"
-                  value={livePrivatePrice}
-                  onChange={(e) => setLivePrivatePrice(e.target.value)}
-                  placeholder="Ej: 200 tokens (vacío = cliente decide)"
-                  min="1"
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none placeholder:text-white/25 focus:border-amber-500/30"
-                />
-              </div>
-
               <div className="mb-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[11px] text-white/40">
-                <p>Se activarán tu cámara y micrófono. Los espectadores podrán verte y chatear en vivo. Puedes configurar tipos de propina personalizados una vez estés en vivo.</p>
+                <p>Se activarán tu cámara y micrófono. Una vez en vivo podrás configurar tipos de propina personalizados, precio del show privado y más desde tu panel de control.</p>
               </div>
 
               {error && (
