@@ -2,7 +2,10 @@ import crypto from "crypto";
 import { config } from "../config";
 
 export function verifyKhipuSignature(rawBody: Buffer, signatureHeader: string | undefined): boolean {
-  if (!config.khipuWebhookSecret) return true;
+  if (!config.khipuWebhookSecret) {
+    console.error("[khipu] KHIPU_WEBHOOK_SECRET not configured — rejecting webhook");
+    return false;
+  }
   if (!signatureHeader) return false;
   // expected format: t=1700000000,s=hex
   const parts = signatureHeader.split(",").map((p) => p.trim());

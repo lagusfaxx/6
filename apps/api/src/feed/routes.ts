@@ -174,13 +174,16 @@ async function handleFeed(req: any, res: any, mediaType?: "IMAGE" | "VIDEO") {
       const preview = filteredMedia[0]
         ? { id: filteredMedia[0].id, type: filteredMedia[0].type, url: filteredMedia[0].url }
         : null;
-      const distance =
-        lat !== null &&
-        lng !== null &&
-        author.latitude !== null &&
-        author.longitude !== null
-          ? Math.sqrt((author.latitude - lat) ** 2 + (author.longitude - lng) ** 2)
-          : null;
+      let distance: number | null = null;
+      if (lat !== null && lng !== null && author.latitude !== null && author.longitude !== null) {
+        const R = 6371;
+        const dLat = ((author.latitude - lat) * Math.PI) / 180;
+        const dLng = ((author.longitude - lng) * Math.PI) / 180;
+        const s1 = Math.sin(dLat / 2);
+        const s2 = Math.sin(dLng / 2);
+        const a = s1 * s1 + Math.cos((lat * Math.PI) / 180) * Math.cos((author.latitude * Math.PI) / 180) * s2 * s2;
+        distance = R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+      }
       return {
         id: p.id,
         title: p.title,

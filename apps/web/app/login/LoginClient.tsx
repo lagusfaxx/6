@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, LogIn } from "lucide-react";
-import { apiFetch, friendlyErrorMessage } from "../../lib/api";
+import { apiFetch, friendlyErrorMessage, safeRedirect } from "../../lib/api";
 
 export default function LoginClient() {
   const searchParams = useSearchParams();
@@ -24,7 +24,7 @@ export default function LoginClient() {
         body: JSON.stringify({ email, password }),
       });
       const next = searchParams.get("next");
-      window.location.replace(next || "/");
+      window.location.replace(safeRedirect(next));
     } catch (err: any) {
       setError(friendlyErrorMessage(err) || "Error al iniciar sesión");
     } finally {

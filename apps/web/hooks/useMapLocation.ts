@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const STORAGE_KEY = "uzeed:lastLocation";
 
@@ -31,6 +31,10 @@ function storeLocation(location: Location) {
 }
 
 export function useMapLocation(fallback: Location) {
+  // Memoize fallback to prevent infinite re-renders from array reference changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableFallback = useMemo(() => fallback, [fallback[0], fallback[1]]);
+
   const [location, setLocation] = useState<Location | null>(() => readStoredLocation());
   const [resolved, setResolved] = useState(false);
   const lastLocationRef = useRef<Location | null>(null);
@@ -75,7 +79,7 @@ export function useMapLocation(fallback: Location) {
         updateLocation([pos.coords.latitude, pos.coords.longitude]);
       },
       () => {
-        setLocation((prev) => prev || fallback);
+        setLocation((prev) => prev || stableFallback);
         handleResolved();
       },
       { enableHighAccuracy: true, timeout: 6000 }
@@ -83,13 +87,13 @@ export function useMapLocation(fallback: Location) {
     navigator.geolocation.getCurrentPosition(
       (pos) => updateLocation([pos.coords.latitude, pos.coords.longitude]),
       () => {
-        setLocation((prev) => prev || fallback);
+        setLocation((prev) => prev || stableFallback);
         handleResolved();
       },
       { enableHighAccuracy: true, timeout: 6000 }
     );
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [fallback]);
+  }, [stableFallback]);
 
   useEffect(() => {
     if (location) storeLocation(location);

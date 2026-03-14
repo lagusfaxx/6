@@ -164,8 +164,10 @@ messagesRouter.post("/messages/:userId", requireAuth, asyncHandler(async (req, r
     data: {
       userId: other,
       type: "MESSAGE_RECEIVED",
-      data: { fromId: me, messageId: message.id, url: `/chat/${me}` }
+      data: { title: "Nuevo mensaje", body: body.slice(0, 100), fromId: me, messageId: message.id, url: `/chat/${me}` }
     }
+  }).catch((err) => {
+    console.error("[messages] Failed to create notification:", err?.message || err);
   });
 
   // Track response time — find last unanswered message from `other` to `me`
@@ -220,8 +222,10 @@ messagesRouter.post("/messages/:userId/attachment", requireAuth, upload.single("
     data: {
       userId: other,
       type: "MESSAGE_RECEIVED",
-      data: { fromId: me, messageId: message.id, url: `/chat/${me}` }
+      data: { title: "Imagen recibida", body: "Te enviaron una imagen", fromId: me, messageId: message.id, url: `/chat/${me}` }
     }
+  }).catch((err) => {
+    console.error("[messages] Failed to create attachment notification:", err?.message || err);
   });
 
   const sender = await prisma.user.findUnique({
