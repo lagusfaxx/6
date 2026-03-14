@@ -135,6 +135,7 @@ export default function LiveStreamPage() {
 
   // Private Show
   const [privateShow, setPrivateShow] = useState<PrivateShowInfo | null>(null);
+  const [hasJoinedPrivateShow, setHasJoinedPrivateShow] = useState(false);
   const [showPrivateModal, setShowPrivateModal] = useState(false);
   const [privateShowPrice, setPrivateShowPrice] = useState("");
   const [buyingPrivateShow, setBuyingPrivateShow] = useState(false);
@@ -169,11 +170,12 @@ export default function LiveStreamPage() {
         if (r.stream.tipOptions) setTipOptions(r.stream.tipOptions);
         const activeShow = r.stream.privateShows?.find((s) => s.isActive);
         if (activeShow) setPrivateShow(activeShow);
+        if (myId) setHasJoinedPrivateShow(Boolean(r.stream.privateShows?.some((s) => s.isActive && s.buyerId === myId)));
         if (r.stream.privateShowPrice) setEditPrivatePrice(String(r.stream.privateShowPrice));
       })
       .catch(() => router.push("/"))
       .finally(() => setLoading(false));
-  }, [id, router]);
+  }, [id, router, myId]);
 
   // ── Load wallet balance ──
   useEffect(() => {
@@ -185,8 +187,7 @@ export default function LiveStreamPage() {
 
   // ── Private show blur logic ──
   const isPrivateActive = Boolean(privateShow?.isActive);
-  const amIBuyer = privateShow?.buyerId === myId;
-  const shouldBlur = isPrivateActive && !isHost && !amIBuyer;
+  const shouldBlur = isPrivateActive && !isHost && !hasJoinedPrivateShow;
 
   // ── Host media init ──
   const initHostMedia = useCallback(async () => {
@@ -404,6 +405,7 @@ export default function LiveStreamPage() {
 
       if (event.type === "live:private_show_started") {
         setPrivateShow({ id: data.showId, buyerId: data.buyerId, price: data.price, isActive: true });
+        if (data.buyerId === myId) setHasJoinedPrivateShow(true);
         setMessages((prev) => [...prev, {
           id: `private-${data.showId}`,
           userId: "system",
@@ -418,6 +420,7 @@ export default function LiveStreamPage() {
 
       if (event.type === "live:private_show_ended") {
         setPrivateShow(null);
+        setHasJoinedPrivateShow(false);
         setMessages((prev) => [...prev, {
           id: `private-end-${data.showId}`,
           userId: "system",
@@ -514,10 +517,11 @@ export default function LiveStreamPage() {
         body: JSON.stringify({ price }),
       });
       setMyBalance(res.newBalance);
+      setHasJoinedPrivateShow(true);
       setShowPrivateModal(false);
       setPrivateShowPrice("");
     } catch (e: any) {
-      alert(e?.body?.error || "Error al comprar show privado");
+      alert(e?.body?.error || "Error al unirse al show privado");
     } finally {
       setBuyingPrivateShow(false);
     }
@@ -1073,7 +1077,7 @@ export default function LiveStreamPage() {
                 </div>
                 <p className="text-lg font-bold text-white">Show Privado en curso</p>
                 <p className="mt-2 text-sm text-white/50">
-                  Este contenido es exclusivo. Compra tu propio show privado para ver en HD.
+                  Este contenido es exclusivo. Únete al show privado para desbloquearlo en HD.
                 </p>
                 {stream.privateShowPrice ? (
                   <div className="mt-4">
@@ -1083,7 +1087,7 @@ export default function LiveStreamPage() {
                       className="mt-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
                     >
                       <Lock className="mr-1.5 inline h-4 w-4" />
-                      Comprar Show Privado
+                      Unirse al show privado
                     </button>
                   </div>
                 ) : (
@@ -1092,7 +1096,7 @@ export default function LiveStreamPage() {
                     className="mt-4 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
                   >
                     <Lock className="mr-1.5 inline h-4 w-4" />
-                    Comprar Show Privado
+                    Unirse al show privado
                   </button>
                 )}
               </div>
@@ -1506,7 +1510,7 @@ export default function LiveStreamPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40"
               >
                 <Lock className="h-4 w-4" />
-                {buyingPrivateShow ? "Procesando..." : `Comprar Show Privado — ${stream.privateShowPrice || privateShowPrice || "0"} tokens`}
+                {buyingPrivateShow ? "Procesando..." : `Unirse al show privado — ${stream.privateShowPrice || privateShowPrice || "0"} tokens`}
               </button>
 
               <button
