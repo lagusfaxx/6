@@ -168,8 +168,24 @@ export default function LiveStreamPage() {
       await room.connect(tokenRes.url, tokenRes.token, { autoSubscribe: true });
 
       if (isHost) {
-        await room.localParticipant.enableCameraAndMicrophone();
+        // Publish tracks from the already-acquired local media stream
+        // instead of calling enableCameraAndMicrophone() which triggers
+        // a second getUserMedia request that fails on mobile PWA.
+        const localStream = localStreamRef.current;
+        if (localStream) {
+          for (const track of localStream.getTracks()) {
+            await room.localParticipant.publishTrack(track, {
+              simulcast: false,
+              source: track.kind === "video" ? Track.Source.Camera : Track.Source.Microphone,
+            });
+          }
+        } else {
+          // Fallback: if local media not yet available, request permissions
+          // through LiveKit (less reliable on mobile PWA)
+          await room.localParticipant.enableCameraAndMicrophone();
+        }
       } else {
+        // Viewer: only subscribe to remote tracks, never request permissions
         attachRemoteTrack(room);
       }
 
@@ -190,13 +206,17 @@ export default function LiveStreamPage() {
 
   useEffect(() => {
     if (!myId || !stream?.isActive) return;
+    // Viewer: wait until they click "join"
     if (!isHost && !joined) return;
+    // Host: wait until local media is acquired (permissions granted)
+    // so we can publish the already-acquired tracks to LiveKit
+    if (isHost && !videoReady) return;
     connectToLivekit();
 
     return () => {
       cleanupRoom().catch(() => {});
     };
-  }, [myId, stream?.isActive, joined, isHost, connectToLivekit, cleanupRoom]);
+  }, [myId, stream?.isActive, joined, isHost, videoReady, connectToLivekit, cleanupRoom]);
 
   useEffect(() => {
     return () => {
