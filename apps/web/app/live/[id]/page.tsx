@@ -457,7 +457,12 @@ export default function LiveStreamPage() {
   }, [myId, joined, isHost, id, cleanupRoom]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = chatEndRef.current;
+    if (!el) return;
+    const container = el.parentElement;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    }
   }, [messages]);
 
   // ── Chat ──
@@ -1047,15 +1052,15 @@ export default function LiveStreamPage() {
 
       <div className={`relative flex min-h-0 flex-1 ${isExpanded ? "flex-col" : "flex-col lg:flex-row"}`}>
         {/* ── Video Area ── */}
-        <div className={`relative flex items-center justify-center bg-gradient-to-br from-fuchsia-950/30 to-violet-950/30 ${
-          isExpanded ? "fixed inset-0 z-40" : "h-[40vh] flex-shrink-0 lg:h-auto lg:flex-1 lg:flex-shrink"
+        <div className={`relative flex items-center justify-center ${
+          isExpanded ? "fixed inset-0 z-40 bg-black" : "h-[40vh] flex-shrink-0 bg-gradient-to-br from-fuchsia-950/30 to-violet-950/30 lg:h-auto lg:flex-1 lg:flex-shrink"
         }`}>
           {/* Remote video */}
           {joined && (
             <video
               ref={remoteVideoRef}
               autoPlay playsInline
-              className={`h-full w-full object-contain transition-all duration-500 ${!videoReady ? "hidden" : ""} ${shouldBlur ? "blur-xl scale-105" : ""}`}
+              className={`h-full w-full transition-all duration-500 ${isExpanded ? "object-cover" : "object-contain"} ${!videoReady ? "hidden" : ""} ${shouldBlur ? "blur-xl scale-105" : ""}`}
             />
           )}
 
@@ -1068,8 +1073,28 @@ export default function LiveStreamPage() {
                 </div>
                 <p className="text-lg font-bold text-white">Show Privado en curso</p>
                 <p className="mt-2 text-sm text-white/50">
-                  Este contenido es exclusivo. Compra tu propio show privado cuando termine.
+                  Este contenido es exclusivo. Compra tu propio show privado para ver en HD.
                 </p>
+                {stream.privateShowPrice ? (
+                  <div className="mt-4">
+                    <p className="text-sm text-amber-300 font-semibold">{stream.privateShowPrice} tokens</p>
+                    <button
+                      onClick={() => setShowPrivateModal(true)}
+                      className="mt-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
+                    >
+                      <Lock className="mr-1.5 inline h-4 w-4" />
+                      Comprar Show Privado
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowPrivateModal(true)}
+                    className="mt-4 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
+                  >
+                    <Lock className="mr-1.5 inline h-4 w-4" />
+                    Comprar Show Privado
+                  </button>
+                )}
               </div>
             </div>
           )}
