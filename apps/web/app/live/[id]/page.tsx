@@ -123,20 +123,36 @@ export default function LiveStreamPage() {
     }
   }, []);
 
-  const attachRemoteTrack = useCallback((room: Room) => {
-    if (!remoteVideoRef.current) return;
-    const publication = Array.from(room.remoteParticipants.values())
-      .flatMap((participant) => Array.from(participant.trackPublications.values()))
-      .find((pub) => pub.isSubscribed && pub.track && pub.track.kind === Track.Kind.Video);
+  // Use a ref for stream data needed during connection so connectToLivekit
+  // doesn't get recreated every time viewerCount changes.
+  const streamIdRef = useRef<string | null>(null);
+  const streamActiveRef = useRef(false);
+  useEffect(() => {
+    streamIdRef.current = stream?.id ?? null;
+    streamActiveRef.current = stream?.isActive ?? false;
+  }, [stream?.id, stream?.isActive]);
 
-    if (publication?.track && publication.track.kind === Track.Kind.Video) {
-      publication.track.attach(remoteVideoRef.current);
-      setVideoReady(true);
+  const isHostRef = useRef(false);
+  useEffect(() => { isHostRef.current = isHost; }, [isHost]);
+
+  const attachRemoteTrack = useCallback((room: Room) => {
+    const videoEl = remoteVideoRef.current;
+    if (!videoEl) return;
+
+    for (const participant of room.remoteParticipants.values()) {
+      for (const pub of participant.trackPublications.values()) {
+        if (pub.isSubscribed && pub.track && pub.track.kind === Track.Kind.Video) {
+          pub.track.attach(videoEl);
+          setVideoReady(true);
+          return;
+        }
+      }
     }
   }, []);
 
   const connectToLivekit = useCallback(async () => {
-    if (!stream || !myId || !stream.isActive) return;
+    const sId = streamIdRef.current;
+    if (!sId || !myId || !streamActiveRef.current) return;
 
     setRtcError("");
     setRtcState("connecting");
@@ -149,7 +165,7 @@ export default function LiveStreamPage() {
       .on(RoomEvent.Reconnected, () => setRtcState("connected"))
       .on(RoomEvent.Disconnected, () => {
         setRtcState("disconnected");
-        if (!isHost) setVideoReady(false);
+        if (!isHostRef.current) setVideoReady(false);
       })
       .on(RoomEvent.ConnectionStateChanged, (state) => {
         if (state === "connected") setRtcState("connected");
@@ -158,9 +174,19 @@ export default function LiveStreamPage() {
         if (state === "disconnected") setRtcState("disconnected");
       })
       .on(RoomEvent.TrackSubscribed, (track) => {
-        if (!isHost && remoteVideoRef.current && track.kind === Track.Kind.Video) {
-          track.attach(remoteVideoRef.current);
-          setVideoReady(true);
+        if (!isHostRef.current && track.kind === Track.Kind.Video) {
+          // Use a small delay to ensure the ref is assigned after React render
+          const tryAttach = () => {
+            const videoEl = remoteVideoRef.current;
+            if (videoEl) {
+              track.attach(videoEl);
+              setVideoReady(true);
+            } else {
+              // Ref not ready yet — retry on next frame
+              requestAnimationFrame(tryAttach);
+            }
+          };
+          tryAttach();
         }
       })
       .on(RoomEvent.TrackUnsubscribed, (track) => {
@@ -176,13 +202,13 @@ export default function LiveStreamPage() {
     try {
       const tokenRes = await getLivekitToken({
         kind: "live",
-        streamId: stream.id,
-        roomName: `live:${stream.id}`,
+        streamId: sId,
+        roomName: `live:${sId}`,
       });
 
       await room.connect(tokenRes.url, tokenRes.token, { autoSubscribe: true });
 
-      if (isHost) {
+      if (isHostRef.current) {
         // Publish tracks from the already-acquired local media stream
         // instead of calling enableCameraAndMicrophone() which triggers
         // a second getUserMedia request that fails on mobile PWA.
@@ -195,12 +221,11 @@ export default function LiveStreamPage() {
             });
           }
         } else {
-          // Fallback: if local media not yet available, request permissions
-          // through LiveKit (less reliable on mobile PWA)
           await room.localParticipant.enableCameraAndMicrophone();
         }
       } else {
-        // Viewer: only subscribe to remote tracks, never request permissions
+        // Viewer: attach any tracks already published by the host.
+        // Late-arriving tracks are handled by TrackSubscribed above.
         attachRemoteTrack(room);
       }
 
@@ -210,7 +235,7 @@ export default function LiveStreamPage() {
       setRtcError(error instanceof Error ? error.message : "No se pudo conectar al Live.");
       setVideoReady(false);
     }
-  }, [attachRemoteTrack, isHost, myId, stream]);
+  }, [attachRemoteTrack, myId]);
 
   const handleJoin = useCallback(async () => {
     try {
