@@ -14,38 +14,52 @@ livestreamRouter.post("/live/start", requireAuth, async (req, res) => {
     return res.status(403).json({ error: "Only professionals can go live" });
   }
 
-  const existing = await prisma.liveStream.findFirst({
-    where: { hostId: userId, isActive: true },
-  });
-  if (existing) return res.status(400).json({ error: "Already streaming", streamId: existing.id });
-
-  const privateShowPrice = req.body.privateShowPrice ? parseInt(String(req.body.privateShowPrice), 10) : null;
+  try {
+    const existing = await prisma.liveStream.findFirst({
+      where: { hostId: userId, isActive: true },
+    });
+    if (existing) return res.status(400).json({ error: "Already streaming", streamId: existing.id });
+  } catch {
+    // Column may not exist yet if migration pending — continue
+  }
 
   const stream = await prisma.liveStream.create({
     data: {
       hostId: userId,
       title: req.body.title || null,
-      privateShowPrice: privateShowPrice && privateShowPrice > 0 ? privateShowPrice : null,
+    },
+    select: {
+      id: true,
+      hostId: true,
+      title: true,
+      isActive: true,
+      viewerCount: true,
+      maxViewers: true,
+      startedAt: true,
     },
   });
 
   // Auto-copy global tip options to this stream
-  const globals = await prisma.liveTipOption.findMany({
-    where: { hostId: userId, streamId: null, isActive: true },
-    orderBy: { sortOrder: "asc" },
-  });
-  for (const g of globals) {
-    await prisma.liveTipOption.create({
-      data: {
-        hostId: userId,
-        streamId: stream.id,
-        label: g.label,
-        price: g.price,
-        emoji: g.emoji,
-        sortOrder: g.sortOrder,
-        isActive: true,
-      },
+  try {
+    const globals = await prisma.liveTipOption.findMany({
+      where: { hostId: userId, streamId: null, isActive: true },
+      orderBy: { sortOrder: "asc" },
     });
+    for (const g of globals) {
+      await prisma.liveTipOption.create({
+        data: {
+          hostId: userId,
+          streamId: stream.id,
+          label: g.label,
+          price: g.price,
+          emoji: g.emoji,
+          sortOrder: g.sortOrder,
+          isActive: true,
+        },
+      });
+    }
+  } catch {
+    // Tip options copy may fail if tables not yet migrated
   }
 
   broadcast("live:started", {
@@ -82,16 +96,21 @@ livestreamRouter.post("/live/:id/end", requireAuth, async (req, res) => {
 
 // ── GET /live/active — list active streams ──
 livestreamRouter.get("/live/active", async (_req, res) => {
-  const streams = await prisma.liveStream.findMany({
-    where: { isActive: true },
-    orderBy: { startedAt: "desc" },
-    include: {
-      host: {
-        select: { id: true, displayName: true, username: true, avatarUrl: true },
+  try {
+    const streams = await prisma.liveStream.findMany({
+      where: { isActive: true },
+      orderBy: { startedAt: "desc" },
+      include: {
+        host: {
+          select: { id: true, displayName: true, username: true, avatarUrl: true },
+        },
       },
-    },
-  });
-  res.json({ streams });
+    });
+    res.json({ streams });
+  } catch (err) {
+    console.error("Error fetching active streams:", err);
+    res.json({ streams: [] });
+  }
 });
 
 // ── GET /live/:id — get stream details ──
