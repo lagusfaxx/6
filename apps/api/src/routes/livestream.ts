@@ -538,18 +538,26 @@ livestreamRouter.post("/live/:id/tip-options", requireAuth, async (req, res) => 
 //  PRIVATE SHOWS
 // ══════════════════════════════════════════════════════════
 
-// ── POST /live/:id/private-show — start a private show (buyer pays tokens) ──
+// ── POST /live/:id/private-show — pay to start/join active private show ──
 livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
   if (!stream || !stream.isActive) return res.status(400).json({ error: "Stream not active" });
   if (stream.hostId === userId) return res.status(400).json({ error: "Host cannot buy private show" });
 
-  // Check no active private show already
   const activeShow = await prisma.privateShow.findFirst({
     where: { streamId: stream.id, isActive: true },
   });
-  if (activeShow) return res.status(400).json({ error: "A private show is already active" });
+
+  // If there is an active show, allow this user to join it (single payment per active show per user)
+  if (activeShow) {
+    const alreadyJoined = await prisma.privateShow.findFirst({
+      where: { streamId: stream.id, isActive: true, buyerId: userId },
+    });
+    if (alreadyJoined) {
+      return res.status(400).json({ error: "Ya te uniste al show privado activo" });
+    }
+  }
 
   // Use host-configured price if set, otherwise use the buyer-submitted price
   const submittedPrice = parseInt(String(req.body.price || "0"), 10);
@@ -612,7 +620,7 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) =>
     });
   });
 
-  // Broadcast private show started to ALL viewers (so non-buyers get blur)
+  // Broadcast private show purchase to ALL viewers (non-buyers keep blur)
   broadcast("live:private_show_started", {
     streamId: stream.id,
     showId: show.id,
@@ -633,7 +641,7 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) =>
   res.json({ show, newBalance: buyerWallet.balance - price });
 });
 
-// ── POST /live/:id/private-show/end — end the private show (host only) ──
+// ── POST /live/:id/private-show/end — end the active private show (host only) ──
 livestreamRouter.post("/live/:id/private-show/end", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
@@ -645,8 +653,8 @@ livestreamRouter.post("/live/:id/private-show/end", requireAuth, async (req, res
   });
   if (!activeShow) return res.status(400).json({ error: "No active private show" });
 
-  await prisma.privateShow.update({
-    where: { id: activeShow.id },
+  await prisma.privateShow.updateMany({
+    where: { streamId: stream.id, isActive: true },
     data: { isActive: false, endedAt: new Date() },
   });
 
@@ -660,8 +668,19 @@ livestreamRouter.post("/live/:id/private-show/end", requireAuth, async (req, res
 
 // ── GET /live/:id/private-show — get current private show status ──
 livestreamRouter.get("/live/:id/private-show", async (req, res) => {
+  const userId = req.session?.userId;
   const show = await prisma.privateShow.findFirst({
     where: { streamId: req.params.id, isActive: true },
   });
-  res.json({ show: show || null });
+
+  let joined = false;
+  if (userId) {
+    const participation = await prisma.privateShow.findFirst({
+      where: { streamId: req.params.id, isActive: true, buyerId: userId },
+      select: { id: true },
+    });
+    joined = Boolean(participation);
+  }
+
+  res.json({ show: show || null, joined });
 });
