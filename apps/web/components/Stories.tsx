@@ -7,7 +7,6 @@ import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle, Ra
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import useMe from "../hooks/useMe";
-import { getLocalMedia } from "../lib/webrtc";
 
 /* ─── Types ─────────────────────────────────────────────── */
 type StoryItem = {
@@ -263,8 +262,6 @@ export default function Stories() {
   const [liveStreams, setLiveStreams] = useState<LiveStreamItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewerGroupIdx, setViewerGroupIdx] = useState<number | null>(null);
-  const [goingLive, setGoingLive] = useState(false);
-  const [liveError, setLiveError] = useState("");
 
   useEffect(() => {
     let done = 0;
@@ -281,31 +278,9 @@ export default function Stories() {
       .finally(checkDone);
   }, []);
 
-  const handleGoLive = async () => {
-    setGoingLive(true);
-    setLiveError("");
-    try {
-      const testStream = await getLocalMedia({ video: true, audio: true });
-      testStream.getTracks().forEach((t) => t.stop());
-
-      const res = await apiFetch<{ stream: { id: string } }>("/live/start", {
-        method: "POST",
-        body: JSON.stringify({ title: null }),
-      });
-      router.push(`/live/${res.stream.id}`);
-    } catch (e: unknown) {
-      if (e instanceof Error && /permission|notallowed|denied/i.test(e.message)) {
-        setLiveError("Debes permitir cámara y micrófono para iniciar un Live.");
-      }
-      // If already streaming, redirect to existing stream
-      const maybeApiError = e as { body?: { streamId?: string } };
-      if (maybeApiError?.body?.streamId) {
-        router.push(`/live/${maybeApiError.body.streamId}`);
-      } else if (!(e instanceof Error)) {
-        setLiveError("No se pudo iniciar el Live. Intenta nuevamente.");
-      }
-      setGoingLive(false);
-    }
+  const handleGoLive = () => {
+    // Navigate to the live panel — the professional starts from there
+    router.push("/live");
   };
 
   if (loading) {
@@ -353,11 +328,10 @@ export default function Stories() {
             {isProfessional && (
               <button
                 onClick={handleGoLive}
-                disabled={goingLive}
-                className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 transition font-medium disabled:opacity-50"
+                className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 transition font-medium"
               >
                 <Radio className="h-3 w-3" />
-                {goingLive ? "Iniciando..." : "Ir en vivo"}
+                Ir en vivo
               </button>
             )}
             {isProfessional && (
@@ -371,18 +345,13 @@ export default function Stories() {
           </div>
         </div>
 
-        {liveError && (
-          <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{liveError}</p>
-        )}
-
         <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
-          {/* Go Live button for professionals */}
+          {/* Go Live button for professionals — navigates to live panel */}
           {isProfessional && (
             <div className="flex-shrink-0 flex flex-col items-center gap-2">
               <button
                 onClick={handleGoLive}
-                disabled={goingLive}
-                className="relative h-20 w-20 rounded-full border-2 border-dashed border-red-500/50 bg-red-500/5 flex items-center justify-center text-red-400 hover:border-red-400 hover:bg-red-500/10 transition hover:shadow-[0_0_20px_rgba(239,68,68,0.25)] disabled:opacity-50"
+                className="relative h-20 w-20 rounded-full border-2 border-dashed border-red-500/50 bg-red-500/5 flex items-center justify-center text-red-400 hover:border-red-400 hover:bg-red-500/10 transition hover:shadow-[0_0_20px_rgba(239,68,68,0.25)]"
               >
                 <Radio className="h-7 w-7" />
               </button>
