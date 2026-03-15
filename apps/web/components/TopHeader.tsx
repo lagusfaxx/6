@@ -417,28 +417,48 @@ export default function TopHeader() {
               </div>
             )}
 
-            <div className="py-2">
-              <div className="px-3 py-2">
-                <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">Navegación</p>
-                <button onClick={() => handleNavLink("/")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                  <Home className="h-4 w-4 text-white/50" /> Inicio
+            <div className="relative py-3">
+              {/* Quick access – compact icon grid for categories */}
+              <div className="px-4 pb-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/25">Explorar</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {MEGA_MENU.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = isCategoryActive(item.route);
+                    return (
+                      <button
+                        key={item.route}
+                        onClick={() => handleCategoryClick(item.route)}
+                        className={`flex flex-col items-center gap-1 rounded-xl py-2.5 text-[10px] transition-all ${isActive ? "bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20" : "text-white/60 hover:bg-white/[0.06] border border-transparent"}`}
+                      >
+                        <Icon className={`h-4 w-4 ${isActive ? "text-fuchsia-400" : "text-fuchsia-400/60"}`} />
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mx-4 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+
+              {/* Main nav links – condensed */}
+              <div className="px-3 pt-3 pb-1 space-y-0.5">
+                <button onClick={() => handleNavLink("/")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                  <Home className="h-4 w-4 text-white/40" /> Inicio
                 </button>
-                <button onClick={() => handleNavLink("/servicios")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                  <Search className="h-4 w-4 text-white/50" /> Cerca tuyo
+                <button onClick={() => handleNavLink("/servicios")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                  <Search className="h-4 w-4 text-white/40" /> Cerca tuyo
                 </button>
-                <button onClick={() => handleNavLink("/videocall")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                  <Video className="h-4 w-4 text-white/50" /> Videollamadas
-                </button>
-                <button onClick={() => handleNavLink("/live")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
+                <button onClick={() => handleNavLink("/live")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
                   <Radio className="h-4 w-4 text-red-400/80" />
-                  <span>En Vivo</span>
+                  En Vivo
                   <span className="relative ml-0.5 flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
                   </span>
                 </button>
-                <button onClick={() => handleNavLink("/foro")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                  <MessageSquare className="h-4 w-4 text-white/50" /> Foro
+                <button onClick={() => handleNavLink("/foro")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                  <MessageSquare className="h-4 w-4 text-white/40" /> Foro
                   {forumBadge > 0 && (
                     <span className="ml-auto min-w-[18px] rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white">
                       {forumBadge > 9 ? "9+" : forumBadge}
@@ -447,72 +467,56 @@ export default function TopHeader() {
                 </button>
                 {isAuthed && (
                   <>
-                    <button onClick={() => handleNavLink("/favoritos")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                      <Heart className="h-4 w-4 text-white/50" /> Favoritos
+                    <button onClick={() => handleNavLink("/chats")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                      <MessageCircle className="h-4 w-4 text-white/40" /> Mensajes
                     </button>
-                    <button onClick={() => handleNavLink("/chats")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                      <MessageCircle className="h-4 w-4 text-white/50" /> Mensajes
+                    <button onClick={() => handleNavLink("/favoritos")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                      <Heart className="h-4 w-4 text-white/40" /> Favoritos
                     </button>
                   </>
                 )}
               </div>
 
-              <div className="px-3 py-2">
-                <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">Categorías</p>
-                {MEGA_MENU.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = isCategoryActive(item.route);
-                  return (
-                    <button
-                      key={item.route}
-                      onClick={() => handleCategoryClick(item.route)}
-                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${isActive ? "bg-fuchsia-500/10 text-fuchsia-300" : "text-white/80 hover:bg-white/10"}`}
-                    >
-                      <Icon className={`h-4 w-4 ${isActive ? "text-fuchsia-400" : "text-fuchsia-400/70"}`} />
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-
               {isAuthed && hasProfile && (
-                <div className="px-3 py-2">
-                  <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">Mi perfil</p>
-                  <button onClick={() => handleNavLink("/dashboard")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                    <LayoutDashboard className="h-4 w-4 text-white/50" /> Dashboard
-                  </button>
-                  <button onClick={() => handleNavLink("/dashboard/services")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                    <Settings className="h-4 w-4 text-white/50" /> Editar perfil
-                  </button>
-                  {isProfessional && (
-                    <button onClick={() => handleNavLink("/dashboard/stories")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                      <Camera className="h-4 w-4 text-white/50" /> Subir story
+                <>
+                  <div className="mx-4 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+                  <div className="px-3 pt-3 pb-1 space-y-0.5">
+                    <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-white/25">Mi perfil</p>
+                    <button onClick={() => handleNavLink("/dashboard")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                      <LayoutDashboard className="h-4 w-4 text-white/40" /> Dashboard
                     </button>
-                  )}
-                </div>
+                    <button onClick={() => handleNavLink("/dashboard/services")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                      <Settings className="h-4 w-4 text-white/40" /> Editar perfil
+                    </button>
+                    {isProfessional && (
+                      <button onClick={() => handleNavLink("/dashboard/stories")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                        <Camera className="h-4 w-4 text-white/40" /> Subir story
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
 
-              <div className="px-3 py-2">
-                <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">Cuenta</p>
+              <div className="mx-4 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+
+              {/* Account section */}
+              <div className="px-3 pt-3 pb-1 space-y-0.5">
                 {isAuthed ? (
                   <>
-                    <button onClick={() => handleNavLink("/cuenta")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                      <User className="h-4 w-4 text-white/50" /> Mi cuenta
+                    <button onClick={() => handleNavLink("/cuenta")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                      <User className="h-4 w-4 text-white/40" /> Mi cuenta
                     </button>
-                    <button onClick={() => handleNavLink("/favoritos")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                      <Heart className="h-4 w-4 text-white/50" /> Favoritos
-                    </button>
-                    <button onClick={() => handleNavLink("/wallet")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                      <Wallet className="h-4 w-4 text-white/50" /> Billetera
+                    <button onClick={() => handleNavLink("/wallet")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                      <Wallet className="h-4 w-4 text-white/40" /> Billetera
                     </button>
                   </>
                 ) : (
                   <>
-                    <button onClick={() => handleNavLink("/login")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                      <LogIn className="h-4 w-4 text-white/50" /> Iniciar sesión
+                    <button onClick={() => handleNavLink("/login")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                      <LogIn className="h-4 w-4 text-white/40" /> Iniciar sesión
                     </button>
-                    <button onClick={() => handleNavLink("/register")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-fuchsia-300 hover:bg-fuchsia-500/10 transition">
-                      <Sparkles className="h-4 w-4 text-fuchsia-400" /> Crear cuenta
+                    <button onClick={() => handleNavLink("/register")} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 mx-1 mt-1 px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-110">
+                      <Sparkles className="h-4 w-4" /> Crear cuenta
                     </button>
                   </>
                 )}

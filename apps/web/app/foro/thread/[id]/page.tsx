@@ -11,10 +11,13 @@ import {
   ArrowLeft,
   Clock,
   Eye,
+  Heart,
   Lock,
   MessageCircle,
   Pin,
+  Quote,
   Send,
+  Share2,
   Shield,
   Trash2,
 } from "lucide-react";
@@ -109,6 +112,7 @@ export default function ThreadPage() {
   const [loading, setLoading] = useState(true);
   const [replyContent, setReplyContent] = useState("");
   const [sending, setSending] = useState(false);
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   const load = useCallback(() => {
     if (!threadId) return;
@@ -333,6 +337,58 @@ export default function ThreadPage() {
                   ) : (
                     <div className="mt-2 text-sm text-white/75 whitespace-pre-wrap break-words leading-relaxed">
                       {post.content}
+                    </div>
+                  )}
+
+                  {/* Post interaction buttons */}
+                  {isAuthed && (
+                    <div className="mt-3 flex items-center gap-1 border-t border-white/[0.04] pt-2.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setLikedPosts((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(post.id)) next.delete(post.id);
+                            else next.add(post.id);
+                            return next;
+                          });
+                        }}
+                        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] transition-all ${
+                          likedPosts.has(post.id)
+                            ? "text-pink-400 bg-pink-500/10 border border-pink-500/20"
+                            : "text-white/25 hover:text-pink-400 hover:bg-pink-500/[0.06] border border-transparent"
+                        }`}
+                      >
+                        <Heart className={`h-3 w-3 ${likedPosts.has(post.id) ? "fill-pink-400" : ""}`} />
+                        {likedPosts.has(post.id) ? "1" : ""}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setReplyContent((prev) => `> ${post.author.username}: ${post.content.slice(0, 100)}${post.content.length > 100 ? "..." : ""}\n\n${prev}`);
+                          bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] text-white/25 hover:text-fuchsia-400 hover:bg-fuchsia-500/[0.06] border border-transparent transition-all"
+                      >
+                        <Quote className="h-3 w-3" />
+                        Citar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (navigator.share) {
+                            navigator.share({ url: window.location.href });
+                          } else {
+                            navigator.clipboard.writeText(window.location.href);
+                          }
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] text-white/25 hover:text-violet-400 hover:bg-violet-500/[0.06] border border-transparent transition-all"
+                      >
+                        <Share2 className="h-3 w-3" />
+                      </button>
                     </div>
                   )}
                 </div>
