@@ -1499,7 +1499,7 @@ export default function LiveStreamPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40"
               >
                 <Lock className="h-4 w-4" />
-                {buyingPrivateShow ? "Procesando..." : `Unirse al show privado — ${stream.privateShowPrice || privateShowPrice || "0"} tokens`}
+                {buyingPrivateShow ? "Procesando..." : `Unirse al show privado — ${stream.privateShowPrice || "0"} tokens`}
               </button>
 
               <button
