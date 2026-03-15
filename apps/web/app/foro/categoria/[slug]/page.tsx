@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "../../../../lib/api";
 import useMe from "../../../../hooks/useMe";
+import Avatar from "../../../../components/Avatar";
 import {
   ArrowLeft,
   ChevronRight,
@@ -15,6 +16,7 @@ import {
   Pin,
   Lock,
   Plus,
+  Search,
   X,
 } from "lucide-react";
 
@@ -63,6 +65,7 @@ export default function CategoryPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     if (!slug) return;
@@ -157,6 +160,35 @@ export default function CategoryPage() {
       {/* Gradient divider */}
       <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/20 to-transparent mb-4" />
 
+      {/* Thread count stats */}
+      {!loading && threads.length > 0 && (
+        <div className="mb-3 flex items-center gap-4 text-[11px] text-white/30">
+          <span className="flex items-center gap-1.5">
+            <MessageSquare className="h-3 w-3 text-fuchsia-400/50" />
+            {threads.length} {threads.length === 1 ? "tema" : "temas"}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <MessageCircle className="h-3 w-3 text-violet-400/50" />
+            {threads.reduce((s, t) => s + t.replyCount, 0)} respuestas
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Eye className="h-3 w-3 text-white/20" />
+            {threads.reduce((s, t) => s + t.views, 0)} vistas
+          </span>
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="relative mb-3">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
+        <input
+          className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.03] py-2.5 pl-11 pr-4 text-sm text-white placeholder-white/25 outline-none backdrop-blur-sm transition-all duration-200 focus:border-fuchsia-500/30 focus:bg-white/[0.05] focus:ring-1 focus:ring-fuchsia-500/15"
+          placeholder="Buscar tema..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
       {/* Sort tabs */}
       <div className="mb-4 flex gap-1 p-1 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
         {(["latest", "replies", "newest"] as const).map((s) => (
@@ -178,7 +210,7 @@ export default function CategoryPage() {
             <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/[0.03] border border-white/[0.04]" />
           ))}
         </div>
-      ) : threads.length === 0 ? (
+      ) : (search ? threads.filter((t) => t.title.toLowerCase().includes(search.toLowerCase()) || t.author.username.toLowerCase().includes(search.toLowerCase())) : threads).length === 0 ? (
         <div className="flex flex-col items-center rounded-2xl border border-white/[0.08] bg-white/[0.02] p-10 text-center">
           <div className="relative mb-4">
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/15 to-violet-500/15 blur-2xl scale-[2]" />
@@ -190,7 +222,7 @@ export default function CategoryPage() {
         </div>
       ) : (
         <div className="space-y-1.5">
-          {threads.map((t) => (
+          {(search ? threads.filter((t) => t.title.toLowerCase().includes(search.toLowerCase()) || t.author.username.toLowerCase().includes(search.toLowerCase())) : threads).map((t) => (
             <Link
               key={t.id}
               href={`/foro/thread/${t.id}`}
@@ -198,6 +230,11 @@ export default function CategoryPage() {
             >
               {/* Hover glow */}
               <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-r from-fuchsia-500/[0.02] to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+
+              {/* Author avatar */}
+              <div className="relative shrink-0">
+                <Avatar src={t.author.avatarUrl} alt={t.author.username} size={36} />
+              </div>
 
               <div className="relative min-w-0 flex-1">
                 <div className="flex items-center gap-2">

@@ -1139,6 +1139,9 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* Section gradient divider */}
+        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+
         {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
         <VideollamadasBanner />
 
@@ -1198,6 +1201,9 @@ export default function HomePage() {
               </div>
             )}
           </section>
+
+        {/* Section gradient divider */}
+        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.1] to-transparent" />
 
         {/* ═══ PUBLICIDAD / PROMOCIONADO ═══ */}
         <PromoShowcaseSection promotions={promoShowcase} />
@@ -1575,6 +1581,7 @@ export default function HomePage() {
         )}
 
         {/* ═══ EN VIVO AHORA ═══ */}
+        {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}
         {liveStreams.length > 0 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center gap-2">
@@ -1702,6 +1709,7 @@ export default function HomePage() {
         )}
 
         {/* ═══ CTA — Registration (guests only) ═══ */}
+        {!isAuthed && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent" />}
         {!isAuthed && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-600/[0.08] via-violet-600/[0.05] to-transparent p-8 text-center md:p-10 shadow-[0_0_60px_rgba(168,85,247,0.06)]">
             <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/10 blur-[80px]" />
