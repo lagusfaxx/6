@@ -110,21 +110,37 @@ export default function LivePage() {
         {isProfessional && (
           <div className="mb-6">
             {myStream ? (
-              <Link
-                href={`/live/${myStream.id}`}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-600/20 to-fuchsia-600/20 px-6 py-4 text-sm font-semibold transition hover:opacity-90"
-              >
-                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-400" />
-                Estás en vivo — Volver al stream
-              </Link>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Link
+                  href={`/live/${myStream.id}`}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-600/20 to-fuchsia-600/20 px-6 py-4 text-sm font-semibold transition hover:opacity-90"
+                >
+                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-400" />
+                  Estás en vivo — Volver al stream
+                </Link>
+                <Link
+                  href="/live/studio"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4 text-sm font-semibold transition hover:bg-white/[0.05]"
+                >
+                  Abrir Live Studio
+                </Link>
+              </div>
             ) : (
-              <button
-                onClick={() => setShowStartModal(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-rose-600 px-6 py-4 text-sm font-semibold shadow-lg shadow-fuchsia-500/20 transition hover:opacity-90"
-              >
-                <Plus className="h-4 w-4" />
-                Iniciar Live
-              </button>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={() => setShowStartModal(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-rose-600 px-6 py-4 text-sm font-semibold shadow-lg shadow-fuchsia-500/20 transition hover:opacity-90"
+                >
+                  <Plus className="h-4 w-4" />
+                  Iniciar Live
+                </button>
+                <Link
+                  href="/live/studio"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4 text-sm font-semibold transition hover:bg-white/[0.05]"
+                >
+                  Configurar en Live Studio
+                </Link>
+              </div>
             )}
           </div>
         )}
@@ -231,7 +247,7 @@ export default function LivePage() {
               </div>
 
               <div className="mb-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[11px] text-white/40">
-                <p>Se activarán tu cámara y micrófono. Una vez en vivo podrás configurar tipos de propina personalizados, precio del show privado y más desde tu panel de control.</p>
+                <p>Se activarán tu cámara y micrófono. Te recomendamos configurar primero en Live Studio el precio del show privado y tus propinas para evitar bloqueos al iniciar.</p>
               </div>
 
               {error && (
