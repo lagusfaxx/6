@@ -998,11 +998,16 @@ export default function HomePage() {
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#070816]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[url('/brand/bg.jpg')] bg-cover bg-center opacity-20" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#070816]/50 to-[#0e0e12]" />
+        {/* Ambient orbs */}
         <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.12] blur-[120px] animate-hero-drift" />
+        <div className="pointer-events-none absolute right-[10%] top-[20%] -z-10 h-[400px] w-[400px] rounded-full bg-fuchsia-600/[0.07] blur-[100px] animate-[hero-drift_12s_ease-in-out_infinite_reverse]" />
+        <div className="pointer-events-none absolute left-[15%] bottom-[10%] -z-10 h-[300px] w-[300px] rounded-full bg-indigo-600/[0.06] blur-[80px] animate-[hero-drift_15s_ease-in-out_infinite]" />
+        {/* Noise texture overlay */}
+        <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.015]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
 
         <div className="relative mx-auto max-w-3xl text-center">
-          <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-xs text-white/60 backdrop-blur-xl">
-            <Zap className="h-3.5 w-3.5 text-fuchsia-400" />
+          <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/20 bg-gradient-to-r from-fuchsia-500/[0.08] to-violet-500/[0.06] px-4 py-1.5 text-xs text-white/70 backdrop-blur-xl shadow-[0_0_20px_rgba(168,85,247,0.1)]">
+            <Zap className="h-3.5 w-3.5 text-fuchsia-400 animate-pulse" />
             Plataforma #1 de experiencias en Chile
           </motion.div>
 
@@ -1029,8 +1034,13 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Section divider */}
+      <div className="relative mx-auto max-w-4xl px-4">
+        <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/25 to-transparent" />
+      </div>
+
       {/* Main content */}
-      <div className="relative mx-auto max-w-6xl overflow-visible px-4 pb-16">
+      <div className="relative mx-auto max-w-6xl overflow-visible px-4 pb-16 mt-6">
         {/* Side ad banners (desktop) */}
         {leftSideBanners.length > 0 && (
           <div className="absolute left-0 top-0 hidden w-[160px] space-y-3 2xl:block" style={{ marginLeft: "-180px" }}>
@@ -1159,7 +1169,7 @@ export default function HomePage() {
                     data-available-card="true"
                     type="button"
                     onClick={() => handleAvailableCardClick(p)}
-                    className="group w-[130px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.03] text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/30"
+                    className="group w-[130px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.03] text-left transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/30 hover:shadow-[0_12px_40px_rgba(168,85,247,0.12)]"
                   >
                     <div className="relative aspect-[3/4] overflow-hidden">
                       <img src={resolveProfileImage(p)} alt={p.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
@@ -1577,7 +1587,7 @@ export default function HomePage() {
             <motion.div variants={cardFade} className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
               {liveStreams.map((s: any) => (
                 <Link key={s.id} href={`/live/${s.id}`} className="group relative flex-shrink-0 w-40">
-                  <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-red-500/20 bg-gradient-to-br from-fuchsia-900/40 to-violet-900/40">
+                  <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-red-500/25 bg-gradient-to-br from-fuchsia-900/40 to-violet-900/40 shadow-[0_0_24px_rgba(239,68,68,0.1)] group-hover:shadow-[0_0_32px_rgba(239,68,68,0.2)] transition-shadow duration-300">
                     {s.host?.avatarUrl ? (
                       <img src={resolveMediaUrl(s.host.avatarUrl) ?? undefined} alt="" className="h-full w-full object-cover opacity-80 group-hover:opacity-100 transition" />
                     ) : (
@@ -1693,8 +1703,9 @@ export default function HomePage() {
 
         {/* ═══ CTA — Registration (guests only) ═══ */}
         {!isAuthed && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-fuchsia-600/[0.08] via-violet-600/[0.05] to-transparent p-8 text-center md:p-10">
+          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-600/[0.08] via-violet-600/[0.05] to-transparent p-8 text-center md:p-10 shadow-[0_0_60px_rgba(168,85,247,0.06)]">
             <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/10 blur-[80px]" />
+            <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[200px] w-[200px] rounded-full bg-violet-600/[0.08] blur-[60px]" />
             <h2 className="text-xl font-bold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
             <p className="mx-auto mt-3 max-w-md text-sm text-white/50">Crea tu cuenta gratis y descubre lo mejor cerca de ti.</p>
             <div className="mt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
