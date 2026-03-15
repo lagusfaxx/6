@@ -269,12 +269,12 @@ export default function LiveStudioPage() {
     };
   }, [previewStream]);
 
-  // Attach preview to video element
+  // Attach preview to video element (also re-attach when cam toggles back on)
   useEffect(() => {
     if (videoRef.current && previewStream) {
       videoRef.current.srcObject = previewStream;
     }
-  }, [previewStream]);
+  }, [previewStream, previewCam]);
 
   // Toggle mic/cam on preview
   useEffect(() => {
@@ -513,15 +513,32 @@ export default function LiveStudioPage() {
                           <p className="text-xs text-white/35 mt-1">Vuelve al stream para ver tu cámara</p>
                         </div>
                       </div>
-                    ) : previewStream && previewCam ? (
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="h-full w-full object-cover"
-                        style={{ transform: "scaleX(-1)" }}
-                      />
+                    ) : previewStream ? (
+                      <>
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className={`h-full w-full object-cover ${!previewCam ? "hidden" : ""}`}
+                          style={{ transform: "scaleX(-1)" }}
+                        />
+                        {!previewCam && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-center">
+                              <CameraOff className="mx-auto h-10 w-10 text-white/20 mb-3" />
+                              <p className="text-sm text-white/30">Cámara apagada</p>
+                              <button
+                                type="button"
+                                onClick={() => setPreviewCam(true)}
+                                className="mt-3 rounded-xl bg-fuchsia-600/20 border border-fuchsia-500/20 px-4 py-2 text-xs text-fuchsia-300 hover:bg-fuchsia-600/30 transition-all"
+                              >
+                                Encender cámara
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     ) : permissionState === "checking" ? (
                       <div className="flex h-full items-center justify-center">
                         <div className="text-center">
@@ -651,10 +668,10 @@ export default function LiveStudioPage() {
                     )}
 
                     {/* LIVE indicator overlay */}
-                    {!data.activeStream && previewStream && previewCam && (
-                      <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-black/50 backdrop-blur-lg px-2.5 py-1 border border-white/10">
-                        <span className="h-2 w-2 rounded-full bg-white/40" />
-                        <span className="text-[10px] font-bold text-white/50">PREVIEW</span>
+                    {!data.activeStream && previewStream && (
+                      <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-black/50 backdrop-blur-lg px-2.5 py-1 border border-white/10 z-10">
+                        <span className={`h-2 w-2 rounded-full ${previewCam ? "bg-white/40" : "bg-red-400/60"}`} />
+                        <span className="text-[10px] font-bold text-white/50">{previewCam ? "PREVIEW" : "CAM OFF"}</span>
                       </div>
                     )}
                   </div>
