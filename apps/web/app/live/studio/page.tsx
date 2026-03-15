@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
+import { getLocalMedia } from "../../../lib/webrtc";
 import useMe from "../../../hooks/useMe";
 import {
-  AlertTriangle,
   ArrowLeft,
   Camera,
   CameraOff,
@@ -149,28 +149,118 @@ export default function LiveStudioPage() {
     if (isProfessional) load();
   }, [isProfessional, me, load, router]);
 
-  /* ── Camera preview ── */
+  // Permission state
+  const [permissionState, setPermissionState] = useState<"prompt" | "granted" | "denied" | "checking">("checking");
+  const [needsManualPermission, setNeedsManualPermission] = useState(false);
+
+  /* ── Detect PWA / mobile ── */
+  const isMobilePWA = typeof window !== "undefined" && (
+    (/iPad|iPhone|iPod/.test(navigator.userAgent || "") && ((window.navigator as any).standalone === true || window.matchMedia("(display-mode: standalone)").matches)) ||
+    (/Android/i.test(navigator.userAgent || "") && window.matchMedia("(display-mode: standalone)").matches)
+  );
+  const isIOS = typeof window !== "undefined" && (/iPad|iPhone|iPod/.test(navigator.userAgent || "") || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+  const isMobile = typeof window !== "undefined" && (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || ""));
+
+  /* ── Check permissions ── */
+  const checkPermissions = useCallback(async () => {
+    setPermissionState("checking");
+
+    // On mobile PWA, permissions API often doesn't work - go straight to getUserMedia
+    if (isMobilePWA || isIOS) {
+      setPermissionState("prompt");
+      setNeedsManualPermission(true);
+      return;
+    }
+
+    // Try Permissions API first (works on Chrome desktop, some Android browsers)
+    if (navigator.permissions) {
+      try {
+        const [camPerm, micPerm] = await Promise.all([
+          navigator.permissions.query({ name: "camera" as PermissionName }),
+          navigator.permissions.query({ name: "microphone" as PermissionName }),
+        ]);
+
+        if (camPerm.state === "denied" || micPerm.state === "denied") {
+          setPermissionState("denied");
+          setCameraError("Permisos de cámara o micrófono denegados. Ve a la configuración de tu navegador para activarlos.");
+          return;
+        }
+
+        if (camPerm.state === "granted" && micPerm.state === "granted") {
+          setPermissionState("granted");
+          return;
+        }
+
+        // "prompt" state - need to ask
+        setPermissionState("prompt");
+
+        // Listen for permission changes
+        const onChange = () => {
+          if (camPerm.state === "granted" && micPerm.state === "granted") {
+            setPermissionState("granted");
+          } else if (camPerm.state === "denied" || micPerm.state === "denied") {
+            setPermissionState("denied");
+          }
+        };
+        camPerm.addEventListener("change", onChange);
+        micPerm.addEventListener("change", onChange);
+        return;
+      } catch {
+        // Permissions API not supported for camera/mic on this browser
+      }
+    }
+
+    // Fallback: just set as prompt and let getUserMedia handle it
+    setPermissionState("prompt");
+  }, [isMobilePWA, isIOS]);
+
+  /* ── Camera preview using the robust getLocalMedia ── */
   const startPreview = useCallback(async () => {
     try {
       setCameraError("");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: true,
-      });
-      setPreviewStream(stream);
-    } catch {
-      setCameraError("No se pudo acceder a la cámara. Verifica los permisos.");
-    }
-  }, []);
+      setNeedsManualPermission(false);
 
+      // Use the robust getLocalMedia which handles iOS/Android PWA, fallbacks, etc.
+      const stream = await getLocalMedia({ video: true, audio: true });
+      setPreviewStream(stream);
+      setPermissionState("granted");
+    } catch (err: any) {
+      const msg = err?.message || "";
+
+      if (err?.name === "NotAllowedError" || msg.includes("denegados") || msg.includes("denied")) {
+        setPermissionState("denied");
+        if (isMobilePWA || isIOS) {
+          setCameraError(
+            isIOS
+              ? "Permisos denegados. En iOS ve a Ajustes > Safari > Cámara y Micrófono y permite el acceso."
+              : "Permisos denegados. Ve a Ajustes > Apps > Navegador > Permisos y activa Cámara y Micrófono."
+          );
+        } else {
+          setCameraError("Permisos denegados. Haz clic en el icono del candado en la barra de dirección para activarlos.");
+        }
+      } else if (err?.name === "NotFoundError") {
+        setCameraError("No se encontró cámara o micrófono. Conecta un dispositivo y vuelve a intentar.");
+      } else if (err?.name === "NotReadableError" || err?.name === "AbortError") {
+        setCameraError("La cámara está siendo usada por otra aplicación. Ciérrala y vuelve a intentar.");
+      } else if (err?.name === "NotSupportedError" || msg.includes("HTTPS")) {
+        setCameraError("Tu navegador no soporta acceso a la cámara en este contexto. Asegúrate de usar HTTPS.");
+      } else {
+        setCameraError("No se pudo acceder a la cámara. Verifica que tienes cámara/micrófono y los permisos están activos.");
+      }
+    }
+  }, [isMobilePWA, isIOS]);
+
+  // Check permissions on mount
   useEffect(() => {
-    if (activeTab === "go-live" && !data?.activeStream) {
+    checkPermissions();
+  }, [checkPermissions]);
+
+  // Auto-start preview when permissions are granted and on the go-live tab
+  useEffect(() => {
+    if (activeTab === "go-live" && !data?.activeStream && permissionState === "granted" && !previewStream) {
       startPreview();
     }
-    return () => {
-      // Cleanup when leaving tab
-    };
-  }, [activeTab, data?.activeStream, startPreview]);
+  }, [activeTab, data?.activeStream, permissionState, previewStream, startPreview]);
 
   // Cleanup preview on unmount
   useEffect(() => {
@@ -289,15 +379,16 @@ export default function LiveStudioPage() {
   if (!isProfessional) return null;
 
   /* ── Readiness score ── */
+  const cameraReady = !!previewStream && !cameraError && permissionState === "granted";
   const readinessItems = data
     ? [
         { ok: data.checks.hasPrivateShowPrice, label: "Precio show privado", required: true },
         { ok: data.checks.hasTipOptions, label: "Opciones de propina", required: false },
-        { ok: !!previewStream && !cameraError, label: "Cámara conectada", required: true },
+        { ok: cameraReady, label: "Cámara y micrófono", required: true },
       ]
     : [];
   const readyCount = readinessItems.filter((r) => r.ok).length;
-  const canGoLive = data?.checks.readyToGoLive && !cameraError;
+  const canGoLive = data?.checks.readyToGoLive && cameraReady;
 
   return (
     <div className="min-h-screen bg-[#070816] text-white pb-24">
@@ -431,18 +522,85 @@ export default function LiveStudioPage() {
                         className="h-full w-full object-cover"
                         style={{ transform: "scaleX(-1)" }}
                       />
-                    ) : cameraError ? (
-                      <div className="flex h-full items-center justify-center p-6">
+                    ) : permissionState === "checking" ? (
+                      <div className="flex h-full items-center justify-center">
                         <div className="text-center">
-                          <CameraOff className="mx-auto h-10 w-10 text-red-400/50 mb-3" />
-                          <p className="text-sm text-red-300/70">{cameraError}</p>
+                          <Loader2 className="mx-auto h-8 w-8 animate-spin text-fuchsia-400/50 mb-3" />
+                          <p className="text-sm text-white/40">Verificando permisos...</p>
+                        </div>
+                      </div>
+                    ) : permissionState === "denied" || cameraError ? (
+                      <div className="flex h-full items-center justify-center p-6">
+                        <div className="text-center max-w-sm">
+                          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10">
+                            <CameraOff className="h-6 w-6 text-red-400" />
+                          </div>
+                          <p className="text-sm font-semibold text-red-300 mb-2">
+                            {permissionState === "denied" ? "Permisos denegados" : "Error de cámara"}
+                          </p>
+                          <p className="text-xs text-white/40 leading-relaxed mb-4">
+                            {cameraError || "Necesitas dar permiso a la cámara y micrófono para transmitir."}
+                          </p>
+                          {isMobile && (
+                            <div className="mb-4 rounded-xl border border-amber-500/15 bg-amber-500/[0.06] p-3 text-left">
+                              <p className="text-[11px] font-semibold text-amber-300 mb-1.5">
+                                {isIOS ? "En tu iPhone/iPad:" : "En tu Android:"}
+                              </p>
+                              {isIOS ? (
+                                <ol className="text-[11px] text-white/40 space-y-1 list-decimal pl-3.5">
+                                  <li>Abre <strong className="text-white/60">Ajustes</strong> de tu dispositivo</li>
+                                  <li>Busca <strong className="text-white/60">Safari</strong> (o tu navegador)</li>
+                                  <li>Activa <strong className="text-white/60">Cámara</strong> y <strong className="text-white/60">Micrófono</strong></li>
+                                  <li>Vuelve aquí y toca <strong className="text-white/60">Reintentar</strong></li>
+                                </ol>
+                              ) : (
+                                <ol className="text-[11px] text-white/40 space-y-1 list-decimal pl-3.5">
+                                  <li>Toca el <strong className="text-white/60">candado/icono</strong> en la barra de dirección</li>
+                                  <li>Toca <strong className="text-white/60">Permisos</strong></li>
+                                  <li>Activa <strong className="text-white/60">Cámara</strong> y <strong className="text-white/60">Micrófono</strong></li>
+                                  <li>Toca <strong className="text-white/60">Reintentar</strong> abajo</li>
+                                </ol>
+                              )}
+                            </div>
+                          )}
                           <button
                             type="button"
-                            onClick={startPreview}
-                            className="mt-3 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2 text-xs text-white/60 hover:bg-white/10 transition-all"
+                            onClick={() => {
+                              setCameraError("");
+                              setPermissionState("prompt");
+                              startPreview();
+                            }}
+                            className="rounded-xl border border-white/10 bg-white/[0.05] px-5 py-2.5 text-xs font-medium text-white/60 hover:bg-white/10 transition-all"
                           >
                             Reintentar
                           </button>
+                        </div>
+                      </div>
+                    ) : (permissionState === "prompt" || needsManualPermission) && !previewStream ? (
+                      <div className="flex h-full items-center justify-center p-6">
+                        <div className="text-center max-w-xs">
+                          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-500/15 to-violet-500/10">
+                            <Camera className="h-6 w-6 text-fuchsia-400" />
+                          </div>
+                          <p className="text-sm font-semibold text-white/80 mb-1">Activa tu cámara</p>
+                          <p className="text-xs text-white/35 leading-relaxed mb-4">
+                            {isMobilePWA
+                              ? "Toca el botón y acepta los permisos cuando tu teléfono te pregunte."
+                              : "Necesitamos acceso a tu cámara y micrófono para la transmisión en vivo."}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={startPreview}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-3 text-sm font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(168,85,247,0.3)]"
+                          >
+                            <Camera className="h-4 w-4" />
+                            {isMobilePWA ? "Permitir cámara y micrófono" : "Activar cámara"}
+                          </button>
+                          {isMobilePWA && (
+                            <p className="mt-3 text-[10px] text-white/25">
+                              Si no aparece el cuadro de permisos, revisa la configuración de tu navegador.
+                            </p>
+                          )}
                         </div>
                       </div>
                     ) : (
