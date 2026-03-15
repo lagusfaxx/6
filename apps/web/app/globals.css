@@ -776,3 +776,24 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   from { width: 0%; }
   to { width: 100%; }
 }
+
+/* ── Nav & sidebar polish ── */
+@keyframes nav-glow-pulse {
+  0%, 100% { opacity: 0.04; }
+  50% { opacity: 0.08; }
+}
+
+.nav-sidebar-glow {
+  animation: nav-glow-pulse 4s ease-in-out infinite;
+}
+
+/* Smooth active indicator for mobile bottom bar */
+@keyframes nav-active-pop {
+  0% { transform: scale(0.92); opacity: 0.7; }
+  60% { transform: scale(1.04); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.nav-active-pop {
+  animation: nav-active-pop 0.25s ease-out;
+}
