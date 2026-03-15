@@ -1108,7 +1108,7 @@ export default function LiveStreamPage() {
       <div className={`relative flex min-h-0 flex-1 ${isExpanded ? "flex-col" : "flex-col lg:flex-row"}`}>
         {/* ── Video Area ── */}
         <div className={`relative flex items-center justify-center overflow-hidden ${
-          isExpanded ? "fixed inset-0 z-[90] h-[100dvh] w-screen bg-black" : "h-[42vh] flex-shrink-0 bg-black lg:h-auto lg:flex-1 lg:flex-shrink"
+          isExpanded ? "fixed inset-0 z-[90] h-[100dvh] w-full bg-black" : "h-[60vh] flex-shrink-0 bg-black lg:h-auto lg:flex-1 lg:flex-shrink"
         }`}>
           {/* Ambient gradient behind video */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-fuchsia-950/30 via-transparent to-violet-950/30" />
@@ -1272,6 +1272,7 @@ export default function LiveStreamPage() {
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="absolute right-3 top-3 z-30 flex h-8 w-8 items-center justify-center rounded-xl bg-black/50 text-white/50 backdrop-blur-xl transition-all hover:bg-black/70 hover:text-white border border-white/10 sm:right-4 sm:top-4"
+                style={isExpanded ? { right: "max(0.75rem, env(safe-area-inset-right))", top: "max(0.75rem, env(safe-area-inset-top))" } : undefined}
               >
                 {isExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
               </button>
@@ -1280,9 +1281,9 @@ export default function LiveStreamPage() {
 
           {/* ── Expanded mode: floating transparent overlay ── */}
           {isExpanded && joined && (
-            <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col" style={{ maxHeight: "55%" }}>
-              <div className="h-12 bg-gradient-to-b from-transparent to-black/50" />
-              <div className="flex flex-col bg-black/50 backdrop-blur-lg">
+            <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden" style={{ maxHeight: "45%" }}>
+              <div className="h-12 shrink-0 bg-gradient-to-b from-transparent to-black/50" />
+              <div className="flex min-h-0 flex-col bg-black/50 backdrop-blur-lg">
                 {/* Controls bar */}
                 <div className="flex items-center justify-between px-4 py-2">
                   <div className="flex items-center gap-2">
@@ -1347,7 +1348,7 @@ export default function LiveStreamPage() {
                 </AnimatePresence>
 
                 {/* Chat messages */}
-                <div className="max-h-[22vh] overflow-y-auto px-4 py-1 scrollbar-thin">
+                <div className="min-h-0 max-h-[22vh] overflow-y-auto px-4 py-1 scrollbar-thin">
                   {messages.slice(-25).map((msg) => (
                     <div key={msg.id} className={`mb-1 ${msg.isTip ? "rounded-lg bg-amber-500/[0.06] px-2 py-0.5" : ""}`}>
                       <span className={`text-[11px] font-semibold ${msg.isTip ? "text-amber-300" : msg.userId === myId ? "text-fuchsia-300" : "text-violet-300/80"}`}>
@@ -1361,7 +1362,7 @@ export default function LiveStreamPage() {
                 </div>
 
                 {/* Chat input */}
-                <div className="flex gap-2 px-4 pb-4 pt-1">
+                <div className="flex gap-2 px-4 pt-1" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
                   <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendChat()} placeholder="Escribe..." maxLength={300} className="flex-1 rounded-xl border border-white/10 bg-black/40 px-3.5 py-2 text-xs text-white outline-none placeholder:text-white/20 focus:border-fuchsia-500/25 backdrop-blur" />
                   <button onClick={sendChat} disabled={!chatInput.trim()} className="rounded-xl bg-fuchsia-600/70 px-3 py-2 backdrop-blur transition hover:bg-fuchsia-500 disabled:opacity-30">
                     <Send className="h-3.5 w-3.5" />
