@@ -1080,31 +1080,26 @@ export default function LiveStreamPage() {
                 <p className="mt-2 text-sm text-white/50">
                   Este contenido es exclusivo. Únete al show privado para desbloquearlo en HD.
                 </p>
-                <div className="mt-4">
-                  {stream.privateShowPrice ? (
-                    <>
-                      <p className="text-sm text-amber-300 font-semibold">{stream.privateShowPrice} tokens</p>
-                      <button
-                        onClick={() => setShowPrivateModal(true)}
-                        className="mt-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
-                      >
-                        <Lock className="mr-1.5 inline h-4 w-4" />
-                        Unirse al show privado
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xs text-red-200/90">La profesional aún no configuró el precio del show privado.</p>
-                      <button
-                        disabled
-                        className="mt-2 rounded-xl bg-white/10 px-6 py-3 text-sm font-semibold text-white/40"
-                      >
-                        <Lock className="mr-1.5 inline h-4 w-4" />
-                        Unirse al show privado
-                      </button>
-                    </>
-                  )}
-                </div>
+                {stream.privateShowPrice ? (
+                  <div className="mt-4">
+                    <p className="text-sm text-amber-300 font-semibold">{stream.privateShowPrice} tokens</p>
+                    <button
+                      onClick={() => setShowPrivateModal(true)}
+                      className="mt-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
+                    >
+                      <Lock className="mr-1.5 inline h-4 w-4" />
+                      Unirse al show privado
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowPrivateModal(true)}
+                    className="mt-4 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
+                  >
+                    <Lock className="mr-1.5 inline h-4 w-4" />
+                    Unirse al show privado
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1504,7 +1499,7 @@ export default function LiveStreamPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40"
               >
                 <Lock className="h-4 w-4" />
-                {buyingPrivateShow ? "Procesando..." : `Unirse al show privado — ${stream.privateShowPrice || "0"} tokens`}
+                {buyingPrivateShow ? "Procesando..." : `Unirse al show privado — ${stream.privateShowPrice || privateShowPrice || "0"} tokens`}
               </button>
 
               <button

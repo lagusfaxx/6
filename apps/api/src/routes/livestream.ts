@@ -626,6 +626,16 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) =>
     }
   }
 
+  // If there is an active show, allow this user to join it (single payment per active show per user)
+  if (activeShow) {
+    const alreadyJoined = await prisma.privateShow.findFirst({
+      where: { streamId: stream.id, isActive: true, buyerId: userId },
+    });
+    if (alreadyJoined) {
+      return res.status(400).json({ error: "Ya te uniste al show privado activo" });
+    }
+  }
+
   const price = stream.privateShowPrice;
   if (!price || price < 1) {
     return res.status(400).json({ error: "El show privado no está disponible: la profesional no configuró el precio" });
