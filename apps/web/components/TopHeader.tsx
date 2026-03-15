@@ -20,12 +20,14 @@ import {
   ShoppingBag,
   PartyPopper,
   Video,
+  Radio,
   LayoutDashboard,
   Camera,
   Settings,
   LogIn,
   Search,
   Crown,
+  Wallet,
 } from "lucide-react";
 import Avatar from "./Avatar";
 import useMe from "../hooks/useMe";
@@ -184,7 +186,7 @@ export default function TopHeader() {
   return (
     <>
       <header className="fixed left-0 right-0 top-0 z-50 md:left-[240px]">
-        <div className="w-full bg-gradient-to-b from-[#0d0e1a] to-[#0d0e1a]/95 backdrop-blur-xl">
+        <div className="w-full bg-gradient-to-b from-[#0d0e1a] to-[#0d0e1a]/90 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
 
           {/* ── Main row ── */}
           <div className="px-3 py-2.5 md:px-5 md:py-3">
@@ -372,7 +374,8 @@ export default function TopHeader() {
           </div>
 
           {/* Gradient bottom line */}
-          <div className="h-[1px] bg-gradient-to-r from-transparent via-fuchsia-500/30 to-transparent" />
+          <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/40 to-transparent" />
+          <div className="h-px bg-gradient-to-r from-transparent via-violet-500/15 to-transparent" />
         </div>
       </header>
 
@@ -383,11 +386,14 @@ export default function TopHeader() {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setHamburgerOpen(false)}
           />
-          <div className="absolute left-0 top-0 bottom-0 w-[300px] bg-[#0a0b1d] border-r border-white/10 overflow-y-auto animate-[slideInLeft_0.2s_ease-out]">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
+          <div className="absolute left-0 top-0 bottom-0 w-[300px] bg-[#0a0b1d]/95 backdrop-blur-2xl border-r border-white/[0.08] overflow-y-auto animate-[slideInLeft_0.2s_ease-out]">
+            {/* Decorative gradient */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-fuchsia-500/[0.06] to-transparent" />
+
+            <div className="relative flex items-center justify-between border-b border-white/[0.08] px-4 py-4">
               <div className="flex items-center gap-2">
-                <img src="/brand/isotipo-new.png" alt="UZEED" className="h-10 w-10 object-contain" />
-                <span className="text-xl font-bold text-white">Uzeed</span>
+                <img src="/brand/isotipo-new.png" alt="UZEED" className="h-10 w-10 object-contain drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)]" />
+                <span className="text-xl font-bold text-white tracking-tight">Uzeed</span>
               </div>
               <button
                 type="button"
@@ -419,6 +425,17 @@ export default function TopHeader() {
                 </button>
                 <button onClick={() => handleNavLink("/servicios")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
                   <Search className="h-4 w-4 text-white/50" /> Cerca tuyo
+                </button>
+                <button onClick={() => handleNavLink("/videocall")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
+                  <Video className="h-4 w-4 text-white/50" /> Videollamadas
+                </button>
+                <button onClick={() => handleNavLink("/live")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
+                  <Radio className="h-4 w-4 text-red-400/80" />
+                  <span>En Vivo</span>
+                  <span className="relative ml-0.5 flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                  </span>
                 </button>
                 <button onClick={() => handleNavLink("/foro")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
                   <MessageSquare className="h-4 w-4 text-white/50" /> Foro
@@ -478,9 +495,17 @@ export default function TopHeader() {
               <div className="px-3 py-2">
                 <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-white/30">Cuenta</p>
                 {isAuthed ? (
-                  <button onClick={() => handleNavLink("/cuenta")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
-                    <User className="h-4 w-4 text-white/50" /> Mi cuenta
-                  </button>
+                  <>
+                    <button onClick={() => handleNavLink("/cuenta")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
+                      <User className="h-4 w-4 text-white/50" /> Mi cuenta
+                    </button>
+                    <button onClick={() => handleNavLink("/favoritos")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
+                      <Heart className="h-4 w-4 text-white/50" /> Favoritos
+                    </button>
+                    <button onClick={() => handleNavLink("/wallet")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
+                      <Wallet className="h-4 w-4 text-white/50" /> Billetera
+                    </button>
+                  </>
                 ) : (
                   <>
                     <button onClick={() => handleNavLink("/login")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 transition">
@@ -491,6 +516,14 @@ export default function TopHeader() {
                     </button>
                   </>
                 )}
+              </div>
+              {/* Hamburger footer */}
+              <div className="relative mt-4 border-t border-white/[0.05] px-5 py-4">
+                <div className="flex items-center gap-2 text-[11px] text-white/20">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent" />
+                  <span className="font-medium tracking-widest">UZEED</span>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent" />
+                </div>
               </div>
             </div>
           </div>
