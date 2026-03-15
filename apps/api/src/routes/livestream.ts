@@ -23,10 +23,24 @@ livestreamRouter.post("/live/start", requireAuth, async (req, res) => {
     // Column may not exist yet if migration pending — continue
   }
 
+  const submittedPrivatePrice = parseInt(String(req.body.privateShowPrice || "0"), 10);
+  const savedPrivatePrice = await prisma.platformConfig.findUnique({
+    where: { key: `live:host:${userId}:privateShowPrice` },
+    select: { value: true },
+  });
+  const configuredPrivatePrice = submittedPrivatePrice > 0
+    ? submittedPrivatePrice
+    : parseInt(savedPrivatePrice?.value || "0", 10);
+
+  if (!Number.isFinite(configuredPrivatePrice) || configuredPrivatePrice < 1) {
+    return res.status(400).json({ error: "Configura el precio del show privado antes de iniciar el live" });
+  }
+
   const stream = await prisma.liveStream.create({
     data: {
       hostId: userId,
       title: req.body.title || null,
+      privateShowPrice: configuredPrivatePrice,
     },
     select: {
       id: true,
@@ -38,29 +52,6 @@ livestreamRouter.post("/live/start", requireAuth, async (req, res) => {
       startedAt: true,
     },
   });
-
-  // Auto-copy global tip options to this stream
-  try {
-    const globals = await prisma.liveTipOption.findMany({
-      where: { hostId: userId, streamId: null, isActive: true },
-      orderBy: { sortOrder: "asc" },
-    });
-    for (const g of globals) {
-      await prisma.liveTipOption.create({
-        data: {
-          hostId: userId,
-          streamId: stream.id,
-          label: g.label,
-          price: g.price,
-          emoji: g.emoji,
-          sortOrder: g.sortOrder,
-          isActive: true,
-        },
-      });
-    }
-  } catch {
-    // Tip options copy may fail if tables not yet migrated
-  }
 
   broadcast("live:started", {
     streamId: stream.id,
@@ -127,7 +118,7 @@ livestreamRouter.get("/live/:id", async (req, res) => {
           take: 50,
         },
         tipOptions: {
-          where: { isActive: true },
+          where: { isActive: true, streamId: null },
           orderBy: { sortOrder: "asc" },
         },
         privateShows: {
@@ -178,7 +169,7 @@ livestreamRouter.put("/live/:id/config", requireAuth, async (req, res) => {
   res.json({ stream: updated });
 });
 
-// ── POST /live/:id/tip-options/add — add a tip option to a live stream on-the-fly ──
+// ── POST /live/:id/tip-options/add — add a global tip option for the host (available in all streams) ──
 livestreamRouter.post("/live/:id/tip-options/add", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
@@ -191,13 +182,13 @@ livestreamRouter.post("/live/:id/tip-options/add", requireAuth, async (req, res)
 
   if (!label || price < 1) return res.status(400).json({ error: "Label and price required" });
 
-  const count = await prisma.liveTipOption.count({ where: { streamId: stream.id, isActive: true } });
+  const count = await prisma.liveTipOption.count({ where: { hostId: userId, streamId: null, isActive: true } });
   if (count >= 20) return res.status(400).json({ error: "Max 20 tip options" });
 
   const option = await prisma.liveTipOption.create({
     data: {
       hostId: userId,
-      streamId: stream.id,
+      streamId: null,
       label,
       price,
       emoji,
@@ -211,7 +202,7 @@ livestreamRouter.post("/live/:id/tip-options/add", requireAuth, async (req, res)
   res.json({ option });
 });
 
-// ── DELETE /live/:id/tip-options/:optionId — remove a tip option from a stream ──
+// ── DELETE /live/:id/tip-options/:optionId — deactivate a global tip option ──
 livestreamRouter.delete("/live/:id/tip-options/:optionId", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
@@ -219,7 +210,7 @@ livestreamRouter.delete("/live/:id/tip-options/:optionId", requireAuth, async (r
   if (stream.hostId !== userId) return res.status(403).json({ error: "Not your stream" });
 
   await prisma.liveTipOption.updateMany({
-    where: { id: req.params.optionId, streamId: stream.id, hostId: userId },
+    where: { id: req.params.optionId, hostId: userId, streamId: null },
     data: { isActive: false },
   });
 
@@ -328,8 +319,15 @@ livestreamRouter.post("/live/:id/tip", requireAuth, async (req, res) => {
 
   // If tipping a specific option, verify it exists and price matches
   if (optionId) {
-    const option = await prisma.liveTipOption.findUnique({ where: { id: optionId } });
-    if (!option || !option.isActive) return res.status(400).json({ error: "Option not available" });
+    const option = await prisma.liveTipOption.findFirst({
+      where: {
+        id: optionId,
+        hostId: stream.hostId,
+        isActive: true,
+        OR: [{ streamId: null }, { streamId: stream.id }],
+      },
+    });
+    if (!option) return res.status(400).json({ error: "Option not available" });
     if (option.price !== amount) return res.status(400).json({ error: "Amount must match option price" });
   }
 
@@ -488,6 +486,38 @@ livestreamRouter.put("/live/tip-options", requireAuth, async (req, res) => {
   res.json({ options: created });
 });
 
+
+// ── POST /live/tip-options/add — add a global tip option for the host ──
+livestreamRouter.post("/live/tip-options/add", requireAuth, async (req, res) => {
+  const userId = req.session.userId!;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { profileType: true } });
+  if (user?.profileType !== "PROFESSIONAL") return res.status(403).json({ error: "Only professionals" });
+
+  const label = String(req.body.label || "").trim().slice(0, 50);
+  const price = parseInt(String(req.body.price || "0"), 10);
+  const emoji = String(req.body.emoji || "").trim().slice(0, 4) || null;
+  if (!label || price < 1) return res.status(400).json({ error: "Label and price required" });
+
+  const count = await prisma.liveTipOption.count({ where: { hostId: userId, streamId: null, isActive: true } });
+  if (count >= 20) return res.status(400).json({ error: "Max 20 tip options" });
+
+  const option = await prisma.liveTipOption.create({
+    data: { hostId: userId, streamId: null, label, price, emoji, sortOrder: count, isActive: true },
+  });
+
+  res.json({ option });
+});
+
+// ── DELETE /live/tip-options/:optionId — deactivate a global tip option ──
+livestreamRouter.delete("/live/tip-options/:optionId", requireAuth, async (req, res) => {
+  const userId = req.session.userId!;
+  await prisma.liveTipOption.updateMany({
+    where: { id: req.params.optionId, hostId: userId, streamId: null },
+    data: { isActive: false },
+  });
+  res.json({ ok: true });
+});
+
 // ── GET /live/tip-options/:hostId — get a host's global tip options ──
 livestreamRouter.get("/live/tip-options/:hostId", async (req, res) => {
   const options = await prisma.liveTipOption.findMany({
@@ -497,64 +527,109 @@ livestreamRouter.get("/live/tip-options/:hostId", async (req, res) => {
   res.json({ options });
 });
 
-// ── POST /live/:id/tip-options — professional adds tip options to a specific stream ──
+// ── POST /live/:id/tip-options — returns host global tip options (legacy compatibility) ──
 livestreamRouter.post("/live/:id/tip-options", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
   if (!stream) return res.status(404).json({ error: "Not found" });
   if (stream.hostId !== userId) return res.status(403).json({ error: "Not your stream" });
 
-  // Copy global options to this stream if none exist yet
-  const existing = await prisma.liveTipOption.count({ where: { streamId: stream.id, isActive: true } });
-  if (existing === 0) {
-    const globals = await prisma.liveTipOption.findMany({
-      where: { hostId: userId, streamId: null, isActive: true },
-      orderBy: { sortOrder: "asc" },
-    });
-    for (const g of globals) {
-      await prisma.liveTipOption.create({
-        data: {
-          hostId: userId,
-          streamId: stream.id,
-          label: g.label,
-          price: g.price,
-          emoji: g.emoji,
-          sortOrder: g.sortOrder,
-          isActive: true,
-        },
-      });
-    }
-  }
-
   const options = await prisma.liveTipOption.findMany({
-    where: { streamId: stream.id, isActive: true },
+    where: { hostId: userId, streamId: null, isActive: true },
     orderBy: { sortOrder: "asc" },
   });
 
   res.json({ options });
 });
 
+
+// ── GET /live/studio/settings — get host live studio config ──
+livestreamRouter.get("/live/studio/settings", requireAuth, async (req, res) => {
+  const userId = req.session.userId!;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { profileType: true } });
+  if (user?.profileType !== "PROFESSIONAL") return res.status(403).json({ error: "Only professionals" });
+
+  const [config, tipOptions, activeStream] = await Promise.all([
+    prisma.platformConfig.findUnique({ where: { key: `live:host:${userId}:privateShowPrice` }, select: { value: true } }),
+    prisma.liveTipOption.findMany({ where: { hostId: userId, streamId: null }, orderBy: { sortOrder: "asc" } }),
+    prisma.liveStream.findFirst({ where: { hostId: userId, isActive: true }, select: { id: true, title: true, viewerCount: true, startedAt: true, privateShowPrice: true } }),
+  ]);
+
+  const privateShowPrice = parseInt(config?.value || "0", 10) || null;
+  const activeTipOptions = tipOptions.filter((o) => o.isActive);
+
+  res.json({
+    privateShowPrice,
+    tipOptions,
+    activeTipOptionsCount: activeTipOptions.length,
+    checks: {
+      hasPrivateShowPrice: Boolean(privateShowPrice && privateShowPrice > 0),
+      hasTipOptions: activeTipOptions.length > 0,
+      readyToGoLive: Boolean(privateShowPrice && privateShowPrice > 0),
+    },
+    activeStream,
+  });
+});
+
+// ── PUT /live/studio/settings — update host live studio config ──
+livestreamRouter.put("/live/studio/settings", requireAuth, async (req, res) => {
+  const userId = req.session.userId!;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { profileType: true } });
+  if (user?.profileType !== "PROFESSIONAL") return res.status(403).json({ error: "Only professionals" });
+
+  const privateShowPrice = parseInt(String(req.body.privateShowPrice || "0"), 10);
+  if (privateShowPrice < 1) return res.status(400).json({ error: "Private show price must be at least 1 token" });
+
+  await prisma.platformConfig.upsert({
+    where: { key: `live:host:${userId}:privateShowPrice` },
+    update: { value: String(privateShowPrice) },
+    create: { key: `live:host:${userId}:privateShowPrice`, value: String(privateShowPrice) },
+  });
+
+  // If host is live, sync current stream config to keep runtime behavior consistent
+  const activeStream = await prisma.liveStream.findFirst({ where: { hostId: userId, isActive: true } });
+  if (activeStream) {
+    await prisma.liveStream.update({ where: { id: activeStream.id }, data: { privateShowPrice } });
+    broadcast("live:config_updated", {
+      streamId: activeStream.id,
+      title: activeStream.title,
+      privateShowPrice,
+      maxViewers: activeStream.maxViewers,
+    });
+  }
+
+  res.json({ privateShowPrice });
+});
+
 // ══════════════════════════════════════════════════════════
 //  PRIVATE SHOWS
 // ══════════════════════════════════════════════════════════
 
-// ── POST /live/:id/private-show — start a private show (buyer pays tokens) ──
+// ── POST /live/:id/private-show — pay to start/join active private show ──
 livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
   if (!stream || !stream.isActive) return res.status(400).json({ error: "Stream not active" });
   if (stream.hostId === userId) return res.status(400).json({ error: "Host cannot buy private show" });
 
-  // Check no active private show already
   const activeShow = await prisma.privateShow.findFirst({
     where: { streamId: stream.id, isActive: true },
   });
-  if (activeShow) return res.status(400).json({ error: "A private show is already active" });
 
-  // Use host-configured price if set, otherwise use the buyer-submitted price
-  const submittedPrice = parseInt(String(req.body.price || "0"), 10);
-  const price = stream.privateShowPrice || submittedPrice;
-  if (price < 1) return res.status(400).json({ error: "Price required" });
+  // If there is an active show, allow this user to join it (single payment per active show per user)
+  if (activeShow) {
+    const alreadyJoined = await prisma.privateShow.findFirst({
+      where: { streamId: stream.id, isActive: true, buyerId: userId },
+    });
+    if (alreadyJoined) {
+      return res.status(400).json({ error: "Ya te uniste al show privado activo" });
+    }
+  }
+
+  const price = stream.privateShowPrice;
+  if (!price || price < 1) {
+    return res.status(400).json({ error: "El show privado no está disponible: la profesional no configuró el precio" });
+  }
 
   const buyerWallet = await getOrCreateWallet(userId);
   if (buyerWallet.balance < price) {
@@ -612,7 +687,7 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) =>
     });
   });
 
-  // Broadcast private show started to ALL viewers (so non-buyers get blur)
+  // Broadcast private show purchase to ALL viewers (non-buyers keep blur)
   broadcast("live:private_show_started", {
     streamId: stream.id,
     showId: show.id,
@@ -633,7 +708,7 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) =>
   res.json({ show, newBalance: buyerWallet.balance - price });
 });
 
-// ── POST /live/:id/private-show/end — end the private show (host only) ──
+// ── POST /live/:id/private-show/end — end the active private show (host only) ──
 livestreamRouter.post("/live/:id/private-show/end", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
   const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
@@ -645,8 +720,8 @@ livestreamRouter.post("/live/:id/private-show/end", requireAuth, async (req, res
   });
   if (!activeShow) return res.status(400).json({ error: "No active private show" });
 
-  await prisma.privateShow.update({
-    where: { id: activeShow.id },
+  await prisma.privateShow.updateMany({
+    where: { streamId: stream.id, isActive: true },
     data: { isActive: false, endedAt: new Date() },
   });
 
@@ -660,8 +735,19 @@ livestreamRouter.post("/live/:id/private-show/end", requireAuth, async (req, res
 
 // ── GET /live/:id/private-show — get current private show status ──
 livestreamRouter.get("/live/:id/private-show", async (req, res) => {
+  const userId = req.session?.userId;
   const show = await prisma.privateShow.findFirst({
     where: { streamId: req.params.id, isActive: true },
   });
-  res.json({ show: show || null });
+
+  let joined = false;
+  if (userId) {
+    const participation = await prisma.privateShow.findFirst({
+      where: { streamId: req.params.id, isActive: true, buyerId: userId },
+      select: { id: true },
+    });
+    joined = Boolean(participation);
+  }
+
+  res.json({ show: show || null, joined });
 });

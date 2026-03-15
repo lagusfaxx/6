@@ -135,8 +135,8 @@ export default function LiveStreamPage() {
 
   // Private Show
   const [privateShow, setPrivateShow] = useState<PrivateShowInfo | null>(null);
+  const [hasJoinedPrivateShow, setHasJoinedPrivateShow] = useState(false);
   const [showPrivateModal, setShowPrivateModal] = useState(false);
-  const [privateShowPrice, setPrivateShowPrice] = useState("");
   const [buyingPrivateShow, setBuyingPrivateShow] = useState(false);
 
   // Host panel
@@ -169,11 +169,12 @@ export default function LiveStreamPage() {
         if (r.stream.tipOptions) setTipOptions(r.stream.tipOptions);
         const activeShow = r.stream.privateShows?.find((s) => s.isActive);
         if (activeShow) setPrivateShow(activeShow);
+        if (myId) setHasJoinedPrivateShow(Boolean(r.stream.privateShows?.some((s) => s.isActive && s.buyerId === myId)));
         if (r.stream.privateShowPrice) setEditPrivatePrice(String(r.stream.privateShowPrice));
       })
       .catch(() => router.push("/"))
       .finally(() => setLoading(false));
-  }, [id, router]);
+  }, [id, router, myId]);
 
   // ── Load wallet balance ──
   useEffect(() => {
@@ -185,8 +186,7 @@ export default function LiveStreamPage() {
 
   // ── Private show blur logic ──
   const isPrivateActive = Boolean(privateShow?.isActive);
-  const amIBuyer = privateShow?.buyerId === myId;
-  const shouldBlur = isPrivateActive && !isHost && !amIBuyer;
+  const shouldBlur = isPrivateActive && !isHost && !hasJoinedPrivateShow;
 
   // ── Host media init ──
   const initHostMedia = useCallback(async () => {
@@ -404,6 +404,7 @@ export default function LiveStreamPage() {
 
       if (event.type === "live:private_show_started") {
         setPrivateShow({ id: data.showId, buyerId: data.buyerId, price: data.price, isActive: true });
+        if (data.buyerId === myId) setHasJoinedPrivateShow(true);
         setMessages((prev) => [...prev, {
           id: `private-${data.showId}`,
           userId: "system",
@@ -418,6 +419,7 @@ export default function LiveStreamPage() {
 
       if (event.type === "live:private_show_ended") {
         setPrivateShow(null);
+        setHasJoinedPrivateShow(false);
         setMessages((prev) => [...prev, {
           id: `private-end-${data.showId}`,
           userId: "system",
@@ -505,8 +507,11 @@ export default function LiveStreamPage() {
 
   // ── Private Show ──
   const buyPrivateShow = async () => {
-    const price = stream?.privateShowPrice || parseInt(privateShowPrice, 10);
-    if (!price || price < 1 || buyingPrivateShow) return;
+    const price = stream?.privateShowPrice;
+    if (!price || price < 1 || buyingPrivateShow) {
+      alert("La profesional todavía no configuró el precio del show privado.");
+      return;
+    }
     setBuyingPrivateShow(true);
     try {
       const res = await apiFetch<{ show: any; newBalance: number }>(`/live/${id}/private-show`, {
@@ -514,10 +519,10 @@ export default function LiveStreamPage() {
         body: JSON.stringify({ price }),
       });
       setMyBalance(res.newBalance);
+      setHasJoinedPrivateShow(true);
       setShowPrivateModal(false);
-      setPrivateShowPrice("");
     } catch (e: any) {
-      alert(e?.body?.error || "Error al comprar show privado");
+      alert(e?.body?.error || "Error al unirse al show privado");
     } finally {
       setBuyingPrivateShow(false);
     }
@@ -1007,7 +1012,7 @@ export default function LiveStreamPage() {
      VIEWER VIEW — with expandable video + transparent overlay
      ═══════════════════════════════════════════════ */
   return (
-    <div className="flex h-dvh max-h-screen flex-col overflow-hidden bg-black text-white">
+    <div className="flex h-[100dvh] min-h-[100dvh] w-full flex-col overflow-hidden bg-black text-white">
       {/* ── Viewer Header (hides in expanded mode) ── */}
       {!isExpanded && (
         <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#0a0b14] px-4 py-3">
@@ -1053,14 +1058,14 @@ export default function LiveStreamPage() {
       <div className={`relative flex min-h-0 flex-1 ${isExpanded ? "flex-col" : "flex-col lg:flex-row"}`}>
         {/* ── Video Area ── */}
         <div className={`relative flex items-center justify-center ${
-          isExpanded ? "fixed inset-0 z-40 bg-black" : "h-[40vh] flex-shrink-0 bg-gradient-to-br from-fuchsia-950/30 to-violet-950/30 lg:h-auto lg:flex-1 lg:flex-shrink"
+          isExpanded ? "fixed inset-0 z-[90] h-[100dvh] w-screen bg-black" : "h-[40vh] flex-shrink-0 bg-gradient-to-br from-fuchsia-950/30 to-violet-950/30 lg:h-auto lg:flex-1 lg:flex-shrink"
         }`}>
           {/* Remote video */}
           {joined && (
             <video
               ref={remoteVideoRef}
               autoPlay playsInline
-              className={`h-full w-full transition-all duration-500 ${isExpanded ? "object-cover" : "object-contain"} ${!videoReady ? "hidden" : ""} ${shouldBlur ? "blur-xl scale-105" : ""}`}
+              className={`h-full w-full transition-all duration-500 ${isExpanded ? "object-cover h-[100dvh] w-screen" : "object-contain"} ${!videoReady ? "hidden" : ""} ${shouldBlur ? "blur-xl scale-105" : ""}`}
             />
           )}
 
@@ -1073,28 +1078,33 @@ export default function LiveStreamPage() {
                 </div>
                 <p className="text-lg font-bold text-white">Show Privado en curso</p>
                 <p className="mt-2 text-sm text-white/50">
-                  Este contenido es exclusivo. Compra tu propio show privado para ver en HD.
+                  Este contenido es exclusivo. Únete al show privado para desbloquearlo en HD.
                 </p>
-                {stream.privateShowPrice ? (
-                  <div className="mt-4">
-                    <p className="text-sm text-amber-300 font-semibold">{stream.privateShowPrice} tokens</p>
-                    <button
-                      onClick={() => setShowPrivateModal(true)}
-                      className="mt-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
-                    >
-                      <Lock className="mr-1.5 inline h-4 w-4" />
-                      Comprar Show Privado
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowPrivateModal(true)}
-                    className="mt-4 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
-                  >
-                    <Lock className="mr-1.5 inline h-4 w-4" />
-                    Comprar Show Privado
-                  </button>
-                )}
+                <div className="mt-4">
+                  {stream.privateShowPrice ? (
+                    <>
+                      <p className="text-sm text-amber-300 font-semibold">{stream.privateShowPrice} tokens</p>
+                      <button
+                        onClick={() => setShowPrivateModal(true)}
+                        className="mt-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:scale-95"
+                      >
+                        <Lock className="mr-1.5 inline h-4 w-4" />
+                        Unirse al show privado
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-red-200/90">La profesional aún no configuró el precio del show privado.</p>
+                      <button
+                        disabled
+                        className="mt-2 rounded-xl bg-white/10 px-6 py-3 text-sm font-semibold text-white/40"
+                      >
+                        <Lock className="mr-1.5 inline h-4 w-4" />
+                        Unirse al show privado
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1474,7 +1484,6 @@ export default function LiveStreamPage() {
               </p>
 
               {stream.privateShowPrice ? (
-                /* Host has a fixed price */
                 <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-center">
                   <p className="text-sm text-white/60">Precio del show privado</p>
                   <p className="mt-1 text-2xl font-bold text-amber-300">{stream.privateShowPrice} tokens</p>
@@ -1483,30 +1492,19 @@ export default function LiveStreamPage() {
                   )}
                 </div>
               ) : (
-                /* No fixed price, buyer chooses */
-                <div className="mb-4">
-                  <label className="mb-1.5 block text-xs text-white/50">Cantidad de tokens</label>
-                  <input
-                    type="number"
-                    value={privateShowPrice}
-                    onChange={(e) => setPrivateShowPrice(e.target.value)}
-                    placeholder="Ej: 100"
-                    min="1"
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm outline-none placeholder:text-white/25 focus:border-amber-500/30"
-                  />
-                  {myBalance !== null && (
-                    <p className="mt-1.5 text-[10px] text-white/30">Tu saldo: {myBalance} tokens</p>
-                  )}
+                <div className="mb-4 rounded-xl border border-red-500/25 bg-red-500/10 p-4 text-center">
+                  <p className="text-sm font-semibold text-red-200">Show privado no disponible</p>
+                  <p className="mt-1 text-xs text-red-100/80">La profesional aún no configuró el precio del show privado.</p>
                 </div>
               )}
 
               <button
                 onClick={buyPrivateShow}
-                disabled={buyingPrivateShow || (!stream.privateShowPrice && (!privateShowPrice || parseInt(privateShowPrice, 10) < 1))}
+                disabled={buyingPrivateShow || !stream.privateShowPrice}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40"
               >
                 <Lock className="h-4 w-4" />
-                {buyingPrivateShow ? "Procesando..." : `Comprar Show Privado — ${stream.privateShowPrice || privateShowPrice || "0"} tokens`}
+                {buyingPrivateShow ? "Procesando..." : `Unirse al show privado — ${stream.privateShowPrice || "0"} tokens`}
               </button>
 
               <button
