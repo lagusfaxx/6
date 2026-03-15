@@ -196,9 +196,9 @@ export default function ThreadPage() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="space-y-3">
-          <div className="h-12 animate-pulse rounded-2xl bg-white/[0.04]" />
-          <div className="h-32 animate-pulse rounded-2xl bg-white/[0.04]" />
-          <div className="h-32 animate-pulse rounded-2xl bg-white/[0.04]" />
+          <div className="h-14 animate-pulse rounded-2xl bg-white/[0.03] border border-white/[0.04]" />
+          <div className="h-36 animate-pulse rounded-2xl bg-white/[0.03] border border-white/[0.04]" />
+          <div className="h-36 animate-pulse rounded-2xl bg-white/[0.03] border border-white/[0.04]" />
         </div>
       </div>
     );
@@ -216,103 +216,122 @@ export default function ThreadPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       {/* Breadcrumb */}
-      <div className="mb-4 flex items-center gap-2 text-xs text-white/40">
-        <Link href="/foro" className="hover:text-fuchsia-400 transition">Foro</Link>
-        <span>/</span>
-        <Link href={`/foro/categoria/${thread.category.slug}`} className="hover:text-fuchsia-400 transition">{thread.category.name}</Link>
+      <div className="mb-4 flex items-center gap-2 text-xs text-white/30">
+        <Link href="/foro" className="hover:text-fuchsia-400 transition-colors">Foro</Link>
+        <span className="text-white/15">/</span>
+        <Link href={`/foro/categoria/${thread.category.slug}`} className="hover:text-fuchsia-400 transition-colors">{thread.category.name}</Link>
       </div>
 
       {/* Thread header */}
-      <div className="mb-5 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
-        <div className="flex items-start gap-3">
-          <Link href={`/foro/categoria/${thread.category.slug}`} className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] hover:bg-white/10 transition">
+      <div className="relative mb-5 overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 backdrop-blur-sm">
+        {/* Header glow */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-fuchsia-500/[0.03] to-transparent" />
+
+        <div className="relative flex items-start gap-3">
+          <Link href={`/foro/categoria/${thread.category.slug}`} className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/50 hover:bg-white/10 hover:text-white transition-all">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              {thread.isPinned && <Pin className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
-              {thread.isLocked && <Lock className="h-3.5 w-3.5 text-red-400 shrink-0" />}
-              <h1 className="text-lg font-bold">{thread.title}</h1>
+              {thread.isPinned && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-500/10 border border-amber-500/20">
+                  <Pin className="h-2.5 w-2.5 text-amber-400" />
+                </span>
+              )}
+              {thread.isLocked && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-red-500/10 border border-red-500/20">
+                  <Lock className="h-2.5 w-2.5 text-red-400" />
+                </span>
+              )}
+              <h1 className="text-lg font-bold tracking-tight">{thread.title}</h1>
             </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-white/40">
-              <span>por {thread.author.username}</span>
-              <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDate(thread.createdAt)}</span>
-              <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{thread.views} vistas</span>
-              <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" />{thread.postCount} posts</span>
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-white/35">
+              <span className="font-medium text-white/45">por {thread.author.username}</span>
+              <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-white/20" />{formatDate(thread.createdAt)}</span>
+              <span className="flex items-center gap-1"><Eye className="h-3 w-3 text-white/20" />{thread.views} vistas</span>
+              <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3 text-white/20" />{thread.postCount} posts</span>
             </div>
           </div>
         </div>
 
         {/* Admin actions */}
         {isAdmin && (
-          <div className="mt-3 flex items-center gap-2 border-t border-white/[0.06] pt-3">
+          <div className="relative mt-4 flex items-center gap-2 border-t border-white/[0.05] pt-3">
             <Shield className="h-3.5 w-3.5 text-amber-400" />
             <span className="text-[10px] text-amber-400/70 font-semibold uppercase tracking-wider">Admin</span>
-            <button type="button" onClick={handleToggleLock} className="rounded-lg bg-white/[0.06] px-2.5 py-1 text-[11px] hover:bg-white/10 transition">
+            <button type="button" onClick={handleToggleLock} className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[11px] hover:bg-white/10 transition-all">
               {thread.isLocked ? "Desbloquear" : "Bloquear"}
             </button>
-            <button type="button" onClick={handleDeleteThread} className="rounded-lg bg-red-500/10 px-2.5 py-1 text-[11px] text-red-400 hover:bg-red-500/20 transition">
+            <button type="button" onClick={handleDeleteThread} className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-1.5 text-[11px] text-red-400 hover:bg-red-500/15 transition-all">
               Eliminar tema
             </button>
           </div>
         )}
       </div>
 
+      {/* Gradient divider */}
+      <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent mb-4" />
+
       {/* Posts */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {posts.map((post, idx) => {
           const officialProfile = idx === 0 ? parseOfficialProfilePost(post.content) : null;
 
           return (
-            <div key={post.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-              <div className="flex items-start gap-3">
-                <Avatar src={post.author.avatarUrl} alt={post.author.username} size={36} className="shrink-0 border-white/20" />
+            <div key={post.id} className="group/post relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 transition-all duration-200 hover:border-white/[0.1]">
+              {/* First post glow */}
+              {idx === 0 && <div className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-fuchsia-500/[0.02] to-transparent" />}
+
+              <div className="relative flex items-start gap-3">
+                <div className="shrink-0">
+                  <Avatar src={post.author.avatarUrl} alt={post.author.username} size={38} className="border-white/15 ring-1 ring-white/[0.06] ring-offset-1 ring-offset-transparent" />
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 text-xs">
                     <span className="font-semibold text-white/90">{post.author.username}</span>
                     {idx === 0 && (
-                      <span className="rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 px-1.5 py-0.5 text-[9px] text-fuchsia-300 font-medium">OP</span>
+                      <span className="rounded-full bg-gradient-to-r from-fuchsia-500/15 to-violet-500/10 border border-fuchsia-500/20 px-2 py-0.5 text-[9px] text-fuchsia-300 font-semibold shadow-[0_0_8px_rgba(168,85,247,0.1)]">OP</span>
                     )}
-                    <span className="text-white/30">{timeAgo(post.createdAt)}</span>
+                    <span className="text-white/25">{timeAgo(post.createdAt)}</span>
                     {isAdmin && (
-                      <button type="button" onClick={() => handleDeletePost(post.id)} className="ml-auto rounded-md p-1 text-white/20 hover:text-red-400 hover:bg-red-500/10 transition">
+                      <button type="button" onClick={() => handleDeletePost(post.id)} className="ml-auto rounded-lg border border-transparent p-1.5 text-white/15 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/20 transition-all">
                         <Trash2 className="h-3 w-3" />
                       </button>
                     )}
                   </div>
 
                   {officialProfile ? (
-                    <div className="mt-3 rounded-2xl border border-fuchsia-400/20 bg-gradient-to-br from-fuchsia-500/10 to-violet-500/10 p-3">
+                    <div className="mt-3 overflow-hidden rounded-2xl border border-fuchsia-400/20 bg-gradient-to-br from-fuchsia-500/[0.08] to-violet-500/[0.06] p-4 shadow-[0_0_24px_rgba(168,85,247,0.06)]">
                       <div className="flex items-center gap-3">
                         {officialProfile.photoUrl ? (
                           <img
                             src={officialProfile.photoUrl}
                             alt={officialProfile.displayName || officialProfile.nickname}
-                            className="h-14 w-14 rounded-xl object-cover border border-white/20"
+                            className="h-16 w-16 rounded-xl object-cover border border-white/15 shadow-lg"
                           />
                         ) : (
-                          <div className="grid h-14 w-14 place-items-center rounded-xl border border-white/15 bg-white/5 text-xs text-white/50">
+                          <div className="grid h-16 w-16 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-xs text-white/40">
                             Sin foto
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-white/90">
+                          <p className="truncate text-sm font-bold text-white/95">
                             {officialProfile.displayName || officialProfile.nickname}
                           </p>
-                          <p className="truncate text-xs text-fuchsia-200/80">
+                          <p className="truncate text-xs text-fuchsia-200/70">
                             {officialProfile.nickname}
                           </p>
                         </div>
                         <Link
                           href={officialProfile.profilePath}
-                          className="shrink-0 rounded-xl border border-fuchsia-300/40 bg-fuchsia-500/20 px-3 py-2 text-xs font-medium text-fuchsia-100 transition hover:bg-fuchsia-500/30"
+                          className="shrink-0 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2.5 text-xs font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-[0_8px_20px_rgba(168,85,247,0.25)]"
                         >
                           Ver perfil
                         </Link>
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-2 text-sm text-white/80 whitespace-pre-wrap break-words leading-relaxed">
+                    <div className="mt-2 text-sm text-white/75 whitespace-pre-wrap break-words leading-relaxed">
                       {post.content}
                     </div>
                   )}
@@ -327,20 +346,21 @@ export default function ThreadPage() {
 
       {/* Reply box */}
       {isAuthed && !thread.isLocked ? (
-        <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+        <div className="mt-5 relative overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4 backdrop-blur-sm">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-fuchsia-500/[0.02] to-transparent" />
           <textarea
             value={replyContent}
             onChange={(e) => setReplyContent(e.target.value)}
             placeholder="Escribe tu respuesta..."
             rows={3}
-            className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-fuchsia-500/40 focus:outline-none"
+            className="relative w-full resize-none rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/25 focus:border-fuchsia-500/30 focus:ring-1 focus:ring-fuchsia-500/15 focus:outline-none focus:shadow-[0_0_20px_rgba(168,85,247,0.06)] transition-all"
           />
-          <div className="mt-2 flex justify-end">
+          <div className="relative mt-3 flex justify-end">
             <button
               type="button"
               onClick={handleReply}
               disabled={sending || !replyContent.trim()}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(168,85,247,0.25)] disabled:opacity-50 disabled:hover:scale-100"
             >
               <Send className="h-3.5 w-3.5" />
               {sending ? "Enviando..." : "Responder"}
@@ -348,11 +368,11 @@ export default function ThreadPage() {
           </div>
         </div>
       ) : thread.isLocked ? (
-        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center text-sm text-white/40">
-          <Lock className="mx-auto mb-1 h-4 w-4" /> Este tema está bloqueado.
+        <div className="mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-center text-sm text-white/35 backdrop-blur-sm">
+          <Lock className="mx-auto mb-1.5 h-4 w-4 text-white/20" /> Este tema está bloqueado.
         </div>
       ) : (
-        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center text-sm text-white/40">
+        <div className="mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-center text-sm text-white/35 backdrop-blur-sm">
           <Link href="/login?next=/foro" className="text-fuchsia-400 hover:underline">Inicia sesión</Link> para responder.
         </div>
       )}
