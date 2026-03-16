@@ -101,6 +101,12 @@ app.use((req, res, next) => {
   express.json({ limit: "2mb" })(req, res, next);
 });
 
+// Flow webhooks (and some third-party callbacks) arrive as application/x-www-form-urlencoded.
+// Parse them globally so endpoints like /webhooks/flow/payment can read `token` and `s`.
+app.use((req, res, next) => {
+  express.urlencoded({ extended: true, limit: "2mb" })(req, res, next);
+});
+
 const pgPool = new pg.Pool({ connectionString: config.databaseUrl });
 const PgStore = PgSession(session);
 

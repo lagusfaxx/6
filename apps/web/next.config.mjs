@@ -3,6 +3,11 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const nextConfig = {
   output: "standalone",
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["flow.cl", "www.flow.cl"],
+    },
+  },
 
   // Cache-Control headers to force revalidation
   async headers() {
