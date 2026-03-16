@@ -306,7 +306,7 @@ const FeaturedCard = memo(function FeaturedCard({
           </div>
           {/* Distance */}
           {profile.distance != null && (
-            <div className="absolute right-2.5 bottom-16 rounded-xl border border-white/10 bg-black/40 px-2.5 py-1 text-[10px] text-white/80 backdrop-blur-xl">
+            <div className="absolute right-2.5 bottom-16 rounded-xl border border-white/10 bg-black/40 px-2.5 py-1 text-[10px] text-white/80 backdrop-blur-xl tabular-nums">
               <MapPin className="mr-1 inline h-3 w-3 text-fuchsia-400/70" />
               {profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)} km`}
             </div>
@@ -400,7 +400,7 @@ const ProfileCard = memo(function ProfileCard({
             <div className="flex h-full items-center justify-center text-white/20 bg-gradient-to-br from-fuchsia-900/10 to-violet-900/10"><Users className="h-10 w-10" /></div>
           )}
           {profile.distance != null && (
-            <div className="absolute right-2 top-2 rounded-xl border border-white/10 bg-black/40 px-2 py-0.5 text-[9px] backdrop-blur-xl">
+            <div className="absolute right-2 top-2 rounded-xl border border-white/10 bg-black/40 px-2 py-0.5 text-[9px] backdrop-blur-xl tabular-nums">
               <MapPin className="mr-0.5 inline h-2.5 w-2.5 text-fuchsia-400/60" />
               {profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)}km`}
             </div>
@@ -579,7 +579,7 @@ function ProfileDetailPanel({
             </span>
           )}
           {profile.distance != null && (
-            <span className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-xs text-white/45">
+            <span className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-xs text-white/45 tabular-nums">
               <MapPin className="h-3 w-3 text-fuchsia-400/50" />
               {profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)} km`}
             </span>

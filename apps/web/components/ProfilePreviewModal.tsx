@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
-import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Briefcase, Loader2, Sparkles, Hotel, ShoppingBag, CalendarCheck, Crown, ShieldCheck, Phone, Star, Ruler, DollarSign, Clock, Heart } from "lucide-react";
+import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Loader2, Sparkles, ShoppingBag, CalendarCheck, ShieldCheck, Phone, Ruler, DollarSign } from "lucide-react";
 import { useEffect, useState } from "react";
 import UserLevelBadge from "./UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
@@ -147,17 +147,17 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
       ? `/sexshop/${profile.username}`
       : `/profesional/${profile.id}`;
 
-  const level = fullProfile?.userLevel || profile.userLevel;
+  const userLevel = fullProfile?.userLevel || profile.userLevel;
   const tierGlow =
-    level === "DIAMOND"
+    userLevel === "DIAMOND"
       ? "shadow-[0_0_60px_rgba(34,211,238,0.12),0_0_120px_rgba(34,211,238,0.06)]"
-      : level === "GOLD"
+      : userLevel === "GOLD"
       ? "shadow-[0_0_60px_rgba(251,191,36,0.12),0_0_120px_rgba(251,191,36,0.06)]"
       : "shadow-[0_0_60px_rgba(168,85,247,0.08)]";
   const tierBorderAccent =
-    level === "DIAMOND"
+    userLevel === "DIAMOND"
       ? "border-cyan-400/20"
-      : level === "GOLD"
+      : userLevel === "GOLD"
       ? "border-amber-400/20"
       : "border-white/[0.08]";
 
@@ -268,7 +268,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                   <p className="mt-0.5 text-sm text-white/50 font-medium">{fullProfile?.serviceCategory || profile.serviceCategory}</p>
                 )}
               </div>
-              <UserLevelBadge level={level as any} className="shrink-0 px-2.5 py-1 text-[10px] shadow-lg" />
+              <UserLevelBadge level={userLevel as any} className="shrink-0 px-2.5 py-1 text-[10px] shadow-lg" />
             </div>
             {/* Status pills row */}
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
