@@ -12,6 +12,29 @@ import {
 
 export const billingRouter = Router();
 
+// Public payment status by intent reference (used by /pago/exitoso after Flow return)
+billingRouter.get("/billing/status", asyncHandler(async (req, res) => {
+  const ref = String(req.query.ref || "").trim();
+  if (!ref) {
+    return res.json({ status: "error", paid: false, reason: "MISSING_REF" });
+  }
+
+  const intent = await prisma.paymentIntent.findUnique({
+    where: { id: ref },
+    select: { id: true, status: true, paidAt: true, amount: true, createdAt: true }
+  });
+
+  if (!intent) {
+    return res.json({ status: "error", paid: false, reason: "INTENT_NOT_FOUND" });
+  }
+
+  if (intent.status === "PAID") {
+    return res.json({ status: "paid", paid: true, intent });
+  }
+
+  return res.json({ status: "pending", paid: false, intent });
+}));
+
 // ── Flow one-time payment ──────────────────────────────────────────────────────
 
 billingRouter.post("/billing/payment/flow", requireAuth, asyncHandler(async (req, res) => {
