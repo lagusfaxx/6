@@ -1077,8 +1077,8 @@ export default function ServicesPage() {
             </button>
           </div>
 
-          {/* ── Categories (prominent cards) ── */}
-          <div className="mt-3 -mx-4 px-4 flex gap-2 overflow-x-auto scrollbar-none pb-1">
+          {/* ── Categories (prominent cards, grid) ── */}
+          <div className="mt-3 grid grid-cols-5 gap-1.5 sm:gap-2">
             {CATEGORY_TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = category === tab.key;
@@ -1087,15 +1087,15 @@ export default function ServicesPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setCategory(tab.key)}
-                  className={`group flex shrink-0 flex-col items-center justify-center rounded-2xl w-[5.5rem] h-[4.5rem] transition-all duration-200 ${
+                  className={`group flex flex-col items-center justify-center rounded-xl sm:rounded-2xl py-2.5 sm:py-3.5 transition-all duration-200 ${
                     isActive
                       ? `border ${tab.border} bg-gradient-to-br ${tab.gradient} shadow-lg shadow-fuchsia-500/10`
                       : "border border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.05]"
                   }`}
                 >
-                  <Icon className={`h-5 w-5 mb-1 transition-colors ${isActive ? "text-white" : "text-white/40 group-hover:text-white/60"}`} />
-                  <span className={`text-[11px] font-semibold leading-tight transition-colors ${isActive ? "text-white" : "text-white/50 group-hover:text-white/70"}`}>{tab.label}</span>
-                  <span className={`text-[9px] leading-tight mt-0.5 transition-colors ${isActive ? "text-white/60" : "text-white/20 group-hover:text-white/35"}`}>{tab.desc}</span>
+                  <Icon className={`h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1 transition-colors ${isActive ? "text-white" : "text-white/40 group-hover:text-white/60"}`} />
+                  <span className={`text-[10px] sm:text-[11px] font-semibold leading-tight transition-colors ${isActive ? "text-white" : "text-white/50 group-hover:text-white/70"}`}>{tab.label}</span>
+                  <span className={`text-[8px] sm:text-[9px] leading-tight mt-0.5 transition-colors hidden sm:block ${isActive ? "text-white/60" : "text-white/20 group-hover:text-white/35"}`}>{tab.desc}</span>
                 </button>
               );
             })}
