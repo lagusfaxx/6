@@ -77,11 +77,11 @@ type ProfileResult = {
 const INITIAL_RADIUS_KM = 50;
 
 const CATEGORY_TABS = [
-  { key: "all", label: "Todas", icon: Users },
-  { key: "escort", label: "Escorts", icon: Sparkles },
-  { key: "masajes", label: "Masajes", icon: Users },
-  { key: "moteles", label: "Moteles", icon: Building2 },
-  { key: "sexshop", label: "Sex Shop", icon: ShoppingBag },
+  { key: "all", label: "Todas", desc: "Ver todo", icon: Users, gradient: "from-fuchsia-500/20 to-purple-500/20", border: "border-fuchsia-500/40" },
+  { key: "escort", label: "Escorts", desc: "Compañía VIP", icon: Sparkles, gradient: "from-pink-500/20 to-rose-500/20", border: "border-pink-500/40" },
+  { key: "masajes", label: "Masajes", desc: "Relax total", icon: Users, gradient: "from-violet-500/20 to-indigo-500/20", border: "border-violet-500/40" },
+  { key: "moteles", label: "Moteles", desc: "Hospedaje", icon: Building2, gradient: "from-amber-500/20 to-orange-500/20", border: "border-amber-500/40" },
+  { key: "sexshop", label: "Sex Shop", desc: "Tienda", icon: ShoppingBag, gradient: "from-emerald-500/20 to-teal-500/20", border: "border-emerald-500/40" },
 ] as const;
 
 const QUICK_FILTERS = [
@@ -1077,9 +1077,8 @@ export default function ServicesPage() {
             </button>
           </div>
 
-          {/* Category tabs + Quick filters */}
-          <div className="mt-2.5 -mx-4 px-4 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-            {/* ── Main categories (primary navigation) ── */}
+          {/* ── Categories (prominent cards) ── */}
+          <div className="mt-3 -mx-4 px-4 flex gap-2 overflow-x-auto scrollbar-none pb-1">
             {CATEGORY_TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = category === tab.key;
@@ -1088,23 +1087,22 @@ export default function ServicesPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setCategory(tab.key)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full h-10 px-4 text-sm font-semibold transition-all ${
+                  className={`group flex shrink-0 flex-col items-center justify-center rounded-2xl w-[5.5rem] h-[4.5rem] transition-all duration-200 ${
                     isActive
-                      ? "border text-fuchsia-100 shadow-[0_0_12px_rgba(168,85,247,0.15)]"
-                      : "text-white/50 border border-transparent hover:text-white/70 hover:bg-white/[0.05]"
+                      ? `border ${tab.border} bg-gradient-to-br ${tab.gradient} shadow-lg shadow-fuchsia-500/10`
+                      : "border border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.05]"
                   }`}
-                  style={isActive ? { background: "rgba(168,85,247,0.18)", borderColor: "rgba(168,85,247,0.45)" } : undefined}
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  {tab.label}
+                  <Icon className={`h-5 w-5 mb-1 transition-colors ${isActive ? "text-white" : "text-white/40 group-hover:text-white/60"}`} />
+                  <span className={`text-[11px] font-semibold leading-tight transition-colors ${isActive ? "text-white" : "text-white/50 group-hover:text-white/70"}`}>{tab.label}</span>
+                  <span className={`text-[9px] leading-tight mt-0.5 transition-colors ${isActive ? "text-white/60" : "text-white/20 group-hover:text-white/35"}`}>{tab.desc}</span>
                 </button>
               );
             })}
+          </div>
 
-            {/* ── Separator ── */}
-            <div className="h-6 w-px mx-2 shrink-0" style={{ background: "linear-gradient(180deg, transparent, rgba(168,85,247,0.2), transparent)" }} aria-hidden="true" />
-
-            {/* ── Quick filters (secondary modifiers) ── */}
+          {/* ── Quick filters (small chips) ── */}
+          <div className="mt-2 -mx-4 px-4 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
             {QUICK_FILTERS.map((f) => {
               const Icon = f.icon;
               const isActive = activeQuickFilters.has(f.key);
@@ -1113,11 +1111,11 @@ export default function ServicesPage() {
                   key={f.key}
                   type="button"
                   onClick={() => toggleQuickFilter(f.key)}
-                  className={`flex shrink-0 items-center gap-1 rounded-full h-8 px-3 text-xs font-medium transition-all ${
-                    isActive ? f.activeColor : "text-white/35 border border-white/[0.08] hover:text-white/55 hover:border-white/[0.15] hover:bg-white/[0.03]"
+                  className={`flex shrink-0 items-center gap-1 rounded-full h-7 px-2.5 text-[10px] font-medium transition-all ${
+                    isActive ? f.activeColor : "text-white/30 border border-white/[0.06] hover:text-white/50 hover:border-white/[0.12] hover:bg-white/[0.03]"
                   }`}
                 >
-                  <Icon className="h-3 w-3" />
+                  <Icon className="h-2.5 w-2.5" />
                   {f.label}
                 </button>
               );
@@ -1126,9 +1124,9 @@ export default function ServicesPage() {
               <button
                 type="button"
                 onClick={() => { setActiveQuickFilters(new Set()); setSearch(""); }}
-                className="flex shrink-0 items-center gap-1 rounded-full h-8 px-3 text-xs text-white/25 hover:text-white/55 transition-all"
+                className="flex shrink-0 items-center gap-1 rounded-full h-7 px-2.5 text-[10px] text-white/20 hover:text-white/50 transition-all"
               >
-                <X className="h-3 w-3" /> Limpiar
+                <X className="h-2.5 w-2.5" /> Limpiar
               </button>
             )}
           </div>
