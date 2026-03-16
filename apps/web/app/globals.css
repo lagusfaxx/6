@@ -797,3 +797,24 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 .nav-active-pop {
   animation: nav-active-pop 0.25s ease-out;
 }
+
+/* ── Quick preview overlay (desktop card flip/overlay) ── */
+@keyframes uzeed-preview-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.uzeed-quick-preview {
+  animation: uzeed-preview-in 0.2s ease-out;
+}
+
+/* Feed card hover refinement */
+.uzeed-card-feed {
+  will-change: transform, box-shadow;
+}
