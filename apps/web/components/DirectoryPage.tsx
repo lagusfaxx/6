@@ -191,82 +191,85 @@ function ProfileCard({
   const previewTags = previewData ? filterUserTags(previewData.profileTags) : userTags;
   const previewServices = previewData?.serviceTags || p.serviceTags || [];
 
+  const tierClass = p.userLevel === "DIAMOND" ? "uzeed-tier-diamond" : p.userLevel === "GOLD" ? "uzeed-tier-gold" : "";
+
   return (
     <div
       ref={cardRef}
       onClick={handleCardClick}
-      className="uzeed-card-feed group relative flex flex-col overflow-hidden rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-fuchsia-500/30 transition-all duration-200 hover:shadow-[0_12px_40px_rgba(0,0,0,0.35)] cursor-pointer"
+      className={`uzeed-premium-card uzeed-card-feed group relative flex flex-col cursor-pointer ${tierClass}`}
     >
-      {/* Cover / hero photo */}
-      <div className="relative aspect-[3/4] bg-[#111] overflow-hidden">
+      {/* Cover / hero photo with shimmer effect */}
+      <div className="uzeed-card-shimmer relative aspect-[3/4] bg-[#0a0a10] overflow-hidden">
         {coverSrc || avatarSrc ? (
           <img
             src={coverSrc || avatarSrc!}
             alt={p.displayName}
             loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-400"
+            className="uzeed-card-img w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-fuchsia-900/30 to-violet-900/30">
-            <span className="text-4xl font-bold text-white/10 select-none">
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-fuchsia-900/40 via-violet-900/30 to-indigo-900/20">
+            <span className="text-5xl font-black text-white/[0.06] select-none tracking-tighter">
               {p.displayName[0]?.toUpperCase()}
             </span>
           </div>
         )}
 
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+        {/* Multi-layer gradient overlay for depth */}
+        <div className="uzeed-card-gradient absolute inset-0 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/[0.04] via-transparent to-violet-600/[0.04] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-        {/* Top-left: status badge */}
-        <div className="absolute top-2 left-2 flex flex-col gap-1">
+        {/* Top-left: status badges */}
+        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 z-[3]">
           {p.availableNow && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg shadow-emerald-500/25">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+            <span className="uzeed-badge-pill uzeed-badge-online">
+              <span className="uzeed-badge-dot" />
               Online
             </span>
           )}
         </div>
 
         {/* Top-right: level badge */}
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-2.5 right-2.5 z-[3]">
           <UserLevelBadge level={p.userLevel as "SILVER" | "GOLD" | "DIAMOND" | null} />
         </div>
 
-        {/* Bottom info overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-2.5">
-          {/* Name + age + badges */}
-          <div className="flex items-center gap-1 font-semibold text-white text-sm leading-tight truncate">
-            {p.displayName}
+        {/* Bottom info overlay with premium layout */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
+          {/* Name + age + verification badges */}
+          <div className="flex items-center gap-1.5 font-bold text-white text-[13px] sm:text-sm leading-tight">
+            <span className="truncate">{p.displayName}</span>
             {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
             {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
-            {p.age ? <span className="text-white/60 ml-0.5 font-normal text-xs">{p.age}</span> : null}
+            {p.age ? <span className="text-white/50 font-normal text-[11px] tabular-nums">{p.age}</span> : null}
           </div>
 
-          {/* City / distance */}
-          <div className="flex items-center gap-1.5 text-[11px] text-white/50 mt-0.5">
+          {/* City / distance with subtle icon */}
+          <div className="flex items-center gap-1.5 text-[11px] text-white/45 mt-1">
             {p.city && (
-              <span className="flex items-center gap-0.5 truncate">
-                <MapPin className="h-2.5 w-2.5 shrink-0" />
+              <span className="flex items-center gap-1 truncate">
+                <MapPin className="h-3 w-3 shrink-0 text-fuchsia-400/50" />
                 {p.city}
               </span>
             )}
             {p.distance != null && (
-              <span className="text-white/40 shrink-0">
+              <span className="text-white/35 shrink-0 tabular-nums">
                 · {p.distance < 1 ? `${Math.round(p.distance * 1000)}m` : `${p.distance.toFixed(1)}km`}
               </span>
             )}
           </div>
 
-          {/* Tags (max 2 + "+N") */}
+          {/* Tags with premium pill style */}
           {userTags.length > 0 && (
-            <div className="flex items-center gap-1 mt-1.5">
+            <div className="flex items-center gap-1 mt-2">
               {userTags.slice(0, maxVisibleTags).map((t) => (
-                <span key={t} className="rounded-full bg-white/10 backdrop-blur-sm px-1.5 py-px text-[9px] text-white/70 capitalize truncate max-w-[72px]">
+                <span key={t} className="uzeed-tag uzeed-tag-fuchsia truncate max-w-[80px]">
                   {t}
                 </span>
               ))}
               {extraTagCount > 0 && (
-                <span className="rounded-full bg-white/10 backdrop-blur-sm px-1.5 py-px text-[9px] text-white/50">
+                <span className="uzeed-tag bg-white/[0.08] border border-white/[0.08] text-white/40">
                   +{extraTagCount}
                 </span>
               )}
@@ -277,44 +280,49 @@ function ProfileCard({
 
       {/* ── Desktop Quick Preview Overlay ── */}
       {showPreview && (
-        <div className="uzeed-quick-preview absolute inset-0 z-10 flex flex-col bg-[#0e0e12]/95 backdrop-blur-md rounded-2xl overflow-hidden">
+        <div className="uzeed-quick-preview uzeed-preview-overlay absolute inset-0 z-10 flex flex-col rounded-[inherit] overflow-hidden animate-scale-in">
           {/* Close button */}
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setShowPreview(false); }}
-            className="absolute top-2 right-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/20 transition"
+            className="absolute top-2.5 right-2.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white/50 hover:bg-white/[0.12] hover:text-white/80 transition-all duration-200"
           >
-            <X className="h-3 w-3" />
+            <X className="h-3.5 w-3.5" />
           </button>
 
           {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto p-3 pt-2 space-y-2.5 scrollbar-none">
-            {/* Header */}
-            <div className="flex items-center gap-2">
+          <div className="flex-1 overflow-y-auto p-3.5 pt-3 space-y-3 scrollbar-none">
+            {/* Header with avatar */}
+            <div className="flex items-center gap-2.5">
               {(coverSrc || avatarSrc) && (
-                <img src={avatarSrc || coverSrc!} alt="" className="h-8 w-8 rounded-full object-cover border border-white/10 shrink-0" />
-              )}
-              <div className="min-w-0">
-                <div className="flex items-center gap-1 text-sm font-semibold truncate">
-                  {p.displayName}
-                  {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
-                  {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
+                <div className="relative shrink-0">
+                  <img src={avatarSrc || coverSrc!} alt="" className="h-10 w-10 rounded-xl object-cover border border-white/[0.08]" />
+                  {p.availableNow && (
+                    <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 border-2 border-[#0e0e12] shadow-glow-emerald" />
+                  )}
                 </div>
-                <div className="text-[10px] text-white/40 flex items-center gap-1">
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1 text-sm font-bold truncate">
+                  {p.displayName}
+                  {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
+                  {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
+                </div>
+                <div className="text-[10px] text-white/35 flex items-center gap-1.5 mt-0.5">
                   {p.age && <span>{p.age} años</span>}
-                  {p.city && <><span>·</span><span>{p.city}</span></>}
+                  {p.city && <><span className="text-white/15">·</span><span>{p.city}</span></>}
                 </div>
               </div>
             </div>
 
             {/* Bio */}
             {previewData?.bio && (
-              <p className="text-[11px] text-white/55 leading-relaxed line-clamp-2">{previewData.bio}</p>
+              <p className="text-[11px] text-white/50 leading-relaxed line-clamp-2">{previewData.bio}</p>
             )}
 
-            {/* Price */}
+            {/* Price with gradient text */}
             {previewData?.baseRate && (
-              <div className="text-xs font-bold text-fuchsia-300">
+              <div className="text-sm font-extrabold bg-gradient-to-r from-fuchsia-300 to-violet-300 bg-clip-text text-transparent">
                 Desde ${previewData.baseRate.toLocaleString()}
               </div>
             )}
@@ -322,18 +330,18 @@ function ProfileCard({
             {/* Attributes */}
             {previewTags.length > 0 && (
               <div>
-                <div className="flex items-center gap-1 mb-1">
-                  <Tag className="h-2.5 w-2.5 text-fuchsia-400" />
-                  <span className="text-[9px] font-semibold text-white/40 uppercase tracking-wider">Atributos</span>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Tag className="h-2.5 w-2.5 text-fuchsia-400/70" />
+                  <span className="text-[8px] font-bold text-white/30 uppercase tracking-[0.08em]">Atributos</span>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {previewTags.slice(0, 5).map((t) => (
-                    <span key={t} className="rounded-full bg-fuchsia-500/10 border border-fuchsia-500/15 px-1.5 py-px text-[9px] text-fuchsia-300 capitalize">
+                    <span key={t} className="uzeed-tag uzeed-tag-fuchsia">
                       {t}
                     </span>
                   ))}
                   {previewTags.length > 5 && (
-                    <span className="rounded-full bg-white/5 px-1.5 py-px text-[9px] text-white/30">+{previewTags.length - 5}</span>
+                    <span className="uzeed-tag bg-white/[0.05] border border-white/[0.06] text-white/25">+{previewTags.length - 5}</span>
                   )}
                 </div>
               </div>
@@ -342,38 +350,38 @@ function ProfileCard({
             {/* Services */}
             {previewServices.length > 0 && (
               <div>
-                <div className="flex items-center gap-1 mb-1">
-                  <Briefcase className="h-2.5 w-2.5 text-violet-400" />
-                  <span className="text-[9px] font-semibold text-white/40 uppercase tracking-wider">Servicios</span>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Briefcase className="h-2.5 w-2.5 text-violet-400/70" />
+                  <span className="text-[8px] font-bold text-white/30 uppercase tracking-[0.08em]">Servicios</span>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {previewServices.slice(0, 5).map((t) => (
-                    <span key={t} className="rounded-full bg-violet-500/10 border border-violet-500/15 px-1.5 py-px text-[9px] text-violet-300 capitalize">
+                    <span key={t} className="uzeed-tag uzeed-tag-violet">
                       {t}
                     </span>
                   ))}
                   {previewServices.length > 5 && (
-                    <span className="rounded-full bg-white/5 px-1.5 py-px text-[9px] text-white/30">+{previewServices.length - 5}</span>
+                    <span className="uzeed-tag bg-white/[0.05] border border-white/[0.06] text-white/25">+{previewServices.length - 5}</span>
                   )}
                 </div>
               </div>
             )}
 
             {loadingPreview && !previewData && (
-              <div className="flex justify-center py-2">
-                <span className="h-4 w-4 border-2 border-fuchsia-500/30 border-t-fuchsia-500 rounded-full animate-spin" />
+              <div className="flex justify-center py-3">
+                <span className="h-5 w-5 border-2 border-fuchsia-500/20 border-t-fuchsia-500 rounded-full animate-spin" />
               </div>
             )}
           </div>
 
-          {/* Action buttons */}
-          <div className="p-2 pt-0 space-y-1.5 shrink-0 border-t border-white/[0.06]">
+          {/* Action buttons - premium styled */}
+          <div className="p-2.5 pt-0 space-y-1.5 shrink-0 border-t border-white/[0.05]">
             <Link
               href={chatHref}
               onClick={(e) => e.stopPropagation()}
-              className="flex w-full items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2 text-[11px] font-semibold text-white transition hover:brightness-110 shadow-[0_4px_12px_rgba(168,85,247,0.2)]"
+              className="uzeed-cta-btn flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-[11px] font-bold text-white shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
             >
-              <MessageCircle className="h-3 w-3" />
+              <MessageCircle className="h-3.5 w-3.5" />
               Mensaje
             </Link>
             <div className="flex gap-1.5">
@@ -383,18 +391,18 @@ function ProfileCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 py-1.5 text-[10px] font-medium text-emerald-300 transition hover:bg-emerald-500/15"
+                  className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.08] py-2 text-[10px] font-semibold text-emerald-300 transition-all duration-200 hover:bg-emerald-500/15 hover:border-emerald-500/30"
                 >
-                  <Phone className="h-2.5 w-2.5" />
+                  <Phone className="h-3 w-3" />
                   WhatsApp
                 </a>
               )}
               <Link
                 href={href}
                 onClick={(e) => e.stopPropagation()}
-                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] py-1.5 text-[10px] font-medium text-white/60 transition hover:bg-white/[0.08]"
+                className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.03] py-2 text-[10px] font-semibold text-white/55 transition-all duration-200 hover:bg-white/[0.08] hover:text-white/75"
               >
-                <Eye className="h-2.5 w-2.5" />
+                <Eye className="h-3 w-3" />
                 Ver perfil
               </Link>
             </div>
@@ -402,9 +410,9 @@ function ProfileCard({
               <Link
                 href={isAuthed ? `${chatHref}?mode=request` : `/login?next=${encodeURIComponent(`${chatHref}?mode=request`)}`}
                 onClick={(e) => e.stopPropagation()}
-                className="flex w-full items-center justify-center gap-1 rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/5 py-1.5 text-[10px] font-medium text-fuchsia-300 transition hover:bg-fuchsia-500/10"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-fuchsia-500/15 bg-fuchsia-500/[0.06] py-2 text-[10px] font-semibold text-fuchsia-300/80 transition-all duration-200 hover:bg-fuchsia-500/[0.12] hover:text-fuchsia-300"
               >
-                <Sparkles className="h-2.5 w-2.5" />
+                <Sparkles className="h-3 w-3" />
                 Solicitar encuentro
               </Link>
             )}
@@ -470,45 +478,50 @@ function MobileQuickPreview({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-[2px] uzeed-animate-fade-in"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm uzeed-animate-fade-in"
       onClick={handleBackdropClick}
     >
       <div
         ref={sheetRef}
-        className="w-full max-w-lg rounded-t-2xl border-t border-white/10 bg-[#0e0e12] uzeed-animate-slide-up max-h-[70vh] flex flex-col"
+        className="uzeed-bottom-sheet w-full max-w-lg uzeed-animate-slide-up max-h-[75vh] flex flex-col"
       >
         {/* Drag indicator */}
-        <div className="flex justify-center pt-2 pb-1 shrink-0">
-          <div className="h-1 w-10 rounded-full bg-white/20" />
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="h-1 w-12 rounded-full bg-white/15" />
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-3 scrollbar-none">
+        <div className="flex-1 overflow-y-auto px-5 pb-3 space-y-4 scrollbar-none">
           {/* Header: avatar + name + meta */}
           <div className="flex items-center gap-3">
             {(coverSrc || avatarSrc) && (
-              <img src={avatarSrc || coverSrc!} alt="" className="h-12 w-12 rounded-full object-cover border border-white/10 shrink-0" />
+              <div className="relative shrink-0">
+                <img src={avatarSrc || coverSrc!} alt="" className="h-14 w-14 rounded-2xl object-cover border border-white/[0.08] shadow-lg" />
+                {data.availableNow && (
+                  <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-emerald-400 border-[2.5px] border-[#0e0e12] shadow-glow-emerald" />
+                )}
+              </div>
             )}
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 text-base font-semibold truncate">
+              <div className="flex items-center gap-1.5 text-[17px] font-bold truncate tracking-tight">
                 {profile.displayName}
                 {hasPremiumBadge(data.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
                 {hasVerifiedBadge(data.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
-                {profile.age && <span className="text-white/50 font-normal text-sm">{profile.age}</span>}
+                {profile.age && <span className="text-white/40 font-normal text-sm tabular-nums">{profile.age}</span>}
               </div>
-              <div className="flex items-center gap-2 text-xs text-white/40 mt-0.5">
+              <div className="flex items-center gap-2 text-xs text-white/35 mt-0.5">
                 {profile.city && (
-                  <span className="flex items-center gap-0.5">
-                    <MapPin className="h-3 w-3" />
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3 text-fuchsia-400/50" />
                     {profile.city}
                   </span>
                 )}
                 {profile.distance != null && (
-                  <span>{profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)}km`}</span>
+                  <span className="tabular-nums">{profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)}km`}</span>
                 )}
                 {data.availableNow && (
-                  <span className="flex items-center gap-1 text-emerald-400">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                  <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-breathe" />
                     Online
                   </span>
                 )}
@@ -517,7 +530,7 @@ function MobileQuickPreview({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/50 shrink-0"
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/40 shrink-0 hover:bg-white/[0.08] transition-all duration-200"
             >
               <X className="h-4 w-4" />
             </button>
@@ -525,12 +538,12 @@ function MobileQuickPreview({
 
           {/* Bio */}
           {data.bio && (
-            <p className="text-xs text-white/50 leading-relaxed line-clamp-2">{data.bio}</p>
+            <p className="text-[13px] text-white/45 leading-relaxed line-clamp-2">{data.bio}</p>
           )}
 
-          {/* Price */}
+          {/* Price with gradient */}
           {data.baseRate && (
-            <div className="text-sm font-bold text-fuchsia-300">
+            <div className="text-base font-extrabold bg-gradient-to-r from-fuchsia-300 via-violet-300 to-fuchsia-300 bg-clip-text text-transparent">
               Desde ${data.baseRate.toLocaleString()}
             </div>
           )}
@@ -538,18 +551,18 @@ function MobileQuickPreview({
           {/* Attributes */}
           {displayTags.length > 0 && (
             <div>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <Tag className="h-3 w-3 text-fuchsia-400" />
-                <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Atributos</span>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Tag className="h-3 w-3 text-fuchsia-400/60" />
+                <span className="text-[9px] font-bold text-white/25 uppercase tracking-[0.08em]">Atributos</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {displayTags.slice(0, 5).map((t) => (
-                  <span key={t} className="rounded-full bg-fuchsia-500/10 border border-fuchsia-500/15 px-2 py-0.5 text-[10px] text-fuchsia-300 capitalize">
+                {displayTags.slice(0, 6).map((t) => (
+                  <span key={t} className="uzeed-tag uzeed-tag-fuchsia text-[10px] px-2.5 py-0.5">
                     {t}
                   </span>
                 ))}
-                {displayTags.length > 5 && (
-                  <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">+{displayTags.length - 5}</span>
+                {displayTags.length > 6 && (
+                  <span className="uzeed-tag bg-white/[0.05] border border-white/[0.06] text-white/25 text-[10px] px-2.5 py-0.5">+{displayTags.length - 6}</span>
                 )}
               </div>
             </div>
@@ -558,33 +571,33 @@ function MobileQuickPreview({
           {/* Services */}
           {data.serviceTags.length > 0 && (
             <div>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <Briefcase className="h-3 w-3 text-violet-400" />
-                <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Servicios</span>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Briefcase className="h-3 w-3 text-violet-400/60" />
+                <span className="text-[9px] font-bold text-white/25 uppercase tracking-[0.08em]">Servicios</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {data.serviceTags.slice(0, 5).map((t) => (
-                  <span key={t} className="rounded-full bg-violet-500/10 border border-violet-500/15 px-2 py-0.5 text-[10px] text-violet-300 capitalize">
+                {data.serviceTags.slice(0, 6).map((t) => (
+                  <span key={t} className="uzeed-tag uzeed-tag-violet text-[10px] px-2.5 py-0.5">
                     {t}
                   </span>
                 ))}
-                {data.serviceTags.length > 5 && (
-                  <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">+{data.serviceTags.length - 5}</span>
+                {data.serviceTags.length > 6 && (
+                  <span className="uzeed-tag bg-white/[0.05] border border-white/[0.06] text-white/25 text-[10px] px-2.5 py-0.5">+{data.serviceTags.length - 6}</span>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Action buttons */}
-        <div className="px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 space-y-2 shrink-0 border-t border-white/[0.06]">
+        {/* Action buttons - premium styled */}
+        <div className="px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 space-y-2 shrink-0 border-t border-white/[0.05]">
           <div className="flex gap-2">
             <Link
               href={chatHref}
               onClick={onClose}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-xs font-semibold text-white transition hover:brightness-110 shadow-[0_4px_12px_rgba(168,85,247,0.25)]"
+              className="uzeed-cta-btn flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-[13px] font-bold text-white shadow-[0_6px_20px_rgba(168,85,247,0.25)]"
             >
-              <MessageCircle className="h-3.5 w-3.5" />
+              <MessageCircle className="h-4 w-4" />
               Mensaje
             </Link>
             {data.phone && (
@@ -593,9 +606,9 @@ function MobileQuickPreview({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={onClose}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/15"
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.08] px-5 py-3 text-[13px] font-bold text-emerald-300 transition-all duration-200 hover:bg-emerald-500/15 hover:border-emerald-500/30"
               >
-                <Phone className="h-3.5 w-3.5" />
+                <Phone className="h-4 w-4" />
                 WhatsApp
               </a>
             )}
@@ -604,7 +617,7 @@ function MobileQuickPreview({
             <Link
               href={href}
               onClick={onClose}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 text-xs font-medium text-white/70 transition hover:bg-white/[0.08]"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-[13px] font-semibold text-white/60 transition-all duration-200 hover:bg-white/[0.08]"
             >
               <Eye className="h-3.5 w-3.5" />
               Ver perfil
@@ -613,9 +626,9 @@ function MobileQuickPreview({
               <Link
                 href={isAuthed ? `${chatHref}?mode=request` : `/login?next=${encodeURIComponent(`${chatHref}?mode=request`)}`}
                 onClick={onClose}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 py-2.5 text-xs font-medium text-fuchsia-300 transition hover:bg-fuchsia-500/10"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-fuchsia-500/15 bg-fuchsia-500/[0.06] py-3 text-[13px] font-semibold text-fuchsia-300/80 transition-all duration-200 hover:bg-fuchsia-500/[0.12] hover:text-fuchsia-300"
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkles className="h-4 w-4" />
                 Solicitar encuentro
               </Link>
             )}
