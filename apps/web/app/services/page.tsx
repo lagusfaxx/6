@@ -271,83 +271,84 @@ const FeaturedCard = memo(function FeaturedCard({
 
   const isDiamond = profile.userLevel === "DIAMOND";
   const glowClass = isDiamond
-    ? "shadow-[0_4px_24px_rgba(34,211,238,0.15)]"
-    : "shadow-[0_4px_24px_rgba(251,191,36,0.12)]";
+    ? "shadow-[0_8px_40px_rgba(34,211,238,0.12),0_2px_8px_rgba(0,0,0,0.4)]"
+    : "shadow-[0_8px_40px_rgba(251,191,36,0.10),0_2px_8px_rgba(0,0,0,0.4)]";
 
   return (
-    <div className={`group w-[75vw] shrink-0 snap-start overflow-hidden rounded-2xl border-2 ${isDiamond ? "border-cyan-400/30" : "border-amber-400/30"} bg-white/[0.03] transition-all duration-300 hover:-translate-y-1 ${glowClass} sm:w-auto`}>
+    <div className={`group w-[75vw] shrink-0 snap-start overflow-hidden rounded-[20px] border ${isDiamond ? "border-cyan-400/25" : "border-amber-400/25"} bg-[#0c0c14]/80 backdrop-blur-sm transition-all duration-500 hover:-translate-y-1.5 ${glowClass} sm:w-auto`}>
       <button type="button" onClick={() => onPreview(profile)} className="block w-full text-left">
-        <div className="relative aspect-[3/4] overflow-hidden bg-white/[0.04]">
+        <div className="relative aspect-[3/4] overflow-hidden bg-[#0a0a10]">
           {img ? (
-            <img src={img} alt={profile.displayName || profile.username} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+            <img src={img} alt={profile.displayName || profile.username} className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.08]" />
           ) : (
-            <div className="flex h-full items-center justify-center"><Users className="h-12 w-12 text-white/10" /></div>
+            <div className="flex h-full items-center justify-center bg-gradient-to-br from-fuchsia-900/20 to-violet-900/20"><Users className="h-12 w-12 text-white/10" /></div>
           )}
           {/* Top badges */}
-          <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
-            <div className="flex flex-col gap-1">
+          <div className="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-start">
+            <div className="flex flex-col gap-1.5">
               {profile.availableNow && (
-                <span className="flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
+                <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-[0_4px_12px_rgba(16,185,129,0.3)]">
+                  <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" /></span> Online
                 </span>
               )}
               {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-2 py-0.5 text-[10px] font-semibold text-sky-100 shadow-lg">
+                <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/30 bg-sky-500/20 px-2.5 py-1 text-[10px] font-semibold text-sky-100 shadow-lg backdrop-blur-xl">
                   <ShieldCheck className="h-3 w-3" /> Con exámenes
                 </span>
               )}
               {hasVideoCallBadge(profile) && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-2 py-0.5 text-[10px] font-semibold text-violet-100 shadow-lg">
+                <span className="inline-flex items-center gap-1 rounded-full border border-violet-300/30 bg-violet-500/20 px-2.5 py-1 text-[10px] font-semibold text-violet-100 shadow-lg backdrop-blur-xl">
                   <Video className="h-3 w-3" /> Videollamadas
                 </span>
               )}
             </div>
-            <UserLevelBadge level={profile.userLevel} className="px-2 py-0.5 text-[10px] shadow-lg" />
+            <UserLevelBadge level={profile.userLevel} className="px-2.5 py-1 text-[10px] shadow-lg" />
           </div>
           {/* Distance */}
           {profile.distance != null && (
-            <div className="absolute right-2 bottom-14 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80 backdrop-blur">
-              <MapPin className="mr-0.5 inline h-3 w-3" />
+            <div className="absolute right-2.5 bottom-16 rounded-xl border border-white/10 bg-black/40 px-2.5 py-1 text-[10px] text-white/80 backdrop-blur-xl">
+              <MapPin className="mr-1 inline h-3 w-3 text-fuchsia-400/70" />
               {profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)} km`}
             </div>
           )}
-          {/* Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c14] via-[#0c0c14]/30 to-transparent" />
           {/* Info */}
-          <div className="absolute bottom-0 left-0 right-0 p-3">
-            <div className="flex items-center gap-1 text-base font-bold leading-tight">
+          <div className="absolute bottom-0 left-0 right-0 p-3.5">
+            <div className="flex items-center gap-1.5 text-base font-bold leading-tight tracking-tight">
               {profile.displayName || profile.username}
-              {hasPremiumBadge(profile.profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
-              {hasVerifiedBadge(profile.profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
-              {profile.age ? <span className="text-white/60 font-normal">, {profile.age}</span> : ""}
+              {hasPremiumBadge(profile.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
+              {hasVerifiedBadge(profile.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
+              {profile.age ? <span className="text-white/50 font-normal text-sm">, {profile.age}</span> : ""}
             </div>
-            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-white/50">
+            <div className="mt-1 flex items-center gap-2 text-[11px] text-white/45">
               {profile.city && <span>{profile.city}</span>}
+              {profile.city && <span className="text-white/15">·</span>}
               <span>{formatLastSeen(profile.lastSeen)}</span>
             </div>
           </div>
         </div>
       </button>
-      {/* CTA — different per business type */}
-      <div className="flex gap-2 p-2">
+      {/* CTA bar */}
+      <div className="flex gap-2 p-2.5 bg-[#0c0c14]/60">
         {profile.profileType === "ESTABLISHMENT" ? (
           <Link
             href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 text-xs font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.25)]"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 text-xs font-semibold transition-all hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.2)]"
           >
             <Building2 className="h-3.5 w-3.5" /> Reservar
           </Link>
         ) : profile.profileType === "SHOP" ? (
           <Link
             href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 py-2.5 text-xs font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(244,63,94,0.25)]"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 py-2.5 text-xs font-semibold transition-all hover:brightness-110 shadow-[0_4px_16px_rgba(244,63,94,0.2)]"
           >
             <ShoppingBag className="h-3.5 w-3.5" /> Visitar Tienda
           </Link>
         ) : (
           <Link
             href={chatHref}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-xs font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] py-2.5 text-xs font-semibold transition-all hover:bg-[position:100%_0] shadow-[0_4px_16px_rgba(168,85,247,0.2)]"
           >
             <MessageCircle className="h-3.5 w-3.5" /> Mensaje
           </Link>
@@ -357,7 +358,7 @@ const FeaturedCard = memo(function FeaturedCard({
             href={formatWhatsAppUrl(profile.phone)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-300 hover:bg-emerald-500/20 transition"
+            className="flex items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/[0.08] px-3 py-2.5 text-xs text-emerald-300 hover:bg-emerald-500/15 transition-all"
             title="WhatsApp"
           >
             <Phone className="h-3.5 w-3.5" />
@@ -365,7 +366,7 @@ const FeaturedCard = memo(function FeaturedCard({
         )}
         <Link
           href={ownerHref(profile)}
-          className="flex items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-xs font-medium text-white/70 hover:bg-white/10 transition"
+          className="flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-xs font-medium text-white/60 hover:bg-white/[0.08] hover:text-white/80 transition-all"
         >
           <Eye className="h-3.5 w-3.5" />
         </Link>
@@ -390,69 +391,69 @@ const ProfileCard = memo(function ProfileCard({
     : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
 
   return (
-    <div className={`group overflow-hidden rounded-2xl border ${tierBorderClass(profile.userLevel)} bg-white/[0.03] transition-all duration-200 hover:-translate-y-0.5`}>
+    <div className={`group overflow-hidden rounded-[18px] border ${tierBorderClass(profile.userLevel)} bg-[#0c0c14]/70 backdrop-blur-sm transition-all duration-400 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(0,0,0,0.4)]`}>
       <button type="button" onClick={() => onPreview(profile)} className="block w-full text-left">
-        <div className="relative aspect-[3/4] overflow-hidden bg-white/[0.04]">
+        <div className="relative aspect-[3/4] overflow-hidden bg-[#0a0a10]">
           {img ? (
-            <img src={img} alt={profile.displayName || profile.username} className="h-full w-full object-cover transition group-hover:scale-105" />
+            <img src={img} alt={profile.displayName || profile.username} className="h-full w-full object-cover transition-transform duration-600 ease-out group-hover:scale-[1.06]" />
           ) : (
-            <div className="flex h-full items-center justify-center text-white/20"><Users className="h-10 w-10" /></div>
+            <div className="flex h-full items-center justify-center text-white/20 bg-gradient-to-br from-fuchsia-900/10 to-violet-900/10"><Users className="h-10 w-10" /></div>
           )}
           {profile.distance != null && (
-            <div className="absolute right-1.5 top-1.5 rounded-full border border-white/10 bg-black/50 px-1.5 py-0.5 text-[9px] backdrop-blur">
-              <MapPin className="mr-0.5 inline h-2.5 w-2.5" />
+            <div className="absolute right-2 top-2 rounded-xl border border-white/10 bg-black/40 px-2 py-0.5 text-[9px] backdrop-blur-xl">
+              <MapPin className="mr-0.5 inline h-2.5 w-2.5 text-fuchsia-400/60" />
               {profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)}km`}
             </div>
           )}
-          <div className="absolute left-1.5 top-1.5 flex flex-col gap-1">
+          <div className="absolute left-2 top-2 flex flex-col gap-1">
             {profile.availableNow ? (
-              <div className="flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/80 px-1.5 py-0.5 text-[9px] text-white font-medium backdrop-blur shadow">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
+              <div className="flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/80 px-2 py-0.5 text-[9px] text-white font-semibold backdrop-blur-xl shadow-[0_2px_8px_rgba(16,185,129,0.3)]">
+                <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" /></span> Online
               </div>
             ) : null}
             {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) ? (
-              <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+              <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/30 bg-sky-500/20 px-2 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur-xl shadow">
                 <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
               </div>
             ) : null}
             {hasVideoCallBadge(profile) ? (
-              <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+              <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/30 bg-violet-500/20 px-2 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur-xl shadow">
                 <Video className="h-2.5 w-2.5" /> Videollamadas
               </div>
             ) : null}
           </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-2">
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c14] via-[#0c0c14]/20 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-2.5">
             <div className="flex items-center gap-1">
-              <span className="truncate text-xs font-semibold">
+              <span className="truncate text-xs font-bold tracking-tight">
                 {profile.displayName || profile.username}
-                {profile.age ? `, ${profile.age}` : ""}
+                {profile.age ? <span className="font-normal text-white/50">, {profile.age}</span> : ""}
               </span>
-              <UserLevelBadge level={profile.userLevel} className="shrink-0 px-1 py-0 text-[8px]" />
+              <UserLevelBadge level={profile.userLevel} className="shrink-0 px-1.5 py-0.5 text-[8px]" />
             </div>
-            <p className="mt-0.5 text-[9px] text-white/45">{profile.city ? `${profile.city} · ` : ""}{formatLastSeen(profile.lastSeen)}</p>
+            <p className="mt-0.5 text-[9px] text-white/40">{profile.city ? `${profile.city} · ` : ""}{formatLastSeen(profile.lastSeen)}</p>
           </div>
         </div>
       </button>
-      <div className="flex gap-1.5 p-1.5">
+      <div className="flex gap-1.5 p-2 bg-[#0c0c14]/40">
         {profile.profileType === "ESTABLISHMENT" ? (
           <Link
             href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-amber-500/90 to-orange-500/90 py-2 text-[11px] font-semibold transition hover:brightness-110"
+            className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-amber-500/90 to-orange-500/90 py-2 text-[11px] font-semibold transition-all hover:brightness-110"
           >
             <Building2 className="h-3 w-3" /> Reservar
           </Link>
         ) : profile.profileType === "SHOP" ? (
           <Link
             href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-rose-500/90 to-pink-500/90 py-2 text-[11px] font-semibold transition hover:brightness-110"
+            className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-rose-500/90 to-pink-500/90 py-2 text-[11px] font-semibold transition-all hover:brightness-110"
           >
             <ShoppingBag className="h-3 w-3" /> Visitar Tienda
           </Link>
         ) : (
           <Link
             href={chatHref}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2 text-[11px] font-semibold transition hover:brightness-110"
+            className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2 text-[11px] font-semibold transition-all hover:brightness-110"
           >
             <MessageCircle className="h-3 w-3" /> Mensaje
           </Link>
@@ -462,7 +463,7 @@ const ProfileCard = memo(function ProfileCard({
             href={formatWhatsAppUrl(profile.phone)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-2 text-[11px] text-emerald-300 hover:bg-emerald-500/20 transition"
+            className="flex items-center justify-center rounded-xl border border-emerald-500/15 bg-emerald-500/[0.08] px-2.5 py-2 text-[11px] text-emerald-300 hover:bg-emerald-500/15 transition-all"
             title="WhatsApp"
           >
             <Phone className="h-3 w-3" />
@@ -470,7 +471,7 @@ const ProfileCard = memo(function ProfileCard({
         )}
         <Link
           href={ownerHref(profile)}
-          className="flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[11px] text-white/60 hover:bg-white/10 transition"
+          className="flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-2.5 py-2 text-[11px] text-white/50 hover:bg-white/[0.08] hover:text-white/70 transition-all"
         >
           <Eye className="h-3 w-3" />
         </Link>
@@ -497,23 +498,30 @@ function ProfileDetailPanel({
     ? `/chat/${profile.userId || profile.id}`
     : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
 
+  const tierAccent =
+    profile.userLevel === "DIAMOND"
+      ? "from-cyan-500/[0.06] to-transparent"
+      : profile.userLevel === "GOLD"
+      ? "from-amber-500/[0.06] to-transparent"
+      : "from-fuchsia-500/[0.04] to-transparent";
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto">
-        {/* Cover photo */}
-        <div className="relative aspect-[16/9] overflow-hidden bg-white/[0.04]">
+        {/* Cover photo with premium overlay */}
+        <div className="relative aspect-[16/9] overflow-hidden bg-[#0a0a10]">
           {coverImg ? (
             <img src={coverImg} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full items-center justify-center bg-gradient-to-br from-fuchsia-900/30 to-violet-900/30">
+            <div className="flex h-full items-center justify-center bg-gradient-to-br from-fuchsia-900/25 to-violet-900/25">
               <Users className="h-12 w-12 text-white/10" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0d0e17] via-[#0d0e17]/30 to-black/20" />
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-sm transition hover:bg-black/70 hover:text-white"
+            className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 backdrop-blur-xl transition-all hover:bg-white/10 hover:text-white hover:border-white/20 hover:scale-105"
           >
             <X className="h-4 w-4" />
           </button>
@@ -525,103 +533,106 @@ function ProfileDetailPanel({
           )}
         </div>
 
-        {/* Avatar + Name */}
-        <div className="relative px-4 -mt-10">
-          <div className="flex items-end gap-3">
-            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border-[3px] border-[#0d0e17] bg-white/[0.08]">
-              {avatarImg ? (
-                <img src={avatarImg} alt={profile.displayName || profile.username} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <Users className="h-8 w-8 text-white/20" />
-                </div>
-              )}
-            </div>
-            <div className="min-w-0 pb-1">
-              <h3 className="flex items-center gap-1 truncate text-lg font-bold leading-tight">
-                {profile.displayName || profile.username}
-                {hasPremiumBadge(profile.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
-                {hasVerifiedBadge(profile.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
-                {profile.age ? <span className="font-normal text-white/50">, {profile.age}</span> : ""}
-              </h3>
-              {profile.city && (
-                <p className="mt-0.5 flex items-center gap-1 text-xs text-white/40">
-                  <MapPin className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{profile.city}</span>
-                </p>
-              )}
+        {/* Avatar + Name section with ambient glow */}
+        <div className="relative">
+          <div className={`absolute inset-x-0 top-0 h-20 bg-gradient-to-b ${tierAccent}`} />
+          <div className="relative px-4 -mt-10">
+            <div className="flex items-end gap-3">
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-[3px] border-[#0d0e17] bg-[#0d0e17] shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+                {avatarImg ? (
+                  <img src={avatarImg} alt={profile.displayName || profile.username} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-fuchsia-900/20 to-violet-900/20">
+                    <Users className="h-8 w-8 text-white/20" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 pb-1">
+                <h3 className="flex items-center gap-1 truncate text-lg font-bold leading-tight tracking-tight">
+                  {profile.displayName || profile.username}
+                  {hasPremiumBadge(profile.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
+                  {hasVerifiedBadge(profile.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
+                  {profile.age ? <span className="font-normal text-white/45 text-base">, {profile.age}</span> : ""}
+                </h3>
+                {profile.city && (
+                  <p className="mt-0.5 flex items-center gap-1 text-xs text-white/35">
+                    <MapPin className="h-3 w-3 shrink-0 text-fuchsia-400/50" />
+                    <span className="truncate">{profile.city}</span>
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Status + quick info pills */}
-        <div className="mt-3 flex flex-wrap gap-1.5 px-4">
+        <div className="mt-3.5 flex flex-wrap gap-1.5 px-4">
           {profile.availableNow ? (
-            <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-400">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+            <span className="flex items-center gap-1.5 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
+              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" /></span>
               Online
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-white/40">
+            <span className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-xs text-white/35">
               <Clock className="h-3 w-3" />
               {formatLastSeen(profile.lastSeen)}
             </span>
           )}
           {profile.distance != null && (
-            <span className="flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-white/50">
-              <MapPin className="h-3 w-3" />
+            <span className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-xs text-white/45">
+              <MapPin className="h-3 w-3 text-fuchsia-400/50" />
               {profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)} km`}
             </span>
           )}
           {profile.baseRate != null && (
-            <span className="flex items-center gap-1 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-2.5 py-1 text-xs font-medium text-fuchsia-300">
+            <span className="flex items-center gap-1 rounded-xl border border-fuchsia-500/15 bg-fuchsia-500/[0.08] px-2.5 py-1 text-xs font-semibold text-fuchsia-300">
               ${profile.baseRate.toLocaleString("es-CL")}
             </span>
           )}
           {profile.serviceCategory && (
-            <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-white/50">
+            <span className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-xs text-white/45">
               {profile.serviceCategory}
             </span>
           )}
           {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/15 px-2.5 py-1 text-xs font-medium text-sky-100">
+            <span className="inline-flex items-center gap-1 rounded-xl border border-sky-300/25 bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-200">
               <ShieldCheck className="h-3 w-3" /> Con exámenes
             </span>
           )}
         </div>
 
         {/* Stats grid */}
-        <div className="mt-3 grid grid-cols-2 gap-2 px-4">
+        <div className="mt-3.5 grid grid-cols-2 gap-2 px-4">
           {profile.heightCm != null && (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
-              <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-white/30">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/25">
                 <Ruler className="h-3 w-3" /> Estatura
               </div>
-              <div className="mt-1 text-sm font-semibold text-white/80">{Math.round(profile.heightCm)} cm</div>
+              <div className="mt-1 text-sm font-bold text-white/75 tracking-tight">{Math.round(profile.heightCm)} cm</div>
             </div>
           )}
           {profile.weightKg != null && (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
-              <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-white/30">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/25">
                 <Weight className="h-3 w-3" /> Peso
               </div>
-              <div className="mt-1 text-sm font-semibold text-white/80">{Math.round(profile.weightKg)} kg</div>
+              <div className="mt-1 text-sm font-bold text-white/75 tracking-tight">{Math.round(profile.weightKg)} kg</div>
             </div>
           )}
           {profile.hairColor && (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
-              <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-white/30">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/25">
                 <Scissors className="h-3 w-3" /> Cabello
               </div>
-              <div className="mt-1 text-sm font-semibold text-white/80">{profile.hairColor}</div>
+              <div className="mt-1 text-sm font-bold text-white/75 tracking-tight">{profile.hairColor}</div>
             </div>
           )}
           {profile.completedServices != null && profile.completedServices > 0 && (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
-              <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-white/30">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-3">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/25">
                 <CheckCircle className="h-3 w-3" /> Servicios
               </div>
-              <div className="mt-1 text-sm font-semibold text-white/80">{profile.completedServices}</div>
+              <div className="mt-1 text-sm font-bold text-white/75 tracking-tight">{profile.completedServices}</div>
             </div>
           )}
         </div>
@@ -629,20 +640,22 @@ function ProfileDetailPanel({
         {/* Description */}
         {(profile.bio || profile.serviceDescription) && (
           <div className="mt-4 px-4">
-            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Descripción</h4>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-white/60">
-              {profile.bio || profile.serviceDescription}
-            </p>
+            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/25">Descripción</h4>
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-3.5">
+              <p className="whitespace-pre-line text-[13px] leading-relaxed text-white/50">
+                {profile.bio || profile.serviceDescription}
+              </p>
+            </div>
           </div>
         )}
 
         {/* Profile tags (user-defined only) */}
         {filterUserTags(profile.profileTags).length > 0 && (
           <div className="mt-4 px-4">
-            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Etiquetas</h4>
+            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/25">Etiquetas</h4>
             <div className="flex flex-wrap gap-1.5">
               {filterUserTags(profile.profileTags).map((tag) => (
-                <span key={tag} className="rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] text-fuchsia-300/80">
+                <span key={tag} className="rounded-xl border border-fuchsia-500/15 bg-fuchsia-500/[0.08] px-3 py-1.5 text-[11px] font-medium text-fuchsia-300/80 transition-colors hover:bg-fuchsia-500/15">
                   {tag}
                 </span>
               ))}
@@ -653,10 +666,10 @@ function ProfileDetailPanel({
         {/* Service tags */}
         {profile.serviceTags && profile.serviceTags.length > 0 && (
           <div className="mt-4 px-4">
-            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Servicios</h4>
+            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/25">Servicios</h4>
             <div className="flex flex-wrap gap-1.5">
               {profile.serviceTags.map((tag) => (
-                <span key={tag} className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-300/80">
+                <span key={tag} className="rounded-xl border border-violet-500/15 bg-violet-500/[0.08] px-3 py-1.5 text-[11px] font-medium text-violet-300/80 transition-colors hover:bg-violet-500/15">
                   {tag}
                 </span>
               ))}
@@ -667,10 +680,10 @@ function ProfileDetailPanel({
         {/* Gallery */}
         {galleryUrls.length > 0 && (
           <div className="mt-4 px-4 pb-4">
-            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">Galería</h4>
-            <div className="grid grid-cols-3 gap-1.5">
+            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/25">Galería</h4>
+            <div className="grid grid-cols-3 gap-2">
               {galleryUrls.map((url, idx) => (
-                <div key={idx} className="aspect-square overflow-hidden rounded-lg bg-white/[0.04]">
+                <div key={idx} className="aspect-square overflow-hidden rounded-xl bg-[#0a0a10] transition-transform duration-300 hover:scale-[1.03]">
                   <img src={resolveMediaUrl(url) ?? undefined} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
                 </div>
               ))}
@@ -679,26 +692,27 @@ function ProfileDetailPanel({
         )}
       </div>
 
-      {/* Action buttons - fixed at bottom, different per type */}
-      <div className="shrink-0 border-t border-white/[0.08] bg-[#0d0e17] p-3 flex gap-2">
+      {/* Action buttons - premium style */}
+      <div className="relative shrink-0 border-t border-white/[0.06] bg-[#0d0e17]/90 backdrop-blur-xl p-3 flex gap-2">
+        <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent" />
         {profile.profileType === "ESTABLISHMENT" ? (
           <Link
             href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.25)]"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold transition-all hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.2)]"
           >
             <Building2 className="h-4 w-4" /> Reservar
           </Link>
         ) : profile.profileType === "SHOP" ? (
           <Link
             href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(244,63,94,0.25)]"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 py-3 text-sm font-semibold transition-all hover:brightness-110 shadow-[0_4px_16px_rgba(244,63,94,0.2)]"
           >
             <ShoppingBag className="h-4 w-4" /> Visitar Tienda
           </Link>
         ) : (
           <Link
             href={chatHref}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] py-3 text-sm font-semibold transition-all hover:bg-[position:100%_0] shadow-[0_4px_16px_rgba(168,85,247,0.2)]"
           >
             <MessageCircle className="h-4 w-4" /> Chat
           </Link>
@@ -708,7 +722,7 @@ function ProfileDetailPanel({
             href={formatWhatsAppUrl(profile.phone)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20"
+            className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.08] px-4 py-3 text-sm font-medium text-emerald-300 transition-all hover:bg-emerald-500/15 hover:border-emerald-500/30"
             title="WhatsApp"
           >
             <Phone className="h-4 w-4" />
@@ -716,7 +730,7 @@ function ProfileDetailPanel({
         )}
         <Link
           href={ownerHref(profile)}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] py-3 text-sm font-medium text-white/70 transition hover:bg-white/10"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-medium text-white/60 transition-all hover:bg-white/[0.08] hover:text-white/80 hover:border-white/15"
         >
           <Eye className="h-4 w-4" /> Ver Perfil
         </Link>
@@ -988,20 +1002,23 @@ export default function ServicesPage() {
   return (
     <div className="pb-24">
       {/* ── Header ── */}
-      <section className="relative border-b border-white/[0.08] bg-white/[0.02] backdrop-blur-2xl overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-500/[0.03] to-transparent pointer-events-none" />
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/20 to-transparent" />
-        <div className="relative mx-auto max-w-6xl px-4 pt-3 pb-3">
+      <section className="relative border-b border-white/[0.06] bg-[#0a0a12]/80 backdrop-blur-2xl overflow-hidden">
+        {/* Ambient gradients */}
+        <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-500/[0.03] via-transparent to-transparent pointer-events-none" />
+        <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-fuchsia-500/[0.04] blur-[80px] pointer-events-none" />
+        <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-violet-500/[0.03] blur-[60px] pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/15 to-transparent" />
+        <div className="relative mx-auto max-w-6xl px-4 pt-4 pb-3.5">
           {/* Title row */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="text-lg font-bold tracking-tight">Cerca tuyo</h1>
-              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/45">
+              <h1 className="text-xl font-bold tracking-tight">Cerca tuyo</h1>
+              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/40">
                 {locationLabel && (
                   <>
-                    <MapPin className="h-3 w-3 text-fuchsia-400/70" />
-                    <span className="text-fuchsia-300/60">{locationLabel}</span>
-                    <span className="text-white/15">·</span>
+                    <MapPin className="h-3 w-3 text-fuchsia-400/60" />
+                    <span className="text-fuchsia-300/50 font-medium">{locationLabel}</span>
+                    <span className="text-white/10">·</span>
                   </>
                 )}
                 {!loading && <span>{displayProfiles.length} resultado{displayProfiles.length !== 1 ? "s" : ""}</span>}
@@ -1011,7 +1028,7 @@ export default function ServicesPage() {
             <button
               type="button"
               onClick={() => setShowMap((v) => !v)}
-              className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition ${showMap ? "border-fuchsia-500/25 bg-fuchsia-500/10 text-fuchsia-300" : "border-white/10 bg-white/[0.04] text-white/50 hover:text-white/70"}`}
+              className={`shrink-0 rounded-xl border px-3 py-2 text-[11px] font-medium transition-all ${showMap ? "border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-300 shadow-[0_2px_8px_rgba(168,85,247,0.1)]" : "border-white/[0.08] bg-white/[0.03] text-white/45 hover:text-white/65 hover:border-white/15"}`}
             >
               <MapPin className="mr-1 inline h-3 w-3" />
               Mapa
@@ -1019,7 +1036,7 @@ export default function ServicesPage() {
           </div>
 
           {/* Category tabs */}
-          <div className="scrollbar-none mt-2.5 -mx-4 flex gap-1.5 overflow-x-auto px-4">
+          <div className="scrollbar-none mt-3 -mx-4 flex gap-1.5 overflow-x-auto px-4">
             {CATEGORY_TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = category === tab.key;
@@ -1028,13 +1045,13 @@ export default function ServicesPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setCategory(tab.key)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
+                  className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-[11px] font-medium transition-all ${
                     isActive
-                      ? "border border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-200"
-                      : "border border-white/[0.08] text-white/50 hover:bg-white/[0.06] hover:text-white/70"
+                      ? "border border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-200 shadow-[0_2px_8px_rgba(168,85,247,0.08)]"
+                      : "border border-white/[0.06] text-white/45 hover:bg-white/[0.04] hover:text-white/65 hover:border-white/10"
                   }`}
                 >
-                  <Icon className="h-3 w-3" />
+                  <Icon className="h-3.5 w-3.5" />
                   {tab.label}
                 </button>
               );
@@ -1042,17 +1059,17 @@ export default function ServicesPage() {
           </div>
 
           {/* Search + Sort + Filters */}
-          <div className="mt-2.5 flex gap-1.5">
-            <label className="flex flex-1 items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm focus-within:border-fuchsia-500/30 transition">
-              <Search className="h-3.5 w-3.5 text-white/30" />
+          <div className="mt-3 flex gap-1.5">
+            <label className="flex flex-1 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-sm focus-within:border-fuchsia-500/25 focus-within:bg-fuchsia-500/[0.02] transition-all">
+              <Search className="h-3.5 w-3.5 text-white/25" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar nombre, ciudad..."
-                className="w-full bg-transparent text-xs outline-none placeholder:text-white/25"
+                className="w-full bg-transparent text-xs outline-none placeholder:text-white/20"
               />
               {search && (
-                <button type="button" onClick={() => setSearch("")} className="text-white/30 hover:text-white/60">
+                <button type="button" onClick={() => setSearch("")} className="text-white/25 hover:text-white/55 transition-colors">
                   <X className="h-3 w-3" />
                 </button>
               )}
@@ -1062,33 +1079,33 @@ export default function ServicesPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="h-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 pr-6 text-[11px] text-white/70 appearance-none focus:outline-none focus:border-fuchsia-500/30 cursor-pointer"
+                className="h-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 pr-7 text-[11px] text-white/60 appearance-none focus:outline-none focus:border-fuchsia-500/25 cursor-pointer transition-all"
               >
                 {SORT_OPTIONS.map((opt) => (
                   <option key={opt.key} value={opt.key}>{opt.label}</option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-white/30" />
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white/25" />
             </div>
 
             <button
               type="button"
               onClick={() => setShowFilters((s) => !s)}
-              className={`shrink-0 rounded-lg border px-2.5 py-2 text-[11px] inline-flex items-center gap-1 transition ${
+              className={`shrink-0 rounded-xl border px-3 py-2.5 text-[11px] inline-flex items-center gap-1.5 transition-all ${
                 showFilters || activeFilterCount > 0
-                  ? "border-fuchsia-500/25 bg-fuchsia-500/10 text-fuchsia-200"
-                  : "border-white/[0.08] bg-white/[0.03] text-white/50 hover:text-white/70"
+                  ? "border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-200"
+                  : "border-white/[0.06] bg-white/[0.02] text-white/45 hover:text-white/65"
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
               {activeFilterCount > 0 && (
-                <span className="rounded-full bg-fuchsia-500 px-1 py-0.5 text-[9px] font-bold leading-none">{activeFilterCount}</span>
+                <span className="rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-[9px] font-bold leading-none">{activeFilterCount}</span>
               )}
             </button>
           </div>
 
           {/* Quick filter pills */}
-          <div className="mt-2 flex gap-1 overflow-x-auto scrollbar-none">
+          <div className="mt-2.5 flex gap-1.5 overflow-x-auto scrollbar-none">
             {QUICK_FILTERS.map((f) => {
               const Icon = f.icon;
               const isActive = activeQuickFilters.has(f.key);
@@ -1097,8 +1114,8 @@ export default function ServicesPage() {
                   key={f.key}
                   type="button"
                   onClick={() => toggleQuickFilter(f.key)}
-                  className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium transition ${
-                    isActive ? f.activeColor : "border-white/[0.08] text-white/40 hover:border-white/15 hover:text-white/60"
+                  className={`flex shrink-0 items-center gap-1 rounded-xl border px-2.5 py-1.5 text-[10px] font-medium transition-all ${
+                    isActive ? f.activeColor : "border-white/[0.06] text-white/35 hover:border-white/10 hover:text-white/55"
                   }`}
                 >
                   <Icon className="h-2.5 w-2.5" />
@@ -1110,7 +1127,7 @@ export default function ServicesPage() {
               <button
                 type="button"
                 onClick={() => { setActiveQuickFilters(new Set()); setSearch(""); }}
-                className="flex shrink-0 items-center gap-1 rounded-full border border-white/[0.08] px-2 py-1 text-[10px] text-white/30 hover:text-white/60 transition"
+                className="flex shrink-0 items-center gap-1 rounded-xl border border-white/[0.06] px-2.5 py-1.5 text-[10px] text-white/25 hover:text-white/55 transition-all"
               >
                 <X className="h-2.5 w-2.5" /> Limpiar
               </button>
@@ -1119,10 +1136,10 @@ export default function ServicesPage() {
 
           {/* Expanded filters */}
           {showFilters && (
-            <div className="mt-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-white/35">Radio de búsqueda</label>
-                <span className="text-[11px] text-fuchsia-300/80 font-medium">{radiusKm} km</span>
+            <div className="mt-3 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-white/30">Radio de búsqueda</label>
+                <span className="text-[11px] text-fuchsia-300/70 font-semibold tabular-nums">{radiusKm} km</span>
               </div>
               <input
                 type="range"
@@ -1132,22 +1149,22 @@ export default function ServicesPage() {
                 onChange={(e) => setRadiusKm(Number(e.target.value))}
                 className="w-full accent-fuchsia-500"
               />
-              <div className="flex justify-between text-[9px] text-white/20 mt-0.5"><span>1 km</span><span>100 km</span></div>
+              <div className="flex justify-between text-[9px] text-white/15 mt-1"><span>1 km</span><span>100 km</span></div>
             </div>
           )}
         </div>
       </section>
 
-      <div className="mx-auto max-w-6xl px-4 py-4">
+      <div className="mx-auto max-w-6xl px-4 py-5">
         {/* ── Stories ── */}
-        <div className="mb-4">
+        <div className="mb-5">
           <Stories />
         </div>
 
         {/* ── Map + Desktop Profile Panel ── */}
         {showMap && (
-          <div className={`mb-6 ${selectedProfile && !isMobileView ? "flex gap-4" : ""}`}>
-            <div className={`overflow-hidden rounded-2xl border border-white/[0.08] ${selectedProfile && !isMobileView ? "min-w-0 flex-1" : ""}`}>
+          <div className={`mb-7 ${selectedProfile && !isMobileView ? "flex gap-4" : ""}`}>
+            <div className={`overflow-hidden rounded-2xl border border-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.3)] ${selectedProfile && !isMobileView ? "min-w-0 flex-1" : ""}`}>
               <MapboxMap
                 userLocation={mapCenter}
                 markers={markers}
@@ -1161,7 +1178,7 @@ export default function ServicesPage() {
             </div>
             {/* Desktop side panel */}
             {selectedProfile && !isMobileView && (
-              <div className="w-[420px] shrink-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0d0e17]" style={{ height: 520 }}>
+              <div className="w-[420px] shrink-0 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0d0e17] shadow-[0_8px_32px_rgba(0,0,0,0.4)]" style={{ height: 520 }}>
                 <ProfileDetailPanel
                   profile={selectedProfile}
                   galleryUrls={detailGallery}
@@ -1177,13 +1194,13 @@ export default function ServicesPage() {
         {selectedProfile && isMobileView && (
           <div className="fixed inset-0 z-[100] flex flex-col justify-end" role="dialog" aria-modal>
             <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm uzeed-animate-fade-in"
+              className="absolute inset-0 bg-black/60 backdrop-blur-xl uzeed-animate-fade-in"
               onClick={() => setSelectedProfile(null)}
             />
-            <div className="relative flex flex-col rounded-t-2xl border-t border-white/[0.08] bg-[#0d0e17] uzeed-animate-slide-up" style={{ maxHeight: "85vh" }}>
+            <div className="relative flex flex-col rounded-t-[24px] border-t border-white/[0.06] bg-[#0d0e17] uzeed-animate-slide-up shadow-[0_-16px_48px_rgba(0,0,0,0.5)]" style={{ maxHeight: "85vh" }}>
               {/* Drag handle */}
-              <div className="flex justify-center py-2.5">
-                <div className="h-1 w-10 rounded-full bg-white/20" />
+              <div className="flex justify-center py-3">
+                <div className="h-1 w-10 rounded-full bg-white/15" />
               </div>
               <div className="flex-1 overflow-hidden">
                 <ProfileDetailPanel
@@ -1201,23 +1218,23 @@ export default function ServicesPage() {
         {loading && !hasLoadedOnce && (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="aspect-[3/4] animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+              <div key={i} className="aspect-[3/4] animate-pulse rounded-[18px] border border-white/[0.04] bg-white/[0.02]" />
             ))}
           </div>
         )}
 
         {/* ── No results ── */}
         {!loading && displayProfiles.length === 0 && (
-          <div className="mb-6 rounded-3xl border border-white/[0.08] bg-white/[0.03] p-10 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-fuchsia-500/10">
-              <Search className="h-7 w-7 text-fuchsia-400/50" />
+          <div className="mb-6 rounded-[24px] border border-white/[0.06] bg-white/[0.02] p-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-fuchsia-500/[0.08] border border-fuchsia-500/15">
+              <Search className="h-7 w-7 text-fuchsia-400/40" />
             </div>
-            <h3 className="text-lg font-semibold">No encontramos resultados</h3>
-            <p className="mt-1 text-sm text-white/50">Intenta ampliar el rango o cambiar la ubicación en el chip del header.</p>
+            <h3 className="text-lg font-bold tracking-tight">No encontramos resultados</h3>
+            <p className="mt-1.5 text-sm text-white/40">Intenta ampliar el rango o cambiar la ubicación en el chip del header.</p>
             <button
               type="button"
               onClick={() => { setRadiusKm(100); setActiveQuickFilters(new Set()); setCategory("all"); }}
-              className="mt-4 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-semibold transition hover:brightness-110"
+              className="mt-5 rounded-xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] px-6 py-3 text-sm font-semibold transition-all hover:bg-[position:100%_0] shadow-[0_8px_24px_rgba(168,85,247,0.2)]"
             >
               Ampliar búsqueda
             </button>
@@ -1227,13 +1244,17 @@ export default function ServicesPage() {
         {/* ═══ FEATURED SECTION (Diamond + Gold) ═══ */}
         {!isAllCategoryView && featuredProfiles.length > 0 && (
           <section className="mb-8">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Crown className="h-5 w-5 text-amber-400" />
-                <h2 className="text-base font-bold">Destacadas</h2>
-                <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 font-medium">Premium</span>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/15">
+                  <Crown className="h-4 w-4 text-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold tracking-tight">Destacadas</h2>
+                  <span className="text-[10px] text-amber-400/60 font-medium uppercase tracking-wider">Premium</span>
+                </div>
               </div>
-              <Link href="/profesionales" className="group flex items-center gap-1 text-xs text-white/40 hover:text-fuchsia-400 transition">
+              <Link href="/profesionales" className="group flex items-center gap-1 text-xs text-white/35 hover:text-fuchsia-400 transition-all">
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
@@ -1248,15 +1269,23 @@ export default function ServicesPage() {
         {/* ═══ ALL CATEGORY ORDERED SECTIONS ═══ */}
         {isAllCategoryView && featuredEscortProfiles.length > 0 && (
           <section className="mb-8">
-            <div className="mb-3 flex items-center gap-2">
-              <Crown className="h-5 w-5 text-amber-400" />
-              <h2 className="text-base font-bold">Escorts destacadas</h2>
-              <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 font-medium">Premium</span>
+            <div className="mb-4 flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/15">
+                <Crown className="h-4 w-4 text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold tracking-tight">Escorts destacadas</h2>
+                <span className="text-[10px] text-amber-400/60 font-medium uppercase tracking-wider">Premium</span>
+              </div>
             </div>
 
             {diamondEscortProfiles.length > 0 && (
-              <div className="mb-5">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300/80">Diamond</h3>
+              <div className="mb-6">
+                <h3 className="mb-2.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan-300/70">
+                  <span className="h-px flex-1 bg-gradient-to-r from-cyan-500/20 to-transparent" />
+                  Diamond
+                  <span className="h-px flex-1 bg-gradient-to-l from-cyan-500/20 to-transparent" />
+                </h3>
                 <ScrollableRow>
                   {diamondEscortProfiles.map((p) => (
                     <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
@@ -1267,7 +1296,11 @@ export default function ServicesPage() {
 
             {goldEscortProfiles.length > 0 && (
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300/80">Gold</h3>
+                <h3 className="mb-2.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-300/70">
+                  <span className="h-px flex-1 bg-gradient-to-r from-amber-500/20 to-transparent" />
+                  Gold
+                  <span className="h-px flex-1 bg-gradient-to-l from-amber-500/20 to-transparent" />
+                </h3>
                 <ScrollableRow>
                   {goldEscortProfiles.map((p) => (
                     <FeaturedCard key={p.id} profile={p} onPreview={setPreviewProfile} isAuthed={isAuthed} />
@@ -1280,9 +1313,11 @@ export default function ServicesPage() {
 
         {isAllCategoryView && escortProfiles.length > 0 && (
           <section className="mb-8">
-            <div className="mb-3 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-fuchsia-300" />
-              <h2 className="text-base font-bold">Escorts</h2>
+            <div className="mb-4 flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/15">
+                <Sparkles className="h-3.5 w-3.5 text-fuchsia-300" />
+              </div>
+              <h2 className="text-base font-bold tracking-tight">Escorts</h2>
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {escortProfiles.map((profile) => (
@@ -1294,9 +1329,11 @@ export default function ServicesPage() {
 
         {isAllCategoryView && motelProfiles.length > 0 && (
           <section className="mb-8">
-            <div className="mb-3 flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-sky-300" />
-              <h2 className="text-base font-bold">Moteles</h2>
+            <div className="mb-4 flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/10 border border-sky-500/15">
+                <Building2 className="h-3.5 w-3.5 text-sky-300" />
+              </div>
+              <h2 className="text-base font-bold tracking-tight">Moteles</h2>
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {motelProfiles.map((profile) => (
@@ -1308,9 +1345,11 @@ export default function ServicesPage() {
 
         {isAllCategoryView && sexShopProfiles.length > 0 && (
           <section>
-            <div className="mb-3 flex items-center gap-2">
-              <ShoppingBag className="h-4 w-4 text-rose-300" />
-              <h2 className="text-base font-bold">Sex Shop</h2>
+            <div className="mb-4 flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/10 border border-rose-500/15">
+                <ShoppingBag className="h-3.5 w-3.5 text-rose-300" />
+              </div>
+              <h2 className="text-base font-bold tracking-tight">Sex Shop</h2>
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {sexShopProfiles.map((profile) => (
@@ -1323,13 +1362,15 @@ export default function ServicesPage() {
         {/* ═══ ALL PROFILES GRID ═══ */}
         {!isAllCategoryView && standardProfiles.length > 0 && (
           <section>
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-white/50" />
-                <h2 className="text-base font-bold">Todas las experiencias</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.06]">
+                  <Users className="h-3.5 w-3.5 text-white/45" />
+                </div>
+                <h2 className="text-base font-bold tracking-tight">Todas las experiencias</h2>
               </div>
               {filtered.length === 0 && displayProfiles.length > 0 && (
-                <p className="text-[11px] text-white/35">Mostrando todos</p>
+                <p className="text-[11px] text-white/30">Mostrando todos</p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
@@ -1342,18 +1383,22 @@ export default function ServicesPage() {
 
         {/* ═══ CTA Registration ═══ */}
         {!isAuthed && displayProfiles.length > 0 && (
-          <section className="mt-10 rounded-3xl border border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-600/[0.08] via-violet-600/[0.05] to-transparent p-8 text-center">
-            <h2 className="text-lg font-bold">Crea tu cuenta gratis</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-white/50">
-              Regístrate para enviar mensajes, guardar favoritos y descubrir más cerca de ti.
-            </p>
-            <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
-              <Link href="/register?type=CLIENT" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-semibold transition hover:brightness-110 shadow-[0_8px_24px_rgba(168,85,247,0.25)]">
-                Registro gratis <ChevronRight className="h-4 w-4" />
-              </Link>
-              <Link href="/login" className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-6 py-3 text-sm font-medium text-white/70 transition hover:bg-white/[0.08]">
-                Ya tengo cuenta
-              </Link>
+          <section className="mt-12 relative overflow-hidden rounded-[24px] border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-600/[0.06] via-violet-600/[0.04] to-transparent p-10 text-center">
+            <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-fuchsia-500/[0.06] blur-[80px] pointer-events-none" />
+            <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-violet-500/[0.05] blur-[60px] pointer-events-none" />
+            <div className="relative">
+              <h2 className="text-xl font-bold tracking-tight">Crea tu cuenta gratis</h2>
+              <p className="mx-auto mt-2.5 max-w-md text-sm text-white/40">
+                Regístrate para enviar mensajes, guardar favoritos y descubrir más cerca de ti.
+              </p>
+              <div className="mt-5 flex flex-col items-center gap-2.5 sm:flex-row sm:justify-center">
+                <Link href="/register?type=CLIENT" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] px-7 py-3.5 text-sm font-bold transition-all hover:bg-[position:100%_0] shadow-[0_8px_32px_rgba(168,85,247,0.25)]">
+                  Registro gratis <ChevronRight className="h-4 w-4" />
+                </Link>
+                <Link href="/login" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-7 py-3.5 text-sm font-medium text-white/60 transition-all hover:bg-white/[0.06] hover:border-white/15">
+                  Ya tengo cuenta
+                </Link>
+              </div>
             </div>
           </section>
         )}
