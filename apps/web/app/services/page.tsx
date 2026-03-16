@@ -1009,7 +1009,7 @@ export default function ServicesPage() {
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2.5">
               <h1 className="text-lg font-bold tracking-tight whitespace-nowrap">Cerca tuyo</h1>
-              <p className="flex items-center gap-1.5 text-[10px] text-white/35 sm:text-[11px]">
+              <p className="flex items-center gap-1.5 text-[11px] text-white/35">
                 {locationLabel && (
                   <>
                     <MapPin className="h-2.5 w-2.5 text-fuchsia-400/50" />
@@ -1098,7 +1098,7 @@ export default function ServicesPage() {
                 </button>
               );
             })}
-            <div className="h-4 w-px bg-white/[0.08] mx-0.5 shrink-0" />
+            <div className="h-4 w-px bg-white/[0.08] mx-0.5 shrink-0" aria-hidden="true" />
             {QUICK_FILTERS.map((f) => {
               const Icon = f.icon;
               const isActive = activeQuickFilters.has(f.key);
@@ -1107,7 +1107,7 @@ export default function ServicesPage() {
                   key={f.key}
                   type="button"
                   onClick={() => toggleQuickFilter(f.key)}
-                  className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-[10px] font-medium transition-all ${
+                  className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-all ${
                     isActive ? f.activeColor : "text-white/30 border border-transparent hover:text-white/50 hover:bg-white/[0.03]"
                   }`}
                 >
@@ -1120,7 +1120,7 @@ export default function ServicesPage() {
               <button
                 type="button"
                 onClick={() => { setActiveQuickFilters(new Set()); setSearch(""); }}
-                className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-[10px] text-white/25 hover:text-white/55 transition-all"
+                className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] text-white/25 hover:text-white/55 transition-all"
               >
                 <X className="h-2.5 w-2.5" /> Limpiar
               </button>
