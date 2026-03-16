@@ -327,3 +327,48 @@ export async function createFlowSubscription(req: FlowCreateSubscriptionRequest)
 export async function getFlowSubscription(subscriptionId: string): Promise<FlowSubscription> {
   return flowFetch<FlowSubscription>("/subscription/get", "GET", { subscriptionId });
 }
+
+// ── Flow Payment API (one-time) ─────────────────────────────────────
+
+export type FlowCreatePaymentRequest = {
+  commerceOrder: string;
+  subject: string;
+  currency?: string;
+  amount: number;
+  email: string;
+  urlConfirmation: string;
+  urlReturn: string;
+  optional?: string;
+};
+
+export type FlowCreatePaymentResponse = {
+  url: string;
+  token: string;
+};
+
+export type FlowPaymentStatus = {
+  flowOrder: number;
+  commerceOrder: string;
+  requestDate: string;
+  status: number; // 1=pending, 2=paid, 3=rejected, 4=canceled
+  subject: string;
+  currency: string;
+  amount: number;
+  payer: string;
+  optional?: string;
+  paymentData?: {
+    date: string;
+    trxId: string;
+    mediaType: string;
+    accountNumber: string;
+    transferDate?: string;
+  };
+};
+
+export async function createFlowPayment(req: FlowCreatePaymentRequest): Promise<FlowCreatePaymentResponse> {
+  return flowFetch<FlowCreatePaymentResponse>("/payment/create", "POST", toStringRecord(req as unknown as Record<string, unknown>));
+}
+
+export async function getFlowPaymentStatus(token: string): Promise<FlowPaymentStatus> {
+  return flowFetch<FlowPaymentStatus>("/payment/getStatus", "GET", { token });
+}

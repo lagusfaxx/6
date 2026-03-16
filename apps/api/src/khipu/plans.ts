@@ -13,6 +13,7 @@ import {
   createFlowCustomer,
   createFlowSubscription,
   getFlowSubscription,
+  getFlowPaymentStatus,
   signFlowParams
 } from "./client";
 
@@ -315,4 +316,102 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
 
   console.log("[flow] membership activated via webhook", { userId: user.id, subscriptionId });
   return res.json({ ok: true, subscriptionId, status: flowStatus, activated: true });
+}));
+
+// ── Flow One-Time Payment Webhook ────────────────────────────────────────────
+
+/** POST /webhooks/flow/payment – confirmation callback for one-time Flow payments */
+plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
+  const body = req.body as Record<string, string>;
+  const { s, token, ...params } = body;
+
+  // 1) Signature verification
+  if (!config.flowSecretKey) {
+    console.error("[flow] payment webhook: FLOW_SECRET_KEY not configured");
+    return res.status(500).json({ error: "WEBHOOK_NOT_CONFIGURED" });
+  }
+
+  if (!s || !token) {
+    console.error("[flow] payment webhook: missing signature or token");
+    return res.status(400).json({ error: "MISSING_PARAMS" });
+  }
+
+  // The params to sign include all fields except s, but include token
+  const toSign = { ...params, token };
+  const expected = signFlowParams(toSign);
+  try {
+    const sigA = Buffer.from(expected, "hex");
+    const sigB = Buffer.from(s, "hex");
+    if (sigA.length !== sigB.length || !crypto.timingSafeEqual(sigA, sigB)) {
+      console.error("[flow] payment webhook: invalid signature");
+      return res.status(401).json({ error: "INVALID_SIGNATURE" });
+    }
+  } catch {
+    return res.status(401).json({ error: "INVALID_SIGNATURE" });
+  }
+
+  console.log("[flow] payment webhook received", { token });
+
+  // 2) Get payment status from Flow
+  let payment;
+  try {
+    payment = await getFlowPaymentStatus(token);
+  } catch (err) {
+    console.error("[flow] payment webhook: failed to get payment status", err);
+    return res.status(502).json({ error: "FLOW_STATUS_ERROR" });
+  }
+
+  // status 2 = paid
+  if (payment.status !== 2) {
+    console.log("[flow] payment webhook: not paid", { token, status: payment.status });
+    return res.json({ ok: true, paid: false, status: payment.status });
+  }
+
+  // 3) Find the PaymentIntent by commerceOrder (= intent.id)
+  const intentId = payment.commerceOrder;
+  const intent = await prisma.paymentIntent.findUnique({ where: { id: intentId } });
+  if (!intent) {
+    console.error("[flow] payment webhook: intent not found", { intentId });
+    return res.status(404).json({ error: "INTENT_NOT_FOUND" });
+  }
+
+  // Idempotency: already paid
+  if (intent.status === "PAID") {
+    return res.json({ ok: true, paid: true, idempotent: true });
+  }
+
+  // 4) Activate membership in a transaction
+  await prisma.$transaction(async (tx) => {
+    await tx.paymentIntent.update({
+      where: { id: intent.id },
+      data: { status: "PAID", paidAt: new Date(), providerPaymentId: token }
+    });
+
+    const now = new Date();
+    const current = await tx.user.findUnique({
+      where: { id: intent.subscriberId },
+      select: { membershipExpiresAt: true }
+    });
+
+    const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
+      ? current.membershipExpiresAt
+      : now;
+    const expiresAt = addDays(base, config.membershipDays);
+
+    await tx.user.update({
+      where: { id: intent.subscriberId },
+      data: { membershipExpiresAt: expiresAt }
+    });
+
+    await tx.notification.create({
+      data: {
+        userId: intent.subscriberId,
+        type: "SUBSCRIPTION_RENEWED",
+        data: { intentId: intent.id, source: "flow_payment", flowOrder: payment.flowOrder }
+      }
+    });
+  });
+
+  console.log("[flow] payment webhook: membership activated", { userId: intent.subscriberId, intentId });
+  return res.json({ ok: true, paid: true });
 }));

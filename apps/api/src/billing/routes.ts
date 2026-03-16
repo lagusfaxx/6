@@ -1,15 +1,206 @@
 import { Router } from "express";
 import { prisma } from "../db";
-import { requireAuth } from "../auth/middleware";
+import { requireAuth, requireAdmin } from "../auth/middleware";
 import { config } from "../config";
 import { asyncHandler } from "../lib/asyncHandler";
 import {
   createFlowCustomer,
   createFlowSubscription,
-  getFlowSubscription
+  getFlowSubscription,
+  createFlowPayment
 } from "../khipu/client";
 
 export const billingRouter = Router();
+
+// ── Flow one-time payment ──────────────────────────────────────────────────────
+
+billingRouter.post("/billing/payment/flow", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, displayName: true, username: true, profileType: true }
+  });
+  if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+  if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
+    return res.status(400).json({ error: "NOT_REQUIRED", message: "Este tipo de perfil no requiere suscripción" });
+  }
+
+  const email = (user.email || "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED", message: "Se requiere email para procesar el pago" });
+
+  if (!config.flowApiKey) {
+    return res.status(503).json({ error: "PAYMENT_UNAVAILABLE", message: "El pago con Flow no está configurado" });
+  }
+
+  // Create pending PaymentIntent first
+  const intent = await prisma.paymentIntent.create({
+    data: {
+      subscriberId: userId,
+      purpose: "MEMBERSHIP_PLAN",
+      method: "FLOW",
+      status: "PENDING",
+      amount: config.membershipPriceClp
+    }
+  });
+
+  const appUrl = config.appUrl.replace(/\/$/, "");
+  const apiUrl = config.apiUrl.replace(/\/$/, "");
+
+  // Create Flow payment
+  const payment = await createFlowPayment({
+    commerceOrder: intent.id,
+    subject: "Suscripción mensual profesional",
+    currency: "CLP",
+    amount: config.membershipPriceClp,
+    email,
+    urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
+    urlReturn: `${appUrl}/pago/exitoso?ref=${intent.id}`
+  });
+
+  // Store token
+  await prisma.paymentIntent.update({
+    where: { id: intent.id },
+    data: { paymentUrl: payment.url, providerPaymentId: payment.token }
+  });
+
+  // Full redirect URL for Flow payment page
+  const redirectUrl = `${payment.url}?token=${payment.token}`;
+
+  console.log("[billing] Flow payment created", { userId, intentId: intent.id, token: payment.token });
+  return res.json({ url: redirectUrl, token: payment.token, intentId: intent.id });
+}));
+
+// ── Bank transfer payment submission ──────────────────────────────────────────
+
+billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const { folio, bank, notes } = req.body;
+
+  if (!folio) return res.status(400).json({ error: "FOLIO_REQUIRED", message: "Debes ingresar el número de folio o comprobante de la transferencia" });
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, profileType: true }
+  });
+  if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+  if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
+    return res.status(400).json({ error: "NOT_REQUIRED" });
+  }
+
+  const notesParts: string[] = [];
+  if (bank) notesParts.push(`Banco: ${bank}`);
+  notesParts.push(`Folio/ref: ${folio}`);
+  if (notes) notesParts.push(notes);
+
+  const intent = await prisma.paymentIntent.create({
+    data: {
+      subscriberId: userId,
+      purpose: "MEMBERSHIP_PLAN",
+      method: "TRANSFER",
+      status: "PENDING",
+      amount: config.membershipPriceClp,
+      providerPaymentId: String(folio).trim(),
+      notes: notesParts.join(" | ").slice(0, 500)
+    }
+  });
+
+  console.log("[billing] bank transfer submitted", { userId, intentId: intent.id, folio });
+  return res.json({ ok: true, intentId: intent.id, message: "Tu comprobante fue enviado. El equipo lo revisará en 24 horas hábiles." });
+}));
+
+// ── Admin: list pending transfers ──────────────────────────────────────────────
+
+billingRouter.get("/admin/billing/transfers", requireAdmin, asyncHandler(async (_req, res) => {
+  const transfers = await prisma.paymentIntent.findMany({
+    where: { method: "TRANSFER", status: "PENDING", purpose: "MEMBERSHIP_PLAN" },
+    include: {
+      subscriber: {
+        select: { id: true, username: true, email: true, displayName: true, profileType: true }
+      }
+    },
+    orderBy: { createdAt: "asc" }
+  });
+  return res.json(transfers);
+}));
+
+// ── Admin: approve transfer ────────────────────────────────────────────────────
+
+billingRouter.post("/admin/billing/transfers/:id/approve", requireAdmin, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const adminId = req.session.userId!;
+
+  const intent = await prisma.paymentIntent.findUnique({ where: { id } });
+  if (!intent) return res.status(404).json({ error: "NOT_FOUND" });
+  if (intent.method !== "TRANSFER") return res.status(400).json({ error: "NOT_A_TRANSFER" });
+  if (intent.status === "PAID") return res.json({ ok: true, idempotent: true });
+
+  function addDays(base: Date, days: number): Date {
+    const d = new Date(base.getTime());
+    d.setUTCDate(d.getUTCDate() + days);
+    return d;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.paymentIntent.update({
+      where: { id },
+      data: { status: "PAID", paidAt: new Date(), reviewedBy: adminId, reviewedAt: new Date() }
+    });
+
+    const now = new Date();
+    const current = await tx.user.findUnique({
+      where: { id: intent.subscriberId },
+      select: { membershipExpiresAt: true }
+    });
+
+    const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
+      ? current.membershipExpiresAt
+      : now;
+    const expiresAt = addDays(base, config.membershipDays);
+
+    await tx.user.update({
+      where: { id: intent.subscriberId },
+      data: { membershipExpiresAt: expiresAt }
+    });
+
+    await tx.notification.create({
+      data: {
+        userId: intent.subscriberId,
+        type: "SUBSCRIPTION_RENEWED",
+        data: { intentId: intent.id, source: "transfer", approvedBy: adminId }
+      }
+    });
+  });
+
+  console.log("[admin] transfer approved", { intentId: id, userId: intent.subscriberId, adminId });
+  return res.json({ ok: true, intentId: id });
+}));
+
+// ── Admin: reject transfer ─────────────────────────────────────────────────────
+
+billingRouter.post("/admin/billing/transfers/:id/reject", requireAdmin, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const adminId = req.session.userId!;
+  const { reason } = req.body;
+
+  const intent = await prisma.paymentIntent.findUnique({ where: { id } });
+  if (!intent) return res.status(404).json({ error: "NOT_FOUND" });
+  if (intent.status !== "PENDING") return res.status(400).json({ error: "NOT_PENDING" });
+
+  await prisma.paymentIntent.update({
+    where: { id },
+    data: {
+      status: "FAILED",
+      reviewedBy: adminId,
+      reviewedAt: new Date(),
+      notes: intent.notes ? `${intent.notes} | RECHAZADO: ${reason || "Sin motivo"}` : `RECHAZADO: ${reason || "Sin motivo"}`
+    }
+  });
+
+  console.log("[admin] transfer rejected", { intentId: id, userId: intent.subscriberId, adminId, reason });
+  return res.json({ ok: true, intentId: id });
+}));
 
 // ── Flow subscription start (one-click: creates customer + subscription) ────
 

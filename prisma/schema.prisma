@@ -96,6 +96,11 @@ enum PaymentIntentStatus {
   EXPIRED
 }
 
+enum PaymentMethod {
+  FLOW
+  TRANSFER
+}
+
 // ── Token / Wallet System ──
 
 enum TokenDepositStatus {
@@ -601,11 +606,15 @@ model PaymentIntent {
   subscriberId      String               @db.Uuid
   profileId         String?              @db.Uuid
   purpose           PaymentIntentPurpose
+  method            PaymentMethod        @default(FLOW)
   status            PaymentIntentStatus  @default(PENDING)
   amount            Int
   providerPaymentId String?
   paymentUrl        String?
+  notes             String?
   paidAt            DateTime?
+  reviewedBy        String?
+  reviewedAt        DateTime?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
