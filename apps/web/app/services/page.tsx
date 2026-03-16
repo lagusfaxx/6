@@ -1002,9 +1002,9 @@ export default function ServicesPage() {
   return (
     <div className="pb-24">
       {/* ── Header ── */}
-      <section className="relative border-b border-white/[0.06] bg-[#0a0a12]/80 backdrop-blur-2xl">
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/15 to-transparent" />
-        <div className="relative mx-auto max-w-6xl px-4 pt-3 pb-2.5">
+      <section className="relative border-b border-white/[0.06] backdrop-blur-2xl" style={{ background: "linear-gradient(180deg, rgba(12,6,22,0.9) 0%, rgba(12,6,22,0.7) 60%, rgba(12,6,22,0.5) 100%)" }}>
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/20 to-transparent" />
+        <div className="relative mx-auto max-w-6xl px-4 pt-3.5 pb-3">
           {/* Title row */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2.5">
@@ -1078,7 +1078,8 @@ export default function ServicesPage() {
           </div>
 
           {/* Category tabs + Quick filters */}
-          <div className="mt-2 -mx-4 px-4 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+          <div className="mt-2.5 -mx-4 px-4 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+            {/* ── Main categories (primary navigation) ── */}
             {CATEGORY_TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = category === tab.key;
@@ -1087,18 +1088,23 @@ export default function ServicesPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setCategory(tab.key)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-all ${
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full h-10 px-4 text-sm font-semibold transition-all ${
                     isActive
-                      ? "bg-fuchsia-500/15 text-fuchsia-200 border border-fuchsia-500/20"
-                      : "text-white/40 border border-transparent hover:text-white/60 hover:bg-white/[0.04]"
+                      ? "border text-fuchsia-100 shadow-[0_0_12px_rgba(168,85,247,0.15)]"
+                      : "text-white/50 border border-transparent hover:text-white/70 hover:bg-white/[0.05]"
                   }`}
+                  style={isActive ? { background: "rgba(168,85,247,0.18)", borderColor: "rgba(168,85,247,0.45)" } : undefined}
                 >
-                  <Icon className="h-3 w-3" />
+                  <Icon className="h-3.5 w-3.5" />
                   {tab.label}
                 </button>
               );
             })}
-            <div className="h-4 w-px bg-white/[0.08] mx-0.5 shrink-0" aria-hidden="true" />
+
+            {/* ── Separator ── */}
+            <div className="h-6 w-px mx-2 shrink-0" style={{ background: "linear-gradient(180deg, transparent, rgba(168,85,247,0.2), transparent)" }} aria-hidden="true" />
+
+            {/* ── Quick filters (secondary modifiers) ── */}
             {QUICK_FILTERS.map((f) => {
               const Icon = f.icon;
               const isActive = activeQuickFilters.has(f.key);
@@ -1107,11 +1113,11 @@ export default function ServicesPage() {
                   key={f.key}
                   type="button"
                   onClick={() => toggleQuickFilter(f.key)}
-                  className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-all ${
-                    isActive ? f.activeColor : "text-white/30 border border-transparent hover:text-white/50 hover:bg-white/[0.03]"
+                  className={`flex shrink-0 items-center gap-1 rounded-full h-8 px-3 text-xs font-medium transition-all ${
+                    isActive ? f.activeColor : "text-white/35 border border-white/[0.08] hover:text-white/55 hover:border-white/[0.15] hover:bg-white/[0.03]"
                   }`}
                 >
-                  <Icon className="h-2.5 w-2.5" />
+                  <Icon className="h-3 w-3" />
                   {f.label}
                 </button>
               );
@@ -1120,9 +1126,9 @@ export default function ServicesPage() {
               <button
                 type="button"
                 onClick={() => { setActiveQuickFilters(new Set()); setSearch(""); }}
-                className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] text-white/25 hover:text-white/55 transition-all"
+                className="flex shrink-0 items-center gap-1 rounded-full h-8 px-3 text-xs text-white/25 hover:text-white/55 transition-all"
               >
-                <X className="h-2.5 w-2.5" /> Limpiar
+                <X className="h-3 w-3" /> Limpiar
               </button>
             )}
           </div>
