@@ -993,39 +993,39 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
-      {/* ═══ HERO — Compact, immersive ═══ */}
-      <section className="relative flex min-h-[50vh] items-center justify-center overflow-hidden px-4 md:min-h-[55vh]">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[#070816]" />
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[url('/brand/bg.jpg')] bg-cover bg-center opacity-20" />
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#070816]/50 to-[#0e0e12]" />
-        {/* Ambient orbs */}
-        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.12] blur-[120px] animate-hero-drift" />
-        <div className="pointer-events-none absolute right-[10%] top-[20%] -z-10 h-[400px] w-[400px] rounded-full bg-fuchsia-600/[0.07] blur-[100px] animate-[hero-drift_12s_ease-in-out_infinite_reverse]" />
-        <div className="pointer-events-none absolute left-[15%] bottom-[10%] -z-10 h-[300px] w-[300px] rounded-full bg-indigo-600/[0.06] blur-[80px] animate-[hero-drift_15s_ease-in-out_infinite]" />
-        {/* Noise texture overlay */}
-        <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.015]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
+      {/* ═══ HERO — Premium immersive ═══ */}
+      <section className="relative flex min-h-[52vh] items-center justify-center overflow-hidden px-4 md:min-h-[58vh]">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[url('/brand/bg.jpg')] bg-cover bg-center opacity-15" />
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
+        {/* Premium ambient orbs with better colors */}
+        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[140px] animate-hero-drift" />
+        <div className="pointer-events-none absolute right-[8%] top-[18%] -z-10 h-[450px] w-[450px] rounded-full bg-fuchsia-500/[0.06] blur-[120px] animate-[hero-drift_14s_ease-in-out_infinite_reverse]" />
+        <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 h-[350px] w-[350px] rounded-full bg-indigo-500/[0.05] blur-[100px] animate-[hero-drift_18s_ease-in-out_infinite]" />
+        {/* Noise texture overlay for premium texture */}
+        <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
 
         <div className="relative mx-auto max-w-3xl text-center">
-          <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="mb-4 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/20 bg-gradient-to-r from-fuchsia-500/[0.08] to-violet-500/[0.06] px-4 py-1.5 text-xs text-white/70 backdrop-blur-xl shadow-[0_0_20px_rgba(168,85,247,0.1)]">
-            <Zap className="h-3.5 w-3.5 text-fuchsia-400 animate-pulse" />
+          <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="mb-5 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/15 bg-gradient-to-r from-fuchsia-500/[0.06] to-violet-500/[0.04] px-5 py-2 text-xs font-medium text-white/60 backdrop-blur-2xl shadow-[0_0_30px_rgba(168,85,247,0.08)]">
+            <Zap className="h-3.5 w-3.5 text-fuchsia-400 animate-breathe" />
             Plataforma #1 de experiencias en Chile
           </motion.div>
 
-          <motion.h1 initial="hidden" animate="visible" custom={1} variants={fadeUp} className="text-3xl font-bold leading-[1.1] tracking-tight md:text-5xl">
-            <span className="bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
+          <motion.h1 initial="hidden" animate="visible" custom={1} variants={fadeUp} className="text-[2rem] font-extrabold leading-[1.08] tracking-tight sm:text-4xl md:text-5xl">
+            <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
           </motion.h1>
 
-          <motion.h2 initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mx-auto mt-4 max-w-2xl text-sm font-medium text-white/70 md:text-base">
+          <motion.h2 initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mx-auto mt-5 max-w-2xl text-[13px] font-medium leading-relaxed text-white/45 sm:text-sm md:text-base">
             Las mejores Escorts y Putas en Santiago, Las Condes y regiones. Todo lo que buscas en un entorno discreto, verificado y premium.
           </motion.h2>
 
-          <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp} className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp} className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
               href="/servicios"
-              className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-semibold transition-all duration-200 hover:scale-[1.03] animate-btn-glow sm:w-auto"
+              className="uzeed-hero-cta group relative inline-flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)] sm:w-auto"
             >
               Explorar ahora
-              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
             <InstallAppButton />
           </motion.div>
@@ -1034,9 +1034,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Section divider */}
-      <div className="relative mx-auto max-w-4xl px-4">
-        <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/25 to-transparent" />
+      {/* Section divider - premium gradient */}
+      <div className="relative mx-auto max-w-5xl px-4">
+        <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/20 to-transparent" />
       </div>
 
       {/* Main content */}
@@ -1092,74 +1092,78 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* ═══ CATEGORÍAS — Quick access for easy navigation ═══ */}
+        {/* ═══ CATEGORÍAS — Premium quick navigation ═══ */}
         <section className="mb-8">
-          {/* Mobile: prominent grid with icons */}
-          <div className="grid grid-cols-4 gap-2 sm:hidden">
+          {/* Mobile: premium grid with glassmorphism */}
+          <div className="grid grid-cols-4 gap-2.5 sm:hidden">
             {[
-              { label: "Escorts", href: "/escorts", icon: Sparkles, gradient: "from-fuchsia-600/20 to-pink-600/20", borderColor: "border-fuchsia-500/25" },
-              { label: "Masajistas", href: "/masajistas", icon: Hand, gradient: "from-violet-600/20 to-purple-600/20", borderColor: "border-violet-500/25" },
-              { label: "Moteles", href: "/moteles", icon: Hotel, gradient: "from-amber-600/20 to-orange-600/20", borderColor: "border-amber-500/25" },
-              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, gradient: "from-rose-600/20 to-red-600/20", borderColor: "border-rose-500/25" },
-              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, gradient: "from-cyan-600/20 to-teal-600/20", borderColor: "border-cyan-500/25" },
-              { label: "Videollamadas", href: "/videocall", icon: Video, gradient: "from-blue-600/20 to-indigo-600/20", borderColor: "border-blue-500/25" },
-              { label: "Cerca tuyo", href: "/servicios", icon: Navigation, gradient: "from-emerald-600/20 to-green-600/20", borderColor: "border-emerald-500/25" },
-              { label: "Premium", href: "/premium", icon: Crown, gradient: "from-amber-600/20 to-yellow-600/20", borderColor: "border-amber-500/25" },
+              { label: "Escorts", href: "/escorts", icon: Sparkles, gradient: "from-fuchsia-600/15 to-pink-600/10", borderColor: "border-fuchsia-500/20", iconColor: "text-fuchsia-400" },
+              { label: "Masajistas", href: "/masajistas", icon: Hand, gradient: "from-violet-600/15 to-purple-600/10", borderColor: "border-violet-500/20", iconColor: "text-violet-400" },
+              { label: "Moteles", href: "/moteles", icon: Hotel, gradient: "from-amber-600/15 to-orange-600/10", borderColor: "border-amber-500/20", iconColor: "text-amber-400" },
+              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, gradient: "from-rose-600/15 to-red-600/10", borderColor: "border-rose-500/20", iconColor: "text-rose-400" },
+              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, gradient: "from-cyan-600/15 to-teal-600/10", borderColor: "border-cyan-500/20", iconColor: "text-cyan-400" },
+              { label: "Videollamadas", href: "/videocall", icon: Video, gradient: "from-blue-600/15 to-indigo-600/10", borderColor: "border-blue-500/20", iconColor: "text-blue-400" },
+              { label: "Cerca tuyo", href: "/servicios", icon: Navigation, gradient: "from-emerald-600/15 to-green-600/10", borderColor: "border-emerald-500/20", iconColor: "text-emerald-400" },
+              { label: "Premium", href: "/premium", icon: Crown, gradient: "from-amber-600/15 to-yellow-600/10", borderColor: "border-amber-500/20", iconColor: "text-amber-400" },
             ].map((cat) => (
               <Link
                 key={cat.href}
                 href={cat.href}
-                className={`group flex flex-col items-center gap-1.5 rounded-2xl border ${cat.borderColor} bg-gradient-to-br ${cat.gradient} px-2 py-3 transition-all active:scale-[0.95] hover:brightness-125`}
+                className={`uzeed-category-card group flex flex-col items-center gap-2 rounded-2xl border ${cat.borderColor} bg-gradient-to-br ${cat.gradient} px-2 py-3.5 backdrop-blur-sm`}
               >
-                <cat.icon className="h-5 w-5 text-white/80" />
-                <span className="text-[10px] font-semibold text-white/80 text-center leading-tight">{cat.label}</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
+                  <cat.icon className={`h-[18px] w-[18px] ${cat.iconColor} transition-transform duration-300 group-hover:scale-110`} />
+                </div>
+                <span className="text-[10px] font-semibold text-white/70 text-center leading-tight">{cat.label}</span>
               </Link>
             ))}
           </div>
-          {/* Desktop: horizontal pills */}
-          <div className="hidden sm:flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {/* Desktop: premium horizontal pills */}
+          <div className="hidden sm:flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
             {[
-              { label: "Escorts", href: "/escorts", icon: Sparkles },
-              { label: "Masajistas", href: "/masajistas", icon: Hand },
-              { label: "Moteles", href: "/moteles", icon: Hotel },
-              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag },
-              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper },
-              { label: "Videollamadas", href: "/videocall", icon: Video },
-              { label: "Cerca tuyo", href: "/servicios", icon: Navigation },
+              { label: "Escorts", href: "/escorts", icon: Sparkles, iconColor: "text-fuchsia-400" },
+              { label: "Masajistas", href: "/masajistas", icon: Hand, iconColor: "text-violet-400" },
+              { label: "Moteles", href: "/moteles", icon: Hotel, iconColor: "text-amber-400" },
+              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, iconColor: "text-rose-400" },
+              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, iconColor: "text-cyan-400" },
+              { label: "Videollamadas", href: "/videocall", icon: Video, iconColor: "text-blue-400" },
+              { label: "Cerca tuyo", href: "/servicios", icon: Navigation, iconColor: "text-emerald-400" },
             ].map((cat) => (
               <Link
                 key={cat.href}
                 href={cat.href}
-                className="group flex shrink-0 items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-5 py-2.5 transition-all hover:border-fuchsia-500/25 hover:bg-fuchsia-500/[0.06] active:scale-[0.97]"
+                className="uzeed-category-card group flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-5 py-3 backdrop-blur-sm"
               >
-                <cat.icon className="h-4 w-4 text-fuchsia-400/80" />
-                <span className="text-sm font-medium text-white/75">{cat.label}</span>
+                <cat.icon className={`h-4 w-4 ${cat.iconColor} transition-transform duration-300 group-hover:scale-110`} />
+                <span className="text-sm font-medium text-white/65 group-hover:text-white/85 transition-colors duration-200">{cat.label}</span>
               </Link>
             ))}
           </div>
         </section>
 
         {/* Section gradient divider */}
-        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
 
         {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
         <VideollamadasBanner />
 
         {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}
         <section ref={availableSectionRef} className="mb-8">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock3 className="h-4 w-4 text-emerald-400" />
-                <h2 className="text-base font-bold">Disponibles ahora</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/[0.12]">
+                  <Clock3 className="h-3.5 w-3.5 text-emerald-400" />
+                </div>
+                <h2 className="text-base font-bold tracking-tight">Disponibles ahora</h2>
               </div>
-              <Link href="/servicios?sort=availableNow" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
-                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              <Link href="/servicios?sort=availableNow" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-emerald-400 transition-colors duration-200">
+                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </div>
             {availableProfiles.length > 0 ? (
               <div
                 ref={availableCarouselRef}
-                className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 cursor-grab active:cursor-grabbing select-none"
+                className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 cursor-grab active:cursor-grabbing select-none"
                 style={{ touchAction: "pan-x" }}
                 onPointerDown={handleAvailablePointerDown}
                 onPointerMove={handleAvailablePointerMove}
@@ -1172,17 +1176,17 @@ export default function HomePage() {
                     data-available-card="true"
                     type="button"
                     onClick={() => handleAvailableCardClick(p)}
-                    className="group w-[130px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.03] text-left transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/30 hover:shadow-[0_12px_40px_rgba(168,85,247,0.12)]"
+                    className="uzeed-available-ring group w-[140px] shrink-0 overflow-hidden rounded-2xl border border-emerald-500/15 bg-gradient-to-b from-white/[0.06] to-white/[0.02] text-left transition-all duration-400 hover:-translate-y-1.5 hover:border-emerald-400/30 hover:shadow-[0_16px_48px_rgba(16,185,129,0.12)]"
                   >
                     <div className="relative aspect-[3/4] overflow-hidden">
-                      <img src={resolveProfileImage(p)} alt={p.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                      <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-2 py-0.5 text-[9px] text-emerald-100">
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
+                      <img src={resolveProfileImage(p)} alt={p.displayName} className="uzeed-card-img h-full w-full object-cover" />
+                      <div className="absolute left-2 top-2 uzeed-badge-pill uzeed-badge-online text-[9px] z-[2]">
+                        <span className="uzeed-badge-dot" />
                         Disponible
                       </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-                      <div className="absolute bottom-2 left-2 right-2">
-                        <div className="truncate text-xs font-semibold text-white">{p.displayName}{p.age ? `, ${p.age}` : ""}</div>
+                      <div className="uzeed-card-gradient absolute inset-0" />
+                      <div className="absolute bottom-2 left-2 right-2 z-[2]">
+                        <div className="truncate text-xs font-bold text-white">{p.displayName}{p.age ? `, ${p.age}` : ""}</div>
                       </div>
                     </div>
                   </button>
@@ -1203,7 +1207,7 @@ export default function HomePage() {
           </section>
 
         {/* Section gradient divider */}
-        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.1] to-transparent" />
+        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.08] to-transparent" />
 
         {/* ═══ PUBLICIDAD / PROMOCIONADO ═══ */}
         <PromoShowcaseSection promotions={promoShowcase} />
@@ -1216,81 +1220,81 @@ export default function HomePage() {
           return (
             <motion.section key={tier.key} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
               <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <Icon className={`h-5 w-5 bg-gradient-to-r ${tier.gradient} bg-clip-text text-transparent`} />
-                  <h2 className="text-xl font-bold">{tier.label}</h2>
+                  <h2 className="text-xl font-bold tracking-tight">{tier.label}</h2>
                 </div>
-                <Link href="/profesionales" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
-                  Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                <Link href="/profesionales" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
+                  Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
               </motion.div>
               <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
                 {profiles.map((p) => (
-                  <motion.div key={p.id} variants={cardFade} className="w-[70vw] shrink-0 snap-start sm:w-auto">
+                  <motion.div key={p.id} variants={cardFade} className="w-[72vw] shrink-0 snap-start sm:w-auto">
                     <button
                       type="button"
                       onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
-                      className={`group relative block w-full overflow-hidden rounded-2xl border ${tier.border} bg-white/[0.03] text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]`}
+                      className={`uzeed-premium-card group relative block w-full text-left ${tier.border}`}
                     >
-                      <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                      <div className="uzeed-card-shimmer relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-white/[0.04] to-transparent rounded-[inherit]">
                         {p.avatarUrl || p.coverUrl ? (
                           <img
                             src={resolveProfileImage(p)}
                             alt={p.name}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                            className="uzeed-card-img h-full w-full object-cover"
                             onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
                           />
                         ) : (
                           <div className="flex h-full items-center justify-center">
-                            <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-30" />
+                            <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-20" />
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        <div className="uzeed-card-gradient absolute inset-0" />
                         {p.distance != null && (
-                          <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80 backdrop-blur-xl">
-                            <MapPin className="h-3 w-3" />
+                          <div className="absolute right-3 top-3 z-[3] flex items-center gap-1 rounded-xl border border-white/[0.08] bg-black/40 px-2.5 py-1 text-[11px] text-white/70 backdrop-blur-xl tabular-nums">
+                            <MapPin className="h-3 w-3 text-fuchsia-400/60" />
                             {p.distance.toFixed(1)} km
                           </div>
                         )}
-                        <div className="absolute left-3 top-3 flex flex-col gap-1">
+                        <div className="absolute left-3 top-3 z-[3] flex flex-col gap-1.5">
                           <UserLevelBadge level={p.userLevel} className="px-2.5 py-1 text-[11px]" />
                           {hasExamsBadge(p) && (
-                            <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                            <div className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[9px]">
                               <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                             </div>
                           )}
                           {hasVideoCallBadge(p) && (
-                            <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                            <div className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[9px]">
                               <Video className="h-2.5 w-2.5" /> Videollamadas
                             </div>
                           )}
                         </div>
                         {p.availableNow && (
-                          <div className="absolute left-3 bottom-12 flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-300/20 px-2 py-0.5 text-[10px] text-emerald-200">
-                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                          <div className="absolute left-3 bottom-14 z-[3] uzeed-badge-pill uzeed-badge-online text-[9px]">
+                            <span className="uzeed-badge-dot" />
                             Disponible
                           </div>
                         )}
-                        <div className="absolute bottom-0 left-0 right-0 p-4">
-                          <h3 className="flex items-center gap-1 text-lg font-semibold leading-tight">
+                        <div className="absolute bottom-0 left-0 right-0 p-4 z-[3]">
+                          <h3 className="flex items-center gap-1.5 text-lg font-bold leading-tight tracking-tight">
                             {p.name}
                             {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
                             {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
                           </h3>
-                          <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
-                            {p.age && <span>{p.age} años</span>}
+                          <div className="mt-1.5 flex items-center gap-3 text-xs text-white/45">
+                            {p.age && <span className="tabular-nums">{p.age} años</span>}
                             <span>{formatLastSeenLabel(p.lastSeen)}</span>
                           </div>
                           {(p.serviceCategory || (filterUserTags(p.profileTags).length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
-                            <div className="flex flex-wrap gap-1 mt-1">
+                            <div className="flex flex-wrap gap-1 mt-2">
                               {filterUserTags(p.profileTags).map((tag) => (
-                                <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                                <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia">{tag}</span>
                               ))}
                               {p.serviceCategory && (
-                                <span className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{p.serviceCategory}</span>
+                                <span className="uzeed-tag uzeed-tag-violet">{p.serviceCategory}</span>
                               )}
-                              {p.serviceTags?.slice(0, 10).map((tag) => (
-                                <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                              {p.serviceTags?.slice(0, 8).map((tag) => (
+                                <span key={`st-${tag}`} className="uzeed-tag uzeed-tag-violet">{tag}</span>
                               ))}
                             </div>
                           )}
@@ -1308,13 +1312,13 @@ export default function HomePage() {
         {featuredCarouselProfiles.length > 0 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <Crown className="h-5 w-5 text-amber-400" />
-                <h2 className="text-xl font-bold">Destacadas</h2>
-                <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 font-medium">Premium</span>
+                <h2 className="text-xl font-bold tracking-tight">Destacadas</h2>
+                <span className="rounded-lg border border-amber-400/15 bg-amber-500/[0.08] px-2.5 py-0.5 text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">Premium</span>
               </div>
-              <Link href="/profesionales" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
-                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              <Link href="/profesionales" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-amber-400 transition-colors duration-200">
+                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </motion.div>
             <div className="relative overflow-hidden rounded-2xl">
@@ -1324,7 +1328,7 @@ export default function HomePage() {
                   initial={{ opacity: 0, x: 40 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -40 }}
-                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                   className="scrollbar-none flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 md:grid-cols-3"
                 >
                   {featuredCarouselProfiles
@@ -1334,64 +1338,64 @@ export default function HomePage() {
                         key={p.id}
                         type="button"
                         onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
-                        className="group relative block w-[75vw] shrink-0 snap-start sm:w-auto sm:shrink overflow-hidden rounded-2xl border border-amber-400/20 bg-white/[0.03] text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+                        className={`uzeed-premium-card group relative block w-[75vw] shrink-0 snap-start sm:w-auto sm:shrink text-left ${p.userLevel === "DIAMOND" ? "uzeed-tier-diamond" : "uzeed-tier-gold"}`}
                       >
-                        <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
+                        <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-white/[0.04] to-transparent rounded-[inherit]">
                           {p.avatarUrl || p.coverUrl ? (
                             <img
                               src={resolveProfileImage(p)}
                               alt={p.name}
-                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+                              className="uzeed-card-img h-full w-full object-cover"
                               onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
                             />
                           ) : (
                             <div className="flex h-full items-center justify-center">
-                              <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-30" />
+                              <img src="/brand/isotipo-new.png" alt="" className="h-20 w-20 opacity-20" />
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                          <div className="uzeed-card-gradient absolute inset-0" />
                           {p.distance != null && (
-                            <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/80 backdrop-blur-xl">
-                              <MapPin className="h-3 w-3" />
+                            <div className="absolute right-3 top-3 z-[3] flex items-center gap-1 rounded-xl border border-white/[0.08] bg-black/40 px-2.5 py-1 text-[11px] text-white/70 backdrop-blur-xl tabular-nums">
+                              <MapPin className="h-3 w-3 text-amber-400/60" />
                               {p.distance.toFixed(1)} km
                             </div>
                           )}
-                          <div className="absolute left-3 top-3 flex flex-col gap-1">
+                          <div className="absolute left-3 top-3 z-[3] flex flex-col gap-1.5">
                             <UserLevelBadge level={p.userLevel} className="px-2.5 py-1 text-[11px]" />
                             {hasExamsBadge(p) && (
-                              <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                              <div className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[9px]">
                                 <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                               </div>
                             )}
                             {hasVideoCallBadge(p) && (
-                              <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                              <div className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[9px]">
                                 <Video className="h-2.5 w-2.5" /> Videollamadas
                               </div>
                             )}
                           </div>
                           {p.availableNow && (
-                            <div className="absolute left-3 bottom-20 flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-300/20 px-2 py-0.5 text-[10px] text-emerald-200">
-                              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                            <div className="absolute left-3 bottom-20 z-[3] uzeed-badge-pill uzeed-badge-online text-[9px]">
+                              <span className="uzeed-badge-dot" />
                               Disponible
                             </div>
                           )}
-                          <div className="absolute bottom-0 left-0 right-0 p-4">
-                            <h3 className="flex items-center gap-1 text-lg font-semibold leading-tight">
+                          <div className="absolute bottom-0 left-0 right-0 p-4 z-[3]">
+                            <h3 className="flex items-center gap-1.5 text-lg font-bold leading-tight tracking-tight">
                               {p.name}{p.age ? `, ${p.age}` : ""}
                               {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
                               {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
                             </h3>
-                            <div className="mt-1 flex items-center gap-3 text-xs text-white/60">
+                            <div className="mt-1.5 flex items-center gap-3 text-xs text-white/45">
                               {p.serviceCategory && <span>{p.serviceCategory}</span>}
                               <span>{formatLastSeenLabel(p.lastSeen)}</span>
                             </div>
                             {(filterUserTags(p.profileTags).length > 0 || (p.serviceTags && p.serviceTags.length > 0)) && (
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {filterUserTags(p.profileTags).map((tag) => (
-                                  <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                                  <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia">{tag}</span>
                                 ))}
                                 {p.serviceTags?.slice(0, 6).map((tag) => (
-                                  <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-2 py-0.5 text-[9px] font-medium text-purple-300">{tag}</span>
+                                  <span key={`st-${tag}`} className="uzeed-tag uzeed-tag-violet">{tag}</span>
                                 ))}
                               </div>
                             )}
@@ -1401,16 +1405,16 @@ export default function HomePage() {
                     ))}
                 </motion.div>
               </AnimatePresence>
-              {/* Dot indicators — one per page of 3 */}
+              {/* Dot indicators — premium style */}
               {featuredPageCount > 1 && (
-                <div className="mt-3 flex justify-center gap-1.5">
+                <div className="mt-4 flex justify-center gap-2">
                   {Array.from({ length: featuredPageCount }, (_, i) => (
                     <button
                       key={i}
                       type="button"
                       aria-label={`Ver página ${i + 1}`}
                       onClick={() => setFeaturedPage(i)}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${i === featuredPage ? "w-4 bg-amber-400" : "w-1.5 bg-white/20 hover:bg-white/40"}`}
+                      className={`rounded-full transition-all duration-400 ${i === featuredPage ? "h-2 w-5 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.4)]" : "h-2 w-2 bg-white/15 hover:bg-white/30"}`}
                     />
                   ))}
                 </div>
@@ -1423,56 +1427,56 @@ export default function HomePage() {
         {nearProfiles.length > 0 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <Navigation className="h-4 w-4 text-fuchsia-300" />
-                <h2 className="text-xl font-bold">Cerca de ti</h2>
+                <h2 className="text-xl font-bold tracking-tight">Cerca de ti</h2>
               </div>
-              <Link href="/servicios?sort=near" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
-                Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              <Link href="/servicios?sort=near" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
+                Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </motion.div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {nearProfiles.map((profile) => (
-                <motion.article key={profile.id} variants={cardFade} className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20">
+                <motion.article key={profile.id} variants={cardFade} className="uzeed-premium-card group">
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
-                    <div className="relative aspect-[3/4] bg-white/[0.04]">
-                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
+                    <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
+                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" />
                       {profile.distanceKm != null && (
-                        <div className="absolute right-2 top-2 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
+                        <div className="absolute right-2 top-2 z-[3] rounded-lg border border-white/[0.08] bg-black/40 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur-xl tabular-nums">
                           {profile.distanceKm.toFixed(1)} km
                         </div>
                       )}
-                      <div className="absolute left-2 top-2 flex flex-col gap-1">
+                      <div className="absolute left-2 top-2 z-[3] flex flex-col gap-1">
                         {profile.availableNow && (
-                          <div className="flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-200">
-                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Online
+                          <div className="uzeed-badge-pill uzeed-badge-online text-[8px]">
+                            <span className="uzeed-badge-dot" /> Online
                           </div>
                         )}
                         {hasExamsBadge(profile as any) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                          <div className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[8px]">
                             <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                           </div>
                         )}
                         {hasVideoCallBadge(profile as any) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                          <div className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[8px]">
                             <Video className="h-2.5 w-2.5" /> Videollamadas
                           </div>
                         )}
                       </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <div className="flex items-center gap-1 truncate text-xs font-semibold">
+                      <div className="uzeed-card-gradient absolute inset-0" />
+                      <div className="absolute bottom-0 left-0 right-0 p-2.5 z-[3]">
+                        <div className="flex items-center gap-1 truncate text-[13px] font-bold">
                           {profile.displayName}{profile.age ? `, ${profile.age}` : ""}
                           {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
                           {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
                         </div>
                         {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0 || profile.serviceCategory) && (
-                          <div className="flex flex-wrap gap-0.5 mt-0.5">
+                          <div className="flex flex-wrap gap-1 mt-1">
                             {filterUserTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
-                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                              <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia text-[8px]">{tag}</span>
                             ))}
-                            {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
-                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                            {(profile as any).serviceTags?.slice(0, 2).map((tag: string) => (
+                              <span key={`st-${tag}`} className="uzeed-tag uzeed-tag-violet text-[8px]">{tag}</span>
                             ))}
                           </div>
                         )}
@@ -1489,48 +1493,48 @@ export default function HomePage() {
         {newProfiles.length > 0 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <Sparkles className="h-4 w-4 text-violet-400" />
-                <h2 className="text-xl font-bold">Nuevas</h2>
+                <h2 className="text-xl font-bold tracking-tight">Nuevas</h2>
               </div>
-              <Link href="/servicios?sort=new" className="group flex items-center gap-1 text-xs text-white/50 hover:text-fuchsia-400">
-                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              <Link href="/servicios?sort=new" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-violet-400 transition-colors duration-200">
+                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </motion.div>
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
               {newProfiles.map((profile) => (
-                <motion.article key={profile.id} variants={cardFade} className="group w-[65vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-fuchsia-500/20 sm:w-auto">
+                <motion.article key={profile.id} variants={cardFade} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto">
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
-                    <div className="relative aspect-[3/4] bg-white/[0.04]">
-                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="h-full w-full object-cover transition group-hover:scale-105" />
-                      <UserLevelBadge level={profile.userLevel} className="absolute right-2 top-2 px-2 py-0.5 text-[10px]" />
-                      <div className="absolute left-2 top-2 flex flex-col gap-1">
+                    <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
+                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" />
+                      <UserLevelBadge level={profile.userLevel} className="absolute right-2 top-2 z-[3] px-2 py-0.5 text-[10px]" />
+                      <div className="absolute left-2 top-2 z-[3] flex flex-col gap-1">
                         {hasExamsBadge(profile as any) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-sky-300/40 bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-medium text-sky-100 backdrop-blur shadow">
+                          <div className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[9px]">
                             <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                           </div>
                         )}
                         {hasVideoCallBadge(profile as any) && (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-violet-300/40 bg-violet-500/25 px-1.5 py-0.5 text-[9px] font-medium text-violet-100 backdrop-blur shadow">
+                          <div className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[9px]">
                             <Video className="h-2.5 w-2.5" /> Videollamadas
                           </div>
                         )}
                       </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <div className="flex items-center gap-1 truncate text-xs font-semibold">
+                      <div className="uzeed-card-gradient absolute inset-0" />
+                      <div className="absolute bottom-0 left-0 right-0 p-2.5 z-[3]">
+                        <div className="flex items-center gap-1 truncate text-[13px] font-bold">
                           {profile.displayName}{profile.age ? `, ${profile.age}` : ""}
                           {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
                           {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
                         </div>
-                        <div className="mt-0.5 text-[10px] text-white/45">{formatLastSeenLabel(profile.lastActiveAt || profile.lastSeen)}</div>
+                        <div className="mt-0.5 text-[10px] text-white/35">{formatLastSeenLabel(profile.lastActiveAt || profile.lastSeen)}</div>
                         {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0) && (
-                          <div className="flex flex-wrap gap-0.5 mt-0.5">
+                          <div className="flex flex-wrap gap-1 mt-1">
                             {filterUserTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
-                              <span key={`pt-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                              <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia text-[8px]">{tag}</span>
                             ))}
-                            {(profile as any).serviceTags?.slice(0, 3).map((tag: string) => (
-                              <span key={`st-${tag}`} className="inline-flex items-center rounded-full bg-purple-500/20 border border-purple-400/30 px-1.5 py-0 text-[8px] font-medium text-purple-300">{tag}</span>
+                            {(profile as any).serviceTags?.slice(0, 2).map((tag: string) => (
+                              <span key={`st-${tag}`} className="uzeed-tag uzeed-tag-violet text-[8px]">{tag}</span>
                             ))}
                           </div>
                         )}
@@ -1547,33 +1551,36 @@ export default function HomePage() {
         {recentPros.length > 6 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <TrendingUp className="h-4 w-4 text-violet-400" />
-                <h2 className="text-xl font-bold">Las más buscadas</h2>
+                <h2 className="text-xl font-bold tracking-tight">Las más buscadas</h2>
               </div>
             </motion.div>
-            <motion.div variants={cardFade} className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+            <motion.div variants={cardFade} className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3">
               {recentPros.slice(6, 12).map((p) => (
-                <Link key={`trend-${p.id}`} href={`/profesional/${p.id}`} className="group flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-white/[0.06]">
-                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-white/5 to-transparent">
+                <Link key={`trend-${p.id}`} href={`/profesional/${p.id}`} className="group flex items-center gap-3.5 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5 transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/20 hover:bg-white/[0.05] hover:shadow-[0_12px_32px_rgba(168,85,247,0.08)]">
+                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-white/[0.04] to-transparent">
                     {p.avatarUrl ? (
-                      <img src={resolveMediaUrl(p.avatarUrl) ?? undefined} alt={p.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                      <img src={resolveMediaUrl(p.avatarUrl) ?? undefined} alt={p.name} className="h-full w-full object-cover transition-transform duration-400 group-hover:scale-110" />
                     ) : (
-                      <div className="flex h-full items-center justify-center"><img src="/brand/isotipo-new.png" alt="" className="h-7 w-7 opacity-30" /></div>
+                      <div className="flex h-full items-center justify-center"><img src="/brand/isotipo-new.png" alt="" className="h-7 w-7 opacity-20" /></div>
+                    )}
+                    {p.availableNow && (
+                      <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 border-[#0e0e12]" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1 truncate text-sm font-semibold">
+                    <div className="flex items-center gap-1 truncate text-sm font-bold">
                       {p.name}
                       {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
                       {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
                     </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-white/45">
-                      {p.age && <span>{p.age} años</span>}
-                      {p.distance != null && <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" />{p.distance.toFixed(1)} km</span>}
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-white/35">
+                      {p.age && <span className="tabular-nums">{p.age} años</span>}
+                      {p.distance != null && <span className="flex items-center gap-0.5 tabular-nums"><MapPin className="h-3 w-3 text-fuchsia-400/50" />{p.distance.toFixed(1)} km</span>}
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-white/20 transition group-hover:text-fuchsia-400" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-white/15 transition-all duration-200 group-hover:text-fuchsia-400 group-hover:translate-x-0.5" />
                 </Link>
               ))}
             </motion.div>
@@ -1622,38 +1629,38 @@ export default function HomePage() {
         {moteles.length > 0 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <Hotel className="h-4 w-4 text-amber-400" />
-                <h2 className="text-xl font-bold">Hoteles y Moteles</h2>
+                <h2 className="text-xl font-bold tracking-tight">Hoteles y Moteles</h2>
               </div>
-              <Link href="/moteles" className="group flex items-center gap-1 text-xs text-white/50 hover:text-amber-400">
-                Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              <Link href="/moteles" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-amber-400 transition-colors duration-200">
+                Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </motion.div>
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
               {moteles.map((item) => (
-                <motion.article key={item.id} variants={cardFade} className="group w-[65vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-amber-500/10 bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-amber-500/25 sm:w-auto">
+                <motion.article key={item.id} variants={cardFade} className="uzeed-premium-card uzeed-tier-gold group w-[68vw] shrink-0 snap-start sm:w-auto">
                   <Link href={`/hospedaje/${item.id}`} className="block">
-                    <div className="relative aspect-[4/3] bg-white/[0.04]">
+                    <div className="uzeed-card-shimmer relative aspect-[4/3] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       {(item.coverUrl || item.avatarUrl) ? (
                         <img
                           src={resolveMediaUrl(item.coverUrl || item.avatarUrl) ?? undefined}
                           alt={item.displayName}
-                          className="h-full w-full object-cover transition group-hover:scale-105"
+                          className="uzeed-card-img h-full w-full object-cover"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center"><Hotel className="h-10 w-10 text-white/10" /></div>
+                        <div className="flex h-full items-center justify-center"><Hotel className="h-10 w-10 text-white/[0.06]" /></div>
                       )}
                       {item.distance != null && (
-                        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
-                          <MapPin className="h-3 w-3" /> {item.distance.toFixed(1)} km
+                        <div className="absolute right-2 top-2 z-[3] flex items-center gap-1 rounded-lg border border-white/[0.08] bg-black/40 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur-xl tabular-nums">
+                          <MapPin className="h-3 w-3 text-amber-400/60" /> {item.distance.toFixed(1)} km
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-3">
-                        <h3 className="truncate text-sm font-semibold">{item.displayName || item.username}</h3>
-                        {item.city && <p className="mt-0.5 text-[10px] text-white/50">{item.city}</p>}
+                      <div className="uzeed-card-gradient-subtle absolute inset-0" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
+                        <h3 className="truncate text-sm font-bold">{item.displayName || item.username}</h3>
+                        {item.city && <p className="mt-0.5 text-[10px] text-white/40 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 text-amber-400/50" />{item.city}</p>}
                       </div>
                     </div>
                   </Link>
@@ -1667,38 +1674,38 @@ export default function HomePage() {
         {sexshops.length > 0 && (
           <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <ShoppingBag className="h-4 w-4 text-pink-400" />
-                <h2 className="text-xl font-bold">Sex Shop</h2>
+                <h2 className="text-xl font-bold tracking-tight">Sex Shop</h2>
               </div>
-              <Link href="/sexshop" className="group flex items-center gap-1 text-xs text-white/50 hover:text-pink-400">
-                Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              <Link href="/sexshop" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-pink-400 transition-colors duration-200">
+                Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </motion.div>
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
               {sexshops.map((item) => (
-                <motion.article key={item.id} variants={cardFade} className="group w-[65vw] shrink-0 snap-start overflow-hidden rounded-2xl border border-pink-500/10 bg-white/[0.03] transition-all duration-200 hover:-translate-y-1 hover:border-pink-500/25 sm:w-auto">
+                <motion.article key={item.id} variants={cardFade} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto" style={{ borderColor: "rgba(236,72,153,0.1)" }}>
                   <Link href={`/sexshop/${item.username || item.id}`} className="block">
-                    <div className="relative aspect-[4/3] bg-white/[0.04]">
+                    <div className="uzeed-card-shimmer relative aspect-[4/3] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       {(item.coverUrl || item.avatarUrl) ? (
                         <img
                           src={resolveMediaUrl(item.coverUrl || item.avatarUrl) ?? undefined}
                           alt={item.displayName}
-                          className="h-full w-full object-cover transition group-hover:scale-105"
+                          className="uzeed-card-img h-full w-full object-cover"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center"><ShoppingBag className="h-10 w-10 text-white/10" /></div>
+                        <div className="flex h-full items-center justify-center"><ShoppingBag className="h-10 w-10 text-white/[0.06]" /></div>
                       )}
                       {item.distance != null && (
-                        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white/80">
-                          <MapPin className="h-3 w-3" /> {item.distance.toFixed(1)} km
+                        <div className="absolute right-2 top-2 z-[3] flex items-center gap-1 rounded-lg border border-white/[0.08] bg-black/40 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur-xl tabular-nums">
+                          <MapPin className="h-3 w-3 text-pink-400/60" /> {item.distance.toFixed(1)} km
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-3">
-                        <h3 className="truncate text-sm font-semibold">{item.displayName || item.username}</h3>
-                        {item.city && <p className="mt-0.5 text-[10px] text-white/50">{item.city}</p>}
+                      <div className="uzeed-card-gradient-subtle absolute inset-0" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
+                        <h3 className="truncate text-sm font-bold">{item.displayName || item.username}</h3>
+                        {item.city && <p className="mt-0.5 text-[10px] text-white/40 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 text-pink-400/50" />{item.city}</p>}
                       </div>
                     </div>
                   </Link>
@@ -1709,21 +1716,21 @@ export default function HomePage() {
         )}
 
         {/* ═══ CTA — Registration (guests only) ═══ */}
-        {!isAuthed && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent" />}
+        {!isAuthed && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/10 to-transparent" />}
         {!isAuthed && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-600/[0.08] via-violet-600/[0.05] to-transparent p-8 text-center md:p-10 shadow-[0_0_60px_rgba(168,85,247,0.06)]">
-            <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/10 blur-[80px]" />
-            <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[200px] w-[200px] rounded-full bg-violet-600/[0.08] blur-[60px]" />
-            <h2 className="text-xl font-bold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
-            <p className="mx-auto mt-3 max-w-md text-sm text-white/50">Crea tu cuenta gratis y descubre lo mejor cerca de ti.</p>
-            <div className="mt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Link href="/register?type=CLIENT" className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-semibold shadow-[0_12px_40px_rgba(168,85,247,0.25)] transition-all duration-200 hover:scale-[1.03] sm:w-auto">
-                Registro Cliente <ArrowRight className="h-4 w-4" />
+          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-fuchsia-500/10 bg-gradient-to-br from-fuchsia-600/[0.06] via-violet-600/[0.03] to-transparent p-8 text-center md:p-12 shadow-[0_0_80px_rgba(168,85,247,0.04)]">
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/[0.08] blur-[100px]" />
+            <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[250px] w-[250px] rounded-full bg-violet-600/[0.06] blur-[80px]" />
+            <h2 className="text-xl font-extrabold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
+            <p className="mx-auto mt-3 max-w-md text-sm text-white/40 leading-relaxed">Crea tu cuenta gratis y descubre lo mejor cerca de ti.</p>
+            <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <Link href="/register?type=CLIENT" className="uzeed-cta-btn uzeed-hero-cta group inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-7 py-3.5 text-sm font-bold shadow-[0_12px_40px_rgba(168,85,247,0.2)] sm:w-auto">
+                Registro Cliente <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
-              <Link href="/register?type=PROFESSIONAL" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/10 px-6 py-3 text-sm font-semibold text-fuchsia-200 transition hover:bg-fuchsia-500/20 sm:w-auto">
+              <Link href="/register?type=PROFESSIONAL" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/[0.06] px-7 py-3.5 text-sm font-bold text-fuchsia-200/80 transition-all duration-200 hover:bg-fuchsia-500/[0.12] hover:text-fuchsia-200 sm:w-auto">
                 Registro Profesional
               </Link>
-              <Link href="/register?type=ESTABLISHMENT" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-6 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.08] sm:w-auto">
+              <Link href="/register?type=ESTABLISHMENT" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-7 py-3.5 text-sm font-semibold text-white/60 transition-all duration-200 hover:bg-white/[0.08] hover:text-white/80 sm:w-auto">
                 Registro Comercio
               </Link>
             </div>
