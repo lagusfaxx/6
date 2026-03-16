@@ -325,21 +325,36 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
   try {
     const body = (req.body || {}) as Record<string, any>;
     const query = (req.query || {}) as Record<string, any>;
-    const token = String(body.token || query.token || body.tokenFlow || query.tokenFlow || "").trim();
+    const token = String(body.token || query.token || "").trim();
+    const s = String(body.s || query.s || "").trim();
+    const params = { ...query, ...body } as Record<string, any>;
+    delete params.s;
 
     console.log("[flow webhook] body", body);
     console.log("[flow webhook] query", query);
-    console.log("[flow webhook] token", token || null);
 
-    // Flow confirmation callback requires token only.
-    // Signature `s` is used in merchant-to-Flow calls (handled internally in getFlowPaymentStatus).
+    // 1) Signature verification
     if (!config.flowSecretKey) {
       console.error("[flow] payment webhook: FLOW_SECRET_KEY not configured");
       return res.status(200).send("OK");
     }
 
-    if (!token) {
-      console.error("[flow] payment webhook: missing token");
+    if (!s || !token) {
+      console.error("[flow] payment webhook: missing signature or token");
+      return res.status(200).send("OK");
+    }
+
+    // The params to sign include all fields except s, but include token
+    const toSign = { ...params, token };
+    const expected = signFlowParams(toSign);
+    try {
+      const sigA = Buffer.from(expected, "hex");
+      const sigB = Buffer.from(s, "hex");
+      if (sigA.length !== sigB.length || !crypto.timingSafeEqual(sigA, sigB)) {
+        console.error("[flow] payment webhook: invalid signature");
+        return res.status(200).send("OK");
+      }
+    } catch {
       return res.status(200).send("OK");
     }
 
@@ -356,25 +371,9 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
 
     // status 2 = paid
     if (payment.status !== 2) {
-      const flowStatusMap: Record<number, "pending" | "paid" | "rejected" | "canceled" | "unknown"> = {
-        1: "pending",
-        2: "paid",
-        3: "rejected",
-        4: "canceled"
-      };
-      console.log("[flow webhook] flow status", { numeric: payment.status, mapped: flowStatusMap[payment.status] || "unknown" });
-      console.log("[flow webhook] commerceOrder", payment.commerceOrder || null);
+      console.log("[flow] payment webhook: not paid", { token, status: payment.status });
       return res.status(200).send("OK");
     }
-
-    const flowStatusMap: Record<number, "pending" | "paid" | "rejected" | "canceled" | "unknown"> = {
-      1: "pending",
-      2: "paid",
-      3: "rejected",
-      4: "canceled"
-    };
-    console.log("[flow webhook] flow status", { numeric: payment.status, mapped: flowStatusMap[payment.status] || "unknown" });
-    console.log("[flow webhook] commerceOrder", payment.commerceOrder || null);
 
     // 3) Find the PaymentIntent by commerceOrder (= intent.id)
     const intentId = payment.commerceOrder;
@@ -421,7 +420,7 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
       });
     });
 
-    console.log("[flow webhook] payment updated to PAID", { userId: intent.subscriberId, intentId, token, status: payment.status });
+    console.log("[flow webhook] payment confirmed", { userId: intent.subscriberId, intentId, token, status: payment.status });
     return res.status(200).send("OK");
   } catch (err) {
     console.error("[flow webhook] unexpected error", err);
