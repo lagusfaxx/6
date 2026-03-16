@@ -325,42 +325,23 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
   try {
     const body = (req.body || {}) as Record<string, any>;
     const query = (req.query || {}) as Record<string, any>;
-    const token = String(body.token || query.token || "").trim();
-    const s = String(body.s || query.s || "").trim();
-    const params = { ...query, ...body } as Record<string, any>;
-    delete params.s;
+    const token = String(body.token || query.token || body.tokenFlow || query.tokenFlow || "").trim();
 
     console.log("[flow webhook] body", body);
     console.log("[flow webhook] query", query);
+    console.log("[flow webhook] token", token || "(missing)");
 
-    // 1) Signature verification
-    if (!config.flowSecretKey) {
-      console.error("[flow] payment webhook: FLOW_SECRET_KEY not configured");
+    // 1) Flow callback for payment confirmation only requires token.
+    if (!token) {
+      console.error("[flow] payment webhook: missing token");
       return res.status(200).send("OK");
     }
 
-    if (!s || !token) {
-      console.error("[flow] payment webhook: missing signature or token");
-      return res.status(200).send("OK");
-    }
+    // 2) Build internal Flow signature and fetch canonical payment status.
+    const internalSignature = signFlowParams({ apiKey: config.flowApiKey, token });
+    console.log("[flow webhook] internal signature generated", { hasSignature: Boolean(internalSignature) });
 
-    // The params to sign include all fields except s, but include token
-    const toSign = { ...params, token };
-    const expected = signFlowParams(toSign);
-    try {
-      const sigA = Buffer.from(expected, "hex");
-      const sigB = Buffer.from(s, "hex");
-      if (sigA.length !== sigB.length || !crypto.timingSafeEqual(sigA, sigB)) {
-        console.error("[flow] payment webhook: invalid signature");
-        return res.status(200).send("OK");
-      }
-    } catch {
-      return res.status(200).send("OK");
-    }
-
-    console.log("[flow] payment webhook received", { token });
-
-    // 2) Get payment status from Flow
+    // 3) Get payment status from Flow
     let payment;
     try {
       payment = await getFlowPaymentStatus(token);
@@ -369,26 +350,50 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
       return res.status(200).send("OK");
     }
 
+    const statusMap: Record<number, "pending" | "paid" | "rejected" | "canceled"> = {
+      1: "pending",
+      2: "paid",
+      3: "rejected",
+      4: "canceled"
+    };
+    const flowStatus = statusMap[payment.status] ?? "pending";
+
+    console.log("[flow webhook] flow status", { status: payment.status, mappedStatus: flowStatus });
+    console.log("[flow webhook] commerceOrder", payment.commerceOrder || "(missing)");
+
     // status 2 = paid
     if (payment.status !== 2) {
       console.log("[flow] payment webhook: not paid", { token, status: payment.status });
       return res.status(200).send("OK");
     }
 
-    // 3) Find the PaymentIntent by commerceOrder (= intent.id)
-    const intentId = payment.commerceOrder;
-    const intent = await prisma.paymentIntent.findUnique({ where: { id: intentId } });
+    // 4) Find PaymentIntent by commerceOrder / intentId / ref.
+    const commerceOrder = String(payment.commerceOrder || "").trim();
+    const intentIdFromQuery = String(query.intentId || body.intentId || "").trim();
+    const refFromQuery = String(query.ref || body.ref || "").trim();
+    const candidates = Array.from(new Set([commerceOrder, intentIdFromQuery, refFromQuery].filter(Boolean)));
+
+    const intent = await prisma.paymentIntent.findFirst({
+      where: {
+        OR: [
+          ...(candidates.length ? [{ id: { in: candidates } }] : []),
+          { providerPaymentId: token }
+        ]
+      }
+    });
+
     if (!intent) {
-      console.error("[flow] payment webhook: intent not found", { intentId });
+      console.error("[flow] payment webhook: intent not found", { commerceOrder, intentIdFromQuery, refFromQuery, token });
       return res.status(200).send("OK");
     }
 
     // Idempotency: already paid
     if (intent.status === "PAID") {
+      console.log("[flow webhook] payment updated to PAID", { intentId: intent.id, idempotent: true });
       return res.status(200).send("OK");
     }
 
-    // 4) Activate membership in a transaction
+    // 5) Mark payment as paid and activate/extend membership
     await prisma.$transaction(async (tx) => {
       await tx.paymentIntent.update({
         where: { id: intent.id },
@@ -415,12 +420,12 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
         data: {
           userId: intent.subscriberId,
           type: "SUBSCRIPTION_RENEWED",
-          data: { intentId: intent.id, source: "flow_payment", flowOrder: payment.flowOrder }
+          data: { intentId: intent.id, source: "flow_payment", flowOrder: payment.flowOrder, commerceOrder }
         }
       });
     });
 
-    console.log("[flow webhook] payment confirmed", { userId: intent.subscriberId, intentId, token, status: payment.status });
+    console.log("[flow webhook] payment updated to PAID", { userId: intent.subscriberId, intentId: intent.id, token, status: payment.status });
     return res.status(200).send("OK");
   } catch (err) {
     console.error("[flow webhook] unexpected error", err);
