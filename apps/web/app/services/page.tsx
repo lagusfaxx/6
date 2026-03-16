@@ -1002,23 +1002,19 @@ export default function ServicesPage() {
   return (
     <div className="pb-24">
       {/* ── Header ── */}
-      <section className="relative border-b border-white/[0.06] bg-[#0a0a12]/80 backdrop-blur-2xl overflow-hidden">
-        {/* Ambient gradients */}
-        <div className="absolute inset-0 bg-gradient-to-b from-fuchsia-500/[0.03] via-transparent to-transparent pointer-events-none" />
-        <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-fuchsia-500/[0.04] blur-[80px] pointer-events-none" />
-        <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-violet-500/[0.03] blur-[60px] pointer-events-none" />
+      <section className="relative border-b border-white/[0.06] bg-[#0a0a12]/80 backdrop-blur-2xl">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/15 to-transparent" />
-        <div className="relative mx-auto max-w-6xl px-4 pt-4 pb-3.5">
+        <div className="relative mx-auto max-w-6xl px-4 pt-3 pb-2.5">
           {/* Title row */}
           <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold tracking-tight">Cerca tuyo</h1>
-              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/40">
+            <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2.5">
+              <h1 className="text-lg font-bold tracking-tight whitespace-nowrap">Cerca tuyo</h1>
+              <p className="flex items-center gap-1.5 text-[10px] text-white/35 sm:text-[11px]">
                 {locationLabel && (
                   <>
-                    <MapPin className="h-3 w-3 text-fuchsia-400/60" />
-                    <span className="text-fuchsia-300/50 font-medium">{locationLabel}</span>
-                    <span className="text-white/10">·</span>
+                    <MapPin className="h-2.5 w-2.5 text-fuchsia-400/50" />
+                    <span className="text-fuchsia-300/40 font-medium">{locationLabel}</span>
+                    <span className="text-white/[0.08]">·</span>
                   </>
                 )}
                 {!loading && <span>{displayProfiles.length} resultado{displayProfiles.length !== 1 ? "s" : ""}</span>}
@@ -1028,40 +1024,17 @@ export default function ServicesPage() {
             <button
               type="button"
               onClick={() => setShowMap((v) => !v)}
-              className={`shrink-0 rounded-xl border px-3 py-2 text-[11px] font-medium transition-all ${showMap ? "border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-300 shadow-[0_2px_8px_rgba(168,85,247,0.1)]" : "border-white/[0.08] bg-white/[0.03] text-white/45 hover:text-white/65 hover:border-white/15"}`}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium inline-flex items-center gap-1.5 transition-all ${showMap ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25" : "bg-white/[0.04] text-white/45 border border-white/[0.08] hover:text-white/65 hover:bg-white/[0.07]"}`}
             >
-              <MapPin className="mr-1 inline h-3 w-3" />
+              <MapPin className="h-3 w-3" />
               Mapa
             </button>
           </div>
 
-          {/* Category tabs */}
-          <div className="scrollbar-none mt-3 -mx-4 flex gap-1.5 overflow-x-auto px-4">
-            {CATEGORY_TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = category === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setCategory(tab.key)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-[11px] font-medium transition-all ${
-                    isActive
-                      ? "border border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-200 shadow-[0_2px_8px_rgba(168,85,247,0.08)]"
-                      : "border border-white/[0.06] text-white/45 hover:bg-white/[0.04] hover:text-white/65 hover:border-white/10"
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Search + Sort + Filters */}
-          <div className="mt-3 flex gap-1.5">
-            <label className="flex flex-1 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-sm focus-within:border-fuchsia-500/25 focus-within:bg-fuchsia-500/[0.02] transition-all">
-              <Search className="h-3.5 w-3.5 text-white/25" />
+          {/* Search + Sort + Filter */}
+          <div className="mt-2.5 flex gap-1.5">
+            <label className="flex flex-1 items-center gap-2.5 rounded-full border border-white/[0.07] bg-white/[0.03] px-3.5 py-2 text-sm focus-within:border-fuchsia-500/20 focus-within:bg-fuchsia-500/[0.02] transition-all">
+              <Search className="h-3.5 w-3.5 shrink-0 text-white/25" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -1075,26 +1048,26 @@ export default function ServicesPage() {
               )}
             </label>
 
-            <div className="relative">
+            <div className="relative hidden sm:block">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="h-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 pr-7 text-[11px] text-white/60 appearance-none focus:outline-none focus:border-fuchsia-500/25 cursor-pointer transition-all"
+                className="h-full rounded-full border border-white/[0.07] bg-white/[0.03] px-3 pr-7 text-[11px] text-white/50 appearance-none focus:outline-none focus:border-fuchsia-500/20 cursor-pointer transition-all"
               >
                 {SORT_OPTIONS.map((opt) => (
                   <option key={opt.key} value={opt.key}>{opt.label}</option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white/25" />
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-white/25" />
             </div>
 
             <button
               type="button"
               onClick={() => setShowFilters((s) => !s)}
-              className={`shrink-0 rounded-xl border px-3 py-2.5 text-[11px] inline-flex items-center gap-1.5 transition-all ${
+              className={`shrink-0 rounded-full px-2.5 py-2 text-[11px] inline-flex items-center gap-1.5 transition-all ${
                 showFilters || activeFilterCount > 0
-                  ? "border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-200"
-                  : "border-white/[0.06] bg-white/[0.02] text-white/45 hover:text-white/65"
+                  ? "border border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-200"
+                  : "border border-white/[0.07] bg-white/[0.03] text-white/45 hover:text-white/65"
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -1104,8 +1077,28 @@ export default function ServicesPage() {
             </button>
           </div>
 
-          {/* Quick filter pills */}
-          <div className="mt-2.5 flex gap-1.5 overflow-x-auto scrollbar-none">
+          {/* Category tabs + Quick filters */}
+          <div className="mt-2 -mx-4 px-4 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+            {CATEGORY_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = category === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setCategory(tab.key)}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-all ${
+                    isActive
+                      ? "bg-fuchsia-500/15 text-fuchsia-200 border border-fuchsia-500/20"
+                      : "text-white/40 border border-transparent hover:text-white/60 hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <Icon className="h-3 w-3" />
+                  {tab.label}
+                </button>
+              );
+            })}
+            <div className="h-4 w-px bg-white/[0.08] mx-0.5 shrink-0" />
             {QUICK_FILTERS.map((f) => {
               const Icon = f.icon;
               const isActive = activeQuickFilters.has(f.key);
@@ -1114,8 +1107,8 @@ export default function ServicesPage() {
                   key={f.key}
                   type="button"
                   onClick={() => toggleQuickFilter(f.key)}
-                  className={`flex shrink-0 items-center gap-1 rounded-xl border px-2.5 py-1.5 text-[10px] font-medium transition-all ${
-                    isActive ? f.activeColor : "border-white/[0.06] text-white/35 hover:border-white/10 hover:text-white/55"
+                  className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-[10px] font-medium transition-all ${
+                    isActive ? f.activeColor : "text-white/30 border border-transparent hover:text-white/50 hover:bg-white/[0.03]"
                   }`}
                 >
                   <Icon className="h-2.5 w-2.5" />
@@ -1127,7 +1120,7 @@ export default function ServicesPage() {
               <button
                 type="button"
                 onClick={() => { setActiveQuickFilters(new Set()); setSearch(""); }}
-                className="flex shrink-0 items-center gap-1 rounded-xl border border-white/[0.06] px-2.5 py-1.5 text-[10px] text-white/25 hover:text-white/55 transition-all"
+                className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-[10px] text-white/25 hover:text-white/55 transition-all"
               >
                 <X className="h-2.5 w-2.5" /> Limpiar
               </button>
@@ -1136,7 +1129,22 @@ export default function ServicesPage() {
 
           {/* Expanded filters */}
           {showFilters && (
-            <div className="mt-3 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4">
+            <div className="mt-2.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4">
+              <div className="sm:hidden mb-3">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-white/30 mb-1.5 block">Ordenar por</label>
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-[11px] text-white/60 appearance-none focus:outline-none focus:border-fuchsia-500/20 cursor-pointer"
+                  >
+                    {SORT_OPTIONS.map((opt) => (
+                      <option key={opt.key} value={opt.key}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-white/25" />
+                </div>
+              </div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-white/30">Radio de búsqueda</label>
                 <span className="text-[11px] text-fuchsia-300/70 font-semibold tabular-nums">{radiusKm} km</span>
