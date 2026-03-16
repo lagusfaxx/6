@@ -35,6 +35,7 @@ const PUBLIC_PREFIXES = [
   "/live",              // ✅ detalle público de stream
   "/stats/platform",    // ✅ contadores públicos para hero del home
   "/privacy",           // ✅ solicitudes públicas de eliminación de cuenta/datos
+  "/billing/status",    // ✅ verificación pública de pago Flow por ref (retorno pasarela)
 ];
 
 /**

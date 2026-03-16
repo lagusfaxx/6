@@ -4,7 +4,6 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
-import { apiFetch } from "../../../lib/api";
 
 function ExitosoContent() {
   const params = useSearchParams();
@@ -13,12 +12,16 @@ function ExitosoContent() {
   const [status, setStatus] = useState<"loading" | "paid" | "pending" | "error">("loading");
 
   useEffect(() => {
-    if (!ref) { setStatus("pending"); return; }
+    if (!ref) { setStatus("error"); return; }
 
-    // Poll billing status once to confirm payment
-    apiFetch<{ isActive: boolean }>("/billing/subscription/status")
-      .then((data) => {
-        setStatus(data?.isActive ? "paid" : "pending");
+    // Payment gateway return page: only query backend status by ref.
+    fetch(`/api/billing/status?ref=${encodeURIComponent(ref)}`, { credentials: "include" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP_${response.status}`);
+        const data = await response.json() as { status?: "paid" | "pending" | "error" };
+        if (data?.status === "paid") return setStatus("paid");
+        if (data?.status === "pending") return setStatus("pending");
+        return setStatus("error");
       })
       .catch(() => setStatus("error"));
   }, [ref]);
@@ -28,7 +31,7 @@ function ExitosoContent() {
       {status === "loading" && (
         <>
           <Loader2 className="h-10 w-10 animate-spin text-fuchsia-400 mx-auto" />
-          <p className="text-sm text-white/50">Verificando tu pago...</p>
+          <p className="text-sm text-white/50">Verificando pago...</p>
         </>
       )}
 
@@ -40,7 +43,7 @@ function ExitosoContent() {
             </div>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-emerald-300">¡Pago exitoso!</h1>
+            <h1 className="text-xl font-bold text-emerald-300">Pago aprobado</h1>
             <p className="mt-2 text-sm text-white/50">Tu suscripción mensual está activa. Ya puedes usar todas las funciones de tu perfil profesional.</p>
           </div>
           <div className="flex flex-col gap-2 pt-2">
@@ -62,7 +65,7 @@ function ExitosoContent() {
             </div>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-amber-300">Pago en proceso</h1>
+            <h1 className="text-xl font-bold text-amber-300">Pago pendiente</h1>
             <p className="mt-2 text-sm text-white/50">Tu pago está siendo procesado. Puede tardar unos minutos en confirmarse. Recibirás una notificación cuando esté listo.</p>
           </div>
           <Link href="/cuenta" className="inline-flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-6 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/[0.06] transition">
@@ -79,7 +82,7 @@ function ExitosoContent() {
             </div>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-red-300">No se pudo verificar</h1>
+            <h1 className="text-xl font-bold text-red-300">Error verificando pago</h1>
             <p className="mt-2 text-sm text-white/50">No pudimos confirmar tu pago en este momento. Si realizaste el pago, espera unos minutos y revisa tu cuenta.</p>
           </div>
           <div className="flex flex-col gap-2">
