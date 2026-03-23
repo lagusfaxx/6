@@ -93,6 +93,7 @@ enum PaymentIntentPurpose {
   CREATOR_SUBSCRIPTION
   SHOP_PLAN
   MEMBERSHIP_PLAN
+  TOKEN_PURCHASE
 }
 
 enum PaymentIntentStatus {
@@ -164,7 +165,9 @@ model TokenDeposit {
   walletId    String             @db.Uuid
   amount      Int                // tokens requested
   clpAmount   Int                // CLP paid
-  receiptUrl  String             // uploaded bank transfer receipt
+  receiptUrl  String?            // uploaded bank transfer receipt (nullable for Flow)
+  method      PaymentMethod      @default(TRANSFER)
+  paymentIntentId String?        @unique @db.Uuid // links to PaymentIntent for Flow payments
   status      TokenDepositStatus @default(PENDING)
   reviewedBy  String?            @db.Uuid
   reviewedAt  DateTime?

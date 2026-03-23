@@ -6,12 +6,17 @@ import { sendDepositApprovedEmail, sendWithdrawalApprovedEmail } from "../lib/tr
 export const adminTokensRouter = Router();
 
 // ── GET /admin/deposits — list pending/all deposits ──
+// By default only shows TRANSFER deposits (Flow deposits are auto-approved)
 adminTokensRouter.get("/admin/deposits", requireAdmin, async (req, res) => {
   const status = String(req.query.status || "PENDING");
+  const method = String(req.query.method || "TRANSFER");
   const limit = Math.min(parseInt(String(req.query.limit || "50"), 10), 100);
   const offset = parseInt(String(req.query.offset || "0"), 10);
 
-  const where = status === "ALL" ? {} : { status: status as any };
+  const where: any = {};
+  if (status !== "ALL") where.status = status;
+  if (method !== "ALL") where.method = method;
+
   const [deposits, total] = await Promise.all([
     prisma.tokenDeposit.findMany({
       where,
