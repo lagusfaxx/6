@@ -162,7 +162,13 @@ export default function WalletPage() {
       // Redirect to Flow payment page
       window.location.href = res.url;
     } catch (e: any) {
-      setDepositMsg(e?.message || "Error al procesar pago");
+      const msg = e?.message || "Error al procesar pago";
+      if (msg.includes("email") || msg.includes("EMAIL")) {
+        setDepositMsg("Flow no acepta tu email. Prueba con transferencia bancaria o actualiza tu email en tu perfil.");
+        setPaymentMethod("transfer");
+      } else {
+        setDepositMsg(msg);
+      }
       setFlowLoading(false);
     }
   };
