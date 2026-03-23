@@ -1,10 +1,8 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useParams } from "next/navigation";
-import ProfileDetailView from "../../profesional/_components/ProfileDetailView";
+type Props = { params: Promise<{ username: string }> };
 
-export default function PerfilByUsernamePage() {
-  const params = useParams();
-  const username = String(params.username || "");
-  return <ProfileDetailView username={username} />;
+export default async function PerfilAliasPage({ params }: Props) {
+  const { username } = await params;
+  redirect(`/profile/${username}`);
 }
