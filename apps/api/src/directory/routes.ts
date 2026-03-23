@@ -457,6 +457,7 @@ directoryRouter.get(
         completedServices: true,
         profileViews: true,
         baseRate: true,
+        tier: true,
         services: {
           where: { isActive: true },
           select: { latitude: true, longitude: true },
@@ -480,6 +481,7 @@ directoryRouter.get(
           profileViews: u.profileViews,
           lastSeen: u.lastSeen,
           completedServices: u.completedServices,
+          adminTier: u.tier,
         });
         return {
           id: u.id,
@@ -563,6 +565,7 @@ directoryRouter.get(
         serviceCategory: true,
         completedServices: true,
         profileViews: true,
+        tier: true,
         reviewTagsSummary: true,
         category: {
           select: { id: true, name: true, displayName: true, kind: true },
@@ -717,6 +720,7 @@ directoryRouter.get(
           profileViews: u.profileViews,
           lastSeen: u.lastSeen,
           completedServices: u.completedServices,
+          adminTier: u.tier,
         }),
         reviewTagsSummary: u.reviewTagsSummary,
         avgResponseMinutes: (u as any).avgResponseMinutes ?? null,
@@ -1032,6 +1036,7 @@ directoryRouter.get(
         profileViews: u.profileViews,
         lastSeen: u.lastSeen,
         completedServices: u.completedServices,
+        adminTier: u.tier,
       });
       const isMadura = age != null && age >= 40;
       const obf = obfuscateLocation(userLat, userLng, `user:${u.id}`, 600);

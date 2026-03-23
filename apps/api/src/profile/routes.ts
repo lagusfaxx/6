@@ -143,6 +143,7 @@ profileRouter.get(
         profileTags: true,
         serviceTags: true,
         serviceCategory: true,
+        tier: true,
       },
     });
 
@@ -177,6 +178,7 @@ profileRouter.get(
             profileViews: p.profileViews,
             lastSeen: p.lastSeen,
             completedServices: p.completedServices,
+            adminTier: p.tier,
           }),
           completedServices: p.completedServices,
           profileViews: p.profileViews,

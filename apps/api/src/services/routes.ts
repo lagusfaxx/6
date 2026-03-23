@@ -176,6 +176,7 @@ servicesRouter.get(
         shopTrialEndsAt: true,
         profileTags: true,
         serviceTags: true,
+        tier: true,
       },
     });
 
@@ -216,6 +217,7 @@ servicesRouter.get(
             profileViews: p.profileViews,
             lastSeen: p.lastSeen,
             completedServices: p.completedServices,
+            adminTier: p.tier,
           }),
           profileTags: p.profileTags ?? [],
           serviceTags: p.serviceTags ?? [],
@@ -1247,7 +1249,7 @@ servicesRouter.post(
       const professional = await tx.user.update({
         where: { id: professionalId },
         data: { completedServices: { increment: 1 } },
-        select: { completedServices: true },
+        select: { completedServices: true, tier: true },
       });
 
       const service = await tx.serviceRequest.findUnique({ where: { id } });
@@ -1265,9 +1267,10 @@ servicesRouter.post(
             professionalId,
             url: `/profesional/${professionalId}`,
             suggestedTags: QUICK_REVIEW_TAGS,
-            professionalLevel: resolveProfessionalLevel(
-              professional.completedServices,
-            ),
+            professionalLevel: resolveProfessionalLevel({
+              completedServices: professional.completedServices,
+              adminTier: professional.tier,
+            }),
           },
         },
       });
