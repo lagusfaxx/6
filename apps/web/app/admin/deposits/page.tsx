@@ -21,7 +21,6 @@ type Deposit = {
 export default function AdminDepositsPage() {
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [filter, setFilter] = useState("PENDING");
-  const [methodFilter, setMethodFilter] = useState("TRANSFER");
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -30,10 +29,10 @@ export default function AdminDepositsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiFetch<{ deposits: Deposit[] }>(`/admin/deposits?status=${filter}&method=${methodFilter}`);
+      const res = await apiFetch<{ deposits: Deposit[] }>(`/admin/deposits?status=${filter}`);
       setDeposits(res.deposits || []);
     } catch {} finally { setLoading(false); }
-  }, [filter, methodFilter]);
+  }, [filter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -63,16 +62,11 @@ export default function AdminDepositsPage() {
       <div className="mx-auto max-w-4xl px-4 py-8">
         <h1 className="mb-6 text-2xl font-bold">Depósitos de Tokens</h1>
 
-        <div className="mb-4 flex flex-wrap gap-2">
+        <p className="mb-3 text-xs text-white/40">Solo transferencias bancarias (los pagos con Flow se acreditan automáticamente)</p>
+        <div className="mb-4 flex gap-2">
           {["PENDING", "APPROVED", "REJECTED", "ALL"].map((s) => (
             <button key={s} onClick={() => setFilter(s)} className={`rounded-full border px-4 py-1.5 text-xs font-medium transition ${filter === s ? "border-fuchsia-500/30 bg-fuchsia-500/15 text-fuchsia-300" : "border-white/10 text-white/50"}`}>
               {s === "PENDING" ? "Pendientes" : s === "APPROVED" ? "Aprobados" : s === "REJECTED" ? "Rechazados" : "Todos"}
-            </button>
-          ))}
-          <span className="mx-1 self-center text-white/20">|</span>
-          {["TRANSFER", "FLOW", "ALL"].map((m) => (
-            <button key={m} onClick={() => setMethodFilter(m)} className={`rounded-full border px-4 py-1.5 text-xs font-medium transition ${methodFilter === m ? "border-violet-500/30 bg-violet-500/15 text-violet-300" : "border-white/10 text-white/50"}`}>
-              {m === "TRANSFER" ? "Transferencias" : m === "FLOW" ? "Flow" : "Todos"}
             </button>
           ))}
         </div>
@@ -88,12 +82,7 @@ export default function AdminDepositsPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold">{d.wallet.user.displayName || d.wallet.user.username}</p>
-                    <p className="text-[10px] text-white/40">
-                      {d.wallet.user.email} · {d.wallet.user.profileType}
-                      <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${d.method === "FLOW" ? "bg-fuchsia-500/15 text-fuchsia-300" : "bg-violet-500/15 text-violet-300"}`}>
-                        {d.method === "FLOW" ? "Flow" : "Transferencia"}
-                      </span>
-                    </p>
+                    <p className="text-[10px] text-white/40">{d.wallet.user.email} · {d.wallet.user.profileType}</p>
                     <div className="mt-2 flex items-center gap-3">
                       <span className="text-lg font-bold text-fuchsia-300">{d.amount} tokens</span>
                       <span className="text-xs text-white/40">${d.clpAmount.toLocaleString("es-CL")} CLP</span>
