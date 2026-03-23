@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import SexShopsClient from "./SexShopsClient";
+import { redirect } from "next/navigation";
 
-export default function SexShopsPage() {
-  return (
-    <Suspense fallback={<div className="text-white/60">Cargando sex shops...</div>}>
-      <SexShopsClient />
-    </Suspense>
-  );
+export default function SexShopsAliasPage() {
+  redirect("/sexshop");
 }

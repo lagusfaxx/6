@@ -141,15 +141,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   add("/", "daily", 1.0);
 
   // ── Directorios principales (alta prioridad - generan tráfico) ──
+  // Only canonical URLs — aliases (/servicios, /sexshops, /hospedajes, /hot)
+  // are 301-redirected in next.config.mjs and must NOT appear here.
   add("/escorts", "daily", 0.9);
   add("/masajistas", "daily", 0.9);
   add("/moteles", "daily", 0.9);
-  add("/hospedajes", "daily", 0.85);
+  add("/hospedaje", "daily", 0.85);
   add("/establecimientos", "daily", 0.85);
   add("/profesionales", "daily", 0.85);
-  add("/sexshops", "daily", 0.8);
+  add("/sexshop", "daily", 0.8);
   add("/services", "daily", 0.85);
-  add("/servicios", "daily", 0.85);
   add("/premium", "daily", 0.8);
 
   // ── Landing pages por tag de escort (long-tail SEO) ──
@@ -176,7 +177,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // ── Contenido dinámico ──
   add("/live", "always", 0.85);
   add("/foro", "hourly", 0.85);
-  add("/hot", "daily", 0.7);
+  // /hot redirects to /premium — excluded from sitemap
 
   // ── Páginas informativas ──
   add("/contacto", "monthly", 0.5);

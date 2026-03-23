@@ -1,1 +1,5 @@
-export { default } from "../chat/page";
+import { redirect } from "next/navigation";
+
+export default function ChatsAliasPage() {
+  redirect("/chat");
+}

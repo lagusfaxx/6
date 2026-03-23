@@ -83,7 +83,16 @@ const nextConfig = {
   },
 
   async redirects() {
-    return [];
+    return [
+      // ── Consolidate duplicate routes → single canonical URL ──
+      { source: "/servicios", destination: "/services", permanent: true },
+      { source: "/chats", destination: "/chat", permanent: true },
+      { source: "/chats/:userId", destination: "/chat/:userId", permanent: true },
+      { source: "/perfil/:username", destination: "/profile/:username", permanent: true },
+      { source: "/sexshops", destination: "/sexshop", permanent: true },
+      { source: "/hospedajes", destination: "/hospedaje", permanent: true },
+      { source: "/hot", destination: "/premium", permanent: true },
+    ];
   },
   async rewrites() {
     return [
