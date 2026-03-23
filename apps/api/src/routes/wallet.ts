@@ -224,7 +224,7 @@ walletRouter.post("/wallet/deposit/flow", requireAuth, async (req, res) => {
       amount: clpAmount,
       email,
       urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
-      urlReturn: `${appUrl}/wallet?deposit=success&ref=${intent.id}`,
+      urlReturn: `${appUrl}/wallet?ref=${intent.id}`,
     });
   } catch (err: any) {
     // Clean up orphaned records on Flow API failure
