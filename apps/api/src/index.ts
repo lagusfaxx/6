@@ -158,8 +158,15 @@ app.use(
     next();
   },
   express.static(path.resolve(config.storageDir), {
-    maxAge: "1h",
-    setHeaders: (res) => res.setHeader("Accept-Ranges", "bytes")
+    maxAge: "30d",
+    immutable: true,
+    setHeaders: (res, filePath) => {
+      res.setHeader("Accept-Ranges", "bytes");
+      // WebP files get longer cache since they're content-addressed by timestamp
+      if (filePath.endsWith(".webp")) {
+        res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
+      }
+    },
   })
 );
 

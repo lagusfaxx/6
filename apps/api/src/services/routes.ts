@@ -9,6 +9,7 @@ import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
+import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { findCategoryByRef } from "../lib/categories";
 import { obfuscateLocation } from "../lib/locationPrivacy";
 import { isUUID } from "../lib/validators";
@@ -859,7 +860,8 @@ servicesRouter.post(
     const media = [];
     for (const file of files) {
       const { type } = await validateUploadedFile(file, "image-or-video");
-      const url = storageProvider.publicUrl(file.filename);
+      const finalFilename = type === "IMAGE" ? await optimizeUploadedImage(file, "gallery") : file.filename;
+      const url = storageProvider.publicUrl(finalFilename);
       media.push(
         await prisma.serviceMedia.create({
           data: { serviceItemId: item.id, type, url },

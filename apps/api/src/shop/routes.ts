@@ -8,6 +8,7 @@ import path from "path";
 import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
+import { optimizeUploadedImage } from "../lib/imageOptimizer";
 
 export const shopRouter = Router();
 
@@ -370,8 +371,9 @@ shopRouter.post("/products/:id/media", requireAuth, upload.array("files", 8), as
   const media = [];
   let pos = (lastPos?.pos ?? -1) + 1;
   for (const file of files) {
-    await validateUploadedFile(file, "image-or-video");
-    const url = storageProvider.publicUrl(file.filename);
+    const { type } = await validateUploadedFile(file, "image-or-video");
+    const finalFilename = type === "IMAGE" ? await optimizeUploadedImage(file, "gallery") : file.filename;
+    const url = storageProvider.publicUrl(finalFilename);
     media.push(await prisma.productMedia.create({ data: { productId: id, url, pos } }));
     pos += 1;
   }

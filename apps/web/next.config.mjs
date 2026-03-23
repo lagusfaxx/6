@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const apiHost = new URL(apiUrl).hostname;
 
 const nextConfig = {
   output: "standalone",
@@ -9,21 +10,61 @@ const nextConfig = {
     },
   },
 
-  // Cache-Control headers to force revalidation
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: apiHost,
+      },
+      {
+        protocol: "http",
+        hostname: apiHost,
+      },
+      {
+        protocol: "https",
+        hostname: "api.uzeed.cl",
+      },
+    ],
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [64, 128, 256, 384],
+    minimumCacheTTL: 2592000, // 30 days
+  },
+
   async headers() {
     return [
       {
-        // Static assets should be cached but revalidated
+        // Static JS/CSS assets — immutable with long cache
         source: '/_next/static/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=3600, must-revalidate',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },
       {
-        // HTML pages should not be cached
+        // Next.js image optimization cache
+        source: '/_next/image:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=2592000, stale-while-revalidate=86400',
+          },
+        ],
+      },
+      {
+        // Static brand assets
+        source: '/brand/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=2592000, immutable',
+          },
+        ],
+      },
+      {
+        // HTML pages — revalidate on navigation
         source: '/:path*',
         headers: [
           {

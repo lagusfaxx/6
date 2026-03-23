@@ -69,7 +69,7 @@ app.use(
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     next();
   },
-  express.static(uploadsPath)
+  express.static(uploadsPath, { maxAge: "30d", immutable: true })
 );
 
 app.get("/health", (_req, res) => res.json({ ok: true }));

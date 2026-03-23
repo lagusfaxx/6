@@ -159,6 +159,7 @@ function StoryViewer({
               src={resolveMediaUrl(group.avatarUrl) ?? undefined}
               alt={group.displayName}
               className="h-9 w-9 rounded-full object-cover border-2 border-white/30"
+              decoding="async"
             />
           ) : (
             <div className="h-9 w-9 rounded-full bg-fuchsia-600 flex items-center justify-center text-white text-sm font-bold">
@@ -198,6 +199,7 @@ function StoryViewer({
             src={resolveMediaUrl(story.mediaUrl) ?? undefined}
             alt=""
             className="h-full w-full object-cover"
+            decoding="async"
           />
         )}
 
@@ -386,6 +388,8 @@ export default function Stories() {
                       src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
                       alt={s.host.displayName}
                       className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-red-700/50 to-orange-700/50">
@@ -418,6 +422,8 @@ export default function Stories() {
                       src={resolveMediaUrl(g.avatarUrl) ?? undefined}
                       alt={g.displayName}
                       className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-fuchsia-700/50 to-violet-700/50">

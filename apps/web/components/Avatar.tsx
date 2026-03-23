@@ -25,7 +25,7 @@ export default function Avatar({
     >
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={alt || "avatar"} className="h-full w-full object-cover" />
+        <img src={url} alt={alt || "avatar"} className="h-full w-full object-cover" loading="lazy" decoding="async" />
       ) : (
         <div className="flex h-full w-full items-center justify-center">
           <svg width="55%" height="55%" viewBox="0 0 24 24" fill="none" aria-hidden="true">

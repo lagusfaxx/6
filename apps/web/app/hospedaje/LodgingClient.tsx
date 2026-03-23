@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { MapPin } from "lucide-react";
-import MapboxMap from "../../components/MapboxMap";
+
+const MapboxMap = dynamic(() => import("../../components/MapboxMap"), { ssr: false });
 import StarRating from "../../components/StarRating";
 import SkeletonCard from "../../components/SkeletonCard";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
