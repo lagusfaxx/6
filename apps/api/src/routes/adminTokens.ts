@@ -5,17 +5,14 @@ import { sendDepositApprovedEmail, sendWithdrawalApprovedEmail } from "../lib/tr
 
 export const adminTokensRouter = Router();
 
-// ── GET /admin/deposits — list pending/all deposits ──
-// By default only shows TRANSFER deposits (Flow deposits are auto-approved)
+// ── GET /admin/deposits — list transfer deposits only (Flow is automatic) ──
 adminTokensRouter.get("/admin/deposits", requireAdmin, async (req, res) => {
   const status = String(req.query.status || "PENDING");
-  const method = String(req.query.method || "TRANSFER");
   const limit = Math.min(parseInt(String(req.query.limit || "50"), 10), 100);
   const offset = parseInt(String(req.query.offset || "0"), 10);
 
-  const where: any = {};
+  const where: any = { method: "TRANSFER" };
   if (status !== "ALL") where.status = status;
-  if (method !== "ALL") where.method = method;
 
   const [deposits, total] = await Promise.all([
     prisma.tokenDeposit.findMany({
@@ -43,6 +40,7 @@ adminTokensRouter.put("/admin/deposits/:id/approve", requireAdmin, async (req, r
     include: { wallet: true },
   });
   if (!deposit) return res.status(404).json({ error: "Not found" });
+  if (deposit.method === "FLOW") return res.status(400).json({ error: "Flow deposits are automatic" });
   if (deposit.status !== "PENDING") return res.status(400).json({ error: "Already processed" });
 
   // Approve and credit tokens atomically
@@ -83,6 +81,7 @@ adminTokensRouter.put("/admin/deposits/:id/approve", requireAdmin, async (req, r
 adminTokensRouter.put("/admin/deposits/:id/reject", requireAdmin, async (req, res) => {
   const deposit = await prisma.tokenDeposit.findUnique({ where: { id: req.params.id } });
   if (!deposit) return res.status(404).json({ error: "Not found" });
+  if (deposit.method === "FLOW") return res.status(400).json({ error: "Flow deposits are automatic" });
   if (deposit.status !== "PENDING") return res.status(400).json({ error: "Already processed" });
 
   await prisma.tokenDeposit.update({
