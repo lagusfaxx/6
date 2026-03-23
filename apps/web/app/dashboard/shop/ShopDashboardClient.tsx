@@ -5,7 +5,7 @@ import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import useMe from "../../../hooks/useMe";
 import MapboxMap from "../../../components/MapboxMap";
-import { apiFetch, friendlyErrorMessage, resolveMediaUrl } from "../../../lib/api";
+import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
 
 /* ── Types ── */
 type ProductMedia = { id: string; url: string; pos: number };
@@ -194,7 +194,7 @@ export default function ShopDashboardClient() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/profile/${type}`, {
+      const res = await fetch(`${getApiBase()}/profile/${type}`, {
         method: "POST",
         credentials: "include",
         body: formData,
@@ -332,7 +332,7 @@ export default function ShopDashboardClient() {
     try {
       const formData = new FormData();
       Array.from(files).forEach((f) => formData.append("files", f));
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/shop/products/${productId}/media`, {
+      const res = await fetch(`${getApiBase()}/shop/products/${productId}/media`, {
         method: "POST",
         credentials: "include",
         body: formData,

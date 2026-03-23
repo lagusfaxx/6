@@ -249,6 +249,7 @@ videocallRouter.post("/videocall/book", requireAuth, async (req, res) => {
   if (updated.count === 0) return res.status(400).json({ error: "Insufficient tokens" });
 
   const updatedWallet = await prisma.wallet.findUnique({ where: { id: clientWallet.id } });
+  if (!updatedWallet) return res.status(500).json({ error: "Wallet not found after update" });
 
   // Create booking
   const roomId = randomUUID();
