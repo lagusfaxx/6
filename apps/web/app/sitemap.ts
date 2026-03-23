@@ -96,19 +96,21 @@ async function getEstablishmentIds(): Promise<string[]> {
 // Tags de perfil y servicio para generar landing pages /escorts/[tag]
 const ESCORT_TAGS = [
   // Físico
-  "tetona", "culona", "delgada", "fitness", "gordita",
+  "tetona", "culona", "delgada", "fitness", "gordita", "flaca", "curvy",
   // Apariencia
-  "rubia", "morena", "pelirroja", "trigueña",
+  "rubia", "morena", "pelirroja", "trigueña", "latina", "colombiana", "venezolana",
   // Personalidad
-  "sumisa", "dominante", "caliente", "cariñosa", "natural",
+  "sumisa", "dominante", "caliente", "cariñosa", "natural", "discreta",
   // Estilo
   "tatuada", "piercing",
   // Edad
-  "maduras",
+  "maduras", "jovenes",
   // Servicios
   "anal", "trios", "packs", "videollamada",
   "masaje-erotico", "despedidas", "discapacitados", "fetiches",
-  "bdsm", "sexo-oral", "lluvia-dorada", "rol",
+  "bdsm", "sexo-oral", "lluvia-dorada", "rol", "nuru", "tantra",
+  // Disponibilidad
+  "disponible-hoy", "24-horas", "domicilio",
 ];
 
 // Ciudades principales para landing pages geo-segmentadas
@@ -118,6 +120,7 @@ const CITIES = [
   "arica", "iquique", "puerto-montt", "talca",
   "chillan", "osorno", "punta-arenas", "copiapo",
   "calama", "los-angeles", "curico", "providencia", "las-condes",
+  "nunoa", "maipu", "puente-alto", "san-bernardo",
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -162,8 +165,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // ── Combinaciones tag + ciudad top (máximo impacto long-tail) ──
-  const topTags = ["tetona", "culona", "rubia", "morena", "maduras", "anal", "trios"];
-  const topCities = ["santiago", "vina-del-mar", "valparaiso", "concepcion", "antofagasta"];
+  const topTags = ["tetona", "culona", "rubia", "morena", "maduras", "anal", "trios", "colombiana", "venezolana", "jovenes", "disponible-hoy"];
+  const topCities = ["santiago", "vina-del-mar", "valparaiso", "concepcion", "antofagasta", "las-condes", "providencia"];
   for (const tag of topTags) {
     for (const city of topCities) {
       add(`/escorts/${encodeURIComponent(tag)}?city=${encodeURIComponent(city)}`, "daily", 0.75);

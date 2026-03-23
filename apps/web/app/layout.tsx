@@ -4,8 +4,8 @@ import AppShell from '../components/AppShell';
 import SplashScreen from '../components/SplashScreen';
 
 export const metadata: Metadata = {
-  title: 'Escorts, Putas y Maracas en Chile | UZEED',
-  description: 'Encuentra las mejores escorts, putas y maracas en Santiago, Las Condes y Viña del Mar. Perfiles verificados, sexo incógnito y disponibilidad hoy en UZEED.',
+  title: 'UZEED: Escorts, Putas y Profesionales en Chile',
+  description: 'Encuentra las mejores escorts, putas y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados, sexo incógnito y disponibilidad hoy en UZEED.',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
