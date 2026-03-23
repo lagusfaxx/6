@@ -135,25 +135,35 @@ export function signFlowParams(params: Record<string, string>): string {
   return crypto.createHmac("sha256", config.flowSecretKey).update(sorted).digest("hex");
 }
 
+function encodeFlowParam(value: string): string {
+  return encodeURIComponent(value);
+}
+
+function buildFlowEncodedBody(params: Record<string, string>): string {
+  return Object.entries(params)
+    .map(([key, value]) => `${encodeFlowParam(key)}=${encodeFlowParam(value)}`)
+    .join("&");
+}
+
 async function flowFetch<T>(path: string, method: "GET" | "POST", params: Record<string, string>): Promise<T> {
   const signed: Record<string, string> = { ...params, apiKey: config.flowApiKey };
   signed.s = signFlowParams(signed);
 
   const baseUrl = config.flowBaseUrl.replace(/\/$/, "");
+  const encodedBody = buildFlowEncodedBody(signed);
 
   // Debug: log the exact payload sent to Flow (exclude signature)
   const { s, ...debugParams } = signed;
-  console.log("[flow] request", { path, method, params: debugParams, formEncodedBody: new URLSearchParams(debugParams).toString() });
+  console.log("[flow] request", { path, method, params: debugParams, formEncodedBody: buildFlowEncodedBody(debugParams) });
 
   let res: Response;
   if (method === "GET") {
-    const qs = new URLSearchParams(signed).toString();
-    res = await fetch(`${baseUrl}${path}?${qs}`, { method: "GET" });
+    res = await fetch(`${baseUrl}${path}?${encodedBody}`, { method: "GET" });
   } else {
     res = await fetch(`${baseUrl}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams(signed).toString()
+      body: encodedBody
     });
   }
 
