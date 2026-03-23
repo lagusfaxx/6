@@ -9,6 +9,7 @@ import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
+import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { findCategoryByRef } from "../lib/categories";
 import { obfuscateLocation } from "../lib/locationPrivacy";
 import { isUUID } from "../lib/validators";
@@ -176,6 +177,7 @@ servicesRouter.get(
         shopTrialEndsAt: true,
         profileTags: true,
         serviceTags: true,
+        tier: true,
       },
     });
 
@@ -216,6 +218,7 @@ servicesRouter.get(
             profileViews: p.profileViews,
             lastSeen: p.lastSeen,
             completedServices: p.completedServices,
+            adminTier: p.tier,
           }),
           profileTags: p.profileTags ?? [],
           serviceTags: p.serviceTags ?? [],
@@ -857,7 +860,8 @@ servicesRouter.post(
     const media = [];
     for (const file of files) {
       const { type } = await validateUploadedFile(file, "image-or-video");
-      const url = storageProvider.publicUrl(file.filename);
+      const finalFilename = type === "IMAGE" ? await optimizeUploadedImage(file, "gallery") : file.filename;
+      const url = storageProvider.publicUrl(finalFilename);
       media.push(
         await prisma.serviceMedia.create({
           data: { serviceItemId: item.id, type, url },
@@ -1247,7 +1251,7 @@ servicesRouter.post(
       const professional = await tx.user.update({
         where: { id: professionalId },
         data: { completedServices: { increment: 1 } },
-        select: { completedServices: true },
+        select: { completedServices: true, tier: true },
       });
 
       const service = await tx.serviceRequest.findUnique({ where: { id } });
@@ -1265,9 +1269,10 @@ servicesRouter.post(
             professionalId,
             url: `/profesional/${professionalId}`,
             suggestedTags: QUICK_REVIEW_TAGS,
-            professionalLevel: resolveProfessionalLevel(
-              professional.completedServices,
-            ),
+            professionalLevel: resolveProfessionalLevel({
+              completedServices: professional.completedServices,
+              adminTier: professional.tier,
+            }),
           },
         },
       });

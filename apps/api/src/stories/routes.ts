@@ -7,6 +7,7 @@ import { requireAuth } from "../auth/middleware";
 import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { asyncHandler } from "../lib/asyncHandler";
+import { optimizeUploadedImage } from "../lib/imageOptimizer";
 
 export const storiesRouter = Router();
 
@@ -157,7 +158,8 @@ storiesRouter.post(
       ? "VIDEO"
       : "IMAGE";
 
-    const publicUrl = `${config.apiUrl.replace(/\/$/, "")}/uploads/${req.file.filename}`;
+    const finalFilename = mediaType === "IMAGE" ? await optimizeUploadedImage(req.file, "cover") : req.file.filename;
+    const publicUrl = `${config.apiUrl.replace(/\/$/, "")}/uploads/${finalFilename}`;
 
     const expiresAt = new Date(Date.now() + STORY_TTL_HOURS * 60 * 60 * 1000);
 

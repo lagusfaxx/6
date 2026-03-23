@@ -4,7 +4,7 @@ import { type ChangeEvent, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import useMe from "../../../hooks/useMe";
-import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
+import { apiFetch, friendlyErrorMessage, getApiBase } from "../../../lib/api";
 import {
   DashboardFormContext,
   useDashboardFormReducer,
@@ -664,7 +664,7 @@ export default function DashboardServicesClient() {
       if (type === "cover") setField("coverUploading", true);
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || ""}/profile/${type}`,
+          `${getApiBase()}/profile/${type}`,
           {
             method: "POST",
             credentials: "include",
@@ -702,7 +702,7 @@ export default function DashboardServicesClient() {
       setField("busy", true);
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || ""}/profile/media`,
+          `${getApiBase()}/profile/media`,
           {
             method: "POST",
             credentials: "include",
@@ -849,7 +849,7 @@ export default function DashboardServicesClient() {
       setField("uploadingProductId", productId);
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || ""}/shop/products/${productId}/media`,
+          `${getApiBase()}/shop/products/${productId}/media`,
           {
             method: "POST",
             credentials: "include",

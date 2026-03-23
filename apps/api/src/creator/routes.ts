@@ -8,6 +8,7 @@ import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
+import { optimizeUploadedImage } from "../lib/imageOptimizer";
 
 export const creatorRouter = Router();
 creatorRouter.use(requireAuth);
@@ -97,7 +98,8 @@ creatorRouter.post("/posts/mine", upload.array("files", 10), asyncHandler(async 
   const media = [];
   for (const file of files) {
     const { type } = await validateUploadedFile(file, "image-or-video");
-    const url = storageProvider.publicUrl(file.filename);
+    const finalFilename = type === "IMAGE" ? await optimizeUploadedImage(file, "gallery") : file.filename;
+    const url = storageProvider.publicUrl(finalFilename);
     media.push(await prisma.media.create({ data: { postId: post.id, type, url } }));
   }
   const hasVideo = media.some((m) => m.type === "VIDEO");
@@ -156,7 +158,8 @@ creatorRouter.post("/creator/posts", upload.array("files", 10), asyncHandler(asy
   const media = [];
   for (const file of files) {
     const { type } = await validateUploadedFile(file, "image-or-video");
-    const url = storageProvider.publicUrl(file.filename);
+    const finalFilename = type === "IMAGE" ? await optimizeUploadedImage(file, "gallery") : file.filename;
+    const url = storageProvider.publicUrl(finalFilename);
     media.push(await prisma.media.create({ data: { postId: post.id, type, url } }));
   }
   const hasVideo = media.some((m) => m.type === "VIDEO");

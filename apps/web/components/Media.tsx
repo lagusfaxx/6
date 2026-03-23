@@ -80,6 +80,8 @@ export function MediaPreview({
         src={src}
         alt={alt || "media"}
         className={`h-full w-full object-cover ${paywalled ? "blur-lg scale-105" : ""}`}
+        loading="lazy"
+        decoding="async"
         onError={() => setBroken(true)}
       />
       {overlay}

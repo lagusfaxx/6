@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, getApiBase } from "../../lib/api";
 import useMe from "../../hooks/useMe";
 import {
   MessageSquare,
@@ -55,7 +55,7 @@ export default function ForumPage() {
   // Listen for new threads via SSE to update category stats (authenticated only)
   useEffect(() => {
     if (!isAuthed) return;
-    const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+    const apiBase = getApiBase();
     if (!apiBase) return;
     let es: EventSource | null = null;
     try {

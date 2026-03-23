@@ -169,56 +169,6 @@ livestreamRouter.put("/live/:id/config", requireAuth, async (req, res) => {
   res.json({ stream: updated });
 });
 
-// ── POST /live/:id/tip-options/add — add a global tip option for the host (available in all streams) ──
-livestreamRouter.post("/live/:id/tip-options/add", requireAuth, async (req, res) => {
-  const userId = req.session.userId!;
-  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
-  if (!stream) return res.status(404).json({ error: "Not found" });
-  if (stream.hostId !== userId) return res.status(403).json({ error: "Not your stream" });
-
-  const label = String(req.body.label || "").trim().slice(0, 50);
-  const price = parseInt(String(req.body.price || "0"), 10);
-  const emoji = String(req.body.emoji || "").trim().slice(0, 4) || null;
-
-  if (!label || price < 1) return res.status(400).json({ error: "Label and price required" });
-
-  const count = await prisma.liveTipOption.count({ where: { hostId: userId, streamId: null, isActive: true } });
-  if (count >= 20) return res.status(400).json({ error: "Max 20 tip options" });
-
-  const option = await prisma.liveTipOption.create({
-    data: {
-      hostId: userId,
-      streamId: null,
-      label,
-      price,
-      emoji,
-      sortOrder: count,
-      isActive: true,
-    },
-  });
-
-  broadcast("live:tip_option_added", { streamId: stream.id, option });
-
-  res.json({ option });
-});
-
-// ── DELETE /live/:id/tip-options/:optionId — deactivate a global tip option ──
-livestreamRouter.delete("/live/:id/tip-options/:optionId", requireAuth, async (req, res) => {
-  const userId = req.session.userId!;
-  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
-  if (!stream) return res.status(404).json({ error: "Not found" });
-  if (stream.hostId !== userId) return res.status(403).json({ error: "Not your stream" });
-
-  await prisma.liveTipOption.updateMany({
-    where: { id: req.params.optionId, hostId: userId, streamId: null },
-    data: { isActive: false },
-  });
-
-  broadcast("live:tip_option_removed", { streamId: stream.id, optionId: req.params.optionId });
-
-  res.json({ ok: true });
-});
-
 // ── POST /live/:id/join — viewer joins a live stream ──
 livestreamRouter.post("/live/:id/join", requireAuth, async (req, res) => {
   const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });

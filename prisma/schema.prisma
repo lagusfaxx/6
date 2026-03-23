@@ -81,6 +81,7 @@ enum NotificationType {
   SERVICE_PUBLISHED
   FORUM_REPLY
   FORUM_NEW_THREAD
+  BOOKING_UPDATE
 }
 
 enum PaymentIntentPurpose {

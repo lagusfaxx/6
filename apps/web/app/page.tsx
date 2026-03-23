@@ -2,6 +2,7 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
@@ -9,9 +10,10 @@ import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import StatusBadgeIcon from "../components/StatusBadgeIcon";
-import Stories from "../components/Stories";
-import ProfilePreviewModal from "../components/ProfilePreviewModal";
 import HomeCreAccordion from "../components/HomeCreAccordion";
+
+const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
+const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
 import {
   buildChatHref,
   buildCurrentPathWithSearch,

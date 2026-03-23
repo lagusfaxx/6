@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { apiFetch } from "../../lib/api";
-import MapboxMap from "../../components/MapboxMap";
+
+const MapboxMap = dynamic(() => import("../../components/MapboxMap"), { ssr: false });
 
 type Establishment = {
   id: string;

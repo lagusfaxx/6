@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
 import "./globals.css";
-import "mapbox-gl/dist/mapbox-gl.css";
 import AppShell from '../components/AppShell';
 import SplashScreen from '../components/SplashScreen';
 

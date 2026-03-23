@@ -10,6 +10,7 @@ import { isBusinessPlanActive } from "../lib/subscriptions";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 import { parseAndNormalizeTags } from "../lib/tags";
+import { optimizeUploadedImage } from "../lib/imageOptimizer";
 
 const ADMIN_ONLY_PROFILE_TAGS = new Set(["premium", "verificada", "profesional con examenes"]);
 import {
@@ -143,6 +144,7 @@ profileRouter.get(
         profileTags: true,
         serviceTags: true,
         serviceCategory: true,
+        tier: true,
       },
     });
 
@@ -177,6 +179,7 @@ profileRouter.get(
             profileViews: p.profileViews,
             lastSeen: p.lastSeen,
             completedServices: p.completedServices,
+            adminTier: p.tier,
           }),
           completedServices: p.completedServices,
           profileViews: p.profileViews,
@@ -637,7 +640,8 @@ profileRouter.post(
   asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "NO_FILE" });
     await validateUploadedFile(req.file, "image");
-    const url = storageProvider.publicUrl(req.file.filename);
+    const optimizedFilename = await optimizeUploadedImage(req.file, "avatar");
+    const url = storageProvider.publicUrl(optimizedFilename);
     const user = await prisma.user.update({
       where: { id: req.session.userId! },
       data: { avatarUrl: url },
@@ -653,7 +657,8 @@ profileRouter.post(
   asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "NO_FILE" });
     await validateUploadedFile(req.file, "image");
-    const url = storageProvider.publicUrl(req.file.filename);
+    const optimizedFilename = await optimizeUploadedImage(req.file, "cover");
+    const url = storageProvider.publicUrl(optimizedFilename);
     const parseCoverPos = (raw: unknown) => {
       const parsed = Number(raw);
       if (!Number.isFinite(parsed)) return 50;
@@ -710,7 +715,8 @@ profileRouter.post(
     const media = [];
     for (const file of files) {
       const { type } = await validateUploadedFile(file, "image-or-video");
-      const url = storageProvider.publicUrl(file.filename);
+      const finalFilename = type === "IMAGE" ? await optimizeUploadedImage(file, "gallery") : file.filename;
+      const url = storageProvider.publicUrl(finalFilename);
       media.push(
         await prisma.profileMedia.create({
           data: { ownerId: req.session.userId!, type, url },

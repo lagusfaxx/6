@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { apiFetch } from "../../../../lib/api";
+import { apiFetch, getApiBase } from "../../../../lib/api";
 import useMe from "../../../../hooks/useMe";
 import Avatar from "../../../../components/Avatar";
 import {
@@ -85,7 +85,7 @@ export default function CategoryPage() {
   // Listen for new threads via SSE
   useEffect(() => {
     if (!category) return;
-    const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+    const apiBase = getApiBase();
     if (!apiBase) return;
     let es: EventSource | null = null;
     try {

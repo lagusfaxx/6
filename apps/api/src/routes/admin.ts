@@ -5,17 +5,18 @@ import { requireAdmin } from "../lib/auth";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { env } from "../lib/env";
 import path from "node:path";
+import { asyncHandler } from "../lib/asyncHandler";
 
 export const adminRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 const storage = new LocalStorageProvider(path.join(process.cwd(), env.UPLOADS_DIR), `${env.API_BASE_URL}/uploads`);
 
-adminRouter.get("/admin/posts", requireAdmin, async (req, res) => {
+adminRouter.get("/admin/posts", requireAdmin, asyncHandler(async (req, res) => {
   const posts = await prisma.post.findMany({ orderBy: { createdAt: "desc" }, include: { media: true } });
   res.json({ posts });
-});
+}));
 
-adminRouter.post("/admin/posts", requireAdmin, upload.array("files", 10), async (req, res) => {
+adminRouter.post("/admin/posts", requireAdmin, upload.array("files", 10), asyncHandler(async (req, res) => {
   const { title, body, isPublic } = req.body as Record<string, string>;
   if (!title || !body) return res.status(400).json({ error: "BAD_REQUEST" });
   const authorId = req.session.userId!;
@@ -40,16 +41,16 @@ adminRouter.post("/admin/posts", requireAdmin, upload.array("files", 10), async 
   }
 
   res.json({ post: { ...created, media } });
-});
+}));
 
-adminRouter.put("/admin/posts/:id", requireAdmin, async (req, res) => {
+adminRouter.put("/admin/posts/:id", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { title, body, isPublic } = req.body as { title?: string; body?: string; isPublic?: boolean };
   const updated = await prisma.post.update({ where: { id }, data: { title, body, isPublic } });
   res.json({ post: updated });
-});
+}));
 
-adminRouter.post("/admin/posts/:id/media", requireAdmin, upload.array("files", 10), async (req, res) => {
+adminRouter.post("/admin/posts/:id/media", requireAdmin, upload.array("files", 10), asyncHandler(async (req, res) => {
   const { id } = req.params;
   const exists = await prisma.post.findUnique({ where: { id } });
   if (!exists) return res.status(404).json({ error: "NOT_FOUND" });
@@ -64,17 +65,17 @@ adminRouter.post("/admin/posts/:id/media", requireAdmin, upload.array("files", 1
     created.push(m);
   }
   res.json({ media: created });
-});
+}));
 
 // ----------------------------
 // BANNERS (Home Ads)
 // ----------------------------
-adminRouter.get("/admin/banners", requireAdmin, async (_req, res) => {
+adminRouter.get("/admin/banners", requireAdmin, asyncHandler(async (_req, res) => {
   const banners = await prisma.banner.findMany({ orderBy: [{ position: "asc" }, { sortOrder: "asc" }, { createdAt: "desc" }] });
   res.json({ banners });
-});
+}));
 
-adminRouter.post("/admin/banners", requireAdmin, async (req, res) => {
+adminRouter.post("/admin/banners", requireAdmin, asyncHandler(async (req, res) => {
   const { title, imageUrl, linkUrl, position, isActive, sortOrder, adTier, imageFocusX, imageFocusY, imageZoom } = req.body ?? {};
   if (!title || !imageUrl) return res.status(400).json({ error: "VALIDATION", message: "title and imageUrl required" });
   const banner = await prisma.banner.create({
@@ -92,9 +93,9 @@ adminRouter.post("/admin/banners", requireAdmin, async (req, res) => {
     }
   });
   res.json({ banner });
-});
+}));
 
-adminRouter.put("/admin/banners/:id", requireAdmin, async (req, res) => {
+adminRouter.put("/admin/banners/:id", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { title, imageUrl, linkUrl, position, isActive, sortOrder, adTier, imageFocusX, imageFocusY, imageZoom } = req.body ?? {};
   const banner = await prisma.banner.update({
@@ -113,27 +114,27 @@ adminRouter.put("/admin/banners/:id", requireAdmin, async (req, res) => {
     }
   });
   res.json({ banner });
-});
+}));
 
-adminRouter.delete("/admin/banners/:id", requireAdmin, async (req, res) => {
+adminRouter.delete("/admin/banners/:id", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   await prisma.banner.delete({ where: { id } });
   res.json({ ok: true });
-});
+}));
 
-adminRouter.post("/admin/banners/upload", requireAdmin, upload.single("file"), async (req, res) => {
+adminRouter.post("/admin/banners/upload", requireAdmin, upload.single("file"), asyncHandler(async (req, res) => {
   const file = (req as any).file as Express.Multer.File | undefined;
   if (!file) return res.status(400).json({ error: "VALIDATION", message: "file required" });
   const result = await storage.save(file);
   res.json({ url: result.url });
-});
+}));
 
 // ----------------------------
 // PROFILES (Admin Management)
 // ----------------------------
 
 // List all profiles with filtering
-adminRouter.get("/admin/profiles", requireAdmin, async (req, res) => {
+adminRouter.get("/admin/profiles", requireAdmin, asyncHandler(async (req, res) => {
   const { profileType, isActive, q, limit, offset } = req.query as Record<string, string | undefined>;
   const take = Math.min(parseInt(limit || "50", 10) || 50, 200);
   const skip = parseInt(offset || "0", 10) || 0;
@@ -180,10 +181,10 @@ adminRouter.get("/admin/profiles", requireAdmin, async (req, res) => {
   ]);
 
   res.json({ profiles, total });
-});
+}));
 
 
-adminRouter.get("/admin/profiles/:id/media-videos", requireAdmin, async (req, res) => {
+adminRouter.get("/admin/profiles/:id/media-videos", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const media = await prisma.profileMedia.findMany({
     where: { ownerId: id, type: "VIDEO" },
@@ -191,10 +192,10 @@ adminRouter.get("/admin/profiles/:id/media-videos", requireAdmin, async (req, re
     select: { id: true, url: true, type: true, createdAt: true },
   });
   res.json({ media });
-});
+}));
 
 // Toggle profile active status
-adminRouter.put("/admin/profiles/:id/toggle", requireAdmin, async (req, res) => {
+adminRouter.put("/admin/profiles/:id/toggle", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const user = await prisma.user.findUnique({ where: { id }, select: { isActive: true } });
   if (!user) return res.status(404).json({ error: "NOT_FOUND" });
@@ -205,10 +206,10 @@ adminRouter.put("/admin/profiles/:id/toggle", requireAdmin, async (req, res) => 
     select: { id: true, username: true, isActive: true },
   });
   res.json({ profile: updated });
-});
+}));
 
 // Update profile fields (admin override)
-adminRouter.put("/admin/profiles/:id", requireAdmin, async (req, res) => {
+adminRouter.put("/admin/profiles/:id", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { isActive, tier, role, membershipExpiresAt } = req.body ?? {};
 
@@ -234,10 +235,10 @@ adminRouter.put("/admin/profiles/:id", requireAdmin, async (req, res) => {
     },
   });
   res.json({ profile: updated });
-});
+}));
 
 // Delete profile permanently
-adminRouter.delete("/admin/profiles/:id", requireAdmin, async (req, res) => {
+adminRouter.delete("/admin/profiles/:id", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) return res.status(404).json({ error: "NOT_FOUND" });
@@ -248,12 +249,11 @@ adminRouter.delete("/admin/profiles/:id", requireAdmin, async (req, res) => {
     await tx.story.deleteMany({ where: { userId: id } });
     await tx.pushSubscription.deleteMany({ where: { userId: id } });
     await tx.favorite.deleteMany({ where: { OR: [{ userId: id }, { professionalId: id }] } });
-    await tx.profileMedia.deleteMany({ where: { userId: id } });
-    await tx.serviceItem.deleteMany({ where: { userId: id } });
-    await tx.message.deleteMany({ where: { OR: [{ senderId: id }, { receiverId: id }] } });
+    await tx.profileMedia.deleteMany({ where: { ownerId: id } });
+    await tx.serviceItem.deleteMany({ where: { ownerId: id } });
+    await tx.message.deleteMany({ where: { OR: [{ fromId: id }, { toId: id }] } });
     await tx.user.delete({ where: { id } });
   });
 
   res.json({ ok: true });
-});
-
+}));

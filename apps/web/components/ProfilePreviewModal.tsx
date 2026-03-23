@@ -208,6 +208,8 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
               <img
                 src={uniqueImages[currentImage % uniqueImages.length]}
                 alt={profile.displayName || profile.username}
+                fetchPriority={currentImage === 0 ? "high" : "low"}
+                decoding="async"
                 className="h-full w-full object-cover transition-all duration-500"
               />
               {/* Blurred backdrop layer */}
@@ -413,6 +415,8 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                       <img
                         src={src}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                       />
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/15" />

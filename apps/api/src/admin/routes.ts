@@ -487,10 +487,10 @@ adminRouter.delete(
       await tx.favorite.deleteMany({
         where: { OR: [{ userId: id }, { professionalId: id }] },
       });
-      await tx.profileMedia.deleteMany({ where: { userId: id } });
-      await tx.serviceItem.deleteMany({ where: { userId: id } });
+      await tx.profileMedia.deleteMany({ where: { ownerId: id } });
+      await tx.serviceItem.deleteMany({ where: { ownerId: id } });
       await tx.message.deleteMany({
-        where: { OR: [{ senderId: id }, { receiverId: id }] },
+        where: { OR: [{ fromId: id }, { toId: id }] },
       });
       await tx.user.delete({ where: { id } });
     });

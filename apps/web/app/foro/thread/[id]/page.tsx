@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiFetch } from "../../../../lib/api";
-import { resolveMediaUrl } from "../../../../lib/api";
+import { apiFetch, getApiBase, resolveMediaUrl } from "../../../../lib/api";
 import useMe from "../../../../hooks/useMe";
 import Avatar from "../../../../components/Avatar";
 import {
@@ -130,7 +129,7 @@ export default function ThreadPage() {
   // Listen for real-time new posts via SSE
   useEffect(() => {
     if (!threadId) return;
-    const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+    const apiBase = getApiBase();
     if (!apiBase) return;
     let es: EventSource | null = null;
     try {

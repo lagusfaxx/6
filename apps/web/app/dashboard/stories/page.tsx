@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Upload, Film, Image as ImageIcon, Trash2, Clock } from "lucide-react";
-import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import { apiFetch, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 
 type OwnStory = {
@@ -41,7 +41,7 @@ export default function StoriesPage() {
     setError(null);
     setSuccess(false);
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
+      const apiBase = getApiBase();
       const res = await fetch(`${apiBase}/stories/upload`, {
         method: "POST",
         credentials: "include",

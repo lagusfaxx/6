@@ -20,7 +20,7 @@ body {
   min-height: 100%;
 }
 
-/* Background image layer */
+/* Background image layer — deferred to avoid render-blocking */
 body::before {
   content: "";
   position: fixed;
@@ -32,6 +32,8 @@ body::before {
   opacity: 0.55;
   filter: saturate(1.15) contrast(1.05);
   z-index: -2;
+  will-change: auto;
+  contain: strict;
 }
 
 /* Soft galaxy overlays */

@@ -2,6 +2,7 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, MessageCircle, Eye, Sparkles, Flame, Video, Crown, ShieldCheck, Phone, Tag, Briefcase } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
@@ -9,11 +10,12 @@ import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import StatusBadgeIcon from "./StatusBadgeIcon";
 import UserLevelBadge from "./UserLevelBadge";
-import MapboxMap from "./MapboxMap";
 import type { MapMarker } from "./MapboxMap";
-import ProfilePreviewModal from "./ProfilePreviewModal";
-import Stories from "./Stories";
 import useMe from "../hooks/useMe";
+
+const MapboxMap = dynamic(() => import("./MapboxMap"), { ssr: false });
+const ProfilePreviewModal = dynamic(() => import("./ProfilePreviewModal"), { ssr: false });
+const Stories = dynamic(() => import("./Stories"), { ssr: false });
 import { buildChatHref, buildLoginHref, buildCurrentPathWithSearch } from "../lib/chat";
 
 /* ─── Types ──────────────────────────────────────────────── */
@@ -202,10 +204,13 @@ function ProfileCard({
       {/* Cover / hero photo with shimmer effect */}
       <div className="uzeed-card-shimmer relative aspect-[3/4] bg-[#0a0a10] overflow-hidden">
         {coverSrc || avatarSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={coverSrc || avatarSrc!}
             alt={p.displayName}
             loading="lazy"
+            decoding="async"
+            fetchPriority="low"
             className="uzeed-card-img w-full h-full object-cover"
           />
         ) : (

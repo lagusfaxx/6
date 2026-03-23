@@ -2,14 +2,16 @@
 
 import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
 import useMe from "../../hooks/useMe";
-import MapboxMap from "../../components/MapboxMap";
 import type { MapMarker } from "../../components/MapboxMap";
 import UserLevelBadge from "../../components/UserLevelBadge";
-import ProfilePreviewModal from "../../components/ProfilePreviewModal";
-import Stories from "../../components/Stories";
+
+const MapboxMap = dynamic(() => import("../../components/MapboxMap"), { ssr: false });
+const ProfilePreviewModal = dynamic(() => import("../../components/ProfilePreviewModal"), { ssr: false });
+const Stories = dynamic(() => import("../../components/Stories"), { ssr: false });
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../lib/systemBadges";
 import StatusBadgeIcon from "../../components/StatusBadgeIcon";
 import {
