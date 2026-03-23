@@ -393,39 +393,90 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
       return res.status(200).send("OK");
     }
 
-    // 5) Mark payment as paid and activate/extend membership
-    await prisma.$transaction(async (tx) => {
-      await tx.paymentIntent.update({
-        where: { id: intent.id },
-        data: { status: "PAID", paidAt: new Date(), providerPaymentId: token }
-      });
+    // 5) Handle based on purpose
+    if (intent.purpose === "TOKEN_PURCHASE") {
+      // ── Auto-credit tokens for Flow token purchases ──
+      await prisma.$transaction(async (tx) => {
+        await tx.paymentIntent.update({
+          where: { id: intent.id },
+          data: { status: "PAID", paidAt: new Date(), providerPaymentId: token }
+        });
 
-      const now = new Date();
-      const current = await tx.user.findUnique({
-        where: { id: intent.subscriberId },
-        select: { membershipExpiresAt: true }
-      });
+        // Find the linked TokenDeposit
+        const deposit = await tx.tokenDeposit.findUnique({
+          where: { paymentIntentId: intent.id },
+          include: { wallet: true },
+        });
 
-      const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
-        ? current.membershipExpiresAt
-        : now;
-      const expiresAt = addDays(base, config.membershipDays);
+        if (deposit && deposit.status !== "APPROVED") {
+          // Approve deposit and credit tokens automatically
+          await tx.tokenDeposit.update({
+            where: { id: deposit.id },
+            data: { status: "APPROVED", reviewedAt: new Date() },
+          });
 
-      await tx.user.update({
-        where: { id: intent.subscriberId },
-        data: { membershipExpiresAt: expiresAt }
-      });
+          await tx.wallet.update({
+            where: { id: deposit.walletId },
+            data: { balance: { increment: deposit.amount } },
+          });
 
-      await tx.notification.create({
-        data: {
-          userId: intent.subscriberId,
-          type: "SUBSCRIPTION_RENEWED",
-          data: { intentId: intent.id, source: "flow_payment", flowOrder: payment.flowOrder, commerceOrder }
+          await tx.tokenTransaction.create({
+            data: {
+              walletId: deposit.walletId,
+              type: "DEPOSIT",
+              amount: deposit.amount,
+              balance: deposit.wallet.balance + deposit.amount,
+              referenceId: deposit.id,
+              description: `Compra de ${deposit.amount} tokens (Flow)`,
+            },
+          });
         }
-      });
-    });
 
-    console.log("[flow webhook] payment updated to PAID", { userId: intent.subscriberId, intentId: intent.id, token, status: payment.status });
+        await tx.notification.create({
+          data: {
+            userId: intent.subscriberId,
+            type: "SUBSCRIPTION_RENEWED",
+            data: { intentId: intent.id, source: "flow_token_purchase", tokens: deposit?.amount, flowOrder: payment.flowOrder, commerceOrder }
+          }
+        });
+      });
+
+      console.log("[flow webhook] token purchase completed", { userId: intent.subscriberId, intentId: intent.id, token });
+    } else {
+      // ── Membership payment (existing behavior) ──
+      await prisma.$transaction(async (tx) => {
+        await tx.paymentIntent.update({
+          where: { id: intent.id },
+          data: { status: "PAID", paidAt: new Date(), providerPaymentId: token }
+        });
+
+        const now = new Date();
+        const current = await tx.user.findUnique({
+          where: { id: intent.subscriberId },
+          select: { membershipExpiresAt: true }
+        });
+
+        const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
+          ? current.membershipExpiresAt
+          : now;
+        const expiresAt = addDays(base, config.membershipDays);
+
+        await tx.user.update({
+          where: { id: intent.subscriberId },
+          data: { membershipExpiresAt: expiresAt }
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: intent.subscriberId,
+            type: "SUBSCRIPTION_RENEWED",
+            data: { intentId: intent.id, source: "flow_payment", flowOrder: payment.flowOrder, commerceOrder }
+          }
+        });
+      });
+
+      console.log("[flow webhook] membership payment updated to PAID", { userId: intent.subscriberId, intentId: intent.id, token, status: payment.status });
+    }
     return res.status(200).send("OK");
   } catch (err) {
     console.error("[flow webhook] unexpected error", err);

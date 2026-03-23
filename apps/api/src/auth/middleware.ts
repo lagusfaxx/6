@@ -31,6 +31,7 @@ const PUBLIC_PREFIXES = [
   "/shop/sexshops",     // ✅ listado público de sex shops y sus productos
   "/videocall/config",  // ✅ config pública de videollamada por profesional
   "/wallet/config",     // ✅ config pública de plataforma (rates)
+  "/wallet/packages",   // ✅ paquetes de tokens públicos
   "/live/active",       // ✅ listado público de streams activos
   "/live",              // ✅ detalle público de stream
   "/stats/platform",    // ✅ contadores públicos para hero del home

@@ -5,6 +5,8 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../lib/auth";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { env } from "../lib/env";
+import { config } from "../config";
+import { createFlowPayment } from "../khipu/client";
 import {
   sendDepositConfirmationEmail,
   sendWithdrawalConfirmationEmail,
@@ -142,6 +144,90 @@ walletRouter.post(
     res.json({ deposit });
   },
 );
+
+// ── GET /wallet/packages — token packages ──
+walletRouter.get("/wallet/packages", async (_req, res) => {
+  const rate = await getTokenRate();
+  const packages = [
+    { tokens: 5, clpAmount: 5 * rate, label: "5 tokens" },
+    { tokens: 10, clpAmount: 10 * rate, label: "10 tokens" },
+    { tokens: 25, clpAmount: 25 * rate, label: "25 tokens" },
+    { tokens: 50, clpAmount: 50 * rate, label: "50 tokens" },
+    { tokens: 100, clpAmount: 100 * rate, label: "100 tokens" },
+    { tokens: 200, clpAmount: 200 * rate, label: "200 tokens" },
+  ];
+  res.json({ packages, tokenRateClp: rate });
+});
+
+// ── POST /wallet/deposit/flow — pay for tokens via Flow ──
+walletRouter.post("/wallet/deposit/flow", requireAuth, async (req, res) => {
+  const userId = req.session.userId!;
+  const tokens = parseInt(String(req.body.tokens || "0"), 10);
+  if (tokens < 1) return res.status(400).json({ error: "Mínimo 1 token" });
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, username: true, displayName: true },
+  });
+  if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+  const email = (user.email || "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED", message: "Se requiere email para procesar el pago" });
+
+  if (!config.flowApiKey) {
+    return res.status(503).json({ error: "PAYMENT_UNAVAILABLE", message: "El pago con Flow no está configurado" });
+  }
+
+  const rate = await getTokenRate();
+  const clpAmount = tokens * rate;
+
+  const wallet = await getOrCreateWallet(userId);
+
+  // Create PaymentIntent for tracking
+  const intent = await prisma.paymentIntent.create({
+    data: {
+      subscriberId: userId,
+      purpose: "TOKEN_PURCHASE",
+      method: "FLOW",
+      status: "PENDING",
+      amount: clpAmount,
+    },
+  });
+
+  // Create TokenDeposit linked to PaymentIntent
+  await prisma.tokenDeposit.create({
+    data: {
+      walletId: wallet.id,
+      amount: tokens,
+      clpAmount,
+      method: "FLOW",
+      paymentIntentId: intent.id,
+      status: "PENDING",
+    },
+  });
+
+  const appUrl = config.appUrl.replace(/\/$/, "");
+  const apiUrl = config.apiUrl.replace(/\/$/, "");
+
+  const payment = await createFlowPayment({
+    commerceOrder: intent.id,
+    subject: `Compra de ${tokens} tokens`,
+    currency: "CLP",
+    amount: clpAmount,
+    email,
+    urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
+    urlReturn: `${appUrl}/wallet?deposit=success&ref=${intent.id}`,
+  });
+
+  await prisma.paymentIntent.update({
+    where: { id: intent.id },
+    data: { paymentUrl: payment.url, providerPaymentId: payment.token },
+  });
+
+  const redirectUrl = `${payment.url}?token=${payment.token}`;
+  console.log("[wallet] Flow token deposit created", { userId, intentId: intent.id, tokens, clpAmount });
+  return res.json({ url: redirectUrl, token: payment.token, intentId: intent.id });
+});
 
 // ── GET /wallet/deposits — my deposit history ──
 walletRouter.get("/wallet/deposits", requireAuth, async (req, res) => {

@@ -10,6 +10,7 @@ import {
   Coins, CheckCircle2, Clock, Send, TrendingUp, TrendingDown,
   CreditCard, Eye, EyeOff, Copy, ChevronRight, Video,
   ArrowRight, RefreshCw, AlertCircle, Shield, Banknote,
+  Zap, Building2,
 } from "lucide-react";
 
 type WalletData = {
@@ -87,6 +88,8 @@ export default function WalletPage() {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositMsg, setDepositMsg] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"flow" | "transfer">("flow");
+  const [flowLoading, setFlowLoading] = useState(false);
 
   // Withdraw form
   const [withdrawTokens, setWithdrawTokens] = useState("");
@@ -99,6 +102,17 @@ export default function WalletPage() {
   const [withdrawMsg, setWithdrawMsg] = useState("");
 
   const isProfessional = me?.user?.profileType === "PROFESSIONAL";
+
+  // Handle Flow return redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("deposit") === "success") {
+      setTab("deposit");
+      setDepositMsg("Pago procesado. Tus tokens han sido acreditados.");
+      // Clean up URL
+      window.history.replaceState({}, "", "/wallet");
+    }
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -137,6 +151,23 @@ export default function WalletPage() {
     }
   };
 
+  const handleFlowDeposit = async () => {
+    if (!depositTokens) return;
+    setFlowLoading(true);
+    setDepositMsg("");
+    try {
+      const res = await apiFetch<{ url: string; token: string; intentId: string }>("/wallet/deposit/flow", {
+        method: "POST",
+        body: JSON.stringify({ tokens: parseInt(depositTokens, 10) }),
+      });
+      // Redirect to Flow payment page
+      window.location.href = res.url;
+    } catch (e: any) {
+      setDepositMsg(e?.message || "Error al procesar pago");
+      setFlowLoading(false);
+    }
+  };
+
   const handleWithdraw = async () => {
     if (!withdrawTokens || !bankName || !accountNumber || !holderName || !holderRut) return;
     setWithdrawLoading(true);
@@ -161,7 +192,14 @@ export default function WalletPage() {
 
   const rate = wallet?.tokenRateClp || 1000;
 
-  const quickAmounts = [5, 10, 25, 50, 100];
+  const tokenPackages = [
+    { tokens: 5, popular: false },
+    { tokens: 10, popular: false },
+    { tokens: 25, popular: true },
+    { tokens: 50, popular: false },
+    { tokens: 100, popular: true },
+    { tokens: 200, popular: false },
+  ];
 
   const recentTx = transactions.slice(0, 5);
 
@@ -366,46 +404,35 @@ export default function WalletPage() {
                   </div>
                   <div>
                     <h3 className="text-sm font-semibold">Comprar Tokens</h3>
-                    <p className="text-[10px] text-white/40">Transfiere y sube tu comprobante</p>
+                    <p className="text-[10px] text-white/40">Selecciona un paquete y método de pago</p>
                   </div>
                 </div>
 
-                {/* Bank details card */}
-                <div className="mb-5 rounded-xl border border-violet-500/20 bg-gradient-to-r from-violet-500/5 to-fuchsia-500/5 p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/60">Datos Bancarios UZEED</p>
+                {/* ── Token packages grid ── */}
+                <label className="mb-2 block text-xs text-white/50">Selecciona un paquete</label>
+                <div className="mb-3 grid grid-cols-3 gap-2">
+                  {tokenPackages.map((pkg) => (
                     <button
-                      onClick={() => navigator.clipboard?.writeText("Banco Estado · Cuenta Corriente · UZEED SpA · 000-000-000")}
-                      className="rounded-lg p-1 text-white/30 hover:bg-white/10 hover:text-white/50 transition"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-white/70">Banco Estado · Cuenta Corriente</p>
-                    <p className="text-xs text-white/70">UZEED SpA · RUT: 77.xxx.xxx-x</p>
-                    <p className="text-xs text-white/70">N° Cuenta: 000-000-000</p>
-                  </div>
-                </div>
-
-                {/* Quick amount selector */}
-                <label className="mb-2 block text-xs text-white/50">Cantidad de tokens</label>
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {quickAmounts.map((amount) => (
-                    <button
-                      key={amount}
-                      onClick={() => setDepositTokens(String(amount))}
-                      className={`rounded-xl border px-4 py-2 text-xs font-medium transition ${
-                        depositTokens === String(amount)
+                      key={pkg.tokens}
+                      onClick={() => setDepositTokens(String(pkg.tokens))}
+                      className={`relative rounded-xl border px-3 py-3 text-center transition ${
+                        depositTokens === String(pkg.tokens)
                           ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-300"
                           : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.06]"
                       }`}
                     >
-                      {amount} tokens
+                      {pkg.popular && (
+                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-fuchsia-500 px-2 py-0.5 text-[8px] font-bold text-white">
+                          Popular
+                        </span>
+                      )}
+                      <p className="text-lg font-bold">{pkg.tokens}</p>
+                      <p className="text-[10px] text-white/40">${(pkg.tokens * rate).toLocaleString("es-CL")}</p>
                     </button>
                   ))}
                 </div>
 
+                {/* Manual input */}
                 <input
                   type="number"
                   min="1"
@@ -416,33 +443,122 @@ export default function WalletPage() {
                 />
                 {depositTokens && (
                   <p className="mb-4 text-xs text-white/40">
-                    = ${(parseInt(depositTokens || "0", 10) * rate).toLocaleString("es-CL")} CLP
+                    Total: ${(parseInt(depositTokens || "0", 10) * rate).toLocaleString("es-CL")} CLP
                   </p>
                 )}
 
-                <label className="mb-1.5 block text-xs text-white/50">Comprobante de transferencia</label>
-                <div className="mb-5 rounded-xl border-2 border-dashed border-white/[0.1] bg-white/[0.02] p-4 text-center transition hover:border-fuchsia-500/20 hover:bg-white/[0.04]">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                    className="w-full text-xs text-white/50 file:mr-3 file:rounded-full file:border-0 file:bg-fuchsia-500/20 file:px-4 file:py-2 file:text-xs file:text-fuchsia-300 file:cursor-pointer"
-                  />
-                  {receiptFile && (
-                    <p className="mt-2 text-[10px] text-emerald-400 flex items-center justify-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> {receiptFile.name}
-                    </p>
-                  )}
+                {/* ── Payment method selector ── */}
+                <label className="mb-2 block text-xs text-white/50">Método de pago</label>
+                <div className="mb-4 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setPaymentMethod("flow")}
+                    className={`flex items-center gap-2 rounded-xl border p-3 transition ${
+                      paymentMethod === "flow"
+                        ? "border-fuchsia-500/40 bg-fuchsia-500/10"
+                        : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${paymentMethod === "flow" ? "bg-fuchsia-500/20" : "bg-white/10"}`}>
+                      <Zap className={`h-4 w-4 ${paymentMethod === "flow" ? "text-fuchsia-300" : "text-white/40"}`} />
+                    </div>
+                    <div className="text-left">
+                      <p className={`text-xs font-semibold ${paymentMethod === "flow" ? "text-fuchsia-300" : "text-white/60"}`}>Flow</p>
+                      <p className="text-[9px] text-white/30">Pago inmediato</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod("transfer")}
+                    className={`flex items-center gap-2 rounded-xl border p-3 transition ${
+                      paymentMethod === "transfer"
+                        ? "border-violet-500/40 bg-violet-500/10"
+                        : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${paymentMethod === "transfer" ? "bg-violet-500/20" : "bg-white/10"}`}>
+                      <Building2 className={`h-4 w-4 ${paymentMethod === "transfer" ? "text-violet-300" : "text-white/40"}`} />
+                    </div>
+                    <div className="text-left">
+                      <p className={`text-xs font-semibold ${paymentMethod === "transfer" ? "text-violet-300" : "text-white/60"}`}>Transferencia</p>
+                      <p className="text-[9px] text-white/30">Revisión 24h</p>
+                    </div>
+                  </button>
                 </div>
 
-                <button
-                  onClick={handleDeposit}
-                  disabled={depositLoading || !depositTokens || !receiptFile}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3.5 text-sm font-semibold disabled:opacity-40 transition hover:opacity-90"
-                >
-                  <Upload className="h-4 w-4" />
-                  {depositLoading ? "Enviando..." : "Enviar Solicitud"}
-                </button>
+                {/* ── Flow payment section ── */}
+                {paymentMethod === "flow" && (
+                  <div>
+                    <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                        <p className="text-xs text-emerald-300 font-medium">Tokens entregados al instante</p>
+                      </div>
+                      <p className="mt-1 text-[10px] text-white/40 ml-6">Al confirmar el pago con Flow, los tokens se acreditan automáticamente en tu billetera.</p>
+                    </div>
+                    <button
+                      onClick={handleFlowDeposit}
+                      disabled={flowLoading || !depositTokens || parseInt(depositTokens || "0", 10) < 1}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3.5 text-sm font-semibold disabled:opacity-40 transition hover:opacity-90"
+                    >
+                      <Zap className="h-4 w-4" />
+                      {flowLoading ? "Redirigiendo a Flow..." : "Pagar con Flow"}
+                    </button>
+                  </div>
+                )}
+
+                {/* ── Transfer payment section ── */}
+                {paymentMethod === "transfer" && (
+                  <div>
+                    <div className="mb-4 rounded-xl border border-violet-500/20 bg-gradient-to-r from-violet-500/5 to-fuchsia-500/5 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/60">Datos Bancarios UZEED</p>
+                        <button
+                          onClick={() => navigator.clipboard?.writeText("Banco Estado · Cuenta Corriente · UZEED SpA · 000-000-000")}
+                          className="rounded-lg p-1 text-white/30 hover:bg-white/10 hover:text-white/50 transition"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-white/70">Banco Estado · Cuenta Corriente</p>
+                        <p className="text-xs text-white/70">UZEED SpA · RUT: 77.xxx.xxx-x</p>
+                        <p className="text-xs text-white/70">N° Cuenta: 000-000-000</p>
+                      </div>
+                    </div>
+
+                    <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-amber-400" />
+                        <p className="text-xs text-amber-300 font-medium">Requiere validación</p>
+                      </div>
+                      <p className="mt-1 text-[10px] text-white/40 ml-6">Los tokens se acreditarán cuando el admin apruebe tu comprobante (máximo 24 horas hábiles).</p>
+                    </div>
+
+                    <label className="mb-1.5 block text-xs text-white/50">Comprobante de transferencia</label>
+                    <div className="mb-5 rounded-xl border-2 border-dashed border-white/[0.1] bg-white/[0.02] p-4 text-center transition hover:border-fuchsia-500/20 hover:bg-white/[0.04]">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                        className="w-full text-xs text-white/50 file:mr-3 file:rounded-full file:border-0 file:bg-fuchsia-500/20 file:px-4 file:py-2 file:text-xs file:text-fuchsia-300 file:cursor-pointer"
+                      />
+                      {receiptFile && (
+                        <p className="mt-2 text-[10px] text-emerald-400 flex items-center justify-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> {receiptFile.name}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={handleDeposit}
+                      disabled={depositLoading || !depositTokens || !receiptFile}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3.5 text-sm font-semibold disabled:opacity-40 transition hover:opacity-90"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {depositLoading ? "Enviando..." : "Enviar Comprobante"}
+                    </button>
+                  </div>
+                )}
+
                 {depositMsg && (
                   <p className={`mt-3 text-center text-xs ${depositMsg.includes("Error") ? "text-red-400" : "text-emerald-400"}`}>
                     {depositMsg}
