@@ -60,28 +60,6 @@ export default function LocationEditor({
           value={state.city}
           onChange={(v) => setField("city", v)}
         />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FloatingInput
-            label="Latitud"
-            value={state.profileLatitude}
-            onChange={(v) => {
-              setField("profileLatitude", v);
-              if (requiresMapboxLocation)
-                setField("profileLocationVerified", false);
-            }}
-            placeholder="-33.45"
-          />
-          <FloatingInput
-            label="Longitud"
-            value={state.profileLongitude}
-            onChange={(v) => {
-              setField("profileLongitude", v);
-              if (requiresMapboxLocation)
-                setField("profileLocationVerified", false);
-            }}
-            placeholder="-70.66"
-          />
-        </div>
 
         {requiresMapboxLocation && (
           <>
