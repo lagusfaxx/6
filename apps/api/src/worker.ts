@@ -7,6 +7,7 @@ import {
   sendInactiveProfileReminder,
   sendVideocallConfigReminder,
 } from "./lib/notificationEmail";
+import { sendInAppAndPush } from "./lib/sendReminder";
 
 /* ─── Anti-spam: check if reminder was already sent ─── */
 
@@ -77,7 +78,15 @@ async function tickNoPhotoReminder() {
     if (await wasReminderSent(p.id, "no_photo")) continue;
 
     console.log(`[worker] sending no-photo reminder to ${p.email}`);
-    await sendNoPhotoReminder(p.email, p.displayName);
+    await Promise.all([
+      sendNoPhotoReminder(p.email, p.displayName),
+      sendInAppAndPush(p.id, {
+        type: "REMINDER_NO_PHOTO",
+        title: "¡Sube tu primera foto!",
+        body: "Los perfiles con fotos reciben hasta 10x más visitas. Sube tu primera foto ahora.",
+        url: "/dashboard/services",
+      }),
+    ]);
     await markReminderSent(p.id, "no_photo");
   }
 }
@@ -107,7 +116,15 @@ async function tickInactiveReminder() {
     if (await wasReminderSent(p.id, "inactive_48h")) continue;
 
     console.log(`[worker] sending inactive reminder to ${p.email}`);
-    await sendInactiveProfileReminder(p.email, p.displayName);
+    await Promise.all([
+      sendInactiveProfileReminder(p.email, p.displayName),
+      sendInAppAndPush(p.id, {
+        type: "REMINDER_INACTIVE",
+        title: "Te extrañamos en UZEED",
+        body: "Hace más de 48h que no ingresas. Tus clientes te están buscando.",
+        url: "/",
+      }),
+    ]);
     await markReminderSent(p.id, "inactive_48h");
   }
 }
@@ -146,7 +163,15 @@ async function tickVideocallConfigReminder() {
     if (await wasReminderSent(p.id, "videocall_config")) continue;
 
     console.log(`[worker] sending videocall config reminder to ${p.email}`);
-    await sendVideocallConfigReminder(p.email, p.displayName);
+    await Promise.all([
+      sendVideocallConfigReminder(p.email, p.displayName),
+      sendInAppAndPush(p.id, {
+        type: "REMINDER_VIDEOCALL_CONFIG",
+        title: "Configura tus videollamadas",
+        body: "Agregaste videollamadas pero no configuraste horarios ni precios.",
+        url: "/videocall",
+      }),
+    ]);
     await markReminderSent(p.id, "videocall_config");
   }
 }
