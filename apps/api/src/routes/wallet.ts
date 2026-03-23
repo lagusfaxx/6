@@ -15,18 +15,6 @@ import { emitAdminEvent } from "../lib/adminEvents";
 
 export const walletRouter = Router();
 
-function normalizeEmail(input: string): string {
-  return input
-    .normalize("NFKC")
-    .replace(/[\u200B-\u200D\u2060\uFEFF\u00A0]/g, "")
-    .trim()
-    .toLowerCase();
-}
-
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
 const storage = new LocalStorageProvider(
   path.join(process.cwd(), env.UPLOADS_DIR),
   "/uploads",
@@ -183,27 +171,11 @@ walletRouter.post("/wallet/deposit/flow", requireAuth, async (req, res) => {
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
-  const email = normalizeEmail(user.email || "");
-  if (!email) {
-    return res.status(400).json({
-      error: "EMAIL_REQUIRED",
-      message: "Se requiere email para procesar el pago",
-    });
-  }
-  if (!isValidEmail(email)) {
-    return res.status(400).json({
-      error: "EMAIL_INVALID",
-      message: "El email no tiene un formato válido",
-    });
-  }
+  const email = (user.email || "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED", message: "Se requiere email para procesar el pago" });
 
   if (!config.flowApiKey) {
-    return res
-      .status(503)
-      .json({
-        error: "PAYMENT_UNAVAILABLE",
-        message: "El pago con Flow no está configurado",
-      });
+    return res.status(503).json({ error: "PAYMENT_UNAVAILABLE", message: "El pago con Flow no está configurado" });
   }
 
   const rate = await getTokenRate();
@@ -237,70 +209,24 @@ walletRouter.post("/wallet/deposit/flow", requireAuth, async (req, res) => {
   const appUrl = config.appUrl.replace(/\/$/, "");
   const apiUrl = config.apiUrl.replace(/\/$/, "");
 
-  try {
-    const payment = await createFlowPayment({
-      commerceOrder: intent.id,
-      subject: `Compra de ${tokens} tokens`,
-      currency: "CLP",
-      amount: clpAmount,
-      email,
-      urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
-      urlReturn: `${appUrl}/wallet?deposit=success&ref=${intent.id}`,
-    });
+  const payment = await createFlowPayment({
+    commerceOrder: intent.id,
+    subject: `Compra de ${tokens} tokens`,
+    currency: "CLP",
+    amount: clpAmount,
+    email,
+    urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
+    urlReturn: `${appUrl}/wallet?deposit=success&ref=${intent.id}`,
+  });
 
-    await prisma.paymentIntent.update({
-      where: { id: intent.id },
-      data: { paymentUrl: payment.url, providerPaymentId: payment.token },
-    });
+  await prisma.paymentIntent.update({
+    where: { id: intent.id },
+    data: { paymentUrl: payment.url, providerPaymentId: payment.token },
+  });
 
-    const redirectUrl = `${payment.url}?token=${payment.token}`;
-    console.log("[wallet] Flow token deposit created", {
-      userId,
-      intentId: intent.id,
-      tokens,
-      clpAmount,
-    });
-    return res.json({
-      url: redirectUrl,
-      token: payment.token,
-      intentId: intent.id,
-    });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    const emailCharCodes = Array.from(email).map((char) => char.charCodeAt(0));
-
-    console.error("[wallet] Flow token deposit failed", {
-      userId,
-      intentId: intent.id,
-      email: JSON.stringify(email),
-      emailCharCodes,
-      detail,
-    });
-
-    await prisma.$transaction(async (tx) => {
-      await tx.paymentIntent.update({
-        where: { id: intent.id },
-        data: { status: "FAILED", notes: detail },
-      });
-
-      await tx.tokenDeposit.updateMany({
-        where: {
-          paymentIntentId: intent.id,
-          status: "PENDING",
-        },
-        data: {
-          status: "REJECTED",
-          rejectReason: `FLOW_PAYMENT_CREATE_FAILED: ${detail}`,
-          reviewedAt: new Date(),
-        },
-      });
-    });
-
-    return res.status(400).json({
-      error: "FLOW_PAYMENT_CREATE_FAILED",
-      detail,
-    });
-  }
+  const redirectUrl = `${payment.url}?token=${payment.token}`;
+  console.log("[wallet] Flow token deposit created", { userId, intentId: intent.id, tokens, clpAmount });
+  return res.json({ url: redirectUrl, token: payment.token, intentId: intent.id });
 });
 
 // ── GET /wallet/deposits — my deposit history ──
@@ -345,52 +271,48 @@ walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
   const clpAmount = tokens * rate;
 
   // Use interactive transaction to prevent race conditions
-  const withdrawal = await prisma
-    .$transaction(async (tx) => {
-      // Lock the wallet row and verify balance inside the transaction
-      const currentWallet = await tx.wallet.findUnique({
-        where: { id: wallet.id },
-      });
-      if (!currentWallet || currentWallet.balance < tokens) {
-        throw new Error("INSUFFICIENT_BALANCE");
-      }
+  const withdrawal = await prisma.$transaction(async (tx) => {
+    // Lock the wallet row and verify balance inside the transaction
+    const currentWallet = await tx.wallet.findUnique({ where: { id: wallet.id } });
+    if (!currentWallet || currentWallet.balance < tokens) {
+      throw new Error("INSUFFICIENT_BALANCE");
+    }
 
-      await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { balance: { decrement: tokens } },
-      });
-
-      const newBalance = currentWallet.balance - tokens;
-
-      const wd = await tx.withdrawalRequest.create({
-        data: {
-          walletId: wallet.id,
-          amount: tokens,
-          clpAmount,
-          bankName,
-          accountType,
-          accountNumber,
-          holderName,
-          holderRut,
-        },
-      });
-
-      await tx.tokenTransaction.create({
-        data: {
-          walletId: wallet.id,
-          type: "WITHDRAWAL",
-          amount: -tokens,
-          balance: newBalance,
-          description: `Solicitud de retiro: ${tokens} tokens ($${clpAmount.toLocaleString("es-CL")} CLP)`,
-        },
-      });
-
-      return wd;
-    })
-    .catch((err) => {
-      if (err?.message === "INSUFFICIENT_BALANCE") return null;
-      throw err;
+    await tx.wallet.update({
+      where: { id: wallet.id },
+      data: { balance: { decrement: tokens } },
     });
+
+    const newBalance = currentWallet.balance - tokens;
+
+    const wd = await tx.withdrawalRequest.create({
+      data: {
+        walletId: wallet.id,
+        amount: tokens,
+        clpAmount,
+        bankName,
+        accountType,
+        accountNumber,
+        holderName,
+        holderRut,
+      },
+    });
+
+    await tx.tokenTransaction.create({
+      data: {
+        walletId: wallet.id,
+        type: "WITHDRAWAL",
+        amount: -tokens,
+        balance: newBalance,
+        description: `Solicitud de retiro: ${tokens} tokens ($${clpAmount.toLocaleString("es-CL")} CLP)`,
+      },
+    });
+
+    return wd;
+  }).catch((err) => {
+    if (err?.message === "INSUFFICIENT_BALANCE") return null;
+    throw err;
+  });
 
   if (!withdrawal) {
     return res.status(400).json({ error: "Insufficient balance" });
