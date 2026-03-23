@@ -945,3 +945,32 @@ model ForumPost {
   @@index([threadId, createdAt])
   @@index([authorId])
 }
+
+// ── Analytics ──
+
+model PageView {
+  id        String   @id @default(uuid()) @db.Uuid
+  path      String
+  userId    String?  @db.Uuid
+  sessionId String?
+  referrer  String?
+  userAgent String?
+  city      String?
+  country   String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+}
+
+model UserAction {
+  id        String   @id @default(uuid()) @db.Uuid
+  action    String   // e.g. "view_profile", "send_message", "book_videocall", "favorite", "search"
+  userId    String?  @db.Uuid
+  targetId  String?  @db.Uuid
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([createdAt])
+}

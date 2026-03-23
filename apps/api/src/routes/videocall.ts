@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../lib/auth";
 import { getOrCreateWallet, getCommissionPercent, getNoShowPenalty } from "./wallet";
 import { sendToUser, broadcast } from "../realtime/sse";
+import { sendVideocallBookingConfirmation } from "../lib/notificationEmail";
 import { randomUUID } from "node:crypto";
 
 export const videocallRouter = Router();
@@ -286,6 +287,21 @@ videocallRouter.post("/videocall/book", requireAuth, async (req, res) => {
     durationMinutes: duration,
     totalTokens,
   });
+
+  // Send confirmation email to professional
+  const [professional, client] = await Promise.all([
+    prisma.user.findUnique({ where: { id: professionalId }, select: { email: true, displayName: true } }),
+    prisma.user.findUnique({ where: { id: clientId }, select: { displayName: true } }),
+  ]);
+  if (professional && client) {
+    sendVideocallBookingConfirmation(professional.email, {
+      professionalName: professional.displayName,
+      clientName: client.displayName,
+      scheduledAt: scheduledDate,
+      durationMinutes: duration,
+      totalTokens,
+    }).catch((err) => console.error("[videocall] email failed", err));
+  }
 
   res.json({ booking });
 });

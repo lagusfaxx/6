@@ -14,6 +14,7 @@ import { findCategoryByRef } from "../lib/categories";
 import { obfuscateLocation } from "../lib/locationPrivacy";
 import { isUUID } from "../lib/validators";
 import { sendToUser } from "../realtime/sse";
+import { sendServiceRequestConfirmation } from "../lib/notificationEmail";
 import { resolveProfessionalLevel } from "../lib/professionalLevel";
 
 export const servicesRouter = Router();
@@ -967,10 +968,10 @@ servicesRouter.post(
       },
       include: {
         client: {
-          select: { id: true, displayName: true, username: true, phone: true },
+          select: { id: true, displayName: true, username: true, phone: true, email: true },
         },
         professional: {
-          select: { id: true, displayName: true, username: true, phone: true },
+          select: { id: true, displayName: true, username: true, phone: true, email: true },
         },
       },
     });
@@ -988,6 +989,19 @@ servicesRouter.post(
 
     sendToUser(professionalId, "service_request", { request });
     sendToUser(req.session.userId!, "service_request", { request });
+
+    // Send confirmation email to professional
+    if (request.professional?.email) {
+      sendServiceRequestConfirmation(request.professional.email, {
+        professionalName: request.professional.displayName || "",
+        clientName: request.client?.displayName || "Cliente",
+        requestedDate: requestedDate || "",
+        requestedTime: requestedTime || "",
+        location: agreedLocation || "",
+        clientComment: clientComment || null,
+      }).catch((err) => console.error("[services] email failed", err));
+    }
+
     return res.json({ request });
   }),
 );

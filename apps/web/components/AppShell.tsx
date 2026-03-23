@@ -11,12 +11,14 @@ import LocationFilterProvider from "./LocationFilterProvider";
 import BackButton from "./BackButton";
 import { ForumNotificationProvider } from "./ForumNotifications";
 import { ChatNotificationProvider } from "./ChatNotifications";
+import { usePageViewTracker } from "../hooks/useAnalytics";
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
  * Auth pages y dashboard/services (Creator Studio) son distraction-free.
  */
 export default function AppShell({ children }: { children: React.ReactNode }) {
+  usePageViewTracker();
   const pathname = usePathname() || "/";
 
   const isAuthRoute =
