@@ -263,6 +263,12 @@ export default function AdminIndex() {
             title="Solicitudes de Privacidad"
             subtitle="Eliminación de cuentas y datos"
           />
+          <ActionCard
+            href="/admin/estadisticas"
+            title="Estadísticas"
+            subtitle="Visitas, acciones, ubicaciones"
+            tone="fuchsia"
+          />
         </div>
       </section>
 

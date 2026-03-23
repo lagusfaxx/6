@@ -44,15 +44,23 @@ type NotificationItem = {
 };
 
 function notificationLabel(item: NotificationItem): string {
+  // Use title from data if available (set by sendInAppAndPush)
+  if (item.data?.title && typeof item.data.title === "string") return item.data.title;
   switch (item.type) {
-    case "MESSAGE_RECEIVED":      return "Tienes un mensaje nuevo";
-    case "SERVICE_PUBLISHED":     return (item.data?.title as string) || "Solicitud de servicio";
-    case "POST_PUBLISHED":        return "Hay una actualización reciente";
-    case "SUBSCRIPTION_STARTED":  return "Tu suscripción fue activada";
-    case "SUBSCRIPTION_RENEWED":  return "Tu suscripción fue renovada";
-    case "FORUM_REPLY":           return "Nueva respuesta en el foro";
-    case "FORUM_NEW_THREAD":      return "Nuevo hilo en el foro";
-    default:                      return "Nueva notificación";
+    case "MESSAGE_RECEIVED":            return "Tienes un mensaje nuevo";
+    case "SERVICE_PUBLISHED":           return (item.data?.title as string) || "Solicitud de servicio";
+    case "POST_PUBLISHED":              return "Hay una actualización reciente";
+    case "SUBSCRIPTION_STARTED":        return "Tu suscripción fue activada";
+    case "SUBSCRIPTION_RENEWED":        return "Tu suscripción fue renovada";
+    case "FORUM_REPLY":                 return "Nueva respuesta en el foro";
+    case "FORUM_NEW_THREAD":            return "Nuevo hilo en el foro";
+    case "BOOKING_UPDATE":              return "Actualización de reserva";
+    case "REMINDER_NO_PHOTO":           return "¡Sube tu primera foto!";
+    case "REMINDER_INACTIVE":           return "Te extrañamos en UZEED";
+    case "REMINDER_VIDEOCALL_CONFIG":   return "Configura tus videollamadas";
+    case "VIDEOCALL_BOOKED":            return "Nueva videollamada agendada";
+    case "SERVICE_REQUEST_NEW":         return "Nueva solicitud de encuentro";
+    default:                            return "Nueva notificación";
   }
 }
 
@@ -71,8 +79,13 @@ function notificationUrl(item: NotificationItem): string | null {
       return threadId ? `/foro/thread/${threadId}` : "/foro";
     }
     case "SUBSCRIPTION_STARTED":
-    case "SUBSCRIPTION_RENEWED":  return "/cuenta";
-    default:                      return null;
+    case "SUBSCRIPTION_RENEWED":        return "/cuenta";
+    case "REMINDER_NO_PHOTO":           return "/dashboard/services";
+    case "REMINDER_INACTIVE":           return "/";
+    case "REMINDER_VIDEOCALL_CONFIG":   return "/videocall";
+    case "VIDEOCALL_BOOKED":            return "/videocall";
+    case "SERVICE_REQUEST_NEW":         return "/dashboard/services";
+    default:                            return null;
   }
 }
 
@@ -161,6 +174,24 @@ export default function TopHeader() {
       setPanelOpen(false);
       router.push(url);
     }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await apiFetch<{ ok: boolean }>("/notifications/read-all", { method: "POST" });
+      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));
+    } catch { /* silent */ }
+  };
+
+  const [deleting, setDeleting] = useState(false);
+  const handleDeleteAll = async () => {
+    setDeleting(true);
+    try {
+      await apiFetch<{ ok: boolean }>("/notifications/delete-all", { method: "POST" });
+      setNotifications([]);
+      setPanelOpen(false);
+    } catch { /* silent */ }
+    setDeleting(false);
   };
 
   const locationLabel =
@@ -311,7 +342,7 @@ export default function TopHeader() {
                       className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.06] border border-white/10 text-white transition hover:bg-white/10"
                       aria-label="Abrir notificaciones"
                     >
-                      <Bell className="h-5 w-5" />
+                      <Bell className={`h-5 w-5 ${unreadCount > 0 ? "animate-[bellRing_2s_ease-in-out_infinite]" : ""}`} />
                       {unreadCount > 0 && (
                         <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white shadow-[0_0_12px_rgba(217,70,239,0.7)]">
                           {unreadCount > 9 ? "9+" : unreadCount}
@@ -321,7 +352,30 @@ export default function TopHeader() {
 
                     {panelOpen && (
                       <div className="absolute right-0 top-14 w-[300px] overflow-hidden rounded-2xl border border-white/15 bg-[#0a0b1de6] shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:w-[340px]">
-                        <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold">Notificaciones</div>
+                        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                          <span className="text-sm font-semibold">Notificaciones</span>
+                          <div className="flex gap-2">
+                            {unreadCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={handleMarkAllRead}
+                                className="text-[11px] text-fuchsia-400 hover:text-fuchsia-300 transition font-medium"
+                              >
+                                Marcar leídas
+                              </button>
+                            )}
+                            {recentItems.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={handleDeleteAll}
+                                disabled={deleting}
+                                className="text-[11px] text-red-400 hover:text-red-300 transition font-medium disabled:opacity-50"
+                              >
+                                {deleting ? "Borrando…" : "Borrar todas"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
                         <div className="max-h-[320px] overflow-y-auto p-2">
                           {loadingNotifications ? (
                             <div className="px-3 py-4 text-sm text-white/70">Cargando…</div>

@@ -14,6 +14,8 @@ import { findCategoryByRef } from "../lib/categories";
 import { obfuscateLocation } from "../lib/locationPrivacy";
 import { isUUID } from "../lib/validators";
 import { sendToUser } from "../realtime/sse";
+import { sendServiceRequestConfirmation } from "../lib/notificationEmail";
+import { sendInAppAndPush } from "../lib/sendReminder";
 import { resolveProfessionalLevel } from "../lib/professionalLevel";
 
 export const servicesRouter = Router();
@@ -967,10 +969,10 @@ servicesRouter.post(
       },
       include: {
         client: {
-          select: { id: true, displayName: true, username: true, phone: true },
+          select: { id: true, displayName: true, username: true, phone: true, email: true },
         },
         professional: {
-          select: { id: true, displayName: true, username: true, phone: true },
+          select: { id: true, displayName: true, username: true, phone: true, email: true },
         },
       },
     });
@@ -988,6 +990,31 @@ servicesRouter.post(
 
     sendToUser(professionalId, "service_request", { request });
     sendToUser(req.session.userId!, "service_request", { request });
+
+    // Send confirmation email + in-app + push to professional
+    if (request.professional?.email) {
+      const clientDisplayName = request.client?.displayName || "Cliente";
+
+      // Email
+      sendServiceRequestConfirmation(request.professional.email, {
+        professionalName: request.professional.displayName || "",
+        clientName: clientDisplayName,
+        requestedDate: requestedDate || "",
+        requestedTime: requestedTime || "",
+        location: agreedLocation || "",
+        clientComment: clientComment || null,
+      }).catch((err) => console.error("[services] email failed", err));
+
+      // In-app notification + Push
+      sendInAppAndPush(professionalId, {
+        type: "SERVICE_REQUEST_NEW",
+        title: "Nueva solicitud de encuentro",
+        body: `${clientDisplayName} ha solicitado un encuentro contigo.`,
+        url: `/dashboard/services?request=${request.id}`,
+        tag: `encounter-${request.id}`,
+      }).catch((err) => console.error("[services] push failed", err));
+    }
+
     return res.json({ request });
   }),
 );
