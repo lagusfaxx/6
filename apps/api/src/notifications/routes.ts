@@ -110,3 +110,9 @@ notificationsRouter.post("/notifications/:id/read", requireAuth, asyncHandler(as
   });
   return res.json({ ok: true, updated: updated.count });
 }));
+
+notificationsRouter.post("/notifications/delete-all", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const deleted = await prisma.notification.deleteMany({ where: { userId } });
+  return res.json({ ok: true, deleted: deleted.count });
+}));
