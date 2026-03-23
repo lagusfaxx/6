@@ -974,3 +974,13 @@ model UserAction {
   @@index([action, createdAt])
   @@index([createdAt])
 }
+
+model ReminderLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  type      String   // "no_photo", "inactive_48h", "videocall_config"
+  createdAt DateTime @default(now())
+
+  @@unique([userId, type])
+  @@index([type, createdAt])
+}

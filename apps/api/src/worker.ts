@@ -8,6 +8,23 @@ import {
   sendVideocallConfigReminder,
 } from "./lib/notificationEmail";
 
+/* ─── Anti-spam: check if reminder was already sent ─── */
+
+async function wasReminderSent(userId: string, type: string): Promise<boolean> {
+  const existing = await prisma.reminderLog.findUnique({
+    where: { userId_type: { userId, type } },
+  });
+  return !!existing;
+}
+
+async function markReminderSent(userId: string, type: string): Promise<void> {
+  await prisma.reminderLog.upsert({
+    where: { userId_type: { userId, type } },
+    update: { createdAt: new Date() },
+    create: { userId, type },
+  });
+}
+
 /* ─── Membership expiry emails (existing) ─── */
 
 async function tickMembershipExpiry() {
@@ -29,68 +46,76 @@ async function tickMembershipExpiry() {
   }
 }
 
-/* ─── Professionals registered 5+ hours ago without photos ─── */
+/* ─── Professionals registered 5+ hours ago without ANY photos ─── */
+/* "Sin fotos" = no avatar AND no cover AND no gallery images */
 
 async function tickNoPhotoReminder() {
   const now = new Date();
   const fiveHoursAgo = new Date(now.getTime() - 5 * 60 * 60 * 1000);
-  const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
 
-  // Find professionals created between 5-6 hours ago without avatar/cover and no gallery media
+  // Professionals created 5+ hours ago
   const professionals = await prisma.user.findMany({
     where: {
       profileType: "PROFESSIONAL",
-      createdAt: { gte: sixHoursAgo, lte: fiveHoursAgo },
-      avatarUrl: null,
-      coverUrl: null,
+      createdAt: { lte: fiveHoursAgo },
     },
-    select: { id: true, email: true, displayName: true },
+    select: { id: true, email: true, displayName: true, avatarUrl: true, coverUrl: true },
   });
 
   for (const p of professionals) {
-    // Check if they have any gallery media
+    // Skip if they have avatar OR cover
+    if (p.avatarUrl || p.coverUrl) continue;
+
+    // Check gallery media
     const mediaCount = await prisma.profileMedia.count({
       where: { ownerId: p.id, type: "IMAGE" },
     });
-    if (mediaCount === 0) {
-      console.log(`[worker] sending no-photo reminder to ${p.email}`);
-      await sendNoPhotoReminder(p.email, p.displayName);
-    }
+    // Skip if they have at least 1 gallery image
+    if (mediaCount > 0) continue;
+
+    // Anti-spam: only send once
+    if (await wasReminderSent(p.id, "no_photo")) continue;
+
+    console.log(`[worker] sending no-photo reminder to ${p.email}`);
+    await sendNoPhotoReminder(p.email, p.displayName);
+    await markReminderSent(p.id, "no_photo");
   }
 }
 
-/* ─── Inactive profiles (48h+ without login or without photos) ─── */
+/* ─── Inactive profiles (48h+ without login) ─── */
+/* Uses lastSeen as the real "last login" indicator */
 
 async function tickInactiveReminder() {
   const now = new Date();
   const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-  const fiftyHoursAgo = new Date(now.getTime() - 50 * 60 * 60 * 1000);
 
-  // Find professionals whose lastSeen is between 48-50 hours ago (to avoid repeat emails)
   const inactive = await prisma.user.findMany({
     where: {
       profileType: "PROFESSIONAL",
       OR: [
-        // Hasn't logged in for 48h
-        { lastSeen: { gte: fiftyHoursAgo, lte: fortyEightHoursAgo } },
-        // Never logged in and was created 48-50h ago
-        { lastSeen: null, createdAt: { gte: fiftyHoursAgo, lte: fortyEightHoursAgo } },
+        // lastSeen is older than 48h
+        { lastSeen: { lt: fortyEightHoursAgo } },
+        // Never logged in and account is older than 48h
+        { lastSeen: null, createdAt: { lt: fortyEightHoursAgo } },
       ],
     },
-    select: { id: true, email: true, displayName: true, avatarUrl: true },
+    select: { id: true, email: true, displayName: true },
   });
 
   for (const p of inactive) {
+    // Anti-spam: only send once
+    if (await wasReminderSent(p.id, "inactive_48h")) continue;
+
     console.log(`[worker] sending inactive reminder to ${p.email}`);
     await sendInactiveProfileReminder(p.email, p.displayName);
+    await markReminderSent(p.id, "inactive_48h");
   }
 }
 
-/* ─── Videocall service added but config not set up ─── */
+/* ─── Videocall service added but NOT properly configured ─── */
+/* Validates: config exists AND has availableSlots with at least 1 slot AND pricePerMinute > 0 */
 
 async function tickVideocallConfigReminder() {
-  // Find professionals who have "videollamada" in their service tags
-  // but don't have a VideocallConfig record
   const professionals = await prisma.user.findMany({
     where: {
       profileType: "PROFESSIONAL",
@@ -103,29 +128,44 @@ async function tickVideocallConfigReminder() {
   });
 
   for (const p of professionals) {
-    const hasConfig = await prisma.videocallConfig.findUnique({
+    const config = await prisma.videocallConfig.findUnique({
       where: { professionalId: p.id },
     });
-    if (!hasConfig) {
-      console.log(`[worker] sending videocall config reminder to ${p.email}`);
-      await sendVideocallConfigReminder(p.email, p.displayName);
-    }
+
+    // Properly configured = config exists + price > 0 + has at least 1 availability slot
+    const isConfigured =
+      config &&
+      config.pricePerMinute > 0 &&
+      config.isActive &&
+      Array.isArray(config.availableSlots) &&
+      (config.availableSlots as unknown[]).length > 0;
+
+    if (isConfigured) continue;
+
+    // Anti-spam: only send once
+    if (await wasReminderSent(p.id, "videocall_config")) continue;
+
+    console.log(`[worker] sending videocall config reminder to ${p.email}`);
+    await sendVideocallConfigReminder(p.email, p.displayName);
+    await markReminderSent(p.id, "videocall_config");
   }
 }
 
 /* ─── Main tick: runs all scheduled checks ─── */
 
 async function tick() {
+  console.log("[worker] tick started at", new Date().toISOString());
   await tickMembershipExpiry();
   await tickNoPhotoReminder();
   await tickInactiveReminder();
   await tickVideocallConfigReminder();
+  console.log("[worker] tick completed");
 }
 
 async function main() {
   console.log("[worker] started");
 
-  // Run every hour to catch 5h/48h thresholds
+  // Run every hour to catch thresholds
   cron.schedule("0 * * * *", () => {
     tick().catch((e) => console.error("[worker] tick error", e));
   });
