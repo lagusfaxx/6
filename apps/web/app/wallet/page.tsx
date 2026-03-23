@@ -103,13 +103,12 @@ export default function WalletPage() {
 
   const isProfessional = me?.user?.profileType === "PROFESSIONAL";
 
-  // Handle Flow return redirect
+  // Handle Flow return redirect (user comes back from Flow with ?ref=intentId)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("deposit") === "success") {
+    if (params.get("ref")) {
       setTab("deposit");
       setDepositMsg("Pago procesado. Tus tokens han sido acreditados.");
-      // Clean up URL
       window.history.replaceState({}, "", "/wallet");
     }
   }, []);
