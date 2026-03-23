@@ -171,8 +171,14 @@ walletRouter.post("/wallet/deposit/flow", requireAuth, async (req, res) => {
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
-  const email = (user.email || "").trim().toLowerCase();
-  if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED", message: "Se requiere email para procesar el pago" });
+  // Sanitize email: trim, lowercase, remove aliases (+tag), validate format
+  let email = (user.email || "").trim().toLowerCase();
+  // Remove +alias (e.g. user+tag@gmail.com -> user@gmail.com) — Flow rejects these
+  email = email.replace(/\+[^@]*@/, "@");
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!email || !emailRegex.test(email)) {
+    return res.status(400).json({ error: "EMAIL_INVALID", message: "Tu email no es válido para pagos. Actualiza tu email en tu perfil." });
+  }
 
   if (!config.flowApiKey) {
     return res.status(503).json({ error: "PAYMENT_UNAVAILABLE", message: "El pago con Flow no está configurado" });
@@ -183,7 +189,8 @@ walletRouter.post("/wallet/deposit/flow", requireAuth, async (req, res) => {
 
   const wallet = await getOrCreateWallet(userId);
 
-  // Create PaymentIntent for tracking
+  // Create PaymentIntent and TokenDeposit, then call Flow.
+  // If Flow fails, clean up the orphaned records.
   const intent = await prisma.paymentIntent.create({
     data: {
       subscriberId: userId,
@@ -194,8 +201,7 @@ walletRouter.post("/wallet/deposit/flow", requireAuth, async (req, res) => {
     },
   });
 
-  // Create TokenDeposit linked to PaymentIntent
-  await prisma.tokenDeposit.create({
+  const deposit = await prisma.tokenDeposit.create({
     data: {
       walletId: wallet.id,
       amount: tokens,
@@ -209,15 +215,29 @@ walletRouter.post("/wallet/deposit/flow", requireAuth, async (req, res) => {
   const appUrl = config.appUrl.replace(/\/$/, "");
   const apiUrl = config.apiUrl.replace(/\/$/, "");
 
-  const payment = await createFlowPayment({
-    commerceOrder: intent.id,
-    subject: `Compra de ${tokens} tokens`,
-    currency: "CLP",
-    amount: clpAmount,
-    email,
-    urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
-    urlReturn: `${appUrl}/wallet?deposit=success&ref=${intent.id}`,
-  });
+  let payment;
+  try {
+    payment = await createFlowPayment({
+      commerceOrder: intent.id,
+      subject: `Compra de ${tokens} tokens`,
+      currency: "CLP",
+      amount: clpAmount,
+      email,
+      urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
+      urlReturn: `${appUrl}/wallet?deposit=success&ref=${intent.id}`,
+    });
+  } catch (err: any) {
+    // Clean up orphaned records on Flow API failure
+    console.error("[wallet] Flow payment creation failed", { userId, email, error: err?.message });
+    await prisma.tokenDeposit.delete({ where: { id: deposit.id } }).catch(() => {});
+    await prisma.paymentIntent.delete({ where: { id: intent.id } }).catch(() => {});
+
+    const flowMsg = String(err?.message || "");
+    if (flowMsg.includes("email") || flowMsg.includes("userEmail")) {
+      return res.status(400).json({ error: "EMAIL_INVALID", message: "Flow rechazó tu email. Actualiza tu email en tu perfil e intenta de nuevo." });
+    }
+    return res.status(502).json({ error: "FLOW_ERROR", message: "Error al crear el pago en Flow. Intenta de nuevo." });
+  }
 
   await prisma.paymentIntent.update({
     where: { id: intent.id },
