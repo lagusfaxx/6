@@ -32,6 +32,7 @@ import {
 import Avatar from "./Avatar";
 import useMe from "../hooks/useMe";
 import { apiFetch } from "../lib/api";
+import { connectRealtime } from "../lib/realtime";
 import { CHILEAN_CITIES, LocationFilterContext } from "../hooks/useLocationFilter";
 import { useForumNotifications } from "./ForumNotifications";
 
@@ -70,9 +71,10 @@ function notificationUrl(item: NotificationItem): string | null {
   switch (item.type) {
     case "MESSAGE_RECEIVED": {
       const fromId = item.data?.fromId as string | undefined;
-      return fromId ? `/chat/${fromId}` : "/chats";
+      return fromId ? `/chat/${fromId}` : "/chat";
     }
-    case "SERVICE_PUBLISHED":     return "/videocall";
+    case "SERVICE_PUBLISHED":           return "/dashboard/services";
+    case "POST_PUBLISHED":              return "/";
     case "FORUM_REPLY":
     case "FORUM_NEW_THREAD": {
       const threadId = item.data?.threadId as string | undefined;
@@ -80,6 +82,7 @@ function notificationUrl(item: NotificationItem): string | null {
     }
     case "SUBSCRIPTION_STARTED":
     case "SUBSCRIPTION_RENEWED":        return "/cuenta";
+    case "BOOKING_UPDATE":              return "/dashboard/motel";
     case "REMINDER_NO_PHOTO":           return "/dashboard/services";
     case "REMINDER_INACTIVE":           return "/";
     case "REMINDER_VIDEOCALL_CONFIG":   return "/videocall";
@@ -139,6 +142,24 @@ export default function TopHeader() {
       .finally(() => setLoadingNotifications(false));
   }, [isAuthed]);
 
+  /* ── Real-time notification updates via SSE ── */
+  useEffect(() => {
+    if (!isAuthed) return;
+    const cleanup = connectRealtime((event) => {
+      // Listen for notification events pushed by the server
+      if (event.type === "notification" && event.data) {
+        const n = event.data as NotificationItem;
+        if (n.id) {
+          setNotifications((prev) => {
+            if (prev.some((p) => p.id === n.id)) return prev;
+            return [n, ...prev];
+          });
+        }
+      }
+    });
+    return cleanup;
+  }, [isAuthed]);
+
   /* ── Close dropdowns on outside click ── */
   useEffect(() => {
     const onDocClick = (event: MouseEvent) => {
@@ -162,7 +183,7 @@ export default function TopHeader() {
   }, [hamburgerOpen]);
 
   const unreadCount  = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
-  const recentItems  = notifications.slice(0, 5);
+  const recentItems  = notifications.slice(0, 15);
 
   const handleNotificationClick = async (item: NotificationItem) => {
     try {

@@ -60,6 +60,7 @@ export function connectRealtime(handler: Handler) {
       });
 
       for (const evt of [
+        "notification",
         "forum:newThread",
         "forum:newPost",
         "videocall:booked",
@@ -81,6 +82,8 @@ export function connectRealtime(handler: Handler) {
         "signal:answer",
         "signal:ice",
         "admin_event",
+        "booking:new",
+        "booking:update",
       ] as const) {
         es.addEventListener(evt, (e: MessageEvent) => {
           try {

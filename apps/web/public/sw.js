@@ -47,23 +47,30 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || "/notifications";
+  const targetPath = event.notification.data?.url || "/";
 
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clientsArr) => {
-        const hadWindowToFocus = clientsArr.some((windowClient) => {
-          if (windowClient.url === targetUrl) {
-            windowClient.focus();
-            return true;
-          }
-          return false;
-        });
-
-        if (!hadWindowToFocus) {
-          self.clients.openWindow(targetUrl);
+        // Try to find an existing window and navigate it
+        for (const client of clientsArr) {
+          try {
+            const clientUrl = new URL(client.url);
+            if (clientUrl.pathname === targetPath) {
+              client.focus();
+              return;
+            }
+          } catch {}
         }
+        // If we have any open window, navigate it instead of opening a new one
+        if (clientsArr.length > 0) {
+          clientsArr[0].focus();
+          clientsArr[0].navigate(targetPath);
+          return;
+        }
+        // No windows open — open a new one
+        self.clients.openWindow(targetPath);
       })
   );
 });
