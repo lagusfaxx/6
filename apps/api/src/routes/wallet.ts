@@ -26,11 +26,20 @@ const upload = multer({
 
 /* ── Helper: get or create wallet ── */
 async function getOrCreateWallet(userId: string) {
-  let wallet = await prisma.wallet.findUnique({ where: { userId } });
-  if (!wallet) {
-    wallet = await prisma.wallet.create({ data: { userId } });
+  const wallet = await prisma.wallet.findUnique({ where: { userId } });
+  if (wallet) return wallet;
+
+  try {
+    return await prisma.wallet.create({ data: { userId } });
+  } catch (err: any) {
+    // Race condition: another request created the wallet between our
+    // findUnique and create. Re-fetch the now-existing row.
+    if (err?.code === "P2002") {
+      const existing = await prisma.wallet.findUnique({ where: { userId } });
+      if (existing) return existing;
+    }
+    throw err;
   }
-  return wallet;
 }
 
 /* ── Helper: get token rate (CLP per token) ── */
