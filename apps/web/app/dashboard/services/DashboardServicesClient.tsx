@@ -652,6 +652,13 @@ export default function DashboardServicesClient() {
     ) => {
       const file = event.target.files?.[0];
       if (!file || !user) return;
+
+      // Show immediate local preview for avatar
+      if (type === "avatar") {
+        const localUrl = URL.createObjectURL(file);
+        setField("avatarPreview", localUrl);
+      }
+
       const formData = new FormData();
       formData.append("file", file);
       if (type === "cover") {
