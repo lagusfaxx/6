@@ -577,6 +577,9 @@ export default function HomePage() {
   >({});
   const locationCtx = useContext(LocationFilterContext);
   const location = locationCtx?.effectiveLocation ?? SANTIAGO_FALLBACK;
+  // Key that changes when location changes — forces remount of animated sections
+  // so framer-motion's once:true doesn't keep new cards invisible (opacity:0).
+  const locationKey = `${location[0]}-${location[1]}`;
   const [error, setError] = useState<string | null>(null);
   const [recentLoading, setRecentLoading] = useState(true);
   const { me } = useMe();
@@ -1220,7 +1223,7 @@ export default function HomePage() {
           if (!profiles.length) return null;
           const Icon = tier.icon;
           return (
-            <motion.section key={tier.key} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+            <motion.section key={`${tier.key}-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
               <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
                 <div className="flex items-center gap-2.5">
                   <Icon className={`h-5 w-5 bg-gradient-to-r ${tier.gradient} bg-clip-text text-transparent`} />
@@ -1312,7 +1315,7 @@ export default function HomePage() {
 
         {/* ═══ DESTACADAS — Carousel con perfiles Gold y Diamond ═══ */}
         {featuredCarouselProfiles.length > 0 && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+          <motion.section key={`featured-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
               <div className="flex items-center gap-2.5">
                 <Crown className="h-5 w-5 text-amber-400" />
@@ -1427,7 +1430,7 @@ export default function HomePage() {
 
         {/* ═══ CERCA DE TI — Grid for abundance ═══ */}
         {nearProfiles.length > 0 && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+          <motion.section key={`near-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Navigation className="h-4 w-4 text-fuchsia-300" />
@@ -1493,7 +1496,7 @@ export default function HomePage() {
 
         {/* ═══ NUEVAS ═══ */}
         {newProfiles.length > 0 && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+          <motion.section key={`new-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Sparkles className="h-4 w-4 text-violet-400" />
@@ -1551,7 +1554,7 @@ export default function HomePage() {
 
         {/* ═══ TENDENCIAS ═══ */}
         {recentPros.length > 6 && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+          <motion.section key={`trending-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4">
               <div className="flex items-center gap-2.5">
                 <TrendingUp className="h-4 w-4 text-violet-400" />
@@ -1592,7 +1595,7 @@ export default function HomePage() {
         {/* ═══ EN VIVO AHORA ═══ */}
         {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}
         {liveStreams.length > 0 && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+          <motion.section key={`live-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center gap-2">
               <span className="relative flex h-3 w-3">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
@@ -1629,7 +1632,7 @@ export default function HomePage() {
 
         {/* ═══ HOTELES / MOTELES ═══ */}
         {moteles.length > 0 && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+          <motion.section key={`moteles-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Hotel className="h-4 w-4 text-amber-400" />
@@ -1674,7 +1677,7 @@ export default function HomePage() {
 
         {/* ═══ SEXSHOP ═══ */}
         {sexshops.length > 0 && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
+          <motion.section key={`sexshop-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} variants={stagger} className="mb-10">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <ShoppingBag className="h-4 w-4 text-pink-400" />
