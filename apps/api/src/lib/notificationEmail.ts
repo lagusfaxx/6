@@ -77,11 +77,12 @@ async function send(to: string, subject: string, html: string) {
 
 /* ─── Reminder: profile has no photos after 5 hours ─── */
 
-export async function sendNoPhotoReminder(email: string, displayName: string) {
+export async function sendNoPhotoReminder(email: string, displayName: string | null) {
+  const name = displayName || "profesional";
   const html = wrapEmail(
     "¡Sube tu primera foto!",
     [
-      paragraph(`Hola ${displayName}, te registraste en UZEED pero aún no has subido ninguna foto a tu perfil.`),
+      paragraph(`Hola ${name}, te registraste en UZEED pero aún no has subido ninguna foto a tu perfil.`),
       paragraph("Los perfiles con fotos reciben <strong>hasta 10x más visitas</strong> y mensajes. ¡No te quedes atrás!"),
       ctaButton("Subir fotos ahora", `${config.appUrl}/dashboard/services`),
     ].join(""),
@@ -91,11 +92,12 @@ export async function sendNoPhotoReminder(email: string, displayName: string) {
 
 /* ─── Reminder: inactive profile (48h without login or photos) ─── */
 
-export async function sendInactiveProfileReminder(email: string, displayName: string) {
+export async function sendInactiveProfileReminder(email: string, displayName: string | null) {
+  const name = displayName || "profesional";
   const html = wrapEmail(
     "Te extrañamos en UZEED",
     [
-      paragraph(`Hola ${displayName}, hace más de 48 horas que no ingresas a UZEED.`),
+      paragraph(`Hola ${name}, hace más de 48 horas que no ingresas a UZEED.`),
       paragraph("Tus potenciales clientes te están buscando. Mantén tu perfil activo para aparecer en los primeros resultados."),
       ctaButton("Volver a UZEED", `${config.appUrl}`),
     ].join(""),
@@ -105,11 +107,12 @@ export async function sendInactiveProfileReminder(email: string, displayName: st
 
 /* ─── Reminder: videocall service added but not configured ─── */
 
-export async function sendVideocallConfigReminder(email: string, displayName: string) {
+export async function sendVideocallConfigReminder(email: string, displayName: string | null) {
+  const name = displayName || "profesional";
   const html = wrapEmail(
     "Configura tus videollamadas",
     [
-      paragraph(`Hola ${displayName}, agregaste el servicio de videollamadas pero aún no has configurado tus horarios ni precios.`),
+      paragraph(`Hola ${name}, agregaste el servicio de videollamadas pero aún no has configurado tus horarios ni precios.`),
       paragraph("Sin configuración, los clientes no podrán agendar videollamadas contigo. Configúralo en unos minutos."),
       ctaButton("Configurar videollamadas", `${config.appUrl}/videocall`),
     ].join(""),
