@@ -19,6 +19,7 @@ import {
   Share2,
   Shield,
   Trash2,
+  User,
 } from "lucide-react";
 
 type PostAuthor = { id: string; username: string; avatarUrl: string | null };
@@ -86,14 +87,31 @@ function parseOfficialProfilePost(content: string) {
     .replace(/\.$/, "")
     .trim();
 
-  const profilePath = profileUrlRaw.startsWith("/")
-    ? profileUrlRaw
-    : `/${profileUrlRaw}`;
+  // Resolve the profile path: handle full URLs, relative paths, and bare usernames
+  let profilePath: string;
+  if (profileUrlRaw.startsWith("http://") || profileUrlRaw.startsWith("https://")) {
+    try {
+      const url = new URL(profileUrlRaw);
+      profilePath = url.pathname;
+    } catch {
+      profilePath = `/profile/${nickname}`;
+    }
+  } else if (profileUrlRaw.startsWith("/")) {
+    profilePath = profileUrlRaw;
+  } else if (profileUrlRaw.includes("/")) {
+    profilePath = `/${profileUrlRaw}`;
+  } else {
+    // Bare username or slug
+    profilePath = `/profile/${profileUrlRaw}`;
+  }
+
+  // Resolve photo URL through resolveMediaUrl
+  const photoUrl = photoUrlRaw ? resolveMediaUrl(photoUrlRaw) : null;
 
   return {
     displayName,
     nickname,
-    photoUrl: photoUrlRaw ? resolveMediaUrl(photoUrlRaw) || photoUrlRaw : null,
+    photoUrl,
     profilePath,
   };
 }
@@ -169,7 +187,7 @@ export default function ThreadPage() {
   };
 
   const handleDeletePost = async (postId: string) => {
-    if (!confirm("¿Eliminar este post?")) return;
+    if (!confirm("Eliminar este post?")) return;
     try {
       await apiFetch(`/forum/posts/${postId}`, { method: "DELETE" });
       setPosts((prev) => prev.filter((p) => p.id !== postId));
@@ -177,7 +195,7 @@ export default function ThreadPage() {
   };
 
   const handleDeleteThread = async () => {
-    if (!confirm("¿Eliminar este tema completo?")) return;
+    if (!confirm("Eliminar este tema completo?")) return;
     try {
       await apiFetch(`/forum/threads/${threadId}`, { method: "DELETE" });
       window.location.href = thread?.category ? `/foro/categoria/${thread.category.slug}` : "/foro";
@@ -197,11 +215,11 @@ export default function ThreadPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-6">
-        <div className="space-y-3">
-          <div className="h-14 animate-pulse rounded-2xl bg-white/[0.03] border border-white/[0.04]" />
-          <div className="h-36 animate-pulse rounded-2xl bg-white/[0.03] border border-white/[0.04]" />
-          <div className="h-36 animate-pulse rounded-2xl bg-white/[0.03] border border-white/[0.04]" />
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <div className="space-y-4">
+          <div className="h-16 animate-pulse rounded-2xl bg-white/[0.03]" />
+          <div className="h-48 animate-pulse rounded-2xl bg-white/[0.03]" />
+          <div className="h-32 animate-pulse rounded-2xl bg-white/[0.03]" />
         </div>
       </div>
     );
@@ -209,188 +227,203 @@ export default function ThreadPage() {
 
   if (!thread) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-6 text-center">
-        <p className="text-white/50">Tema no encontrado.</p>
-        <Link href="/foro" className="mt-2 inline-block text-sm text-fuchsia-400 hover:underline">Volver al foro</Link>
+      <div className="mx-auto max-w-4xl px-4 py-16 text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+          <MessageCircle className="h-7 w-7 text-white/20" />
+        </div>
+        <p className="text-white/50 mb-3">Tema no encontrado.</p>
+        <Link href="/foro" className="text-sm text-fuchsia-400 hover:text-fuchsia-300 transition-colors">Volver al foro</Link>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
+    <div className="mx-auto max-w-4xl px-4 py-6 md:py-8">
       {/* Breadcrumb */}
-      <div className="mb-4 flex items-center gap-2 text-xs text-white/30">
+      <nav className="mb-5 flex items-center gap-2 text-xs text-white/30">
         <Link href="/foro" className="hover:text-fuchsia-400 transition-colors">Foro</Link>
         <span className="text-white/15">/</span>
         <Link href={`/foro/categoria/${thread.category.slug}`} className="hover:text-fuchsia-400 transition-colors">{thread.category.name}</Link>
-      </div>
+        <span className="text-white/15">/</span>
+        <span className="text-white/50 truncate max-w-[200px]">{thread.title}</span>
+      </nav>
 
       {/* Thread header */}
-      <div className="relative mb-5 overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 backdrop-blur-sm">
-        {/* Header glow */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-fuchsia-500/[0.03] to-transparent" />
-
-        <div className="relative flex items-start gap-3">
-          <Link href={`/foro/categoria/${thread.category.slug}`} className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/50 hover:bg-white/10 hover:text-white transition-all">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              {thread.isPinned && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-500/10 border border-amber-500/20">
-                  <Pin className="h-2.5 w-2.5 text-amber-400" />
-                </span>
-              )}
-              {thread.isLocked && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-red-500/10 border border-red-500/20">
-                  <Lock className="h-2.5 w-2.5 text-red-400" />
-                </span>
-              )}
-              <h1 className="text-lg font-bold tracking-tight">{thread.title}</h1>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-white/35">
-              <span className="font-medium text-white/45">por {thread.author.username}</span>
-              <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-white/20" />{formatDate(thread.createdAt)}</span>
-              <span className="flex items-center gap-1"><Eye className="h-3 w-3 text-white/20" />{thread.views} vistas</span>
-              <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3 text-white/20" />{thread.postCount} posts</span>
+      <div className="relative mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-white/[0.01]">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-500/30 to-transparent" />
+        <div className="p-5 md:p-6">
+          <div className="flex items-start gap-4">
+            <Link href={`/foro/categoria/${thread.category.slug}`} className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/40 hover:bg-white/[0.08] hover:text-white transition-all">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                {thread.isPinned && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] text-amber-400 font-medium">
+                    <Pin className="h-2.5 w-2.5" /> Fijado
+                  </span>
+                )}
+                {thread.isLocked && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[10px] text-red-400 font-medium">
+                    <Lock className="h-2.5 w-2.5" /> Bloqueado
+                  </span>
+                )}
+              </div>
+              <h1 className="text-xl font-bold tracking-tight text-white">{thread.title}</h1>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-white/35">
+                <div className="flex items-center gap-2">
+                  <Avatar src={thread.author.avatarUrl} alt={thread.author.username} size={20} />
+                  <span className="font-medium text-white/50">{thread.author.username}</span>
+                </div>
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-white/20" />{formatDate(thread.createdAt)}</span>
+                <span className="flex items-center gap-1"><Eye className="h-3 w-3 text-white/20" />{thread.views}</span>
+                <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3 text-white/20" />{thread.postCount}</span>
+              </div>
             </div>
           </div>
+
+          {/* Admin actions */}
+          {isAdmin && (
+            <div className="mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-4">
+              <Shield className="h-3.5 w-3.5 text-amber-400" />
+              <span className="text-[10px] text-amber-400/70 font-semibold uppercase tracking-wider mr-1">Admin</span>
+              <button type="button" onClick={handleToggleLock} className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/60 hover:bg-white/[0.08] transition-all">
+                {thread.isLocked ? "Desbloquear" : "Bloquear"}
+              </button>
+              <button type="button" onClick={handleDeleteThread} className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-1.5 text-[11px] text-red-400 hover:bg-red-500/15 transition-all">
+                Eliminar tema
+              </button>
+            </div>
+          )}
         </div>
-
-        {/* Admin actions */}
-        {isAdmin && (
-          <div className="relative mt-4 flex items-center gap-2 border-t border-white/[0.05] pt-3">
-            <Shield className="h-3.5 w-3.5 text-amber-400" />
-            <span className="text-[10px] text-amber-400/70 font-semibold uppercase tracking-wider">Admin</span>
-            <button type="button" onClick={handleToggleLock} className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[11px] hover:bg-white/10 transition-all">
-              {thread.isLocked ? "Desbloquear" : "Bloquear"}
-            </button>
-            <button type="button" onClick={handleDeleteThread} className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-1.5 text-[11px] text-red-400 hover:bg-red-500/15 transition-all">
-              Eliminar tema
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Gradient divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent mb-4" />
-
       {/* Posts */}
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         {posts.map((post, idx) => {
           const officialProfile = idx === 0 ? parseOfficialProfilePost(post.content) : null;
+          const avatarSrc = resolveMediaUrl(post.author.avatarUrl);
 
           return (
-            <div key={post.id} className="group/post relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 transition-all duration-200 hover:border-white/[0.1]">
-              {/* First post glow */}
-              {idx === 0 && <div className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-fuchsia-500/[0.02] to-transparent" />}
+            <div key={post.id} className="group/post relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] transition-all duration-200 hover:border-white/[0.1]">
+              {/* First post accent */}
+              {idx === 0 && <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-500/25 to-transparent" />}
 
-              <div className="relative flex items-start gap-3">
-                <div className="shrink-0">
-                  <Avatar src={post.author.avatarUrl} alt={post.author.username} size={38} className="border-white/15 ring-1 ring-white/[0.06] ring-offset-1 ring-offset-transparent" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="font-semibold text-white/90">{post.author.username}</span>
-                    {idx === 0 && (
-                      <span className="rounded-full bg-gradient-to-r from-fuchsia-500/15 to-violet-500/10 border border-fuchsia-500/20 px-2 py-0.5 text-[9px] text-fuchsia-300 font-semibold shadow-[0_0_8px_rgba(168,85,247,0.1)]">OP</span>
-                    )}
-                    <span className="text-white/25">{timeAgo(post.createdAt)}</span>
-                    {isAdmin && (
-                      <button type="button" onClick={() => handleDeletePost(post.id)} className="ml-auto rounded-lg border border-transparent p-1.5 text-white/15 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/20 transition-all">
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    )}
+              <div className="p-4 md:p-5">
+                {/* Post header */}
+                <div className="flex items-center gap-3 mb-3">
+                  <Link href={`/profile/${post.author.username}`} className="shrink-0">
+                    <Avatar src={avatarSrc} alt={post.author.username} size={40} />
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Link href={`/profile/${post.author.username}`} className="text-sm font-semibold text-white/90 hover:text-fuchsia-400 transition-colors">
+                        {post.author.username}
+                      </Link>
+                      {idx === 0 && (
+                        <span className="rounded-full bg-gradient-to-r from-fuchsia-500/15 to-violet-500/10 border border-fuchsia-500/20 px-2 py-0.5 text-[9px] text-fuchsia-300 font-semibold">OP</span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-white/25">{timeAgo(post.createdAt)}</span>
                   </div>
+                  {isAdmin && (
+                    <button type="button" onClick={() => handleDeletePost(post.id)} className="rounded-lg p-2 text-white/15 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
 
-                  {officialProfile ? (
-                    <div className="mt-3 overflow-hidden rounded-2xl border border-fuchsia-400/20 bg-gradient-to-br from-fuchsia-500/[0.08] to-violet-500/[0.06] p-4 shadow-[0_0_24px_rgba(168,85,247,0.06)]">
-                      <div className="flex items-center gap-3">
+                {/* Post content */}
+                {officialProfile ? (
+                  <div className="overflow-hidden rounded-xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-500/[0.06] to-violet-500/[0.04]">
+                    <div className="p-4">
+                      <div className="flex items-center gap-4">
                         {officialProfile.photoUrl ? (
                           <img
                             src={officialProfile.photoUrl}
                             alt={officialProfile.displayName || officialProfile.nickname}
-                            className="h-16 w-16 rounded-xl object-cover border border-white/15 shadow-lg"
+                            className="h-20 w-20 rounded-xl object-cover border border-white/15 shadow-lg"
                           />
                         ) : (
-                          <div className="grid h-16 w-16 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-xs text-white/40">
-                            Sin foto
+                          <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]">
+                            <User className="h-8 w-8 text-white/20" />
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-white/95">
+                          <p className="text-base font-bold text-white">
                             {officialProfile.displayName || officialProfile.nickname}
                           </p>
-                          <p className="truncate text-xs text-fuchsia-200/70">
-                            {officialProfile.nickname}
+                          <p className="mt-0.5 text-sm text-fuchsia-300/70">
+                            @{officialProfile.nickname}
                           </p>
+                          <Link
+                            href={officialProfile.profilePath}
+                            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-xs font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-[0_8px_20px_rgba(168,85,247,0.25)]"
+                          >
+                            <User className="h-3.5 w-3.5" />
+                            Ver perfil
+                          </Link>
                         </div>
-                        <Link
-                          href={officialProfile.profilePath}
-                          className="shrink-0 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2.5 text-xs font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-[0_8px_20px_rgba(168,85,247,0.25)]"
-                        >
-                          Ver perfil
-                        </Link>
                       </div>
                     </div>
-                  ) : (
-                    <div className="mt-2 text-sm text-white/75 whitespace-pre-wrap break-words leading-relaxed">
-                      {post.content}
-                    </div>
-                  )}
+                  </div>
+                ) : (
+                  <div className="text-sm text-white/70 whitespace-pre-wrap break-words leading-relaxed pl-[52px]">
+                    {post.content}
+                  </div>
+                )}
 
-                  {/* Post interaction buttons */}
-                  {isAuthed && (
-                    <div className="mt-3 flex items-center gap-1 border-t border-white/[0.04] pt-2.5">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setLikedPosts((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(post.id)) next.delete(post.id);
-                            else next.add(post.id);
-                            return next;
-                          });
-                        }}
-                        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] transition-all ${
-                          likedPosts.has(post.id)
-                            ? "text-pink-400 bg-pink-500/10 border border-pink-500/20"
-                            : "text-white/25 hover:text-pink-400 hover:bg-pink-500/[0.06] border border-transparent"
-                        }`}
-                      >
-                        <Heart className={`h-3 w-3 ${likedPosts.has(post.id) ? "fill-pink-400" : ""}`} />
-                        {likedPosts.has(post.id) ? "1" : ""}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setReplyContent((prev) => `> ${post.author.username}: ${post.content.slice(0, 100)}${post.content.length > 100 ? "..." : ""}\n\n${prev}`);
-                          bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-                        }}
-                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] text-white/25 hover:text-fuchsia-400 hover:bg-fuchsia-500/[0.06] border border-transparent transition-all"
-                      >
-                        <Quote className="h-3 w-3" />
-                        Citar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (navigator.share) {
-                            navigator.share({ url: window.location.href });
-                          } else {
-                            navigator.clipboard.writeText(window.location.href);
-                          }
-                        }}
-                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] text-white/25 hover:text-violet-400 hover:bg-violet-500/[0.06] border border-transparent transition-all"
-                      >
-                        <Share2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
+                {/* Post interaction buttons */}
+                {isAuthed && (
+                  <div className="mt-3 flex items-center gap-1 pl-[52px]">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setLikedPosts((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(post.id)) next.delete(post.id);
+                          else next.add(post.id);
+                          return next;
+                        });
+                      }}
+                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] transition-all ${
+                        likedPosts.has(post.id)
+                          ? "text-pink-400 bg-pink-500/10 border border-pink-500/20"
+                          : "text-white/25 hover:text-pink-400 hover:bg-pink-500/[0.06] border border-transparent"
+                      }`}
+                    >
+                      <Heart className={`h-3 w-3 ${likedPosts.has(post.id) ? "fill-pink-400" : ""}`} />
+                      {likedPosts.has(post.id) ? "1" : ""}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setReplyContent((prev) => `> ${post.author.username}: ${post.content.slice(0, 100)}${post.content.length > 100 ? "..." : ""}\n\n${prev}`);
+                        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] text-white/25 hover:text-fuchsia-400 hover:bg-fuchsia-500/[0.06] border border-transparent transition-all"
+                    >
+                      <Quote className="h-3 w-3" />
+                      Citar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (navigator.share) {
+                          navigator.share({ url: window.location.href });
+                        } else {
+                          navigator.clipboard.writeText(window.location.href);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] text-white/25 hover:text-violet-400 hover:bg-violet-500/[0.06] border border-transparent transition-all"
+                    >
+                      <Share2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -401,34 +434,40 @@ export default function ThreadPage() {
 
       {/* Reply box */}
       {isAuthed && !thread.isLocked ? (
-        <div className="mt-5 relative overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4 backdrop-blur-sm">
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-fuchsia-500/[0.02] to-transparent" />
-          <textarea
-            value={replyContent}
-            onChange={(e) => setReplyContent(e.target.value)}
-            placeholder="Escribe tu respuesta..."
-            rows={3}
-            className="relative w-full resize-none rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/25 focus:border-fuchsia-500/30 focus:ring-1 focus:ring-fuchsia-500/15 focus:outline-none focus:shadow-[0_0_20px_rgba(168,85,247,0.06)] transition-all"
-          />
-          <div className="relative mt-3 flex justify-end">
-            <button
-              type="button"
-              onClick={handleReply}
-              disabled={sending || !replyContent.trim()}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(168,85,247,0.25)] disabled:opacity-50 disabled:hover:scale-100"
-            >
-              <Send className="h-3.5 w-3.5" />
-              {sending ? "Enviando..." : "Responder"}
-            </button>
+        <div className="mt-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+          <div className="p-4 md:p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <Avatar src={resolveMediaUrl(me?.user?.avatarUrl)} alt={me?.user?.username} size={32} />
+              <span className="text-xs text-white/40">Respondiendo como <span className="text-white/60 font-medium">{me?.user?.username}</span></span>
+            </div>
+            <textarea
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              placeholder="Escribe tu respuesta..."
+              rows={3}
+              className="w-full resize-none rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/25 focus:border-fuchsia-500/30 focus:ring-1 focus:ring-fuchsia-500/15 focus:outline-none transition-all"
+            />
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={handleReply}
+                disabled={sending || !replyContent.trim()}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(168,85,247,0.25)] disabled:opacity-50 disabled:hover:scale-100"
+              >
+                <Send className="h-3.5 w-3.5" />
+                {sending ? "Enviando..." : "Responder"}
+              </button>
+            </div>
           </div>
         </div>
       ) : thread.isLocked ? (
-        <div className="mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-center text-sm text-white/35 backdrop-blur-sm">
-          <Lock className="mx-auto mb-1.5 h-4 w-4 text-white/20" /> Este tema está bloqueado.
+        <div className="mt-6 flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-sm text-white/35">
+          <Lock className="h-4 w-4 text-white/20" />
+          Este tema esta bloqueado.
         </div>
       ) : (
-        <div className="mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-center text-sm text-white/35 backdrop-blur-sm">
-          <Link href="/login?next=/foro" className="text-fuchsia-400 hover:underline">Inicia sesión</Link> para responder.
+        <div className="mt-6 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-center text-sm text-white/35">
+          <Link href="/login?next=/foro" className="text-fuchsia-400 hover:text-fuchsia-300 transition-colors">Inicia sesion</Link> para responder.
         </div>
       )}
     </div>

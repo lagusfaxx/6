@@ -1,22 +1,18 @@
 "use client";
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, MessageCircle, Eye, Sparkles, Flame, Video, Crown, ShieldCheck, Phone, Tag, Briefcase } from "lucide-react";
+import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, Sparkles, Flame, Video, Crown, ShieldCheck } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import StatusBadgeIcon from "./StatusBadgeIcon";
 import UserLevelBadge from "./UserLevelBadge";
 import type { MapMarker } from "./MapboxMap";
-import useMe from "../hooks/useMe";
-
 const MapboxMap = dynamic(() => import("./MapboxMap"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("./ProfilePreviewModal"), { ssr: false });
 const Stories = dynamic(() => import("./Stories"), { ssr: false });
-import { buildChatHref, buildLoginHref, buildCurrentPathWithSearch } from "../lib/chat";
 
 /* ─── Types ──────────────────────────────────────────────── */
 export type DirectoryResult = {
@@ -77,36 +73,18 @@ type Props = {
   tag?: string;            // tag from [tag] route param → added to profileTags filter
 };
 
-/* ─── Quick preview data (fetched on demand) ─── */
-type QuickPreviewData = {
-  bio: string | null;
-  profileTags: string[];
-  serviceTags: string[];
-  baseRate: number | null;
-  phone: string | null;
-  availableNow: boolean;
-};
-
-function formatWhatsAppUrl(phone: string) {
-  const cleaned = phone.replace(/[^0-9+]/g, "");
-  const num = cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
-  return `https://wa.me/${num}`;
-}
-
 /* ─── ProfileCard ────────────────────────────────────────── */
 function ProfileCard({
   p,
   entityType,
   categorySlug,
-  onQuickPreviewMobile,
+  onOpenModal,
 }: {
   p: DirectoryResult;
   entityType: string;
   categorySlug?: string;
-  onQuickPreviewMobile: (profile: DirectoryResult, data: QuickPreviewData) => void;
+  onOpenModal: (profile: DirectoryResult) => void;
 }) {
-  const { me } = useMe();
-  const isAuthed = Boolean(me?.user?.id);
   let href: string;
   if (entityType === "establishment") {
     href = categorySlug === "motel" ? `/hospedaje/${p.id}` : `/establecimiento/${p.id}`;
@@ -118,42 +96,11 @@ function ProfileCard({
   const avatarSrc = p.avatarUrl ? resolveMediaUrl(p.avatarUrl) : null;
   const coverSrc  = p.coverUrl  ? resolveMediaUrl(p.coverUrl)  : null;
 
-  const chatHref = isAuthed
-    ? buildChatHref(p.id)
-    : buildLoginHref(buildCurrentPathWithSearch());
-
   const userTags = filterUserTags(p.profileTags);
   const maxVisibleTags = 2;
   const extraTagCount = userTags.length - maxVisibleTags;
 
-  /* ── Desktop quick preview state ── */
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewData, setPreviewData] = useState<QuickPreviewData | null>(null);
-  const [loadingPreview, setLoadingPreview] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
-
-  const fetchPreviewData = useCallback(async () => {
-    if (previewData) return previewData;
-    setLoadingPreview(true);
-    try {
-      const res = await apiFetch<any>(`/professionals/${p.id}`);
-      const prof = res?.professional || res;
-      const data: QuickPreviewData = {
-        bio: prof.description || prof.bio || null,
-        profileTags: prof.profileTags || p.profileTags || [],
-        serviceTags: prof.serviceTags || p.serviceTags || [],
-        baseRate: prof.baseRate || null,
-        phone: prof.phone || null,
-        availableNow: prof.isOnline || prof.availableNow || p.availableNow,
-      };
-      setPreviewData(data);
-      return data;
-    } catch {
-      return null;
-    } finally {
-      setLoadingPreview(false);
-    }
-  }, [p.id, previewData, p.profileTags, p.serviceTags, p.availableNow]);
 
   const handleCardClick = useCallback(async (e: React.MouseEvent) => {
     // Don't intercept clicks on links/buttons inside the card
@@ -162,36 +109,15 @@ function ProfileCard({
     e.preventDefault();
     e.stopPropagation();
 
-    // Mobile: open bottom sheet
-    if (window.innerWidth < 768) {
-      const data = await fetchPreviewData();
-      if (data) onQuickPreviewMobile(p, data);
+    // Establishments & shops → navigate directly to detail page
+    if (entityType === "establishment" || entityType === "shop") {
+      window.location.href = href;
       return;
     }
 
-    // Desktop: toggle overlay
-    if (showPreview) {
-      setShowPreview(false);
-    } else {
-      await fetchPreviewData();
-      setShowPreview(true);
-    }
-  }, [showPreview, fetchPreviewData, onQuickPreviewMobile, p]);
-
-  // Close desktop overlay on outside click
-  useEffect(() => {
-    if (!showPreview) return;
-    const handler = (e: MouseEvent) => {
-      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
-        setShowPreview(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showPreview]);
-
-  const previewTags = previewData ? filterUserTags(previewData.profileTags) : userTags;
-  const previewServices = previewData?.serviceTags || p.serviceTags || [];
+    // Professionals → open full ProfilePreviewModal (same as /services)
+    onOpenModal(p);
+  }, [p, entityType, href, onOpenModal]);
 
   const tierClass = p.userLevel === "DIAMOND" ? "uzeed-tier-diamond" : p.userLevel === "GOLD" ? "uzeed-tier-gold" : "";
 
@@ -283,363 +209,6 @@ function ProfileCard({
         </div>
       </div>
 
-      {/* ── Desktop Quick Preview Overlay ── */}
-      {showPreview && (
-        <div className="uzeed-quick-preview uzeed-preview-overlay absolute inset-0 z-10 flex flex-col rounded-[inherit] overflow-hidden animate-scale-in">
-          {/* Close button */}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setShowPreview(false); }}
-            className="absolute top-2.5 right-2.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white/50 hover:bg-white/[0.12] hover:text-white/80 transition-all duration-200"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-
-          {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto p-3.5 pt-3 space-y-3 scrollbar-none">
-            {/* Header with avatar */}
-            <div className="flex items-center gap-2.5">
-              {(coverSrc || avatarSrc) && (
-                <div className="relative shrink-0">
-                  <img src={avatarSrc || coverSrc!} alt="" className="h-10 w-10 rounded-xl object-cover border border-white/[0.08]" />
-                  {p.availableNow && (
-                    <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 border-2 border-[#0e0e12] shadow-glow-emerald" />
-                  )}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1 text-sm font-bold truncate">
-                  {p.displayName}
-                  {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
-                  {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
-                </div>
-                <div className="text-[10px] text-white/35 flex items-center gap-1.5 mt-0.5">
-                  {p.age && <span>{p.age} años</span>}
-                  {p.city && <><span className="text-white/15">·</span><span>{p.city}</span></>}
-                </div>
-              </div>
-            </div>
-
-            {/* Bio */}
-            {previewData?.bio && (
-              <p className="text-[11px] text-white/50 leading-relaxed line-clamp-2">{previewData.bio}</p>
-            )}
-
-            {/* Price with gradient text */}
-            {previewData?.baseRate && (
-              <div className="text-sm font-extrabold bg-gradient-to-r from-fuchsia-300 to-violet-300 bg-clip-text text-transparent">
-                Desde ${previewData.baseRate.toLocaleString()}
-              </div>
-            )}
-
-            {/* Attributes */}
-            {previewTags.length > 0 && (
-              <div>
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <Tag className="h-2.5 w-2.5 text-fuchsia-400/70" />
-                  <span className="text-[8px] font-bold text-white/30 uppercase tracking-[0.08em]">Atributos</span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {previewTags.slice(0, 5).map((t) => (
-                    <span key={t} className="uzeed-tag uzeed-tag-fuchsia">
-                      {t}
-                    </span>
-                  ))}
-                  {previewTags.length > 5 && (
-                    <span className="uzeed-tag bg-white/[0.05] border border-white/[0.06] text-white/25">+{previewTags.length - 5}</span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Services */}
-            {previewServices.length > 0 && (
-              <div>
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <Briefcase className="h-2.5 w-2.5 text-violet-400/70" />
-                  <span className="text-[8px] font-bold text-white/30 uppercase tracking-[0.08em]">Servicios</span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {previewServices.slice(0, 5).map((t) => (
-                    <span key={t} className="uzeed-tag uzeed-tag-violet">
-                      {t}
-                    </span>
-                  ))}
-                  {previewServices.length > 5 && (
-                    <span className="uzeed-tag bg-white/[0.05] border border-white/[0.06] text-white/25">+{previewServices.length - 5}</span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {loadingPreview && !previewData && (
-              <div className="flex justify-center py-3">
-                <span className="h-5 w-5 border-2 border-fuchsia-500/20 border-t-fuchsia-500 rounded-full animate-spin" />
-              </div>
-            )}
-          </div>
-
-          {/* Action buttons - premium styled */}
-          <div className="p-2.5 pt-0 space-y-1.5 shrink-0 border-t border-white/[0.05]">
-            <Link
-              href={chatHref}
-              onClick={(e) => e.stopPropagation()}
-              className="uzeed-cta-btn flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-[11px] font-bold text-white shadow-[0_4px_16px_rgba(168,85,247,0.25)]"
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-              Mensaje
-            </Link>
-            <div className="flex gap-1.5">
-              {previewData?.phone && (
-                <a
-                  href={formatWhatsAppUrl(previewData.phone)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.08] py-2 text-[10px] font-semibold text-emerald-300 transition-all duration-200 hover:bg-emerald-500/15 hover:border-emerald-500/30"
-                >
-                  <Phone className="h-3 w-3" />
-                  WhatsApp
-                </a>
-              )}
-              <Link
-                href={href}
-                onClick={(e) => e.stopPropagation()}
-                className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.03] py-2 text-[10px] font-semibold text-white/55 transition-all duration-200 hover:bg-white/[0.08] hover:text-white/75"
-              >
-                <Eye className="h-3 w-3" />
-                Ver perfil
-              </Link>
-            </div>
-            {entityType === "professional" && (
-              <Link
-                href={isAuthed ? `${chatHref}?mode=request` : `/login?next=${encodeURIComponent(`${chatHref}?mode=request`)}`}
-                onClick={(e) => e.stopPropagation()}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-fuchsia-500/15 bg-fuchsia-500/[0.06] py-2 text-[10px] font-semibold text-fuchsia-300/80 transition-all duration-200 hover:bg-fuchsia-500/[0.12] hover:text-fuchsia-300"
-              >
-                <Sparkles className="h-3 w-3" />
-                Solicitar encuentro
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ─── Mobile Bottom Sheet Quick Preview ──────────────────── */
-function MobileQuickPreview({
-  profile,
-  data,
-  entityType,
-  categorySlug,
-  onClose,
-}: {
-  profile: DirectoryResult;
-  data: QuickPreviewData;
-  entityType: string;
-  categorySlug?: string;
-  onClose: () => void;
-}) {
-  const { me } = useMe();
-  const isAuthed = Boolean(me?.user?.id);
-  const sheetRef = useRef<HTMLDivElement>(null);
-
-  let href: string;
-  if (entityType === "establishment") {
-    href = categorySlug === "motel" ? `/hospedaje/${profile.id}` : `/establecimiento/${profile.id}`;
-  } else if (entityType === "shop") {
-    href = `/sexshop/${profile.username || profile.id}`;
-  } else {
-    href = `/profesional/${profile.id}`;
-  }
-
-  const chatHref = isAuthed
-    ? buildChatHref(profile.id)
-    : buildLoginHref(buildCurrentPathWithSearch());
-
-  const coverSrc = profile.coverUrl ? resolveMediaUrl(profile.coverUrl) : null;
-  const avatarSrc = profile.avatarUrl ? resolveMediaUrl(profile.avatarUrl) : null;
-  const displayTags = filterUserTags(data.profileTags);
-
-  // Close on backdrop click
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
-  // Close on escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  // Prevent body scroll
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm uzeed-animate-fade-in"
-      onClick={handleBackdropClick}
-    >
-      <div
-        ref={sheetRef}
-        className="uzeed-bottom-sheet w-full max-w-lg uzeed-animate-slide-up max-h-[75vh] flex flex-col"
-      >
-        {/* Drag indicator */}
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="h-1 w-12 rounded-full bg-white/15" />
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 pb-3 space-y-4 scrollbar-none">
-          {/* Header: avatar + name + meta */}
-          <div className="flex items-center gap-3">
-            {(coverSrc || avatarSrc) && (
-              <div className="relative shrink-0">
-                <img src={avatarSrc || coverSrc!} alt="" className="h-14 w-14 rounded-2xl object-cover border border-white/[0.08] shadow-lg" />
-                {data.availableNow && (
-                  <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-emerald-400 border-[2.5px] border-[#0e0e12] shadow-glow-emerald" />
-                )}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 text-[17px] font-bold truncate tracking-tight">
-                {profile.displayName}
-                {hasPremiumBadge(data.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
-                {hasVerifiedBadge(data.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
-                {profile.age && <span className="text-white/40 font-normal text-sm tabular-nums">{profile.age}</span>}
-              </div>
-              <div className="flex items-center gap-2 text-xs text-white/35 mt-0.5">
-                {profile.city && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3 text-fuchsia-400/50" />
-                    {profile.city}
-                  </span>
-                )}
-                {profile.distance != null && (
-                  <span className="tabular-nums">{profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)}km`}</span>
-                )}
-                {data.availableNow && (
-                  <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-breathe" />
-                    Online
-                  </span>
-                )}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/40 shrink-0 hover:bg-white/[0.08] transition-all duration-200"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Bio */}
-          {data.bio && (
-            <p className="text-[13px] text-white/45 leading-relaxed line-clamp-2">{data.bio}</p>
-          )}
-
-          {/* Price with gradient */}
-          {data.baseRate && (
-            <div className="text-base font-extrabold bg-gradient-to-r from-fuchsia-300 via-violet-300 to-fuchsia-300 bg-clip-text text-transparent">
-              Desde ${data.baseRate.toLocaleString()}
-            </div>
-          )}
-
-          {/* Attributes */}
-          {displayTags.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <Tag className="h-3 w-3 text-fuchsia-400/60" />
-                <span className="text-[9px] font-bold text-white/25 uppercase tracking-[0.08em]">Atributos</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {displayTags.slice(0, 6).map((t) => (
-                  <span key={t} className="uzeed-tag uzeed-tag-fuchsia text-[10px] px-2.5 py-0.5">
-                    {t}
-                  </span>
-                ))}
-                {displayTags.length > 6 && (
-                  <span className="uzeed-tag bg-white/[0.05] border border-white/[0.06] text-white/25 text-[10px] px-2.5 py-0.5">+{displayTags.length - 6}</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Services */}
-          {data.serviceTags.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <Briefcase className="h-3 w-3 text-violet-400/60" />
-                <span className="text-[9px] font-bold text-white/25 uppercase tracking-[0.08em]">Servicios</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {data.serviceTags.slice(0, 6).map((t) => (
-                  <span key={t} className="uzeed-tag uzeed-tag-violet text-[10px] px-2.5 py-0.5">
-                    {t}
-                  </span>
-                ))}
-                {data.serviceTags.length > 6 && (
-                  <span className="uzeed-tag bg-white/[0.05] border border-white/[0.06] text-white/25 text-[10px] px-2.5 py-0.5">+{data.serviceTags.length - 6}</span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Action buttons - premium styled */}
-        <div className="px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 space-y-2 shrink-0 border-t border-white/[0.05]">
-          <div className="flex gap-2">
-            <Link
-              href={chatHref}
-              onClick={onClose}
-              className="uzeed-cta-btn flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-[13px] font-bold text-white shadow-[0_6px_20px_rgba(168,85,247,0.25)]"
-            >
-              <MessageCircle className="h-4 w-4" />
-              Mensaje
-            </Link>
-            {data.phone && (
-              <a
-                href={formatWhatsAppUrl(data.phone)}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={onClose}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.08] px-5 py-3 text-[13px] font-bold text-emerald-300 transition-all duration-200 hover:bg-emerald-500/15 hover:border-emerald-500/30"
-              >
-                <Phone className="h-4 w-4" />
-                WhatsApp
-              </a>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Link
-              href={href}
-              onClick={onClose}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-[13px] font-semibold text-white/60 transition-all duration-200 hover:bg-white/[0.08]"
-            >
-              <Eye className="h-3.5 w-3.5" />
-              Ver perfil
-            </Link>
-            {entityType === "professional" && (
-              <Link
-                href={isAuthed ? `${chatHref}?mode=request` : `/login?next=${encodeURIComponent(`${chatHref}?mode=request`)}`}
-                onClick={onClose}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-fuchsia-500/15 bg-fuchsia-500/[0.06] py-3 text-[13px] font-semibold text-fuchsia-300/80 transition-all duration-200 hover:bg-fuchsia-500/[0.12] hover:text-fuchsia-300"
-              >
-                <Sparkles className="h-4 w-4" />
-                Solicitar encuentro
-              </Link>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -745,12 +314,6 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
 
   const [showMap, setShowMap] = useState(true);
   const [previewProfile, setPreviewProfile] = useState<DirectoryResult | null>(null);
-
-  /* ── Mobile quick preview state ── */
-  const [mobilePreview, setMobilePreview] = useState<{ profile: DirectoryResult; data: QuickPreviewData } | null>(null);
-  const handleQuickPreviewMobile = useCallback((profile: DirectoryResult, data: QuickPreviewData) => {
-    setMobilePreview({ profile, data });
-  }, []);
 
   /* ── Map markers: only from current category's results ── */
   const mapMarkers = useMemo(
@@ -1018,7 +581,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {displayed.map((p) => (
-              <ProfileCard key={p.id} p={p} entityType={entityType} categorySlug={categorySlug} onQuickPreviewMobile={handleQuickPreviewMobile} />
+              <ProfileCard key={p.id} p={p} entityType={entityType} categorySlug={categorySlug} onOpenModal={setPreviewProfile} />
             ))}
           </div>
         )}
@@ -1046,16 +609,6 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
         />
       )}
 
-      {/* Mobile Quick Preview Bottom Sheet */}
-      {mobilePreview && (
-        <MobileQuickPreview
-          profile={mobilePreview.profile}
-          data={mobilePreview.data}
-          entityType={entityType}
-          categorySlug={categorySlug}
-          onClose={() => setMobilePreview(null)}
-        />
-      )}
     </div>
   );
 }

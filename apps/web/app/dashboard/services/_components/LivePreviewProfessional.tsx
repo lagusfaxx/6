@@ -13,7 +13,7 @@ type Props = {
 
 function LivePreviewProfessional({ state, user }: Props) {
   const coverUrl = resolveMediaUrl(state.coverPreview || user?.coverUrl) ?? null;
-  const avatarUrl = state.avatarPreview || user?.avatarUrl;
+  const avatarUrl = resolveMediaUrl(state.avatarPreview || user?.avatarUrl) ?? null;
   const displayName = state.displayName || "Tu nombre";
   const bio = state.bio || "Agrega una descripcion para tu perfil...";
   const serviceDesc = state.serviceDescription || "";

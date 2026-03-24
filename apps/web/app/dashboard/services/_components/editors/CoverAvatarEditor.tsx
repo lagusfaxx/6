@@ -18,7 +18,7 @@ type Props = {
 export default function CoverAvatarEditor({ user, onUpload }: Props) {
   const { state, setField } = useDashboardForm();
   const coverUrl = resolveMediaUrl(state.coverPreview || user?.coverUrl) ?? null;
-  const avatarUrl = state.avatarPreview || user?.avatarUrl;
+  const avatarUrl = resolveMediaUrl(state.avatarPreview || user?.avatarUrl) ?? null;
 
   const [coverDraft, setCoverDraft] = useState<{
     file: File;
