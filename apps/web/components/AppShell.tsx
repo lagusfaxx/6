@@ -31,6 +31,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Dashboard routes: hide main header/nav so the Creator Studio has its own layout
   const isDashboardRoute = pathname.startsWith("/dashboard");
 
+  // U-Mate: has its own layout, no UZEED chrome
+  const isUmateRoute = pathname.startsWith("/umate");
+
   // iOS Safari: evita "auto text sizing" que agranda botones/textos
   const iosTextSizeFix: React.CSSProperties = {
     WebkitTextSizeAdjust: "100%",
@@ -45,6 +48,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex min-h-[calc(100svh-5rem)] max-w-md items-center">
           <div className="w-full">{children}</div>
         </div>
+      </div>
+    );
+  }
+
+  // U-Mate: own layout, no UZEED chrome
+  if (isUmateRoute) {
+    return (
+      <div style={iosTextSizeFix} className="min-h-[100svh] w-full text-white">
+        <PushNotificationsManager />
+        <PresenceHeartbeat />
+        {children}
       </div>
     );
   }

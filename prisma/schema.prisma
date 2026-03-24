@@ -94,6 +94,7 @@ enum PaymentIntentPurpose {
   SHOP_PLAN
   MEMBERSHIP_PLAN
   TOKEN_PURCHASE
+  UMATE_PLAN
 }
 
 enum PaymentIntentStatus {
@@ -462,6 +463,12 @@ model User {
   clientVideocalls       VideocallBooking[] @relation("ClientVideocalls")
   professionalVideocalls VideocallBooking[] @relation("ProfessionalVideocalls")
   liveStreams            LiveStream[]
+
+  // U-Mate relations
+  umateCreator           UmateCreator?
+  umateSubscriptions     UmateSubscription[]
+  umateCreatorSubs       UmateCreatorSub[]   @relation("UmateSubscriber")
+  umateLikes             UmateLike[]
 }
 
 model PushSubscription {
@@ -991,4 +998,256 @@ model ReminderLog {
 
   @@unique([userId, type])
   @@index([type, createdAt])
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ██  U-MATE  —  Creator subscription vertical
+// ══════════════════════════════════════════════════════════════════════
+
+enum UmateCreatorStatus {
+  DRAFT
+  PENDING_TERMS
+  PENDING_BANK
+  PENDING_REVIEW
+  ACTIVE
+  SUSPENDED
+}
+
+enum UmatePlanTier {
+  SILVER
+  GOLD
+  DIAMOND
+}
+
+enum UmateSubStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum UmatePostVisibility {
+  FREE
+  PREMIUM
+}
+
+enum UmateLedgerType {
+  PLAN_PURCHASE
+  SLOT_ACTIVATION
+  CREATOR_PAYOUT
+  PLATFORM_COMMISSION
+  IVA
+  FLOW_FEE
+  ADJUSTMENT
+  WITHDRAWAL
+  REFUND
+}
+
+// ── Creator profile (extends User, does not replace) ──
+
+model UmateCreator {
+  id              String             @id @default(uuid()) @db.Uuid
+  userId          String             @unique @db.Uuid
+  displayName     String
+  bio             String?
+  avatarUrl       String?
+  coverUrl        String?
+
+  // Bank details for payouts
+  bankName        String?
+  accountType     String?
+  accountNumber   String?
+  holderName      String?
+  holderRut       String?
+
+  // Compliance
+  status          UmateCreatorStatus @default(DRAFT)
+  termsAcceptedAt   DateTime?
+  rulesAcceptedAt   DateTime?
+  contractAcceptedAt DateTime?
+
+  // Denormalized stats
+  subscriberCount Int   @default(0)
+  totalPosts      Int   @default(0)
+  totalLikes      Int   @default(0)
+
+  // CLP balances (integer = pesos, not cents)
+  pendingBalance  Int   @default(0)
+  availableBalance Int  @default(0)
+  totalEarned     Int   @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts           UmatePost[]
+  creatorSubs     UmateCreatorSub[]
+  ledgerEntries   UmateLedgerEntry[] @relation("CreatorLedger")
+
+  @@index([status])
+}
+
+// ── Plan definitions (admin-managed) ──
+
+model UmatePlan {
+  id        String        @id @default(uuid()) @db.Uuid
+  tier      UmatePlanTier @unique
+  name      String
+  priceCLP  Int           // e.g. 14990
+  maxSlots  Int           // 1, 3, or 5
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  subscriptions UmateSubscription[]
+}
+
+// ── User subscription to a U-Mate plan ──
+
+model UmateSubscription {
+  id         String         @id @default(uuid()) @db.Uuid
+  userId     String         @db.Uuid
+  planId     String         @db.Uuid
+  status     UmateSubStatus @default(ACTIVE)
+  slotsTotal Int
+  slotsUsed  Int            @default(0)
+  cycleStart DateTime
+  cycleEnd   DateTime
+
+  paymentIntentId String? @db.Uuid
+
+  createdAt  DateTime @default(now())
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan       UmatePlan         @relation(fields: [planId], references: [id])
+  creatorSubs UmateCreatorSub[]
+
+  @@index([userId, status])
+  @@index([cycleEnd])
+}
+
+// ── Slot activation: user subscribes to a specific creator ──
+
+model UmateCreatorSub {
+  id              String   @id @default(uuid()) @db.Uuid
+  subscriptionId  String   @db.Uuid
+  subscriberId    String   @db.Uuid
+  creatorId       String   @db.Uuid
+  activatedAt     DateTime @default(now())
+  expiresAt       DateTime
+
+  subscription UmateSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscriber   User              @relation("UmateSubscriber", fields: [subscriberId], references: [id], onDelete: Cascade)
+  creator      UmateCreator      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, creatorId])
+  @@index([subscriberId, expiresAt])
+  @@index([creatorId])
+}
+
+// ── Content posts ──
+
+model UmatePost {
+  id          String              @id @default(uuid()) @db.Uuid
+  creatorId   String              @db.Uuid
+  caption     String?
+  visibility  UmatePostVisibility @default(FREE)
+  likeCount   Int                 @default(0)
+  viewCount   Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  creator UmateCreator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  media   UmatePostMedia[]
+  likes   UmateLike[]
+
+  @@index([creatorId, createdAt])
+  @@index([visibility, createdAt])
+}
+
+model UmatePostMedia {
+  id     String    @id @default(uuid()) @db.Uuid
+  postId String    @db.Uuid
+  type   MediaType
+  url    String
+  pos    Int       @default(0)
+
+  post UmatePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+// ── Likes ──
+
+model UmateLike {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  post UmatePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+}
+
+// ── Financial ledger (CLP-based, all U-Mate money flows) ──
+
+model UmateLedgerEntry {
+  id            String          @id @default(uuid()) @db.Uuid
+  creatorId     String?         @db.Uuid
+  type          UmateLedgerType
+
+  // All amounts in CLP (pesos)
+  grossAmount   Int @default(0)
+  ivaAmount     Int @default(0)
+  flowFee       Int @default(0)
+  platformFee   Int @default(0)
+  creatorPayout Int @default(0)
+  netAmount     Int @default(0)
+
+  description   String?
+  referenceId   String? @db.Uuid
+  referenceType String?         // "subscription", "withdrawal", "adjustment"
+
+  createdAt     DateTime @default(now())
+
+  creator UmateCreator? @relation("CreatorLedger", fields: [creatorId], references: [id], onDelete: SetNull)
+
+  @@index([creatorId, createdAt])
+  @@index([type, createdAt])
+}
+
+// ── Payout batches (future: batch creator payouts) ──
+
+model UmatePayoutBatch {
+  id          String   @id @default(uuid()) @db.Uuid
+  status      String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  totalAmount Int      @default(0) // CLP total
+  creatorCount Int     @default(0)
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ── Creator withdrawal requests (CLP) ──
+
+model UmateWithdrawal {
+  id            String   @id @default(uuid()) @db.Uuid
+  creatorId     String   @db.Uuid
+  amount        Int      // CLP
+  bankName      String
+  accountType   String
+  accountNumber String
+  holderName    String
+  holderRut     String
+  status        WithdrawalStatus @default(PENDING)
+  reviewedBy    String?  @db.Uuid
+  reviewedAt    DateTime?
+  rejectReason  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([creatorId])
+  @@index([status])
 }
