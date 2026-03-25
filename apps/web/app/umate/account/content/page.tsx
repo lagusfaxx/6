@@ -1,7 +1,21 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import { Plus, Trash2, Image as ImageIcon, Video, Lock, Globe, Loader2, X, Upload, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import {
+  Check,
+  Clock3,
+  Globe,
+  Image as ImageIcon,
+  Loader2,
+  Lock,
+  Plus,
+  Search,
+  Sparkles,
+  Trash2,
+  Upload,
+  Video,
+  X,
+} from "lucide-react";
 import { apiFetch, getApiBase } from "../../../../lib/api";
 
 type Post = {
@@ -20,6 +34,8 @@ type PreviewFile = {
   type: "image" | "video";
 };
 
+type FilterKey = "ALL" | "FREE" | "PREMIUM" | "DRAFT";
+
 export default function ContentPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +43,9 @@ export default function ContentPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [caption, setCaption] = useState("");
   const [visibility, setVisibility] = useState<"FREE" | "PREMIUM">("FREE");
+  const [filter, setFilter] = useState<FilterKey>("ALL");
+  const [query, setQuery] = useState("");
+  const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewFiles, setPreviewFiles] = useState<PreviewFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -41,50 +60,42 @@ export default function ContentPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       previewFiles.forEach((pf) => URL.revokeObjectURL(pf.preview));
-    };
-  }, [previewFiles]);
+    },
+    [previewFiles],
+  );
 
-  const addFiles = useCallback((files: FileList | File[]) => {
-    const newPreviews: PreviewFile[] = Array.from(files)
-      .filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"))
-      .slice(0, 10 - previewFiles.length)
-      .map((file) => ({
-        file,
-        preview: URL.createObjectURL(file),
-        type: file.type.startsWith("video/") ? "video" as const : "image" as const,
-      }));
-    setPreviewFiles((prev) => [...prev, ...newPreviews]);
-  }, [previewFiles.length]);
+  const addFiles = useCallback(
+    (files: FileList | File[]) => {
+      const newPreviews: PreviewFile[] = Array.from(files)
+        .filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"))
+        .slice(0, 10 - previewFiles.length)
+        .map((file) => ({
+          file,
+          preview: URL.createObjectURL(file),
+          type: file.type.startsWith("video/") ? "video" : "image",
+        }));
+      setPreviewFiles((prev) => [...prev, ...newPreviews]);
+    },
+    [previewFiles.length],
+  );
+
+  const filteredPosts = useMemo(() => {
+    return posts.filter((post) => {
+      if (filter !== "ALL" && filter !== "DRAFT" && post.visibility !== filter) return false;
+      if (filter === "DRAFT") return false;
+      if (!query.trim()) return true;
+      return post.caption?.toLowerCase().includes(query.toLowerCase()) || false;
+    });
+  }, [posts, filter, query]);
 
   const removeFile = (index: number) => {
     setPreviewFiles((prev) => {
       URL.revokeObjectURL(prev[index].preview);
       return prev.filter((_, i) => i !== index);
     });
-  };
-
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.currentTarget === dropRef.current) setIsDragging(false);
-  };
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
   };
 
   const handlePublish = async () => {
@@ -101,7 +112,6 @@ export default function ContentPage() {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${getApiBase()}/umate/posts`);
       xhr.withCredentials = true;
-
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
       };
@@ -117,158 +127,223 @@ export default function ContentPage() {
 
       if (result?.post) {
         setPosts((prev) => [result.post, ...prev]);
+        setLastCreatedId(result.post.id);
         setCaption("");
         previewFiles.forEach((pf) => URL.revokeObjectURL(pf.preview));
         setPreviewFiles([]);
         setVisibility("FREE");
-        setSuccess("¡Publicación creada exitosamente!");
-        setError("");
-        setTimeout(() => setSuccess(""), 4000);
+        setSuccess("Publicación creada exitosamente");
+        setTimeout(() => setSuccess(""), 3500);
       }
     } catch (err: any) {
       setError(err?.message || "Error al publicar. Intenta de nuevo.");
       setTimeout(() => setError(""), 5000);
     }
+
     setUploading(false);
     setUploadProgress(0);
   };
 
   const handleDelete = async (postId: string) => {
-    if (!confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.")) return;
+    if (!confirm("¿Eliminar esta publicación?")) return;
     try {
       await apiFetch(`/umate/posts/${postId}`, { method: "DELETE" });
       setPosts((prev) => prev.filter((p) => p.id !== postId));
-      setSuccess("Publicación eliminada");
-      setTimeout(() => setSuccess(""), 3000);
     } catch {
-      setError("Error al eliminar la publicación");
-      setTimeout(() => setError(""), 5000);
+      setError("No se pudo eliminar la publicación");
+      setTimeout(() => setError(""), 4000);
     }
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900">Mi contenido</h1>
-          <p className="text-sm text-slate-500">Publica, organiza y revisa el rendimiento de tus posts.</p>
+    <div className="mx-auto max-w-7xl space-y-6 py-6">
+      <header className="rounded-3xl border border-fuchsia-100 bg-gradient-to-r from-white via-fuchsia-50/70 to-rose-50 p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white px-3 py-1 text-[11px] font-semibold text-fuchsia-700">
+              <Sparkles className="h-3.5 w-3.5" /> Studio de contenido
+            </p>
+            <h1 className="mt-2 text-3xl font-black text-slate-900">Publicación y biblioteca</h1>
+            <p className="mt-1 text-sm text-slate-600">Crea, ordena y revisa tu catálogo de piezas gratis y premium.</p>
+          </div>
+          <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-right">
+            <p className="text-xs text-slate-500">Piezas publicadas</p>
+            <p className="text-2xl font-black text-slate-900">{posts.length}</p>
+          </div>
         </div>
-        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">{posts.length} publicaciones</span>
-      </div>
+      </header>
 
-      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700 flex items-center gap-2"><X className="h-3.5 w-3.5 shrink-0" /> {error}</div>}
-      {success && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">{success}</div>}
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+          <X className="h-4 w-4" /> {error}
+        </div>
+      )}
+      {success && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+          <Check className="h-4 w-4" /> {success}
+        </div>
+      )}
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_1.15fr]">
-        <section className="rounded-3xl border border-fuchsia-100 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-white via-rose-50/70 to-orange-50 px-5 py-4">
+      <section className="grid gap-6 xl:grid-cols-[1.1fr_1.6fr]">
+        <article className="rounded-3xl border border-slate-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <div>
-              <h2 className="text-sm font-black text-slate-900">Nueva publicación</h2>
-              <p className="text-xs text-slate-500">Sube piezas aspiracionales para tu comunidad.</p>
+              <h2 className="text-base font-black text-slate-900">Nueva publicación</h2>
+              <p className="text-xs text-slate-500">Tu espacio para preparar una nueva pieza.</p>
             </div>
             <button
-              onClick={() => setVisibility(visibility === "FREE" ? "PREMIUM" : "FREE")}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition border ${visibility === "PREMIUM" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-emerald-100 text-emerald-700 border-emerald-200"}`}
+              onClick={() => setVisibility((v) => (v === "FREE" ? "PREMIUM" : "FREE"))}
+              className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${visibility === "PREMIUM" ? "border-amber-200 bg-amber-100 text-amber-700" : "border-emerald-200 bg-emerald-100 text-emerald-700"}`}
             >
-              {visibility === "PREMIUM" ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />} {visibility === "PREMIUM" ? "Premium" : "Gratis"}
+              {visibility === "PREMIUM" ? <Lock className="mr-1 inline h-3 w-3" /> : <Globe className="mr-1 inline h-3 w-3" />}
+              {visibility === "PREMIUM" ? "Premium" : "Gratis"}
             </button>
           </div>
 
-          <div className="p-5">
-            <textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Escribe un caption que invite a comentar o suscribirse" rows={4} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-fuchsia-300 focus:outline-none" />
+          <div className="space-y-4 p-5">
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Escribe un caption con CTA"
+              rows={4}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm focus:border-fuchsia-300 focus:outline-none"
+            />
 
-            {previewFiles.length > 0 && (
-              <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {previewFiles.map((pf, i) => (
-                  <div key={i} className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-white">
-                    {pf.type === "video" ? <video src={pf.preview} className="h-full w-full object-cover" muted /> : <img src={pf.preview} alt="" className="h-full w-full object-cover" />}
-                    <button onClick={() => removeFile(i)} className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white opacity-0 transition group-hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
-                  </div>
-                ))}
-                {previewFiles.length < 10 && (
-                  <button onClick={() => fileRef.current?.click()} className="flex aspect-square items-center justify-center rounded-xl border-2 border-dashed border-slate-300 text-slate-400 transition hover:border-fuchsia-300 hover:text-fuchsia-500"><Plus className="h-6 w-6" /></button>
-                )}
-              </div>
-            )}
-
-            {previewFiles.length === 0 && (
+            {previewFiles.length === 0 ? (
               <div
                 ref={dropRef}
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  if (e.currentTarget === dropRef.current) setIsDragging(false);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+                }}
                 onClick={() => fileRef.current?.click()}
-                className={`mt-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed py-10 transition ${isDragging ? "border-fuchsia-400 bg-fuchsia-50" : "border-slate-300 bg-slate-50 hover:border-fuchsia-300 hover:bg-white"}`}
+                className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed py-10 transition ${isDragging ? "border-fuchsia-400 bg-fuchsia-50" : "border-slate-300 bg-slate-50 hover:border-fuchsia-300 hover:bg-white"}`}
               >
-                <Upload className={`mb-3 h-8 w-8 ${isDragging ? "text-fuchsia-500" : "text-slate-400"}`} />
-                <p className="text-sm font-medium text-slate-600">Arrastra fotos o videos</p>
-                <p className="mt-1 text-[11px] text-slate-400">o haz click para seleccionar</p>
+                <Upload className="mb-2 h-7 w-7 text-slate-400" />
+                <p className="text-sm font-medium text-slate-600">Arrastra o selecciona archivos</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {previewFiles.map((pf, i) => (
+                  <div key={i} className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200">
+                    {pf.type === "video" ? <video src={pf.preview} className="h-full w-full object-cover" /> : <img src={pf.preview} alt="preview" className="h-full w-full object-cover" />}
+                    <button onClick={() => removeFile(i)} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
 
-            <input ref={fileRef} type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) addFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
 
             {uploading && (
-              <div className="mt-4">
-                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-rose-500" style={{ width: `${uploadProgress}%` }} /></div>
-                <p className="mt-1 text-center text-[10px] text-slate-500">Subiendo... {uploadProgress}%</p>
+              <div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-rose-500" style={{ width: `${uploadProgress}%` }} />
+                </div>
+                <p className="mt-1 text-[10px] text-slate-500">Subiendo {uploadProgress}%</p>
               </div>
             )}
 
-            <div className="mt-5 flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex gap-2">
-                <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600"><ImageIcon className="h-4 w-4" />Foto</button>
-                <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600"><Video className="h-4 w-4" />Video</button>
+                <button onClick={() => fileRef.current?.click()} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600">
+                  <ImageIcon className="mr-1 inline h-4 w-4" /> Foto
+                </button>
+                <button onClick={() => fileRef.current?.click()} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600">
+                  <Video className="mr-1 inline h-4 w-4" /> Video
+                </button>
               </div>
-              <button onClick={handlePublish} disabled={uploading || !previewFiles.length} className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-rose-500 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/25 disabled:opacity-40">
+              <button onClick={handlePublish} disabled={uploading || !previewFiles.length} className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-rose-500 px-5 py-2 text-sm font-semibold text-white disabled:opacity-40">
                 {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Publicar"}
               </button>
             </div>
           </div>
-        </section>
+        </article>
 
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-slate-900">Publicaciones creadas</h2>
-            <p className="text-xs text-slate-500">Historial visual</p>
+        <article className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { key: "ALL", label: "Todas" },
+              { key: "FREE", label: "Gratis" },
+              { key: "PREMIUM", label: "Premium" },
+              { key: "DRAFT", label: "Borradores" },
+            ].map((item) => (
+              <button
+                key={item.key}
+                onClick={() => setFilter(item.key as FilterKey)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${filter === item.key ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-600"}`}
+              >
+                {item.label}
+              </button>
+            ))}
+            <div className="ml-auto flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500">
+              <Search className="h-3.5 w-3.5" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por caption" className="w-36 bg-transparent text-slate-700 outline-none" />
+            </div>
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-rose-400" /></div>
-          ) : posts.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-16 text-center">
-              <Sparkles className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-              <p className="text-sm font-medium text-slate-600">Aún no has publicado nada</p>
-              <p className="mt-1 text-xs text-slate-400">Empieza con tu primer post para activar tu feed.</p>
+            <div className="flex justify-center rounded-2xl border border-slate-100 bg-white py-14">
+              <Loader2 className="h-6 w-6 animate-spin text-fuchsia-500" />
+            </div>
+          ) : filteredPosts.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-14 text-center">
+              <Clock3 className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+              <p className="text-sm font-medium text-slate-600">No hay resultados para este filtro.</p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
-              {posts.map((post) => (
-                <div key={post.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
-                  {post.media[0] && (
-                    <div className="relative aspect-[4/3] bg-slate-100">
-                      {post.media[0].type === "VIDEO" ? <video src={post.media[0].url} className="h-full w-full object-cover" controls /> : <img src={post.media[0].url} alt="" className="h-full w-full object-cover" />}
-                      <span className={`absolute right-3 top-3 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${post.visibility === "PREMIUM" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{post.visibility === "PREMIUM" ? "PREMIUM" : "GRATIS"}</span>
+              {filteredPosts.map((post) => (
+                <div key={post.id} className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${lastCreatedId === post.id ? "border-fuchsia-300" : "border-slate-200"}`}>
+                  <div className="relative aspect-[4/3] bg-slate-100">
+                    {post.media[0]?.type === "VIDEO" ? <video src={post.media[0].url} className="h-full w-full object-cover" controls /> : post.media[0] ? <img src={post.media[0].url} alt="post" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xs text-slate-400">Sin media</div>}
+                    <span className={`absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-bold ${post.visibility === "PREMIUM" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
+                      {post.visibility === "PREMIUM" ? "Premium" : "Gratis"}
+                    </span>
+                  </div>
+                  <div className="space-y-2 p-4">
+                    <p className="line-clamp-2 text-sm text-slate-700">{post.caption || "Publicación sin caption"}</p>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>{post.likeCount} likes</span>
+                      <span>{post.viewCount} vistas</span>
+                      <span>{new Date(post.createdAt).toLocaleDateString("es-CL")}</span>
                     </div>
-                  )}
-                  <div className="flex items-start justify-between gap-2 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      {post.caption && <p className="line-clamp-2 text-sm text-slate-700">{post.caption}</p>}
-                      <div className="mt-1 flex items-center gap-3 text-[11px] text-slate-500">
-                        <span>{post.likeCount} likes</span>
-                        <span>{post.viewCount} vistas</span>
-                        <span>{new Date(post.createdAt).toLocaleDateString("es-CL")}</span>
-                      </div>
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
+                      <button className="font-semibold text-fuchsia-700">Editar</button>
+                      <button className="font-semibold text-slate-600">Revisar</button>
+                      <button onClick={() => handleDelete(post.id)} className="inline-flex items-center gap-1 font-semibold text-red-600">
+                        <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                      </button>
                     </div>
-                    <button onClick={() => handleDelete(post.id)} className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </section>
-      </div>
+        </article>
+      </section>
     </div>
   );
 }
