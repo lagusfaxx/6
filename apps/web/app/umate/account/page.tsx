@@ -21,6 +21,7 @@ type CreatorInfo = {
   id: string;
   status: string;
   displayName: string;
+  subscriberCount?: number;
 } | null;
 
 export default function UmateAccountPage() {
