@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Building2, FileCheck, ChevronRight, Loader2, CheckCircle, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { Camera, Building2, FileCheck, Loader2, CheckCircle, ArrowRight, Shield, Upload, X } from "lucide-react";
 import { apiFetch, getApiBase } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 
@@ -30,7 +31,10 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const avatarRef = useRef<HTMLInputElement>(null);
+  const coverRef = useRef<HTMLInputElement>(null);
+  const [isSubscriber, setIsSubscriber] = useState(false);
 
   // Form state
   const [displayName, setDisplayName] = useState("");
@@ -40,9 +44,16 @@ export default function OnboardingPage() {
   const [accountNumber, setAccountNumber] = useState("");
   const [holderName, setHolderName] = useState("");
   const [holderRut, setHolderRut] = useState("");
+  const [termsChecked, setTermsChecked] = useState(false);
+  const [rulesChecked, setRulesChecked] = useState(false);
+  const [contractChecked, setContractChecked] = useState(false);
 
   useEffect(() => {
-    apiFetch<{ creator: Creator | null }>("/umate/creator/me").then((d) => {
+    Promise.all([
+      apiFetch<{ creator: Creator | null }>("/umate/creator/me"),
+      apiFetch<{ active: boolean }>("/umate/subscription/status").catch(() => null),
+    ]).then(([d, sub]) => {
+      setIsSubscriber(Boolean(sub?.active));
       if (d?.creator) {
         setCreator(d.creator);
         setDisplayName(d.creator.displayName);
@@ -52,7 +63,6 @@ export default function OnboardingPage() {
         setAccountNumber(d.creator.accountNumber || "");
         setHolderName(d.creator.holderName || "");
         setHolderRut(d.creator.holderRut || "");
-        // Determine step
         if (!d.creator.avatarUrl || !d.creator.displayName || !d.creator.bio) setStep(1);
         else if (!d.creator.bankName) setStep(2);
         else if (!d.creator.termsAcceptedAt) setStep(3);
@@ -64,23 +74,44 @@ export default function OnboardingPage() {
 
   const handleStart = async () => {
     setSaving(true);
-    const d = await apiFetch<{ creator: Creator }>("/umate/creator/onboard", { method: "POST" });
-    if (d?.creator) {
-      setCreator(d.creator);
-      setDisplayName(d.creator.displayName);
-      setStep(1);
+    setError("");
+    try {
+      const d = await apiFetch<{ creator: Creator }>("/umate/creator/onboard", { method: "POST" });
+      if (d?.creator) {
+        setCreator(d.creator);
+        setDisplayName(d.creator.displayName);
+        setStep(1);
+      }
+    } catch (err: any) {
+      if (err?.body?.error === "SUBSCRIBER_CANNOT_CREATE") {
+        setError("Los suscriptores no pueden crear cuenta de creadora. Usa una cuenta diferente.");
+      } else {
+        setError("Error al crear la cuenta. Intenta de nuevo.");
+      }
     }
     setSaving(false);
+  };
+
+  const uploadFile = async (endpoint: string, file: File): Promise<string | null> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${getApiBase()}${endpoint}`, { method: "POST", credentials: "include", body: form });
+    const data = await res.json();
+    return data?.url || null;
   };
 
   const uploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const form = new FormData();
-    form.append("file", file);
-    const res = await fetch(`${getApiBase()}/umate/creator/avatar`, { method: "POST", credentials: "include", body: form });
-    const data = await res.json();
-    if (data?.url && creator) setCreator({ ...creator, avatarUrl: data.url });
+    const url = await uploadFile("/umate/creator/avatar", file);
+    if (url && creator) setCreator({ ...creator, avatarUrl: url });
+  };
+
+  const uploadCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = await uploadFile("/umate/creator/cover", file);
+    if (url && creator) setCreator({ ...creator, coverUrl: url });
   };
 
   const saveProfile = async () => {
@@ -111,32 +142,64 @@ export default function OnboardingPage() {
     setSaving(false);
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-rose-400" /></div>;
+  if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-rose-400/60" /></div>;
+
+  // Block subscribers from onboarding
+  if (isSubscriber && !creator) {
+    return (
+      <div className="mx-auto max-w-md py-16 text-center space-y-5">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10 border border-amber-500/20">
+          <Shield className="h-8 w-8 text-amber-400" />
+        </div>
+        <h1 className="text-xl font-bold">No disponible</h1>
+        <p className="text-sm text-white/45">
+          Los suscriptores activos no pueden crear una cuenta de creadora. Para ser creadora, necesitas usar una cuenta que no tenga un plan de suscripción activo.
+        </p>
+        <Link
+          href="/umate/account"
+          className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-6 py-2.5 text-sm text-white/60 transition hover:text-white"
+        >
+          Volver a mi cuenta
+        </Link>
+      </div>
+    );
+  }
 
   // Step 0: Welcome
   if (!creator) {
     return (
-      <div className="mx-auto max-w-md py-12 text-center space-y-6">
+      <div className="mx-auto max-w-md py-16 text-center space-y-6">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-rose-500/20 to-amber-500/10 border border-rose-500/20">
-          <span className="text-3xl font-bold bg-gradient-to-r from-rose-400 to-amber-400 bg-clip-text text-transparent">U</span>
+          <span className="text-3xl font-extrabold bg-gradient-to-r from-rose-400 to-amber-400 bg-clip-text text-transparent">U</span>
         </div>
-        <h1 className="text-2xl font-bold">Bienvenida a U-Mate</h1>
-        <p className="text-sm text-white/50">
-          Aquí podrás publicar contenido exclusivo, conseguir suscriptores y monetizar tu perfil.
-          Tu cuenta UZEED se mantiene intacta — U-Mate es un módulo adicional.
+        <h1 className="text-2xl font-extrabold">Bienvenida a U-Mate</h1>
+        <p className="text-sm text-white/45 leading-relaxed">
+          Publica contenido exclusivo, consigue suscriptores y monetiza tu perfil.
         </p>
-        <ul className="mx-auto max-w-xs space-y-2 text-left text-xs text-white/50">
-          <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-400" /> Publica fotos y videos gratis o premium</li>
-          <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-400" /> Los suscriptores pagan un plan mensual</li>
-          <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-400" /> Recibes $5.000 CLP por cada suscripción</li>
-          <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-400" /> Retira tus ganancias cuando quieras</li>
-        </ul>
+        <div className="mx-auto max-w-xs space-y-3 text-left">
+          {[
+            "Publica fotos y videos gratis o premium",
+            "Los suscriptores pagan un plan mensual",
+            "Recibes $5.000 CLP por cada suscripción",
+            "Retira tus ganancias cuando quieras",
+          ].map((text) => (
+            <div key={text} className="flex items-start gap-3 text-xs text-white/45">
+              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400/70" />
+              <span>{text}</span>
+            </div>
+          ))}
+        </div>
+        {error && (
+          <div className="mx-auto max-w-xs rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-300">
+            {error}
+          </div>
+        )}
         <button
           onClick={handleStart}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 px-8 py-3 text-sm font-semibold text-white transition hover:shadow-[0_0_24px_rgba(244,63,94,0.3)] disabled:opacity-50"
+          className="inline-flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 px-8 py-3.5 text-sm font-bold text-white transition hover:shadow-[0_0_30px_rgba(244,63,94,0.3)] disabled:opacity-50"
         >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Crear cuenta en U-Mate <ArrowRight className="h-4 w-4" /></>}
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Crear cuenta <ArrowRight className="h-4 w-4" /></>}
         </button>
       </div>
     );
@@ -146,22 +209,22 @@ export default function OnboardingPage() {
   if (step >= 4) {
     const isPending = creator.status === "PENDING_REVIEW";
     return (
-      <div className="mx-auto max-w-md py-12 text-center space-y-6">
+      <div className="mx-auto max-w-md py-16 text-center space-y-6">
         <div className="flex justify-center">
-          <div className={`flex h-16 w-16 items-center justify-center rounded-full border ${
+          <div className={`flex h-20 w-20 items-center justify-center rounded-full border ${
             isPending ? "bg-amber-500/10 border-amber-500/20" : "bg-emerald-500/10 border-emerald-500/20"
           }`}>
-            {isPending ? <Loader2 className="h-8 w-8 animate-spin text-amber-400" /> : <CheckCircle className="h-8 w-8 text-emerald-400" />}
+            {isPending ? <Loader2 className="h-10 w-10 animate-spin text-amber-400" /> : <CheckCircle className="h-10 w-10 text-emerald-400" />}
           </div>
         </div>
-        <h1 className="text-xl font-bold">{isPending ? "En revisión" : "¡Cuenta activa!"}</h1>
-        <p className="text-sm text-white/50">
+        <h1 className="text-2xl font-extrabold">{isPending ? "En revisión" : "¡Cuenta activa!"}</h1>
+        <p className="text-sm text-white/45 leading-relaxed">
           {isPending
             ? "Tu cuenta está siendo revisada por el equipo. Te notificaremos cuando esté aprobada."
             : "Tu cuenta de creadora está activa. ¡Empieza a publicar contenido!"}
         </p>
         {!isPending && (
-          <button onClick={() => router.push("/umate/account/content")} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 px-6 py-3 text-sm font-semibold text-white">
+          <button onClick={() => router.push("/umate/account/content")} className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 px-8 py-3.5 text-sm font-bold text-white">
             Publicar contenido <ArrowRight className="h-4 w-4" />
           </button>
         )}
@@ -175,16 +238,20 @@ export default function OnboardingPage() {
     { label: "Términos", icon: FileCheck },
   ];
 
-  const inputClass = "w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder:text-white/20 focus:border-rose-500/30 focus:outline-none";
+  const inputClass = "w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/15 focus:border-rose-500/30 focus:outline-none transition";
 
   return (
     <div className="mx-auto max-w-md py-8 space-y-6">
-      {/* Progress */}
+      {/* Progress — modern step indicator */}
       <div className="flex items-center gap-2">
         {steps.map((s, i) => (
           <div key={s.label} className="flex items-center gap-2 flex-1">
-            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${
-              i + 1 <= step ? "bg-rose-500/20 text-rose-300 border border-rose-500/30" : "bg-white/5 text-white/30 border border-white/10"
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${
+              i + 1 <= step
+                ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                : i + 1 === step + 1
+                ? "bg-white/[0.06] text-white border border-white/[0.15]"
+                : "bg-white/[0.03] text-white/20 border border-white/[0.06]"
             }`}>
               {i + 1 <= step ? <CheckCircle className="h-4 w-4" /> : i + 1}
             </div>
@@ -195,30 +262,56 @@ export default function OnboardingPage() {
 
       {/* Step 1: Profile */}
       {step === 1 && (
-        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 space-y-4">
-          <h2 className="text-sm font-semibold">Perfil de creadora</h2>
-          <div className="flex justify-center">
-            <button onClick={() => avatarRef.current?.click()} className="relative h-24 w-24 overflow-hidden rounded-full bg-white/10 border-2 border-dashed border-white/20 hover:border-rose-500/40 transition">
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6 space-y-5">
+          <div>
+            <h2 className="text-base font-bold">Perfil de creadora</h2>
+            <p className="mt-1 text-xs text-white/30">Así te verán tus suscriptores</p>
+          </div>
+
+          {/* Cover upload */}
+          <div>
+            <button
+              onClick={() => coverRef.current?.click()}
+              className="relative w-full h-28 overflow-hidden rounded-xl bg-white/[0.03] border-2 border-dashed border-white/[0.1] transition hover:border-rose-500/30"
+            >
+              {creator.coverUrl ? (
+                <img src={creator.coverUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-white/20">
+                  <Upload className="h-5 w-5 mb-1" />
+                  <span className="text-[10px]">Foto de portada</span>
+                </div>
+              )}
+            </button>
+            <input ref={coverRef} type="file" accept="image/*" className="hidden" onChange={uploadCover} />
+          </div>
+
+          {/* Avatar upload */}
+          <div className="flex justify-center -mt-10 relative z-10">
+            <button onClick={() => avatarRef.current?.click()} className="relative h-24 w-24 overflow-hidden rounded-full bg-white/10 border-[3px] border-[#08080f] shadow-lg hover:ring-2 hover:ring-rose-500/30 transition">
               {creator.avatarUrl ? (
                 <img src={creator.avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (
-                <Camera className="mx-auto mt-7 h-6 w-6 text-white/30" />
+                <div className="flex flex-col items-center justify-center h-full text-white/25">
+                  <Camera className="h-6 w-6" />
+                </div>
               )}
             </button>
             <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
           </div>
+
           <div>
-            <label className="block text-[11px] font-medium text-white/50 mb-1">Nombre visible *</label>
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Tu nombre artístico" className={inputClass} />
+            <label className="block text-[11px] font-semibold text-white/40 mb-1.5">Nombre artístico *</label>
+            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Tu nombre visible" className={inputClass} />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-white/50 mb-1">Bio *</label>
+            <label className="block text-[11px] font-semibold text-white/40 mb-1.5">Bio *</label>
             <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Cuéntale a tus suscriptores sobre ti..." rows={3} className={`${inputClass} resize-none`} />
           </div>
           <button
             onClick={saveProfile}
             disabled={saving || !displayName.trim() || !bio.trim() || !creator.avatarUrl}
-            className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 py-3 text-sm font-bold text-white disabled:opacity-40"
           >
             {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Siguiente"}
           </button>
@@ -227,10 +320,12 @@ export default function OnboardingPage() {
 
       {/* Step 2: Bank */}
       {step === 2 && (
-        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 space-y-4">
-          <h2 className="text-sm font-semibold">Datos bancarios</h2>
-          <p className="text-xs text-white/40">Para recibir tus pagos. Puedes modificarlos después.</p>
-          <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Banco" className={inputClass} />
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6 space-y-4">
+          <div>
+            <h2 className="text-base font-bold">Datos bancarios</h2>
+            <p className="mt-1 text-xs text-white/30">Para recibir tus pagos. Puedes modificarlos después.</p>
+          </div>
+          <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Nombre del banco" className={inputClass} />
           <select value={accountType} onChange={(e) => setAccountType(e.target.value)} className={inputClass}>
             <option value="corriente">Cuenta Corriente</option>
             <option value="vista">Cuenta Vista / RUT</option>
@@ -238,11 +333,11 @@ export default function OnboardingPage() {
           </select>
           <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="Número de cuenta" className={inputClass} />
           <input value={holderName} onChange={(e) => setHolderName(e.target.value)} placeholder="Nombre del titular" className={inputClass} />
-          <input value={holderRut} onChange={(e) => setHolderRut(e.target.value)} placeholder="RUT del titular" className={inputClass} />
+          <input value={holderRut} onChange={(e) => setHolderRut(e.target.value)} placeholder="RUT del titular (ej: 12.345.678-9)" className={inputClass} />
           <button
             onClick={saveBank}
             disabled={saving || !bankName || !accountNumber || !holderName || !holderRut}
-            className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 py-3 text-sm font-bold text-white disabled:opacity-40"
           >
             {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Siguiente"}
           </button>
@@ -251,31 +346,37 @@ export default function OnboardingPage() {
 
       {/* Step 3: Terms */}
       {step === 3 && (
-        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 space-y-4">
-          <h2 className="text-sm font-semibold">Términos y condiciones</h2>
-          <div className="max-h-48 overflow-y-auto rounded-xl bg-white/[0.03] p-4 text-xs text-white/40 space-y-2">
-            <p><strong className="text-white/60">Contrato de creadora U-Mate</strong></p>
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6 space-y-5">
+          <div>
+            <h2 className="text-base font-bold">Términos y condiciones</h2>
+            <p className="mt-1 text-xs text-white/30">Lee y acepta para continuar</p>
+          </div>
+          <div className="max-h-52 overflow-y-auto rounded-xl bg-white/[0.03] p-4 text-xs text-white/35 space-y-2.5 leading-relaxed border border-white/[0.04]">
+            <p><strong className="text-white/50">Contrato de creadora U-Mate</strong></p>
             <p>Al aceptar, confirmas que eres mayor de 18 años y tienes derecho legal a publicar el contenido que subas.</p>
             <p>Todo contenido publicado debe cumplir con las reglas de la plataforma y las leyes chilenas vigentes.</p>
             <p>U-Mate se reserva el derecho de suspender cuentas que infrinjan las normas.</p>
             <p>Los pagos a creadoras se procesan según el calendario de liquidaciones establecido.</p>
             <p>La plataforma puede aplicar una comisión futura sobre los ingresos generados, la cual será comunicada con antelación.</p>
           </div>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-xs text-white/60">
-              <input type="checkbox" id="terms" className="rounded" defaultChecked /> Acepto los términos y condiciones
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 text-xs text-white/50 cursor-pointer">
+              <input type="checkbox" checked={termsChecked} onChange={(e) => setTermsChecked(e.target.checked)} className="rounded border-white/20" />
+              Acepto los <Link href="/umate/terms" className="text-rose-400 underline">términos y condiciones</Link>
             </label>
-            <label className="flex items-center gap-2 text-xs text-white/60">
-              <input type="checkbox" id="rules" className="rounded" defaultChecked /> Acepto las reglas de la plataforma
+            <label className="flex items-center gap-3 text-xs text-white/50 cursor-pointer">
+              <input type="checkbox" checked={rulesChecked} onChange={(e) => setRulesChecked(e.target.checked)} className="rounded border-white/20" />
+              Acepto las <Link href="/umate/rules" className="text-rose-400 underline">reglas de la plataforma</Link>
             </label>
-            <label className="flex items-center gap-2 text-xs text-white/60">
-              <input type="checkbox" id="contract" className="rounded" defaultChecked /> Acepto el contrato de creadora
+            <label className="flex items-center gap-3 text-xs text-white/50 cursor-pointer">
+              <input type="checkbox" checked={contractChecked} onChange={(e) => setContractChecked(e.target.checked)} className="rounded border-white/20" />
+              Acepto el contrato de creadora
             </label>
           </div>
           <button
             onClick={acceptAll}
-            disabled={saving}
-            className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            disabled={saving || !termsChecked || !rulesChecked || !contractChecked}
+            className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 py-3 text-sm font-bold text-white disabled:opacity-40"
           >
             {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Aceptar y enviar a revisión"}
           </button>

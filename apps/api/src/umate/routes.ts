@@ -64,8 +64,8 @@ umateRouter.get("/umate/plans", async (_req, res) => {
 
 umateRouter.get("/umate/feed", async (req, res) => {
   const userId = (req as any).user?.id;
-  const limit = Math.min(parseInt(String(req.query.limit || "20"), 10), 50);
-  const offset = parseInt(String(req.query.offset || "0"), 10);
+  const limit = Math.min(parseInt(String(req.query.limit || "20"), 10) || 20, 50);
+  const offset = parseInt(String(req.query.offset || "0"), 10) || 0;
   const filter = req.query.filter as string | undefined; // "free", "premium", or undefined
 
   const where: any = {
@@ -77,7 +77,7 @@ umateRouter.get("/umate/feed", async (req, res) => {
   const posts = await prisma.umatePost.findMany({
     where,
     include: {
-      creator: { select: { id: true, userId: true, displayName: true, avatarUrl: true, subscriberCount: true } },
+      creator: { select: { id: true, userId: true, displayName: true, avatarUrl: true, subscriberCount: true, user: { select: { username: true } } } },
       media: { orderBy: { pos: "asc" } },
     },
     orderBy: { createdAt: "desc" },
@@ -115,7 +115,7 @@ umateRouter.get("/umate/feed", async (req, res) => {
       creator: post.creator,
       media: showContent
         ? post.media
-        : post.media.map((m) => ({ ...m, url: showContent ? m.url : null })),
+        : post.media.map((m) => ({ ...m, url: null })),
       isBlurred: !showContent,
       isLiked: likedPostIds.has(post.id),
     };
@@ -129,8 +129,8 @@ umateRouter.get("/umate/feed", async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════
 
 umateRouter.get("/umate/creators", async (req, res) => {
-  const limit = Math.min(parseInt(String(req.query.limit || "20"), 10), 50);
-  const offset = parseInt(String(req.query.offset || "0"), 10);
+  const limit = Math.min(parseInt(String(req.query.limit || "20"), 10) || 20, 50);
+  const offset = parseInt(String(req.query.offset || "0"), 10) || 0;
   const q = (req.query.q as string || "").trim();
 
   const where: any = { status: "ACTIVE" };
@@ -244,16 +244,27 @@ umateRouter.post("/umate/posts/:postId/like", requireAuth, async (req, res) => {
   if (!post) return res.status(404).json({ error: "NOT_FOUND" });
 
   try {
-    await prisma.umateLike.create({ data: { postId, userId } });
-    await prisma.umatePost.update({ where: { id: postId }, data: { likeCount: { increment: 1 } } });
-    await prisma.umateCreator.update({ where: { id: post.creatorId }, data: { totalLikes: { increment: 1 } } });
+    await prisma.$transaction(async (tx) => {
+      await tx.umateLike.create({ data: { postId, userId } });
+      await tx.umatePost.update({ where: { id: postId }, data: { likeCount: { increment: 1 } } });
+      await tx.umateCreator.update({ where: { id: post.creatorId }, data: { totalLikes: { increment: 1 } } });
+    });
     res.json({ liked: true });
   } catch (err: any) {
     if (err?.code === "P2002") {
-      // Already liked — unlike
-      await prisma.umateLike.deleteMany({ where: { postId, userId } });
-      await prisma.umatePost.update({ where: { id: postId }, data: { likeCount: { decrement: 1 } } });
-      await prisma.umateCreator.update({ where: { id: post.creatorId }, data: { totalLikes: { decrement: 1 } } });
+      // Already liked — unlike (use transaction for atomicity)
+      await prisma.$transaction(async (tx) => {
+        await tx.umateLike.deleteMany({ where: { postId, userId } });
+        // Guard against negative values
+        const freshPost = await tx.umatePost.findUnique({ where: { id: postId }, select: { likeCount: true } });
+        if (freshPost && freshPost.likeCount > 0) {
+          await tx.umatePost.update({ where: { id: postId }, data: { likeCount: { decrement: 1 } } });
+        }
+        const freshCreator = await tx.umateCreator.findUnique({ where: { id: post.creatorId }, select: { totalLikes: true } });
+        if (freshCreator && freshCreator.totalLikes > 0) {
+          await tx.umateCreator.update({ where: { id: post.creatorId }, data: { totalLikes: { decrement: 1 } } });
+        }
+      });
       return res.json({ liked: false });
     }
     throw err;
@@ -270,6 +281,12 @@ umateRouter.post("/umate/subscribe", requireAuth, async (req, res) => {
 
   if (!["SILVER", "GOLD", "DIAMOND"].includes(tier)) {
     return res.status(400).json({ error: "INVALID_TIER" });
+  }
+
+  // Creators cannot subscribe to plans — role restriction
+  const isCreator = await prisma.umateCreator.findUnique({ where: { userId } });
+  if (isCreator && isCreator.status !== "SUSPENDED") {
+    return res.status(403).json({ error: "CREATOR_CANNOT_SUBSCRIBE", message: "Las creadoras no pueden suscribirse a planes. Usa una cuenta diferente." });
   }
 
   // Check for existing active subscription
@@ -389,13 +406,19 @@ umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, async (req
     return res.status(400).json({ error: "CANNOT_SUBSCRIBE_SELF" });
   }
 
+  // Creators cannot subscribe to other creators — role restriction
+  const userIsCreator = await prisma.umateCreator.findUnique({ where: { userId } });
+  if (userIsCreator && userIsCreator.status !== "SUSPENDED") {
+    return res.status(403).json({ error: "CREATOR_CANNOT_SUBSCRIBE", message: "Las creadoras no pueden suscribirse a perfiles. Usa una cuenta de cliente." });
+  }
+
   // Check active subscription
   const sub = await getActiveSubscription(userId);
   if (!sub) {
     return res.status(403).json({ error: "NO_PLAN", message: "Necesitas un plan U-Mate para suscribirte a creadoras." });
   }
 
-  // Check slots
+  // Pre-check slots (actual check inside transaction to prevent races)
   if (sub.slotsUsed >= sub.slotsTotal) {
     return res.status(400).json({ error: "NO_SLOTS", message: "No tienes cupos disponibles este ciclo." });
   }
@@ -410,51 +433,66 @@ umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, async (req
   const payoutPerSlot = await getUmateConfig("umate_payout_per_slot", 5000);
   const platformCommPct = await getUmateConfig("umate_platform_commission_pct", 0);
 
-  await prisma.$transaction(async (tx) => {
-    // Create creator subscription
-    await tx.umateCreatorSub.create({
-      data: {
-        subscriptionId: sub.id,
-        subscriberId: userId,
-        creatorId,
-        expiresAt: sub.cycleEnd,
-      },
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // Re-check slots inside transaction to prevent race conditions
+      const freshSub = await tx.umateSubscription.findUnique({ where: { id: sub.id } });
+      if (!freshSub || freshSub.slotsUsed >= freshSub.slotsTotal) {
+        throw new Error("NO_SLOTS");
+      }
+
+      // Create creator subscription
+      await tx.umateCreatorSub.create({
+        data: {
+          subscriptionId: sub.id,
+          subscriberId: userId,
+          creatorId,
+          expiresAt: sub.cycleEnd,
+        },
+      });
+
+      // Increment slot usage
+      await tx.umateSubscription.update({
+        where: { id: sub.id },
+        data: { slotsUsed: { increment: 1 } },
+      });
+
+      // Increment creator subscriber count
+      await tx.umateCreator.update({
+        where: { id: creatorId },
+        data: {
+          subscriberCount: { increment: 1 },
+          pendingBalance: { increment: payoutPerSlot },
+          totalEarned: { increment: payoutPerSlot },
+        },
+      });
+
+      // Ledger: slot activation
+      const platformFee = Math.round(payoutPerSlot * platformCommPct / 100);
+      await tx.umateLedgerEntry.create({
+        data: {
+          creatorId,
+          type: "SLOT_ACTIVATION",
+          grossAmount: payoutPerSlot,
+          platformFee,
+          creatorPayout: payoutPerSlot - platformFee,
+          netAmount: payoutPerSlot - platformFee,
+          description: `Suscripción de usuario`,
+          referenceId: sub.id,
+          referenceType: "subscription",
+        },
+      });
+
+      return { slotsUsed: freshSub.slotsUsed + 1, slotsTotal: freshSub.slotsTotal };
     });
 
-    // Increment slot usage
-    await tx.umateSubscription.update({
-      where: { id: sub.id },
-      data: { slotsUsed: { increment: 1 } },
-    });
-
-    // Increment creator subscriber count
-    await tx.umateCreator.update({
-      where: { id: creatorId },
-      data: {
-        subscriberCount: { increment: 1 },
-        pendingBalance: { increment: payoutPerSlot },
-        totalEarned: { increment: payoutPerSlot },
-      },
-    });
-
-    // Ledger: slot activation
-    const platformFee = Math.round(payoutPerSlot * platformCommPct / 100);
-    await tx.umateLedgerEntry.create({
-      data: {
-        creatorId,
-        type: "SLOT_ACTIVATION",
-        grossAmount: payoutPerSlot,
-        platformFee,
-        creatorPayout: payoutPerSlot - platformFee,
-        netAmount: payoutPerSlot - platformFee,
-        description: `Suscripción de usuario`,
-        referenceId: sub.id,
-        referenceType: "subscription",
-      },
-    });
-  });
-
-  res.json({ subscribed: true, slotsUsed: sub.slotsUsed + 1, slotsTotal: sub.slotsTotal });
+    res.json({ subscribed: true, slotsUsed: result.slotsUsed, slotsTotal: result.slotsTotal });
+  } catch (err: any) {
+    if (err?.message === "NO_SLOTS") {
+      return res.status(400).json({ error: "NO_SLOTS", message: "No tienes cupos disponibles este ciclo." });
+    }
+    throw err;
+  }
 });
 
 // ══════════════════════════════════════════════════════════════════════
@@ -475,6 +513,12 @@ umateRouter.post("/umate/creator/onboard", requireAuth, async (req, res) => {
 
   const existing = await prisma.umateCreator.findUnique({ where: { userId } });
   if (existing) return res.json({ creator: existing });
+
+  // Subscribers (clients with active plan) cannot become creators — role restriction
+  const activeSub = await getActiveSubscription(userId);
+  if (activeSub) {
+    return res.status(403).json({ error: "SUBSCRIBER_CANNOT_CREATE", message: "Los suscriptores no pueden crear cuenta de creadora. Usa una cuenta diferente." });
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
