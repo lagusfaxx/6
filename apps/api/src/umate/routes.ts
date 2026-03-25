@@ -549,6 +549,13 @@ umateRouter.put("/umate/creator/profile", requireAuth, async (req, res) => {
   if (bio !== undefined) data.bio = bio;
 
   const updated = await prisma.umateCreator.update({ where: { id: creator.id }, data });
+
+  // Auto-advance status: if profile is complete, move past DRAFT
+  if (updated.displayName && updated.bio && updated.avatarUrl && updated.status === "DRAFT") {
+    await prisma.umateCreator.update({ where: { id: creator.id }, data: { status: "PENDING_BANK" } });
+    updated.status = "PENDING_BANK";
+  }
+
   res.json({ creator: updated });
 });
 
@@ -566,6 +573,13 @@ umateRouter.put("/umate/creator/bank", requireAuth, async (req, res) => {
     where: { id: creator.id },
     data: { bankName, accountType, accountNumber, holderName, holderRut },
   });
+
+  // Auto-advance status: if bank configured, move to pending terms
+  if (updated.bankName && (updated.status === "PENDING_BANK" || updated.status === "DRAFT")) {
+    await prisma.umateCreator.update({ where: { id: creator.id }, data: { status: "PENDING_TERMS" } });
+    updated.status = "PENDING_TERMS";
+  }
+
   res.json({ creator: updated });
 });
 

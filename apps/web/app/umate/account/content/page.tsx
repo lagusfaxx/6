@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Plus, Trash2, Image as ImageIcon, Video, Lock, Globe, Loader2, X, Upload, GripVertical } from "lucide-react";
+import { Plus, Trash2, Image as ImageIcon, Video, Lock, Globe, Loader2, X, Upload } from "lucide-react";
 import { apiFetch, getApiBase } from "../../../../lib/api";
 
 type Post = {
@@ -30,6 +30,8 @@ export default function ContentPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewFiles, setPreviewFiles] = useState<PreviewFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -128,16 +130,29 @@ export default function ContentPage() {
         previewFiles.forEach((pf) => URL.revokeObjectURL(pf.preview));
         setPreviewFiles([]);
         setVisibility("FREE");
+        setSuccess("¡Publicación creada exitosamente!");
+        setError("");
+        setTimeout(() => setSuccess(""), 4000);
       }
-    } catch {}
+    } catch (err: any) {
+      setError(err?.message || "Error al publicar. Intenta de nuevo.");
+      setTimeout(() => setError(""), 5000);
+    }
     setUploading(false);
     setUploadProgress(0);
   };
 
   const handleDelete = async (postId: string) => {
-    if (!confirm("¿Eliminar esta publicación?")) return;
-    await apiFetch(`/umate/posts/${postId}`, { method: "DELETE" });
-    setPosts((prev) => prev.filter((p) => p.id !== postId));
+    if (!confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.")) return;
+    try {
+      await apiFetch(`/umate/posts/${postId}`, { method: "DELETE" });
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setSuccess("Publicación eliminada");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch {
+      setError("Error al eliminar la publicación");
+      setTimeout(() => setError(""), 5000);
+    }
   };
 
   return (
@@ -146,6 +161,18 @@ export default function ContentPage() {
         <h1 className="text-xl font-bold tracking-tight">Mi contenido</h1>
         <span className="text-xs text-white/30">{posts.length} publicaciones</span>
       </div>
+
+      {/* Toast notifications */}
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-300 flex items-center gap-2">
+          <X className="h-3.5 w-3.5 shrink-0" /> {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300">
+          {success}
+        </div>
+      )}
 
       {/* Create post — OnlyFans-style composer */}
       <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] overflow-hidden">

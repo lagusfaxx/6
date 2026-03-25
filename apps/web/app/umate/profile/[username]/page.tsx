@@ -41,7 +41,6 @@ export default function CreatorProfilePage() {
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
   const [tab, setTab] = useState<"all" | "photos" | "videos" | "free" | "premium">("all");
-  const [viewMode, setViewMode] = useState<"feed" | "grid">("feed");
   const [isCreatorUser, setIsCreatorUser] = useState(false);
   const [subError, setSubError] = useState("");
 
@@ -238,15 +237,6 @@ export default function CreatorProfilePage() {
               )}
             </button>
           ))}
-        </div>
-        {/* View mode toggle */}
-        <div className="flex gap-0.5 pr-1">
-          <button
-            onClick={() => setViewMode("feed")}
-            className={`rounded-lg p-2 transition ${viewMode === "feed" ? "text-white" : "text-white/20 hover:text-white/40"}`}
-          >
-            <Grid3X3 className="h-4 w-4" />
-          </button>
         </div>
       </div>
 

@@ -37,23 +37,68 @@ export default function ExplorePage() {
   const [filter, setFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreFeed, setHasMoreFeed] = useState(true);
+  const [hasMoreCreators, setHasMoreCreators] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     if (tab === "feed") {
-      const params = filter ? `?filter=${filter}` : "";
-      apiFetch<{ items: FeedItem[] }>(`/umate/feed${params}`)
-        .then((d) => setItems(d?.items || []))
+      const params = new URLSearchParams();
+      if (filter) params.set("filter", filter);
+      params.set("limit", "20");
+      apiFetch<{ items: FeedItem[] }>(`/umate/feed?${params}`)
+        .then((d) => {
+          const feedItems = d?.items || [];
+          setItems(feedItems);
+          setHasMoreFeed(feedItems.length >= 20);
+        })
         .catch(() => {})
         .finally(() => setLoading(false));
     } else {
-      const params = search ? `?q=${encodeURIComponent(search)}` : "";
-      apiFetch<{ creators: Creator[] }>(`/umate/creators${params}`)
-        .then((d) => setCreators(d?.creators || []))
+      const params = new URLSearchParams();
+      if (search) params.set("q", search);
+      params.set("limit", "20");
+      apiFetch<{ creators: Creator[] }>(`/umate/creators?${params}`)
+        .then((d) => {
+          const creatorList = d?.creators || [];
+          setCreators(creatorList);
+          setHasMoreCreators(creatorList.length >= 20);
+        })
         .catch(() => {})
         .finally(() => setLoading(false));
     }
   }, [tab, filter, search]);
+
+  const loadMoreFeed = useCallback(async () => {
+    if (loadingMore || !hasMoreFeed) return;
+    setLoadingMore(true);
+    const params = new URLSearchParams();
+    if (filter) params.set("filter", filter);
+    params.set("limit", "20");
+    params.set("offset", String(items.length));
+    const d = await apiFetch<{ items: FeedItem[] }>(`/umate/feed?${params}`).catch(() => null);
+    if (d?.items) {
+      setItems((prev) => [...prev, ...d.items]);
+      setHasMoreFeed(d.items.length >= 20);
+    }
+    setLoadingMore(false);
+  }, [items.length, filter, loadingMore, hasMoreFeed]);
+
+  const loadMoreCreators = useCallback(async () => {
+    if (loadingMore || !hasMoreCreators) return;
+    setLoadingMore(true);
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    params.set("limit", "20");
+    params.set("offset", String(creators.length));
+    const d = await apiFetch<{ creators: Creator[] }>(`/umate/creators?${params}`).catch(() => null);
+    if (d?.creators) {
+      setCreators((prev) => [...prev, ...d.creators]);
+      setHasMoreCreators(d.creators.length >= 20);
+    }
+    setLoadingMore(false);
+  }, [creators.length, search, loadingMore, hasMoreCreators]);
 
   const toggleLike = useCallback(async (postId: string) => {
     const res = await apiFetch<{ liked: boolean }>(`/umate/posts/${postId}/like`, { method: "POST" });
@@ -211,6 +256,16 @@ export default function ExplorePage() {
               </div>
             </div>
           ))}
+          {/* Load more feed */}
+          {hasMoreFeed && items.length > 0 && (
+            <button
+              onClick={loadMoreFeed}
+              disabled={loadingMore}
+              className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] py-3 text-xs font-medium text-white/30 transition hover:bg-white/[0.04] hover:text-white/50 disabled:opacity-50"
+            >
+              {loadingMore ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Cargar más publicaciones"}
+            </button>
+          )}
         </div>
       )}
 
@@ -248,6 +303,16 @@ export default function ExplorePage() {
             </Link>
           ))}
         </div>
+      )}
+      {/* Load more creators */}
+      {!loading && tab === "creators" && hasMoreCreators && creators.length > 0 && (
+        <button
+          onClick={loadMoreCreators}
+          disabled={loadingMore}
+          className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] py-3 text-xs font-medium text-white/30 transition hover:bg-white/[0.04] hover:text-white/50 disabled:opacity-50"
+        >
+          {loadingMore ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Cargar más creadoras"}
+        </button>
       )}
 
       {!loading && tab === "feed" && items.length === 0 && (
