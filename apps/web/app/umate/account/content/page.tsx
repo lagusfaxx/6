@@ -159,7 +159,7 @@ export default function ContentPage() {
     <div className="mx-auto max-w-2xl py-8 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight">Mi contenido</h1>
-        <span className="text-xs text-white/30">{posts.length} publicaciones</span>
+        <span className="text-xs text-slate-500">{posts.length} publicaciones</span>
       </div>
 
       {/* Toast notifications */}
@@ -175,9 +175,9 @@ export default function ContentPage() {
       )}
 
       {/* Create post — OnlyFans-style composer */}
-      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] overflow-hidden">
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <h2 className="text-sm font-semibold">Nueva publicación</h2>
           <button
             onClick={() => setVisibility(visibility === "FREE" ? "PREMIUM" : "FREE")}
@@ -199,7 +199,7 @@ export default function ContentPage() {
             onChange={(e) => setCaption(e.target.value)}
             placeholder="¿Qué quieres compartir con tus suscriptores?"
             rows={3}
-            className="w-full bg-transparent text-sm text-white placeholder:text-white/20 focus:outline-none resize-none"
+            className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none resize-none"
           />
         </div>
 
@@ -208,7 +208,7 @@ export default function ContentPage() {
           <div className="px-5 pb-2">
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {previewFiles.map((pf, i) => (
-                <div key={i} className="group relative aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/[0.06]">
+                <div key={i} className="group relative aspect-square rounded-xl overflow-hidden bg-white/5 border border-slate-200">
                   {pf.type === "video" ? (
                     <video src={pf.preview} className="h-full w-full object-cover" muted />
                   ) : (
@@ -217,11 +217,11 @@ export default function ContentPage() {
                   {/* Type badge */}
                   <div className="absolute top-1.5 left-1.5">
                     {pf.type === "video" ? (
-                      <span className="flex items-center gap-0.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[9px] text-white/80">
+                      <span className="flex items-center gap-0.5 rounded-md bg-slate-900/70 px-1.5 py-0.5 text-[9px] text-white">
                         <Video className="h-2.5 w-2.5" /> Video
                       </span>
                     ) : (
-                      <span className="flex items-center gap-0.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[9px] text-white/80">
+                      <span className="flex items-center gap-0.5 rounded-md bg-slate-900/70 px-1.5 py-0.5 text-[9px] text-white">
                         <ImageIcon className="h-2.5 w-2.5" /> Foto
                       </span>
                     )}
@@ -229,7 +229,7 @@ export default function ContentPage() {
                   {/* Remove button */}
                   <button
                     onClick={() => removeFile(i)}
-                    className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/80 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/80"
+                    className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900/70 text-white opacity-0 transition group-hover:opacity-100 hover:bg-red-500/80"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -239,7 +239,7 @@ export default function ContentPage() {
               {previewFiles.length < 10 && (
                 <button
                   onClick={() => fileRef.current?.click()}
-                  className="flex aspect-square items-center justify-center rounded-xl border-2 border-dashed border-white/[0.1] text-white/20 transition hover:border-rose-500/30 hover:text-rose-400/50"
+                  className="flex aspect-square items-center justify-center rounded-xl border-2 border-dashed border-slate-300 text-slate-400 transition hover:border-fuchsia-300 hover:text-fuchsia-500"
                 >
                   <Plus className="h-6 w-6" />
                 </button>
@@ -259,16 +259,16 @@ export default function ContentPage() {
             onClick={() => fileRef.current?.click()}
             className={`mx-5 mb-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed py-10 transition ${
               isDragging
-                ? "border-rose-400/50 bg-rose-500/[0.06]"
-                : "border-white/[0.08] hover:border-rose-500/25 hover:bg-white/[0.02]"
+                ? "border-rose-400/50 bg-fuchsia-50"
+                : "border-slate-300 hover:border-rose-500/25 hover:bg-white"
             }`}
           >
-            <Upload className={`mb-3 h-8 w-8 ${isDragging ? "text-rose-400" : "text-white/15"}`} />
-            <p className="text-sm font-medium text-white/40">
+            <Upload className={`mb-3 h-8 w-8 ${isDragging ? "text-rose-400" : "text-slate-400"}`} />
+            <p className="text-sm font-medium text-slate-600">
               {isDragging ? "Suelta los archivos aquí" : "Arrastra fotos o videos"}
             </p>
-            <p className="mt-1 text-[11px] text-white/20">o haz click para seleccionar</p>
-            <p className="mt-2 text-[10px] text-white/15">Máximo 10 archivos · Fotos y videos</p>
+            <p className="mt-1 text-[11px] text-slate-400">o haz click para seleccionar</p>
+            <p className="mt-2 text-[10px] text-slate-400">Máximo 10 archivos · Fotos y videos</p>
           </div>
         )}
 
@@ -284,28 +284,28 @@ export default function ContentPage() {
         {/* Upload progress */}
         {uploading && (
           <div className="mx-5 mb-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-rose-500 to-amber-500 transition-all duration-300"
                 style={{ width: `${uploadProgress}%` }}
               />
             </div>
-            <p className="mt-1 text-center text-[10px] text-white/30">Subiendo... {uploadProgress}%</p>
+            <p className="mt-1 text-center text-[10px] text-slate-500">Subiendo... {uploadProgress}%</p>
           </div>
         )}
 
         {/* Footer actions */}
-        <div className="flex items-center justify-between border-t border-white/[0.06] px-5 py-3">
+        <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3">
           <div className="flex items-center gap-2">
             <button
               onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-white/40 transition hover:bg-white/[0.04] hover:text-white/60"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-100 hover:text-slate-900/60"
             >
               <ImageIcon className="h-4 w-4" /> Foto
             </button>
             <button
               onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-white/40 transition hover:bg-white/[0.04] hover:text-white/60"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-100 hover:text-slate-900/60"
             >
               <Video className="h-4 w-4" /> Video
             </button>
@@ -324,22 +324,22 @@ export default function ContentPage() {
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-rose-400" /></div>
       ) : posts.length === 0 ? (
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-16 text-center">
-          <Upload className="mx-auto mb-3 h-10 w-10 text-white/10" />
-          <p className="text-sm font-medium text-white/40">Aún no has publicado nada</p>
-          <p className="mt-1 text-xs text-white/20">Tu contenido aparecerá aquí</p>
+        <div className="rounded-2xl border border-slate-200 bg-white p-16 text-center">
+          <Upload className="mx-auto mb-3 h-10 w-10 text-slate-900/10" />
+          <p className="text-sm font-medium text-slate-600">Aún no has publicado nada</p>
+          <p className="mt-1 text-xs text-slate-400">Tu contenido aparecerá aquí</p>
         </div>
       ) : (
         <div className="space-y-4">
           {posts.map((post) => (
-            <div key={post.id} className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02] transition hover:border-white/[0.12]">
+            <div key={post.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-slate-300">
               {/* Media carousel */}
               {post.media.length > 0 && (
                 <div className="relative">
                   <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide">
                     {post.media.map((m, idx) => (
                       <div key={m.id} className="w-full flex-shrink-0 snap-center">
-                        <div className="relative aspect-[4/3] bg-white/5">
+                        <div className="relative aspect-[4/3] bg-slate-100">
                           {m.type === "VIDEO" ? (
                             <video src={m.url} className="h-full w-full object-cover" controls />
                           ) : (
@@ -365,8 +365,8 @@ export default function ContentPage() {
               {/* Post info */}
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="min-w-0 flex-1">
-                  {post.caption && <p className="text-sm text-white/70 line-clamp-2">{post.caption}</p>}
-                  <div className="mt-1 flex items-center gap-3 text-[11px] text-white/30">
+                  {post.caption && <p className="text-sm text-slate-900/70 line-clamp-2">{post.caption}</p>}
+                  <div className="mt-1 flex items-center gap-3 text-[11px] text-slate-500">
                     <span>{post.likeCount} likes</span>
                     <span>{post.viewCount} vistas</span>
                     <span>{new Date(post.createdAt).toLocaleDateString("es-CL")}</span>
@@ -374,7 +374,7 @@ export default function ContentPage() {
                 </div>
                 <button
                   onClick={() => handleDelete(post.id)}
-                  className="ml-3 shrink-0 rounded-lg p-2 text-white/15 transition hover:bg-red-500/10 hover:text-red-400"
+                  className="ml-3 shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-red-500/10 hover:text-red-400"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
