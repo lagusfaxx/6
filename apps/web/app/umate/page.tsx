@@ -15,7 +15,6 @@ import {
   Shield,
   Sparkles,
   Star,
-  TrendingUp,
   Users,
   Zap,
 } from "lucide-react";
@@ -42,6 +41,26 @@ type FeedItem = {
   media: { id: string; url: string | null }[];
 };
 
+const FALLBACK_CREATORS: Creator[] = [
+  { id: "c1", displayName: "Martina V", bio: "Lifestyle premium y contenido diario.", avatarUrl: null, coverUrl: null, subscriberCount: 210, totalPosts: 142, totalLikes: 1960, user: { username: "martinavip", isVerified: true } },
+  { id: "c2", displayName: "Niki Rose", bio: "Backstage, reels y comunidad privada.", avatarUrl: null, coverUrl: null, subscriberCount: 175, totalPosts: 118, totalLikes: 1488, user: { username: "nikirose", isVerified: true } },
+  { id: "c3", displayName: "Naya Luna", bio: "Contenido curado + lives para fans.", avatarUrl: null, coverUrl: null, subscriberCount: 132, totalPosts: 95, totalLikes: 1170, user: { username: "nayaluna", isVerified: false } },
+  { id: "c4", displayName: "Dana Bloom", bio: "Editorial, estilo y experiencias exclusivas.", avatarUrl: null, coverUrl: null, subscriberCount: 255, totalPosts: 178, totalLikes: 2512, user: { username: "danabloom", isVerified: true } },
+  { id: "c5", displayName: "Sofi K", bio: "Cercanía real con tu creadora favorita.", avatarUrl: null, coverUrl: null, subscriberCount: 104, totalPosts: 80, totalLikes: 980, user: { username: "sofik", isVerified: false } },
+  { id: "c6", displayName: "Valen M", bio: "Premium drops semanales.", avatarUrl: null, coverUrl: null, subscriberCount: 121, totalPosts: 89, totalLikes: 1054, user: { username: "valenm", isVerified: true } },
+  { id: "c7", displayName: "Jade Noir", bio: "Comunidad activa y contenido exclusivo.", avatarUrl: null, coverUrl: null, subscriberCount: 167, totalPosts: 111, totalLikes: 1380, user: { username: "jadenoir", isVerified: true } },
+  { id: "c8", displayName: "Mia Fox", bio: "Contenido premium y conexión constante.", avatarUrl: null, coverUrl: null, subscriberCount: 192, totalPosts: 134, totalLikes: 1658, user: { username: "miafox", isVerified: false } },
+];
+
+const FALLBACK_FEED: FeedItem[] = [
+  { id: "f1", caption: "Nuevo drop detrás de cámaras ✨", visibility: "FREE", creator: { displayName: "Martina V", avatarUrl: null }, media: [] },
+  { id: "f2", caption: "Sesión premium exclusiva para suscriptoras.", visibility: "PREMIUM", creator: { displayName: "Dana Bloom", avatarUrl: null }, media: [] },
+  { id: "f3", caption: "Preview de contenido del fin de semana.", visibility: "FREE", creator: { displayName: "Niki Rose", avatarUrl: null }, media: [] },
+  { id: "f4", caption: "Pack premium desbloqueado para miembros.", visibility: "PREMIUM", creator: { displayName: "Jade Noir", avatarUrl: null }, media: [] },
+  { id: "f5", caption: "Stories exclusivas para mi comunidad.", visibility: "PREMIUM", creator: { displayName: "Mia Fox", avatarUrl: null }, media: [] },
+  { id: "f6", caption: "Clip gratis + acceso al contenido completo.", visibility: "FREE", creator: { displayName: "Naya Luna", avatarUrl: null }, media: [] },
+];
+
 export default function UmateLandingPage() {
   const [creators, setCreators] = useState<Creator[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -49,9 +68,9 @@ export default function UmateLandingPage() {
 
   useEffect(() => {
     Promise.all([
-      apiFetch<{ creators: Creator[] }>("/umate/creators?limit=16").catch(() => null),
+      apiFetch<{ creators: Creator[] }>("/umate/creators?limit=24").catch(() => null),
       apiFetch<{ plans: Plan[] }>("/umate/plans").catch(() => null),
-      apiFetch<{ items: FeedItem[] }>("/umate/feed?limit=8").catch(() => null),
+      apiFetch<{ items: FeedItem[] }>("/umate/feed?limit=12").catch(() => null),
     ]).then(([c, p, f]) => {
       setCreators(c?.creators || []);
       setPlans(p?.plans || []);
@@ -60,149 +79,123 @@ export default function UmateLandingPage() {
   }, []);
 
   const tierIcon: Record<string, typeof Sparkles> = { SILVER: Sparkles, GOLD: Crown, DIAMOND: Diamond };
-  const heroCreators = useMemo(() => creators.slice(0, 6), [creators]);
-  const featuredCreators = useMemo(() => creators.slice(0, 8), [creators]);
-  const risingCreators = useMemo(() => creators.slice(4, 12), [creators]);
+  const catalogCreators = useMemo(() => (creators.length > 0 ? creators : FALLBACK_CREATORS), [creators]);
+  const catalogFeed = useMemo(() => (feed.length > 0 ? feed : FALLBACK_FEED), [feed]);
+  const heroCreators = useMemo(() => catalogCreators.slice(0, 6), [catalogCreators]);
+  const featuredCreators = useMemo(() => catalogCreators.slice(0, 8), [catalogCreators]);
+  const latestContent = useMemo(() => catalogFeed.slice(0, 8), [catalogFeed]);
+
+  const totalSubscribers = Math.max(catalogCreators.reduce((acc, c) => acc + c.subscriberCount, 0), 340);
+  const totalPosts = Math.max(catalogCreators.reduce((acc, c) => acc + c.totalPosts, 0), 520);
+  const totalLikes = Math.max(catalogCreators.reduce((acc, c) => acc + c.totalLikes, 0), 1200);
+  const premiumPieces = Math.max(catalogFeed.filter((item) => item.visibility === "PREMIUM").length, 12);
 
   return (
-    <div className="space-y-0">
-      {/* ═══════════════════════════════════════════════════════════════
-          HERO — Full-width immersive landing
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-fuchsia-50/80 via-white to-[#fffaf8] pb-16 pt-8 lg:pb-24 lg:pt-12">
+    <div className="space-y-0 bg-gradient-to-b from-[#fffefd] via-white to-[#fff9f8]">
+      <section className="relative overflow-hidden border-b border-fuchsia-100/60 bg-gradient-to-b from-fuchsia-50/90 via-white to-[#fff8f6] pb-12 pt-6 lg:pb-16 lg:pt-10">
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -right-32 -top-32 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-fuchsia-200/30 to-rose-200/20 blur-[100px]" />
-          <div className="absolute -left-20 top-20 h-[400px] w-[400px] rounded-full bg-gradient-to-br from-orange-200/25 to-amber-100/20 blur-[80px]" />
-          <div className="absolute bottom-0 left-1/2 h-[300px] w-[600px] -translate-x-1/2 rounded-full bg-gradient-to-t from-rose-100/30 to-transparent blur-[60px]" />
+          <div className="absolute -right-20 -top-24 h-[420px] w-[420px] rounded-full bg-gradient-to-br from-fuchsia-200/35 to-rose-100/20 blur-[90px]" />
+          <div className="absolute -left-20 top-24 h-[320px] w-[320px] rounded-full bg-gradient-to-br from-orange-200/30 to-amber-100/20 blur-[75px]" />
         </div>
 
         <div className="relative mx-auto max-w-[1320px] px-4 lg:px-6">
-          <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:gap-16">
-            {/* Left — Copy */}
+          <div className="grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-200/80 bg-white/80 px-4 py-1.5 shadow-sm backdrop-blur">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-fuchsia-500 to-rose-500">
-                  <Zap className="h-3 w-3 text-white" />
-                </span>
-                <span className="text-xs font-bold text-fuchsia-700">Plataforma de creadoras y suscripciones</span>
+              <div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-200/80 bg-white/90 px-3 py-1.5 shadow-sm backdrop-blur">
+                <img src="/brand/Umate.png" alt="U-Mate" className="h-5 w-auto" />
+                <span className="text-xs font-bold text-fuchsia-700">Discovery + suscripción en una sola plataforma</span>
               </div>
 
-              <h1 className="mt-6 text-[2.75rem] font-black leading-[1.05] tracking-tight text-slate-900 md:text-6xl lg:text-[4rem]">
-                Contenido exclusivo.{" "}
-                <span className="bg-gradient-to-r from-fuchsia-600 via-rose-500 to-orange-500 bg-clip-text text-transparent">
-                  Comunidad real.
-                </span>
+              <h1 className="mt-5 text-4xl font-black leading-[1.05] tracking-tight text-slate-900 md:text-6xl lg:text-[4rem]">
+                Descubre creadoras premium,
+                <span className="bg-gradient-to-r from-fuchsia-600 via-rose-500 to-orange-500 bg-clip-text text-transparent"> suscríbete y conéctate de verdad.</span>
               </h1>
-
-              <p className="mt-5 max-w-lg text-base leading-relaxed text-slate-600 md:text-lg">
-                Descubre creadoras, desbloquea contenido premium y sé parte de una economía de suscripción diseñada para conectar fans y talento.
+              <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600 md:text-lg">
+                U-Mate reúne catálogo vivo, contenido gratuito + premium y planes flexibles para convertir visitas en comunidad activa.
               </p>
 
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Link
-                  href="/umate/explore"
-                  className="inline-flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 via-rose-500 to-orange-500 px-7 py-3.5 text-sm font-bold text-white shadow-xl shadow-fuchsia-500/25 transition hover:shadow-fuchsia-500/35 hover:brightness-105"
-                >
-                  Explorar contenido <ArrowRight className="h-4 w-4" />
+              <div className="mt-7 flex flex-wrap gap-3">
+                <Link href="/umate/explore" className="inline-flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 via-rose-500 to-orange-500 px-7 py-3.5 text-sm font-bold text-white shadow-xl shadow-fuchsia-500/25 transition hover:brightness-105">
+                  Explorar creadoras <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link
-                  href="/umate/creators"
-                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-fuchsia-200 hover:text-fuchsia-700"
-                >
-                  Ver creadoras
+                <Link href="/umate/onboarding" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-fuchsia-200 hover:text-fuchsia-700">
+                  Unirme como creadora
                 </Link>
               </div>
 
-              {/* Trust signals */}
-              <div className="mt-8 flex flex-wrap items-center gap-5 text-xs text-slate-500">
+              <div className="mt-6 flex flex-wrap items-center gap-5 text-xs text-slate-500">
                 <span className="inline-flex items-center gap-1.5"><Shield className="h-4 w-4 text-emerald-500" /> Pagos seguros</span>
-                <span className="inline-flex items-center gap-1.5"><BadgeCheck className="h-4 w-4 text-sky-500" /> Creadoras verificadas</span>
-                <span className="inline-flex items-center gap-1.5"><Heart className="h-4 w-4 text-rose-500" /> +{Math.max(creators.reduce((a, c) => a + c.totalLikes, 0), 1200).toLocaleString()} likes</span>
+                <span className="inline-flex items-center gap-1.5"><BadgeCheck className="h-4 w-4 text-sky-500" /> Perfiles verificados</span>
+                <span className="inline-flex items-center gap-1.5"><Heart className="h-4 w-4 text-rose-500" /> +{totalLikes.toLocaleString()} likes</span>
               </div>
             </div>
 
-            {/* Right — Creator collage */}
-            <div className="relative">
-              <div className="grid grid-cols-3 gap-2.5">
-                {heroCreators.map((c, idx) => (
-                  <Link
-                    key={c.id}
-                    href={`/umate/profile/${c.user.username}`}
-                    className={`group relative overflow-hidden rounded-2xl border border-white/50 bg-slate-100 shadow-lg transition duration-500 hover:scale-[1.03] hover:shadow-xl ${
-                      idx === 0 ? "col-span-2 row-span-2 aspect-[4/5]" : "aspect-[3/4]"
-                    }`}
-                  >
-                    {(c.coverUrl || c.avatarUrl) ? (
-                      <img src={c.coverUrl || c.avatarUrl || ""} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-110" />
-                    ) : (
-                      <div className="h-full w-full bg-gradient-to-br from-fuchsia-200 to-orange-200" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="truncate text-sm font-bold text-white">{c.displayName}</p>
-                      <p className="text-[11px] text-white/70">@{c.user.username}</p>
-                    </div>
-                    {idx < 3 && (
-                      <div className="absolute right-2 top-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
-                        <Heart className="mr-1 inline h-3 w-3" />{c.totalLikes}
-                      </div>
-                    )}
-                  </Link>
-                ))}
-              </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              {heroCreators.map((c, idx) => (
+                <Link
+                  key={c.id}
+                  href={`/umate/profile/${c.user.username}`}
+                  className={`group relative overflow-hidden rounded-2xl border border-white/60 bg-slate-100 shadow-lg transition duration-500 hover:scale-[1.02] hover:shadow-xl ${idx === 0 || idx === 3 ? "col-span-2 aspect-[5/4]" : "aspect-[3/4]"}`}
+                >
+                  {c.coverUrl || c.avatarUrl ? (
+                    <img src={c.coverUrl || c.avatarUrl || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-700 group-hover:scale-110" />
+                  ) : (
+                    <div className="h-full w-full bg-gradient-to-br from-fuchsia-200 to-orange-200" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <p className="truncate text-sm font-bold text-white">{c.displayName}</p>
+                    <p className="text-[11px] text-white/80">@{c.user.username}</p>
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          STATS BAR — Social proof
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="border-y border-slate-100 bg-white py-6">
-        <div className="mx-auto flex max-w-[1320px] flex-wrap items-center justify-center gap-8 px-4 text-center lg:justify-between lg:gap-4 lg:px-6">
+      <section className="border-b border-slate-100 bg-white py-4">
+        <div className="mx-auto grid max-w-[1320px] gap-3 px-4 sm:grid-cols-2 lg:grid-cols-4 lg:px-6">
           {[
-            { value: `${Math.max(creators.length, 25)}+`, label: "Creadoras activas", icon: Users },
-            { value: `${Math.max(creators.reduce((a, c) => a + c.subscriberCount, 0), 340)}+`, label: "Suscriptores", icon: Heart },
-            { value: `${Math.max(creators.reduce((a, c) => a + c.totalPosts, 0), 520)}+`, label: "Publicaciones", icon: Eye },
-            { value: "3", label: "Planes disponibles", icon: Crown },
-          ].map((stat) => (
-            <div key={stat.label} className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-fuchsia-50">
-                <stat.icon className="h-5 w-5 text-fuchsia-600" />
+            { label: "Creadoras activas", value: `${Math.max(catalogCreators.length, 25)}+`, icon: Users },
+            { label: "Publicaciones", value: `${totalPosts.toLocaleString()}+`, icon: Eye },
+            { label: "Suscriptores", value: `${totalSubscribers.toLocaleString()}+`, icon: Heart },
+            { label: "Piezas premium", value: `${premiumPieces}+`, icon: Crown },
+          ].map((item) => (
+            <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-fuchsia-100">
+                <item.icon className="h-5 w-5 text-fuchsia-600" />
               </div>
-              <div className="text-left">
-                <p className="text-lg font-black text-slate-900">{stat.value}</p>
-                <p className="text-xs text-slate-500">{stat.label}</p>
+              <div>
+                <p className="text-lg font-black text-slate-900">{item.value}</p>
+                <p className="text-xs text-slate-500">{item.label}</p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          FEATURED CREATORS — Carousel-style grid
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20">
+      <section className="py-12 lg:py-16">
         <div className="mx-auto max-w-[1320px] px-4 lg:px-6">
           <div className="flex items-end justify-between">
             <div>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-fuchsia-50 px-3 py-1 text-[11px] font-bold text-fuchsia-700">
-                <Star className="h-3 w-3" /> Destacadas
+                <Star className="h-3 w-3" /> Creadoras destacadas
               </span>
-              <h2 className="mt-3 text-3xl font-black text-slate-900">Creadoras en crecimiento</h2>
-              <p className="mt-1 max-w-lg text-sm text-slate-500">Talento con alto engagement, contenido constante y comunidad activa.</p>
+              <h2 className="mt-3 text-3xl font-black text-slate-900">Catálogo en crecimiento, comunidad en movimiento</h2>
+              <p className="mt-1 max-w-2xl text-sm text-slate-500">Explora perfiles activos con publicaciones constantes, engagement real y experiencias exclusivas para fans.</p>
             </div>
             <Link href="/umate/creators" className="hidden items-center gap-1 text-sm font-bold text-fuchsia-700 transition hover:gap-2 md:flex">
-              Ver catálogo <ChevronRight className="h-4 w-4" />
+              Ver catálogo completo <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {featuredCreators.map((c) => (
-              <Link key={c.id} href={`/umate/profile/${c.user.username}`} className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-fuchsia-100/50">
+              <Link key={c.id} href={`/umate/profile/${c.user.username}`} className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-fuchsia-100/60">
                 <div className="relative h-40 overflow-hidden bg-gradient-to-br from-fuchsia-100 to-orange-50">
-                  {c.coverUrl && <img src={c.coverUrl} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                  {c.coverUrl ? <img src={c.coverUrl} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <div className="h-full w-full bg-gradient-to-br from-fuchsia-200/80 to-orange-200/70" />}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
                   {c.user.isVerified && (
                     <span className="absolute right-2.5 top-2.5 rounded-full bg-white/90 p-1 shadow-sm backdrop-blur">
                       <BadgeCheck className="h-4 w-4 text-sky-500" />
@@ -211,127 +204,90 @@ export default function UmateLandingPage() {
                 </div>
                 <div className="-mt-7 px-4 pb-4">
                   <div className="h-14 w-14 overflow-hidden rounded-xl border-[3px] border-white bg-white shadow-md">
-                    {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center bg-fuchsia-50 text-sm font-bold text-fuchsia-600">{c.displayName[0]}</div>}
+                    {c.avatarUrl ? <img src={c.avatarUrl} alt={c.displayName} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center bg-fuchsia-50 text-sm font-bold text-fuchsia-600">{c.displayName[0]}</div>}
                   </div>
                   <h3 className="mt-2 text-sm font-bold text-slate-900">{c.displayName}</h3>
                   <p className="text-xs text-slate-500">@{c.user.username}</p>
-                  {c.bio && <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-slate-600">{c.bio}</p>}
-                  <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-500">
+                  <p className="mt-1.5 line-clamp-2 min-h-9 text-xs leading-relaxed text-slate-600">{c.bio || "Contenido exclusivo, comunidad cercana y actividad constante."}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                     <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1 font-semibold"><Users className="h-3 w-3 text-fuchsia-500" />{c.subscriberCount}</span>
                     <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1 font-semibold"><Heart className="h-3 w-3 text-rose-400" />{c.totalLikes}</span>
                     <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1 font-semibold"><Eye className="h-3 w-3 text-sky-400" />{c.totalPosts}</span>
                   </div>
+                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-fuchsia-700">Ver perfil <ChevronRight className="h-3.5 w-3.5" /></span>
                 </div>
               </Link>
             ))}
           </div>
-
-          <div className="mt-6 text-center md:hidden">
-            <Link href="/umate/creators" className="inline-flex items-center gap-1 text-sm font-bold text-fuchsia-700">Ver todas las creadoras <ChevronRight className="h-4 w-4" /></Link>
-          </div>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          HOW IT WORKS — 3-step process
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="border-y border-slate-100 bg-white py-14 lg:py-20">
+      <section className="border-y border-slate-100 bg-white py-12 lg:py-14">
         <div className="mx-auto max-w-[1320px] px-4 lg:px-6">
-          <div className="text-center">
-            <h2 className="text-3xl font-black text-slate-900">Cómo funciona U-Mate</h2>
-            <p className="mx-auto mt-2 max-w-lg text-sm text-slate-500">Tres pasos para entrar a una comunidad exclusiva de creadoras.</p>
+          <div className="mb-7 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-black text-slate-900">Cómo funciona</h2>
+              <p className="mt-1 text-sm text-slate-500">Entra, elige y desbloquea en minutos.</p>
+            </div>
+            <Link href="/umate/plans" className="text-sm font-bold text-fuchsia-700">Ver planes</Link>
           </div>
 
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3">
             {[
-              {
-                step: "01",
-                title: "Explora y descubre",
-                desc: "Navega el feed de discovery con contenido gratis y premium. Encuentra creadoras por estilo, categoría y engagement.",
-                icon: Sparkles,
-                color: "from-fuchsia-500 to-rose-500",
-                bg: "bg-fuchsia-50",
-              },
-              {
-                step: "02",
-                title: "Elige tu plan",
-                desc: "Activa un plan mensual con cupos para suscribirte a creadoras premium y desbloquear contenido exclusivo.",
-                icon: Crown,
-                color: "from-amber-500 to-orange-500",
-                bg: "bg-amber-50",
-              },
-              {
-                step: "03",
-                title: "Conecta y disfruta",
-                desc: "Accede a publicaciones exclusivas, apoya a tus creadoras favoritas y forma parte de su comunidad VIP.",
-                icon: Heart,
-                color: "from-rose-500 to-pink-500",
-                bg: "bg-rose-50",
-              },
+              { step: "01", title: "Explora", desc: "Recorre creadoras por estilo, actividad y tipo de contenido.", icon: Sparkles, color: "from-fuchsia-500 to-rose-500" },
+              { step: "02", title: "Elige plan", desc: "Activa tu suscripción con cupos mensuales para perfiles premium.", icon: Crown, color: "from-amber-500 to-orange-500" },
+              { step: "03", title: "Desbloquea", desc: "Accede a contenido exclusivo y conecta con su comunidad VIP.", icon: Heart, color: "from-rose-500 to-pink-500" },
             ].map((item) => (
-              <article key={item.step} className="group relative rounded-2xl border border-slate-100 bg-white p-6 shadow-sm transition hover:shadow-lg">
-                <div className="flex items-center gap-4">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r ${item.color} text-white shadow-lg`}>
-                    <item.icon className="h-5 w-5" />
-                  </div>
-                  <span className="text-4xl font-black text-slate-100">{item.step}</span>
+              <article key={item.step} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-5">
+                <div className="flex items-center justify-between">
+                  <div className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-r ${item.color} text-white shadow-lg`}><item.icon className="h-5 w-5" /></div>
+                  <span className="text-2xl font-black text-slate-200">{item.step}</span>
                 </div>
                 <h3 className="mt-4 text-lg font-bold text-slate-900">{item.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{item.desc}</p>
+                <p className="mt-1.5 text-sm text-slate-600">{item.desc}</p>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          CONTENT PREVIEW — Feed sample
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20">
+      <section className="py-12 lg:py-16">
         <div className="mx-auto max-w-[1320px] px-4 lg:px-6">
           <div className="flex items-end justify-between">
             <div>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-[11px] font-bold text-rose-700">
-                <Play className="h-3 w-3" /> Preview
+                <Play className="h-3 w-3" /> Contenido reciente
               </span>
-              <h2 className="mt-3 text-3xl font-black text-slate-900">Contenido reciente</h2>
-              <p className="mt-1 text-sm text-slate-500">Una muestra de lo que encontrarás en el feed de discovery.</p>
+              <h2 className="mt-3 text-3xl font-black text-slate-900">Preview vivo del feed</h2>
+              <p className="mt-1 max-w-xl text-sm text-slate-500">Descubre una mezcla de piezas gratis y premium para entrar al descubrimiento continuo.</p>
             </div>
             <Link href="/umate/explore" className="hidden items-center gap-1 text-sm font-bold text-fuchsia-700 transition hover:gap-2 md:flex">
-              Abrir feed <ChevronRight className="h-4 w-4" />
+              Ir al feed <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {feed.map((item) => (
+          <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {latestContent.map((item) => (
               <article key={item.id} className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition hover:shadow-lg">
-                <div className="relative aspect-[3/4] overflow-hidden bg-slate-100">
-                  {item.media[0]?.url ? (
-                    <img src={item.media[0].url} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                  ) : (
-                    <div className="h-full w-full bg-gradient-to-br from-fuchsia-100 to-orange-100" />
-                  )}
+                <div className="relative aspect-[4/5] overflow-hidden bg-slate-100">
+                  {item.media[0]?.url ? <img src={item.media[0].url} alt={item.caption || "Publicación"} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <div className="h-full w-full bg-gradient-to-br from-fuchsia-100 to-orange-100" />}
                   {item.visibility === "PREMIUM" && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-bold text-white backdrop-blur">
-                        <Lock className="h-3 w-3" /> Premium
-                      </span>
-                    </div>
+                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-[10px] font-bold text-white">
+                      <Lock className="h-3 w-3" /> Premium
+                    </span>
                   )}
                 </div>
                 <div className="p-3">
                   <div className="flex items-center gap-2">
                     <div className="h-7 w-7 overflow-hidden rounded-full bg-fuchsia-100">
-                      {item.creator.avatarUrl && <img src={item.creator.avatarUrl} alt="" className="h-full w-full object-cover" />}
+                      {item.creator.avatarUrl ? <img src={item.creator.avatarUrl} alt={item.creator.displayName} className="h-full w-full object-cover" /> : null}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-bold text-slate-900">{item.creator.displayName}</p>
-                    </div>
-                    <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${item.visibility === "FREE" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                    <p className="truncate text-xs font-bold text-slate-900">{item.creator.displayName}</p>
+                    <span className={`ml-auto rounded-md px-1.5 py-0.5 text-[10px] font-bold ${item.visibility === "FREE" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
                       {item.visibility === "FREE" ? "Gratis" : "Premium"}
                     </span>
                   </div>
-                  {item.caption && <p className="mt-2 line-clamp-2 text-xs text-slate-600">{item.caption}</p>}
+                  <p className="mt-2 line-clamp-2 text-xs text-slate-600">{item.caption || "Nuevo contenido disponible en el feed de discovery."}</p>
                 </div>
               </article>
             ))}
@@ -339,55 +295,15 @@ export default function UmateLandingPage() {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          RISING CREATORS — Second batch
-      ═══════════════════════════════════════════════════════════════ */}
-      {risingCreators.length > 0 && (
-        <section className="border-t border-slate-100 bg-gradient-to-b from-white to-rose-50/30 py-14 lg:py-20">
-          <div className="mx-auto max-w-[1320px] px-4 lg:px-6">
-            <div className="flex items-end justify-between">
-              <div>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700">
-                  <TrendingUp className="h-3 w-3" /> En ascenso
-                </span>
-                <h2 className="mt-3 text-3xl font-black text-slate-900">Nuevas creadoras</h2>
-                <p className="mt-1 text-sm text-slate-500">Perfiles emergentes con potencial y contenido fresco.</p>
-              </div>
-              <Link href="/umate/creators" className="hidden items-center gap-1 text-sm font-bold text-fuchsia-700 md:flex">
-                Explorar catálogo <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="mt-8 flex gap-3 overflow-x-auto pb-4 scrollbar-none">
-              {risingCreators.map((c) => (
-                <Link key={c.id} href={`/umate/profile/${c.user.username}`} className="group w-44 shrink-0 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-                  <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-fuchsia-100 to-orange-50">
-                    {(c.coverUrl || c.avatarUrl) && <img src={c.coverUrl || c.avatarUrl || ""} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="truncate text-sm font-bold text-white">{c.displayName}</p>
-                      <p className="text-[11px] text-white/70">@{c.user.username}</p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════════
-          PLANS OVERVIEW — Quick comparison
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20">
+      <section className="py-12 lg:py-16">
         <div className="mx-auto max-w-[1320px] px-4 lg:px-6">
           <div className="overflow-hidden rounded-3xl border border-amber-100/80 bg-gradient-to-br from-white via-amber-50/50 to-orange-50/50 p-8 shadow-lg lg:p-12">
             <div className="text-center">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-800">
                 <Crown className="h-3 w-3" /> Planes de suscripción
               </span>
-              <h2 className="mt-4 text-3xl font-black text-slate-900">Desbloquea el contenido completo</h2>
-              <p className="mx-auto mt-2 max-w-lg text-sm text-slate-600">Cada plan incluye cupos mensuales para suscribirte a creadoras premium.</p>
+              <h2 className="mt-4 text-3xl font-black text-slate-900">Sube de nivel tu experiencia</h2>
+              <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600">Después de descubrir creadoras y contenido, activa el plan que mejor encaja con tu ritmo.</p>
             </div>
 
             <div className="mt-10 grid gap-5 md:grid-cols-3">
@@ -414,45 +330,17 @@ export default function UmateLandingPage() {
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          FOR CREATORS — CTA para crear cuenta
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="border-y border-slate-100 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 py-14 lg:py-20">
-        <div className="mx-auto max-w-[1320px] px-4 text-center lg:px-6">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold text-fuchsia-300 backdrop-blur">
-            <Sparkles className="h-3 w-3" /> Para creadoras
-          </span>
-          <h2 className="mt-4 text-3xl font-black text-white md:text-4xl">Monetiza tu contenido con U-Mate</h2>
-          <p className="mx-auto mt-3 max-w-xl text-sm text-slate-400">
-            Crea tu perfil, publica contenido exclusivo, gestiona suscriptores y retira tus ganancias. Todo desde un studio profesional.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link href="/umate/onboarding" className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-rose-500 px-7 py-3.5 text-sm font-bold text-white shadow-xl shadow-fuchsia-500/30 transition hover:brightness-105">
-              Crear cuenta creadora <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link href="/umate/rules" className="inline-flex items-center gap-2 rounded-2xl border border-white/20 px-6 py-3.5 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:text-white">
-              Ver reglas de la plataforma
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════
-          FINAL CTA — Conversion
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="py-14 lg:py-20">
+      <section className="pb-14 pt-4 lg:pb-20">
         <div className="mx-auto max-w-[1320px] px-4 lg:px-6">
-          <div className="overflow-hidden rounded-3xl bg-gradient-to-r from-fuchsia-600 via-rose-500 to-orange-500 p-10 text-center shadow-2xl shadow-fuchsia-500/20 lg:p-16">
-            <h2 className="text-3xl font-black text-white md:text-4xl">Pasa de mirar a pertenecer.</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-white/80">
-              Descubre creadoras, únete a su comunidad y desbloquea experiencias exclusivas ahora.
-            </p>
+          <div className="overflow-hidden rounded-3xl bg-gradient-to-r from-fuchsia-600 via-rose-500 to-orange-500 p-10 text-center shadow-2xl shadow-fuchsia-500/20 lg:p-14">
+            <h2 className="text-3xl font-black text-white md:text-4xl">Tu próxima comunidad favorita está en U-Mate.</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-white/85">Explora catálogo, descubre contenido y conviértete en suscriptor. O abre tu perfil y empieza a monetizar como creadora.</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link href="/umate/explore" className="rounded-2xl bg-white px-7 py-3.5 text-sm font-bold text-fuchsia-700 shadow-lg transition hover:shadow-xl">
-                Explorar ahora
+              <Link href="/umate/creators" className="rounded-2xl bg-white px-7 py-3.5 text-sm font-bold text-fuchsia-700 shadow-lg transition hover:shadow-xl">
+                Explorar creadoras
               </Link>
-              <Link href="/umate/plans" className="rounded-2xl border-2 border-white/40 px-6 py-3.5 text-sm font-bold text-white transition hover:border-white/70">
-                Activar plan
+              <Link href="/umate/onboarding" className="rounded-2xl border-2 border-white/40 px-6 py-3.5 text-sm font-bold text-white transition hover:border-white/70">
+                Unirme como creadora
               </Link>
             </div>
           </div>
