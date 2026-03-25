@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Sparkles, Crown, Diamond, ArrowRight, Heart, Users, Flame, Shield, ChevronRight } from "lucide-react";
+import { Sparkles, Crown, Diamond, ArrowRight, Heart, Users, WandSparkles, Star, PlayCircle } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 import useMe from "../../hooks/useMe";
 
@@ -24,21 +24,13 @@ export default function UmateLandingPage() {
   const { me } = useMe();
   const [creators, setCreators] = useState<Creator[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [isCreator, setIsCreator] = useState(false);
 
   useEffect(() => {
-    apiFetch<{ creators: Creator[] }>("/umate/creators?limit=8").then((d) => setCreators(d?.creators || [])).catch(() => {});
+    apiFetch<{ creators: Creator[] }>("/umate/creators?limit=6").then((d) => setCreators(d?.creators || [])).catch(() => {});
     apiFetch<{ plans: Plan[] }>("/umate/plans").then((d) => setPlans(d?.plans || [])).catch(() => {});
   }, []);
 
-  const tierIcon: Record<string, typeof Sparkles> = { SILVER: Sparkles, GOLD: Crown, DIAMOND: Diamond };
-  const tierGradient: Record<string, string> = {
-    SILVER: "from-slate-400 to-slate-500",
-    GOLD: "from-amber-400 to-amber-600",
-    DIAMOND: "from-violet-400 to-fuchsia-500",
-  };
-
-  // Check if user is a creator (hide subscribe CTAs)
-  const [isCreator, setIsCreator] = useState(false);
   useEffect(() => {
     if (me?.user) {
       apiFetch<{ creator: any }>("/umate/creator/me")
@@ -47,86 +39,77 @@ export default function UmateLandingPage() {
     }
   }, [me]);
 
+  const tierIcon: Record<string, typeof Sparkles> = { SILVER: Sparkles, GOLD: Crown, DIAMOND: Diamond };
+
   return (
-    <div className="space-y-20 pb-12">
-      {/* Hero — full-width immersive */}
-      <section className="relative -mx-4 -mt-6 overflow-hidden bg-gradient-to-b from-rose-950/40 via-[#0a0a12] to-[#08080f] px-4 py-16 md:py-24">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(244,63,94,0.15),transparent_60%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-rose-500/20 to-transparent" />
-        <div className="relative mx-auto max-w-3xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-rose-500/20 bg-rose-500/[0.08] px-4 py-1.5 text-[11px] font-medium text-rose-300">
-            <Flame className="h-3.5 w-3.5" /> Plataforma de contenido exclusivo
-          </div>
-          <h1 className="text-4xl font-extrabold tracking-tight md:text-6xl">
-            Contenido exclusivo{" "}
-            <span className="bg-gradient-to-r from-rose-400 via-pink-400 to-amber-400 bg-clip-text text-transparent">sin límites</span>
-          </h1>
-          <p className="mx-auto mt-5 max-w-lg text-base text-white/45 md:text-lg">
-            Suscríbete a tus creadoras favoritas. Fotos, videos y contenido premium que no encontrarás en otro lugar.
-          </p>
-          <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            {!isCreator && (
-              <Link
-                href="/umate/plans"
-                className="group inline-flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 px-8 py-4 text-sm font-bold text-white shadow-[0_0_40px_rgba(244,63,94,0.25)] transition hover:shadow-[0_0_60px_rgba(244,63,94,0.4)]"
-              >
-                Suscribirme ahora <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+    <div className="space-y-10 pb-12">
+      <section className="relative overflow-hidden rounded-[2rem] border border-fuchsia-100 bg-gradient-to-br from-white via-rose-50/80 to-amber-50 px-6 py-10 shadow-[0_20px_60px_rgba(244,114,182,0.12)] md:px-10">
+        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-fuchsia-200/30 blur-3xl" />
+        <div className="absolute -bottom-20 -left-16 h-60 w-60 rounded-full bg-orange-200/40 blur-3xl" />
+        <div className="relative grid gap-8 md:grid-cols-[1.2fr_0.8fr] md:items-center">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-fuchsia-200 bg-white px-3 py-1 text-xs font-semibold text-fuchsia-700">
+              <WandSparkles className="h-3.5 w-3.5" /> Nueva generación de descubrimiento
+            </span>
+            <h1 className="mt-4 text-3xl font-black leading-tight text-slate-900 md:text-5xl">
+              U-Mate: descubre creadoras, conecta y conviértete en fan premium.
+            </h1>
+            <p className="mt-3 max-w-xl text-sm text-slate-600 md:text-base">
+              Menos panel. Más descubrimiento. Explora contenido real, desbloquea experiencias premium y sigue a las creadoras que mejor conectan contigo.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              {!isCreator && (
+                <Link href="/umate/plans" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-rose-500 px-5 py-3 text-sm font-bold text-white shadow-sm">
+                  Elegir plan <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+              <Link href="/umate/explore" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700">
+                Ver discovery feed
               </Link>
-            )}
-            <Link
-              href="/umate/explore"
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.1] bg-white/[0.04] px-8 py-4 text-sm font-medium text-white/60 transition hover:bg-white/[0.08] hover:text-white"
-            >
-              Explorar creadoras
-            </Link>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Creadoras activas", value: `${creators.length}+`, icon: Users },
+              { label: "Contenido social", value: "Feed vivo", icon: PlayCircle },
+              { label: "Experiencia premium", value: "Blur deseable", icon: Star },
+              { label: "Conversión", value: "Planes claros", icon: Crown },
+            ].map((item) => (
+              <div key={item.label} className="rounded-2xl border border-white bg-white/90 p-4">
+                <item.icon className="h-4 w-4 text-fuchsia-500" />
+                <p className="mt-2 text-sm font-bold text-slate-900">{item.value}</p>
+                <p className="text-xs text-slate-500">{item.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Featured creators — horizontal scroll like OnlyFans */}
       {creators.length > 0 && (
-        <section className="space-y-5">
+        <section className="space-y-4">
           <div className="flex items-end justify-between">
             <div>
-              <h2 className="text-xl font-bold tracking-tight">Creadoras populares</h2>
-              <p className="mt-1 text-xs text-white/30">Las más seguidas en U-Mate</p>
+              <h2 className="text-xl font-black text-slate-900">Creadoras destacadas</h2>
+              <p className="text-sm text-slate-500">Perfiles con mejor engagement esta semana</p>
             </div>
-            <Link href="/umate/explore" className="flex items-center gap-1 text-xs font-medium text-rose-400/70 transition hover:text-rose-400">
-              Ver todas <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
+            <Link href="/umate/creators" className="text-sm font-semibold text-fuchsia-700">Ver todas</Link>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {creators.map((c) => (
-              <Link
-                key={c.id}
-                href={`/umate/profile/${c.user.username}`}
-                className="group w-44 shrink-0 overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] transition hover:border-rose-500/20 hover:shadow-[0_0_30px_rgba(244,63,94,0.06)]"
-              >
-                {/* Cover */}
-                <div className="relative h-24 bg-gradient-to-br from-rose-500/20 to-amber-500/10 overflow-hidden">
-                  {c.coverUrl && (
-                    <img src={c.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-105" />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent" />
+              <Link key={c.id} href={`/umate/profile/${c.user.username}`} className="overflow-hidden rounded-3xl border border-rose-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+                <div className="relative h-36 bg-gradient-to-br from-fuchsia-100 to-orange-100">
+                  {c.coverUrl && <img src={c.coverUrl} alt="" className="h-full w-full object-cover" />}
                 </div>
-                {/* Avatar overlapping cover */}
-                <div className="-mt-7 px-3 relative z-10">
-                  <div className="h-14 w-14 overflow-hidden rounded-full border-[3px] border-[#08080f] bg-white/10 shadow-lg">
-                    {c.avatarUrl ? (
-                      <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-base font-bold text-white/30">
-                        {c.displayName[0]}
-                      </div>
-                    )}
+                <div className="-mt-10 px-4 pb-4">
+                  <div className="h-20 w-20 overflow-hidden rounded-2xl border-4 border-white bg-white shadow-sm">
+                    {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center font-bold text-slate-400">{c.displayName[0]}</div>}
                   </div>
-                </div>
-                <div className="px-3 pb-3 pt-1.5">
-                  <p className="truncate text-sm font-bold">{c.displayName}</p>
-                  <p className="truncate text-[10px] text-white/30">@{c.user.username}</p>
-                  <div className="mt-2 flex items-center gap-2 text-[10px] text-white/25">
-                    <span className="flex items-center gap-0.5"><Users className="h-3 w-3" /> {c.subscriberCount}</span>
-                    <span className="flex items-center gap-0.5"><Heart className="h-3 w-3" /> {c.totalLikes}</span>
+                  <p className="mt-3 text-base font-bold text-slate-900">{c.displayName}</p>
+                  <p className="text-xs text-slate-500">@{c.user.username}</p>
+                  <div className="mt-2 flex gap-3 text-xs text-slate-600">
+                    <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5 text-fuchsia-500" /> {c.subscriberCount}</span>
+                    <span className="inline-flex items-center gap-1"><Heart className="h-3.5 w-3.5 text-rose-500" /> {c.totalLikes}</span>
                   </div>
                 </div>
               </Link>
@@ -135,81 +118,27 @@ export default function UmateLandingPage() {
         </section>
       )}
 
-      {/* Plans — pricing cards */}
       {plans.length > 0 && !isCreator && (
-        <section className="space-y-5">
-          <div className="text-center">
-            <h2 className="text-xl font-bold tracking-tight">Planes de suscripción</h2>
-            <p className="mt-1 text-sm text-white/35">Elige cuántas creadoras quieres seguir</p>
+        <section className="rounded-3xl border border-amber-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 className="text-xl font-black text-slate-900">Planes pensados para convertir</h2>
+              <p className="text-sm text-slate-500">Escoge tu nivel y desbloquea cupos mensuales para suscribirte a creadoras.</p>
+            </div>
+            <Link href="/umate/plans" className="text-sm font-semibold text-fuchsia-700">Comparar planes</Link>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
             {plans.map((plan) => {
               const Icon = tierIcon[plan.tier] || Sparkles;
-              const gradient = tierGradient[plan.tier] || "from-white to-white";
-              const isPopular = plan.tier === "GOLD";
               return (
-                <Link
-                  key={plan.id}
-                  href="/umate/plans"
-                  className={`group relative overflow-hidden rounded-2xl border bg-white/[0.02] p-6 transition hover:bg-white/[0.04] ${
-                    isPopular
-                      ? "border-amber-500/25 ring-1 ring-amber-500/10 shadow-[0_0_30px_rgba(245,158,11,0.06)]"
-                      : "border-white/[0.08]"
-                  }`}
-                >
-                  {isPopular && (
-                    <span className="absolute top-3 right-3 rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] font-bold text-amber-300">
-                      MÁS POPULAR
-                    </span>
-                  )}
-                  <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${gradient}`}>
-                    <Icon className="h-5 w-5 text-white" />
-                  </div>
-                  <h3 className="mt-3 text-base font-bold">{plan.name}</h3>
-                  <p className="mt-1 text-2xl font-extrabold">
-                    ${plan.priceCLP.toLocaleString("es-CL")}
-                    <span className="text-xs font-normal text-white/30"> /mes</span>
-                  </p>
-                  <p className="mt-2 text-xs text-white/35">
-                    {plan.maxSlots} {plan.maxSlots === 1 ? "creadora" : "creadoras"} incluidas
-                  </p>
-                </Link>
+                <div key={plan.id} className="rounded-2xl border border-slate-100 bg-gradient-to-br from-white to-rose-50/40 p-4">
+                  <Icon className="h-5 w-5 text-fuchsia-600" />
+                  <p className="mt-2 text-sm font-bold text-slate-900">{plan.name}</p>
+                  <p className="text-2xl font-black text-slate-900">${plan.priceCLP.toLocaleString("es-CL")}</p>
+                  <p className="text-xs text-slate-500">{plan.maxSlots} cupos de creadora por ciclo</p>
+                </div>
               );
             })}
-          </div>
-        </section>
-      )}
-
-      {/* Trust indicators */}
-      <section className="grid grid-cols-3 gap-4">
-        {[
-          { icon: Shield, label: "Pagos seguros", desc: "Procesados por Flow.cl" },
-          { icon: Heart, label: "Contenido exclusivo", desc: "Solo para suscriptores" },
-          { icon: Users, label: "Comunidad activa", desc: "Creadoras verificadas" },
-        ].map((item) => (
-          <div key={item.label} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 text-center">
-            <item.icon className="mx-auto h-5 w-5 text-rose-400/60" />
-            <p className="mt-2 text-xs font-semibold">{item.label}</p>
-            <p className="mt-0.5 text-[10px] text-white/25">{item.desc}</p>
-          </div>
-        ))}
-      </section>
-
-      {/* Creator CTA — only for non-subscribers, non-creators */}
-      {me?.user && !isCreator && (
-        <section className="relative overflow-hidden rounded-3xl border border-amber-500/15 bg-gradient-to-br from-amber-500/[0.06] via-rose-500/[0.03] to-transparent p-8 text-center">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_100%,rgba(245,158,11,0.08),transparent_60%)]" />
-          <div className="relative">
-            <h2 className="text-lg font-bold">¿Quieres ser creadora?</h2>
-            <p className="mt-2 text-sm text-white/45">
-              Publica contenido, consigue suscriptores y monetiza tu perfil.
-            </p>
-            <Link
-              href="/umate/onboarding"
-              className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-rose-500 px-8 py-3.5 text-sm font-bold text-white transition hover:shadow-[0_0_30px_rgba(245,158,11,0.3)]"
-            >
-              Crear cuenta de creadora <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
         </section>
       )}
