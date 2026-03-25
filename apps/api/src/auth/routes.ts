@@ -189,7 +189,7 @@ authRouter.post(
     }
 
     const {
-      email,
+      email: rawEmail,
       password,
       displayName,
       username,
@@ -205,6 +205,7 @@ authRouter.post(
       bio,
       primaryCategory,
     } = parsed.data;
+    const email = rawEmail.toLowerCase().trim();
     const existing = await prisma.user.findFirst({
       where: { OR: [{ email }, { username }] },
     });
@@ -397,7 +398,8 @@ authRouter.post(
         .status(400)
         .json({ error: "VALIDATION", details: parsed.error.flatten() });
 
-    const { email, password } = parsed.data;
+    const { email: rawEmail, password } = parsed.data;
+    const email = rawEmail.toLowerCase().trim();
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
 
