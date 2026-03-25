@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Crown, Diamond, Check, Loader2, Shield } from "lucide-react";
+import { Sparkles, Crown, Diamond, Check, Loader2, Shield, ArrowRight } from "lucide-react";
 import { apiFetch } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 
 type Plan = { id: string; tier: string; name: string; priceCLP: number; maxSlots: number };
 
-const TIER_META: Record<string, { icon: typeof Sparkles; accent: string; features: string[] }> = {
-  SILVER: { icon: Sparkles, accent: "from-slate-500 to-slate-700", features: ["1 cupo mensual", "Acceso premium", "Renovación automática"] },
-  GOLD: { icon: Crown, accent: "from-amber-500 to-orange-500", features: ["3 cupos mensuales", "Mayor flexibilidad", "Soporte prioritario"] },
-  DIAMOND: { icon: Diamond, accent: "from-violet-600 to-fuchsia-600", features: ["5 cupos mensuales", "Máxima conversión", "Beneficios VIP"] },
+const TIER_META: Record<string, { icon: typeof Sparkles; accent: string; features: string[]; subtitle: string }> = {
+  SILVER: { icon: Sparkles, accent: "from-slate-500 to-slate-700", subtitle: "Entrada premium", features: ["1 cupo mensual", "Acceso premium", "Renovación automática"] },
+  GOLD: { icon: Crown, accent: "from-amber-500 to-orange-500", subtitle: "Más recomendado", features: ["3 cupos mensuales", "Mayor flexibilidad", "Soporte prioritario"] },
+  DIAMOND: { icon: Diamond, accent: "from-violet-600 to-fuchsia-600", subtitle: "Máximo alcance", features: ["5 cupos mensuales", "Máxima conversión", "Beneficios VIP"] },
 };
 
 export default function PlansPage() {
@@ -51,9 +51,9 @@ export default function PlansPage() {
 
   return (
     <div className="space-y-6 py-4 pb-12">
-      <header className="rounded-3xl border border-fuchsia-100 bg-gradient-to-br from-white via-rose-50/70 to-amber-50 p-8 text-center">
+      <header className="rounded-3xl border border-fuchsia-100 bg-gradient-to-br from-white via-rose-50/70 to-orange-50 p-8 text-center shadow-sm">
         <h1 className="text-3xl font-black text-slate-900">Planes U-Mate</h1>
-        <p className="mt-2 text-sm text-slate-600">Cada plan incluye cupos mensuales para suscribirte a creadoras. Tú decides cómo distribuirlos.</p>
+        <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-600">Cada plan desbloquea cupos mensuales para seguir creadoras premium. Diseñado para descubrir más y convertir mejor.</p>
       </header>
 
       {isCreator && (
@@ -63,25 +63,28 @@ export default function PlansPage() {
       )}
       {subError && <div className="mx-auto max-w-xl rounded-2xl border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700">{subError}</div>}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-5 md:grid-cols-3">
         {plans.map((plan) => {
           const meta = TIER_META[plan.tier] || TIER_META.SILVER;
           const Icon = meta.icon;
           const isPopular = plan.tier === "GOLD";
           return (
-            <div key={plan.id} className={`rounded-3xl border bg-white p-6 shadow-sm ${isPopular ? "border-amber-300 ring-2 ring-amber-100" : "border-slate-100"}`}>
-              {isPopular && <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-amber-700">Más elegido</p>}
+            <div key={plan.id} className={`relative rounded-3xl border bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl ${isPopular ? "border-amber-300 ring-2 ring-amber-100" : "border-slate-100"}`}>
+              {isPopular && <p className="absolute -top-3 left-5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white">Plan recomendado</p>}
               <div className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-r ${meta.accent} text-white`}><Icon className="h-5 w-5" /></div>
-              <h2 className="mt-3 text-lg font-black text-slate-900">{plan.name}</h2>
-              <p className="text-3xl font-black text-slate-900">${plan.priceCLP.toLocaleString("es-CL")}</p>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{meta.subtitle}</p>
+              <h2 className="mt-1 text-xl font-black text-slate-900">{plan.name}</h2>
+              <p className="mt-2 text-4xl font-black text-slate-900">${plan.priceCLP.toLocaleString("es-CL")}</p>
               <p className="text-xs text-slate-500">{plan.maxSlots} cupos por ciclo mensual</p>
-              <ul className="mt-4 space-y-2">
+
+              <ul className="mt-5 space-y-2">
                 {meta.features.map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm text-slate-700"><Check className="h-4 w-4 text-emerald-600" />{f}</li>
                 ))}
               </ul>
-              <button onClick={() => handleSubscribe(plan.tier)} disabled={subscribing !== null || isCreator} className="mt-5 w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-rose-500 py-3 text-sm font-bold text-white disabled:opacity-60">
-                {subscribing === plan.tier ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Activar plan"}
+
+              <button onClick={() => handleSubscribe(plan.tier)} disabled={subscribing !== null || isCreator} className={`mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white disabled:opacity-60 ${isPopular ? "bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-amber-300/40" : "bg-gradient-to-r from-fuchsia-600 to-rose-500"}`}>
+                {subscribing === plan.tier ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Activar plan <ArrowRight className="h-4 w-4" /></>}
               </button>
             </div>
           );

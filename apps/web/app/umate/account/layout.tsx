@@ -16,15 +16,13 @@ export default function UmateAccountLayout({ children }: { children: React.React
   const pathname = usePathname();
   return (
     <div>
-      <div className="sticky top-16 z-20 mb-4 overflow-x-auto rounded-2xl border border-slate-100 bg-white/90 p-2 backdrop-blur">
-        <div className="flex gap-1">
+      <div className="sticky top-16 z-20 mb-5 overflow-x-auto rounded-2xl border border-fuchsia-100 bg-gradient-to-r from-white via-rose-50/60 to-orange-50 p-2 shadow-sm backdrop-blur">
+        <div className="flex gap-1.5">
           {creatorTabs.map((tab) => (
             <Link
               key={tab.href}
               href={tab.href}
-              className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                pathname === tab.href ? "bg-fuchsia-100 text-fuchsia-700" : "text-slate-500 hover:bg-slate-100"
-              }`}
+              className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${pathname === tab.href ? "bg-white text-fuchsia-700 shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
             >
               {tab.label}
             </Link>
