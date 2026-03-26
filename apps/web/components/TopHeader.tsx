@@ -255,15 +255,13 @@ export default function TopHeader() {
                   <Menu className="h-5 w-5" />
                 </button>
 
-                <Link href="/" className="flex items-center gap-2.5">
+                <Link href="/" className="flex items-center">
                   <img
-                    src="/brand/isotipo-new.png"
-                    alt="UZEED"
-                    className="h-10 w-10 object-contain drop-shadow-[0_4px_12px_rgba(168,85,247,0.4)] md:h-12 md:w-12"
+                    src="/brand/Umate.png"
+                    alt="U-Mate"
+                    className="h-9 w-auto object-contain drop-shadow-[0_4px_16px_rgba(217,70,239,0.45)] md:h-11"
+                    style={{ maxWidth: "140px" }}
                   />
-                  <span className="text-2xl font-bold leading-none tracking-tight text-white drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)] md:text-3xl">
-                    Uzeed
-                  </span>
                 </Link>
               </div>
 
