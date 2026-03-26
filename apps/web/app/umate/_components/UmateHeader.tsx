@@ -46,14 +46,8 @@ export default function UmateHeader() {
     <header className="sticky top-0 z-50 border-b border-fuchsia-100/60 bg-white/95 backdrop-blur-2xl">
       <div className="mx-auto flex h-16 max-w-[1320px] items-center justify-between gap-4 px-4 lg:px-6">
         {/* Logo */}
-        <Link href="/umate" className="flex shrink-0 items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 via-rose-500 to-orange-400 shadow-lg shadow-fuchsia-500/20">
-            <span className="text-base font-black text-white">U</span>
-          </div>
-          <span className="hidden text-lg font-black tracking-tight sm:block">
-            <span className="text-slate-900">U</span>
-            <span className="bg-gradient-to-r from-fuchsia-600 via-rose-500 to-orange-500 bg-clip-text text-transparent">-Mate</span>
-          </span>
+        <Link href="/umate" className="flex shrink-0 items-center rounded-2xl border border-fuchsia-100 bg-white/90 px-2.5 py-1.5 shadow-sm shadow-fuchsia-100/40 transition hover:border-fuchsia-200">
+          <img src="/brand/Umate.png" alt="U-Mate" className="h-8 w-auto object-contain sm:h-9" />
         </Link>
 
         {/* Desktop nav */}
