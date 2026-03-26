@@ -573,6 +573,7 @@ export default function HomePage() {
   const [bannersLoaded, setBannersLoaded] = useState(false);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
   const [promoShowcase, setPromoShowcase] = useState<PopupPromotion[]>([]);
+  const [promoLoaded, setPromoLoaded] = useState(false);
   const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
   const [discoverSections, setDiscoverSections] = useState<
     Record<string, DiscoverProfile[]>
@@ -623,8 +624,9 @@ export default function HomePage() {
         if (mounted) setPromoShowcase(res?.promotions ?? []);
       } catch {
         if (mounted) setPromoShowcase([]);
+      } finally {
+        if (mounted) setPromoLoaded(true);
       }
-
     };
 
     loadPromotions();
@@ -1073,8 +1075,7 @@ export default function HomePage() {
         )}
 
         {/* ═══ STORIES ═══ */}
-        {/* min-h reserves space while the ssr:false Stories component hydrates, preventing CLS */}
-        <section className="mb-6 min-h-[88px]">
+        <section className="mb-6">
           <Stories />
         </section>
 
@@ -1221,8 +1222,8 @@ export default function HomePage() {
         <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.08] to-transparent" />
 
         {/* ═══ PUBLICIDAD / PROMOCIONADO ═══ */}
-        {/* min-h reserves space while promos are loading to prevent CLS */}
-        <div className={promoShowcase.length === 0 ? "mb-6 min-h-[170px]" : ""}>
+        {/* min-h reserves space only during the first fetch to prevent CLS; once promoLoaded=true it collapses */}
+        <div className={!promoLoaded ? "mb-6 min-h-[170px]" : ""}>
           <PromoShowcaseSection promotions={promoShowcase} />
         </div>
 
