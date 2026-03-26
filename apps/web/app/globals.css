@@ -1193,3 +1193,13 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
     transform: translateY(-3px) scale(1.005);
   }
 }
+
+/*
+  content-visibility: auto — skip rendering work for off-screen sections.
+  The browser still reserves layout space (contain-intrinsic-size) so CLS stays zero.
+  Applied only to sections that are always below the fold.
+*/
+.uzeed-below-fold {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
+}

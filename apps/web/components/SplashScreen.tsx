@@ -25,11 +25,11 @@ export default function SplashScreen() {
     // Show splash
     setIsVisible(true);
 
-    // Hide after 2.5 seconds
+    // Hide after 1 second (reduced from 2.5s to improve LCP)
     const timer = setTimeout(() => {
       setIsVisible(false);
       sessionStorage.setItem("uzeed_splash_shown", "true");
-    }, 2500);
+    }, 1000);
 
     return () => clearTimeout(timer);
   }, [pathname]);
@@ -42,7 +42,7 @@ export default function SplashScreen() {
         <motion.div
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.5, ease: "easeInOut" }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#070816]"
         >
           {/* Background gradient */}
