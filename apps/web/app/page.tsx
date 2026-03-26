@@ -560,8 +560,109 @@ const cardFade = {
 
 /* ── Tier config ── */
 const TIERS = [
-  { key: "SILVER", label: "Silver", icon: Sparkles, gradient: "from-slate-300 to-slate-400", border: "border-slate-400/30", bg: "bg-slate-500/10" },
+  { key: "SILVER", label: "Explorar", icon: Sparkles, gradient: "from-slate-300 to-slate-400", border: "border-slate-400/30", bg: "bg-slate-500/10" },
 ] as const;
+
+/* ── Plans Section ── */
+const PLAN_FEATURES = {
+  basic: ["Explorar perfiles verificados", "Ver fotos de portada", "Solicitar encuentros", "Acceso al foro comunitario"],
+  standard: ["Todo lo básico", "Filtros avanzados", "Perfiles Gold & Diamond", "Chat directo sin límites", "Videollamadas privadas"],
+  premium: ["Todo Standard", "Acceso al feed premium", "Contenido exclusivo de creadoras", "Prioridad en solicitudes", "Badge VIP en comunidad"],
+};
+
+function PlanesSection() {
+  return (
+    <motion.section
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "-60px" }}
+      variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.16,1,0.3,1] } } }}
+      className="mb-12"
+    >
+      <div className="mb-8 text-center">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/[0.06] px-4 py-1.5 text-xs font-semibold text-fuchsia-300/80">
+          <Crown className="h-3.5 w-3.5" /> Planes U-Mate
+        </div>
+        <h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">Elige tu experiencia</h2>
+        <p className="mt-2 text-sm text-white/40">Acceso premium desde el primer día. Sin compromisos.</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        {/* Básico */}
+        <div className="relative rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6 flex flex-col">
+          <div className="mb-4">
+            <div className="text-xs font-bold uppercase tracking-widest text-white/30">Básico</div>
+            <div className="mt-2 text-3xl font-extrabold">Gratis</div>
+            <div className="mt-1 text-xs text-white/35">Para comenzar a explorar</div>
+          </div>
+          <ul className="flex-1 space-y-2.5 mb-6">
+            {PLAN_FEATURES.basic.map((f) => (
+              <li key={f} className="flex items-start gap-2 text-sm text-white/60">
+                <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/25" />
+                {f}
+              </li>
+            ))}
+          </ul>
+          <Link href="/register?type=CLIENT" className="block rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-center text-sm font-semibold text-white/70 transition hover:bg-white/[0.08]">
+            Empezar gratis
+          </Link>
+        </div>
+
+        {/* Standard */}
+        <div className="relative rounded-2xl border border-fuchsia-500/25 bg-gradient-to-b from-fuchsia-600/[0.08] to-violet-600/[0.04] p-6 flex flex-col shadow-[0_0_48px_rgba(168,85,247,0.1)]">
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-fuchsia-400/30 bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">
+            Popular
+          </div>
+          <div className="mb-4">
+            <div className="text-xs font-bold uppercase tracking-widest text-fuchsia-400/70">Standard</div>
+            <div className="mt-2 flex items-end gap-1">
+              <span className="text-3xl font-extrabold">$9.990</span>
+              <span className="mb-1 text-xs text-white/40">/mes</span>
+            </div>
+            <div className="mt-1 text-xs text-white/35">Acceso completo al catálogo</div>
+          </div>
+          <ul className="flex-1 space-y-2.5 mb-6">
+            {PLAN_FEATURES.standard.map((f) => (
+              <li key={f} className="flex items-start gap-2 text-sm text-white/70">
+                <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fuchsia-400" />
+                {f}
+              </li>
+            ))}
+          </ul>
+          <Link href="/register?type=CLIENT&plan=standard" className="block rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2.5 text-center text-sm font-bold text-white shadow-[0_8px_24px_rgba(168,85,247,0.25)] transition hover:shadow-[0_12px_32px_rgba(168,85,247,0.35)] hover:brightness-110">
+            Comenzar Standard
+          </Link>
+        </div>
+
+        {/* Premium */}
+        <div className="relative rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-600/[0.06] to-orange-600/[0.03] p-6 flex flex-col">
+          <div className="mb-4">
+            <div className="flex items-center gap-1.5">
+              <Crown className="h-4 w-4 text-amber-400" />
+              <div className="text-xs font-bold uppercase tracking-widest text-amber-400/70">Premium</div>
+            </div>
+            <div className="mt-2 flex items-end gap-1">
+              <span className="text-3xl font-extrabold">$19.990</span>
+              <span className="mb-1 text-xs text-white/40">/mes</span>
+            </div>
+            <div className="mt-1 text-xs text-white/35">Experiencia U-Mate completa</div>
+          </div>
+          <ul className="flex-1 space-y-2.5 mb-6">
+            {PLAN_FEATURES.premium.map((f) => (
+              <li key={f} className="flex items-start gap-2 text-sm text-white/70">
+                <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+                {f}
+              </li>
+            ))}
+          </ul>
+          <Link href="/register?type=CLIENT&plan=premium" className="block rounded-xl border border-amber-400/25 bg-gradient-to-r from-amber-600/20 to-orange-600/15 px-4 py-2.5 text-center text-sm font-bold text-amber-200 transition hover:border-amber-400/40 hover:bg-amber-600/25">
+            Comenzar Premium
+          </Link>
+        </div>
+      </div>
+    </motion.section>
+  );
+}
 
 /* ── Page ── */
 
@@ -732,9 +833,9 @@ export default function HomePage() {
     const controller = new AbortController();
     const loadSections = async () => {
       const sections = [
-        { key: "available", query: { sort: "availableNow", limit: "6" } },
-        { key: "near", query: { sort: "near", limit: "8" } },
-        { key: "new", query: { sort: "new", limit: "8" } },
+        { key: "available", query: { sort: "availableNow", limit: "8" } },
+        { key: "near", query: { sort: "near", limit: "12" } },
+        { key: "new", query: { sort: "new", limit: "12" } },
       ];
       const next: Record<string, DiscoverProfile[]> = {};
       setError(null);
@@ -835,8 +936,10 @@ export default function HomePage() {
   const featuredCarouselProfiles = useMemo(() => {
     return recentPros.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD").slice(0, 12);
   }, [recentPros]);
-  const FEATURED_PAGE_SIZE = 3;
-  const featuredPageCount = Math.max(1, Math.ceil(featuredCarouselProfiles.length / FEATURED_PAGE_SIZE));
+  const FEATURED_PAGE_SIZE = 4;
+  // First 8 are shown in the catalog grid above; carousel shows the rest
+  const FEATURED_OFFSET = 8;
+  const featuredPageCount = Math.max(1, Math.ceil((featuredCarouselProfiles.length - FEATURED_OFFSET) / FEATURED_PAGE_SIZE));
   const [featuredPage, setFeaturedPage] = useState(0);
 
   useEffect(() => {
@@ -848,6 +951,22 @@ export default function HomePage() {
   }, [featuredPageCount]);
 
   const availableProfiles = discoverSections["available"] || [];
+
+  // Hero visual composition — use best available profiles for the right-side cards
+  const heroProfiles = useMemo(() => {
+    const pool: DiscoverProfile[] = [
+      ...(discoverSections["available"] || []),
+      ...(discoverSections["near"] || []),
+      ...(discoverSections["new"] || []),
+    ];
+    const seen = new Set<string>();
+    return pool.filter((p) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    }).filter((p) => p.avatarUrl || p.coverUrl).slice(0, 4);
+  }, [discoverSections]);
+
   const availableCarouselProfiles = useMemo(
     () => (availableProfiles.length > 0 ? [...availableProfiles, ...availableProfiles] : []),
     [availableProfiles],
@@ -996,50 +1115,186 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
-      {/* ═══ HERO — Premium immersive ═══ */}
-      <section className="relative flex min-h-[52vh] items-center justify-center overflow-hidden px-4 md:min-h-[58vh]">
+      {/* ═══ HERO — Editorial two-column ═══ */}
+      <section className="relative overflow-hidden pt-10 pb-6 md:pt-0 md:min-h-[88vh] md:flex md:items-center">
+        {/* Ambient background */}
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[url('/brand/bg.jpg')] bg-cover bg-center opacity-15" />
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
-        {/* Premium ambient orbs with better colors */}
-        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[140px] animate-hero-drift" />
-        <div className="pointer-events-none absolute right-[8%] top-[18%] -z-10 h-[450px] w-[450px] rounded-full bg-fuchsia-500/[0.06] blur-[120px] animate-[hero-drift_14s_ease-in-out_infinite_reverse]" />
-        <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 h-[350px] w-[350px] rounded-full bg-indigo-500/[0.05] blur-[100px] animate-[hero-drift_18s_ease-in-out_infinite]" />
-        {/* Noise texture overlay for premium texture */}
-        <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[url('/brand/bg.jpg')] bg-cover bg-center opacity-12" />
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/50 to-[#070816]" />
+        <div className="pointer-events-none absolute left-[10%] top-1/4 -z-10 h-[600px] w-[600px] -translate-y-1/2 rounded-full bg-fuchsia-600/[0.12] blur-[140px] animate-hero-drift" />
+        <div className="pointer-events-none absolute right-[5%] top-[15%] -z-10 h-[500px] w-[500px] rounded-full bg-violet-600/[0.09] blur-[120px] animate-[hero-drift_16s_ease-in-out_infinite_reverse]" />
+        <div className="pointer-events-none absolute left-[40%] bottom-0 -z-10 h-[400px] w-[400px] rounded-full bg-pink-600/[0.06] blur-[100px] animate-[hero-drift_20s_ease-in-out_infinite]" />
 
-        <div className="relative mx-auto max-w-3xl text-center">
-          <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="mb-5 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/15 bg-gradient-to-r from-fuchsia-500/[0.06] to-violet-500/[0.04] px-5 py-2 text-xs font-medium text-white/60 backdrop-blur-2xl shadow-[0_0_30px_rgba(168,85,247,0.08)]">
-            <Zap className="h-3.5 w-3.5 text-fuchsia-400 animate-breathe" />
-            Plataforma #1 de experiencias en Chile
-          </motion.div>
+        <div className="relative mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8">
+          <div className="grid md:grid-cols-[1fr_420px] lg:grid-cols-[1fr_500px] gap-8 lg:gap-14 items-center min-h-[88vh] md:min-h-0 md:py-20 lg:py-24">
 
-          <motion.h1 initial="hidden" animate="visible" custom={1} variants={fadeUp} className="text-[2rem] font-extrabold leading-[1.08] tracking-tight sm:text-4xl md:text-5xl">
-            <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
-          </motion.h1>
+            {/* LEFT — Brand + Copy + CTAs */}
+            <div className="flex flex-col items-start">
+              <motion.div
+                initial="hidden" animate="visible" custom={0} variants={fadeUp}
+                className="mb-5 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/20 bg-gradient-to-r from-fuchsia-500/[0.08] to-violet-500/[0.05] px-4 py-1.5 text-[11px] font-semibold text-fuchsia-300/80 backdrop-blur-2xl shadow-[0_0_30px_rgba(168,85,247,0.10)]"
+              >
+                <Flame className="h-3.5 w-3.5 text-fuchsia-400 animate-breathe" />
+                La plataforma de creadoras y experiencias en Chile
+              </motion.div>
 
-          <motion.h2 initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mx-auto mt-5 max-w-2xl text-[13px] font-medium leading-relaxed text-white/45 sm:text-sm md:text-base">
-            Las mejores Escorts y Putas en Santiago, Las Condes y regiones. Todo lo que buscas en un entorno discreto, verificado y premium.
-          </motion.h2>
+              <motion.h1
+                initial="hidden" animate="visible" custom={1} variants={fadeUp}
+                className="text-[2.1rem] font-extrabold leading-[1.07] tracking-tight sm:text-[2.6rem] md:text-[2.8rem] lg:text-[3.2rem]"
+              >
+                <span className="bg-gradient-to-br from-white via-white/95 to-white/55 bg-clip-text text-transparent">
+                  Descubre las mejores<br className="hidden sm:block" /> creadoras cerca de ti
+                </span>
+              </motion.h1>
 
-          <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp} className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link
-              href="/servicios"
-              className="uzeed-hero-cta group relative inline-flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)] sm:w-auto"
+              <motion.p
+                initial="hidden" animate="visible" custom={2} variants={fadeUp}
+                className="mt-5 max-w-xl text-[14px] font-medium leading-relaxed text-white/50 sm:text-[15px]"
+              >
+                Catálogo premium, suscripciones y contenido exclusivo. Todo en un entorno verificado, discreto y con identidad propia.
+              </motion.p>
+
+              <motion.div
+                initial="hidden" animate="visible" custom={3} variants={fadeUp}
+                className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
+              >
+                <Link
+                  href="/servicios"
+                  className="uzeed-hero-cta group relative inline-flex items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-3.5 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.38)]"
+                >
+                  Explorar catálogo
+                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
+                <Link
+                  href="/register?type=CLIENT"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-8 py-3.5 text-sm font-semibold text-white/75 backdrop-blur-xl transition-all duration-200 hover:border-fuchsia-400/25 hover:bg-white/[0.08] hover:text-white/90"
+                >
+                  Únete gratis
+                </Link>
+              </motion.div>
+
+              <HeroCounters />
+
+              {/* Social proof row */}
+              <motion.div
+                initial="hidden" animate="visible" custom={4} variants={fadeUp}
+                className="mt-8 flex flex-wrap items-center gap-4"
+              >
+                <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-1.5 text-[11px] font-semibold text-emerald-300/80">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                  Creadoras activas ahora
+                </div>
+                <div className="flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/[0.05] px-3 py-1.5 text-[11px] font-semibold text-amber-300/70">
+                  <ShieldCheck className="h-3 w-3" />
+                  Perfiles verificados
+                </div>
+                <div className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/[0.05] px-3 py-1.5 text-[11px] font-semibold text-violet-300/70">
+                  <Crown className="h-3 w-3" />
+                  Contenido exclusivo
+                </div>
+              </motion.div>
+            </div>
+
+            {/* RIGHT — Visual composition */}
+            <motion.div
+              initial={{ opacity: 0, x: 32 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.65, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="hidden md:block relative"
+              style={{ height: "540px" }}
             >
-              Explorar ahora
-              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-            </Link>
-            <InstallAppButton />
-          </motion.div>
+              {/* Ambient glow behind composition */}
+              <div className="pointer-events-none absolute inset-8 rounded-3xl bg-gradient-to-br from-fuchsia-600/15 via-violet-600/10 to-pink-600/08 blur-[50px]" />
 
-          <HeroCounters />
+              {/* Main card — tall portrait left */}
+              <div className="absolute left-0 top-0 h-[88%] w-[55%] overflow-hidden rounded-2xl border border-white/[0.12] shadow-[0_24px_64px_rgba(0,0,0,0.5)] transition-transform duration-700 hover:-translate-y-1">
+                {heroProfiles[0] ? (
+                  <img src={resolveProfileImage(heroProfiles[0])} alt={heroProfiles[0].displayName} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-br from-fuchsia-900/60 via-violet-900/40 to-purple-900/50" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                {/* Online badge */}
+                {heroProfiles[0]?.availableNow && (
+                  <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/20 px-2.5 py-1 text-[10px] font-bold text-emerald-300 backdrop-blur-sm">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                    Disponible
+                  </div>
+                )}
+                {heroProfiles[0] && (
+                  <div className="absolute bottom-0 left-0 right-0 p-3.5">
+                    <div className="text-sm font-bold text-white">{heroProfiles[0].displayName}</div>
+                    {heroProfiles[0].serviceCategory && (
+                      <div className="mt-0.5 text-[11px] text-white/50">{heroProfiles[0].serviceCategory}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Top-right card */}
+              <div className="absolute right-0 top-0 h-[48%] w-[42%] overflow-hidden rounded-2xl border border-fuchsia-500/20 shadow-[0_16px_48px_rgba(168,85,247,0.15)] transition-transform duration-700 hover:-translate-y-1" style={{ marginTop: "16px" }}>
+                {heroProfiles[1] ? (
+                  <img src={resolveProfileImage(heroProfiles[1])} alt={heroProfiles[1].displayName} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-br from-pink-900/60 via-rose-800/40 to-fuchsia-900/50" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-fuchsia-600/25 border border-fuchsia-400/25 px-2 py-0.5 text-[9px] font-bold text-fuchsia-200 backdrop-blur-sm">
+                  <Sparkles className="h-2.5 w-2.5" /> Premium
+                </div>
+                {heroProfiles[1] && (
+                  <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                    <div className="text-[12px] font-bold text-white truncate">{heroProfiles[1].displayName}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom-right card */}
+              <div className="absolute right-0 bottom-0 h-[48%] w-[42%] overflow-hidden rounded-2xl border border-amber-500/20 shadow-[0_16px_48px_rgba(245,158,11,0.12)] transition-transform duration-700 hover:-translate-y-1">
+                {heroProfiles[2] ? (
+                  <img src={resolveProfileImage(heroProfiles[2])} alt={heroProfiles[2].displayName} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-br from-amber-900/50 via-orange-900/40 to-rose-900/40" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-amber-500/20 border border-amber-400/25 px-2 py-0.5 text-[9px] font-bold text-amber-200 backdrop-blur-sm">
+                  <Crown className="h-2.5 w-2.5" /> Destacada
+                </div>
+                {heroProfiles[2] && (
+                  <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                    <div className="text-[12px] font-bold text-white truncate">{heroProfiles[2].displayName}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Floating stat pill */}
+              <div className="absolute -left-6 bottom-[28%] flex items-center gap-3 rounded-2xl border border-white/[0.10] bg-black/60 px-4 py-3 shadow-2xl backdrop-blur-xl">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-fuchsia-500/20">
+                  <Users className="h-4 w-4 text-fuchsia-400" />
+                </div>
+                <div>
+                  <div className="text-[10px] text-white/40">Creadoras activas</div>
+                  <div className="text-sm font-bold text-white">{availableProfiles.length > 0 ? `${availableProfiles.length}+ en línea` : "Online ahora"}</div>
+                </div>
+              </div>
+
+              {/* Floating subscriber pill */}
+              {heroProfiles[3] && (
+                <div className="absolute -right-2 top-[52%] flex items-center gap-2 rounded-full border border-violet-400/20 bg-black/50 px-3 py-2 shadow-xl backdrop-blur-xl">
+                  <div className="h-7 w-7 overflow-hidden rounded-full border border-violet-400/30">
+                    <img src={resolveProfileImage(heroProfiles[3])} alt="" className="h-full w-full object-cover" />
+                  </div>
+                  <div className="text-[10px] text-white/60">Nueva creadora</div>
+                </div>
+              )}
+            </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* Section divider - premium gradient */}
+      {/* Section divider */}
       <div className="relative mx-auto max-w-5xl px-4">
-        <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/20 to-transparent" />
+        <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/25 to-transparent" />
       </div>
 
       {/* Main content */}
@@ -1212,10 +1467,74 @@ export default function HomePage() {
         {/* Section gradient divider */}
         <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.08] to-transparent" />
 
+        {/* ═══ CATÁLOGO PREMIUM DESTACADO ═══ */}
+        {featuredCarouselProfiles.length > 0 && (
+          <motion.section
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-60px" }}
+            variants={stagger}
+            className="mb-10"
+          >
+            <motion.div variants={cardFade} className="mb-5 flex items-end justify-between">
+              <div>
+                <div className="mb-1 flex items-center gap-2">
+                  <Crown className="h-4 w-4 text-amber-400" />
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-amber-400/60">Catálogo Premium</span>
+                </div>
+                <h2 className="text-2xl font-extrabold tracking-tight">Creadoras Destacadas</h2>
+              </div>
+              <Link href="/profesionales" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-amber-400 transition-colors duration-200">
+                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+            </motion.div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
+              {featuredCarouselProfiles.slice(0, 8).map((p) => (
+                <motion.div key={`cat-${p.id}`} variants={cardFade}>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
+                    className={`uzeed-premium-card group relative block w-full text-left ${p.userLevel === "DIAMOND" ? "uzeed-tier-diamond" : "uzeed-tier-gold"}`}
+                  >
+                    <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-white/[0.04] to-transparent rounded-[inherit]">
+                      {p.avatarUrl || p.coverUrl ? (
+                        <img src={resolveProfileImage(p)} alt={p.name} className="uzeed-card-img h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }} />
+                      ) : (
+                        <div className="flex h-full items-center justify-center"><img src="/brand/isotipo-new.png" alt="" className="h-16 w-16 opacity-20" /></div>
+                      )}
+                      <div className="uzeed-card-gradient absolute inset-0" />
+                      <div className="absolute left-2 top-2 z-[3] flex flex-col gap-1">
+                        <UserLevelBadge level={p.userLevel} className="px-2 py-0.5 text-[10px]" />
+                        {p.availableNow && (
+                          <div className="uzeed-badge-pill uzeed-badge-online text-[9px]">
+                            <span className="uzeed-badge-dot" /> Online
+                          </div>
+                        )}
+                      </div>
+                      {p.distance != null && (
+                        <div className="absolute right-2 top-2 z-[3] flex items-center gap-1 rounded-lg border border-white/[0.08] bg-black/40 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur-xl tabular-nums">
+                          <MapPin className="h-3 w-3 text-amber-400/60" /> {p.distance.toFixed(1)} km
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
+                        <div className="flex items-center gap-1 truncate text-sm font-bold">
+                          {p.name}{p.age ? `, ${p.age}` : ""}
+                          {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
+                        </div>
+                        <div className="mt-0.5 text-[10px] text-white/40">{formatLastSeenLabel(p.lastSeen)}</div>
+                      </div>
+                    </div>
+                  </button>
+                </motion.div>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
         {/* ═══ PUBLICIDAD / PROMOCIONADO ═══ */}
         <PromoShowcaseSection promotions={promoShowcase} />
 
-        {/* ═══ TIER SECTIONS: Platino / Gold / Silver ═══ */}
+        {/* ═══ TIER SECTIONS — Explorar catálogo ═══ */}
         {TIERS.map((tier) => {
           const profiles = tierProfiles[tier.key] || [];
           if (!profiles.length) return null;
@@ -1231,7 +1550,7 @@ export default function HomePage() {
                   Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
               </motion.div>
-              <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
+              <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
                 {profiles.map((p) => (
                   <motion.div key={p.id} variants={cardFade} className="w-[72vw] shrink-0 snap-start sm:w-auto">
                     <button
@@ -1311,14 +1630,13 @@ export default function HomePage() {
           );
         })}
 
-        {/* ═══ DESTACADAS — Carousel con perfiles Gold y Diamond ═══ */}
-        {featuredCarouselProfiles.length > 0 && (
-          <motion.section key={`featured-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
-            <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
+        {/* ═══ DESTACADAS EXTENDED — Segunda página del catálogo premium ═══ */}
+        {featuredCarouselProfiles.length > 8 && (
+          <motion.section key={`featured-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-12">
+            <motion.div variants={cardFade} className="mb-5 flex items-end justify-between">
               <div className="flex items-center gap-2.5">
                 <Crown className="h-5 w-5 text-amber-400" />
-                <h2 className="text-xl font-bold tracking-tight">Destacadas</h2>
-                <span className="rounded-lg border border-amber-400/15 bg-amber-500/[0.08] px-2.5 py-0.5 text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">Premium</span>
+                <h2 className="text-xl font-bold tracking-tight">Más Premium</h2>
               </div>
               <Link href="/profesionales" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-amber-400 transition-colors duration-200">
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -1332,10 +1650,10 @@ export default function HomePage() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -40 }}
                   transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                  className="scrollbar-none flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 md:grid-cols-3"
+                  className="scrollbar-none flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 md:grid-cols-3 lg:grid-cols-4"
                 >
                   {featuredCarouselProfiles
-                    .slice(featuredPage * FEATURED_PAGE_SIZE, featuredPage * FEATURED_PAGE_SIZE + FEATURED_PAGE_SIZE)
+                    .slice(FEATURED_OFFSET + featuredPage * FEATURED_PAGE_SIZE, FEATURED_OFFSET + featuredPage * FEATURED_PAGE_SIZE + FEATURED_PAGE_SIZE)
                     .map((p) => (
                       <button
                         key={p.id}
@@ -1438,7 +1756,7 @@ export default function HomePage() {
                 Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </motion.div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
               {nearProfiles.map((profile) => (
                 <motion.article key={profile.id} variants={cardFade} className="uzeed-premium-card group">
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
@@ -1504,7 +1822,7 @@ export default function HomePage() {
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </motion.div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:grid-cols-4 lg:grid-cols-4">
               {newProfiles.map((profile) => (
                 <motion.article key={profile.id} variants={cardFade} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto">
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
@@ -1588,6 +1906,100 @@ export default function HomePage() {
               ))}
             </motion.div>
           </motion.section>
+        )}
+
+        {/* ═══ FEED PREVIEW — Contenido reciente ═══ */}
+        {recentPros.length > 0 && (
+          <>
+            <div className="mb-8 h-px bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent" />
+            <motion.section
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-60px" }}
+              variants={stagger}
+              className="mb-12"
+            >
+              <motion.div variants={cardFade} className="mb-6 flex items-end justify-between">
+                <div>
+                  <div className="mb-1 flex items-center gap-2">
+                    <Flame className="h-4 w-4 text-fuchsia-400" />
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-fuchsia-400/60">Contenido reciente</span>
+                  </div>
+                  <h2 className="text-2xl font-extrabold tracking-tight">Lo más nuevo del feed</h2>
+                  <p className="mt-1 text-sm text-white/40">Activas hoy · Mezcla gratis y premium</p>
+                </div>
+                <Link href="/servicios" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
+                  Ver feed <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </Link>
+              </motion.div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4">
+                {recentPros.slice(0, 8).map((p, idx) => {
+                  const isPremiumContent = p.userLevel === "DIAMOND" || p.userLevel === "GOLD";
+                  const isLocked = isPremiumContent && idx > 3;
+                  return (
+                    <motion.div key={`feed-${p.id}`} variants={cardFade}>
+                      <button
+                        type="button"
+                        onClick={() => !isLocked ? setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance }) : undefined}
+                        className="group relative block w-full text-left overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0a0a10] transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/20 hover:shadow-[0_16px_40px_rgba(168,85,247,0.12)]"
+                      >
+                        <div className="relative aspect-[3/4] overflow-hidden">
+                          <img
+                            src={resolveProfileImage(p)}
+                            alt={p.name}
+                            className={`uzeed-card-img h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${isLocked ? "blur-[6px] scale-110" : ""}`}
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                          {/* Content type badge */}
+                          <div className={`absolute left-2 top-2 flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold backdrop-blur-sm ${isPremiumContent ? "border-amber-400/30 bg-amber-500/20 text-amber-200" : "border-emerald-400/25 bg-emerald-500/15 text-emerald-300"}`}>
+                            {isPremiumContent ? <><Crown className="h-2.5 w-2.5" /> Premium</> : <><Sparkles className="h-2.5 w-2.5" /> Gratis</>}
+                          </div>
+
+                          {/* Lock overlay for premium locked content */}
+                          {isLocked && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50 backdrop-blur-sm">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-fuchsia-600/30 border border-fuchsia-400/30">
+                                <Heart className="h-5 w-5 text-fuchsia-300" />
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xs font-bold text-white">Contenido Premium</div>
+                                <div className="mt-0.5 text-[10px] text-white/50">Suscríbete para ver</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Online indicator */}
+                          {p.availableNow && !isLocked && (
+                            <div className="absolute right-2 top-2 h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
+                          )}
+
+                          {/* Bottom info */}
+                          {!isLocked && (
+                            <div className="absolute bottom-0 left-0 right-0 p-2.5 z-[3]">
+                              <div className="truncate text-[12px] font-bold text-white">{p.name}{p.age ? `, ${p.age}` : ""}</div>
+                              <div className="mt-0.5 text-[10px] text-white/40">{formatLastSeenLabel(p.lastSeen)}</div>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* CTA to see more */}
+              <motion.div variants={cardFade} className="mt-6 text-center">
+                <Link
+                  href="/servicios"
+                  className="inline-flex items-center gap-2.5 rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/[0.06] px-7 py-3 text-sm font-semibold text-fuchsia-200/80 transition-all duration-200 hover:border-fuchsia-400/35 hover:bg-fuchsia-500/[0.12] hover:text-fuchsia-200"
+                >
+                  Ver todo el feed <ArrowRight className="h-4 w-4" />
+                </Link>
+              </motion.div>
+            </motion.section>
+          </>
         )}
 
         {/* ═══ EN VIVO AHORA ═══ */}
@@ -1718,29 +2130,40 @@ export default function HomePage() {
           </motion.section>
         )}
 
-        {/* ═══ CTA — Registration (guests only) ═══ */}
-        {!isAuthed && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/10 to-transparent" />}
+        {/* ═══ CÓMO FUNCIONA ═══ */}
+        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/10 to-transparent" />
+        <HomeCreAccordion />
+
+        {/* Section divider */}
+        <div className="mb-8 mt-4 h-px bg-gradient-to-r from-transparent via-violet-500/15 to-transparent" />
+
+        {/* ═══ PLANES ═══ */}
+        <PlanesSection />
+
+        {/* ═══ CTA FINAL — Registration (guests only) ═══ */}
+        {!isAuthed && <div className="mb-8 h-px bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent" />}
         {!isAuthed && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-fuchsia-500/10 bg-gradient-to-br from-fuchsia-600/[0.06] via-violet-600/[0.03] to-transparent p-8 text-center md:p-12 shadow-[0_0_80px_rgba(168,85,247,0.04)]">
-            <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/[0.08] blur-[100px]" />
-            <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[250px] w-[250px] rounded-full bg-violet-600/[0.06] blur-[80px]" />
-            <h2 className="text-xl font-extrabold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
-            <p className="mx-auto mt-3 max-w-md text-sm text-white/40 leading-relaxed">Crea tu cuenta gratis y descubre lo mejor cerca de ti.</p>
-            <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Link href="/register?type=CLIENT" className="uzeed-cta-btn uzeed-hero-cta group inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-7 py-3.5 text-sm font-bold shadow-[0_12px_40px_rgba(168,85,247,0.2)] sm:w-auto">
-                Registro Cliente <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-600/[0.08] via-violet-600/[0.04] to-pink-600/[0.03] p-10 text-center md:p-14 shadow-[0_0_100px_rgba(168,85,247,0.07)]">
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/[0.10] blur-[120px]" />
+            <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[300px] w-[300px] rounded-full bg-violet-600/[0.07] blur-[90px]" />
+            <div className="pointer-events-none absolute left-0 bottom-0 -z-10 h-[250px] w-[250px] rounded-full bg-pink-600/[0.05] blur-[80px]" />
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/[0.07] px-4 py-1.5 text-xs font-semibold text-fuchsia-300/80">
+              <Sparkles className="h-3.5 w-3.5" /> Únete a U-Mate
+            </div>
+            <h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">Empieza tu experiencia hoy</h2>
+            <p className="mx-auto mt-3 max-w-lg text-sm text-white/45 leading-relaxed">
+              Más de 500 creadoras verificadas. Catálogo vivo. Contenido premium. Todo en un solo lugar.
+            </p>
+            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <Link href="/register?type=CLIENT" className="group inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-bold shadow-[0_12px_40px_rgba(168,85,247,0.25)] transition-all hover:scale-[1.02] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)] sm:w-auto">
+                Explorar gratis <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
-              <Link href="/register?type=PROFESSIONAL" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/[0.06] px-7 py-3.5 text-sm font-bold text-fuchsia-200/80 transition-all duration-200 hover:bg-fuchsia-500/[0.12] hover:text-fuchsia-200 sm:w-auto">
-                Registro Profesional
-              </Link>
-              <Link href="/register?type=ESTABLISHMENT" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-7 py-3.5 text-sm font-semibold text-white/60 transition-all duration-200 hover:bg-white/[0.08] hover:text-white/80 sm:w-auto">
-                Registro Comercio
+              <Link href="/register?type=PROFESSIONAL" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/[0.07] px-8 py-4 text-sm font-bold text-fuchsia-200/80 transition-all duration-200 hover:bg-fuchsia-500/[0.14] hover:text-fuchsia-200 sm:w-auto">
+                Ser creadora
               </Link>
             </div>
           </motion.section>
         )}
-
-        <HomeCreAccordion />
       </div>
 
       {/* Profile Preview Modal */}
