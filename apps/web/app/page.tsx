@@ -417,7 +417,8 @@ function HeroCounters() {
     // otherwise wait ~3s for the splash screen to finish before starting counters.
     const splashAlreadyShown =
       sessionStorage.getItem("uzeed_splash_shown") === "true";
-    const delay = splashAlreadyShown ? 200 : 3000;
+    // Splash now takes ~1.3s (1s display + 0.3s fade); use 1500ms to let it clear
+    const delay = splashAlreadyShown ? 200 : 1500;
     const timer = setTimeout(() => setAnimate(true), delay);
     return () => clearTimeout(timer);
   }, []);
@@ -569,6 +570,7 @@ const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
 
 export default function HomePage() {
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [bannersLoaded, setBannersLoaded] = useState(false);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
   const [promoShowcase, setPromoShowcase] = useState<PopupPromotion[]>([]);
   const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
@@ -606,6 +608,8 @@ export default function HomePage() {
         setBanners(res?.banners ?? []);
       } catch {
         // banners opcionales
+      } finally {
+        setBannersLoaded(true);
       }
     })();
   }, []);
@@ -1069,12 +1073,16 @@ export default function HomePage() {
         )}
 
         {/* ═══ STORIES ═══ */}
-        <section className="mb-6">
+        {/* min-h reserves space while the ssr:false Stories component hydrates, preventing CLS */}
+        <section className="mb-6 min-h-[88px]">
           <Stories />
         </section>
 
         {/* ═══ BANNERS PUBLICITARIOS ═══ */}
-        {horizontalBanners.length > 0 && (
+        {/* Stable wrapper prevents CLS: reserves space until we know if banners exist */}
+        {!bannersLoaded ? (
+          <div className="mb-8 2xl:hidden min-h-[60px]" />
+        ) : horizontalBanners.length > 0 && (
           <section className="mb-8 2xl:hidden">
             <div className="mb-2 flex items-center gap-2">
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
@@ -1213,7 +1221,10 @@ export default function HomePage() {
         <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.08] to-transparent" />
 
         {/* ═══ PUBLICIDAD / PROMOCIONADO ═══ */}
-        <PromoShowcaseSection promotions={promoShowcase} />
+        {/* min-h reserves space while promos are loading to prevent CLS */}
+        <div className={promoShowcase.length === 0 ? "mb-6 min-h-[170px]" : ""}>
+          <PromoShowcaseSection promotions={promoShowcase} />
+        </div>
 
         {/* ═══ TIER SECTIONS: Platino / Gold / Silver ═══ */}
         {TIERS.map((tier) => {
@@ -1221,7 +1232,7 @@ export default function HomePage() {
           if (!profiles.length) return null;
           const Icon = tier.icon;
           return (
-            <motion.section key={`${tier.key}-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
+            <motion.section key={`${tier.key}-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10 uzeed-below-fold">
               <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
                 <div className="flex items-center gap-2.5">
                   <Icon className={`h-5 w-5 bg-gradient-to-r ${tier.gradient} bg-clip-text text-transparent`} />
@@ -1428,7 +1439,7 @@ export default function HomePage() {
 
         {/* ═══ CERCA DE TI — Grid for abundance ═══ */}
         {nearProfiles.length > 0 && (
-          <motion.section key={`near-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
+          <motion.section key={`near-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10 uzeed-below-fold">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Navigation className="h-4 w-4 text-fuchsia-300" />
@@ -1494,7 +1505,7 @@ export default function HomePage() {
 
         {/* ═══ NUEVAS ═══ */}
         {newProfiles.length > 0 && (
-          <motion.section key={`new-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
+          <motion.section key={`new-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10 uzeed-below-fold">
             <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Sparkles className="h-4 w-4 text-violet-400" />
@@ -1552,7 +1563,7 @@ export default function HomePage() {
 
         {/* ═══ TENDENCIAS ═══ */}
         {recentPros.length > 6 && (
-          <motion.section key={`trending-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
+          <motion.section key={`trending-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10 uzeed-below-fold">
             <motion.div variants={cardFade} className="mb-4">
               <div className="flex items-center gap-2.5">
                 <TrendingUp className="h-4 w-4 text-violet-400" />

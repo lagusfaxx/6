@@ -111,6 +111,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <head>
+        {/* Preload critical background image so browser fetches it early (LCP improvement) */}
+        <link rel="preload" as="image" href="/brand/bg.jpg" />
+        {/* DNS prefetch for API domain to reduce connection latency */}
+        <link rel="dns-prefetch" href="https://api.uzeed.cl" />
+        <link rel="preconnect" href="https://api.uzeed.cl" crossOrigin="anonymous" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
