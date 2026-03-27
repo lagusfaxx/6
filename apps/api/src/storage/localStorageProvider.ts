@@ -47,8 +47,10 @@ export class LocalStorageProvider {
 
   publicUrl(filename: string): string {
     const base = this.publicBaseUrl;
-    if (!base) return `/uploads/${encodeURIComponent(filename)}`;
-    return `${base}/${encodeURIComponent(filename)}`;
+    // Encode each path segment individually to preserve subdirectory separators
+    const encoded = filename.split("/").map(encodeURIComponent).join("/");
+    if (!base) return `/uploads/${encoded}`;
+    return `${base}/${encoded}`;
   }
 
   async save(file: SaveInput): Promise<UploadResult & { filename: string }> {
@@ -63,8 +65,19 @@ export class LocalStorageProvider {
     const ext = path.extname(filenameIn || "") || "";
     const safeFolder = folder ? String(folder).replace(/[^a-zA-Z0-9_-]/g, "") : "";
     const unique = randomUUID();
-    const filename = safeFolder ? `${safeFolder}-${unique}${ext}` : `${unique}${ext}`;
-    const abs = path.join(this.uploadsDirAbs, filename);
+
+    // Use real subdirectory when folder is specified, for cleaner file organization
+    let filename: string;
+    let abs: string;
+    if (safeFolder) {
+      const subDir = path.join(this.uploadsDirAbs, safeFolder);
+      await fs.mkdir(subDir, { recursive: true });
+      filename = `${safeFolder}/${unique}${ext}`;
+      abs = path.join(subDir, `${unique}${ext}`);
+    } else {
+      filename = `${unique}${ext}`;
+      abs = path.join(this.uploadsDirAbs, filename);
+    }
 
     await fs.writeFile(abs, buffer);
     return { url: this.publicUrl(filename), type: mimeToType(String(mime || "")), filename };

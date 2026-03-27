@@ -16,6 +16,13 @@ export function getApiBase(): string {
   // - If page is https but env is http, upgrade to https to avoid mixed content on desktop.
   const pageIsHttps = window.location.protocol === "https:";
   const host = window.location.hostname.replace(/^www\./, "");
+
+  // Local development: use same host on port 3001
+  const isLocal = /localhost|127\.0\.0\.1/.test(host);
+  if (!envBase && isLocal) {
+    return `${window.location.protocol}//${host}:3001`;
+  }
+
   const inferred = `https://api.${host}`;
 
   let base = envBase || inferred;
