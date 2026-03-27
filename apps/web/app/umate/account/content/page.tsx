@@ -128,7 +128,7 @@ export default function ContentPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-white">Publicaciones</h1>
-          <p className="mt-1 text-sm text-white/30">Biblioteca de contenido y editor.</p>
+          <p className="mt-1 text-sm text-white/40">Biblioteca de contenido y editor.</p>
         </div>
         <button
           onClick={() => setShowEditor(!showEditor)}
@@ -147,7 +147,7 @@ export default function ContentPage() {
         ].map((s) => (
           <div key={s.label} className={`rounded-xl border ${s.border} bg-white/[0.02] p-3 text-center`}>
             <p className="text-xl font-extrabold text-white">{s.value}</p>
-            <p className="text-[11px] text-white/25">{s.label}</p>
+            <p className="text-[11px] text-white/40">{s.label}</p>
           </div>
         ))}
       </div>
@@ -169,7 +169,7 @@ export default function ContentPage() {
               <button
                 onClick={() => setVisibility("FREE")}
                 className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  visibility === "FREE" ? "bg-emerald-500/10 text-emerald-400" : "text-white/30"
+                  visibility === "FREE" ? "bg-emerald-500/10 text-emerald-400" : "text-white/40"
                 }`}
               >
                 <Globe className="h-3 w-3" /> Gratis
@@ -177,7 +177,7 @@ export default function ContentPage() {
               <button
                 onClick={() => setVisibility("PREMIUM")}
                 className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  visibility === "PREMIUM" ? "bg-amber-500/10 text-amber-400" : "text-white/30"
+                  visibility === "PREMIUM" ? "bg-amber-500/10 text-amber-400" : "text-white/40"
                 }`}
               >
                 <Lock className="h-3 w-3" /> Premium
@@ -222,7 +222,7 @@ export default function ContentPage() {
               key={key}
               onClick={() => setFilter(key)}
               className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                filter === key ? "bg-white text-black" : "text-white/30 hover:text-white/50"
+                filter === key ? "bg-white text-black" : "text-white/40 hover:text-white/50"
               }`}
             >
               {key === "ALL" ? "Todas" : key === "FREE" ? "Gratis" : "Premium"}
@@ -230,7 +230,7 @@ export default function ContentPage() {
           ))}
         </div>
         <div className="relative ml-auto">
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/20" />
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/45" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -241,12 +241,12 @@ export default function ContentPage() {
       </div>
 
       {/* Posts grid */}
-      {loading && <div className="py-16 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-white/20" /></div>}
+      {loading && <div className="py-16 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-white/45" /></div>}
 
       {!loading && filteredPosts.length === 0 && (
         <div className="rounded-2xl border border-dashed border-white/[0.06] p-20 text-center">
           <Grid3X3 className="mx-auto mb-4 h-8 w-8 text-white/[0.07]" />
-          <p className="text-sm font-medium text-white/35">No hay publicaciones.</p>
+          <p className="text-sm font-medium text-white/45">No hay publicaciones.</p>
         </div>
       )}
 
@@ -280,7 +280,7 @@ export default function ContentPage() {
               </div>
               <div className="p-3">
                 <p className="line-clamp-2 text-xs text-white/50">{post.caption || "Sin descripción"}</p>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-white/20">
+                <div className="mt-2 flex items-center justify-between text-[11px] text-white/45">
                   <div className="flex items-center gap-3">
                     <span className="inline-flex items-center gap-1"><Heart className="h-3 w-3 text-rose-400" /> {post.likeCount}</span>
                     <span className="inline-flex items-center gap-1"><Eye className="h-3 w-3 text-[#00aff0]" /> {post.viewCount}</span>
@@ -299,7 +299,7 @@ export default function ContentPage() {
           <div className="w-full max-w-md rounded-2xl border border-white/[0.06] bg-[#0c0c14] p-6 space-y-4 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-white">Editar publicación</h3>
-              <button onClick={() => setEditingPost(null)} className="text-white/30 hover:text-white/60"><X className="h-4 w-4" /></button>
+              <button onClick={() => setEditingPost(null)} className="text-white/40 hover:text-white/60"><X className="h-4 w-4" /></button>
             </div>
 
             <textarea
@@ -313,7 +313,7 @@ export default function ContentPage() {
               <button
                 onClick={() => setEditVisibility("FREE")}
                 className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  editVisibility === "FREE" ? "bg-emerald-500/10 text-emerald-400" : "text-white/30"
+                  editVisibility === "FREE" ? "bg-emerald-500/10 text-emerald-400" : "text-white/40"
                 }`}
               >
                 <Globe className="h-3 w-3" /> Gratis
@@ -321,7 +321,7 @@ export default function ContentPage() {
               <button
                 onClick={() => setEditVisibility("PREMIUM")}
                 className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  editVisibility === "PREMIUM" ? "bg-amber-500/10 text-amber-400" : "text-white/30"
+                  editVisibility === "PREMIUM" ? "bg-amber-500/10 text-amber-400" : "text-white/40"
                 }`}
               >
                 <Lock className="h-3 w-3" /> Premium

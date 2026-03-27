@@ -64,7 +64,7 @@ export default function UmateAccountPage() {
     setCancelling(false);
   };
 
-  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/20" /></div>;
+  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/45" /></div>;
 
   const checks = [
     { label: "Términos de servicio", ok: creatorStats?.termsAccepted, href: "/umate/terms" },
@@ -78,7 +78,7 @@ export default function UmateAccountPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-white">Cuenta y ajustes</h1>
-        <p className="mt-1 text-sm text-white/30">Perfil, datos legales y configuración.</p>
+        <p className="mt-1 text-sm text-white/40">Perfil, datos legales y configuración.</p>
       </div>
 
       {pendingCount > 0 && (
@@ -86,13 +86,13 @@ export default function UmateAccountPage() {
           <div className="flex items-center gap-2 text-sm font-semibold text-amber-400">
             <AlertCircle className="h-4 w-4" /> {pendingCount} pendiente{pendingCount > 1 ? "s" : ""}
           </div>
-          <p className="mt-1 text-xs text-white/30">Completa los requisitos para activar tu cuenta.</p>
+          <p className="mt-1 text-xs text-white/40">Completa los requisitos para activar tu cuenta.</p>
         </div>
       )}
 
       {/* Profile */}
       <section className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
-        <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/25">
+        <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/40">
           <UserCircle2 className="h-4 w-4" /> Perfil
         </h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -103,7 +103,7 @@ export default function UmateAccountPage() {
             { label: "Estado creadora", value: creator?.status || "No activa", isStatus: true },
           ].map((item) => (
             <div key={item.label} className="rounded-lg bg-white/[0.03] p-3">
-              <p className="text-[11px] text-white/25">{item.label}</p>
+              <p className="text-[11px] text-white/40">{item.label}</p>
               <p className={`mt-1 text-sm font-semibold ${
                 "isStatus" in item && item.isStatus
                   ? creator?.status === "ACTIVE" ? "text-emerald-400" : "text-amber-400"
@@ -117,7 +117,7 @@ export default function UmateAccountPage() {
       {/* Subscription */}
       {subscription && (
         <section className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
-          <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/25">
+          <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/40">
             <CreditCard className="h-4 w-4" /> Tu suscripción
           </h2>
           {subscription.active ? (
@@ -125,7 +125,7 @@ export default function UmateAccountPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-bold text-white">{subscription.plan?.name || "Plan activo"}</p>
-                  <p className="text-xs text-white/30">
+                  <p className="text-xs text-white/40">
                     {subscription.slotsUsed}/{subscription.slotsTotal} cupos usados · Vence {subscription.cycleEnd ? new Date(subscription.cycleEnd).toLocaleDateString("es-CL") : "—"}
                   </p>
                 </div>
@@ -151,7 +151,7 @@ export default function UmateAccountPage() {
             </div>
           ) : (
             <div className="mt-4">
-              <p className="text-sm text-white/30">No tienes un plan activo.</p>
+              <p className="text-sm text-white/40">No tienes un plan activo.</p>
               <Link href="/umate/plans" className="mt-2 inline-block rounded-full bg-[#00aff0] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90">
                 Ver planes
               </Link>
@@ -162,7 +162,7 @@ export default function UmateAccountPage() {
 
       {/* Legal */}
       <section className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
-        <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/25">
+        <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/40">
           <ShieldCheck className="h-4 w-4" /> Legal y cumplimiento
         </h2>
         <div className="mt-4 space-y-2">
@@ -176,7 +176,7 @@ export default function UmateAccountPage() {
                 )}
                 <div>
                   <p className="text-sm font-medium text-white/60">{item.label}</p>
-                  <p className="text-[10px] text-white/20">{item.ok ? "Completado" : "Pendiente"}</p>
+                  <p className="text-[10px] text-white/45">{item.ok ? "Completado" : "Pendiente"}</p>
                 </div>
               </div>
               {!item.ok && (
@@ -199,7 +199,7 @@ export default function UmateAccountPage() {
           <Link
             key={link.label}
             href={link.href}
-            className="inline-flex items-center gap-1 rounded-lg border border-white/[0.06] px-3 py-2 text-xs font-medium text-white/30 transition hover:border-white/[0.12] hover:text-white/50"
+            className="inline-flex items-center gap-1 rounded-lg border border-white/[0.06] px-3 py-2 text-xs font-medium text-white/40 transition hover:border-white/[0.12] hover:text-white/50"
           >
             {link.label} <ExternalLink className="h-3 w-3" />
           </Link>

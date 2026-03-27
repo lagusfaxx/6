@@ -6,7 +6,7 @@ import { ChevronLeft, ShieldCheck } from "lucide-react";
 export default function RulesPage() {
   return (
     <div className="mx-auto max-w-2xl py-8 space-y-6">
-      <Link href="/umate/account" className="inline-flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition">
+      <Link href="/umate/account" className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white/60 transition">
         <ChevronLeft className="h-3.5 w-3.5" /> Volver
       </Link>
 

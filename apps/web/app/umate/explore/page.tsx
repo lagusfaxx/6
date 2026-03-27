@@ -137,7 +137,7 @@ export default function ExplorePage() {
                 className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${
                   filter === f.key
                     ? "bg-white text-black shadow-sm"
-                    : "text-white/35 hover:text-white/60"
+                    : "text-white/45 hover:text-white/60"
                 }`}
               >
                 {f.label}
@@ -145,7 +145,7 @@ export default function ExplorePage() {
             ))}
           </div>
           <div className="relative ml-auto hidden sm:block">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/25" />
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -162,7 +162,7 @@ export default function ExplorePage() {
           <div className="mx-auto w-full max-w-[600px] lg:mx-0">
             {loading && (
               <div className="flex justify-center py-20">
-                <Loader2 className="h-6 w-6 animate-spin text-white/20" />
+                <Loader2 className="h-6 w-6 animate-spin text-white/45" />
               </div>
             )}
 
@@ -170,7 +170,7 @@ export default function ExplorePage() {
               <div className="rounded-2xl border border-white/[0.05] bg-white/[0.015] p-20 text-center">
                 <Flame className="mx-auto mb-4 h-8 w-8 text-white/[0.07]" />
                 <p className="text-sm font-medium text-white/40">No hay contenido con esos filtros.</p>
-                <p className="mt-1.5 text-xs text-white/20">Intenta con otra busqueda.</p>
+                <p className="mt-1.5 text-xs text-white/45">Intenta con otra busqueda.</p>
               </div>
             )}
 
@@ -192,7 +192,7 @@ export default function ExplorePage() {
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-white">{item.creator.displayName}</p>
-                        <p className="text-[11px] text-white/30">
+                        <p className="text-[11px] text-white/40">
                           @{item.creator.user?.username || "creator"} · {new Date(item.createdAt).toLocaleDateString("es-CL")}
                         </p>
                       </div>
@@ -253,7 +253,7 @@ export default function ExplorePage() {
                       <button
                         onClick={() => toggleLike(item.id)}
                         className={`flex items-center gap-1.5 text-sm transition ${
-                          item.isLiked ? "text-rose-500" : "text-white/30 hover:text-rose-400"
+                          item.isLiked ? "text-rose-500" : "text-white/40 hover:text-rose-400"
                         }`}
                       >
                         <Heart className={`h-5 w-5 ${item.isLiked ? "fill-current" : ""}`} />
@@ -262,7 +262,7 @@ export default function ExplorePage() {
                       <button
                         onClick={() => openComments === item.id ? setOpenComments(null) : loadComments(item.id)}
                         className={`flex items-center gap-1.5 text-sm transition ${
-                          openComments === item.id ? "text-[#00aff0]" : "text-white/30 hover:text-white/50"
+                          openComments === item.id ? "text-[#00aff0]" : "text-white/40 hover:text-white/50"
                         }`}
                       >
                         <MessageCircle className="h-5 w-5" />
@@ -293,9 +293,9 @@ export default function ExplorePage() {
                         </div>
 
                         {/* Comment list */}
-                        {loadingComments && <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-white/20" /></div>}
+                        {loadingComments && <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-white/45" /></div>}
                         {!loadingComments && comments.length === 0 && (
-                          <p className="text-center text-xs text-white/20 py-2">Sin comentarios aún. Sé el primero.</p>
+                          <p className="text-center text-xs text-white/45 py-2">Sin comentarios aún. Sé el primero.</p>
                         )}
                         <div className="space-y-2 max-h-60 overflow-y-auto">
                           {comments.map((c) => (
@@ -304,7 +304,7 @@ export default function ExplorePage() {
                                 {c.user.avatarUrl ? (
                                   <img src={c.user.avatarUrl} alt="" className="h-full w-full object-cover" />
                                 ) : (
-                                  <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/30">{(c.user.displayName || c.user.username)[0]}</div>
+                                  <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/40">{(c.user.displayName || c.user.username)[0]}</div>
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
@@ -312,11 +312,11 @@ export default function ExplorePage() {
                                   <span className="font-semibold text-white/80">{c.user.displayName || c.user.username}</span>{" "}
                                   <span className="text-white/50">{c.text}</span>
                                 </p>
-                                <p className="mt-0.5 text-[10px] text-white/20">{new Date(c.createdAt).toLocaleDateString("es-CL")}</p>
+                                <p className="mt-0.5 text-[10px] text-white/45">{new Date(c.createdAt).toLocaleDateString("es-CL")}</p>
                               </div>
                               <button
                                 onClick={() => deleteComment(c.id, item.id)}
-                                className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/15 hover:text-red-400"
+                                className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/40 hover:text-red-400"
                               >
                                 <Trash2 className="h-3 w-3" />
                               </button>
@@ -337,7 +337,7 @@ export default function ExplorePage() {
               {/* Suggested creators */}
               <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold uppercase tracking-wider text-white/30">Sugeridas para ti</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-white/40">Sugeridas para ti</p>
                   <Link href="/umate/creators" className="text-[11px] font-medium text-[#00aff0]">Ver todas</Link>
                 </div>
                 <div className="mt-3 space-y-1">
@@ -356,7 +356,7 @@ export default function ExplorePage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-white/90">{c.displayName}</p>
-                        <p className="text-[11px] text-white/25">@{c.user.username}</p>
+                        <p className="text-[11px] text-white/40">@{c.user.username}</p>
                       </div>
                       <span className="shrink-0 rounded-full bg-[#00aff0]/90 px-3 py-1 text-[10px] font-bold text-white shadow-[0_1px_8px_rgba(0,175,240,0.2)]">
                         Suscribir
@@ -369,7 +369,7 @@ export default function ExplorePage() {
               {/* Upgrade CTA */}
               <div className="rounded-2xl border border-[#00aff0]/15 bg-[#00aff0]/[0.03] p-4">
                 <p className="text-sm font-bold text-white">Desbloquea más contenido</p>
-                <p className="mt-1 text-xs text-white/35">Activa un plan premium para acceder a publicaciones exclusivas.</p>
+                <p className="mt-1 text-xs text-white/45">Activa un plan premium para acceder a publicaciones exclusivas.</p>
                 <Link
                   href="/umate/plans"
                   className="mt-3 block rounded-full bg-[#00aff0] py-2 text-center text-xs font-bold text-white transition hover:bg-[#00aff0]/90"
@@ -380,7 +380,7 @@ export default function ExplorePage() {
 
               {/* Trending */}
               <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-white/30">Trending</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-white/40">Trending</p>
                 <div className="mt-3 space-y-2">
                   {["Contenido fitness", "Lifestyle premium", "Behind the scenes", "Sesiones exclusivas"].map((tag) => (
                     <div key={tag} className="flex items-center gap-2 rounded-lg bg-white/[0.03] px-3 py-2 text-xs font-medium text-white/40">

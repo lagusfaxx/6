@@ -34,14 +34,14 @@ export default function SubscribersPage() {
     return Math.round(((stats.subscriberCount - churn) / stats.subscriberCount) * 100);
   }, [stats, churn]);
 
-  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/20" /></div>;
-  if (!stats) return <div className="py-24 text-center text-white/30">No hay datos disponibles.</div>;
+  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/45" /></div>;
+  if (!stats) return <div className="py-24 text-center text-white/40">No hay datos disponibles.</div>;
 
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-white">Suscriptores</h1>
-        <p className="mt-1 text-sm text-white/30">Comunidad, conversión y fans.</p>
+        <p className="mt-1 text-sm text-white/40">Comunidad, conversión y fans.</p>
       </div>
 
       {/* KPIs */}
@@ -55,7 +55,7 @@ export default function SubscribersPage() {
           <div key={m.label} className={`rounded-xl border ${m.border} bg-white/[0.02] p-4`}>
             <m.icon className={`h-4 w-4 ${m.color}`} />
             <p className="mt-2 text-2xl font-extrabold text-white">{m.value}</p>
-            <p className="text-xs text-white/25">{m.label}</p>
+            <p className="text-xs text-white/40">{m.label}</p>
           </div>
         ))}
       </div>
@@ -63,7 +63,7 @@ export default function SubscribersPage() {
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Funnel */}
         <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Embudo de conversión</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Embudo de conversión</h2>
           <div className="mt-4 space-y-3">
             {[
               { step: "Alcance", value: (stats.totalLikes * 4).toLocaleString(), pct: 100 },
@@ -86,7 +86,7 @@ export default function SubscribersPage() {
         <div className="space-y-4">
           {/* Retention */}
           <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Retención</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Retención</h2>
             <div className="mt-3 flex items-center gap-4">
               <div className="relative h-20 w-20">
                 <svg viewBox="0 0 36 36" className="h-20 w-20 -rotate-90">
@@ -99,7 +99,7 @@ export default function SubscribersPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-white/60">Tasa de retención</p>
-                <p className="text-xs text-white/25">Suscriptores que renuevan su ciclo.</p>
+                <p className="text-xs text-white/40">Suscriptores que renuevan su ciclo.</p>
               </div>
             </div>
           </div>
@@ -107,7 +107,7 @@ export default function SubscribersPage() {
           {/* Top fans */}
           <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Top fans</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Top fans</h2>
               <Crown className="h-3.5 w-3.5 text-amber-400" />
             </div>
             <div className="mt-3 space-y-1.5">
@@ -125,7 +125,7 @@ export default function SubscribersPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-white/60">{fan.name}</p>
-                      <p className="text-[10px] text-white/20">{fan.action}</p>
+                      <p className="text-[10px] text-white/45">{fan.action}</p>
                     </div>
                   </div>
                   {fan.isNew ? (
@@ -142,7 +142,7 @@ export default function SubscribersPage() {
 
       {/* Engagement */}
       <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Engagement</h2>
+        <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Engagement</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {[
             { label: "Likes totales", value: stats.totalLikes.toLocaleString(), icon: Heart, color: "text-rose-400" },
@@ -152,7 +152,7 @@ export default function SubscribersPage() {
             <div key={m.label} className="rounded-lg bg-white/[0.03] p-4 text-center">
               <m.icon className={`mx-auto h-4 w-4 ${m.color}`} />
               <p className="mt-2 text-xl font-extrabold text-white">{m.value}</p>
-              <p className="text-xs text-white/25">{m.label}</p>
+              <p className="text-xs text-white/40">{m.label}</p>
             </div>
           ))}
         </div>

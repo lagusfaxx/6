@@ -46,7 +46,7 @@ export default function UmateMobileNav() {
               key={item.href}
               href={item.href}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-all duration-200 ${
-                active ? "text-white" : "text-white/25"
+                active ? "text-white" : "text-white/40"
               }`}
             >
               <item.icon className="h-5 w-5" />

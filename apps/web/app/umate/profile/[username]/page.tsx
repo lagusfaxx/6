@@ -175,8 +175,8 @@ export default function CreatorProfilePage() {
   const premiumCount = posts.filter((p) => p.visibility === "PREMIUM").length;
   const freeCount = posts.filter((p) => p.visibility === "FREE").length;
 
-  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/20" /></div>;
-  if (!creator) return <div className="py-24 text-center text-white/30">Perfil no encontrado.</div>;
+  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/45" /></div>;
+  if (!creator) return <div className="py-24 text-center text-white/40">Perfil no encontrado.</div>;
 
   return (
     <div className="min-h-screen">
@@ -230,7 +230,7 @@ export default function CreatorProfilePage() {
                 {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Suscribirme"}
               </button>
             )}
-            <button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] text-white/30 transition hover:border-white/20 hover:text-white/50">
+            <button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] text-white/40 transition hover:border-white/20 hover:text-white/50">
               <Share2 className="h-4 w-4" />
             </button>
           </div>
@@ -242,22 +242,22 @@ export default function CreatorProfilePage() {
             <h1 className="text-xl font-extrabold tracking-tight text-white md:text-2xl">{creator.displayName}</h1>
             {creator.user.isVerified && <BadgeCheck className="h-5 w-5 text-[#00aff0]" />}
           </div>
-          <p className="text-sm text-white/30">@{creator.user.username}</p>
+          <p className="text-sm text-white/40">@{creator.user.username}</p>
           {creator.bio && <p className="mt-3 text-sm leading-relaxed text-white/50">{creator.bio}</p>}
 
           {/* Stats row */}
           <div className="mt-4 flex gap-6 border-b border-white/[0.05] pb-5">
             <div className="text-center">
               <p className="text-base font-extrabold text-white">{creator.totalPosts}</p>
-              <p className="text-[11px] text-white/25">Posts</p>
+              <p className="text-[11px] text-white/40">Posts</p>
             </div>
             <div className="text-center">
               <p className="text-base font-extrabold text-white">{creator.subscriberCount}</p>
-              <p className="text-[11px] text-white/25">Suscriptores</p>
+              <p className="text-[11px] text-white/40">Suscriptores</p>
             </div>
             <div className="text-center">
               <p className="text-base font-extrabold text-white">{creator.totalLikes}</p>
-              <p className="text-[11px] text-white/25">Likes</p>
+              <p className="text-[11px] text-white/40">Likes</p>
             </div>
           </div>
         </div>
@@ -277,11 +277,11 @@ export default function CreatorProfilePage() {
               className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all duration-200 ${
                 tab === t.key
                   ? "border-[#00aff0] text-[#00aff0]"
-                  : "border-transparent text-white/25 hover:text-white/50"
+                  : "border-transparent text-white/40 hover:text-white/50"
               }`}
             >
               {t.label}
-              {"count" in t && t.count !== undefined && <span className="ml-1 text-white/20">{t.count}</span>}
+              {"count" in t && t.count !== undefined && <span className="ml-1 text-white/45">{t.count}</span>}
             </button>
           ))}
         </div>
@@ -294,7 +294,7 @@ export default function CreatorProfilePage() {
               {post.caption && (
                 <div className="px-4 pt-4 pb-3">
                   <p className="text-sm leading-relaxed text-white/70">{post.caption}</p>
-                  <p className="mt-1.5 text-[11px] text-white/20">{new Date(post.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}</p>
+                  <p className="mt-1.5 text-[11px] text-white/45">{new Date(post.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}</p>
                 </div>
               )}
 
@@ -344,7 +344,7 @@ export default function CreatorProfilePage() {
                 <button
                   onClick={() => toggleLike(post.id)}
                   className={`flex items-center gap-1.5 text-sm transition ${
-                    post.isLiked ? "text-rose-500" : "text-white/30 hover:text-rose-400"
+                    post.isLiked ? "text-rose-500" : "text-white/40 hover:text-rose-400"
                   }`}
                 >
                   <Heart className={`h-5 w-5 ${post.isLiked ? "fill-current" : ""}`} />
@@ -353,7 +353,7 @@ export default function CreatorProfilePage() {
                 <button
                   onClick={() => openComments === post.id ? setOpenComments(null) : loadComments(post.id)}
                   className={`flex items-center gap-1.5 text-sm transition ${
-                    openComments === post.id ? "text-[#00aff0]" : "text-white/30 hover:text-white/50"
+                    openComments === post.id ? "text-[#00aff0]" : "text-white/40 hover:text-white/50"
                   }`}
                 >
                   <MessageCircle className="h-5 w-5" />
@@ -381,9 +381,9 @@ export default function CreatorProfilePage() {
                       <Send className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                  {loadingComments && <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-white/20" /></div>}
+                  {loadingComments && <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-white/45" /></div>}
                   {!loadingComments && comments.length === 0 && (
-                    <p className="text-center text-xs text-white/20 py-2">Sin comentarios aún.</p>
+                    <p className="text-center text-xs text-white/45 py-2">Sin comentarios aún.</p>
                   )}
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {comments.map((c) => (
@@ -392,7 +392,7 @@ export default function CreatorProfilePage() {
                           {c.user.avatarUrl ? (
                             <img src={c.user.avatarUrl} alt="" className="h-full w-full object-cover" />
                           ) : (
-                            <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/30">{(c.user.displayName || c.user.username)[0]}</div>
+                            <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/40">{(c.user.displayName || c.user.username)[0]}</div>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -400,11 +400,11 @@ export default function CreatorProfilePage() {
                             <span className="font-semibold text-white/80">{c.user.displayName || c.user.username}</span>{" "}
                             <span className="text-white/50">{c.text}</span>
                           </p>
-                          <p className="mt-0.5 text-[10px] text-white/20">{new Date(c.createdAt).toLocaleDateString("es-CL")}</p>
+                          <p className="mt-0.5 text-[10px] text-white/45">{new Date(c.createdAt).toLocaleDateString("es-CL")}</p>
                         </div>
                         <button
                           onClick={() => deleteComment(c.id, post.id)}
-                          className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/15 hover:text-red-400"
+                          className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/40 hover:text-red-400"
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -419,7 +419,7 @@ export default function CreatorProfilePage() {
           {filtered.length === 0 && (
             <div className="rounded-2xl border border-white/[0.05] bg-white/[0.015] p-20 text-center">
               <Grid3X3 className="mx-auto mb-4 h-8 w-8 text-white/[0.07]" />
-              <p className="text-sm font-medium text-white/35">No hay contenido en esta categoria.</p>
+              <p className="text-sm font-medium text-white/45">No hay contenido en esta categoria.</p>
             </div>
           )}
         </div>

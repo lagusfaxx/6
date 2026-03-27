@@ -18,7 +18,7 @@ const ALLOWED_MEDIA_MIMES = [...ALLOWED_IMAGE_MIMES, "video/mp4", "video/quickti
 
 const storage = new LocalStorageProvider(
   path.join(process.cwd(), config.storageDir),
-  "/uploads",
+  `${(config.apiUrl || "").replace(/\/$/, "")}/uploads`,
 );
 
 const upload = multer({

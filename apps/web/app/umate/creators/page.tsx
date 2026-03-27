@@ -58,7 +58,7 @@ function CreatorsContent() {
       <div className="sticky top-14 z-30 border-b border-white/[0.03] bg-[#08080d]/90 py-3 backdrop-blur-2xl backdrop-saturate-150">
         <div className="mx-auto flex max-w-[1170px] flex-wrap items-center gap-3 px-4">
           <div className="relative min-w-[200px] flex-1 sm:max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -77,7 +77,7 @@ function CreatorsContent() {
                 key={s.key}
                 onClick={() => setSort(s.key)}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                  sort === s.key ? "bg-white text-black shadow-sm" : "text-white/30 hover:text-white/50"
+                  sort === s.key ? "bg-white text-black shadow-sm" : "text-white/40 hover:text-white/50"
                 }`}
               >
                 {s.label}
@@ -85,7 +85,7 @@ function CreatorsContent() {
             ))}
           </div>
 
-          <span className="ml-auto text-xs text-white/20">{ordered.length} perfiles</span>
+          <span className="ml-auto text-xs text-white/45">{ordered.length} perfiles</span>
         </div>
       </div>
 
@@ -93,14 +93,14 @@ function CreatorsContent() {
       <div className="mx-auto max-w-[1170px] px-4 py-6">
         {loading && (
           <div className="flex justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-white/20" />
+            <Loader2 className="h-6 w-6 animate-spin text-white/45" />
           </div>
         )}
 
         {!loading && ordered.length === 0 && (
           <div className="rounded-2xl border border-white/[0.05] bg-white/[0.015] p-20 text-center">
             <Users className="mx-auto mb-4 h-8 w-8 text-white/[0.07]" />
-            <p className="text-sm font-medium text-white/35">No se encontraron creadoras.</p>
+            <p className="text-sm font-medium text-white/45">No se encontraron creadoras.</p>
           </div>
         )}
 
@@ -134,9 +134,9 @@ function CreatorsContent() {
                     )}
                   </div>
                   <h3 className="mt-2 truncate text-sm font-bold text-white">{c.displayName}</h3>
-                  <p className="text-[11px] text-white/25">@{c.user.username}</p>
-                  {c.bio && <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-white/35">{c.bio}</p>}
-                  <div className="mt-3 flex items-center gap-2 text-[11px] text-white/20">
+                  <p className="text-[11px] text-white/40">@{c.user.username}</p>
+                  {c.bio && <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-white/45">{c.bio}</p>}
+                  <div className="mt-3 flex items-center gap-2 text-[11px] text-white/45">
                     <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {c.subscriberCount}</span>
                     <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {c.totalLikes}</span>
                   </div>
@@ -155,7 +155,7 @@ function CreatorsContent() {
 
 export default function CreatorsPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-white/20" /></div>}>
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-white/45" /></div>}>
       <CreatorsContent />
     </Suspense>
   );
