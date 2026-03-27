@@ -3,6 +3,38 @@ import { prisma } from "../db";
 import { config } from "../config";
 import { isBusinessPlanActive } from "../lib/subscriptions";
 
+// ── User cache — avoid 1 DB query per request for recently-seen users ──
+const USER_CACHE_TTL = 60_000; // 1 minute
+const USER_CACHE_MAX = 10_000;
+type CachedUser = {
+  data: { id: string; email: string; role: string; profileType: string; membershipExpiresAt: Date | null; shopTrialEndsAt: Date | null; createdAt: Date };
+  ts: number;
+};
+const userCache = new Map<string, CachedUser>();
+
+function getCachedUser(userId: string): CachedUser["data"] | null {
+  const entry = userCache.get(userId);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > USER_CACHE_TTL) {
+    userCache.delete(userId);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCachedUser(userId: string, data: CachedUser["data"]) {
+  if (userCache.size >= USER_CACHE_MAX) {
+    // Evict oldest 20%
+    const keys = Array.from(userCache.keys());
+    for (let i = 0; i < keys.length * 0.2; i++) userCache.delete(keys[i]);
+  }
+  userCache.set(userId, { data, ts: Date.now() });
+}
+
+export function invalidateUserCache(userId: string) {
+  userCache.delete(userId);
+}
+
 /**
  * Rutas que deben ser PUBLICAS (sin sesión).
  * OJO: dejamos /uploads y /webhooks abiertos también.
@@ -86,14 +118,17 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     // ✅ Si es ruta pública, no exigimos sesión
     if (isPublicPath(req.path)) {
-      // Still try to load user if session exists (for route-level requireAuth on public paths)
       const optionalUserId = (req.session as any)?.userId;
       if (optionalUserId) {
-        const optUser = await prisma.user.findUnique({
+        const cached = getCachedUser(optionalUserId);
+        const optUser = cached || await prisma.user.findUnique({
           where: { id: optionalUserId },
           select: { id: true, email: true, role: true, profileType: true, membershipExpiresAt: true, shopTrialEndsAt: true, createdAt: true }
         });
-        if (optUser) (req as any).user = optUser;
+        if (optUser) {
+          if (!cached) setCachedUser(optionalUserId, optUser as CachedUser["data"]);
+          (req as any).user = optUser;
+        }
       }
       return next();
     }
@@ -103,7 +138,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return res.status(401).json({ error: "UNAUTHENTICATED" });
     }
 
-    const user = await prisma.user.findUnique({
+    const cached = getCachedUser(sessionUserId);
+    const user = cached || await prisma.user.findUnique({
       where: { id: sessionUserId },
       select: {
         id: true,
@@ -119,6 +155,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     if (!user) {
       return res.status(401).json({ error: "UNAUTHENTICATED" });
     }
+
+    if (!cached) setCachedUser(sessionUserId, user as CachedUser["data"]);
 
     // Subscription check temporarily disabled — allow all users through
     // TODO: Re-enable subscription enforcement when payment flow is ready

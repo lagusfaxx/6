@@ -309,22 +309,18 @@ directoryRouter.get(
       }
     }
 
-    // rating promedio por professional via service requests join
+    // rating promedio por professional via aggregation (no carga todas las reviews en memoria)
     const ratingByProfessional = new Map<string, number>();
     const counts = new Map<string, number>();
-    const reviews = await prisma.professionalReview.findMany({
-      select: {
-        hearts: true,
-        serviceRequest: { select: { professionalId: true } },
-      },
-    });
-    for (const r of reviews) {
-      const pid = r.serviceRequest.professionalId;
-      ratingByProfessional.set(
-        pid,
-        (ratingByProfessional.get(pid) || 0) + r.hearts,
-      );
-      counts.set(pid, (counts.get(pid) || 0) + 1);
+    const reviewAggs = await prisma.$queryRawUnsafe<{ professionalId: string; avg: number; cnt: number }[]>(
+      `SELECT sr."professionalId", AVG(pr."hearts")::float AS avg, COUNT(*)::int AS cnt
+       FROM "ProfessionalReview" pr
+       JOIN "ServiceRequest" sr ON sr."id" = pr."serviceRequestId"
+       GROUP BY sr."professionalId"`
+    );
+    for (const r of reviewAggs) {
+      ratingByProfessional.set(r.professionalId, r.avg * r.cnt);
+      counts.set(r.professionalId, r.cnt);
     }
 
     const mapped = users.map((u) => {
@@ -800,15 +796,17 @@ directoryRouter.get(
       take: 250,
     });
 
-    const reviews = await prisma.establishmentReview.findMany({
-      select: { stars: true, establishmentId: true },
-    });
+    const estReviewAggs = await prisma.$queryRawUnsafe<{ establishmentId: string; total: number; cnt: number }[]>(
+      `SELECT "establishmentId", SUM("stars")::float AS total, COUNT(*)::int AS cnt
+       FROM "EstablishmentReview"
+       GROUP BY "establishmentId"`
+    );
 
     const sum = new Map<string, number>();
     const cnt = new Map<string, number>();
-    for (const r of reviews) {
-      sum.set(r.establishmentId, (sum.get(r.establishmentId) || 0) + r.stars);
-      cnt.set(r.establishmentId, (cnt.get(r.establishmentId) || 0) + 1);
+    for (const r of estReviewAggs) {
+      sum.set(r.establishmentId, r.total);
+      cnt.set(r.establishmentId, r.cnt);
     }
 
     const mapped = users.map((u) => {

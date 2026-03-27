@@ -25,7 +25,10 @@ realtimeRouter.get(
     res.write(`event: hello\n`);
     res.write(`data: ${JSON.stringify({ ok: true })}\n\n`);
 
-    registerSseClient(me, res);
+    const unsub = registerSseClient(me, res);
+    if (!unsub) {
+      return res.status(503).json({ error: "TOO_MANY_CONNECTIONS" });
+    }
 
     // Heartbeat to keep proxies alive
     const interval = setInterval(() => {

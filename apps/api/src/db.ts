@@ -3,7 +3,12 @@ import { sendPushToUsers } from "./notifications/push";
 import { sendToUser } from "./realtime/sse";
 
 export const prisma = new PrismaClient({
-  log: process.env.PRISMA_LOG ? ["query", "warn", "error"] : ["warn", "error"]
+  log: process.env.PRISMA_LOG ? ["query", "warn", "error"] : ["warn", "error"],
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL + (process.env.DATABASE_URL?.includes("?") ? "&" : "?") + "connection_limit=30&pool_timeout=10",
+    },
+  },
 });
 
 // Track re-entrancy per-call using a counter instead of a boolean flag.
@@ -37,7 +42,8 @@ prisma.$use(async (params, next) => {
           });
         } catch {}
 
-        await sendPushToUsers(prisma as any, [userId], {
+        // Fire-and-forget — don't block the DB transaction waiting for push delivery
+        sendPushToUsers(prisma as any, [userId], {
           title: payloadData.title || "UZEED",
           body: payloadData.body || "Tienes una nueva notificación",
           data: { ...payloadData, url: payloadData.url || "/" },
@@ -64,7 +70,7 @@ prisma.$use(async (params, next) => {
               console.error("[push-middleware] sendPush failed for createMany item:", err?.message || err);
             });
           });
-        await Promise.allSettled(pushPromises);
+        Promise.allSettled(pushPromises).catch(() => {});
       }
     }
   } finally {
