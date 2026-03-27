@@ -52,16 +52,16 @@ function CheckoutContent() {
       )}
 
       {status === "paid" && (
-        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-8 space-y-4">
+        <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.03] p-10 space-y-5">
           <div className="flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.1)]">
               <CheckCircle className="h-8 w-8 text-emerald-400" />
             </div>
           </div>
-          <h1 className="text-xl font-extrabold text-emerald-400">Plan activado</h1>
+          <h1 className="text-xl font-extrabold tracking-tight text-emerald-400">Plan activado</h1>
           <p className="text-sm text-white/35">Tu suscripción U-Mate está activa. Ya puedes suscribirte a tus creadoras favoritas.</p>
           <div className="flex flex-col gap-3 pt-2">
-            <Link href="/umate/explore" className="rounded-full bg-[#00aff0] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90">
+            <Link href="/umate/explore" className="rounded-full bg-[#00aff0] px-6 py-3 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_24px_rgba(0,175,240,0.35)]">
               Explorar creadoras
             </Link>
             <Link href="/umate/account" className="rounded-full border border-white/[0.08] px-6 py-2.5 text-sm text-white/40 transition hover:text-white/60">

@@ -86,12 +86,12 @@ export default function PlansPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <div className="border-b border-white/[0.04] py-10 text-center lg:py-14">
+      <div className="border-b border-white/[0.04] py-12 text-center lg:py-16">
         <div className="mx-auto max-w-[700px] px-4">
-          <h1 className="text-3xl font-extrabold text-white md:text-4xl">
+          <h1 className="text-3xl font-extrabold tracking-tight text-white md:text-4xl">
             Elige tu plan
           </h1>
-          <p className="mt-3 text-sm text-white/35">
+          <p className="mt-3 text-[15px] text-white/30">
             Cada plan incluye cupos mensuales para suscribirte a creadoras premium. Contenido exclusivo, sin límites.
           </p>
         </div>
@@ -116,15 +116,15 @@ export default function PlansPage() {
             return (
               <div
                 key={plan.id}
-                className={`relative flex flex-col rounded-2xl border p-6 transition ${
+                className={`relative flex flex-col rounded-2xl border p-7 transition-all duration-300 hover:-translate-y-0.5 ${
                   isPopular
-                    ? "border-[#00aff0]/30 bg-[#00aff0]/[0.04] shadow-lg shadow-[#00aff0]/[0.05]"
-                    : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]"
+                    ? "border-[#00aff0]/25 bg-[#00aff0]/[0.03] shadow-[0_8px_40px_rgba(0,175,240,0.08)]"
+                    : "border-white/[0.05] bg-white/[0.02] hover:border-white/[0.1]"
                 }`}
               >
                 {isPopular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#00aff0] px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                    Más popular
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#00aff0] px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-white shadow-[0_2px_12px_rgba(0,175,240,0.35)]">
+                    Mas popular
                   </span>
                 )}
 
@@ -153,10 +153,10 @@ export default function PlansPage() {
                 <button
                   onClick={() => handleSubscribe(plan.tier)}
                   disabled={subscribing !== null || isCreator}
-                  className={`mt-6 flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-bold transition disabled:opacity-40 ${
+                  className={`mt-6 flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-bold transition-all duration-200 disabled:opacity-40 ${
                     isPopular
-                      ? "bg-[#00aff0] text-white hover:bg-[#00aff0]/90"
-                      : "border border-white/[0.1] bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
+                      ? "bg-[#00aff0] text-white shadow-[0_2px_16px_rgba(0,175,240,0.25)] hover:bg-[#00aff0]/90 hover:shadow-[0_4px_24px_rgba(0,175,240,0.35)]"
+                      : "border border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.06] hover:text-white hover:border-white/[0.12]"
                   }`}
                 >
                   {subscribing === plan.tier ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Activar plan <ArrowRight className="h-4 w-4" /></>}
@@ -167,9 +167,9 @@ export default function PlansPage() {
         </div>
 
         {/* Comparison table */}
-        <div className="mt-14 overflow-hidden rounded-xl border border-white/[0.06]">
-          <div className="border-b border-white/[0.06] bg-white/[0.02] px-6 py-4">
-            <h3 className="text-sm font-bold text-white">Comparación detallada</h3>
+        <div className="mt-16 overflow-hidden rounded-2xl border border-white/[0.05]">
+          <div className="border-b border-white/[0.05] bg-white/[0.02] px-6 py-4">
+            <h3 className="text-sm font-bold tracking-wide text-white">Comparacion detallada</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -210,19 +210,19 @@ export default function PlansPage() {
         </div>
 
         {/* FAQ */}
-        <div className="mt-14">
-          <h3 className="text-center text-xl font-bold text-white">Preguntas frecuentes</h3>
-          <div className="mx-auto mt-6 max-w-2xl space-y-2">
+        <div className="mt-16">
+          <h3 className="text-center text-xl font-bold tracking-tight text-white">Preguntas frecuentes</h3>
+          <div className="mx-auto mt-8 max-w-2xl space-y-2">
             {[
-              { q: "¿Qué es un cupo mensual?", a: "Cada cupo te permite suscribirte a una creadora premium. La cantidad de cupos depende de tu plan." },
-              { q: "¿Puedo cambiar de plan?", a: "Sí, puedes subir o bajar tu plan en cualquier momento. El cambio aplica en tu próximo ciclo de facturación." },
-              { q: "¿Cómo funciona la renovación?", a: "Todos los planes se renuevan automáticamente cada mes. Puedes cancelar cuando quieras sin penalización." },
-              { q: "¿Los pagos son seguros?", a: "Todos los pagos se procesan a través de pasarelas de pago seguras con encriptación de nivel bancario." },
+              { q: "Que es un cupo mensual?", a: "Cada cupo te permite suscribirte a una creadora premium. La cantidad de cupos depende de tu plan." },
+              { q: "Puedo cambiar de plan?", a: "Si, puedes subir o bajar tu plan en cualquier momento. El cambio aplica en tu proximo ciclo de facturacion." },
+              { q: "Como funciona la renovacion?", a: "Todos los planes se renuevan automaticamente cada mes. Puedes cancelar cuando quieras sin penalizacion." },
+              { q: "Los pagos son seguros?", a: "Todos los pagos se procesan a traves de pasarelas de pago seguras con encriptacion de nivel bancario." },
             ].map((item) => (
-              <details key={item.q} className="group rounded-xl border border-white/[0.06] bg-white/[0.02]">
-                <summary className="flex cursor-pointer items-center justify-between px-5 py-4 text-sm font-medium text-white/70">
+              <details key={item.q} className="group rounded-2xl border border-white/[0.05] bg-white/[0.02] transition-colors duration-200 hover:border-white/[0.07]">
+                <summary className="flex cursor-pointer items-center justify-between px-5 py-4 text-sm font-medium text-white/60 transition-colors duration-200 hover:text-white/80">
                   {item.q}
-                  <ChevronRight className="h-4 w-4 text-white/20 transition group-open:rotate-90" />
+                  <ChevronRight className="h-4 w-4 text-white/15 transition-transform duration-200 group-open:rotate-90" />
                 </summary>
                 <p className="px-5 pb-4 text-sm text-white/35">{item.a}</p>
               </details>

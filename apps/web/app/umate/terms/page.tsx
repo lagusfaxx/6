@@ -14,10 +14,10 @@ export default function TermsPage() {
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00aff0]/10">
           <FileText className="h-5 w-5 text-[#00aff0]" />
         </div>
-        <h1 className="text-xl font-extrabold">Términos y condiciones de U-Mate</h1>
+        <h1 className="text-xl font-extrabold tracking-tight">Terminos y condiciones de U-Mate</h1>
       </div>
 
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-5 text-sm text-white/50 leading-relaxed">
+      <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-7 space-y-6 text-sm text-white/45 leading-relaxed">
         {[
           { title: "1. Definiciones", text: "U-Mate es un servicio de suscripción de contenido dentro de la plataforma UZEED. \"Creadora\" refiere a la persona que publica contenido. \"Suscriptor\" refiere al usuario que paga un plan para acceder a contenido." },
           { title: "2. Planes y pagos", text: "Los planes son de renovación mensual automática. Los precios están en pesos chilenos (CLP) e incluyen IVA. El pago se procesa a través de Flow.cl." },

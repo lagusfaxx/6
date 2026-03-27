@@ -167,16 +167,16 @@ export default function CreatorProfilePage() {
   return (
     <div className="min-h-screen">
       {/* Cover */}
-      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#00aff0]/20 via-purple-500/10 to-transparent md:h-64 lg:h-72">
+      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#00aff0]/15 via-purple-600/[0.08] to-transparent md:h-64 lg:h-72">
         {creator.coverUrl && <img src={creator.coverUrl} alt="" className="h-full w-full object-cover" />}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#08080d] via-[#08080d]/50 to-transparent" />
       </div>
 
       {/* Profile info */}
       <div className="mx-auto max-w-[700px] px-4">
         <div className="-mt-12 flex items-end gap-4">
           {/* Avatar */}
-          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-[#0a0a0f] bg-[#0a0a0f] md:h-28 md:w-28">
+          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-[#08080d] bg-[#08080d] shadow-[0_4px_20px_rgba(0,0,0,0.4)] md:h-28 md:w-28">
             {creator.avatarUrl ? (
               <img src={creator.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
@@ -211,7 +211,7 @@ export default function CreatorProfilePage() {
               <button
                 onClick={handleSubscribe}
                 disabled={subscribing}
-                className="inline-flex items-center gap-1.5 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white shadow-lg shadow-[#00aff0]/20 transition hover:bg-[#00aff0]/90 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_24px_rgba(0,175,240,0.35)] disabled:opacity-50"
               >
                 {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Suscribirme"}
               </button>
@@ -225,14 +225,14 @@ export default function CreatorProfilePage() {
         {/* Name & info */}
         <div className="mt-3">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold text-white md:text-2xl">{creator.displayName}</h1>
+            <h1 className="text-xl font-extrabold tracking-tight text-white md:text-2xl">{creator.displayName}</h1>
             {creator.user.isVerified && <BadgeCheck className="h-5 w-5 text-[#00aff0]" />}
           </div>
           <p className="text-sm text-white/30">@{creator.user.username}</p>
           {creator.bio && <p className="mt-3 text-sm leading-relaxed text-white/50">{creator.bio}</p>}
 
           {/* Stats row */}
-          <div className="mt-4 flex gap-5 border-b border-white/[0.06] pb-4">
+          <div className="mt-4 flex gap-6 border-b border-white/[0.05] pb-5">
             <div className="text-center">
               <p className="text-base font-extrabold text-white">{creator.totalPosts}</p>
               <p className="text-[11px] text-white/25">Posts</p>
@@ -249,7 +249,7 @@ export default function CreatorProfilePage() {
         </div>
 
         {/* Content tabs */}
-        <div className="mt-4 flex gap-1 overflow-x-auto border-b border-white/[0.06] pb-px">
+        <div className="mt-5 flex gap-1 overflow-x-auto border-b border-white/[0.05] pb-px scrollbar-hide">
           {([
             { key: "all" as const, label: `Todos`, count: posts.length },
             { key: "photos" as const, label: "Fotos", icon: ImageIcon },
@@ -260,10 +260,10 @@ export default function CreatorProfilePage() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-semibold transition ${
+              className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all duration-200 ${
                 tab === t.key
                   ? "border-[#00aff0] text-[#00aff0]"
-                  : "border-transparent text-white/30 hover:text-white/50"
+                  : "border-transparent text-white/25 hover:text-white/50"
               }`}
             >
               {t.label}
@@ -275,7 +275,7 @@ export default function CreatorProfilePage() {
         {/* Posts feed - OnlyFans style (single column) */}
         <div className="mt-4 space-y-4 pb-8">
           {filtered.map((post) => (
-            <article key={post.id} className="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]">
+            <article key={post.id} className="overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition-colors duration-200 hover:border-white/[0.07]">
               {/* Caption */}
               {post.caption && (
                 <div className="px-4 pt-4 pb-3">
@@ -398,9 +398,9 @@ export default function CreatorProfilePage() {
           ))}
 
           {filtered.length === 0 && (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-16 text-center">
-              <Grid3X3 className="mx-auto mb-3 h-8 w-8 text-white/10" />
-              <p className="text-sm font-medium text-white/40">No hay contenido en esta categoría.</p>
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.015] p-20 text-center">
+              <Grid3X3 className="mx-auto mb-4 h-8 w-8 text-white/[0.07]" />
+              <p className="text-sm font-medium text-white/35">No hay contenido en esta categoria.</p>
             </div>
           )}
         </div>

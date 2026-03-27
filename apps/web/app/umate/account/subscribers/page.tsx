@@ -40,7 +40,7 @@ export default function SubscribersPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-white">Suscriptores</h1>
+        <h1 className="text-xl font-bold tracking-tight text-white">Suscriptores</h1>
         <p className="mt-1 text-sm text-white/30">Comunidad, conversión y fans.</p>
       </div>
 
@@ -62,7 +62,7 @@ export default function SubscribersPage() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Funnel */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
           <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Embudo de conversión</h2>
           <div className="mt-4 space-y-3">
             {[
@@ -85,7 +85,7 @@ export default function SubscribersPage() {
 
         <div className="space-y-4">
           {/* Retention */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
             <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Retención</h2>
             <div className="mt-3 flex items-center gap-4">
               <div className="relative h-20 w-20">
@@ -105,7 +105,7 @@ export default function SubscribersPage() {
           </div>
 
           {/* Top fans */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Top fans</h2>
               <Crown className="h-3.5 w-3.5 text-amber-400" />
@@ -141,7 +141,7 @@ export default function SubscribersPage() {
       </div>
 
       {/* Engagement */}
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+      <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
         <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Engagement</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {[

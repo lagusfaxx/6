@@ -20,8 +20,8 @@ export default function UmateHeader() {
   const isStudio = pathname.startsWith("/umate/account");
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#0a0a0f]/95 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-[1170px] items-center justify-between gap-3 px-4">
+    <header className="sticky top-0 z-50 border-b border-white/[0.05] bg-[#08080d]/90 backdrop-blur-2xl backdrop-saturate-150">
+      <div className="mx-auto flex h-[56px] max-w-[1170px] items-center justify-between gap-3 px-4">
         {/* Left: Logo */}
         <div className="flex items-center gap-3">
           <Link href="/umate" className="flex shrink-0 items-center gap-2">
@@ -39,10 +39,10 @@ export default function UmateHeader() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium tracking-wide transition-all duration-200 ${
                     active
                       ? "text-white"
-                      : "text-white/40 hover:text-white/70"
+                      : "text-white/35 hover:text-white/70"
                   }`}
                 >
                   <item.icon className="h-4 w-4" />
@@ -59,7 +59,7 @@ export default function UmateHeader() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
             <input
               placeholder="Buscar creadoras..."
-              className="w-full rounded-full border border-white/[0.08] bg-white/[0.04] py-2 pl-10 pr-4 text-sm text-white placeholder-white/30 outline-none transition focus:border-[#00aff0]/50 focus:bg-white/[0.06]"
+              className="w-full rounded-full border border-white/[0.06] bg-white/[0.03] py-2 pl-10 pr-4 text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-[#00aff0]/40 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(0,175,240,0.06)]"
             />
           </div>
         </div>
@@ -69,7 +69,7 @@ export default function UmateHeader() {
           {me?.user && (
             <Link
               href="/umate/account/content"
-              className="hidden items-center gap-1.5 rounded-full bg-[#00aff0] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#00aff0]/90 md:inline-flex"
+              className="hidden items-center gap-1.5 rounded-full bg-[#00aff0] px-4 py-1.5 text-sm font-semibold text-white shadow-[0_2px_12px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_20px_rgba(0,175,240,0.35)] md:inline-flex"
             >
               <Plus className="h-4 w-4" /> Publicar
             </Link>
