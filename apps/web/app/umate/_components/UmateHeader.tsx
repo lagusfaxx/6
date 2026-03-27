@@ -47,7 +47,7 @@ export default function UmateHeader() {
       <div className="mx-auto flex h-16 max-w-[1320px] items-center justify-between gap-4 px-4 lg:px-6">
         {/* Logo */}
         <Link href="/umate" className="flex shrink-0 items-center rounded-2xl border border-fuchsia-100 bg-white/90 px-2.5 py-1.5 shadow-sm shadow-fuchsia-100/40 transition hover:border-fuchsia-200">
-          <img src="/brand/Umate.png" alt="U-Mate" className="h-8 w-auto object-contain sm:h-9" />
+          <img src="/brand/Umate.webp" alt="U-Mate" className="h-8 w-auto object-contain sm:h-9" />
         </Link>
 
         {/* Desktop nav */}

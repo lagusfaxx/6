@@ -7,9 +7,9 @@ export const metadata: Metadata = {
   description:
     "U-Mate es una plataforma de suscripción para descubrir creadoras, desbloquear contenido premium y conectar con su comunidad.",
   icons: {
-    icon: "/brand/Umate.png",
-    shortcut: "/brand/Umate.png",
-    apple: "/brand/Umate.png",
+    icon: "/brand/Umate.webp",
+    shortcut: "/brand/Umate.webp",
+    apple: "/brand/Umate.webp",
   },
 };
 

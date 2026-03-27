@@ -112,7 +112,7 @@ export default function UmateLandingPage() {
           <div className="grid items-start gap-8 lg:grid-cols-[1.02fr_0.98fr] lg:gap-10">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-200/70 bg-white/90 px-3 py-1.5 shadow-sm backdrop-blur">
-                <img src="/brand/Umate.png" alt="U-Mate" className="h-5 w-auto" />
+                <img src="/brand/Umate.webp" alt="U-Mate" className="h-5 w-auto" />
                 <span className="text-[11px] font-black uppercase tracking-wide text-fuchsia-700">Catálogo + suscripción + comunidad</span>
               </div>
 
