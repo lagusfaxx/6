@@ -49,6 +49,7 @@ import { umateRouter } from "./umate/routes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 import { startWorker } from "./worker";
+import { cdnCache } from "./lib/cdnCache";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -144,6 +145,39 @@ app.use(
     })
   })
 );
+
+// ── CDN edge-cache for high-traffic public GET endpoints ──
+// These run BEFORE requireAuth so the Cache-Control header is set even when
+// the downstream handler responds from auth-allowed public prefixes.
+const publicCacheRoutes = [
+  "/categories",       // 5 min — rarely changes
+  "/banners",          // 5 min
+  "/popup-promotions", // 5 min
+  "/stats/platform",   // 2 min
+  "/professionals",    // 1 min — listing pages
+  "/directory",        // 1 min
+  "/motels",           // 2 min
+  "/shop/sexshops",    // 2 min
+  "/profiles/discover",// 1 min
+  "/stories",          // 30s — more dynamic
+  "/forum",            // 1 min
+  "/umate/feed",       // 30s
+  "/umate/creators",   // 1 min
+  "/umate/trending",   // 1 min
+];
+
+app.use((req, res, next) => {
+  if (req.method !== "GET") return next();
+  const match = publicCacheRoutes.find((prefix) => req.path.startsWith(prefix));
+  if (!match) return next();
+
+  // Longer TTL for mostly-static data, shorter for dynamic feeds
+  const isStatic = ["/categories", "/banners", "/popup-promotions", "/stats/platform"].includes(match);
+  const isDynamic = ["/stories", "/umate/feed"].includes(match);
+  const ttl = isStatic ? 300 : isDynamic ? 30 : 60;
+
+  return cdnCache(ttl, ttl * 2)(req, res, next);
+});
 
 // ✅ Global auth allowlist (categories/auth/health/etc quedan públicos dentro del middleware)
 app.use(requireAuth);

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import MapboxMap from "../../../components/MapboxMap";
+import dynamic from "next/dynamic";
+const MapboxMap = dynamic(() => import("../../../components/MapboxMap"), { ssr: false });
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
 
 type Room = {
@@ -134,10 +135,10 @@ export default function HospedajeDetailPage() {
   }, [promoForRoom, basePrice]);
 
   const gallery = useMemo(() => {
-    if (!data) return ["/brand/splash.jpg"];
+    if (!data) return ["/brand/splash-optimized.jpg"];
     const roomGallery = selectedRoom?.photoUrls?.length ? selectedRoom.photoUrls : [];
     const out = [data.coverUrl, ...roomGallery, ...data.gallery].filter(Boolean) as string[];
-    return out.length ? out : ["/brand/splash.jpg"];
+    return out.length ? out : ["/brand/splash-optimized.jpg"];
   }, [data, selectedRoom]);
 
   const reserve = async () => {
@@ -208,9 +209,9 @@ export default function HospedajeDetailPage() {
         {/* Main image */}
         <div className="relative cursor-pointer" onClick={() => setLightboxOpen(true)}>
           <img
-            src={resolveMediaUrl(gallery[galleryIndex]) || "/brand/splash.jpg"}
+            src={resolveMediaUrl(gallery[galleryIndex]) || "/brand/splash-optimized.jpg"}
             alt={data.name}
-            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/brand/splash.jpg"; }}
+            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/brand/splash-optimized.jpg"; }}
             className="h-64 w-full object-cover sm:h-80 md:h-[400px]"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -268,8 +269,8 @@ export default function HospedajeDetailPage() {
                 className={`h-14 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition-all ${galleryIndex === i ? "border-fuchsia-500 shadow-[0_0_10px_rgba(168,85,247,0.3)]" : "border-transparent opacity-60 hover:opacity-100"}`}
               >
                 <img
-                  src={resolveMediaUrl(g) || "/brand/splash.jpg"}
-                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/brand/splash.jpg"; }}
+                  src={resolveMediaUrl(g) || "/brand/splash-optimized.jpg"}
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/brand/splash-optimized.jpg"; }}
                   className="h-full w-full object-cover"
                   alt=""
                 />
@@ -296,7 +297,7 @@ export default function HospedajeDetailPage() {
             ›
           </button>
           <img
-            src={resolveMediaUrl(gallery[galleryIndex]) || "/brand/splash.jpg"}
+            src={resolveMediaUrl(gallery[galleryIndex]) || "/brand/splash-optimized.jpg"}
             alt=""
             className="max-h-[90vh] max-w-[95vw] rounded-xl object-contain"
             onClick={(e) => e.stopPropagation()}

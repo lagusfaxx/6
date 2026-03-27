@@ -36,60 +36,80 @@ const nextConfig = {
   },
 
   async headers() {
+    // Shared security headers applied to every response
+    const securityHeaders = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(self)' },
+    ];
+
     return [
       {
-        // Static JS/CSS assets — immutable with long cache
+        // Static JS/CSS assets — immutable, cached at CDN edge (Cloudflare) + browser
         source: '/_next/static/:path*',
         headers: [
+          ...securityHeaders,
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: 'public, max-age=31536000, s-maxage=31536000, immutable',
           },
         ],
       },
       {
-        // Next.js image optimization cache
+        // Next.js optimized images — long CDN cache with stale-while-revalidate
         source: '/_next/image:path*',
         headers: [
+          ...securityHeaders,
           {
             key: 'Cache-Control',
-            value: 'public, max-age=2592000, stale-while-revalidate=86400',
+            value: 'public, max-age=2592000, s-maxage=2592000, stale-while-revalidate=86400',
           },
+          { key: 'Vary', value: 'Accept' },
         ],
       },
       {
-        // Static brand assets
+        // Static brand assets — immutable at both CDN and browser
         source: '/brand/:path*',
         headers: [
+          ...securityHeaders,
           {
             key: 'Cache-Control',
-            value: 'public, max-age=2592000, immutable',
+            value: 'public, max-age=2592000, s-maxage=2592000, immutable',
           },
         ],
       },
       {
-        // HTML pages — revalidate on navigation + security headers
-        source: '/:path*',
+        // Service worker — short cache so updates propagate quickly
+        source: '/sw.js',
         headers: [
+          ...securityHeaders,
           {
             key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
+            value: 'public, max-age=0, must-revalidate',
           },
+        ],
+      },
+      {
+        // Manifest — cache at CDN, short browser cache
+        source: '/manifest.webmanifest',
+        headers: [
+          ...securityHeaders,
           {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400',
           },
+        ],
+      },
+      {
+        // HTML pages — no browser cache but allow Cloudflare edge cache (120s)
+        // with stale-while-revalidate so users get instant loads from CDN
+        source: '/:path*',
+        headers: [
+          ...securityHeaders,
           {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(self), microphone=(self), geolocation=(self)',
+            key: 'Cache-Control',
+            value: 'public, max-age=0, s-maxage=120, stale-while-revalidate=60',
           },
         ],
       },

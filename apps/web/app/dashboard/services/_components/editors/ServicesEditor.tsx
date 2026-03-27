@@ -6,7 +6,8 @@ import EditorCard from "../EditorCard";
 import FloatingInput from "../FloatingInput";
 import FloatingTextarea from "../FloatingTextarea";
 import FloatingSelect from "../FloatingSelect";
-import MapboxMap from "../../../../../components/MapboxMap";
+import dynamic from "next/dynamic";
+const MapboxMap = dynamic(() => import("../../../../../components/MapboxMap"), { ssr: false });
 import { Badge } from "../../../../../components/ui/badge";
 
 type Props = {

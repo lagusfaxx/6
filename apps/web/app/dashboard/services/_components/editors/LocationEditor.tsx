@@ -3,7 +3,8 @@
 import { useDashboardForm } from "../../../../../hooks/useDashboardForm";
 import EditorCard from "../EditorCard";
 import FloatingInput from "../FloatingInput";
-import MapboxMap from "../../../../../components/MapboxMap";
+import dynamic from "next/dynamic";
+const MapboxMap = dynamic(() => import("../../../../../components/MapboxMap"), { ssr: false });
 import MapboxAddressAutocomplete from "../../../../../components/MapboxAddressAutocomplete";
 
 type Props = {

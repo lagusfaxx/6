@@ -4,7 +4,8 @@ import Link from "next/link";
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import useMe from "../../../hooks/useMe";
-import MapboxMap from "../../../components/MapboxMap";
+import dynamic from "next/dynamic";
+const MapboxMap = dynamic(() => import("../../../components/MapboxMap"), { ssr: false });
 import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
 
 /* ── Types ── */
