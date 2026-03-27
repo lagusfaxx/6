@@ -28,7 +28,7 @@ services:
       API_URL: http://localhost:3001
       WEB_ORIGIN: http://localhost:3000
       API_BASE_URL: http://localhost:3001
-      UPLOADS_DIR: uploads
+      UPLOADS_DIR: /app/uploads
       KHIPU_API_KEY: "5c24de64-13fd-4f64-bdd4-acabe2c46bbb"
       KHIPU_SUBSCRIPTION_NOTIFY_URL: http://localhost:3001/webhooks/khipu/subscription
       KHIPU_CHARGE_NOTIFY_URL: http://localhost:3001/webhooks/khipu/charge
@@ -41,6 +41,8 @@ services:
       ADMIN_PASSWORD: Automazdabxzx94
     ports:
       - "3001:3001"
+    volumes:
+      - uzeed_uploads:/app/uploads
     depends_on:
       - db
 
@@ -85,3 +87,4 @@ services:
 
 volumes:
   uzeed_pg:
+  uzeed_uploads:

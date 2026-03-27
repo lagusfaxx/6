@@ -47,6 +47,9 @@ COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
+# Create uploads directory so it exists even without a volume mount
+RUN mkdir -p /app/uploads
+VOLUME ["/app/uploads"]
 EXPOSE 3001
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD sh -lc "cd prisma && npx prisma migrate deploy --schema=schema.prisma && cd .. && node apps/api/dist/index.js"
