@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
-  Building2,
   CheckCircle2,
   ExternalLink,
   Loader2,
@@ -40,12 +39,7 @@ export default function UmateAccountPage() {
     });
   }, []);
 
-  if (loading)
-    return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-fuchsia-500" />
-      </div>
-    );
+  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/20" /></div>;
 
   const checks = [
     { label: "Términos de servicio", ok: creatorStats?.termsAccepted, href: "/umate/terms" },
@@ -53,85 +47,70 @@ export default function UmateAccountPage() {
     { label: "Contrato de creadora", ok: creatorStats?.contractAccepted, href: "#" },
     { label: "Datos bancarios", ok: creatorStats?.bankConfigured, href: "#" },
   ];
-
   const pendingCount = checks.filter((c) => !c.ok).length;
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div>
-        <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-slate-600 to-slate-700 shadow-lg">
-            <Settings className="h-5 w-5 text-white" />
-          </div>
-          <h1 className="text-2xl font-black text-slate-900">Cuenta y ajustes</h1>
-        </div>
-        <p className="mt-1 text-sm text-slate-500">Perfil público, datos legales y configuración del studio.</p>
+        <h1 className="text-xl font-bold text-white">Cuenta y ajustes</h1>
+        <p className="mt-1 text-sm text-white/30">Perfil, datos legales y configuración.</p>
       </div>
 
-      {/* Pending alert */}
       {pendingCount > 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-          <div className="flex items-center gap-2 text-sm font-bold text-amber-800">
-            <AlertCircle className="h-4 w-4" /> {pendingCount} elemento{pendingCount > 1 ? "s" : ""} pendiente{pendingCount > 1 ? "s" : ""}
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-amber-400">
+            <AlertCircle className="h-4 w-4" /> {pendingCount} pendiente{pendingCount > 1 ? "s" : ""}
           </div>
-          <p className="mt-1 text-xs text-amber-700">Completa los requisitos para activar completamente tu cuenta de creadora.</p>
+          <p className="mt-1 text-xs text-white/30">Completa los requisitos para activar tu cuenta.</p>
         </div>
       )}
 
-      {/* Profile section */}
-      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-        <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-500">
+      {/* Profile */}
+      <section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/25">
           <UserCircle2 className="h-4 w-4" /> Perfil
         </h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-xs text-slate-500">Username</p>
-            <p className="mt-1 text-sm font-bold text-slate-900">@{me?.user?.username || "—"}</p>
-          </div>
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-xs text-slate-500">Nombre público</p>
-            <p className="mt-1 text-sm font-bold text-slate-900">{me?.user?.displayName || "Sin definir"}</p>
-          </div>
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-xs text-slate-500">Email</p>
-            <p className="mt-1 text-sm font-bold text-slate-900">{me?.user?.email || "—"}</p>
-          </div>
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-xs text-slate-500">Estado creadora</p>
-            <p className={`mt-1 text-sm font-bold ${creator?.status === "ACTIVE" ? "text-emerald-700" : "text-amber-700"}`}>
-              {creator?.status || "No activa"}
-            </p>
-          </div>
+          {[
+            { label: "Username", value: `@${me?.user?.username || "—"}` },
+            { label: "Nombre público", value: me?.user?.displayName || "Sin definir" },
+            { label: "Email", value: me?.user?.email || "—" },
+            { label: "Estado creadora", value: creator?.status || "No activa", isStatus: true },
+          ].map((item) => (
+            <div key={item.label} className="rounded-lg bg-white/[0.03] p-3">
+              <p className="text-[11px] text-white/25">{item.label}</p>
+              <p className={`mt-1 text-sm font-semibold ${
+                "isStatus" in item && item.isStatus
+                  ? creator?.status === "ACTIVE" ? "text-emerald-400" : "text-amber-400"
+                  : "text-white/80"
+              }`}>{item.value}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Legal & compliance */}
-      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-        <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-500">
+      {/* Legal */}
+      <section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/25">
           <ShieldCheck className="h-4 w-4" /> Legal y cumplimiento
         </h2>
         <div className="mt-4 space-y-2">
           {checks.map((item) => (
-            <div key={item.label} className="flex items-center justify-between rounded-xl border border-slate-100 p-3.5 transition hover:bg-slate-50">
+            <div key={item.label} className="flex items-center justify-between rounded-lg border border-white/[0.04] p-3 transition hover:bg-white/[0.02]">
               <div className="flex items-center gap-3">
                 {item.ok ? (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  </div>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                  </div>
+                  <AlertCircle className="h-4 w-4 text-amber-500" />
                 )}
                 <div>
-                  <p className="text-sm font-semibold text-slate-700">{item.label}</p>
-                  <p className="text-[11px] text-slate-500">{item.ok ? "Completado" : "Pendiente de aceptación"}</p>
+                  <p className="text-sm font-medium text-white/60">{item.label}</p>
+                  <p className="text-[10px] text-white/20">{item.ok ? "Completado" : "Pendiente"}</p>
                 </div>
               </div>
               {!item.ok && (
-                <Link href={item.href} className="inline-flex items-center gap-1 rounded-lg bg-fuchsia-50 px-3 py-1.5 text-xs font-bold text-fuchsia-700 transition hover:bg-fuchsia-100">
-                  Completar <ExternalLink className="h-3 w-3" />
+                <Link href={item.href} className="rounded-lg bg-[#00aff0]/10 px-3 py-1.5 text-xs font-semibold text-[#00aff0] transition hover:bg-[#00aff0]/20">
+                  Completar
                 </Link>
               )}
             </div>
@@ -139,38 +118,22 @@ export default function UmateAccountPage() {
         </div>
       </section>
 
-      {/* Recommended actions */}
-      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-        <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-500">
-          <Building2 className="h-4 w-4" /> Ajustes recomendados
-        </h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {[
-            { label: "Actualizar bio y portada", desc: "Mejora tu perfil público con contenido visual atractivo." },
-            { label: "Completar cuenta bancaria", desc: "Configura tus datos para poder solicitar retiros." },
-            { label: "Definir frecuencia de posts", desc: "Establece una rutina de publicación consistente." },
-            { label: "Revisar términos y políticas", desc: "Mantente al día con las reglas de la plataforma." },
-          ].map((task) => (
-            <div key={task.label} className="rounded-xl border border-slate-100 p-4 transition hover:border-fuchsia-100 hover:bg-fuchsia-50/20">
-              <p className="text-sm font-semibold text-slate-700">{task.label}</p>
-              <p className="mt-1 text-xs text-slate-500">{task.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Links */}
-      <section className="flex flex-wrap gap-2">
-        <Link href="/umate/terms" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-fuchsia-200 hover:text-fuchsia-700">
-          Términos de servicio <ExternalLink className="h-3 w-3" />
-        </Link>
-        <Link href="/umate/rules" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-fuchsia-200 hover:text-fuchsia-700">
-          Reglas de la plataforma <ExternalLink className="h-3 w-3" />
-        </Link>
-        <Link href="/" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-fuchsia-200 hover:text-fuchsia-700">
-          Volver a UZEED <ExternalLink className="h-3 w-3" />
-        </Link>
-      </section>
+      <div className="flex flex-wrap gap-2">
+        {[
+          { label: "Términos", href: "/umate/terms" },
+          { label: "Reglas", href: "/umate/rules" },
+          { label: "Volver a UZEED", href: "/" },
+        ].map((link) => (
+          <Link
+            key={link.label}
+            href={link.href}
+            className="inline-flex items-center gap-1 rounded-lg border border-white/[0.06] px-3 py-2 text-xs font-medium text-white/30 transition hover:border-white/[0.12] hover:text-white/50"
+          >
+            {link.label} <ExternalLink className="h-3 w-3" />
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

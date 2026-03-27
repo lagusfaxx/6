@@ -81,7 +81,7 @@ const STATUS_COLORS: Record<string, string> = {
   PENDING_BANK: "bg-blue-500/15 text-blue-300",
 };
 
-const inputClass = "w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/15 focus:border-rose-500/30 focus:outline-none transition";
+const inputClass = "w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/15 focus:border-[#00aff0]/30 focus:outline-none transition";
 
 export default function UmateAdminPage() {
   const [tab, setTab] = useState<"dashboard" | "creators" | "plans" | "withdrawals" | "ledger" | "config">("dashboard");
@@ -230,7 +230,7 @@ export default function UmateAdminPage() {
             key={t.key}
             onClick={() => setTab(t.key as any)}
             className={`flex items-center gap-1.5 shrink-0 border-b-2 px-4 py-2.5 text-xs font-semibold transition ${
-              tab === t.key ? "border-rose-400 text-white" : "border-transparent text-white/30 hover:text-white/50"
+              tab === t.key ? "border-[#00aff0] text-white" : "border-transparent text-white/30 hover:text-white/50"
             }`}
           >
             <t.icon className="h-3.5 w-3.5" /> {t.label}
@@ -243,7 +243,7 @@ export default function UmateAdminPage() {
         ))}
       </div>
 
-      {loading && <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-rose-400/60" /></div>}
+      {loading && <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-[#00aff0]/60" /></div>}
 
       {/* ═══════════════════════════════════════════════════════════════
            DASHBOARD
@@ -252,7 +252,7 @@ export default function UmateAdminPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { label: "Creadoras activas", value: dashboard.activeCreators, color: "text-rose-400", border: "border-rose-500/15" },
+              { label: "Creadoras activas", value: dashboard.activeCreators, color: "text-[#00aff0]", border: "border-[#00aff0]/15" },
               { label: "En revisión", value: dashboard.pendingReview, color: "text-amber-400", border: "border-amber-500/15" },
               { label: "Suscripciones activas", value: dashboard.activeSubscriptions, color: "text-emerald-400", border: "border-emerald-500/15" },
               { label: "Nuevas este mes", value: dashboard.newSubsThisMonth, color: "text-blue-400", border: "border-blue-500/15" },
@@ -305,7 +305,7 @@ export default function UmateAdminPage() {
                 key={s}
                 onClick={() => setStatusFilter(s)}
                 className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
-                  statusFilter === s ? "bg-rose-500/15 text-rose-300 border border-rose-500/25" : "text-white/25 hover:text-white/50"
+                  statusFilter === s ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25" : "text-white/25 hover:text-white/50"
                 }`}
               >
                 {STATUS_LABELS[s] || "Todos"}
@@ -495,7 +495,7 @@ export default function UmateAdminPage() {
                 key={s}
                 onClick={() => setWdFilter(s)}
                 className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
-                  wdFilter === s ? "bg-rose-500/15 text-rose-300 border border-rose-500/25" : "text-white/25 hover:text-white/50"
+                  wdFilter === s ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25" : "text-white/25 hover:text-white/50"
                 }`}
               >
                 {s === "" ? "Todos" : s === "PENDING" ? "Pendientes" : s === "APPROVED" ? "Aprobados" : "Rechazados"}
@@ -597,7 +597,7 @@ export default function UmateAdminPage() {
                   key={t}
                   onClick={() => setLedgerType(t)}
                   className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
-                    ledgerType === t ? "bg-rose-500/15 text-rose-300 border border-rose-500/25" : "text-white/25 hover:text-white/50"
+                    ledgerType === t ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25" : "text-white/25 hover:text-white/50"
                   }`}
                 >
                   {t === "" ? "Todos" : t === "PLAN_PURCHASE" ? "Compras" : t === "SLOT_ACTIVATION" ? "Activaciones" : "Retiros"}
@@ -702,7 +702,7 @@ export default function UmateAdminPage() {
             <button
               onClick={saveConfig}
               disabled={saving}
-              className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 py-3 text-sm font-bold text-white transition hover:shadow-[0_0_20px_rgba(244,63,94,0.2)] disabled:opacity-50"
+              className="w-full rounded-xl bg-[#00aff0] py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90 hover:shadow-[0_0_20px_rgba(0,175,240,0.2)] disabled:opacity-50"
             >
               {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : configSaved ? (
                 <span className="flex items-center justify-center gap-2"><CheckCircle className="h-4 w-4" /> Guardado</span>

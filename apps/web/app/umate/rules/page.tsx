@@ -11,8 +11,8 @@ export default function RulesPage() {
       </Link>
 
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10">
-          <ShieldCheck className="h-5 w-5 text-rose-400" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00aff0]/10">
+          <ShieldCheck className="h-5 w-5 text-[#00aff0]" />
         </div>
         <h1 className="text-xl font-extrabold">Reglas de U-Mate</h1>
       </div>
