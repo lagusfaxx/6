@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Bell,
   Compass,
+  Crown,
   Home,
   MessageCircle,
   Plus,
@@ -14,6 +15,7 @@ import {
   User,
 } from "lucide-react";
 import useMe from "../../../hooks/useMe";
+import { apiFetch, resolveMediaUrl } from "../../../lib/api";
 
 export default function UmateHeader() {
   const pathname = usePathname();
@@ -21,42 +23,56 @@ export default function UmateHeader() {
   const { me } = useMe();
   const isStudio = pathname.startsWith("/umate/account");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isCreator, setIsCreator] = useState(false);
+  const [mobileSearch, setMobileSearch] = useState(false);
+
+  useEffect(() => {
+    if (!me?.user) return;
+    apiFetch<{ creator: any }>("/umate/creator/me")
+      .then((d) => setIsCreator(Boolean(d?.creator && d.creator.status !== "SUSPENDED")))
+      .catch(() => {});
+  }, [me]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const q = searchQuery.trim();
     if (q) {
       router.push(`/umate/creators?q=${encodeURIComponent(q)}`);
+      setMobileSearch(false);
     }
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/[0.05] bg-[#08080d]/90 backdrop-blur-2xl backdrop-saturate-150">
+    <header className="sticky top-0 z-50 border-b border-white/[0.04] bg-[#0a0a12]/85 backdrop-blur-2xl backdrop-saturate-[1.8]">
+      {/* Subtle top accent line */}
+      <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-[#00aff0]/20 to-transparent" />
+
       <div className="mx-auto flex h-[56px] max-w-[1170px] items-center justify-between gap-3 px-4">
-        {/* Left: Logo */}
-        <div className="flex items-center gap-3">
+        {/* Left: Logo + Nav */}
+        <div className="flex items-center gap-4">
           <Link href="/umate" className="flex shrink-0 items-center gap-2">
             <img src="/brand/umate-logo-white.svg" alt="U-Mate" className="h-7 w-auto" />
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="hidden items-center gap-0.5 md:flex">
             {[
               { href: "/umate", icon: Home, label: "Inicio", exact: true },
               { href: "/umate/explore", icon: Compass, label: "Explorar" },
+              ...(isCreator ? [{ href: "/umate/account/creator", icon: Crown, label: "Studio", exact: false }] : []),
             ].map((item) => {
-              const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+              const active = ("exact" in item && item.exact) ? pathname === item.href : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium tracking-wide transition-all duration-200 ${
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-200 ${
                     active
-                      ? "text-white"
-                      : "text-white/45 hover:text-white/70"
+                      ? "bg-white/[0.06] text-white"
+                      : "text-white/40 hover:bg-white/[0.03] hover:text-white/70"
                   }`}
                 >
-                  <item.icon className="h-4 w-4" />
+                  <item.icon className={`h-4 w-4 ${active ? "text-[#00aff0]" : ""}`} />
                   <span className="hidden lg:inline">{item.label}</span>
                 </Link>
               );
@@ -67,54 +83,57 @@ export default function UmateHeader() {
         {/* Center: Search */}
         <div className="hidden flex-1 justify-center md:flex">
           <form onSubmit={handleSearch} className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar creadoras..."
-              className="w-full rounded-full border border-white/[0.06] bg-white/[0.03] py-2 pl-10 pr-4 text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-[#00aff0]/40 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(0,175,240,0.06)]"
+              className="w-full rounded-xl border border-white/[0.06] bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-[#00aff0]/30 focus:bg-white/[0.06] focus:shadow-[0_0_0_3px_rgba(0,175,240,0.06)]"
             />
           </form>
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-1.5">
-          {me?.user && (
+        <div className="flex items-center gap-1">
+          {isCreator && me?.user && (
             <Link
               href="/umate/account/content"
-              className="hidden items-center gap-1.5 rounded-full bg-[#00aff0] px-4 py-1.5 text-sm font-semibold text-white shadow-[0_2px_12px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_20px_rgba(0,175,240,0.35)] md:inline-flex"
+              className="hidden items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-4 py-2 text-sm font-semibold text-white shadow-[0_2px_16px_rgba(0,175,240,0.3)] transition-all duration-200 hover:shadow-[0_4px_24px_rgba(0,175,240,0.4)] hover:-translate-y-px md:inline-flex"
             >
               <Plus className="h-4 w-4" /> Publicar
             </Link>
           )}
 
-          <button className="flex h-9 w-9 items-center justify-center rounded-full text-white/40 transition hover:bg-white/[0.06] hover:text-white/70 md:hidden">
-            <Search className="h-5 w-5" />
+          <button
+            onClick={() => setMobileSearch(!mobileSearch)}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-white/[0.06] hover:text-white/70 md:hidden"
+          >
+            {mobileSearch ? <span className="text-xs font-bold">✕</span> : <Search className="h-5 w-5" />}
           </button>
 
           <Link
             href="/chats"
-            className="relative flex h-9 w-9 items-center justify-center rounded-full text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
+            className="relative flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
           >
             <MessageCircle className="h-5 w-5" />
           </Link>
 
-          <button className="relative flex h-9 w-9 items-center justify-center rounded-full text-white/40 transition hover:bg-white/[0.06] hover:text-white/70">
+          <button className="relative flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-white/[0.06] hover:text-white/70">
             <Bell className="h-5 w-5" />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#00aff0]" />
+            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#00aff0] shadow-[0_0_6px_rgba(0,175,240,0.6)]" />
           </button>
 
           {me?.user ? (
             <Link
               href="/umate/account"
-              className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 transition ${
+              className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border-2 transition ${
                 isStudio
-                  ? "border-[#00aff0]"
-                  : "border-white/10 hover:border-white/30"
+                  ? "border-[#00aff0]/60 shadow-[0_0_12px_rgba(0,175,240,0.15)]"
+                  : "border-white/10 hover:border-white/25"
               }`}
             >
               {me.user.avatarUrl ? (
-                <img src={me.user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                <img src={resolveMediaUrl(me.user.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
               ) : (
                 <User className="h-4 w-4 text-white/50" />
               )}
@@ -122,7 +141,7 @@ export default function UmateHeader() {
           ) : (
             <Link
               href="/login?next=/umate"
-              className="rounded-full bg-[#00aff0] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#00aff0]/90"
+              className="rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-4 py-2 text-sm font-semibold text-white transition hover:shadow-[0_4px_20px_rgba(0,175,240,0.3)]"
             >
               Iniciar sesión
             </Link>
@@ -130,12 +149,28 @@ export default function UmateHeader() {
 
           <Link
             href="/"
-            className="hidden items-center gap-1 rounded-full border border-white/[0.08] px-3 py-1.5 text-[11px] font-medium text-white/40 transition hover:border-white/20 hover:text-white/50 xl:flex"
+            className="hidden items-center gap-1 rounded-xl border border-white/[0.06] px-3 py-2 text-[11px] font-medium text-white/35 transition hover:border-white/15 hover:text-white/50 xl:flex"
           >
             <ArrowLeft className="h-3 w-3" /> UZEED
           </Link>
         </div>
       </div>
+
+      {/* Mobile search overlay */}
+      {mobileSearch && (
+        <div className="border-t border-white/[0.04] bg-[#0a0a12] px-4 py-3 md:hidden">
+          <form onSubmit={handleSearch} className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar creadoras..."
+              autoFocus
+              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-white placeholder-white/25 outline-none focus:border-[#00aff0]/30"
+            />
+          </form>
+        </div>
+      )}
     </header>
   );
 }

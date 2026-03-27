@@ -1,17 +1,24 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  Compass,
+  CreditCard,
+  Crown,
   FileStack,
+  Heart,
   LayoutDashboard,
   Settings,
   Users2,
   Wallet,
 } from "lucide-react";
+import useMe from "../../../hooks/useMe";
+import { apiFetch } from "../../../lib/api";
 
-const studioTabs = [
+const creatorTabs = [
   { href: "/umate/account/creator", label: "Dashboard", icon: LayoutDashboard },
   { href: "/umate/account/content", label: "Publicaciones", icon: FileStack },
   { href: "/umate/account/subscribers", label: "Suscriptores", icon: Users2 },
@@ -20,30 +27,54 @@ const studioTabs = [
   { href: "/umate/account", label: "Cuenta", icon: Settings, exact: true },
 ];
 
+const clientTabs = [
+  { href: "/umate/account", label: "Mi cuenta", icon: Settings, exact: true },
+  { href: "/umate/explore", label: "Explorar creadoras", icon: Compass },
+  { href: "/umate/plans", label: "Planes premium", icon: Crown },
+];
+
 export default function UmateAccountLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { me } = useMe();
+  const [isCreator, setIsCreator] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!me?.user) {
+      setLoaded(true);
+      return;
+    }
+    apiFetch<{ creator: any }>("/umate/creator/me")
+      .then((d) => setIsCreator(Boolean(d?.creator && d.creator.status !== "SUSPENDED")))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, [me]);
+
+  const tabs = isCreator ? creatorTabs : clientTabs;
 
   return (
     <div className="mx-auto max-w-[1170px] px-4 py-6">
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
         {/* Sidebar */}
         <aside className="hidden lg:block">
-          <div className="sticky top-20 space-y-0.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-2">
+          <div className="sticky top-20 space-y-0.5 rounded-2xl border border-white/[0.04] bg-white/[0.015] p-2">
             <div className="px-3 py-2.5">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-white/40">Creator Studio</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-white/30">
+                {isCreator ? "Creator Studio" : "Mi cuenta"}
+              </p>
             </div>
-            <div className="h-px bg-white/[0.04]" />
+            <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
-            {studioTabs.map((tab) => {
-              const active = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
+            {tabs.map((tab) => {
+              const active = ("exact" in tab && tab.exact) ? pathname === tab.href : pathname.startsWith(tab.href);
               return (
                 <Link
                   key={tab.href}
                   href={tab.href}
                   className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
                     active
-                      ? "bg-white/[0.05] text-white font-semibold"
-                      : "text-white/40 hover:bg-white/[0.03] hover:text-white/55"
+                      ? "bg-[#00aff0]/[0.08] text-white font-semibold"
+                      : "text-white/35 hover:bg-white/[0.03] hover:text-white/55"
                   }`}
                 >
                   <tab.icon className={`h-4 w-4 ${active ? "text-[#00aff0]" : ""}`} />
@@ -51,6 +82,19 @@ export default function UmateAccountLayout({ children }: { children: React.React
                 </Link>
               );
             })}
+
+            {!isCreator && loaded && (
+              <>
+                <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent my-1" />
+                <Link
+                  href="/umate/onboarding"
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#00aff0]/70 transition hover:bg-[#00aff0]/[0.05] hover:text-[#00aff0]"
+                >
+                  <Crown className="h-4 w-4" />
+                  Ser creadora
+                </Link>
+              </>
+            )}
           </div>
         </aside>
 
