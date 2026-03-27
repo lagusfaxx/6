@@ -1231,6 +1231,7 @@ model UmateLedgerEntry {
   referenceType String?         // "subscription", "withdrawal", "adjustment"
 
   createdAt     DateTime @default(now())
+  maturedAt     DateTime?       // when pendingBalance was moved to availableBalance
 
   creator UmateCreator? @relation("CreatorLedger", fields: [creatorId], references: [id], onDelete: SetNull)
 

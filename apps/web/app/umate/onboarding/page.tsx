@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Camera, Building2, FileCheck, Loader2, CheckCircle, ArrowRight, Shield, Upload, X } from "lucide-react";
-import { apiFetch, getApiBase } from "../../../lib/api";
+import { apiFetch, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 
 type Creator = {
@@ -270,7 +270,7 @@ export default function OnboardingPage() {
               className="relative w-full h-28 overflow-hidden rounded-lg bg-white/[0.03] border-2 border-dashed border-white/[0.08] transition hover:border-[#00aff0]/30"
             >
               {creator.coverUrl ? (
-                <img src={creator.coverUrl} alt="" className="h-full w-full object-cover" />
+                <img src={resolveMediaUrl(creator.coverUrl) || ""} alt="" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-white/15">
                   <Upload className="h-5 w-5 mb-1" />
@@ -284,7 +284,7 @@ export default function OnboardingPage() {
           <div className="flex justify-center -mt-10 relative z-10">
             <button onClick={() => avatarRef.current?.click()} className="relative h-24 w-24 overflow-hidden rounded-full bg-white/[0.08] border-4 border-[#0a0a0f] shadow-lg hover:ring-2 hover:ring-[#00aff0]/30 transition">
               {creator.avatarUrl ? (
-                <img src={creator.avatarUrl} alt="" className="h-full w-full object-cover" />
+                <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-white/20">
                   <Camera className="h-6 w-6" />

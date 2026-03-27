@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   BadgeCheck,
   Heart,
@@ -11,7 +12,7 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import { apiFetch } from "../../../lib/api";
+import { apiFetch, resolveMediaUrl } from "../../../lib/api";
 
 type Creator = {
   id: string;
@@ -26,8 +27,10 @@ type Creator = {
 };
 
 export default function CreatorsPage() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
   const [creators, setCreators] = useState<Creator[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialQuery);
   const [sort, setSort] = useState<"popular" | "growth" | "new">("popular");
   const [loading, setLoading] = useState(true);
 
@@ -111,7 +114,7 @@ export default function CreatorsPage() {
               >
                 <div className="relative aspect-[3/2] overflow-hidden bg-white/[0.03]">
                   {c.coverUrl ? (
-                    <img src={c.coverUrl} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                    <img src={resolveMediaUrl(c.coverUrl) || ""} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                   ) : (
                     <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/10 to-purple-500/10" />
                   )}
@@ -125,7 +128,7 @@ export default function CreatorsPage() {
                 <div className="-mt-6 relative px-4 pb-4">
                   <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-[#0a0a0f] bg-[#0a0a0f]">
                     {c.avatarUrl ? (
-                      <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full items-center justify-center bg-white/[0.08] text-sm font-bold text-white/50">{c.displayName[0]}</div>
                     )}

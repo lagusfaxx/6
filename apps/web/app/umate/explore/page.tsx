@@ -18,7 +18,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { apiFetch } from "../../../lib/api";
+import { apiFetch, resolveMediaUrl } from "../../../lib/api";
 
 type FeedItem = {
   id: string;
@@ -182,7 +182,7 @@ export default function ExplorePage() {
                     >
                       <div className="h-10 w-10 overflow-hidden rounded-full border border-white/[0.06] bg-white/[0.04]">
                         {item.creator.avatarUrl ? (
-                          <img src={item.creator.avatarUrl} alt="" className="h-full w-full object-cover" />
+                          <img src={resolveMediaUrl(item.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{item.creator.displayName[0]}</div>
                         )}
@@ -214,7 +214,7 @@ export default function ExplorePage() {
                       <div className="relative">
                         {item.media[0].url ? (
                           <img
-                            src={item.media[0].url}
+                            src={resolveMediaUrl(item.media[0].url) || ""}
                             alt=""
                             className={`w-full object-cover ${item.isBlurred ? "scale-105 blur-2xl" : ""}`}
                             style={{ maxHeight: 600 }}
@@ -341,7 +341,7 @@ export default function ExplorePage() {
                     >
                       <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.06]">
                         {c.avatarUrl ? (
-                          <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" />
+                          <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{c.displayName[0]}</div>
                         )}

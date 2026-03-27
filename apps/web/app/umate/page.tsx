@@ -17,7 +17,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, resolveMediaUrl } from "../../lib/api";
 
 type Creator = {
   id: string;
@@ -154,7 +154,7 @@ export default function UmateLandingPage() {
                     }`}
                   >
                     {c.coverUrl || c.avatarUrl ? (
-                      <img src={c.coverUrl || c.avatarUrl || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                      <img src={resolveMediaUrl(c.coverUrl || c.avatarUrl) || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                     ) : (
                       <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/20 via-purple-500/10 to-transparent" />
                     )}
@@ -162,7 +162,7 @@ export default function UmateLandingPage() {
                     <div className="absolute bottom-3 left-3 right-3">
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 overflow-hidden rounded-full border-2 border-white/20 bg-white/10">
-                          {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xs font-bold text-white">{c.displayName[0]}</div>}
+                          {c.avatarUrl ? <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xs font-bold text-white">{c.displayName[0]}</div>}
                         </div>
                         <div>
                           <p className="flex items-center gap-1 text-sm font-bold text-white">

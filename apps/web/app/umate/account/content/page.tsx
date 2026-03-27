@@ -17,7 +17,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { apiFetch, getApiBase } from "../../../../lib/api";
+import { apiFetch, getApiBase, resolveMediaUrl } from "../../../../lib/api";
 
 type Post = {
   id: string;
@@ -73,11 +73,10 @@ export default function ContentPage() {
       form.append("caption", caption);
       form.append("visibility", visibility);
 
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`${getApiBase()}/umate/creator/posts`, {
+      const res = await fetch(`${getApiBase()}/umate/posts`, {
         method: "POST",
+        credentials: "include",
         body: form,
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
       if (res.ok) {
@@ -246,7 +245,7 @@ export default function ContentPage() {
           {filteredPosts.map((post) => (
             <article key={post.id} className="group overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition hover:border-white/[0.12]">
               <div className="relative aspect-[4/3] overflow-hidden bg-white/[0.03]">
-                {post.media[0]?.url && <img src={post.media[0].url} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />}
+                {post.media[0]?.url && <img src={resolveMediaUrl(post.media[0].url) || ""} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />}
                 <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${
                   post.visibility === "FREE" ? "bg-emerald-500/90 text-white" : "bg-amber-500/90 text-white"
                 }`}>

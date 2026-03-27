@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Bell,
@@ -16,8 +17,18 @@ import useMe from "../../../hooks/useMe";
 
 export default function UmateHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const { me } = useMe();
   const isStudio = pathname.startsWith("/umate/account");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (q) {
+      router.push(`/umate/creators?q=${encodeURIComponent(q)}`);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.05] bg-[#08080d]/90 backdrop-blur-2xl backdrop-saturate-150">
@@ -55,13 +66,15 @@ export default function UmateHeader() {
 
         {/* Center: Search */}
         <div className="hidden flex-1 justify-center md:flex">
-          <div className="relative w-full max-w-md">
+          <form onSubmit={handleSearch} className="relative w-full max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
             <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar creadoras..."
               className="w-full rounded-full border border-white/[0.06] bg-white/[0.03] py-2 pl-10 pr-4 text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-[#00aff0]/40 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(0,175,240,0.06)]"
             />
-          </div>
+          </form>
         </div>
 
         {/* Right: Actions */}

@@ -65,6 +65,52 @@ async function getActiveSubscription(userId: string) {
   });
 }
 
+/** Move matured pendingBalance to availableBalance for all eligible creators.
+ *  Called opportunistically on creator stats/wallet reads. */
+async function maturePendingBalances() {
+  // Move pending balances that are older than 7 days to available
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const creators = await prisma.umateCreator.findMany({
+    where: { pendingBalance: { gt: 0 }, status: "ACTIVE" },
+    select: { id: true, pendingBalance: true },
+  });
+
+  for (const creator of creators) {
+    // Check if creator has slot activations older than 7 days with pending payouts
+    const maturedEntries = await prisma.umateLedgerEntry.findMany({
+      where: {
+        creatorId: creator.id,
+        type: "SLOT_ACTIVATION",
+        createdAt: { lte: sevenDaysAgo },
+        maturedAt: null,
+      },
+    });
+
+    if (maturedEntries.length === 0) continue;
+
+    const maturedAmount = maturedEntries.reduce((sum, e) => sum + e.creatorPayout, 0);
+    if (maturedAmount <= 0) continue;
+
+    const amountToMove = Math.min(maturedAmount, creator.pendingBalance);
+    if (amountToMove <= 0) continue;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.umateCreator.update({
+        where: { id: creator.id },
+        data: {
+          pendingBalance: { decrement: amountToMove },
+          availableBalance: { increment: amountToMove },
+        },
+      });
+      // Mark entries as matured
+      await tx.umateLedgerEntry.updateMany({
+        where: { id: { in: maturedEntries.map((e) => e.id) } },
+        data: { maturedAt: new Date() },
+      });
+    });
+  }
+}
+
 /** Check if user is subscribed to a specific creator */
 async function isSubscribedToCreator(userId: string, creatorId: string): Promise<boolean> {
   const sub = await prisma.umateCreatorSub.findFirst({
@@ -821,6 +867,16 @@ umateRouter.get("/umate/creator/stats", requireAuth, async (req, res) => {
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
 
+  // Opportunistically mature pending balances
+  maturePendingBalances().catch(() => {});
+
+  // Re-read creator after potential maturation
+  const freshCreator = await prisma.umateCreator.findUnique({ where: { userId } });
+  if (freshCreator) {
+    creator.pendingBalance = freshCreator.pendingBalance;
+    creator.availableBalance = freshCreator.availableBalance;
+  }
+
   const now = new Date();
   const cycleStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -893,9 +949,9 @@ umateRouter.post("/umate/creator/withdraw", requireAuth, paymentLimiter, async (
       data: {
         creatorId: creator.id,
         type: "WITHDRAWAL",
-        grossAmount: amount,
-        creatorPayout: amount,
-        netAmount: amount,
+        grossAmount: -amount,
+        creatorPayout: -amount,
+        netAmount: -amount,
         description: `Retiro solicitado`,
         referenceType: "withdrawal",
       },
@@ -1101,16 +1157,16 @@ umateRouter.delete("/umate/comments/:commentId", requireAuth, async (req, res) =
     return res.status(403).json({ error: "FORBIDDEN" });
   }
 
-  await prisma.umateComment.delete({ where: { id: comment.id } });
-
-  // Decrement comment count
-  const freshPost = await prisma.umatePost.findUnique({ where: { id: comment.postId }, select: { commentCount: true } });
-  if (freshPost && freshPost.commentCount > 0) {
-    await prisma.umatePost.update({
-      where: { id: comment.postId },
-      data: { commentCount: { decrement: 1 } },
-    });
-  }
+  await prisma.$transaction(async (tx) => {
+    await tx.umateComment.delete({ where: { id: comment.id } });
+    const freshPost = await tx.umatePost.findUnique({ where: { id: comment.postId }, select: { commentCount: true } });
+    if (freshPost && freshPost.commentCount > 0) {
+      await tx.umatePost.update({
+        where: { id: comment.postId },
+        data: { commentCount: { decrement: 1 } },
+      });
+    }
+  });
 
   res.json({ deleted: true });
 });

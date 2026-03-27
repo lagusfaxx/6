@@ -21,7 +21,7 @@ import {
   Users,
   Video,
 } from "lucide-react";
-import { apiFetch } from "../../../../lib/api";
+import { apiFetch, resolveMediaUrl } from "../../../../lib/api";
 import useMe from "../../../../hooks/useMe";
 
 type Creator = {
@@ -93,12 +93,25 @@ export default function CreatorProfilePage() {
 
   const handleSubscribe = async () => {
     if (!creator || isCreatorUser) return;
+    if (!me?.user) {
+      window.location.href = `/login?next=/umate/profile/${username}`;
+      return;
+    }
     setSubscribing(true);
     try {
       const res = await apiFetch<{ subscribed?: boolean }>(`/umate/creators/${creator.id}/subscribe`, { method: "POST" });
-      if (res?.subscribed) setIsSubscribed(true);
-    } catch {
-      window.location.href = "/umate/plans";
+      if (res?.subscribed) {
+        setIsSubscribed(true);
+        setCreator((prev) => prev ? { ...prev, subscriberCount: prev.subscriberCount + 1 } : prev);
+      }
+    } catch (err: any) {
+      if (err?.status === 403 && err?.body?.error === "NO_PLAN") {
+        window.location.href = "/umate/plans";
+      } else if (err?.status === 401) {
+        window.location.href = `/login?next=/umate/profile/${username}`;
+      } else {
+        window.location.href = "/umate/plans";
+      }
     } finally {
       setSubscribing(false);
     }
@@ -168,7 +181,7 @@ export default function CreatorProfilePage() {
     <div className="min-h-screen">
       {/* Cover */}
       <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#00aff0]/15 via-purple-600/[0.08] to-transparent md:h-64 lg:h-72">
-        {creator.coverUrl && <img src={creator.coverUrl} alt="" className="h-full w-full object-cover" />}
+        {creator.coverUrl && <img src={resolveMediaUrl(creator.coverUrl) || ""} alt="" className="h-full w-full object-cover" />}
         <div className="absolute inset-0 bg-gradient-to-t from-[#08080d] via-[#08080d]/50 to-transparent" />
       </div>
 
@@ -178,7 +191,7 @@ export default function CreatorProfilePage() {
           {/* Avatar */}
           <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-[#08080d] bg-[#08080d] shadow-[0_4px_20px_rgba(0,0,0,0.4)] md:h-28 md:w-28">
             {creator.avatarUrl ? (
-              <img src={creator.avatarUrl} alt="" className="h-full w-full object-cover" />
+              <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full items-center justify-center bg-white/[0.08] text-2xl font-bold text-white/50">{creator.displayName[0]}</div>
             )}
@@ -289,7 +302,7 @@ export default function CreatorProfilePage() {
                 <div className="relative">
                   {post.media[0].url ? (
                     <img
-                      src={post.media[0].url}
+                      src={resolveMediaUrl(post.media[0].url) || ""}
                       alt=""
                       className={`w-full object-cover ${post.isBlurred ? "scale-105 blur-2xl" : ""}`}
                       style={{ maxHeight: 600 }}
