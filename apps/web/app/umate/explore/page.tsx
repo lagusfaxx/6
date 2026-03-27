@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   BadgeCheck,
@@ -12,8 +12,11 @@ import {
   Lock,
   MessageCircle,
   Search,
+  Send,
   Sparkles,
+  Trash2,
   Users,
+  X,
 } from "lucide-react";
 import { apiFetch } from "../../../lib/api";
 
@@ -22,11 +25,19 @@ type FeedItem = {
   caption: string | null;
   visibility: "FREE" | "PREMIUM";
   likeCount: number;
+  commentCount?: number;
   createdAt: string;
   creator: { id: string; displayName: string; avatarUrl: string | null; user?: { username: string } };
   media: { id: string; type: string; url: string | null; pos: number }[];
   isBlurred: boolean;
   isLiked: boolean;
+};
+
+type Comment = {
+  id: string;
+  text: string;
+  createdAt: string;
+  user: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
 };
 
 type Creator = {
@@ -43,6 +54,10 @@ export default function ExplorePage() {
   const [filter, setFilter] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [openComments, setOpenComments] = useState<string | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [loadingComments, setLoadingComments] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -51,7 +66,7 @@ export default function ExplorePage() {
     params.set("limit", "48");
     Promise.all([
       apiFetch<{ items: FeedItem[] }>(`/umate/feed?${params}`).catch(() => null),
-      apiFetch<{ creators: Creator[] }>("/umate/creators?limit=10").catch(() => null),
+      apiFetch<{ creators: Creator[] }>("/umate/suggested?limit=5").catch(() => null),
     ]).then(([f, c]) => {
       setItems(f?.items || []);
       setSuggestedCreators(c?.creators || []);
@@ -63,6 +78,34 @@ export default function ExplorePage() {
     const res = await apiFetch<{ liked: boolean }>(`/umate/posts/${postId}/like`, { method: "POST" }).catch(() => null);
     if (!res) return;
     setItems((prev) => prev.map((i) => (i.id === postId ? { ...i, isLiked: res.liked, likeCount: i.likeCount + (res.liked ? 1 : -1) } : i)));
+  };
+
+  const loadComments = useCallback(async (postId: string) => {
+    setOpenComments(postId);
+    setLoadingComments(true);
+    setComments([]);
+    const data = await apiFetch<{ comments: Comment[] }>(`/umate/posts/${postId}/comments`).catch(() => null);
+    setComments(data?.comments || []);
+    setLoadingComments(false);
+  }, []);
+
+  const postComment = async (postId: string) => {
+    if (!commentText.trim()) return;
+    const data = await apiFetch<{ comment: Comment }>(`/umate/posts/${postId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ text: commentText }),
+    }).catch(() => null);
+    if (data?.comment) {
+      setComments((prev) => [data.comment, ...prev]);
+      setCommentText("");
+      setItems((prev) => prev.map((i) => (i.id === postId ? { ...i, commentCount: (i.commentCount || 0) + 1 } : i)));
+    }
+  };
+
+  const deleteComment = async (commentId: string, postId: string) => {
+    await apiFetch(`/umate/comments/${commentId}`, { method: "DELETE" }).catch(() => null);
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    setItems((prev) => prev.map((i) => (i.id === postId ? { ...i, commentCount: Math.max(0, (i.commentCount || 1) - 1) } : i)));
   };
 
   const filtered = useMemo(
@@ -208,10 +251,72 @@ export default function ExplorePage() {
                         <Heart className={`h-5 w-5 ${item.isLiked ? "fill-current" : ""}`} />
                         <span className="text-xs font-medium">{item.likeCount}</span>
                       </button>
-                      <button className="flex items-center gap-1.5 text-white/30 transition hover:text-white/50">
+                      <button
+                        onClick={() => openComments === item.id ? setOpenComments(null) : loadComments(item.id)}
+                        className={`flex items-center gap-1.5 text-sm transition ${
+                          openComments === item.id ? "text-[#00aff0]" : "text-white/30 hover:text-white/50"
+                        }`}
+                      >
                         <MessageCircle className="h-5 w-5" />
+                        {(item.commentCount || 0) > 0 && <span className="text-xs font-medium">{item.commentCount}</span>}
                       </button>
                     </div>
+
+                    {/* Comments section */}
+                    {openComments === item.id && (
+                      <div className="border-t border-white/[0.04] px-4 py-3 space-y-3">
+                        {/* Comment input */}
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && postComment(item.id)}
+                            placeholder="Escribe un comentario..."
+                            className="flex-1 rounded-full border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-sm text-white placeholder-white/20 outline-none focus:border-[#00aff0]/40"
+                            maxLength={1000}
+                          />
+                          <button
+                            onClick={() => postComment(item.id)}
+                            disabled={!commentText.trim()}
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00aff0] text-white transition hover:bg-[#00aff0]/90 disabled:opacity-30"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Comment list */}
+                        {loadingComments && <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-white/20" /></div>}
+                        {!loadingComments && comments.length === 0 && (
+                          <p className="text-center text-xs text-white/20 py-2">Sin comentarios aún. Sé el primero.</p>
+                        )}
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {comments.map((c) => (
+                            <div key={c.id} className="group flex gap-2">
+                              <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white/[0.06]">
+                                {c.user.avatarUrl ? (
+                                  <img src={c.user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/30">{(c.user.displayName || c.user.username)[0]}</div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs">
+                                  <span className="font-semibold text-white/80">{c.user.displayName || c.user.username}</span>{" "}
+                                  <span className="text-white/50">{c.text}</span>
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-white/20">{new Date(c.createdAt).toLocaleDateString("es-CL")}</p>
+                              </div>
+                              <button
+                                onClick={() => deleteComment(c.id, item.id)}
+                                className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/15 hover:text-red-400"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </article>
                 ))}
               </div>

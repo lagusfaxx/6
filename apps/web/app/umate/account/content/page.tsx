@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
+  Edit3,
   Eye,
   Globe,
   Grid3X3,
@@ -12,6 +13,7 @@ import {
   Lock,
   Plus,
   Search,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -39,6 +41,11 @@ export default function ContentPage() {
   const [query, setQuery] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [showEditor, setShowEditor] = useState(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [editCaption, setEditCaption] = useState("");
+  const [editVisibility, setEditVisibility] = useState<"FREE" | "PREMIUM">("FREE");
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -83,6 +90,28 @@ export default function ContentPage() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleEditPost = async () => {
+    if (!editingPost) return;
+    setSaving(true);
+    const res = await apiFetch<{ post: Post }>(`/umate/posts/${editingPost.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ caption: editCaption, visibility: editVisibility }),
+    }).catch(() => null);
+    if (res?.post) {
+      setPosts((prev) => prev.map((p) => (p.id === editingPost.id ? { ...p, caption: editCaption, visibility: editVisibility } : p)));
+      setEditingPost(null);
+    }
+    setSaving(false);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm("¿Eliminar esta publicación?")) return;
+    setDeleting(postId);
+    await apiFetch(`/umate/posts/${postId}`, { method: "DELETE" }).catch(() => null);
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+    setDeleting(null);
   };
 
   const freeCount = posts.filter((p) => p.visibility === "FREE").length;
@@ -223,6 +252,22 @@ export default function ContentPage() {
                 }`}>
                   {post.visibility === "FREE" ? "Gratis" : "Premium"}
                 </span>
+                {/* Edit/Delete overlay */}
+                <div className="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                  <button
+                    onClick={() => { setEditingPost(post); setEditCaption(post.caption || ""); setEditVisibility(post.visibility); }}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white/80 backdrop-blur-sm hover:text-white"
+                  >
+                    <Edit3 className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => handleDeletePost(post.id)}
+                    disabled={deleting === post.id}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-red-400/80 backdrop-blur-sm hover:text-red-400 disabled:opacity-50"
+                  >
+                    {deleting === post.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                  </button>
+                </div>
               </div>
               <div className="p-3">
                 <p className="line-clamp-2 text-xs text-white/50">{post.caption || "Sin descripción"}</p>
@@ -236,6 +281,60 @@ export default function ContentPage() {
               </div>
             </article>
           ))}
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingPost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0a0a0f] p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white">Editar publicación</h3>
+              <button onClick={() => setEditingPost(null)} className="text-white/30 hover:text-white/60"><X className="h-4 w-4" /></button>
+            </div>
+
+            <textarea
+              value={editCaption}
+              onChange={(e) => setEditCaption(e.target.value)}
+              placeholder="Descripción..."
+              className="h-28 w-full rounded-lg border border-white/[0.08] bg-white/[0.03] p-3.5 text-sm text-white placeholder-white/20 outline-none transition focus:border-[#00aff0]/40"
+            />
+
+            <div className="flex items-center gap-1 rounded-full bg-white/[0.04] p-1 w-fit">
+              <button
+                onClick={() => setEditVisibility("FREE")}
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  editVisibility === "FREE" ? "bg-emerald-500/10 text-emerald-400" : "text-white/30"
+                }`}
+              >
+                <Globe className="h-3 w-3" /> Gratis
+              </button>
+              <button
+                onClick={() => setEditVisibility("PREMIUM")}
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  editVisibility === "PREMIUM" ? "bg-amber-500/10 text-amber-400" : "text-white/30"
+                }`}
+              >
+                <Lock className="h-3 w-3" /> Premium
+              </button>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={handleEditPost}
+                disabled={saving}
+                className="rounded-full bg-[#00aff0] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90 disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar cambios"}
+              </button>
+              <button
+                onClick={() => setEditingPost(null)}
+                className="rounded-full border border-white/[0.08] px-4 py-2 text-sm text-white/40 transition hover:text-white/60"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -442,6 +442,74 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
       });
 
       console.log("[flow webhook] token purchase completed", { userId: intent.subscriberId, intentId: intent.id, token });
+    } else if (intent.purpose === "UMATE_PLAN") {
+      // ── U-Mate plan subscription ──
+      const notes = JSON.parse(intent.notes || "{}");
+      const planId = notes.planId;
+
+      if (!planId) {
+        console.error("[flow webhook] UMATE_PLAN missing planId in notes", { intentId: intent.id });
+        return res.status(200).send("OK");
+      }
+
+      const plan = await prisma.umatePlan.findUnique({ where: { id: planId } });
+      if (!plan) {
+        console.error("[flow webhook] UMATE_PLAN plan not found", { planId });
+        return res.status(200).send("OK");
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.paymentIntent.update({
+          where: { id: intent.id },
+          data: { status: "PAID", paidAt: new Date(), providerPaymentId: token }
+        });
+
+        // Check if user already has an active subscription (idempotency)
+        const existingSub = await tx.umateSubscription.findFirst({
+          where: { paymentIntentId: intent.id },
+        });
+
+        if (!existingSub) {
+          const now = new Date();
+          const cycleEnd = new Date(now);
+          cycleEnd.setMonth(cycleEnd.getMonth() + 1);
+
+          await tx.umateSubscription.create({
+            data: {
+              userId: intent.subscriberId,
+              planId: plan.id,
+              status: "ACTIVE",
+              slotsTotal: plan.maxSlots,
+              slotsUsed: 0,
+              cycleStart: now,
+              cycleEnd,
+              paymentIntentId: intent.id,
+            },
+          });
+
+          // Ledger entry for plan purchase
+          await tx.umateLedgerEntry.create({
+            data: {
+              type: "PLAN_PURCHASE",
+              grossAmount: plan.priceCLP,
+              netAmount: plan.priceCLP,
+              description: `Plan ${plan.name} (${plan.tier}) — Suscripción mensual`,
+              referenceId: intent.id,
+              referenceType: "payment_intent",
+            },
+          });
+        }
+
+        await tx.notification.create({
+          data: {
+            userId: intent.subscriberId,
+            type: "UMATE_PLAN_ACTIVATED",
+            data: { intentId: intent.id, planId: plan.id, tier: plan.tier, planName: plan.name }
+          }
+        });
+      });
+
+      console.log("[flow webhook] UMATE_PLAN activated", { userId: intent.subscriberId, intentId: intent.id, planId, tier: plan.tier });
     } else {
       // ── Membership payment (existing behavior) ──
       await prisma.$transaction(async (tx) => {

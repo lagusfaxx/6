@@ -15,7 +15,7 @@ function CheckoutContent() {
   const checkPayment = useCallback(async () => {
     if (!ref) { setStatus("error"); return; }
     try {
-      const data = await apiFetch<{ status?: string }>(`/billing/status?ref=${encodeURIComponent(ref)}`);
+      const data = await apiFetch<{ status?: string }>(`/umate/payment/status?ref=${encodeURIComponent(ref)}`);
       if (data?.status === "paid") return setStatus("paid");
       if (data?.status === "pending") return setStatus("pending");
       setStatus("error");

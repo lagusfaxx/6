@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -13,8 +13,11 @@ import {
   Loader2,
   Lock,
   MessageCircle,
+  Send,
   Share2,
   Shield,
+  Trash2,
+  UserMinus,
   Users,
   Video,
 } from "lucide-react";
@@ -39,10 +42,18 @@ type Post = {
   caption: string | null;
   visibility: "FREE" | "PREMIUM";
   likeCount: number;
+  commentCount?: number;
   createdAt: string;
   media: { id: string; type: string; url: string | null; pos: number }[];
   isBlurred: boolean;
   isLiked: boolean;
+};
+
+type Comment = {
+  id: string;
+  text: string;
+  createdAt: string;
+  user: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
 };
 
 export default function CreatorProfilePage() {
@@ -53,8 +64,13 @@ export default function CreatorProfilePage() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
+  const [unsubscribing, setUnsubscribing] = useState(false);
   const [tab, setTab] = useState<"all" | "free" | "premium" | "photos" | "videos">("all");
   const [isCreatorUser, setIsCreatorUser] = useState(false);
+  const [openComments, setOpenComments] = useState<string | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [loadingComments, setLoadingComments] = useState(false);
 
   useEffect(() => {
     apiFetch<{ creator: Creator; isSubscribed: boolean; posts: Post[] }>(`/umate/profile/${username}`)
@@ -92,6 +108,45 @@ export default function CreatorProfilePage() {
     const res = await apiFetch<{ liked: boolean }>(`/umate/posts/${postId}/like`, { method: "POST" }).catch(() => null);
     if (!res) return;
     setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, isLiked: res.liked, likeCount: p.likeCount + (res.liked ? 1 : -1) } : p)));
+  };
+
+  const handleUnsubscribe = async () => {
+    if (!creator) return;
+    setUnsubscribing(true);
+    const res = await apiFetch<{ unsubscribed: boolean }>(`/umate/creators/${creator.id}/unsubscribe`, { method: "POST" }).catch(() => null);
+    if (res?.unsubscribed) {
+      setIsSubscribed(false);
+      setCreator((prev) => prev ? { ...prev, subscriberCount: Math.max(0, prev.subscriberCount - 1) } : prev);
+    }
+    setUnsubscribing(false);
+  };
+
+  const loadComments = useCallback(async (postId: string) => {
+    setOpenComments(postId);
+    setLoadingComments(true);
+    setComments([]);
+    const data = await apiFetch<{ comments: Comment[] }>(`/umate/posts/${postId}/comments`).catch(() => null);
+    setComments(data?.comments || []);
+    setLoadingComments(false);
+  }, []);
+
+  const postComment = async (postId: string) => {
+    if (!commentText.trim()) return;
+    const data = await apiFetch<{ comment: Comment }>(`/umate/posts/${postId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ text: commentText }),
+    }).catch(() => null);
+    if (data?.comment) {
+      setComments((prev) => [data.comment, ...prev]);
+      setCommentText("");
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, commentCount: (p.commentCount || 0) + 1 } : p)));
+    }
+  };
+
+  const deleteComment = async (commentId: string, postId: string) => {
+    await apiFetch(`/umate/comments/${commentId}`, { method: "DELETE" }).catch(() => null);
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, commentCount: Math.max(0, (p.commentCount || 1) - 1) } : p)));
   };
 
   const filtered = posts.filter((p) => {
@@ -132,9 +187,22 @@ export default function CreatorProfilePage() {
           {/* Subscribe / Actions - desktop */}
           <div className="ml-auto flex items-center gap-2 pb-1">
             {isSubscribed ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-5 py-2 text-sm font-semibold text-emerald-400">
-                <CheckCircle className="h-4 w-4" /> Suscrito
-              </span>
+              <button
+                onClick={handleUnsubscribe}
+                disabled={unsubscribing}
+                className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-5 py-2 text-sm font-semibold text-emerald-400 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+              >
+                {unsubscribing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 group-hover:hidden" />
+                    <UserMinus className="hidden h-4 w-4 group-hover:block" />
+                  </>
+                )}
+                <span className="group-hover:hidden">Suscrito</span>
+                <span className="hidden group-hover:inline">Cancelar</span>
+              </button>
             ) : isCreatorUser ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-5 py-2 text-sm font-medium text-white/40">
                 <Shield className="h-4 w-4" /> Modo creadora
@@ -263,10 +331,69 @@ export default function CreatorProfilePage() {
                   <Heart className={`h-5 w-5 ${post.isLiked ? "fill-current" : ""}`} />
                   <span className="text-xs font-medium">{post.likeCount}</span>
                 </button>
-                <button className="flex items-center gap-1.5 text-white/30 transition hover:text-white/50">
+                <button
+                  onClick={() => openComments === post.id ? setOpenComments(null) : loadComments(post.id)}
+                  className={`flex items-center gap-1.5 text-sm transition ${
+                    openComments === post.id ? "text-[#00aff0]" : "text-white/30 hover:text-white/50"
+                  }`}
+                >
                   <MessageCircle className="h-5 w-5" />
+                  {(post.commentCount || 0) > 0 && <span className="text-xs font-medium">{post.commentCount}</span>}
                 </button>
               </div>
+
+              {/* Comments section */}
+              {openComments === post.id && (
+                <div className="border-t border-white/[0.04] px-4 py-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && postComment(post.id)}
+                      placeholder="Escribe un comentario..."
+                      className="flex-1 rounded-full border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-sm text-white placeholder-white/20 outline-none focus:border-[#00aff0]/40"
+                      maxLength={1000}
+                    />
+                    <button
+                      onClick={() => postComment(post.id)}
+                      disabled={!commentText.trim()}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00aff0] text-white transition hover:bg-[#00aff0]/90 disabled:opacity-30"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  {loadingComments && <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-white/20" /></div>}
+                  {!loadingComments && comments.length === 0 && (
+                    <p className="text-center text-xs text-white/20 py-2">Sin comentarios aún.</p>
+                  )}
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {comments.map((c) => (
+                      <div key={c.id} className="group flex gap-2">
+                        <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white/[0.06]">
+                          {c.user.avatarUrl ? (
+                            <img src={c.user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/30">{(c.user.displayName || c.user.username)[0]}</div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs">
+                            <span className="font-semibold text-white/80">{c.user.displayName || c.user.username}</span>{" "}
+                            <span className="text-white/50">{c.text}</span>
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-white/20">{new Date(c.createdAt).toLocaleDateString("es-CL")}</p>
+                        </div>
+                        <button
+                          onClick={() => deleteComment(c.id, post.id)}
+                          className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/15 hover:text-red-400"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </article>
           ))}
 
