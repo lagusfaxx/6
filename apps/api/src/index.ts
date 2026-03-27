@@ -47,7 +47,7 @@ import { privacyRouter } from "./privacy/routes";
 import { analyticsRouter } from "./analytics/routes";
 import { umateRouter } from "./umate/routes";
 import { prisma } from "./db";
-import { requireAuth } from "./auth/middleware";
+import { requireAuth, requireAdmin } from "./auth/middleware";
 import { startWorker } from "./worker";
 
 const app = express();
@@ -158,6 +158,9 @@ app.get("/ready", async (_req, res) => {
   }
 });
 app.get("/version", (_req, res) => res.json({ sha: process.env.GIT_SHA || "unknown", env: config.env }));
+app.get("/uploads-debug", requireAdmin, (_req, res) => {
+  res.json({ uploadsDir: path.resolve(config.storageDir), cwd: process.cwd() });
+});
 
 // static uploads
 app.use(
@@ -255,6 +258,8 @@ async function boot() {
 
   app.listen(config.port, () => {
     console.log(`[api] listening on :${config.port}`);
+    console.log(`[api] uploads dir: ${path.resolve(config.storageDir)}`);
+    console.log(`[api] uploads url:  ${config.apiUrl.replace(/\/$/, "")}/uploads`);
     startWorker();
   });
 }
