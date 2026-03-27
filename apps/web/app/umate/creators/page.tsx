@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -26,7 +26,7 @@ type Creator = {
   user: { username: string; isVerified?: boolean };
 };
 
-export default function CreatorsPage() {
+function CreatorsContent() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
   const [creators, setCreators] = useState<Creator[]>([]);
@@ -150,5 +150,13 @@ export default function CreatorsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function CreatorsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-white/20" /></div>}>
+      <CreatorsContent />
+    </Suspense>
   );
 }
