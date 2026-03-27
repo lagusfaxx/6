@@ -33,7 +33,7 @@ export const config = {
   freeTrialDays: Number(process.env.FREE_TRIAL_DAYS || 7),
   storageDir: process.env.UPLOAD_DIR || process.env.STORAGE_DIR || process.env.UPLOADS_DIR || "./uploads",
   adminEmail: process.env.ADMIN_EMAIL || "admin@uzeed.cl",
-  adminPassword: process.env.ADMIN_PASSWORD || "Automazdabxzx94",
+  adminPassword: process.env.ADMIN_PASSWORD || "",
   smtp: {
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined,

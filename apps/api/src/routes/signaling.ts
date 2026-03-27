@@ -1,8 +1,16 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { requireAuth } from "../lib/auth";
 import { sendToUser } from "../realtime/sse";
 
 export const signalingRouter = Router();
+
+const signalLimiter = rateLimit({
+  windowMs: 10 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /**
  * WebRTC Signaling via SSE relay.
@@ -11,11 +19,20 @@ export const signalingRouter = Router();
  * Target receives SSE event "signal:offer" | "signal:answer" | "signal:ice"
  */
 
+function validateSignalInput(body: any): boolean {
+  if (!body.targetUserId || typeof body.targetUserId !== "string") return false;
+  if (body.targetUserId.length > 50) return false;
+  return true;
+}
+
 // POST /signal/offer — send SDP offer to target user
-signalingRouter.post("/signal/offer", requireAuth, (req, res) => {
+signalingRouter.post("/signal/offer", requireAuth, signalLimiter, (req, res) => {
   const { targetUserId, bookingId, streamId, sdp } = req.body;
-  if (!targetUserId || !sdp) {
+  if (!validateSignalInput(req.body) || !sdp) {
     return res.status(400).json({ error: "targetUserId and sdp required" });
+  }
+  if (targetUserId === req.session.userId) {
+    return res.status(400).json({ error: "Cannot signal yourself" });
   }
 
   sendToUser(targetUserId, "signal:offer", {
@@ -29,10 +46,13 @@ signalingRouter.post("/signal/offer", requireAuth, (req, res) => {
 });
 
 // POST /signal/answer — send SDP answer to target user
-signalingRouter.post("/signal/answer", requireAuth, (req, res) => {
+signalingRouter.post("/signal/answer", requireAuth, signalLimiter, (req, res) => {
   const { targetUserId, bookingId, streamId, sdp } = req.body;
-  if (!targetUserId || !sdp) {
+  if (!validateSignalInput(req.body) || !sdp) {
     return res.status(400).json({ error: "targetUserId and sdp required" });
+  }
+  if (targetUserId === req.session.userId) {
+    return res.status(400).json({ error: "Cannot signal yourself" });
   }
 
   sendToUser(targetUserId, "signal:answer", {
@@ -46,10 +66,13 @@ signalingRouter.post("/signal/answer", requireAuth, (req, res) => {
 });
 
 // POST /signal/ice — send ICE candidate to target user
-signalingRouter.post("/signal/ice", requireAuth, (req, res) => {
+signalingRouter.post("/signal/ice", requireAuth, signalLimiter, (req, res) => {
   const { targetUserId, bookingId, streamId, candidate } = req.body;
-  if (!targetUserId || !candidate) {
+  if (!validateSignalInput(req.body) || !candidate) {
     return res.status(400).json({ error: "targetUserId and candidate required" });
+  }
+  if (targetUserId === req.session.userId) {
+    return res.status(400).json({ error: "Cannot signal yourself" });
   }
 
   sendToUser(targetUserId, "signal:ice", {
