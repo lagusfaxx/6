@@ -12,6 +12,7 @@ import BackButton from "./BackButton";
 import { ForumNotificationProvider } from "./ForumNotifications";
 import { ChatNotificationProvider } from "./ChatNotifications";
 import { usePageViewTracker } from "../hooks/useAnalytics";
+import ScrollToTop from "./ScrollToTop";
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
@@ -45,6 +46,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         style={iosTextSizeFix}
         className="min-h-[100svh] w-full px-4 py-10"
       >
+        <ScrollToTop />
         <div className="mx-auto flex min-h-[calc(100svh-5rem)] max-w-md items-center">
           <div className="w-full">{children}</div>
         </div>
@@ -56,6 +58,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isUmateRoute) {
     return (
       <div style={iosTextSizeFix} className="min-h-[100svh] w-full text-white">
+        <ScrollToTop />
         <PushNotificationsManager />
         <PresenceHeartbeat />
         {children}
@@ -71,6 +74,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           style={iosTextSizeFix}
           className="min-h-[100svh] w-full bg-transparent text-white"
         >
+          <ScrollToTop />
           <PushNotificationsManager />
           <PresenceHeartbeat />
           <main className="min-h-[100svh]">
@@ -92,6 +96,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <Nav />
 
           <div className="relative min-w-0 flex-1">
+            <ScrollToTop />
             <TopHeader />
             <PushNotificationsManager />
             <PresenceHeartbeat />

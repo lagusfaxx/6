@@ -26,7 +26,11 @@ export default function LoginClient() {
       const next = searchParams.get("next");
       window.location.replace(safeRedirect(next));
     } catch (err: any) {
-      setError(friendlyErrorMessage(err) || "Error al iniciar sesión");
+      if (err?.status === 401) {
+        setError("Correo o contraseña incorrectos.");
+      } else {
+        setError(friendlyErrorMessage(err) || "Error al iniciar sesión");
+      }
     } finally {
       setLoading(false);
     }
