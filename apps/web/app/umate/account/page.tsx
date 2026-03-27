@@ -77,7 +77,7 @@ export default function UmateAccountPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-white">Cuenta y ajustes</h1>
+        <h1 className="text-xl font-bold tracking-tight text-white">Cuenta y ajustes</h1>
         <p className="mt-1 text-sm text-white/30">Perfil, datos legales y configuración.</p>
       </div>
 
@@ -91,7 +91,7 @@ export default function UmateAccountPage() {
       )}
 
       {/* Profile */}
-      <section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+      <section className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
         <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/25">
           <UserCircle2 className="h-4 w-4" /> Perfil
         </h2>
@@ -116,7 +116,7 @@ export default function UmateAccountPage() {
 
       {/* Subscription */}
       {subscription && (
-        <section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <section className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
           <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/25">
             <CreditCard className="h-4 w-4" /> Tu suscripción
           </h2>
@@ -161,7 +161,7 @@ export default function UmateAccountPage() {
       )}
 
       {/* Legal */}
-      <section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+      <section className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
         <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/25">
           <ShieldCheck className="h-4 w-4" /> Legal y cumplimiento
         </h2>

@@ -81,7 +81,7 @@ const STATUS_COLORS: Record<string, string> = {
   PENDING_BANK: "bg-blue-500/15 text-blue-300",
 };
 
-const inputClass = "w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/15 focus:border-[#00aff0]/30 focus:outline-none transition";
+const inputClass = "w-full rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-2.5 text-sm text-white placeholder:text-white/15 focus:border-[#00aff0]/25 focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,175,240,0.05)] transition-all duration-200";
 
 export default function UmateAdminPage() {
   const [tab, setTab] = useState<"dashboard" | "creators" | "plans" | "withdrawals" | "ledger" | "config">("dashboard");
@@ -217,20 +217,20 @@ export default function UmateAdminPage() {
   return (
     <div className="py-8 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-extrabold tracking-tight">Admin U-Mate</h1>
+        <h1 className="text-xl font-extrabold tracking-tight text-white">Admin U-Mate</h1>
         <button onClick={loadTab} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] text-white/30 transition hover:bg-white/[0.04] hover:text-white/50">
           <RefreshCw className="h-3.5 w-3.5" /> Actualizar
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0.5 overflow-x-auto border-b border-white/[0.06] pb-px scrollbar-hide">
+      <div className="flex gap-0.5 overflow-x-auto border-b border-white/[0.05] pb-px scrollbar-hide">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key as any)}
-            className={`flex items-center gap-1.5 shrink-0 border-b-2 px-4 py-2.5 text-xs font-semibold transition ${
-              tab === t.key ? "border-[#00aff0] text-white" : "border-transparent text-white/30 hover:text-white/50"
+            className={`flex items-center gap-1.5 shrink-0 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all duration-200 ${
+              tab === t.key ? "border-[#00aff0] text-white" : "border-transparent text-white/25 hover:text-white/50"
             }`}
           >
             <t.icon className="h-3.5 w-3.5" /> {t.label}
@@ -264,21 +264,21 @@ export default function UmateAdminPage() {
             ))}
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 text-center">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5 text-center">
               <p className="text-2xl font-extrabold text-emerald-300">${dashboard.totalRevenue.toLocaleString("es-CL")}</p>
               <p className="text-[10px] text-white/30 mt-1">Ingresos totales</p>
             </div>
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 text-center">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5 text-center">
               <p className="text-2xl font-extrabold">{dashboard.totalPosts}</p>
               <p className="text-[10px] text-white/30 mt-1">Posts totales</p>
             </div>
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 text-center">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5 text-center">
               <p className="text-2xl font-extrabold">{dashboard.totalCreators}</p>
               <p className="text-[10px] text-white/30 mt-1">Creadoras registradas</p>
             </div>
           </div>
           {/* Quick config overview */}
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
             <h2 className="text-sm font-bold mb-3">Configuración activa</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
@@ -314,7 +314,7 @@ export default function UmateAdminPage() {
           </div>
 
           {creators.length === 0 && (
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-12 text-center">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-12 text-center">
               <Users className="mx-auto mb-2 h-6 w-6 text-white/10" />
               <p className="text-sm text-white/30">No hay creadoras con este filtro</p>
             </div>
@@ -322,12 +322,12 @@ export default function UmateAdminPage() {
 
           <div className="space-y-2">
             {creators.map((c) => (
-              <div key={c.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div key={c.id} className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4">
                 <div className="flex items-center gap-3">
                   {/* Avatar */}
                   <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/10">
                     {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" /> : (
-                      <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white/20">{c.displayName[0]}</div>
+                      <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white/20">{(c.displayName || "?")[0]}</div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -399,7 +399,7 @@ export default function UmateAdminPage() {
       {!loading && tab === "plans" && (
         <div className="space-y-4">
           {plans.map((plan) => (
-            <div key={plan.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+            <div key={plan.id} className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
               {editingPlan === plan.id ? (
                 /* Edit mode */
                 <div className="space-y-3">
@@ -504,7 +504,7 @@ export default function UmateAdminPage() {
           </div>
 
           {withdrawals.length === 0 && (
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-12 text-center">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-12 text-center">
               <Wallet className="mx-auto mb-2 h-6 w-6 text-white/10" />
               <p className="text-sm text-white/30">No hay retiros con este filtro</p>
             </div>
@@ -512,7 +512,7 @@ export default function UmateAdminPage() {
 
           <div className="space-y-3">
             {withdrawals.map((w) => (
-              <div key={w.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+              <div key={w.id} className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2">
@@ -608,7 +608,7 @@ export default function UmateAdminPage() {
           </div>
 
           {ledger.length === 0 && (
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-12 text-center">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-12 text-center">
               <DollarSign className="mx-auto mb-2 h-6 w-6 text-white/10" />
               <p className="text-sm text-white/30">No hay movimientos</p>
             </div>
@@ -616,7 +616,7 @@ export default function UmateAdminPage() {
 
           {/* Ledger table */}
           {ledger.length > 0 && (
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] overflow-hidden">
               {/* Header */}
               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 border-b border-white/[0.06] px-5 py-3 text-[10px] font-bold text-white/25 uppercase tracking-wider">
                 <span>Descripción</span>
@@ -650,7 +650,7 @@ export default function UmateAdminPage() {
          ═══════════════════════════════════════════════════════════════ */}
       {!loading && tab === "config" && (
         <div className="mx-auto max-w-lg space-y-4">
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-5">
+          <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 space-y-5">
             <div>
               <h2 className="text-base font-bold">Configuración económica</h2>
               <p className="mt-1 text-xs text-white/30">Parámetros que afectan los pagos a creadoras</p>
@@ -702,7 +702,7 @@ export default function UmateAdminPage() {
             <button
               onClick={saveConfig}
               disabled={saving}
-              className="w-full rounded-xl bg-[#00aff0] py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90 hover:shadow-[0_0_20px_rgba(0,175,240,0.2)] disabled:opacity-50"
+              className="w-full rounded-xl bg-[#00aff0] py-3 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.2)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_24px_rgba(0,175,240,0.3)] disabled:opacity-50"
             >
               {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : configSaved ? (
                 <span className="flex items-center justify-center gap-2"><CheckCircle className="h-4 w-4" /> Guardado</span>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="uGrad" x1="0" y1="1" x2="0.5" y2="0">
+      <stop offset="0%" stop-color="#0077FF"/>
+      <stop offset="50%" stop-color="#00AAFF"/>
+      <stop offset="100%" stop-color="#00D4FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M35 35 C35 35 35 130 35 145 C35 175 60 195 95 195 C130 195 155 175 155 145 L155 35 C155 25 145 20 137 25 C133 28 130 33 130 39 L130 140 C130 158 118 168 95 168 C72 168 60 158 60 140 L60 39 C60 33 57 28 53 25 C45 20 35 25 35 35 Z" fill="url(#uGrad)"/>
+  <circle cx="147" cy="25" r="14" fill="#00D4FF"/>
+</svg>

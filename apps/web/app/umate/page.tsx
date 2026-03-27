@@ -17,7 +17,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, resolveMediaUrl } from "../../lib/api";
 
 type Creator = {
   id: string;
@@ -88,54 +88,55 @@ export default function UmateLandingPage() {
   return (
     <div className="space-y-0">
       {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-white/[0.04] bg-gradient-to-b from-[#0f0f18] via-[#0a0a0f] to-[#0a0a0f] pb-16 pt-10 lg:pb-24 lg:pt-16">
+      <section className="relative overflow-hidden border-b border-white/[0.04] bg-gradient-to-b from-[#0d0d16] via-[#08080d] to-[#08080d] pb-16 pt-10 lg:pb-28 lg:pt-20">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-32 left-1/4 h-[500px] w-[500px] rounded-full bg-[#00aff0]/[0.04] blur-[120px]" />
-          <div className="absolute -right-20 top-20 h-[400px] w-[400px] rounded-full bg-purple-500/[0.03] blur-[100px]" />
+          <div className="absolute -top-40 left-1/4 h-[600px] w-[600px] rounded-full bg-[#00aff0]/[0.035] blur-[140px]" />
+          <div className="absolute -right-24 top-16 h-[450px] w-[450px] rounded-full bg-purple-600/[0.025] blur-[120px]" />
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
         </div>
 
         <div className="relative mx-auto max-w-[1170px] px-4">
           <div className="grid items-center gap-10 lg:grid-cols-[1fr_1fr] lg:gap-16">
             {/* Left: Copy */}
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-white/50">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#00aff0]" />
-                Plataforma de suscripción premium
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.025] px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-widest text-white/40">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#00aff0] shadow-[0_0_6px_rgba(0,175,240,0.5)]" />
+                Plataforma de suscripcion premium
               </div>
 
-              <h1 className="mt-6 text-4xl font-extrabold leading-[1.1] tracking-tight text-white md:text-5xl lg:text-6xl">
+              <h1 className="mt-7 text-[2.5rem] font-extrabold leading-[1.08] tracking-[-0.02em] text-white md:text-5xl lg:text-[3.5rem]">
                 Contenido exclusivo de creadoras que te{" "}
-                <span className="bg-gradient-to-r from-[#00aff0] to-cyan-400 bg-clip-text text-transparent">importan.</span>
+                <span className="bg-gradient-to-r from-[#00aff0] via-[#00c4ff] to-cyan-400 bg-clip-text text-transparent">importan.</span>
               </h1>
-              <p className="mt-4 max-w-lg text-base leading-relaxed text-white/40 md:text-lg">
+              <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-white/35 md:text-base">
                 Suscríbete a tus creadoras favoritas. Desbloquea contenido premium, conecta directamente y apoya su trabajo.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/umate/explore"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#00aff0] px-7 py-3 text-sm font-bold text-white shadow-lg shadow-[#00aff0]/20 transition hover:bg-[#00aff0]/90 hover:shadow-[#00aff0]/30"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#00aff0] px-7 py-3 text-sm font-bold text-white shadow-[0_2px_20px_rgba(0,175,240,0.3)] transition-all duration-300 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_30px_rgba(0,175,240,0.4)] hover:-translate-y-px"
                 >
                   Explorar creadoras <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   href="/umate/onboarding"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/[0.1] px-6 py-3 text-sm font-semibold text-white/70 transition hover:border-white/20 hover:text-white"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-6 py-3 text-sm font-semibold text-white/60 transition-all duration-300 hover:border-white/[0.16] hover:text-white hover:bg-white/[0.03]"
                 >
                   Ser creadora
                 </Link>
               </div>
 
               {/* Stats */}
-              <div className="mt-10 flex gap-8">
+              <div className="mt-10 flex gap-8 border-t border-white/[0.04] pt-8">
                 {[
                   { value: `${Math.max(catalogCreators.length, 40)}+`, label: "Creadoras" },
                   { value: `${Math.max(catalogCreators.reduce((a, c) => a + c.subscriberCount, 0), 980).toLocaleString()}+`, label: "Suscriptores" },
                   { value: `${Math.max(catalogCreators.reduce((a, c) => a + c.totalPosts, 0), 1300).toLocaleString()}+`, label: "Publicaciones" },
                 ].map((s) => (
                   <div key={s.label}>
-                    <p className="text-2xl font-extrabold text-white">{s.value}</p>
-                    <p className="text-xs text-white/30">{s.label}</p>
+                    <p className="text-2xl font-extrabold tracking-tight text-white">{s.value}</p>
+                    <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-white/25">{s.label}</p>
                   </div>
                 ))}
               </div>
@@ -148,12 +149,12 @@ export default function UmateLandingPage() {
                   <Link
                     key={c.id}
                     href={`/umate/profile/${c.user.username}`}
-                    className={`group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03] transition hover:border-white/[0.12] ${
+                    className={`group relative overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition-all duration-500 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.3)] ${
                       idx === 0 ? "col-span-2 aspect-[2/1]" : "aspect-[3/4]"
                     }`}
                   >
                     {c.coverUrl || c.avatarUrl ? (
-                      <img src={c.coverUrl || c.avatarUrl || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                      <img src={resolveMediaUrl(c.coverUrl || c.avatarUrl) || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                     ) : (
                       <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/20 via-purple-500/10 to-transparent" />
                     )}
@@ -161,7 +162,7 @@ export default function UmateLandingPage() {
                     <div className="absolute bottom-3 left-3 right-3">
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 overflow-hidden rounded-full border-2 border-white/20 bg-white/10">
-                          {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xs font-bold text-white">{c.displayName[0]}</div>}
+                          {c.avatarUrl ? <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xs font-bold text-white">{(c.displayName || "?")[0]}</div>}
                         </div>
                         <div>
                           <p className="flex items-center gap-1 text-sm font-bold text-white">
@@ -181,24 +182,24 @@ export default function UmateLandingPage() {
       </section>
 
       {/* Featured Creators */}
-      <section className="border-b border-white/[0.04] py-12 lg:py-16">
+      <section className="border-b border-white/[0.04] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-white">Creadoras destacadas</h2>
-              <p className="mt-1 text-sm text-white/30">Perfiles activos con contenido exclusivo</p>
+              <h2 className="text-xl font-bold tracking-tight text-white">Creadoras destacadas</h2>
+              <p className="mt-1.5 text-sm text-white/30">Perfiles activos con contenido exclusivo</p>
             </div>
             <Link href="/umate/creators" className="flex items-center gap-1 text-sm font-medium text-[#00aff0] transition hover:text-[#00aff0]/80">
               Ver todas <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {featuredCreators.map((c) => (
               <Link
                 key={c.id}
                 href={`/umate/profile/${c.user.username}`}
-                className="group overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] transition hover:border-white/[0.12] hover:bg-white/[0.04]"
+                className="group overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:bg-white/[0.035] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)]"
               >
                 <div className="relative aspect-[3/2] overflow-hidden bg-white/[0.03]">
                   {c.coverUrl ? (
@@ -218,13 +219,13 @@ export default function UmateLandingPage() {
                     {c.avatarUrl ? (
                       <img src={c.avatarUrl} alt={c.displayName} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full items-center justify-center bg-white/[0.08] text-sm font-bold text-white/60">{c.displayName[0]}</div>
+                      <div className="flex h-full items-center justify-center bg-white/[0.08] text-sm font-bold text-white/60">{(c.displayName || "?")[0]}</div>
                     )}
                   </div>
                   <h3 className="mt-2 text-sm font-bold text-white">{c.displayName}</h3>
                   <p className="text-[11px] text-white/30">@{c.user.username}</p>
                   <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-white/40">{c.bio || "Contenido exclusivo"}</p>
-                  <div className="mt-3 flex items-center gap-3 text-[11px] text-white/25">
+                  <div className="mt-3 flex items-center gap-3 text-[11px] text-white/20">
                     <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {c.subscriberCount}</span>
                     <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {c.totalLikes}</span>
                   </div>
@@ -236,12 +237,12 @@ export default function UmateLandingPage() {
       </section>
 
       {/* Latest Content Feed Preview */}
-      <section className="border-b border-white/[0.04] py-12 lg:py-16">
+      <section className="border-b border-white/[0.04] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-white">Contenido reciente</h2>
-              <p className="mt-1 text-sm text-white/30">Lo último de tus creadoras</p>
+              <h2 className="text-xl font-bold tracking-tight text-white">Contenido reciente</h2>
+              <p className="mt-1.5 text-sm text-white/30">Lo ultimo de tus creadoras</p>
             </div>
             <Link href="/umate/explore" className="flex items-center gap-1 text-sm font-medium text-[#00aff0] transition hover:text-[#00aff0]/80">
               Ver feed <ChevronRight className="h-4 w-4" />
@@ -252,7 +253,7 @@ export default function UmateLandingPage() {
             {latestContent.map((item) => (
               <article
                 key={item.id}
-                className="group overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] transition hover:border-white/[0.12]"
+                className="group overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)]"
               >
                 <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.03]">
                   {item.media[0]?.url ? (
@@ -296,26 +297,26 @@ export default function UmateLandingPage() {
       </section>
 
       {/* How it works */}
-      <section className="border-b border-white/[0.04] py-12 lg:py-16">
+      <section className="border-b border-white/[0.04] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
-          <h2 className="text-center text-xl font-bold text-white">Cómo funciona</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight text-white">Como funciona</h2>
           <p className="mt-2 text-center text-sm text-white/30">Tres pasos simples para empezar</p>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
             {[
-              { step: "01", title: "Descubre", desc: "Explora un catálogo de creadoras activas con contenido exclusivo.", icon: Sparkles },
-              { step: "02", title: "Suscríbete", desc: "Elige un plan con cupos mensuales para acceder a contenido premium.", icon: Crown },
-              { step: "03", title: "Disfruta", desc: "Desbloquea contenido, interactúa y conecta con tus creadoras favoritas.", icon: Heart },
+              { step: "01", title: "Descubre", desc: "Explora un catalogo de creadoras activas con contenido exclusivo.", icon: Sparkles },
+              { step: "02", title: "Suscribete", desc: "Elige un plan con cupos mensuales para acceder a contenido premium.", icon: Crown },
+              { step: "03", title: "Disfruta", desc: "Desbloquea contenido, interactua y conecta con tus creadoras favoritas.", icon: Heart },
             ].map((item) => (
-              <div key={item.step} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
+              <div key={item.step} className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-7 transition-all duration-300 hover:border-white/[0.08] hover:bg-white/[0.03]">
                 <div className="flex items-center justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#00aff0]/10">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#00aff0]/[0.08]">
                     <item.icon className="h-5 w-5 text-[#00aff0]" />
                   </div>
-                  <span className="text-2xl font-extrabold text-white/[0.06]">{item.step}</span>
+                  <span className="text-3xl font-extrabold text-white/[0.04]">{item.step}</span>
                 </div>
-                <h3 className="mt-4 text-base font-bold text-white">{item.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-white/35">{item.desc}</p>
+                <h3 className="mt-5 text-base font-bold text-white">{item.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/30">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -323,12 +324,12 @@ export default function UmateLandingPage() {
       </section>
 
       {/* Plans Preview */}
-      <section className="border-b border-white/[0.04] py-12 lg:py-16">
+      <section className="border-b border-white/[0.04] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
-          <h2 className="text-center text-xl font-bold text-white">Planes de suscripción</h2>
+          <h2 className="text-center text-xl font-bold tracking-tight text-white">Planes de suscripcion</h2>
           <p className="mt-2 text-center text-sm text-white/30">Elige el plan que se adapte a ti</p>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
             {(plans.length > 0 ? plans : [
               { id: "s", tier: "SILVER", name: "Silver", priceCLP: 14990, maxSlots: 1 },
               { id: "g", tier: "GOLD", name: "Gold", priceCLP: 24990, maxSlots: 3 },
@@ -339,14 +340,14 @@ export default function UmateLandingPage() {
               return (
                 <div
                   key={plan.id}
-                  className={`relative rounded-xl border p-6 text-center transition hover:-translate-y-1 ${
+                  className={`relative rounded-2xl border p-7 text-center transition-all duration-300 hover:-translate-y-1 ${
                     isPopular
-                      ? "border-[#00aff0]/30 bg-[#00aff0]/[0.04] shadow-lg shadow-[#00aff0]/[0.05]"
-                      : "border-white/[0.06] bg-white/[0.02]"
+                      ? "border-[#00aff0]/25 bg-[#00aff0]/[0.03] shadow-[0_8px_40px_rgba(0,175,240,0.08)]"
+                      : "border-white/[0.05] bg-white/[0.02] hover:border-white/[0.08]"
                   }`}
                 >
                   {isPopular && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#00aff0] px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#00aff0] px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-white shadow-[0_2px_12px_rgba(0,175,240,0.35)]">
                       Popular
                     </span>
                   )}
@@ -377,13 +378,14 @@ export default function UmateLandingPage() {
       </section>
 
       {/* CTA Banner */}
-      <section className="py-12 lg:py-16">
+      <section className="py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
-          <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-r from-[#00aff0]/10 via-purple-500/5 to-[#00aff0]/10 p-10 text-center lg:p-14">
+          <div className="relative overflow-hidden rounded-3xl border border-white/[0.05] bg-gradient-to-br from-[#00aff0]/[0.06] via-purple-500/[0.03] to-[#00aff0]/[0.06] p-10 text-center lg:p-16">
             <div className="pointer-events-none absolute inset-0">
-              <div className="absolute left-1/2 top-0 h-px w-1/2 -translate-x-1/2 bg-gradient-to-r from-transparent via-[#00aff0]/30 to-transparent" />
+              <div className="absolute left-1/2 top-0 h-px w-1/2 -translate-x-1/2 bg-gradient-to-r from-transparent via-[#00aff0]/25 to-transparent" />
+              <div className="absolute bottom-0 left-1/4 h-[300px] w-[300px] rounded-full bg-[#00aff0]/[0.03] blur-[100px]" />
             </div>
-            <h2 className="text-2xl font-extrabold text-white md:text-3xl">
+            <h2 className="relative text-2xl font-extrabold tracking-tight text-white md:text-3xl">
               Tu próxima comunidad favorita está en U-Mate.
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm text-white/40">
@@ -392,13 +394,13 @@ export default function UmateLandingPage() {
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link
                 href="/umate/explore"
-                className="rounded-full bg-[#00aff0] px-7 py-3 text-sm font-bold text-white shadow-lg shadow-[#00aff0]/20 transition hover:bg-[#00aff0]/90"
+                className="rounded-full bg-[#00aff0] px-7 py-3 text-sm font-bold text-white shadow-[0_2px_20px_rgba(0,175,240,0.3)] transition-all duration-300 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_30px_rgba(0,175,240,0.4)] hover:-translate-y-px"
               >
                 Explorar ahora
               </Link>
               <Link
                 href="/umate/onboarding"
-                className="rounded-full border border-white/[0.1] px-6 py-3 text-sm font-semibold text-white/60 transition hover:border-white/20 hover:text-white"
+                className="rounded-full border border-white/[0.08] px-6 py-3 text-sm font-semibold text-white/50 transition-all duration-300 hover:border-white/[0.16] hover:text-white hover:bg-white/[0.03]"
               >
                 Crear perfil de creadora
               </Link>

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Camera, Building2, FileCheck, Loader2, CheckCircle, ArrowRight, Shield, Upload, X } from "lucide-react";
-import { apiFetch, getApiBase } from "../../../lib/api";
+import { apiFetch, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 
 type Creator = {
@@ -115,29 +115,44 @@ export default function OnboardingPage() {
 
   const saveProfile = async () => {
     setSaving(true);
-    await apiFetch("/umate/creator/profile", { method: "PUT", body: JSON.stringify({ displayName, bio }) });
-    setStep(2);
+    setError("");
+    try {
+      await apiFetch("/umate/creator/profile", { method: "PUT", body: JSON.stringify({ displayName, bio }) });
+      setStep(2);
+    } catch {
+      setError("Error al guardar el perfil. Intenta de nuevo.");
+    }
     setSaving(false);
   };
 
   const saveBank = async () => {
     setSaving(true);
-    await apiFetch("/umate/creator/bank", {
-      method: "PUT",
-      body: JSON.stringify({ bankName, accountType, accountNumber, holderName, holderRut }),
-    });
-    setStep(3);
+    setError("");
+    try {
+      await apiFetch("/umate/creator/bank", {
+        method: "PUT",
+        body: JSON.stringify({ bankName, accountType, accountNumber, holderName, holderRut }),
+      });
+      setStep(3);
+    } catch {
+      setError("Error al guardar datos bancarios. Intenta de nuevo.");
+    }
     setSaving(false);
   };
 
   const acceptAll = async () => {
     setSaving(true);
-    const d = await apiFetch<{ creator: Creator }>("/umate/creator/accept-terms", {
-      method: "POST",
-      body: JSON.stringify({ terms: true, rules: true, contract: true }),
-    });
-    if (d?.creator) setCreator(d.creator);
-    setStep(4);
+    setError("");
+    try {
+      const d = await apiFetch<{ creator: Creator }>("/umate/creator/accept-terms", {
+        method: "POST",
+        body: JSON.stringify({ terms: true, rules: true, contract: true }),
+      });
+      if (d?.creator) setCreator(d.creator);
+      setStep(4);
+    } catch {
+      setError("Error al aceptar los terminos. Intenta de nuevo.");
+    }
     setSaving(false);
   };
 
@@ -165,9 +180,9 @@ export default function OnboardingPage() {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center space-y-6">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#00aff0]/10 border border-[#00aff0]/20">
-          <img src="/brand/Umate.png" alt="U-Mate" className="h-10 w-auto" />
+          <img src="/brand/umate-logo-white.svg" alt="U-Mate" className="h-10 w-auto" />
         </div>
-        <h1 className="text-2xl font-extrabold text-white">Bienvenida a U-Mate</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-white">Bienvenida a U-Mate</h1>
         <p className="text-sm text-white/35 leading-relaxed">
           Publica contenido exclusivo, consigue suscriptores y monetiza tu perfil.
         </p>
@@ -192,7 +207,7 @@ export default function OnboardingPage() {
         <button
           onClick={handleStart}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-full bg-[#00aff0] px-8 py-3 text-sm font-bold text-white shadow-lg shadow-[#00aff0]/20 transition hover:bg-[#00aff0]/90 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-full bg-[#00aff0] px-8 py-3 text-sm font-bold text-white shadow-[0_2px_20px_rgba(0,175,240,0.3)] transition-all duration-300 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_30px_rgba(0,175,240,0.4)] hover:-translate-y-px disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Crear cuenta <ArrowRight className="h-4 w-4" /></>}
         </button>
@@ -234,7 +249,7 @@ export default function OnboardingPage() {
     { label: "Términos", icon: FileCheck },
   ];
 
-  const inputClass = "w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:border-[#00aff0]/40 focus:outline-none transition";
+  const inputClass = "w-full rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:border-[#00aff0]/30 focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,175,240,0.05)] transition-all duration-200";
 
   return (
     <div className="mx-auto max-w-md px-4 py-8 space-y-6">
@@ -256,11 +271,17 @@ export default function OnboardingPage() {
         ))}
       </div>
 
+      {error && (
+        <div className="rounded-xl bg-red-500/[0.06] border border-red-500/20 p-3 text-xs text-red-400">
+          {error}
+        </div>
+      )}
+
       {/* Step 1: Profile */}
       {step === 1 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-5">
+        <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 space-y-5">
           <div>
-            <h2 className="text-base font-bold text-white">Perfil de creadora</h2>
+            <h2 className="text-base font-bold tracking-tight text-white">Perfil de creadora</h2>
             <p className="mt-1 text-xs text-white/30">Así te verán tus suscriptores</p>
           </div>
 
@@ -270,7 +291,7 @@ export default function OnboardingPage() {
               className="relative w-full h-28 overflow-hidden rounded-lg bg-white/[0.03] border-2 border-dashed border-white/[0.08] transition hover:border-[#00aff0]/30"
             >
               {creator.coverUrl ? (
-                <img src={creator.coverUrl} alt="" className="h-full w-full object-cover" />
+                <img src={resolveMediaUrl(creator.coverUrl) || ""} alt="" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-white/15">
                   <Upload className="h-5 w-5 mb-1" />
@@ -284,7 +305,7 @@ export default function OnboardingPage() {
           <div className="flex justify-center -mt-10 relative z-10">
             <button onClick={() => avatarRef.current?.click()} className="relative h-24 w-24 overflow-hidden rounded-full bg-white/[0.08] border-4 border-[#0a0a0f] shadow-lg hover:ring-2 hover:ring-[#00aff0]/30 transition">
               {creator.avatarUrl ? (
-                <img src={creator.avatarUrl} alt="" className="h-full w-full object-cover" />
+                <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-white/20">
                   <Camera className="h-6 w-6" />
@@ -305,7 +326,7 @@ export default function OnboardingPage() {
           <button
             onClick={saveProfile}
             disabled={saving || !displayName.trim() || !bio.trim() || !creator.avatarUrl}
-            className="w-full rounded-full bg-[#00aff0] py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90 disabled:opacity-40"
+            className="w-full rounded-full bg-[#00aff0] py-3 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.2)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_24px_rgba(0,175,240,0.3)] disabled:opacity-40"
           >
             {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Siguiente"}
           </button>
@@ -314,9 +335,9 @@ export default function OnboardingPage() {
 
       {/* Step 2: Bank */}
       {step === 2 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-4">
+        <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 space-y-4">
           <div>
-            <h2 className="text-base font-bold text-white">Datos bancarios</h2>
+            <h2 className="text-base font-bold tracking-tight text-white">Datos bancarios</h2>
             <p className="mt-1 text-xs text-white/30">Para recibir tus pagos</p>
           </div>
           <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Nombre del banco" className={inputClass} />
@@ -331,7 +352,7 @@ export default function OnboardingPage() {
           <button
             onClick={saveBank}
             disabled={saving || !bankName || !accountNumber || !holderName || !holderRut}
-            className="w-full rounded-full bg-[#00aff0] py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90 disabled:opacity-40"
+            className="w-full rounded-full bg-[#00aff0] py-3 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.2)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_24px_rgba(0,175,240,0.3)] disabled:opacity-40"
           >
             {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Siguiente"}
           </button>
@@ -340,9 +361,9 @@ export default function OnboardingPage() {
 
       {/* Step 3: Terms */}
       {step === 3 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-5">
+        <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 space-y-5">
           <div>
-            <h2 className="text-base font-bold text-white">Términos y condiciones</h2>
+            <h2 className="text-base font-bold tracking-tight text-white">Terminos y condiciones</h2>
             <p className="mt-1 text-xs text-white/30">Lee y acepta para continuar</p>
           </div>
           <div className="max-h-52 overflow-y-auto rounded-lg bg-white/[0.02] p-4 text-xs text-white/30 space-y-2.5 leading-relaxed border border-white/[0.04]">
@@ -370,7 +391,7 @@ export default function OnboardingPage() {
           <button
             onClick={acceptAll}
             disabled={saving || !termsChecked || !rulesChecked || !contractChecked}
-            className="w-full rounded-full bg-[#00aff0] py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90 disabled:opacity-40"
+            className="w-full rounded-full bg-[#00aff0] py-3 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.2)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_24px_rgba(0,175,240,0.3)] disabled:opacity-40"
           >
             {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Aceptar y enviar a revisión"}
           </button>

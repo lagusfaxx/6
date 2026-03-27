@@ -18,7 +18,9 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { apiFetch } from "../../../lib/api";
+import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import useMe from "../../../hooks/useMe";
+import ProtectedMedia from "../_components/ProtectedMedia";
 
 type FeedItem = {
   id: string;
@@ -49,6 +51,7 @@ type Creator = {
 };
 
 export default function ExplorePage() {
+  const { me } = useMe();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [suggestedCreators, setSuggestedCreators] = useState<Creator[]>([]);
   const [filter, setFilter] = useState("");
@@ -120,9 +123,9 @@ export default function ExplorePage() {
   return (
     <div className="min-h-screen">
       {/* Sticky filter bar */}
-      <div className="sticky top-14 z-30 border-b border-white/[0.04] bg-[#0a0a0f]/95 py-3 backdrop-blur-xl">
+      <div className="sticky top-14 z-30 border-b border-white/[0.03] bg-[#08080d]/90 py-3 backdrop-blur-2xl backdrop-saturate-150">
         <div className="mx-auto flex max-w-[700px] items-center gap-2 px-4">
-          <div className="flex items-center gap-1 rounded-full bg-white/[0.04] p-1">
+          <div className="flex items-center gap-0.5 rounded-full bg-white/[0.04] p-1">
             {[
               { key: "", label: "Para ti" },
               { key: "free", label: "Gratis" },
@@ -131,10 +134,10 @@ export default function ExplorePage() {
               <button
                 key={f.label}
                 onClick={() => setFilter(f.key)}
-                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${
                   filter === f.key
-                    ? "bg-white text-black"
-                    : "text-white/40 hover:text-white/60"
+                    ? "bg-white text-black shadow-sm"
+                    : "text-white/35 hover:text-white/60"
                 }`}
               >
                 {f.label}
@@ -147,7 +150,7 @@ export default function ExplorePage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar..."
-              className="w-48 rounded-full border border-white/[0.06] bg-white/[0.03] py-1.5 pl-9 pr-3 text-sm text-white placeholder-white/25 outline-none transition focus:border-[#00aff0]/40 focus:w-64"
+              className="w-48 rounded-full border border-white/[0.05] bg-white/[0.025] py-1.5 pl-9 pr-3 text-sm text-white placeholder-white/20 outline-none transition-all duration-300 focus:border-[#00aff0]/30 focus:w-64 focus:shadow-[0_0_0_3px_rgba(0,175,240,0.05)]"
             />
           </div>
         </div>
@@ -164,27 +167,27 @@ export default function ExplorePage() {
             )}
 
             {!loading && filtered.length === 0 && (
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-16 text-center">
-                <Flame className="mx-auto mb-3 h-8 w-8 text-white/10" />
-                <p className="text-sm font-medium text-white/50">No hay contenido con esos filtros.</p>
-                <p className="mt-1 text-xs text-white/25">Intenta con otra búsqueda.</p>
+              <div className="rounded-2xl border border-white/[0.05] bg-white/[0.015] p-20 text-center">
+                <Flame className="mx-auto mb-4 h-8 w-8 text-white/[0.07]" />
+                <p className="text-sm font-medium text-white/40">No hay contenido con esos filtros.</p>
+                <p className="mt-1.5 text-xs text-white/20">Intenta con otra busqueda.</p>
               </div>
             )}
 
             {!loading && (
               <div className="space-y-4">
                 {filtered.map((item) => (
-                  <article key={item.id} className="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]">
+                  <article key={item.id} className="overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition-colors duration-200 hover:border-white/[0.07]">
                     {/* Creator header */}
                     <Link
                       href={`/umate/profile/${item.creator.user?.username || item.creator.id}`}
                       className="flex items-center gap-3 px-4 py-3"
                     >
-                      <div className="h-10 w-10 overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.06]">
+                      <div className="h-10 w-10 overflow-hidden rounded-full border border-white/[0.06] bg-white/[0.04]">
                         {item.creator.avatarUrl ? (
-                          <img src={item.creator.avatarUrl} alt="" className="h-full w-full object-cover" />
+                          <img src={resolveMediaUrl(item.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{item.creator.displayName[0]}</div>
+                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{(item.creator.displayName || "?")[0]}</div>
                         )}
                       </div>
                       <div className="flex-1">
@@ -193,10 +196,10 @@ export default function ExplorePage() {
                           @{item.creator.user?.username || "creator"} · {new Date(item.createdAt).toLocaleDateString("es-CL")}
                         </p>
                       </div>
-                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wide ${
                         item.visibility === "FREE"
-                          ? "bg-emerald-500/10 text-emerald-400"
-                          : "bg-amber-500/10 text-amber-400"
+                          ? "bg-emerald-500/[0.08] text-emerald-400/80"
+                          : "bg-amber-500/[0.08] text-amber-400/80"
                       }`}>
                         {item.visibility === "FREE" ? "Gratis" : "Premium"}
                       </span>
@@ -211,33 +214,38 @@ export default function ExplorePage() {
 
                     {/* Media */}
                     {item.media[0] && (
-                      <div className="relative">
-                        {item.media[0].url ? (
-                          <img
-                            src={item.media[0].url}
-                            alt=""
-                            className={`w-full object-cover ${item.isBlurred ? "scale-105 blur-2xl" : ""}`}
-                            style={{ maxHeight: 600 }}
-                          />
-                        ) : (
-                          <div className="aspect-[4/5] w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
-                        )}
-                        {item.isBlurred && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-                            <div className="rounded-full bg-white/10 p-4">
-                              <Lock className="h-8 w-8 text-white/70" />
+                      <ProtectedMedia
+                        enabled={!item.isBlurred && item.visibility === "PREMIUM"}
+                        viewerUsername={me?.user?.username}
+                      >
+                        <div className="relative">
+                          {item.media[0].url ? (
+                            <img
+                              src={resolveMediaUrl(item.media[0].url) || ""}
+                              alt=""
+                              className={`w-full object-cover ${item.isBlurred ? "scale-105 blur-2xl" : ""}`}
+                              style={{ maxHeight: 600 }}
+                            />
+                          ) : (
+                            <div className="aspect-[4/5] w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
+                          )}
+                          {item.isBlurred && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+                              <div className="rounded-full bg-white/10 p-4">
+                                <Lock className="h-8 w-8 text-white/70" />
+                              </div>
+                              <p className="mt-3 text-sm font-bold text-white">Contenido premium</p>
+                              <p className="mt-1 text-xs text-white/40">Suscribete para desbloquear</p>
+                              <Link
+                                href="/umate/plans"
+                                className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
+                              >
+                                Usar cupo de suscripcion
+                              </Link>
                             </div>
-                            <p className="mt-3 text-sm font-bold text-white">Contenido premium</p>
-                            <p className="mt-1 text-xs text-white/40">Suscríbete para desbloquear</p>
-                            <Link
-                              href="/umate/plans"
-                              className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
-                            >
-                              Usar cupo de suscripción
-                            </Link>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      </ProtectedMedia>
                     )}
 
                     {/* Actions */}
@@ -278,7 +286,7 @@ export default function ExplorePage() {
                           <button
                             onClick={() => postComment(item.id)}
                             disabled={!commentText.trim()}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00aff0] text-white transition hover:bg-[#00aff0]/90 disabled:opacity-30"
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00aff0] text-white shadow-[0_1px_8px_rgba(0,175,240,0.2)] transition-all duration-200 hover:bg-[#00aff0]/90 disabled:opacity-30"
                           >
                             <Send className="h-3.5 w-3.5" />
                           </button>
@@ -327,7 +335,7 @@ export default function ExplorePage() {
           <aside className="hidden lg:block">
             <div className="sticky top-28 space-y-4">
               {/* Suggested creators */}
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold uppercase tracking-wider text-white/30">Sugeridas para ti</p>
                   <Link href="/umate/creators" className="text-[11px] font-medium text-[#00aff0]">Ver todas</Link>
@@ -341,16 +349,16 @@ export default function ExplorePage() {
                     >
                       <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.06]">
                         {c.avatarUrl ? (
-                          <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" />
+                          <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{c.displayName[0]}</div>
+                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{(c.displayName || "?")[0]}</div>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-white/90">{c.displayName}</p>
                         <p className="text-[11px] text-white/25">@{c.user.username}</p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-[#00aff0] px-3 py-1 text-[10px] font-bold text-white">
+                      <span className="shrink-0 rounded-full bg-[#00aff0]/90 px-3 py-1 text-[10px] font-bold text-white shadow-[0_1px_8px_rgba(0,175,240,0.2)]">
                         Suscribir
                       </span>
                     </Link>
@@ -359,7 +367,7 @@ export default function ExplorePage() {
               </div>
 
               {/* Upgrade CTA */}
-              <div className="rounded-xl border border-[#00aff0]/20 bg-[#00aff0]/[0.04] p-4">
+              <div className="rounded-2xl border border-[#00aff0]/15 bg-[#00aff0]/[0.03] p-4">
                 <p className="text-sm font-bold text-white">Desbloquea más contenido</p>
                 <p className="mt-1 text-xs text-white/35">Activa un plan premium para acceder a publicaciones exclusivas.</p>
                 <Link
@@ -371,7 +379,7 @@ export default function ExplorePage() {
               </div>
 
               {/* Trending */}
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4">
                 <p className="text-xs font-bold uppercase tracking-wider text-white/30">Trending</p>
                 <div className="mt-3 space-y-2">
                   {["Contenido fitness", "Lifestyle premium", "Behind the scenes", "Sesiones exclusivas"].map((tag) => (

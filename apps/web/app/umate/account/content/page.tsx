@@ -17,7 +17,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { apiFetch, getApiBase } from "../../../../lib/api";
+import { apiFetch, getApiBase, resolveMediaUrl } from "../../../../lib/api";
 
 type Post = {
   id: string;
@@ -46,6 +46,7 @@ export default function ContentPage() {
   const [editVisibility, setEditVisibility] = useState<"FREE" | "PREMIUM">("FREE");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -67,17 +68,17 @@ export default function ContentPage() {
   const handlePublish = async () => {
     if (!files.length) return;
     setUploading(true);
+    setPublishError("");
     try {
       const form = new FormData();
       files.forEach((file) => form.append("files", file));
       form.append("caption", caption);
       form.append("visibility", visibility);
 
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`${getApiBase()}/umate/creator/posts`, {
+      const res = await fetch(`${getApiBase()}/umate/posts`, {
         method: "POST",
+        credentials: "include",
         body: form,
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
       if (res.ok) {
@@ -86,7 +87,12 @@ export default function ContentPage() {
         setFiles([]);
         setCaption("");
         setShowEditor(false);
+      } else {
+        const json = await res.json().catch(() => null);
+        setPublishError(json?.message || "Error al publicar. Verifica los archivos e intenta de nuevo.");
       }
+    } catch {
+      setPublishError("Error de conexion. Intenta de nuevo.");
     } finally {
       setUploading(false);
     }
@@ -121,12 +127,12 @@ export default function ContentPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Publicaciones</h1>
+          <h1 className="text-xl font-bold tracking-tight text-white">Publicaciones</h1>
           <p className="mt-1 text-sm text-white/30">Biblioteca de contenido y editor.</p>
         </div>
         <button
           onClick={() => setShowEditor(!showEditor)}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[#00aff0] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#00aff0]/90"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[#00aff0] px-5 py-2 text-sm font-semibold text-white shadow-[0_2px_12px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_20px_rgba(0,175,240,0.35)]"
         >
           <Plus className="h-4 w-4" /> {showEditor ? "Cerrar editor" : "Nueva publicación"}
         </button>
@@ -148,7 +154,7 @@ export default function ContentPage() {
 
       {/* Editor */}
       {showEditor && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
           <h2 className="text-sm font-bold text-white/50">Crear publicación</h2>
 
           <textarea
@@ -195,6 +201,9 @@ export default function ContentPage() {
             </div>
           )}
 
+          {publishError && (
+            <p className="mt-2 text-xs text-red-400">{publishError}</p>
+          )}
           <button
             onClick={handlePublish}
             disabled={uploading || !files.length}
@@ -235,18 +244,18 @@ export default function ContentPage() {
       {loading && <div className="py-16 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-white/20" /></div>}
 
       {!loading && filteredPosts.length === 0 && (
-        <div className="rounded-xl border border-dashed border-white/[0.08] p-14 text-center">
-          <Grid3X3 className="mx-auto mb-3 h-8 w-8 text-white/10" />
-          <p className="text-sm font-medium text-white/40">No hay publicaciones.</p>
+        <div className="rounded-2xl border border-dashed border-white/[0.06] p-20 text-center">
+          <Grid3X3 className="mx-auto mb-4 h-8 w-8 text-white/[0.07]" />
+          <p className="text-sm font-medium text-white/35">No hay publicaciones.</p>
         </div>
       )}
 
       {!loading && filteredPosts.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {filteredPosts.map((post) => (
-            <article key={post.id} className="group overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] transition hover:border-white/[0.12]">
+            <article key={post.id} className="group overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition hover:border-white/[0.12]">
               <div className="relative aspect-[4/3] overflow-hidden bg-white/[0.03]">
-                {post.media[0]?.url && <img src={post.media[0].url} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />}
+                {post.media[0]?.url && <img src={resolveMediaUrl(post.media[0].url) || ""} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />}
                 <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${
                   post.visibility === "FREE" ? "bg-emerald-500/90 text-white" : "bg-amber-500/90 text-white"
                 }`}>
@@ -286,8 +295,8 @@ export default function ContentPage() {
 
       {/* Edit Modal */}
       {editingPost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0a0a0f] p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-lg p-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/[0.06] bg-[#0c0c14] p-6 space-y-4 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-white">Editar publicación</h3>
               <button onClick={() => setEditingPost(null)} className="text-white/30 hover:text-white/60"><X className="h-4 w-4" /></button>

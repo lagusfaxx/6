@@ -14,10 +14,10 @@ export default function RulesPage() {
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00aff0]/10">
           <ShieldCheck className="h-5 w-5 text-[#00aff0]" />
         </div>
-        <h1 className="text-xl font-extrabold">Reglas de U-Mate</h1>
+        <h1 className="text-xl font-extrabold tracking-tight">Reglas de U-Mate</h1>
       </div>
 
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-5 text-sm text-white/50 leading-relaxed">
+      <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-7 space-y-6 text-sm text-white/45 leading-relaxed">
         {[
           { title: "1. Contenido permitido", text: "Las creadoras pueden publicar fotos, videos y textos originales. Todo el contenido debe ser propio o contar con autorización expresa." },
           { title: "2. Contenido prohibido", text: "Está prohibido el contenido que involucre menores de edad, violencia extrema, explotación, o cualquier material que viole la legislación chilena." },

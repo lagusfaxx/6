@@ -28,9 +28,9 @@ export default function UmateAccountLayout({ children }: { children: React.React
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
         {/* Sidebar */}
         <aside className="hidden lg:block">
-          <div className="sticky top-20 space-y-0.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2">
-            <div className="px-3 py-2">
-              <p className="text-xs font-bold text-white/50">Creator Studio</p>
+          <div className="sticky top-20 space-y-0.5 rounded-2xl border border-white/[0.05] bg-white/[0.02] p-2">
+            <div className="px-3 py-2.5">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-white/30">Creator Studio</p>
             </div>
             <div className="h-px bg-white/[0.04]" />
 
@@ -40,10 +40,10 @@ export default function UmateAccountLayout({ children }: { children: React.React
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
                     active
-                      ? "bg-white/[0.06] text-white font-semibold"
-                      : "text-white/35 hover:bg-white/[0.04] hover:text-white/60"
+                      ? "bg-white/[0.05] text-white font-semibold"
+                      : "text-white/30 hover:bg-white/[0.03] hover:text-white/55"
                   }`}
                 >
                   <tab.icon className={`h-4 w-4 ${active ? "text-[#00aff0]" : ""}`} />

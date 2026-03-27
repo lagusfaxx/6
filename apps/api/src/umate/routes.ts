@@ -9,8 +9,12 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { optimizeImage } from "../lib/imageOptimizer";
 import { validateUploadedFile } from "../lib/uploads";
 import { sendToUser } from "../realtime/sse";
+import { asyncHandler } from "../lib/asyncHandler";
 
 export const umateRouter = Router();
+
+const ALLOWED_IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_MEDIA_MIMES = [...ALLOWED_IMAGE_MIMES, "video/mp4", "video/quicktime", "video/webm"];
 
 const storage = new LocalStorageProvider(
   path.join(process.cwd(), config.storageDir),
@@ -65,6 +69,52 @@ async function getActiveSubscription(userId: string) {
   });
 }
 
+/** Move matured pendingBalance to availableBalance for all eligible creators.
+ *  Called opportunistically on creator stats/wallet reads. */
+async function maturePendingBalances() {
+  // Move pending balances that are older than 7 days to available
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const creators = await prisma.umateCreator.findMany({
+    where: { pendingBalance: { gt: 0 }, status: "ACTIVE" },
+    select: { id: true, pendingBalance: true },
+  });
+
+  for (const creator of creators) {
+    // Check if creator has slot activations older than 7 days with pending payouts
+    const maturedEntries = await prisma.umateLedgerEntry.findMany({
+      where: {
+        creatorId: creator.id,
+        type: "SLOT_ACTIVATION",
+        createdAt: { lte: sevenDaysAgo },
+        maturedAt: null,
+      },
+    });
+
+    if (maturedEntries.length === 0) continue;
+
+    const maturedAmount = maturedEntries.reduce((sum, e) => sum + e.creatorPayout, 0);
+    if (maturedAmount <= 0) continue;
+
+    const amountToMove = Math.min(maturedAmount, creator.pendingBalance);
+    if (amountToMove <= 0) continue;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.umateCreator.update({
+        where: { id: creator.id },
+        data: {
+          pendingBalance: { decrement: amountToMove },
+          availableBalance: { increment: amountToMove },
+        },
+      });
+      // Mark entries as matured
+      await tx.umateLedgerEntry.updateMany({
+        where: { id: { in: maturedEntries.map((e) => e.id) } },
+        data: { maturedAt: new Date() },
+      });
+    });
+  }
+}
+
 /** Check if user is subscribed to a specific creator */
 async function isSubscribedToCreator(userId: string, creatorId: string): Promise<boolean> {
   const sub = await prisma.umateCreatorSub.findFirst({
@@ -77,19 +127,19 @@ async function isSubscribedToCreator(userId: string, creatorId: string): Promise
 // PUBLIC — Plans
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/plans", async (_req, res) => {
+umateRouter.get("/umate/plans", asyncHandler(async (_req, res) => {
   const plans = await prisma.umatePlan.findMany({
     where: { isActive: true },
     orderBy: { priceCLP: "asc" },
   });
   res.json({ plans });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // PUBLIC — Feed / Explore
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/feed", async (req, res) => {
+umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
   const userId = (req as any).user?.id;
   const limit = Math.min(parseInt(String(req.query.limit || "20"), 10) || 20, 50);
   const offset = parseInt(String(req.query.offset || "0"), 10) || 0;
@@ -158,13 +208,13 @@ umateRouter.get("/umate/feed", async (req, res) => {
   });
 
   res.json({ items });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // PUBLIC — Explore creators
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/creators", async (req, res) => {
+umateRouter.get("/umate/creators", asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(String(req.query.limit || "20"), 10) || 20, 50);
   const offset = parseInt(String(req.query.offset || "0"), 10) || 0;
   const q = (req.query.q as string || "").trim();
@@ -194,13 +244,13 @@ umateRouter.get("/umate/creators", async (req, res) => {
   });
 
   res.json({ creators });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // PUBLIC — Creator profile
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/profile/:username", async (req, res) => {
+umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
   const userId = (req as any).user?.id;
 
   const user = await prisma.user.findUnique({
@@ -275,13 +325,13 @@ umateRouter.get("/umate/profile/:username", async (req, res) => {
     isSubscribed,
     posts: postsWithAccess,
   });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Like / Unlike
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.post("/umate/posts/:postId/like", requireAuth, async (req, res) => {
+umateRouter.post("/umate/posts/:postId/like", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const { postId } = req.params;
 
@@ -314,13 +364,13 @@ umateRouter.post("/umate/posts/:postId/like", requireAuth, async (req, res) => {
     }
     throw err;
   }
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Subscribe to plan (checkout)
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.post("/umate/subscribe", requireAuth, paymentLimiter, async (req, res) => {
+umateRouter.post("/umate/subscribe", requireAuth, paymentLimiter, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const { tier } = req.body as { tier: string };
 
@@ -393,13 +443,13 @@ umateRouter.post("/umate/subscribe", requireAuth, paymentLimiter, async (req, re
     console.error("[umate] Flow payment error:", err);
     return res.status(502).json({ error: "FLOW_ERROR" });
   }
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Activate plan after payment confirmation
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/subscription/status", requireAuth, async (req, res) => {
+umateRouter.get("/umate/subscription/status", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const sub = await getActiveSubscription(userId);
 
@@ -431,13 +481,13 @@ umateRouter.get("/umate/subscription/status", requireAuth, async (req, res) => {
       expiresAt: cs.expiresAt,
     })),
   });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Use a slot to subscribe to a creator
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, async (req, res) => {
+umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const { creatorId } = req.params;
 
@@ -549,22 +599,22 @@ umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, async (req
     }
     throw err;
   }
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Creator onboarding
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/creator/me", requireAuth, async (req, res) => {
+umateRouter.get("/umate/creator/me", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({
     where: { userId },
     include: { user: { select: { username: true, displayName: true, avatarUrl: true, isVerified: true, profileType: true } } },
   });
   res.json({ creator });
-});
+}));
 
-umateRouter.post("/umate/creator/onboard", requireAuth, async (req, res) => {
+umateRouter.post("/umate/creator/onboard", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
 
   const existing = await prisma.umateCreator.findUnique({ where: { userId } });
@@ -592,9 +642,9 @@ umateRouter.post("/umate/creator/onboard", requireAuth, async (req, res) => {
   });
 
   res.json({ creator });
-});
+}));
 
-umateRouter.put("/umate/creator/profile", requireAuth, async (req, res) => {
+umateRouter.put("/umate/creator/profile", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
@@ -613,9 +663,9 @@ umateRouter.put("/umate/creator/profile", requireAuth, async (req, res) => {
   }
 
   res.json({ creator: updated });
-});
+}));
 
-umateRouter.put("/umate/creator/bank", requireAuth, async (req, res) => {
+umateRouter.put("/umate/creator/bank", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
@@ -637,9 +687,9 @@ umateRouter.put("/umate/creator/bank", requireAuth, async (req, res) => {
   }
 
   res.json({ creator: updated });
-});
+}));
 
-umateRouter.post("/umate/creator/accept-terms", requireAuth, async (req, res) => {
+umateRouter.post("/umate/creator/accept-terms", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
@@ -672,15 +722,18 @@ umateRouter.post("/umate/creator/accept-terms", requireAuth, async (req, res) =>
   }
 
   res.json({ creator: updated });
-});
+}));
 
-umateRouter.post("/umate/creator/avatar", requireAuth, upload.single("file"), async (req, res) => {
+umateRouter.post("/umate/creator/avatar", requireAuth, upload.single("file"), asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
 
   const file = req.file;
   if (!file) return res.status(400).json({ error: "NO_FILE" });
+  if (!ALLOWED_IMAGE_MIMES.includes(file.mimetype)) {
+    return res.status(400).json({ error: "INVALID_FILE_TYPE", message: "Solo se permiten imagenes (JPG, PNG, WebP, GIF)." });
+  }
 
   const saved = await storage.save({
     buffer: file.buffer,
@@ -691,15 +744,18 @@ umateRouter.post("/umate/creator/avatar", requireAuth, upload.single("file"), as
 
   await prisma.umateCreator.update({ where: { id: creator.id }, data: { avatarUrl: saved.url } });
   res.json({ url: saved.url });
-});
+}));
 
-umateRouter.post("/umate/creator/cover", requireAuth, upload.single("file"), async (req, res) => {
+umateRouter.post("/umate/creator/cover", requireAuth, upload.single("file"), asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
 
   const file = req.file;
   if (!file) return res.status(400).json({ error: "NO_FILE" });
+  if (!ALLOWED_IMAGE_MIMES.includes(file.mimetype)) {
+    return res.status(400).json({ error: "INVALID_FILE_TYPE", message: "Solo se permiten imagenes (JPG, PNG, WebP, GIF)." });
+  }
 
   const saved = await storage.save({
     buffer: file.buffer,
@@ -710,13 +766,13 @@ umateRouter.post("/umate/creator/cover", requireAuth, upload.single("file"), asy
 
   await prisma.umateCreator.update({ where: { id: creator.id }, data: { coverUrl: saved.url } });
   res.json({ url: saved.url });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Creator content management
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("files", 10), async (req, res) => {
+umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("files", 10), asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator || creator.status !== "ACTIVE") {
@@ -726,6 +782,13 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
   const { caption, visibility } = req.body;
   const files = req.files as Express.Multer.File[];
   if (!files?.length) return res.status(400).json({ error: "NO_FILES" });
+
+  // Validate all file types
+  for (const file of files) {
+    if (!ALLOWED_MEDIA_MIMES.includes(file.mimetype)) {
+      return res.status(400).json({ error: "INVALID_FILE_TYPE", message: `Tipo no permitido: ${file.mimetype}. Solo imagenes y videos.` });
+    }
+  }
 
   const mediaItems: { type: "IMAGE" | "VIDEO"; url: string; pos: number }[] = [];
   for (let i = 0; i < files.length; i++) {
@@ -779,9 +842,9 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
   }).catch(() => {});
 
   res.json({ post });
-});
+}));
 
-umateRouter.get("/umate/creator/posts", requireAuth, async (req, res) => {
+umateRouter.get("/umate/creator/posts", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
@@ -793,9 +856,9 @@ umateRouter.get("/umate/creator/posts", requireAuth, async (req, res) => {
   });
 
   res.json({ posts });
-});
+}));
 
-umateRouter.delete("/umate/posts/:postId", requireAuth, async (req, res) => {
+umateRouter.delete("/umate/posts/:postId", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
@@ -810,16 +873,22 @@ umateRouter.delete("/umate/posts/:postId", requireAuth, async (req, res) => {
   });
 
   res.json({ deleted: true });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Creator dashboard stats
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/creator/stats", requireAuth, async (req, res) => {
+umateRouter.get("/umate/creator/stats", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
+
+  // Mature pending balances before reading stats
+  await maturePendingBalances().catch(() => {});
+
+  // Re-read creator after maturation
+  const freshCreator = await prisma.umateCreator.findUnique({ where: { userId } }) || creator;
 
   const now = new Date();
   const cycleStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -836,27 +905,27 @@ umateRouter.get("/umate/creator/stats", requireAuth, async (req, res) => {
   ]);
 
   res.json({
-    subscriberCount: creator.subscriberCount,
+    subscriberCount: freshCreator.subscriberCount,
     newSubsThisCycle,
-    totalPosts: creator.totalPosts,
-    totalLikes: creator.totalLikes,
-    pendingBalance: creator.pendingBalance,
-    availableBalance: creator.availableBalance,
-    totalEarned: creator.totalEarned,
-    status: creator.status,
+    totalPosts: freshCreator.totalPosts,
+    totalLikes: freshCreator.totalLikes,
+    pendingBalance: freshCreator.pendingBalance,
+    availableBalance: freshCreator.availableBalance,
+    totalEarned: freshCreator.totalEarned,
+    status: freshCreator.status,
     ledger: recentLedger,
-    bankConfigured: Boolean(creator.bankName),
-    termsAccepted: Boolean(creator.termsAcceptedAt),
-    rulesAccepted: Boolean(creator.rulesAcceptedAt),
-    contractAccepted: Boolean(creator.contractAcceptedAt),
+    bankConfigured: Boolean(freshCreator.bankName),
+    termsAccepted: Boolean(freshCreator.termsAcceptedAt),
+    rulesAccepted: Boolean(freshCreator.rulesAcceptedAt),
+    contractAccepted: Boolean(freshCreator.contractAcceptedAt),
   });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Creator withdrawals
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.post("/umate/creator/withdraw", requireAuth, paymentLimiter, async (req, res) => {
+umateRouter.post("/umate/creator/withdraw", requireAuth, paymentLimiter, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
@@ -893,9 +962,9 @@ umateRouter.post("/umate/creator/withdraw", requireAuth, paymentLimiter, async (
       data: {
         creatorId: creator.id,
         type: "WITHDRAWAL",
-        grossAmount: amount,
-        creatorPayout: amount,
-        netAmount: amount,
+        grossAmount: -amount,
+        creatorPayout: -amount,
+        netAmount: -amount,
         description: `Retiro solicitado`,
         referenceType: "withdrawal",
       },
@@ -903,9 +972,9 @@ umateRouter.post("/umate/creator/withdraw", requireAuth, paymentLimiter, async (
   });
 
   res.json({ withdrawn: amount });
-});
+}));
 
-umateRouter.get("/umate/creator/withdrawals", requireAuth, async (req, res) => {
+umateRouter.get("/umate/creator/withdrawals", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
@@ -917,13 +986,13 @@ umateRouter.get("/umate/creator/withdrawals", requireAuth, async (req, res) => {
   });
 
   res.json({ withdrawals });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Edit post
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.put("/umate/posts/:postId", requireAuth, contentLimiter, async (req, res) => {
+umateRouter.put("/umate/posts/:postId", requireAuth, contentLimiter, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
@@ -943,13 +1012,13 @@ umateRouter.put("/umate/posts/:postId", requireAuth, contentLimiter, async (req,
   });
 
   res.json({ post: updated });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Cancel subscription (plan)
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.post("/umate/subscription/cancel", requireAuth, async (req, res) => {
+umateRouter.post("/umate/subscription/cancel", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const sub = await getActiveSubscription(userId);
   if (!sub) return res.status(400).json({ error: "NO_ACTIVE_SUBSCRIPTION" });
@@ -961,13 +1030,13 @@ umateRouter.post("/umate/subscription/cancel", requireAuth, async (req, res) => 
   });
 
   res.json({ cancelled: true, accessUntil: sub.cycleEnd });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Unsubscribe from a specific creator
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.post("/umate/creators/:creatorId/unsubscribe", requireAuth, async (req, res) => {
+umateRouter.post("/umate/creators/:creatorId/unsubscribe", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const { creatorId } = req.params;
 
@@ -999,13 +1068,13 @@ umateRouter.post("/umate/creators/:creatorId/unsubscribe", requireAuth, async (r
   });
 
   res.json({ unsubscribed: true });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Comments
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/posts/:postId/comments", async (req, res) => {
+umateRouter.get("/umate/posts/:postId/comments", asyncHandler(async (req, res) => {
   const { postId } = req.params;
   const limit = Math.min(parseInt(String(req.query.limit || "30"), 10) || 30, 100);
   const offset = parseInt(String(req.query.offset || "0"), 10) || 0;
@@ -1027,9 +1096,9 @@ umateRouter.get("/umate/posts/:postId/comments", async (req, res) => {
   ]);
 
   res.json({ comments, total });
-});
+}));
 
-umateRouter.post("/umate/posts/:postId/comments", requireAuth, commentLimiter, async (req, res) => {
+umateRouter.post("/umate/posts/:postId/comments", requireAuth, commentLimiter, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const { postId } = req.params;
   const { text } = req.body;
@@ -1082,9 +1151,9 @@ umateRouter.post("/umate/posts/:postId/comments", requireAuth, commentLimiter, a
   }
 
   res.json({ comment });
-});
+}));
 
-umateRouter.delete("/umate/comments/:commentId", requireAuth, async (req, res) => {
+umateRouter.delete("/umate/comments/:commentId", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const comment = await prisma.umateComment.findUnique({
     where: { id: req.params.commentId },
@@ -1101,25 +1170,25 @@ umateRouter.delete("/umate/comments/:commentId", requireAuth, async (req, res) =
     return res.status(403).json({ error: "FORBIDDEN" });
   }
 
-  await prisma.umateComment.delete({ where: { id: comment.id } });
-
-  // Decrement comment count
-  const freshPost = await prisma.umatePost.findUnique({ where: { id: comment.postId }, select: { commentCount: true } });
-  if (freshPost && freshPost.commentCount > 0) {
-    await prisma.umatePost.update({
-      where: { id: comment.postId },
-      data: { commentCount: { decrement: 1 } },
-    });
-  }
+  await prisma.$transaction(async (tx) => {
+    await tx.umateComment.delete({ where: { id: comment.id } });
+    const freshPost = await tx.umatePost.findUnique({ where: { id: comment.postId }, select: { commentCount: true } });
+    if (freshPost && freshPost.commentCount > 0) {
+      await tx.umatePost.update({
+        where: { id: comment.postId },
+        data: { commentCount: { decrement: 1 } },
+      });
+    }
+  });
 
   res.json({ deleted: true });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // PUBLIC — Trending / Recommended feed
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/trending", async (req, res) => {
+umateRouter.get("/umate/trending", asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(String(req.query.limit || "20"), 10) || 20, 50);
 
   // Trending = posts from last 7 days with highest engagement (likes + views + comments)
@@ -1154,13 +1223,13 @@ umateRouter.get("/umate/trending", async (req, res) => {
   }));
 
   res.json({ items });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // PUBLIC — Suggested creators (for sidebar)
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/suggested", async (req, res) => {
+umateRouter.get("/umate/suggested", asyncHandler(async (req, res) => {
   const userId = (req as any).user?.id;
   const limit = Math.min(parseInt(String(req.query.limit || "5"), 10) || 5, 20);
 
@@ -1195,13 +1264,13 @@ umateRouter.get("/umate/suggested", async (req, res) => {
   });
 
   res.json({ creators });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Payment verification (used by checkout page)
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/payment/status", requireAuth, async (req, res) => {
+umateRouter.get("/umate/payment/status", requireAuth, asyncHandler(async (req, res) => {
   const ref = req.query.ref as string;
   if (!ref) return res.status(400).json({ error: "MISSING_REF" });
 
@@ -1225,13 +1294,13 @@ umateRouter.get("/umate/payment/status", requireAuth, async (req, res) => {
     intentId: intent.id,
     purpose: intent.purpose,
   });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Creator detailed post analytics
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/umate/creator/analytics", requireAuth, async (req, res) => {
+umateRouter.get("/umate/creator/analytics", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
@@ -1292,13 +1361,13 @@ umateRouter.get("/umate/creator/analytics", requireAuth, async (req, res) => {
     availableBalance: creator.availableBalance,
     totalEarned: creator.totalEarned,
   });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════════════
 // ADMIN — U-Mate management
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.get("/admin/umate/dashboard", requireAdmin, async (_req, res) => {
+umateRouter.get("/admin/umate/dashboard", requireAdmin, asyncHandler(async (_req, res) => {
   const now = new Date();
   const cycleStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -1336,9 +1405,9 @@ umateRouter.get("/admin/umate/dashboard", requireAdmin, async (_req, res) => {
     totalRevenue: totalRevenue._sum.grossAmount || 0,
     config: { payoutPerSlot, platformCommPct },
   });
-});
+}));
 
-umateRouter.get("/admin/umate/creators", requireAdmin, async (req, res) => {
+umateRouter.get("/admin/umate/creators", requireAdmin, asyncHandler(async (req, res) => {
   const status = req.query.status as string | undefined;
   const limit = Math.min(parseInt(String(req.query.limit || "50"), 10), 100);
   const offset = parseInt(String(req.query.offset || "0"), 10);
@@ -1358,9 +1427,9 @@ umateRouter.get("/admin/umate/creators", requireAdmin, async (req, res) => {
   ]);
 
   res.json({ creators, total });
-});
+}));
 
-umateRouter.put("/admin/umate/creators/:id/status", requireAdmin, async (req, res) => {
+umateRouter.put("/admin/umate/creators/:id/status", requireAdmin, asyncHandler(async (req, res) => {
   const { status } = req.body;
   if (!["DRAFT", "PENDING_TERMS", "PENDING_BANK", "PENDING_REVIEW", "ACTIVE", "SUSPENDED"].includes(status)) {
     return res.status(400).json({ error: "INVALID_STATUS" });
@@ -1372,47 +1441,66 @@ umateRouter.put("/admin/umate/creators/:id/status", requireAdmin, async (req, re
   });
 
   res.json({ creator: updated });
-});
+}));
 
-umateRouter.get("/admin/umate/plans", requireAdmin, async (_req, res) => {
+umateRouter.get("/admin/umate/plans", requireAdmin, asyncHandler(async (_req, res) => {
   const plans = await prisma.umatePlan.findMany({ orderBy: { priceCLP: "asc" } });
   res.json({ plans });
-});
+}));
 
-umateRouter.put("/admin/umate/plans/:id", requireAdmin, async (req, res) => {
+umateRouter.put("/admin/umate/plans/:id", requireAdmin, asyncHandler(async (req, res) => {
   const { priceCLP, maxSlots, isActive, name } = req.body;
   const data: any = {};
-  if (priceCLP !== undefined) data.priceCLP = priceCLP;
-  if (maxSlots !== undefined) data.maxSlots = maxSlots;
-  if (isActive !== undefined) data.isActive = isActive;
-  if (name !== undefined) data.name = name;
+  if (priceCLP !== undefined) {
+    const price = parseInt(String(priceCLP), 10);
+    if (isNaN(price) || price < 0) return res.status(400).json({ error: "INVALID_PRICE" });
+    data.priceCLP = price;
+  }
+  if (maxSlots !== undefined) {
+    const slots = parseInt(String(maxSlots), 10);
+    if (isNaN(slots) || slots < 1) return res.status(400).json({ error: "INVALID_SLOTS" });
+    data.maxSlots = slots;
+  }
+  if (isActive !== undefined) data.isActive = Boolean(isActive);
+  if (name !== undefined) {
+    const trimmed = String(name).trim();
+    if (!trimmed) return res.status(400).json({ error: "INVALID_NAME" });
+    data.name = trimmed;
+  }
+
+  const plan = await prisma.umatePlan.findUnique({ where: { id: req.params.id } });
+  if (!plan) return res.status(404).json({ error: "NOT_FOUND" });
 
   const updated = await prisma.umatePlan.update({ where: { id: req.params.id }, data });
   res.json({ plan: updated });
-});
+}));
 
-umateRouter.put("/admin/umate/config", requireAdmin, async (req, res) => {
+umateRouter.put("/admin/umate/config", requireAdmin, asyncHandler(async (req, res) => {
   const { payoutPerSlot, platformCommPct } = req.body;
 
   if (payoutPerSlot !== undefined) {
+    const val = parseInt(String(payoutPerSlot), 10);
+    if (isNaN(val) || val < 0) return res.status(400).json({ error: "INVALID_PAYOUT" });
     await prisma.platformConfig.upsert({
       where: { key: "umate_payout_per_slot" },
-      update: { value: String(payoutPerSlot) },
-      create: { key: "umate_payout_per_slot", value: String(payoutPerSlot) },
+      update: { value: String(val) },
+      create: { key: "umate_payout_per_slot", value: String(val) },
     });
   }
   if (platformCommPct !== undefined) {
+    const val = parseInt(String(platformCommPct), 10);
+    if (isNaN(val) || val < 0 || val > 100) return res.status(400).json({ error: "INVALID_COMMISSION" });
     await prisma.platformConfig.upsert({
       where: { key: "umate_platform_commission_pct" },
-      update: { value: String(platformCommPct) },
-      create: { key: "umate_platform_commission_pct", value: String(platformCommPct) },
+      update: { value: String(val) },
+      create: { key: "umate_platform_commission_pct", value: String(val) },
     });
   }
 
   res.json({ ok: true });
-});
+}));
 
-umateRouter.get("/admin/umate/ledger", requireAdmin, async (req, res) => {
+umateRouter.get("/admin/umate/ledger", requireAdmin, asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(String(req.query.limit || "50"), 10), 100);
   const offset = parseInt(String(req.query.offset || "0"), 10);
   const type = req.query.type as string | undefined;
@@ -1432,9 +1520,9 @@ umateRouter.get("/admin/umate/ledger", requireAdmin, async (req, res) => {
   ]);
 
   res.json({ entries, total });
-});
+}));
 
-umateRouter.get("/admin/umate/withdrawals", requireAdmin, async (req, res) => {
+umateRouter.get("/admin/umate/withdrawals", requireAdmin, asyncHandler(async (req, res) => {
   const status = req.query.status as string | undefined;
   const where: any = {};
   if (status) where.status = status;
@@ -1446,9 +1534,9 @@ umateRouter.get("/admin/umate/withdrawals", requireAdmin, async (req, res) => {
   });
 
   res.json({ withdrawals });
-});
+}));
 
-umateRouter.put("/admin/umate/withdrawals/:id/approve", requireAdmin, async (req, res) => {
+umateRouter.put("/admin/umate/withdrawals/:id/approve", requireAdmin, asyncHandler(async (req, res) => {
   const w = await prisma.umateWithdrawal.findUnique({ where: { id: req.params.id } });
   if (!w || w.status !== "PENDING") return res.status(400).json({ error: "NOT_PENDING" });
 
@@ -1458,9 +1546,9 @@ umateRouter.put("/admin/umate/withdrawals/:id/approve", requireAdmin, async (req
   });
 
   res.json({ approved: true });
-});
+}));
 
-umateRouter.put("/admin/umate/withdrawals/:id/reject", requireAdmin, async (req, res) => {
+umateRouter.put("/admin/umate/withdrawals/:id/reject", requireAdmin, asyncHandler(async (req, res) => {
   const w = await prisma.umateWithdrawal.findUnique({ where: { id: req.params.id } });
   if (!w || w.status !== "PENDING") return res.status(400).json({ error: "NOT_PENDING" });
 
@@ -1477,4 +1565,4 @@ umateRouter.put("/admin/umate/withdrawals/:id/reject", requireAdmin, async (req,
   });
 
   res.json({ rejected: true });
-});
+}));

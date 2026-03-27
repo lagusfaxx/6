@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" fill="none">
+  <defs>
+    <linearGradient id="uGrad" x1="0" y1="1" x2="0.5" y2="0">
+      <stop offset="0%" stop-color="#0066FF"/>
+      <stop offset="50%" stop-color="#00AAFF"/>
+      <stop offset="100%" stop-color="#00D4FF"/>
+    </linearGradient>
+  </defs>
+  <!-- U icon -->
+  <path d="M30 40 C30 40 30 130 30 140 C30 175 55 190 85 190 C115 190 140 175 140 140 L140 40 C140 30 130 25 122 30 C118 33 115 38 115 44 L115 135 C115 155 103 165 85 165 C67 165 55 155 55 135 L55 44 C55 38 52 33 48 30 C40 25 30 30 30 40 Z" fill="url(#uGrad)"/>
+  <!-- Dot on U -->
+  <circle cx="130" cy="30" r="12" fill="#00D4FF"/>
+  <!-- U-Mate text -->
+  <text x="170" y="145" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="110" font-weight="800" fill="#0a0a0f" letter-spacing="-3">U-Mate</text>
+</svg>

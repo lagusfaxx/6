@@ -1203,3 +1203,88 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   content-visibility: auto;
   contain-intrinsic-size: auto 400px;
 }
+
+/* ═══ U-Mate Premium Theme ═══ */
+
+.umate-theme {
+  scroll-behavior: smooth;
+}
+
+.umate-theme * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.06) transparent;
+}
+
+.umate-theme *::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.umate-theme *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.umate-theme *::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+}
+
+.umate-theme *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.umate-theme .scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.umate-theme .scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.umate-theme ::selection {
+  background: rgba(0, 175, 240, 0.2);
+  color: white;
+}
+
+.umate-theme input[type="checkbox"] {
+  accent-color: #00aff0;
+}
+
+.umate-theme details summary::-webkit-details-marker {
+  display: none;
+}
+
+.umate-theme details summary::marker {
+  content: "";
+}
+
+/* ═══ U-Mate Content Protection ═══ */
+
+.umate-protected img,
+.umate-protected video {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+  pointer-events: none;
+}
+
+/* Re-enable pointer events on video controls */
+.umate-protected video::-webkit-media-controls {
+  pointer-events: auto;
+}
+
+/* Make watermark more visible in screenshots but invisible to the eye */
+@media print {
+  .umate-protected .umate-watermark-grid span {
+    color: rgba(255, 255, 255, 0.4) !important;
+  }
+}
+
+/* iOS Safari: prevent callout menu on long press */
+.umate-protected * {
+  -webkit-touch-callout: none;
+}
