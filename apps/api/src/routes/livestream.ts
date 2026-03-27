@@ -698,10 +698,11 @@ livestreamRouter.get("/live/:id/private-show", async (req, res) => {
   const userId = req.session?.userId;
   const show = await prisma.privateShow.findFirst({
     where: { streamId: req.params.id, isActive: true },
+    select: { id: true, isActive: true, streamId: true },
   });
 
   let joined = false;
-  if (userId) {
+  if (userId && show) {
     const participation = await prisma.privateShow.findFirst({
       where: { streamId: req.params.id, isActive: true, buyerId: userId },
       select: { id: true },
@@ -709,5 +710,5 @@ livestreamRouter.get("/live/:id/private-show", async (req, res) => {
     joined = Boolean(participation);
   }
 
-  res.json({ show: show || null, joined });
+  res.json({ active: Boolean(show), joined });
 });

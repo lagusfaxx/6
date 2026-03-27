@@ -4,7 +4,7 @@ export const env = {
   NODE_ENV: process.env.NODE_ENV ?? "development",
   PORT: parseInt(process.env.PORT ?? "3001", 10),
   DATABASE_URL: process.env.DATABASE_URL ?? "",
-  SESSION_SECRET: process.env.SESSION_SECRET ?? "dev-session-secret-change-me",
+  SESSION_SECRET: process.env.SESSION_SECRET ?? "",
   SESSION_COOKIE_NAME: process.env.SESSION_COOKIE_NAME ?? "uzeed_session",
   COOKIE_DOMAIN: process.env.COOKIE_DOMAIN ?? "",
   WEB_ORIGIN: process.env.WEB_ORIGIN ?? "http://localhost:3000",

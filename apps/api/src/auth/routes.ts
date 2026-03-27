@@ -1,11 +1,21 @@
 import { Router } from "express";
 import argon2 from "argon2";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { Prisma } from "@prisma/client";
 import { loginInputSchema, registerInputSchema } from "@uzeed/shared";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 import { emitAdminEvent } from "../lib/adminEvents";
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  message: { error: "TOO_MANY_ATTEMPTS", message: "Demasiados intentos. Intenta en 15 minutos." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+});
 
 export const authRouter = Router();
 
@@ -161,6 +171,7 @@ async function geocodeAddress(address: string) {
 
 authRouter.post(
   "/register",
+  authLimiter,
   asyncHandler(async (req, res) => {
     const payload = { ...req.body } as Record<string, any>;
     if (typeof payload.profileType === "string") {
@@ -355,6 +366,14 @@ authRouter.post(
       throw err;
     }
 
+    // Regenerate session to prevent session fixation
+    await new Promise<void>((resolve, reject) => {
+      req.session.regenerate((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
     req.session.userId = user.id;
     req.session.role = user.role;
 
@@ -391,6 +410,7 @@ authRouter.post(
 
 authRouter.post(
   "/login",
+  authLimiter,
   asyncHandler(async (req, res) => {
     const parsed = loginInputSchema.safeParse(req.body);
     if (!parsed.success)
@@ -405,6 +425,14 @@ authRouter.post(
 
     const ok = await argon2.verify(user.passwordHash, password);
     if (!ok) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+
+    // Regenerate session to prevent session fixation
+    await new Promise<void>((resolve, reject) => {
+      req.session.regenerate((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
 
     req.session.userId = user.id;
     req.session.role = user.role;

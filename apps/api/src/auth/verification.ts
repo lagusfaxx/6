@@ -30,7 +30,8 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 function generateCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  const { randomInt } = require("crypto");
+  return String(randomInt(100000, 999999));
 }
 
 function buildEmailHtml(code: string): string {
@@ -416,6 +417,16 @@ verificationRouter.post(
       where: { id: user.id },
       data: { passwordHash },
     });
+
+    // Invalidate all active sessions for this user
+    try {
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM "session" WHERE sess::text LIKE $1`,
+        `%"userId":"${user.id}"%`
+      );
+    } catch (err) {
+      console.error("[verification] failed to invalidate sessions", err);
+    }
 
     pendingResetCodes.delete(normalizedEmail);
     return res.json({ ok: true });

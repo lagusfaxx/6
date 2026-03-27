@@ -68,12 +68,28 @@ const nextConfig = {
         ],
       },
       {
-        // HTML pages — revalidate on navigation
+        // HTML pages — revalidate on navigation + security headers
         source: '/:path*',
         headers: [
           {
             key: 'Cache-Control',
             value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(self), microphone=(self), geolocation=(self)',
           },
         ],
       },
