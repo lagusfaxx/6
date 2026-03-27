@@ -71,7 +71,7 @@ adminTokensRouter.put("/admin/deposits/:id/approve", requireAdmin, async (req, r
     select: { email: true },
   });
   if (depositUser?.email) {
-    sendDepositApprovedEmail(depositUser.email, { tokens: deposit.amount, clpAmount: deposit.clpAmount }).catch(() => {});
+    sendDepositApprovedEmail(depositUser.email, { tokens: deposit.amount, clpAmount: deposit.clpAmount }).catch((err) => console.error("[admin] deposit approved email failed", err));
   }
 
   res.json({ ok: true });
@@ -140,7 +140,7 @@ adminTokensRouter.put("/admin/withdrawals/:id/approve", requireAdmin, async (req
     select: { email: true },
   });
   if (wrUser?.email) {
-    sendWithdrawalApprovedEmail(wrUser.email, { tokens: wr.amount, clpAmount: wr.clpAmount, bankName: wr.bankName }).catch(() => {});
+    sendWithdrawalApprovedEmail(wrUser.email, { tokens: wr.amount, clpAmount: wr.clpAmount, bankName: wr.bankName }).catch((err) => console.error("[admin] withdrawal approved email failed", err));
   }
 
   res.json({ ok: true });

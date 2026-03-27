@@ -7,15 +7,20 @@ export function smtpEnabled(): boolean {
 
 export async function sendExpiryEmail(to: string, expiresAt: Date) {
   if (!smtpEnabled()) return;
-  const transporter = nodemailer.createTransport({
-    host: config.smtp.host!,
-    port: config.smtp.port!,
-    secure: config.smtp.port === 465,
-    auth: { user: config.smtp.user!, pass: config.smtp.pass! }
-  });
+  try {
+    const transporter = nodemailer.createTransport({
+      host: config.smtp.host!,
+      port: config.smtp.port!,
+      secure: config.smtp.port === 465,
+      auth: { user: config.smtp.user!, pass: config.smtp.pass! },
+    });
 
-  const subject = "Tu membresía UZEED está por vencer";
-  const text = `Tu membresía vencerá el ${expiresAt.toLocaleString()}. Entra a ${config.appUrl} para renovarla.`;
+    const subject = "Tu membresía UZEED está por vencer";
+    const text = `Tu membresía vencerá el ${expiresAt.toLocaleString("es-CL")}. Entra a ${config.appUrl} para renovarla.`;
 
-  await transporter.sendMail({ from: config.smtp.from!, to, subject, text });
+    await transporter.sendMail({ from: config.smtp.from!, to, subject, text });
+    console.log(`[worker/email] expiry email sent to ${to}`);
+  } catch (err) {
+    console.error("[worker/email] expiry email failed", { to, err });
+  }
 }

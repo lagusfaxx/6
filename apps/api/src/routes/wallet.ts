@@ -141,7 +141,7 @@ walletRouter.post(
         tokens,
         clpAmount,
         date: new Date(),
-      }).catch(() => {});
+      }).catch((err) => console.error("[wallet] deposit confirmation email failed", err));
     }
 
     await emitAdminEvent({
@@ -358,7 +358,7 @@ walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
       clpAmount,
       bankName,
       date: new Date(),
-    }).catch(() => {});
+    }).catch((err) => console.error("[wallet] withdrawal confirmation email failed", err));
   }
 
   await emitAdminEvent({

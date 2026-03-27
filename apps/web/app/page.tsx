@@ -128,7 +128,7 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
               transition={{ duration: 0.4, ease: "easeOut" }}
               className="absolute inset-0"
             >
-              <img src={imageSrc} alt={activePromo.professional.name} className="h-full w-full object-cover" />
+              <img src={imageSrc} alt={activePromo.professional.name} className="h-full w-full object-cover" decoding="async" />
               <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/20" />
 
               {/* Content — horizontal layout */}
@@ -630,7 +630,8 @@ export default function HomePage() {
     };
 
     loadPromotions();
-    const id = window.setInterval(loadPromotions, 30_000);
+    // Poll every 5 minutes (not 30s) to reduce bandwidth usage
+    const id = window.setInterval(loadPromotions, 5 * 60_000);
 
     return () => {
       mounted = false;
@@ -777,7 +778,7 @@ export default function HomePage() {
     return () => { controller.abort(); };
   }, [location]);
 
-  // ── Fetch moteles & sexshops ──
+  // ── Fetch moteles, sexshops & lives (deferred — below the fold) ──
   useEffect(() => {
     const controller = new AbortController();
     const fetchDirectory = async (entityType: string, categorySlug: string) => {
@@ -794,15 +795,17 @@ export default function HomePage() {
       return res?.results ?? [];
     };
 
-    fetchDirectory("establishment", "motel").then(setMoteles).catch(() => {});
-    fetchDirectory("shop", "sexshop").then(setSexshops).catch(() => {});
+    // Defer 2s so above-the-fold images load first
+    const timer = setTimeout(() => {
+      if (controller.signal.aborted) return;
+      fetchDirectory("establishment", "motel").then(setMoteles).catch(() => {});
+      fetchDirectory("shop", "sexshop").then(setSexshops).catch(() => {});
+      apiFetch<{ streams: any[] }>("/live/active", { signal: controller.signal })
+        .then((r) => setLiveStreams(r?.streams ?? []))
+        .catch(() => {});
+    }, 2000);
 
-    // Fetch active live streams
-    apiFetch<{ streams: any[] }>("/live/active", { signal: controller.signal })
-      .then((r) => setLiveStreams(r?.streams ?? []))
-      .catch(() => {});
-
-    return () => { controller.abort(); };
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [location]);
 
   const horizontalBanners = useMemo(
@@ -842,6 +845,21 @@ export default function HomePage() {
     return recentPros.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD").slice(0, 12);
   }, [recentPros]);
   const FEATURED_PAGE_SIZE = 3;
+
+  // Preload first visible profile images for instant visual impact
+  useEffect(() => {
+    const first6 = availableCarouselProfiles.slice(0, 6);
+    for (const p of first6) {
+      const src = resolveProfileImage(p);
+      if (src && src !== "/brand/isotipo-new.png") {
+        const link = document.createElement("link");
+        link.rel = "preload";
+        link.as = "image";
+        link.href = src;
+        document.head.appendChild(link);
+      }
+    }
+  }, [availableCarouselProfiles]);
   const featuredPageCount = Math.max(1, Math.ceil(featuredCarouselProfiles.length / FEATURED_PAGE_SIZE));
   const [featuredPage, setFeaturedPage] = useState(0);
 
@@ -976,7 +994,7 @@ export default function HomePage() {
         {isVideo ? (
           <video src={mediaSrc} className="h-full w-full object-cover transition-transform duration-500 group-hover/ad:scale-105" autoPlay muted loop playsInline />
         ) : (
-          <img src={fallbackImage || mediaSrc} alt={profile?.name || "Banner publicitario"} className="h-full w-full object-cover transition-transform duration-500 group-hover/ad:scale-105" style={imgStyle} />
+          <img src={fallbackImage || mediaSrc} alt={profile?.name || "Banner publicitario"} className="h-full w-full object-cover transition-transform duration-500 group-hover/ad:scale-105" style={imgStyle} decoding="async" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         {/* Ad label */}
@@ -1191,7 +1209,7 @@ export default function HomePage() {
                     className="uzeed-available-ring group w-[140px] shrink-0 overflow-hidden rounded-2xl border border-emerald-500/15 bg-gradient-to-b from-white/[0.06] to-white/[0.02] text-left transition-all duration-400 hover:-translate-y-1.5 hover:border-emerald-400/30 hover:shadow-[0_16px_48px_rgba(16,185,129,0.12)]"
                   >
                     <div className="relative aspect-[3/4] overflow-hidden">
-                      <img src={resolveProfileImage(p)} alt={p.displayName} className="uzeed-card-img h-full w-full object-cover" />
+                      <img src={resolveProfileImage(p)} alt={p.displayName} className="uzeed-card-img h-full w-full object-cover" decoding="async" />
                       <div className="absolute left-2 top-2 uzeed-badge-pill uzeed-badge-online text-[9px] z-[2]">
                         <span className="uzeed-badge-dot" />
                         Disponible
@@ -1257,6 +1275,8 @@ export default function HomePage() {
                             src={resolveProfileImage(p)}
                             alt={p.name}
                             className="uzeed-card-img h-full w-full object-cover"
+                            loading="lazy"
+                            decoding="async"
                             onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
                           />
                         ) : (
@@ -1361,6 +1381,8 @@ export default function HomePage() {
                               src={resolveProfileImage(p)}
                               alt={p.name}
                               className="uzeed-card-img h-full w-full object-cover"
+                              loading="lazy"
+                              decoding="async"
                               onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
                             />
                           ) : (
@@ -1455,7 +1477,7 @@ export default function HomePage() {
                 <motion.article key={profile.id} variants={cardFade} className="uzeed-premium-card group">
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
                     <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
-                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" />
+                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
                       {profile.distanceKm != null && (
                         <div className="absolute right-2 top-2 z-[3] rounded-lg border border-white/[0.08] bg-black/40 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur-xl tabular-nums">
                           {profile.distanceKm.toFixed(1)} km
@@ -1521,7 +1543,7 @@ export default function HomePage() {
                 <motion.article key={profile.id} variants={cardFade} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto">
                   <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
                     <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
-                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" />
+                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
                       <UserLevelBadge level={profile.userLevel} className="absolute right-2 top-2 z-[3] px-2 py-0.5 text-[10px]" />
                       <div className="absolute left-2 top-2 z-[3] flex flex-col gap-1">
                         {hasExamsBadge(profile as any) && (
@@ -1576,7 +1598,7 @@ export default function HomePage() {
                 <Link key={`trend-${p.id}`} href={`/profesional/${p.id}`} className="group flex items-center gap-3.5 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5 transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/20 hover:bg-white/[0.05] hover:shadow-[0_12px_32px_rgba(168,85,247,0.08)]">
                   <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-white/[0.04] to-transparent">
                     {p.avatarUrl ? (
-                      <img src={resolveMediaUrl(p.avatarUrl) ?? undefined} alt={p.name} className="h-full w-full object-cover transition-transform duration-400 group-hover:scale-110" />
+                      <img src={resolveMediaUrl(p.avatarUrl) ?? undefined} alt={p.name} className="h-full w-full object-cover transition-transform duration-400 group-hover:scale-110" loading="lazy" decoding="async" />
                     ) : (
                       <div className="flex h-full items-center justify-center"><img src="/brand/isotipo-new.png" alt="" className="h-7 w-7 opacity-20" /></div>
                     )}
@@ -1618,7 +1640,7 @@ export default function HomePage() {
                 <Link key={s.id} href={`/live/${s.id}`} className="group relative flex-shrink-0 w-40">
                   <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-red-500/25 bg-gradient-to-br from-fuchsia-900/40 to-violet-900/40 shadow-[0_0_24px_rgba(239,68,68,0.1)] group-hover:shadow-[0_0_32px_rgba(239,68,68,0.2)] transition-shadow duration-300">
                     {s.host?.avatarUrl ? (
-                      <img src={resolveMediaUrl(s.host.avatarUrl) ?? undefined} alt="" className="h-full w-full object-cover opacity-80 group-hover:opacity-100 transition" />
+                      <img src={resolveMediaUrl(s.host.avatarUrl) ?? undefined} alt="" className="h-full w-full object-cover opacity-80 group-hover:opacity-100 transition" loading="lazy" decoding="async" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-white/20">
                         {(s.host?.displayName || "?")[0]}
@@ -1662,6 +1684,8 @@ export default function HomePage() {
                           src={resolveMediaUrl(item.coverUrl || item.avatarUrl) ?? undefined}
                           alt={item.displayName}
                           className="uzeed-card-img h-full w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
                         />
                       ) : (
@@ -1707,6 +1731,8 @@ export default function HomePage() {
                           src={resolveMediaUrl(item.coverUrl || item.avatarUrl) ?? undefined}
                           alt={item.displayName}
                           className="uzeed-card-img h-full w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
                         />
                       ) : (
