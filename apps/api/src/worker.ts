@@ -9,7 +9,11 @@ import {
 } from "./lib/notificationEmail";
 import { sendInAppAndPush } from "./lib/sendReminder";
 
-/* ─── Anti-spam: check if reminder was already sent ─── */
+/* ─── Mutex: prevent concurrent ticks ─── */
+
+let tickRunning = false;
+
+/* ─── Anti-spam: DB-backed deduplication ─── */
 
 async function wasReminderSent(userId: string, type: string): Promise<boolean> {
   const existing = await prisma.reminderLog.findUnique({
@@ -26,7 +30,35 @@ async function markReminderSent(userId: string, type: string): Promise<void> {
   });
 }
 
-/* ─── Membership expiry emails ─── */
+/* ─── Safe send: wraps email + push, always marks as sent ─── */
+
+async function safeSend(
+  userId: string,
+  reminderType: string,
+  label: string,
+  emailFn: () => Promise<void>,
+  pushOpts: { type: string; title: string; body: string; url: string },
+) {
+  // Double-check right before sending (DB is the source of truth)
+  if (await wasReminderSent(userId, reminderType)) return;
+
+  // Mark FIRST to prevent duplicates from concurrent/crashed ticks
+  await markReminderSent(userId, reminderType);
+
+  try {
+    await Promise.allSettled([
+      emailFn(),
+      sendInAppAndPush(userId, pushOpts),
+    ]);
+    console.log(`[worker] ${label} sent`);
+  } catch (err) {
+    console.error(`[worker] ${label} failed`, err);
+    // Already marked — won't retry. Better 0 emails than infinite retries.
+  }
+}
+
+/* ─── 1. Membership expiry (3 days before) ─── */
+/* Uses type key with month+year so renewals get a fresh reminder */
 
 async function tickMembershipExpiry() {
   if (!smtpEnabled()) return;
@@ -42,138 +74,130 @@ async function tickMembershipExpiry() {
       },
     },
     select: { id: true, email: true, membershipExpiresAt: true },
+    take: 200,
   });
 
   for (const u of soon) {
-    if (await wasReminderSent(u.id, "membership_expiry")) continue;
+    // Include expiry month in type key so renewals get a new reminder
+    const expiryKey = `membership_expiry_${u.membershipExpiresAt!.toISOString().slice(0, 7)}`;
+    if (await wasReminderSent(u.id, expiryKey)) continue;
 
-    console.log(`[worker] sending membership expiry email to ${u.email}`);
-    await sendExpiryEmail(u.email, u.membershipExpiresAt!);
-    await markReminderSent(u.id, "membership_expiry");
+    await markReminderSent(u.id, expiryKey);
+    try {
+      await sendExpiryEmail(u.email, u.membershipExpiresAt!);
+      console.log(`[worker] membership expiry sent to ${u.email}`);
+    } catch (err) {
+      console.error(`[worker] membership expiry failed for ${u.email}`, err);
+    }
   }
 }
 
-/* ─── Professionals registered 5+ hours ago without ANY photos ─── */
+/* ─── 2. No photos (5h–7 days after registration) ─── */
+/* Only nudge recent signups, not people from months ago */
 
 async function tickNoPhotoReminder() {
   const now = new Date();
   const fiveHoursAgo = new Date(now.getTime() - 5 * 60 * 60 * 1000);
-
-  // Only query professionals that haven't received this reminder yet
-  const alreadySent = await prisma.reminderLog.findMany({
-    where: { type: "no_photo" },
-    select: { userId: true },
-  });
-  const sentIds = new Set(alreadySent.map((r) => r.userId));
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   const professionals = await prisma.user.findMany({
     where: {
       profileType: "PROFESSIONAL",
       isActive: true,
-      createdAt: { lte: fiveHoursAgo },
-      id: { notIn: [...sentIds] },
+      createdAt: { gte: sevenDaysAgo, lte: fiveHoursAgo },
+      avatarUrl: null,
+      coverUrl: null,
     },
-    select: { id: true, email: true, displayName: true, avatarUrl: true, coverUrl: true },
+    select: { id: true, email: true, displayName: true },
+    take: 100,
   });
 
   for (const p of professionals) {
-    // Skip if they have avatar OR cover
-    if (p.avatarUrl || p.coverUrl) continue;
+    if (await wasReminderSent(p.id, "no_photo")) continue;
 
-    // Check gallery media
+    // Also check gallery media
     const mediaCount = await prisma.profileMedia.count({
       where: { ownerId: p.id, type: "IMAGE" },
     });
-    if (mediaCount > 0) continue;
-
-    console.log(`[worker] sending no-photo reminder to ${p.email}`);
-    try {
-      await Promise.all([
-        sendNoPhotoReminder(p.email, p.displayName),
-        sendInAppAndPush(p.id, {
-          type: "REMINDER_NO_PHOTO",
-          title: "¡Sube tu primera foto!",
-          body: "Los perfiles con fotos reciben hasta 10x más visitas. Sube tu primera foto ahora.",
-          url: "/dashboard/services",
-        }),
-      ]);
-    } catch (err) {
-      console.error(`[worker] no-photo reminder failed for ${p.email}`, err);
+    if (mediaCount > 0) {
+      // Has gallery photos — mark as sent so we never check again
+      await markReminderSent(p.id, "no_photo");
+      continue;
     }
-    // Mark sent even on partial failure to avoid retrying every hour
-    await markReminderSent(p.id, "no_photo");
+
+    await safeSend(
+      p.id,
+      "no_photo",
+      `no-photo reminder to ${p.email}`,
+      () => sendNoPhotoReminder(p.email, p.displayName),
+      {
+        type: "REMINDER_NO_PHOTO",
+        title: "¡Sube tu primera foto!",
+        body: "Los perfiles con fotos reciben hasta 10x más visitas. Sube tu primera foto ahora.",
+        url: "/dashboard/services",
+      },
+    );
   }
 }
 
-/* ─── Inactive profiles (48h+ without login) ─── */
+/* ─── 3. Inactive profiles (48h–30 days without login) ─── */
+/* Only nudge recent inactivity, not abandoned accounts */
 
 async function tickInactiveReminder() {
   const now = new Date();
   const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-
-  // Only query professionals that haven't received this reminder yet
-  const alreadySent = await prisma.reminderLog.findMany({
-    where: { type: "inactive_48h" },
-    select: { userId: true },
-  });
-  const sentIds = new Set(alreadySent.map((r) => r.userId));
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   const inactive = await prisma.user.findMany({
     where: {
       profileType: "PROFESSIONAL",
       isActive: true,
-      id: { notIn: [...sentIds] },
       OR: [
-        { lastSeen: { lt: fortyEightHoursAgo } },
-        { lastSeen: null, createdAt: { lt: fortyEightHoursAgo } },
+        { lastSeen: { gte: thirtyDaysAgo, lt: fortyEightHoursAgo } },
+        { lastSeen: null, createdAt: { gte: thirtyDaysAgo, lt: fortyEightHoursAgo } },
       ],
     },
     select: { id: true, email: true, displayName: true },
+    take: 100,
   });
 
   for (const p of inactive) {
-    console.log(`[worker] sending inactive reminder to ${p.email}`);
-    try {
-      await Promise.all([
-        sendInactiveProfileReminder(p.email, p.displayName),
-        sendInAppAndPush(p.id, {
-          type: "REMINDER_INACTIVE",
-          title: "Te extrañamos en UZEED",
-          body: "Hace más de 48h que no ingresas. Tus clientes te están buscando.",
-          url: "/",
-        }),
-      ]);
-    } catch (err) {
-      console.error(`[worker] inactive reminder failed for ${p.email}`, err);
-    }
-    await markReminderSent(p.id, "inactive_48h");
+    if (await wasReminderSent(p.id, "inactive_48h")) continue;
+
+    await safeSend(
+      p.id,
+      "inactive_48h",
+      `inactive reminder to ${p.email}`,
+      () => sendInactiveProfileReminder(p.email, p.displayName),
+      {
+        type: "REMINDER_INACTIVE",
+        title: "Te extrañamos en UZEED",
+        body: "Hace más de 48h que no ingresas. Tus clientes te están buscando.",
+        url: "/",
+      },
+    );
   }
 }
 
-/* ─── Videocall service added but NOT properly configured ─── */
+/* ─── 4. Videocall tag but not configured ─── */
 
 async function tickVideocallConfigReminder() {
-  // Only query professionals that haven't received this reminder yet
-  const alreadySent = await prisma.reminderLog.findMany({
-    where: { type: "videocall_config" },
-    select: { userId: true },
-  });
-  const sentIds = new Set(alreadySent.map((r) => r.userId));
-
   const professionals = await prisma.user.findMany({
     where: {
       profileType: "PROFESSIONAL",
       isActive: true,
-      id: { notIn: [...sentIds] },
       OR: [
         { serviceTags: { hasSome: ["videollamada", "videollamadas", "Videollamada", "Videollamadas"] } },
         { profileTags: { hasSome: ["videollamada", "videollamadas", "Videollamada", "Videollamadas"] } },
       ],
     },
     select: { id: true, email: true, displayName: true },
+    take: 100,
   });
 
   for (const p of professionals) {
+    if (await wasReminderSent(p.id, "videocall_config")) continue;
+
     const vcConfig = await prisma.videocallConfig.findUnique({
       where: { professionalId: p.id },
     });
@@ -185,49 +209,64 @@ async function tickVideocallConfigReminder() {
       Array.isArray(vcConfig.availableSlots) &&
       (vcConfig.availableSlots as unknown[]).length > 0;
 
-    if (isConfigured) continue;
-
-    console.log(`[worker] sending videocall config reminder to ${p.email}`);
-    try {
-      await Promise.all([
-        sendVideocallConfigReminder(p.email, p.displayName),
-        sendInAppAndPush(p.id, {
-          type: "REMINDER_VIDEOCALL_CONFIG",
-          title: "Configura tus videollamadas",
-          body: "Agregaste videollamadas pero no configuraste horarios ni precios.",
-          url: "/videocall",
-        }),
-      ]);
-    } catch (err) {
-      console.error(`[worker] videocall config reminder failed for ${p.email}`, err);
+    if (isConfigured) {
+      // Already configured — mark so we never check again
+      await markReminderSent(p.id, "videocall_config");
+      continue;
     }
-    await markReminderSent(p.id, "videocall_config");
+
+    await safeSend(
+      p.id,
+      "videocall_config",
+      `videocall config reminder to ${p.email}`,
+      () => sendVideocallConfigReminder(p.email, p.displayName),
+      {
+        type: "REMINDER_VIDEOCALL_CONFIG",
+        title: "Configura tus videollamadas",
+        body: "Agregaste videollamadas pero no configuraste horarios ni precios.",
+        url: "/videocall",
+      },
+    );
   }
 }
 
-/* ─── Main tick: runs all scheduled checks ─── */
+/* ─── Main tick: runs all checks independently ─── */
 
 async function tick() {
-  console.log("[worker] tick started at", new Date().toISOString());
-  try {
-    await tickMembershipExpiry();
-    await tickNoPhotoReminder();
-    await tickInactiveReminder();
-    await tickVideocallConfigReminder();
-    console.log("[worker] tick completed");
-  } catch (err) {
-    console.error("[worker] tick failed", err);
+  if (tickRunning) {
+    console.log("[worker] tick already running, skipping");
+    return;
   }
+  tickRunning = true;
+  console.log("[worker] tick started at", new Date().toISOString());
+
+  // Each task runs independently — one failure doesn't block others
+  const tasks = [
+    { name: "membershipExpiry", fn: tickMembershipExpiry },
+    { name: "noPhotoReminder", fn: tickNoPhotoReminder },
+    { name: "inactiveReminder", fn: tickInactiveReminder },
+    { name: "videocallConfig", fn: tickVideocallConfigReminder },
+  ];
+
+  for (const task of tasks) {
+    try {
+      await task.fn();
+    } catch (err) {
+      console.error(`[worker] ${task.name} failed`, err);
+    }
+  }
+
+  console.log("[worker] tick completed");
+  tickRunning = false;
 }
 
 /**
  * Start the worker cron jobs.
- * Can be called from the main API process or run standalone via `node dist/worker.js`.
+ * Can be called from the main API process or run standalone.
  */
 export function startWorker() {
   console.log("[worker] started");
 
-  // Run every hour to catch thresholds
   cron.schedule("0 * * * *", () => {
     tick().catch((e) => console.error("[worker] tick error", e));
   });
