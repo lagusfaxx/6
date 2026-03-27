@@ -357,7 +357,7 @@ export default function MotelDashboardPage() {
         {/* Cover image */}
         <div className="relative h-44 sm:h-52">
           {profileDraft.coverUrl ? (
-            <img src={resolveMediaUrl(profileDraft.coverUrl) || "/brand/splash.webp"} className="h-full w-full object-cover" alt="cover" />
+            <img src={resolveMediaUrl(profileDraft.coverUrl) || "/brand/splash.jpg"} className="h-full w-full object-cover" alt="cover" />
           ) : (
             <div className="h-full w-full bg-gradient-to-br from-fuchsia-600/20 via-violet-600/15 to-indigo-900/30">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(168,85,247,0.15),transparent_60%)]" />
@@ -582,10 +582,10 @@ export default function MotelDashboardPage() {
           <div className="overflow-hidden rounded-2xl border border-white/[0.08]">
             <div className="relative h-48 sm:h-56">
               <img
-                src={resolveMediaUrl(profileDraft.coverUrl) || "/brand/splash.webp"}
+                src={resolveMediaUrl(profileDraft.coverUrl) || "/brand/splash.jpg"}
                 className="h-full w-full object-cover"
                 alt="cover"
-                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/brand/splash.webp"; }}
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/brand/splash.jpg"; }}
               />
               <div className="absolute inset-0 bg-black/30" />
               <button

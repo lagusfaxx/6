@@ -4,27 +4,30 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "r
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
-import { apiFetch, cachedApiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
+import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import StatusBadgeIcon from "../components/StatusBadgeIcon";
 import HomeCreAccordion from "../components/HomeCreAccordion";
-import LazySection from "../components/home/LazySection";
 
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
-const HomeLiveStreams = dynamic(() => import("../components/home/HomeLiveStreams"), { ssr: false });
-const HomeMoteles = dynamic(() => import("../components/home/HomeMoteles"), { ssr: false });
-const HomeSexshops = dynamic(() => import("../components/home/HomeSexshops"), { ssr: false });
+import {
+  buildChatHref,
+  buildCurrentPathWithSearch,
+  buildLoginHref,
+} from "../lib/chat";
 import {
   ArrowRight,
   ChevronRight,
   Clock3,
   Crown,
   Download,
+  Flame,
   Hand,
+  Heart,
   Hotel,
   MapPin,
   Navigation,
@@ -404,7 +407,7 @@ function HeroCounters() {
   const [animate, setAnimate] = useState(false);
 
   useEffect(() => {
-    cachedApiFetch<{ professionals: number; services: number }>("/stats/platform", 300_000)
+    apiFetch<{ professionals: number; services: number }>("/stats/platform")
       .then((res) => setStats(res))
       .catch((err) => console.warn("[HeroCounters] failed to load platform stats", err));
   }, []);
@@ -469,7 +472,7 @@ function VideollamadasBanner() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    cachedApiFetch<{ videocallProfessionals: number }>("/stats/platform", 300_000)
+    apiFetch<{ videocallProfessionals: number }>("/stats/platform")
       .then((res) => {
         setCount(res.videocallProfessionals ?? 0);
         setLoaded(true);
@@ -592,7 +595,12 @@ export default function HomePage() {
   const dragScrollLeftRef = useRef(0);
   const isAuthed = Boolean(me?.user?.id);
 
-  /* ── Hoteles, Sexshop & Live Streams now lazy-loaded in their own components ── */
+  /* ── Hoteles & Sexshop ── */
+  const [moteles, setMoteles] = useState<any[]>([]);
+  const [sexshops, setSexshops] = useState<any[]>([]);
+
+  /* ── Live Streams ── */
+  const [liveStreams, setLiveStreams] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -769,6 +777,33 @@ export default function HomePage() {
     return () => { controller.abort(); };
   }, [location]);
 
+  // ── Fetch moteles & sexshops ──
+  useEffect(() => {
+    const controller = new AbortController();
+    const fetchDirectory = async (entityType: string, categorySlug: string) => {
+      const params = new URLSearchParams({ entityType, categorySlug, sort: "near", limit: "8" });
+      if (location) {
+        params.set("lat", String(location[0]));
+        params.set("lng", String(location[1]));
+        params.set("radiusKm", "100");
+      }
+      const res = await apiFetch<{ results: any[]; total: number }>(
+        `/directory/search?${params.toString()}`,
+        { signal: controller.signal },
+      );
+      return res?.results ?? [];
+    };
+
+    fetchDirectory("establishment", "motel").then(setMoteles).catch(() => {});
+    fetchDirectory("shop", "sexshop").then(setSexshops).catch(() => {});
+
+    // Fetch active live streams
+    apiFetch<{ streams: any[] }>("/live/active", { signal: controller.signal })
+      .then((r) => setLiveStreams(r?.streams ?? []))
+      .catch(() => {});
+
+    return () => { controller.abort(); };
+  }, [location]);
 
   const horizontalBanners = useMemo(
     () => banners.filter((b) => (b.position || "").toUpperCase() === "INLINE" || (b.position || "").toUpperCase() === "HORIZONTAL"),
@@ -1567,48 +1602,157 @@ export default function HomePage() {
           </motion.section>
         )}
 
-        {/* ═══ EN VIVO AHORA (lazy) ═══ */}
-        <LazySection minHeight={0}>
-          <HomeLiveStreams />
-        </LazySection>
-
-        {/* ═══ HOTELES / MOTELES (lazy) ═══ */}
-        <LazySection minHeight={200}>
-          <HomeMoteles />
-        </LazySection>
-
-        {/* ═══ SEXSHOP (lazy) ═══ */}
-        <LazySection minHeight={200}>
-          <HomeSexshops />
-        </LazySection>
-
-        {/* ═══ CTA — Registration (guests only, lazy) ═══ */}
-        {!isAuthed && (
-          <LazySection minHeight={180}>
-            <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/10 to-transparent" />
-            <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-fuchsia-500/10 bg-gradient-to-br from-fuchsia-600/[0.06] via-violet-600/[0.03] to-transparent p-8 text-center md:p-12 shadow-[0_0_80px_rgba(168,85,247,0.04)]">
-              <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/[0.08] blur-[100px]" />
-              <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[250px] w-[250px] rounded-full bg-violet-600/[0.06] blur-[80px]" />
-              <h2 className="text-xl font-extrabold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
-              <p className="mx-auto mt-3 max-w-md text-sm text-white/40 leading-relaxed">Crea tu cuenta gratis y descubre lo mejor cerca de ti.</p>
-              <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                <Link href="/register?type=CLIENT" className="uzeed-cta-btn uzeed-hero-cta group inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-7 py-3.5 text-sm font-bold shadow-[0_12px_40px_rgba(168,85,247,0.2)] sm:w-auto">
-                  Registro Cliente <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+        {/* ═══ EN VIVO AHORA ═══ */}
+        {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}
+        {liveStreams.length > 0 && (
+          <motion.section key={`live-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
+            <motion.div variants={cardFade} className="mb-4 flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+              </span>
+              <h2 className="text-xl font-bold">En Vivo Ahora</h2>
+            </motion.div>
+            <motion.div variants={cardFade} className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+              {liveStreams.map((s: any) => (
+                <Link key={s.id} href={`/live/${s.id}`} className="group relative flex-shrink-0 w-40">
+                  <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-red-500/25 bg-gradient-to-br from-fuchsia-900/40 to-violet-900/40 shadow-[0_0_24px_rgba(239,68,68,0.1)] group-hover:shadow-[0_0_32px_rgba(239,68,68,0.2)] transition-shadow duration-300">
+                    {s.host?.avatarUrl ? (
+                      <img src={resolveMediaUrl(s.host.avatarUrl) ?? undefined} alt="" className="h-full w-full object-cover opacity-80 group-hover:opacity-100 transition" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-white/20">
+                        {(s.host?.displayName || "?")[0]}
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                    <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-red-600/90 px-2 py-0.5 text-[10px] font-bold text-white">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> LIVE
+                    </div>
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <p className="text-xs font-semibold truncate">{s.host?.displayName || s.host?.username}</p>
+                      {s.title && <p className="text-[10px] text-white/50 truncate">{s.title}</p>}
+                      <p className="text-[10px] text-white/40 mt-0.5">{s.viewerCount} viendo</p>
+                    </div>
+                  </div>
                 </Link>
-                <Link href="/register?type=PROFESSIONAL" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/[0.06] px-7 py-3.5 text-sm font-bold text-fuchsia-200/80 transition-all duration-200 hover:bg-fuchsia-500/[0.12] hover:text-fuchsia-200 sm:w-auto">
-                  Registro Profesional
-                </Link>
-                <Link href="/register?type=ESTABLISHMENT" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-7 py-3.5 text-sm font-semibold text-white/60 transition-all duration-200 hover:bg-white/[0.08] hover:text-white/80 sm:w-auto">
-                  Registro Comercio
-                </Link>
-              </div>
-            </motion.section>
-          </LazySection>
+              ))}
+            </motion.div>
+          </motion.section>
         )}
 
-        <LazySection minHeight={100}>
-          <HomeCreAccordion />
-        </LazySection>
+        {/* ═══ HOTELES / MOTELES ═══ */}
+        {moteles.length > 0 && (
+          <motion.section key={`moteles-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
+            <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Hotel className="h-4 w-4 text-amber-400" />
+                <h2 className="text-xl font-bold tracking-tight">Hoteles y Moteles</h2>
+              </div>
+              <Link href="/moteles" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-amber-400 transition-colors duration-200">
+                Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+            </motion.div>
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
+              {moteles.map((item) => (
+                <motion.article key={item.id} variants={cardFade} className="uzeed-premium-card uzeed-tier-gold group w-[68vw] shrink-0 snap-start sm:w-auto">
+                  <Link href={`/hospedaje/${item.id}`} className="block">
+                    <div className="uzeed-card-shimmer relative aspect-[4/3] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
+                      {(item.coverUrl || item.avatarUrl) ? (
+                        <img
+                          src={resolveMediaUrl(item.coverUrl || item.avatarUrl) ?? undefined}
+                          alt={item.displayName}
+                          className="uzeed-card-img h-full w-full object-cover"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center"><Hotel className="h-10 w-10 text-white/[0.06]" /></div>
+                      )}
+                      {item.distance != null && (
+                        <div className="absolute right-2 top-2 z-[3] flex items-center gap-1 rounded-lg border border-white/[0.08] bg-black/40 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur-xl tabular-nums">
+                          <MapPin className="h-3 w-3 text-amber-400/60" /> {item.distance.toFixed(1)} km
+                        </div>
+                      )}
+                      <div className="uzeed-card-gradient-subtle absolute inset-0" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
+                        <h3 className="truncate text-sm font-bold">{item.displayName || item.username}</h3>
+                        {item.city && <p className="mt-0.5 text-[10px] text-white/40 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 text-amber-400/50" />{item.city}</p>}
+                      </div>
+                    </div>
+                  </Link>
+                </motion.article>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        {/* ═══ SEXSHOP ═══ */}
+        {sexshops.length > 0 && (
+          <motion.section key={`sexshop-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
+            <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <ShoppingBag className="h-4 w-4 text-pink-400" />
+                <h2 className="text-xl font-bold tracking-tight">Sex Shop</h2>
+              </div>
+              <Link href="/sexshop" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-pink-400 transition-colors duration-200">
+                Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+            </motion.div>
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
+              {sexshops.map((item) => (
+                <motion.article key={item.id} variants={cardFade} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto" style={{ borderColor: "rgba(236,72,153,0.1)" }}>
+                  <Link href={`/sexshop/${item.username || item.id}`} className="block">
+                    <div className="uzeed-card-shimmer relative aspect-[4/3] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
+                      {(item.coverUrl || item.avatarUrl) ? (
+                        <img
+                          src={resolveMediaUrl(item.coverUrl || item.avatarUrl) ?? undefined}
+                          alt={item.displayName}
+                          className="uzeed-card-img h-full w-full object-cover"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center"><ShoppingBag className="h-10 w-10 text-white/[0.06]" /></div>
+                      )}
+                      {item.distance != null && (
+                        <div className="absolute right-2 top-2 z-[3] flex items-center gap-1 rounded-lg border border-white/[0.08] bg-black/40 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur-xl tabular-nums">
+                          <MapPin className="h-3 w-3 text-pink-400/60" /> {item.distance.toFixed(1)} km
+                        </div>
+                      )}
+                      <div className="uzeed-card-gradient-subtle absolute inset-0" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
+                        <h3 className="truncate text-sm font-bold">{item.displayName || item.username}</h3>
+                        {item.city && <p className="mt-0.5 text-[10px] text-white/40 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 text-pink-400/50" />{item.city}</p>}
+                      </div>
+                    </div>
+                  </Link>
+                </motion.article>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        {/* ═══ CTA — Registration (guests only) ═══ */}
+        {!isAuthed && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/10 to-transparent" />}
+        {!isAuthed && (
+          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-fuchsia-500/10 bg-gradient-to-br from-fuchsia-600/[0.06] via-violet-600/[0.03] to-transparent p-8 text-center md:p-12 shadow-[0_0_80px_rgba(168,85,247,0.04)]">
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/[0.08] blur-[100px]" />
+            <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[250px] w-[250px] rounded-full bg-violet-600/[0.06] blur-[80px]" />
+            <h2 className="text-xl font-extrabold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
+            <p className="mx-auto mt-3 max-w-md text-sm text-white/40 leading-relaxed">Crea tu cuenta gratis y descubre lo mejor cerca de ti.</p>
+            <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <Link href="/register?type=CLIENT" className="uzeed-cta-btn uzeed-hero-cta group inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-7 py-3.5 text-sm font-bold shadow-[0_12px_40px_rgba(168,85,247,0.2)] sm:w-auto">
+                Registro Cliente <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+              <Link href="/register?type=PROFESSIONAL" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/[0.06] px-7 py-3.5 text-sm font-bold text-fuchsia-200/80 transition-all duration-200 hover:bg-fuchsia-500/[0.12] hover:text-fuchsia-200 sm:w-auto">
+                Registro Profesional
+              </Link>
+              <Link href="/register?type=ESTABLISHMENT" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-7 py-3.5 text-sm font-semibold text-white/60 transition-all duration-200 hover:bg-white/[0.08] hover:text-white/80 sm:w-auto">
+                Registro Comercio
+              </Link>
+            </div>
+          </motion.section>
+        )}
+
+        <HomeCreAccordion />
       </div>
 
       {/* Profile Preview Modal */}
