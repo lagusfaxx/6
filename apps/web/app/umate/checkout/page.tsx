@@ -46,8 +46,8 @@ function CheckoutContent() {
     <div className="mx-auto max-w-md px-4 py-16 text-center space-y-5">
       {status === "loading" && (
         <>
-          <Loader2 className="h-10 w-10 animate-spin text-white/20 mx-auto" />
-          <p className="text-sm text-white/30">Verificando pago...</p>
+          <Loader2 className="h-10 w-10 animate-spin text-white/45 mx-auto" />
+          <p className="text-sm text-white/40">Verificando pago...</p>
         </>
       )}
 
@@ -59,7 +59,7 @@ function CheckoutContent() {
             </div>
           </div>
           <h1 className="text-xl font-extrabold tracking-tight text-emerald-400">Plan activado</h1>
-          <p className="text-sm text-white/35">Tu suscripción U-Mate está activa. Ya puedes suscribirte a tus creadoras favoritas.</p>
+          <p className="text-sm text-white/45">Tu suscripción U-Mate está activa. Ya puedes suscribirte a tus creadoras favoritas.</p>
           <div className="flex flex-col gap-3 pt-2">
             <Link href="/umate/explore" className="rounded-full bg-[#00aff0] px-6 py-3 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_24px_rgba(0,175,240,0.35)]">
               Explorar creadoras
@@ -75,8 +75,8 @@ function CheckoutContent() {
         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-8 space-y-4">
           <Loader2 className="h-10 w-10 animate-spin text-amber-400 mx-auto" />
           <h1 className="text-xl font-extrabold text-amber-400">Pago pendiente</h1>
-          <p className="text-sm text-white/35">Tu pago está siendo procesado. Puede tardar unos minutos.</p>
-          <p className="text-[11px] text-white/15">Verificación automática: intento {retryCount + 1}/4</p>
+          <p className="text-sm text-white/45">Tu pago está siendo procesado. Puede tardar unos minutos.</p>
+          <p className="text-[11px] text-white/40">Verificación automática: intento {retryCount + 1}/4</p>
           <Link href="/umate/account" className="inline-block rounded-full border border-white/[0.08] px-6 py-2.5 text-sm text-white/40 transition hover:text-white/60">
             Volver a mi cuenta
           </Link>
@@ -87,7 +87,7 @@ function CheckoutContent() {
         <div className="rounded-2xl border border-red-500/20 bg-red-500/[0.04] p-8 space-y-4">
           <XCircle className="h-10 w-10 text-red-400 mx-auto" />
           <h1 className="text-xl font-extrabold text-red-400">Error verificando pago</h1>
-          <p className="text-sm text-white/35">No pudimos confirmar tu pago. Si ya pagaste, espera unos minutos e intenta verificar nuevamente.</p>
+          <p className="text-sm text-white/45">No pudimos confirmar tu pago. Si ya pagaste, espera unos minutos e intenta verificar nuevamente.</p>
           <div className="flex flex-col gap-3 pt-2">
             <button
               onClick={handleRetry}
@@ -107,7 +107,7 @@ function CheckoutContent() {
 
 export default function CheckoutPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-white/20" /></div>}>
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-white/45" /></div>}>
       <CheckoutContent />
     </Suspense>
   );

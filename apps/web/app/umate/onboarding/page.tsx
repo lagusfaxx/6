@@ -156,7 +156,7 @@ export default function OnboardingPage() {
     setSaving(false);
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-white/20" /></div>;
+  if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-white/45" /></div>;
 
   if (isSubscriber && !creator) {
     return (
@@ -165,7 +165,7 @@ export default function OnboardingPage() {
           <Shield className="h-8 w-8 text-amber-400" />
         </div>
         <h1 className="text-xl font-extrabold text-white">No disponible</h1>
-        <p className="text-sm text-white/35">
+        <p className="text-sm text-white/45">
           Los suscriptores activos no pueden crear una cuenta de creadora.
         </p>
         <Link href="/umate/account" className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-6 py-2.5 text-sm text-white/40 transition hover:text-white/60">
@@ -183,7 +183,7 @@ export default function OnboardingPage() {
           <img src="/brand/umate-logo-white.svg" alt="U-Mate" className="h-10 w-auto" />
         </div>
         <h1 className="text-2xl font-extrabold tracking-tight text-white">Bienvenida a U-Mate</h1>
-        <p className="text-sm text-white/35 leading-relaxed">
+        <p className="text-sm text-white/45 leading-relaxed">
           Publica contenido exclusivo, consigue suscriptores y monetiza tu perfil.
         </p>
         <div className="mx-auto max-w-xs space-y-3 text-left">
@@ -226,7 +226,7 @@ export default function OnboardingPage() {
           {isPending ? <Loader2 className="h-8 w-8 animate-spin text-amber-400" /> : <CheckCircle className="h-8 w-8 text-emerald-400" />}
         </div>
         <h1 className="text-2xl font-extrabold text-white">{isPending ? "En revisión" : "Cuenta activa"}</h1>
-        <p className="text-sm text-white/35">
+        <p className="text-sm text-white/45">
           {isPending
             ? "Tu cuenta está siendo revisada. Te notificaremos cuando esté aprobada."
             : "Tu cuenta de creadora está activa. Empieza a publicar contenido."}
@@ -249,7 +249,7 @@ export default function OnboardingPage() {
     { label: "Términos", icon: FileCheck },
   ];
 
-  const inputClass = "w-full rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:border-[#00aff0]/30 focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,175,240,0.05)] transition-all duration-200";
+  const inputClass = "w-full rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-2.5 text-sm text-white placeholder:text-white/45 focus:border-[#00aff0]/30 focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,175,240,0.05)] transition-all duration-200";
 
   return (
     <div className="mx-auto max-w-md px-4 py-8 space-y-6">
@@ -262,7 +262,7 @@ export default function OnboardingPage() {
                 ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/30"
                 : i + 1 === step + 1
                 ? "bg-white/[0.06] text-white border border-white/[0.15]"
-                : "bg-white/[0.02] text-white/15 border border-white/[0.06]"
+                : "bg-white/[0.02] text-white/40 border border-white/[0.06]"
             }`}>
               {i + 1 <= step ? <CheckCircle className="h-4 w-4" /> : i + 1}
             </div>
@@ -282,7 +282,7 @@ export default function OnboardingPage() {
         <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 space-y-5">
           <div>
             <h2 className="text-base font-bold tracking-tight text-white">Perfil de creadora</h2>
-            <p className="mt-1 text-xs text-white/30">Así te verán tus suscriptores</p>
+            <p className="mt-1 text-xs text-white/40">Así te verán tus suscriptores</p>
           </div>
 
           <div>
@@ -293,7 +293,7 @@ export default function OnboardingPage() {
               {creator.coverUrl ? (
                 <img src={resolveMediaUrl(creator.coverUrl) || ""} alt="" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-white/15">
+                <div className="flex flex-col items-center justify-center h-full text-white/40">
                   <Upload className="h-5 w-5 mb-1" />
                   <span className="text-[10px]">Foto de portada</span>
                 </div>
@@ -307,7 +307,7 @@ export default function OnboardingPage() {
               {creator.avatarUrl ? (
                 <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-white/20">
+                <div className="flex flex-col items-center justify-center h-full text-white/45">
                   <Camera className="h-6 w-6" />
                 </div>
               )}
@@ -316,11 +316,11 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-white/30 mb-1.5">Nombre artístico *</label>
+            <label className="block text-[11px] font-medium text-white/40 mb-1.5">Nombre artístico *</label>
             <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Tu nombre visible" className={inputClass} />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-white/30 mb-1.5">Bio *</label>
+            <label className="block text-[11px] font-medium text-white/40 mb-1.5">Bio *</label>
             <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Cuéntale a tus suscriptores sobre ti..." rows={3} className={`${inputClass} resize-none`} />
           </div>
           <button
@@ -338,7 +338,7 @@ export default function OnboardingPage() {
         <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 space-y-4">
           <div>
             <h2 className="text-base font-bold tracking-tight text-white">Datos bancarios</h2>
-            <p className="mt-1 text-xs text-white/30">Para recibir tus pagos</p>
+            <p className="mt-1 text-xs text-white/40">Para recibir tus pagos</p>
           </div>
           <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Nombre del banco" className={inputClass} />
           <select value={accountType} onChange={(e) => setAccountType(e.target.value)} className={inputClass}>
@@ -364,9 +364,9 @@ export default function OnboardingPage() {
         <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 space-y-5">
           <div>
             <h2 className="text-base font-bold tracking-tight text-white">Terminos y condiciones</h2>
-            <p className="mt-1 text-xs text-white/30">Lee y acepta para continuar</p>
+            <p className="mt-1 text-xs text-white/40">Lee y acepta para continuar</p>
           </div>
-          <div className="max-h-52 overflow-y-auto rounded-lg bg-white/[0.02] p-4 text-xs text-white/30 space-y-2.5 leading-relaxed border border-white/[0.04]">
+          <div className="max-h-52 overflow-y-auto rounded-lg bg-white/[0.02] p-4 text-xs text-white/40 space-y-2.5 leading-relaxed border border-white/[0.04]">
             <p><strong className="text-white/50">Contrato de creadora U-Mate</strong></p>
             <p>Al aceptar, confirmas que eres mayor de 18 años y tienes derecho legal a publicar el contenido que subas.</p>
             <p>Todo contenido publicado debe cumplir con las reglas de la plataforma y las leyes chilenas vigentes.</p>

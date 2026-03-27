@@ -53,7 +53,7 @@ export default function UmateHeader() {
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium tracking-wide transition-all duration-200 ${
                     active
                       ? "text-white"
-                      : "text-white/35 hover:text-white/70"
+                      : "text-white/45 hover:text-white/70"
                   }`}
                 >
                   <item.icon className="h-4 w-4" />
@@ -67,7 +67,7 @@ export default function UmateHeader() {
         {/* Center: Search */}
         <div className="hidden flex-1 justify-center md:flex">
           <form onSubmit={handleSearch} className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -130,7 +130,7 @@ export default function UmateHeader() {
 
           <Link
             href="/"
-            className="hidden items-center gap-1 rounded-full border border-white/[0.08] px-3 py-1.5 text-[11px] font-medium text-white/30 transition hover:border-white/20 hover:text-white/50 xl:flex"
+            className="hidden items-center gap-1 rounded-full border border-white/[0.08] px-3 py-1.5 text-[11px] font-medium text-white/40 transition hover:border-white/20 hover:text-white/50 xl:flex"
           >
             <ArrowLeft className="h-3 w-3" /> UZEED
           </Link>

@@ -86,7 +86,7 @@ export default function PlansPage() {
   if (loading)
     return (
       <div className="flex justify-center py-24">
-        <Loader2 className="h-6 w-6 animate-spin text-white/20" />
+        <Loader2 className="h-6 w-6 animate-spin text-white/45" />
       </div>
     );
 
@@ -98,7 +98,7 @@ export default function PlansPage() {
           <h1 className="text-3xl font-extrabold tracking-tight text-white md:text-4xl">
             Elige tu plan
           </h1>
-          <p className="mt-3 text-[15px] text-white/30">
+          <p className="mt-3 text-[15px] text-white/40">
             Cada plan incluye cupos mensuales para suscribirte a creadoras premium. Contenido exclusivo, sin límites.
           </p>
         </div>
@@ -139,14 +139,14 @@ export default function PlansPage() {
                   <Icon className="h-5 w-5" style={{ color: meta.color }} />
                 </div>
 
-                <p className="mt-4 text-[11px] font-bold uppercase tracking-wider text-white/30">{meta.subtitle}</p>
+                <p className="mt-4 text-[11px] font-bold uppercase tracking-wider text-white/40">{meta.subtitle}</p>
                 <h2 className="mt-1 text-xl font-extrabold text-white">{plan.name}</h2>
 
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-3xl font-extrabold text-white">${plan.priceCLP.toLocaleString("es-CL")}</span>
-                  <span className="text-sm text-white/25">/mes</span>
+                  <span className="text-sm text-white/40">/mes</span>
                 </div>
-                <p className="mt-1 text-xs text-white/25">{plan.maxSlots} cupo{plan.maxSlots > 1 ? "s" : ""} por ciclo mensual</p>
+                <p className="mt-1 text-xs text-white/40">{plan.maxSlots} cupo{plan.maxSlots > 1 ? "s" : ""} por ciclo mensual</p>
 
                 <ul className="mt-5 flex-1 space-y-2.5">
                   {meta.features.map((f) => (
@@ -182,7 +182,7 @@ export default function PlansPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/[0.04]">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white/25">Característica</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white/40">Característica</th>
                   {plans.map((p) => (
                     <th key={p.id} className="px-4 py-3 text-center text-xs font-bold text-white/50">{p.name}</th>
                   ))}
@@ -229,9 +229,9 @@ export default function PlansPage() {
               <details key={item.q} className="group rounded-2xl border border-white/[0.05] bg-white/[0.02] transition-colors duration-200 hover:border-white/[0.07]">
                 <summary className="flex cursor-pointer items-center justify-between px-5 py-4 text-sm font-medium text-white/60 transition-colors duration-200 hover:text-white/80">
                   {item.q}
-                  <ChevronRight className="h-4 w-4 text-white/15 transition-transform duration-200 group-open:rotate-90" />
+                  <ChevronRight className="h-4 w-4 text-white/40 transition-transform duration-200 group-open:rotate-90" />
                 </summary>
-                <p className="px-5 pb-4 text-sm text-white/35">{item.a}</p>
+                <p className="px-5 pb-4 text-sm text-white/45">{item.a}</p>
               </details>
             ))}
           </div>

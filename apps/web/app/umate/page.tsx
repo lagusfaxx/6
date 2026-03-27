@@ -108,7 +108,7 @@ export default function UmateLandingPage() {
                 Contenido exclusivo de creadoras que te{" "}
                 <span className="bg-gradient-to-r from-[#00aff0] via-[#00c4ff] to-cyan-400 bg-clip-text text-transparent">importan.</span>
               </h1>
-              <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-white/35 md:text-base">
+              <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-white/45 md:text-base">
                 Suscríbete a tus creadoras favoritas. Desbloquea contenido premium, conecta directamente y apoya su trabajo.
               </p>
 
@@ -136,7 +136,7 @@ export default function UmateLandingPage() {
                 ].map((s) => (
                   <div key={s.label}>
                     <p className="text-2xl font-extrabold tracking-tight text-white">{s.value}</p>
-                    <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-white/25">{s.label}</p>
+                    <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-white/40">{s.label}</p>
                   </div>
                 ))}
               </div>
@@ -187,7 +187,7 @@ export default function UmateLandingPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold tracking-tight text-white">Creadoras destacadas</h2>
-              <p className="mt-1.5 text-sm text-white/30">Perfiles activos con contenido exclusivo</p>
+              <p className="mt-1.5 text-sm text-white/40">Perfiles activos con contenido exclusivo</p>
             </div>
             <Link href="/umate/creators" className="flex items-center gap-1 text-sm font-medium text-[#00aff0] transition hover:text-[#00aff0]/80">
               Ver todas <ChevronRight className="h-4 w-4" />
@@ -223,9 +223,9 @@ export default function UmateLandingPage() {
                     )}
                   </div>
                   <h3 className="mt-2 text-sm font-bold text-white">{c.displayName}</h3>
-                  <p className="text-[11px] text-white/30">@{c.user.username}</p>
+                  <p className="text-[11px] text-white/40">@{c.user.username}</p>
                   <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-white/40">{c.bio || "Contenido exclusivo"}</p>
-                  <div className="mt-3 flex items-center gap-3 text-[11px] text-white/20">
+                  <div className="mt-3 flex items-center gap-3 text-[11px] text-white/45">
                     <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {c.subscriberCount}</span>
                     <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {c.totalLikes}</span>
                   </div>
@@ -242,7 +242,7 @@ export default function UmateLandingPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold tracking-tight text-white">Contenido reciente</h2>
-              <p className="mt-1.5 text-sm text-white/30">Lo ultimo de tus creadoras</p>
+              <p className="mt-1.5 text-sm text-white/40">Lo ultimo de tus creadoras</p>
             </div>
             <Link href="/umate/explore" className="flex items-center gap-1 text-sm font-medium text-[#00aff0] transition hover:text-[#00aff0]/80">
               Ver feed <ChevronRight className="h-4 w-4" />
@@ -300,7 +300,7 @@ export default function UmateLandingPage() {
       <section className="border-b border-white/[0.04] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <h2 className="text-center text-xl font-bold tracking-tight text-white">Como funciona</h2>
-          <p className="mt-2 text-center text-sm text-white/30">Tres pasos simples para empezar</p>
+          <p className="mt-2 text-center text-sm text-white/40">Tres pasos simples para empezar</p>
 
           <div className="mt-10 grid gap-5 md:grid-cols-3">
             {[
@@ -316,7 +316,7 @@ export default function UmateLandingPage() {
                   <span className="text-3xl font-extrabold text-white/[0.04]">{item.step}</span>
                 </div>
                 <h3 className="mt-5 text-base font-bold text-white">{item.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/30">{item.desc}</p>
+                <p className="mt-2 text-sm leading-relaxed text-white/40">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -327,7 +327,7 @@ export default function UmateLandingPage() {
       <section className="border-b border-white/[0.04] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <h2 className="text-center text-xl font-bold tracking-tight text-white">Planes de suscripcion</h2>
-          <p className="mt-2 text-center text-sm text-white/30">Elige el plan que se adapte a ti</p>
+          <p className="mt-2 text-center text-sm text-white/40">Elige el plan que se adapte a ti</p>
 
           <div className="mt-10 grid gap-5 md:grid-cols-3">
             {(plans.length > 0 ? plans : [
@@ -357,9 +357,9 @@ export default function UmateLandingPage() {
                   <h3 className="mt-4 text-lg font-bold text-white">{plan.name}</h3>
                   <p className="mt-2 text-3xl font-extrabold text-white">
                     ${plan.priceCLP.toLocaleString("es-CL")}
-                    <span className="text-sm font-medium text-white/30">/mes</span>
+                    <span className="text-sm font-medium text-white/40">/mes</span>
                   </p>
-                  <p className="mt-1 text-xs text-white/30">{plan.maxSlots} cupo{plan.maxSlots > 1 ? "s" : ""} por ciclo</p>
+                  <p className="mt-1 text-xs text-white/40">{plan.maxSlots} cupo{plan.maxSlots > 1 ? "s" : ""} por ciclo</p>
                   <Link
                     href="/umate/plans"
                     className={`mt-5 block rounded-full py-2.5 text-sm font-bold transition ${
@@ -405,7 +405,7 @@ export default function UmateLandingPage() {
                 Crear perfil de creadora
               </Link>
             </div>
-            <div className="mt-5 flex flex-wrap justify-center gap-4 text-[11px] text-white/25">
+            <div className="mt-5 flex flex-wrap justify-center gap-4 text-[11px] text-white/40">
               <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> Pagos seguros</span>
               <span className="flex items-center gap-1"><BadgeCheck className="h-3 w-3" /> Perfiles verificados</span>
               <span className="flex items-center gap-1"><Lock className="h-3 w-3" /> Contenido protegido</span>

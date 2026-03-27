@@ -56,8 +56,8 @@ export default function CreatorDashboardPage() {
     [stats],
   );
 
-  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/20" /></div>;
-  if (!stats) return <div className="py-24 text-center text-white/30">No eres creadora aún.</div>;
+  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/45" /></div>;
+  if (!stats) return <div className="py-24 text-center text-white/40">No eres creadora aún.</div>;
 
   const engagementRate = stats.totalPosts > 0 ? (stats.totalLikes / stats.totalPosts).toFixed(1) : "0";
   const growthRate = stats.subscriberCount > 0 ? ((stats.newSubsThisCycle / stats.subscriberCount) * 100).toFixed(1) : "0";
@@ -68,7 +68,7 @@ export default function CreatorDashboardPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-white">Dashboard</h1>
-          <p className="mt-1 text-sm text-white/30">Tu centro de control.</p>
+          <p className="mt-1 text-sm text-white/40">Tu centro de control.</p>
         </div>
         <div className="flex gap-2">
           <Link href="/umate/account/content" className="inline-flex items-center gap-1.5 rounded-full bg-[#00aff0] px-5 py-2 text-sm font-semibold text-white shadow-[0_2px_12px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_20px_rgba(0,175,240,0.35)]">
@@ -88,7 +88,7 @@ export default function CreatorDashboardPage() {
             <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-400/70">Disponible</p>
           </div>
           <p className="mt-2 text-2xl font-extrabold text-emerald-400">${stats.availableBalance.toLocaleString("es-CL")}</p>
-          <p className="mt-1 text-xs text-white/20">Listo para retirar</p>
+          <p className="mt-1 text-xs text-white/45">Listo para retirar</p>
         </div>
         <div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.04] p-5">
           <div className="flex items-center gap-2">
@@ -96,15 +96,15 @@ export default function CreatorDashboardPage() {
             <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400/70">Retenido</p>
           </div>
           <p className="mt-2 text-2xl font-extrabold text-amber-400">${stats.pendingBalance.toLocaleString("es-CL")}</p>
-          <p className="mt-1 text-xs text-white/20">En período de retención</p>
+          <p className="mt-1 text-xs text-white/45">En período de retención</p>
         </div>
         <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-white/40" />
-            <p className="text-[11px] font-bold uppercase tracking-wider text-white/25">Total histórico</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-white/40">Total histórico</p>
           </div>
           <p className="mt-2 text-2xl font-extrabold text-white">${stats.totalEarned.toLocaleString("es-CL")}</p>
-          <p className="mt-1 text-xs text-white/20">Acumulado</p>
+          <p className="mt-1 text-xs text-white/45">Acumulado</p>
         </div>
       </div>
 
@@ -119,7 +119,7 @@ export default function CreatorDashboardPage() {
           <div key={m.label} className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4">
             <m.icon className={`h-4 w-4 ${m.color}`} />
             <p className="mt-3 text-2xl font-extrabold text-white">{m.value}</p>
-            <p className="text-xs text-white/25">{m.label}</p>
+            <p className="text-xs text-white/40">{m.label}</p>
           </div>
         ))}
       </div>
@@ -129,7 +129,7 @@ export default function CreatorDashboardPage() {
         {/* Performance */}
         <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Rendimiento</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Rendimiento</h2>
             <Link href="/umate/account/stats" className="text-[11px] font-medium text-[#00aff0]">Ver analytics</Link>
           </div>
           <div className="mt-4 space-y-4">
@@ -154,7 +154,7 @@ export default function CreatorDashboardPage() {
         {/* Quick actions */}
         <div className="space-y-4">
           <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Acciones rápidas</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Acciones rápidas</h2>
             <div className="mt-3 space-y-1.5">
               {[
                 { href: "/umate/account/content", label: "Crear publicación", icon: Plus },
@@ -163,9 +163,9 @@ export default function CreatorDashboardPage() {
                 { href: "/umate/account/wallet", label: "Solicitar retiro", icon: Wallet },
               ].map((a) => (
                 <Link key={a.href} href={a.href} className="flex items-center gap-3 rounded-lg border border-white/[0.04] p-3 transition hover:bg-white/[0.04]">
-                  <a.icon className="h-4 w-4 text-white/30" />
+                  <a.icon className="h-4 w-4 text-white/40" />
                   <span className="flex-1 text-sm font-medium text-white/50">{a.label}</span>
-                  <ArrowUpRight className="h-3.5 w-3.5 text-white/15" />
+                  <ArrowUpRight className="h-3.5 w-3.5 text-white/40" />
                 </Link>
               ))}
             </div>

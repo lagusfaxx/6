@@ -81,7 +81,7 @@ const STATUS_COLORS: Record<string, string> = {
   PENDING_BANK: "bg-blue-500/15 text-blue-300",
 };
 
-const inputClass = "w-full rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-2.5 text-sm text-white placeholder:text-white/15 focus:border-[#00aff0]/25 focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,175,240,0.05)] transition-all duration-200";
+const inputClass = "w-full rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-[#00aff0]/25 focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,175,240,0.05)] transition-all duration-200";
 
 export default function UmateAdminPage() {
   const [tab, setTab] = useState<"dashboard" | "creators" | "plans" | "withdrawals" | "ledger" | "config">("dashboard");
@@ -218,7 +218,7 @@ export default function UmateAdminPage() {
     <div className="py-8 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-extrabold tracking-tight text-white">Admin U-Mate</h1>
-        <button onClick={loadTab} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] text-white/30 transition hover:bg-white/[0.04] hover:text-white/50">
+        <button onClick={loadTab} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] text-white/40 transition hover:bg-white/[0.04] hover:text-white/50">
           <RefreshCw className="h-3.5 w-3.5" /> Actualizar
         </button>
       </div>
@@ -230,7 +230,7 @@ export default function UmateAdminPage() {
             key={t.key}
             onClick={() => setTab(t.key as any)}
             className={`flex items-center gap-1.5 shrink-0 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all duration-200 ${
-              tab === t.key ? "border-[#00aff0] text-white" : "border-transparent text-white/25 hover:text-white/50"
+              tab === t.key ? "border-[#00aff0] text-white" : "border-transparent text-white/40 hover:text-white/50"
             }`}
           >
             <t.icon className="h-3.5 w-3.5" /> {t.label}
@@ -259,22 +259,22 @@ export default function UmateAdminPage() {
             ].map((m) => (
               <div key={m.label} className={`rounded-2xl border ${m.border} bg-white/[0.02] p-4`}>
                 <p className={`text-2xl font-extrabold ${m.color}`}>{m.value}</p>
-                <p className="text-[10px] text-white/30 mt-0.5">{m.label}</p>
+                <p className="text-[10px] text-white/40 mt-0.5">{m.label}</p>
               </div>
             ))}
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5 text-center">
               <p className="text-2xl font-extrabold text-emerald-300">${dashboard.totalRevenue.toLocaleString("es-CL")}</p>
-              <p className="text-[10px] text-white/30 mt-1">Ingresos totales</p>
+              <p className="text-[10px] text-white/40 mt-1">Ingresos totales</p>
             </div>
             <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5 text-center">
               <p className="text-2xl font-extrabold">{dashboard.totalPosts}</p>
-              <p className="text-[10px] text-white/30 mt-1">Posts totales</p>
+              <p className="text-[10px] text-white/40 mt-1">Posts totales</p>
             </div>
             <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5 text-center">
               <p className="text-2xl font-extrabold">{dashboard.totalCreators}</p>
-              <p className="text-[10px] text-white/30 mt-1">Creadoras registradas</p>
+              <p className="text-[10px] text-white/40 mt-1">Creadoras registradas</p>
             </div>
           </div>
           {/* Quick config overview */}
@@ -282,11 +282,11 @@ export default function UmateAdminPage() {
             <h2 className="text-sm font-bold mb-3">Configuración activa</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-white/30 text-xs">Payout por cupo</p>
+                <p className="text-white/40 text-xs">Payout por cupo</p>
                 <p className="font-bold">${dashboard.config.payoutPerSlot.toLocaleString("es-CL")} CLP</p>
               </div>
               <div>
-                <p className="text-white/30 text-xs">Comisión plataforma</p>
+                <p className="text-white/40 text-xs">Comisión plataforma</p>
                 <p className="font-bold">{dashboard.config.platformCommPct}%</p>
               </div>
             </div>
@@ -305,7 +305,7 @@ export default function UmateAdminPage() {
                 key={s}
                 onClick={() => setStatusFilter(s)}
                 className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
-                  statusFilter === s ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25" : "text-white/25 hover:text-white/50"
+                  statusFilter === s ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25" : "text-white/40 hover:text-white/50"
                 }`}
               >
                 {STATUS_LABELS[s] || "Todos"}
@@ -316,7 +316,7 @@ export default function UmateAdminPage() {
           {creators.length === 0 && (
             <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-12 text-center">
               <Users className="mx-auto mb-2 h-6 w-6 text-white/10" />
-              <p className="text-sm text-white/30">No hay creadoras con este filtro</p>
+              <p className="text-sm text-white/40">No hay creadoras con este filtro</p>
             </div>
           )}
 
@@ -327,7 +327,7 @@ export default function UmateAdminPage() {
                   {/* Avatar */}
                   <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/10">
                     {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" /> : (
-                      <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white/20">{(c.displayName || "?")[0]}</div>
+                      <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white/45">{(c.displayName || "?")[0]}</div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -337,7 +337,7 @@ export default function UmateAdminPage() {
                         {STATUS_LABELS[c.status] || c.status}
                       </span>
                     </div>
-                    <p className="text-[11px] text-white/30">@{c.user.username} · {c.user.email}</p>
+                    <p className="text-[11px] text-white/40">@{c.user.username} · {c.user.email}</p>
                   </div>
                   {/* Actions */}
                   <div className="flex items-center gap-1 shrink-0">
@@ -380,7 +380,7 @@ export default function UmateAdminPage() {
                   </div>
                 </div>
                 {/* Stats row */}
-                <div className="mt-3 flex items-center gap-4 text-[10px] text-white/25 border-t border-white/[0.04] pt-2.5">
+                <div className="mt-3 flex items-center gap-4 text-[10px] text-white/40 border-t border-white/[0.04] pt-2.5">
                   <span>{c.subscriberCount} suscriptores</span>
                   <span>{c.totalPosts} posts</span>
                   <span className="text-emerald-400/60">${c.totalEarned.toLocaleString("es-CL")} ganado</span>
@@ -406,15 +406,15 @@ export default function UmateAdminPage() {
                   <h3 className="text-xs font-bold text-white/50">Editando: {plan.tier}</h3>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-[10px] font-medium text-white/30 mb-1">Nombre</label>
+                      <label className="block text-[10px] font-medium text-white/40 mb-1">Nombre</label>
                       <input value={editName} onChange={(e) => setEditName(e.target.value)} className={inputClass} />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-medium text-white/30 mb-1">Precio CLP</label>
+                      <label className="block text-[10px] font-medium text-white/40 mb-1">Precio CLP</label>
                       <input type="number" value={editPrice} onChange={(e) => setEditPrice(parseInt(e.target.value) || 0)} className={inputClass} />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-medium text-white/30 mb-1">Cupos</label>
+                      <label className="block text-[10px] font-medium text-white/40 mb-1">Cupos</label>
                       <input type="number" value={editSlots} onChange={(e) => setEditSlots(parseInt(e.target.value) || 0)} className={inputClass} />
                     </div>
                   </div>
@@ -445,7 +445,7 @@ export default function UmateAdminPage() {
                         {plan.isActive ? "Activo" : "Inactivo"}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-white/35">
+                    <p className="mt-1 text-xs text-white/45">
                       ${plan.priceCLP.toLocaleString("es-CL")} /mes — {plan.maxSlots} {plan.maxSlots === 1 ? "cupo" : "cupos"}
                     </p>
                   </div>
@@ -457,7 +457,7 @@ export default function UmateAdminPage() {
                         setEditPrice(plan.priceCLP);
                         setEditSlots(plan.maxSlots);
                       }}
-                      className="flex items-center gap-1 rounded-lg bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/35 hover:text-white/60 transition"
+                      className="flex items-center gap-1 rounded-lg bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/45 hover:text-white/60 transition"
                     >
                       <Edit3 className="h-3 w-3" /> Editar
                     </button>
@@ -495,7 +495,7 @@ export default function UmateAdminPage() {
                 key={s}
                 onClick={() => setWdFilter(s)}
                 className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
-                  wdFilter === s ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25" : "text-white/25 hover:text-white/50"
+                  wdFilter === s ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25" : "text-white/40 hover:text-white/50"
                 }`}
               >
                 {s === "" ? "Todos" : s === "PENDING" ? "Pendientes" : s === "APPROVED" ? "Aprobados" : "Rechazados"}
@@ -506,7 +506,7 @@ export default function UmateAdminPage() {
           {withdrawals.length === 0 && (
             <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-12 text-center">
               <Wallet className="mx-auto mb-2 h-6 w-6 text-white/10" />
-              <p className="text-sm text-white/30">No hay retiros con este filtro</p>
+              <p className="text-sm text-white/40">No hay retiros con este filtro</p>
             </div>
           )}
 
@@ -525,11 +525,11 @@ export default function UmateAdminPage() {
                         {w.status === "APPROVED" ? "Aprobado" : w.status === "PENDING" ? "Pendiente" : "Rechazado"}
                       </span>
                     </div>
-                    <div className="mt-2 space-y-0.5 text-xs text-white/35">
-                      <p><span className="text-white/20">Banco:</span> {w.bankName} — Cta. {w.accountType}</p>
-                      <p><span className="text-white/20">Nro:</span> {w.accountNumber}</p>
-                      <p><span className="text-white/20">Titular:</span> {w.holderName} · RUT: {w.holderRut}</p>
-                      <p><span className="text-white/20">Fecha:</span> {new Date(w.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })}</p>
+                    <div className="mt-2 space-y-0.5 text-xs text-white/45">
+                      <p><span className="text-white/45">Banco:</span> {w.bankName} — Cta. {w.accountType}</p>
+                      <p><span className="text-white/45">Nro:</span> {w.accountNumber}</p>
+                      <p><span className="text-white/45">Titular:</span> {w.holderName} · RUT: {w.holderRut}</p>
+                      <p><span className="text-white/45">Fecha:</span> {new Date(w.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })}</p>
                     </div>
                   </div>
 
@@ -597,20 +597,20 @@ export default function UmateAdminPage() {
                   key={t}
                   onClick={() => setLedgerType(t)}
                   className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
-                    ledgerType === t ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25" : "text-white/25 hover:text-white/50"
+                    ledgerType === t ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25" : "text-white/40 hover:text-white/50"
                   }`}
                 >
                   {t === "" ? "Todos" : t === "PLAN_PURCHASE" ? "Compras" : t === "SLOT_ACTIVATION" ? "Activaciones" : "Retiros"}
                 </button>
               ))}
             </div>
-            <span className="text-[11px] text-white/20">{ledgerTotal} registros</span>
+            <span className="text-[11px] text-white/45">{ledgerTotal} registros</span>
           </div>
 
           {ledger.length === 0 && (
             <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-12 text-center">
               <DollarSign className="mx-auto mb-2 h-6 w-6 text-white/10" />
-              <p className="text-sm text-white/30">No hay movimientos</p>
+              <p className="text-sm text-white/40">No hay movimientos</p>
             </div>
           )}
 
@@ -618,7 +618,7 @@ export default function UmateAdminPage() {
           {ledger.length > 0 && (
             <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] overflow-hidden">
               {/* Header */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 border-b border-white/[0.06] px-5 py-3 text-[10px] font-bold text-white/25 uppercase tracking-wider">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 border-b border-white/[0.06] px-5 py-3 text-[10px] font-bold text-white/40 uppercase tracking-wider">
                 <span>Descripción</span>
                 <span className="text-right">Bruto</span>
                 <span className="text-right">Comisión</span>
@@ -630,14 +630,14 @@ export default function UmateAdminPage() {
                 <div key={entry.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 border-b border-white/[0.04] px-5 py-3 text-xs last:border-0">
                   <div className="min-w-0">
                     <p className="text-white/50 truncate">{entry.description || entry.type}</p>
-                    <p className="text-[10px] text-white/20 truncate">
+                    <p className="text-[10px] text-white/45 truncate">
                       {entry.creator?.displayName} (@{entry.creator?.user?.username})
                     </p>
                   </div>
                   <span className="text-right text-white/50 font-medium tabular-nums">${entry.grossAmount.toLocaleString("es-CL")}</span>
                   <span className="text-right text-red-300/50 tabular-nums">${(entry.platformFee || 0).toLocaleString("es-CL")}</span>
                   <span className="text-right text-emerald-300 font-medium tabular-nums">${entry.creatorPayout.toLocaleString("es-CL")}</span>
-                  <span className="text-right text-white/20 tabular-nums">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</span>
+                  <span className="text-right text-white/45 tabular-nums">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</span>
                 </div>
               ))}
             </div>
@@ -653,7 +653,7 @@ export default function UmateAdminPage() {
           <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 space-y-5">
             <div>
               <h2 className="text-base font-bold">Configuración económica</h2>
-              <p className="mt-1 text-xs text-white/30">Parámetros que afectan los pagos a creadoras</p>
+              <p className="mt-1 text-xs text-white/40">Parámetros que afectan los pagos a creadoras</p>
             </div>
 
             <div>
@@ -664,7 +664,7 @@ export default function UmateAdminPage() {
                 onChange={(e) => setPayoutPerSlot(parseInt(e.target.value) || 0)}
                 className={inputClass}
               />
-              <p className="mt-1 text-[10px] text-white/20">Monto que recibe la creadora por cada suscripción activa recibida</p>
+              <p className="mt-1 text-[10px] text-white/45">Monto que recibe la creadora por cada suscripción activa recibida</p>
             </div>
 
             <div>
@@ -677,24 +677,24 @@ export default function UmateAdminPage() {
                 onChange={(e) => setPlatformCommPct(Math.min(100, parseInt(e.target.value) || 0))}
                 className={inputClass}
               />
-              <p className="mt-1 text-[10px] text-white/20">Porcentaje que retiene la plataforma. 0% = sin comisión (promoción)</p>
+              <p className="mt-1 text-[10px] text-white/45">Porcentaje que retiene la plataforma. 0% = sin comisión (promoción)</p>
             </div>
 
             {/* Preview calculation */}
             <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] p-4">
-              <p className="text-[10px] font-bold text-white/30 mb-2">Vista previa por cada suscripción</p>
+              <p className="text-[10px] font-bold text-white/40 mb-2">Vista previa por cada suscripción</p>
               <div className="grid grid-cols-3 gap-3 text-center text-xs">
                 <div>
                   <p className="font-bold">${payoutPerSlot.toLocaleString("es-CL")}</p>
-                  <p className="text-[10px] text-white/20">Bruto</p>
+                  <p className="text-[10px] text-white/45">Bruto</p>
                 </div>
                 <div>
                   <p className="font-bold text-red-300/60">${Math.round(payoutPerSlot * platformCommPct / 100).toLocaleString("es-CL")}</p>
-                  <p className="text-[10px] text-white/20">Comisión</p>
+                  <p className="text-[10px] text-white/45">Comisión</p>
                 </div>
                 <div>
                   <p className="font-bold text-emerald-300">${(payoutPerSlot - Math.round(payoutPerSlot * platformCommPct / 100)).toLocaleString("es-CL")}</p>
-                  <p className="text-[10px] text-white/20">Creadora recibe</p>
+                  <p className="text-[10px] text-white/45">Creadora recibe</p>
                 </div>
               </div>
             </div>
@@ -716,7 +716,7 @@ export default function UmateAdminPage() {
               <AlertTriangle className="h-4 w-4 text-red-400/60" />
               <h3 className="text-sm font-bold text-red-300/80">Zona peligrosa</h3>
             </div>
-            <p className="text-xs text-white/30">Los cambios en la configuración afectan inmediatamente todos los nuevos pagos. Las transacciones existentes no se modifican retroactivamente.</p>
+            <p className="text-xs text-white/40">Los cambios en la configuración afectan inmediatamente todos los nuevos pagos. Las transacciones existentes no se modifican retroactivamente.</p>
           </div>
         </div>
       )}
