@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import compression from "compression";
 import cors, { type CorsOptions } from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -52,6 +53,9 @@ import { startWorker } from "./worker";
 const app = express();
 app.set("trust proxy", 1);
 
+// gzip compression — reduce response size ~10x for JSON
+app.use(compression());
+
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
@@ -84,7 +88,7 @@ app.options("*", cors(corsOptions));
 app.use(
   rateLimit({
     windowMs: 60 * 1000,
-    limit: 120,
+    limit: 600,
     standardHeaders: true,
     legacyHeaders: false
   })
@@ -110,7 +114,12 @@ app.use((req, res, next) => {
   express.urlencoded({ extended: true, limit: "2mb" })(req, res, next);
 });
 
-const pgPool = new pg.Pool({ connectionString: config.databaseUrl });
+const pgPool = new pg.Pool({
+  connectionString: config.databaseUrl,
+  max: 20,
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 5_000,
+});
 const PgStore = PgSession(session);
 
 app.use(
@@ -126,7 +135,13 @@ app.use(
       domain: config.cookieDomain,
       maxAge: 1000 * 60 * 60 * 24 * 30
     },
-    store: new PgStore({ pool: pgPool, tableName: "session", createTableIfMissing: true })
+    store: new PgStore({
+      pool: pgPool,
+      tableName: "session",
+      createTableIfMissing: true,
+      pruneSessionInterval: 900,   // limpiar sesiones expiradas cada 15 min
+      disableTouch: true,          // no actualizar sesión en cada request (reduce writes)
+    })
   })
 );
 

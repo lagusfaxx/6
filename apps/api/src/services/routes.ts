@@ -151,6 +151,7 @@ servicesRouter.get(
           : {}),
       },
       orderBy: { createdAt: "desc" },
+      take: 300,
       select: {
         id: true,
         displayName: true,

@@ -29,7 +29,17 @@ async function khipuFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers || {});
   headers.set("x-api-key", config.khipuApiKey);
   if (!headers.has("Content-Type") && init.body) headers.set("Content-Type", "application/json");
-  const res = await fetch(url, { ...init, headers });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  let res: globalThis.Response;
+  try {
+    res = await fetch(url, { ...init, headers, signal: controller.signal });
+  } catch (err: any) {
+    clearTimeout(timeout);
+    if (err?.name === "AbortError") throw new KhipuError(504, `Khipu timeout: ${path}`, null);
+    throw err;
+  }
+  clearTimeout(timeout);
   const text = await res.text();
   let data: any = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
@@ -146,16 +156,26 @@ async function flowFetch<T>(path: string, method: "GET" | "POST", params: Record
   console.log("[flow] request", { path, method, params: debugParams, formEncodedBody: new URLSearchParams(debugParams).toString() });
 
   let res: Response;
-  if (method === "GET") {
-    const qs = new URLSearchParams(signed).toString();
-    res = await fetch(`${baseUrl}${path}?${qs}`, { method: "GET" });
-  } else {
-    res = await fetch(`${baseUrl}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams(signed).toString()
-    });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    if (method === "GET") {
+      const qs = new URLSearchParams(signed).toString();
+      res = await fetch(`${baseUrl}${path}?${qs}`, { method: "GET", signal: controller.signal });
+    } else {
+      res = await fetch(`${baseUrl}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(signed).toString(),
+        signal: controller.signal,
+      });
+    }
+  } catch (err: any) {
+    clearTimeout(timeout);
+    if (err?.name === "AbortError") throw new FlowError(504, `Flow timeout: ${path}`, null);
+    throw err;
   }
+  clearTimeout(timeout);
 
   const text = await res.text();
   let data: any = null;

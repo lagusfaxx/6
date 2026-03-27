@@ -3,7 +3,12 @@ import type { Response } from "express";
 type Client = {
   res: Response;
   userId: string;
+  removed: boolean;
 };
+
+const MAX_CONNECTIONS_PER_USER = 3;
+const MAX_TOTAL_CONNECTIONS = 8000;
+let totalConnections = 0;
 
 const clientsByUser = new Map<string, Set<Client>>();
 
@@ -16,21 +21,35 @@ function getSet(userId: string) {
   return set;
 }
 
-export function registerSseClient(userId: string, res: Response) {
-  const client: Client = { userId, res };
+function removeClient(client: Client) {
+  if (client.removed) return; // prevent double-decrement
+  client.removed = true;
+  const set = clientsByUser.get(client.userId);
+  if (set) {
+    set.delete(client);
+    if (set.size === 0) clientsByUser.delete(client.userId);
+  }
+  totalConnections--;
+}
+
+export function registerSseClient(userId: string, res: Response): (() => void) | null {
+  if (totalConnections >= MAX_TOTAL_CONNECTIONS) return null;
   const set = getSet(userId);
+  if (set.size >= MAX_CONNECTIONS_PER_USER) {
+    // Close oldest connection for this user
+    const oldest = set.values().next().value;
+    if (oldest) {
+      removeClient(oldest);
+      try { oldest.res.end(); } catch {}
+    }
+  }
+  const client: Client = { userId, res, removed: false };
   set.add(client);
+  totalConnections++;
 
-  // Remove on close
-  res.on("close", () => {
-    set.delete(client);
-    if (set.size === 0) clientsByUser.delete(userId);
-  });
+  res.on("close", () => removeClient(client));
 
-  return () => {
-    set.delete(client);
-    if (set.size === 0) clientsByUser.delete(userId);
-  };
+  return () => removeClient(client);
 }
 
 function send(res: Response, event: string, data: any) {
