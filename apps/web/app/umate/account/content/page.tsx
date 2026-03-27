@@ -46,6 +46,7 @@ export default function ContentPage() {
   const [editVisibility, setEditVisibility] = useState<"FREE" | "PREMIUM">("FREE");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export default function ContentPage() {
   const handlePublish = async () => {
     if (!files.length) return;
     setUploading(true);
+    setPublishError("");
     try {
       const form = new FormData();
       files.forEach((file) => form.append("files", file));
@@ -85,7 +87,12 @@ export default function ContentPage() {
         setFiles([]);
         setCaption("");
         setShowEditor(false);
+      } else {
+        const json = await res.json().catch(() => null);
+        setPublishError(json?.message || "Error al publicar. Verifica los archivos e intenta de nuevo.");
       }
+    } catch {
+      setPublishError("Error de conexion. Intenta de nuevo.");
     } finally {
       setUploading(false);
     }
@@ -194,6 +201,9 @@ export default function ContentPage() {
             </div>
           )}
 
+          {publishError && (
+            <p className="mt-2 text-xs text-red-400">{publishError}</p>
+          )}
           <button
             onClick={handlePublish}
             disabled={uploading || !files.length}

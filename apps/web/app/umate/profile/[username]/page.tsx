@@ -194,7 +194,7 @@ export default function CreatorProfilePage() {
             {creator.avatarUrl ? (
               <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full items-center justify-center bg-white/[0.08] text-2xl font-bold text-white/50">{creator.displayName[0]}</div>
+              <div className="flex h-full items-center justify-center bg-white/[0.08] text-2xl font-bold text-white/50">{(creator.displayName || "?")[0]}</div>
             )}
           </div>
 

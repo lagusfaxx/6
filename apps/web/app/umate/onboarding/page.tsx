@@ -115,29 +115,44 @@ export default function OnboardingPage() {
 
   const saveProfile = async () => {
     setSaving(true);
-    await apiFetch("/umate/creator/profile", { method: "PUT", body: JSON.stringify({ displayName, bio }) });
-    setStep(2);
+    setError("");
+    try {
+      await apiFetch("/umate/creator/profile", { method: "PUT", body: JSON.stringify({ displayName, bio }) });
+      setStep(2);
+    } catch {
+      setError("Error al guardar el perfil. Intenta de nuevo.");
+    }
     setSaving(false);
   };
 
   const saveBank = async () => {
     setSaving(true);
-    await apiFetch("/umate/creator/bank", {
-      method: "PUT",
-      body: JSON.stringify({ bankName, accountType, accountNumber, holderName, holderRut }),
-    });
-    setStep(3);
+    setError("");
+    try {
+      await apiFetch("/umate/creator/bank", {
+        method: "PUT",
+        body: JSON.stringify({ bankName, accountType, accountNumber, holderName, holderRut }),
+      });
+      setStep(3);
+    } catch {
+      setError("Error al guardar datos bancarios. Intenta de nuevo.");
+    }
     setSaving(false);
   };
 
   const acceptAll = async () => {
     setSaving(true);
-    const d = await apiFetch<{ creator: Creator }>("/umate/creator/accept-terms", {
-      method: "POST",
-      body: JSON.stringify({ terms: true, rules: true, contract: true }),
-    });
-    if (d?.creator) setCreator(d.creator);
-    setStep(4);
+    setError("");
+    try {
+      const d = await apiFetch<{ creator: Creator }>("/umate/creator/accept-terms", {
+        method: "POST",
+        body: JSON.stringify({ terms: true, rules: true, contract: true }),
+      });
+      if (d?.creator) setCreator(d.creator);
+      setStep(4);
+    } catch {
+      setError("Error al aceptar los terminos. Intenta de nuevo.");
+    }
     setSaving(false);
   };
 
@@ -255,6 +270,12 @@ export default function OnboardingPage() {
           </div>
         ))}
       </div>
+
+      {error && (
+        <div className="rounded-xl bg-red-500/[0.06] border border-red-500/20 p-3 text-xs text-red-400">
+          {error}
+        </div>
+      )}
 
       {/* Step 1: Profile */}
       {step === 1 && (

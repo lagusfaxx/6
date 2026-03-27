@@ -327,7 +327,7 @@ export default function UmateAdminPage() {
                   {/* Avatar */}
                   <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/10">
                     {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="h-full w-full object-cover" /> : (
-                      <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white/20">{c.displayName[0]}</div>
+                      <div className="flex h-full w-full items-center justify-center text-xs font-bold text-white/20">{(c.displayName || "?")[0]}</div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">

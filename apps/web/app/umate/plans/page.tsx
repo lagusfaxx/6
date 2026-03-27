@@ -69,8 +69,15 @@ export default function PlansPage() {
     try {
       const res = await apiFetch<{ url?: string }>("/umate/subscribe", { method: "POST", body: JSON.stringify({ tier }) });
       if (res?.url) window.location.href = res.url;
-    } catch {
-      setSubError("No pudimos iniciar tu suscripción. Intenta nuevamente.");
+    } catch (err: any) {
+      if (err?.status === 400 && err?.body?.error === "ALREADY_SUBSCRIBED") {
+        setSubError("Ya tienes un plan activo. Ve a tu cuenta para administrarlo.");
+      } else if (err?.status === 401) {
+        router.push("/login?next=/umate/plans");
+        return;
+      } else {
+        setSubError(err?.body?.message || "No pudimos iniciar tu suscripcion. Intenta nuevamente.");
+      }
     } finally {
       setSubscribing(null);
     }

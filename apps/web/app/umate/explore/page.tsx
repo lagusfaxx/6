@@ -187,7 +187,7 @@ export default function ExplorePage() {
                         {item.creator.avatarUrl ? (
                           <img src={resolveMediaUrl(item.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{item.creator.displayName[0]}</div>
+                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{(item.creator.displayName || "?")[0]}</div>
                         )}
                       </div>
                       <div className="flex-1">
@@ -351,7 +351,7 @@ export default function ExplorePage() {
                         {c.avatarUrl ? (
                           <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{c.displayName[0]}</div>
+                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{(c.displayName || "?")[0]}</div>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">

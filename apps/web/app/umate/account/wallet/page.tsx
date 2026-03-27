@@ -54,7 +54,22 @@ export default function WalletPage() {
   const handleWithdraw = async () => {
     if (!stats?.availableBalance) return;
     setWithdrawing(true);
-    await apiFetch("/umate/creator/withdraw", { method: "POST" }).catch(() => {});
+    try {
+      const res = await apiFetch<{ withdrawn: number }>("/umate/creator/withdraw", { method: "POST" });
+      if (res?.withdrawn && stats) {
+        setStats({
+          ...stats,
+          availableBalance: Math.max(0, stats.availableBalance - res.withdrawn),
+          ledger: [
+            { id: `wd-${Date.now()}`, type: "WITHDRAWAL", creatorPayout: -res.withdrawn, createdAt: new Date().toISOString(), description: "Retiro solicitado" },
+            ...stats.ledger,
+          ],
+        });
+        // Reload withdrawals
+        const w = await apiFetch<{ withdrawals: Withdrawal[] }>("/umate/creator/withdrawals").catch(() => null);
+        if (w?.withdrawals) setWithdrawals(w.withdrawals);
+      }
+    } catch { /* silently fail - balance unchanged */ }
     setWithdrawing(false);
   };
 

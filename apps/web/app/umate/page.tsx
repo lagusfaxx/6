@@ -162,7 +162,7 @@ export default function UmateLandingPage() {
                     <div className="absolute bottom-3 left-3 right-3">
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 overflow-hidden rounded-full border-2 border-white/20 bg-white/10">
-                          {c.avatarUrl ? <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xs font-bold text-white">{c.displayName[0]}</div>}
+                          {c.avatarUrl ? <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xs font-bold text-white">{(c.displayName || "?")[0]}</div>}
                         </div>
                         <div>
                           <p className="flex items-center gap-1 text-sm font-bold text-white">
@@ -219,7 +219,7 @@ export default function UmateLandingPage() {
                     {c.avatarUrl ? (
                       <img src={c.avatarUrl} alt={c.displayName} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full items-center justify-center bg-white/[0.08] text-sm font-bold text-white/60">{c.displayName[0]}</div>
+                      <div className="flex h-full items-center justify-center bg-white/[0.08] text-sm font-bold text-white/60">{(c.displayName || "?")[0]}</div>
                     )}
                   </div>
                   <h3 className="mt-2 text-sm font-bold text-white">{c.displayName}</h3>

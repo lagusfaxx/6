@@ -130,7 +130,7 @@ export default function CreatorsPage() {
                     {c.avatarUrl ? (
                       <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full items-center justify-center bg-white/[0.08] text-sm font-bold text-white/50">{c.displayName[0]}</div>
+                      <div className="flex h-full items-center justify-center bg-white/[0.08] text-sm font-bold text-white/50">{(c.displayName || "?")[0]}</div>
                     )}
                   </div>
                   <h3 className="mt-2 truncate text-sm font-bold text-white">{c.displayName}</h3>
