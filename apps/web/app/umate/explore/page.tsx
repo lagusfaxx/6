@@ -19,6 +19,8 @@ import {
   X,
 } from "lucide-react";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import useMe from "../../../hooks/useMe";
+import ProtectedMedia from "../_components/ProtectedMedia";
 
 type FeedItem = {
   id: string;
@@ -49,6 +51,7 @@ type Creator = {
 };
 
 export default function ExplorePage() {
+  const { me } = useMe();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [suggestedCreators, setSuggestedCreators] = useState<Creator[]>([]);
   const [filter, setFilter] = useState("");
@@ -211,33 +214,38 @@ export default function ExplorePage() {
 
                     {/* Media */}
                     {item.media[0] && (
-                      <div className="relative">
-                        {item.media[0].url ? (
-                          <img
-                            src={resolveMediaUrl(item.media[0].url) || ""}
-                            alt=""
-                            className={`w-full object-cover ${item.isBlurred ? "scale-105 blur-2xl" : ""}`}
-                            style={{ maxHeight: 600 }}
-                          />
-                        ) : (
-                          <div className="aspect-[4/5] w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
-                        )}
-                        {item.isBlurred && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-                            <div className="rounded-full bg-white/10 p-4">
-                              <Lock className="h-8 w-8 text-white/70" />
+                      <ProtectedMedia
+                        enabled={!item.isBlurred && item.visibility === "PREMIUM"}
+                        viewerUsername={me?.user?.username}
+                      >
+                        <div className="relative">
+                          {item.media[0].url ? (
+                            <img
+                              src={resolveMediaUrl(item.media[0].url) || ""}
+                              alt=""
+                              className={`w-full object-cover ${item.isBlurred ? "scale-105 blur-2xl" : ""}`}
+                              style={{ maxHeight: 600 }}
+                            />
+                          ) : (
+                            <div className="aspect-[4/5] w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
+                          )}
+                          {item.isBlurred && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+                              <div className="rounded-full bg-white/10 p-4">
+                                <Lock className="h-8 w-8 text-white/70" />
+                              </div>
+                              <p className="mt-3 text-sm font-bold text-white">Contenido premium</p>
+                              <p className="mt-1 text-xs text-white/40">Suscribete para desbloquear</p>
+                              <Link
+                                href="/umate/plans"
+                                className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
+                              >
+                                Usar cupo de suscripcion
+                              </Link>
                             </div>
-                            <p className="mt-3 text-sm font-bold text-white">Contenido premium</p>
-                            <p className="mt-1 text-xs text-white/40">Suscríbete para desbloquear</p>
-                            <Link
-                              href="/umate/plans"
-                              className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
-                            >
-                              Usar cupo de suscripción
-                            </Link>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      </ProtectedMedia>
                     )}
 
                     {/* Actions */}

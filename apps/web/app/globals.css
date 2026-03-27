@@ -1258,3 +1258,33 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 .umate-theme details summary::marker {
   content: "";
 }
+
+/* ═══ U-Mate Content Protection ═══ */
+
+.umate-protected img,
+.umate-protected video {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+  pointer-events: none;
+}
+
+/* Re-enable pointer events on video controls */
+.umate-protected video::-webkit-media-controls {
+  pointer-events: auto;
+}
+
+/* Make watermark more visible in screenshots but invisible to the eye */
+@media print {
+  .umate-protected .umate-watermark-grid span {
+    color: rgba(255, 255, 255, 0.4) !important;
+  }
+}
+
+/* iOS Safari: prevent callout menu on long press */
+.umate-protected * {
+  -webkit-touch-callout: none;
+}

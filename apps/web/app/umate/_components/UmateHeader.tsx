@@ -36,7 +36,7 @@ export default function UmateHeader() {
         {/* Left: Logo */}
         <div className="flex items-center gap-3">
           <Link href="/umate" className="flex shrink-0 items-center gap-2">
-            <img src="/brand/Umate.png" alt="U-Mate" className="h-8 w-auto" />
+            <img src="/brand/umate-logo-white.svg" alt="U-Mate" className="h-7 w-auto" />
           </Link>
 
           {/* Desktop nav */}
