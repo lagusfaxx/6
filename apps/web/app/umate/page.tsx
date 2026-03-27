@@ -203,7 +203,7 @@ export default function UmateLandingPage() {
               >
                 <div className="relative aspect-[3/2] overflow-hidden bg-white/[0.03]">
                   {c.coverUrl ? (
-                    <img src={c.coverUrl} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                    <img src={resolveMediaUrl(c.coverUrl) || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                   ) : (
                     <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/10 to-purple-500/10" />
                   )}
@@ -215,9 +215,9 @@ export default function UmateLandingPage() {
                   )}
                 </div>
                 <div className="-mt-6 relative px-4 pb-4">
-                  <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-[#0a0a0f] bg-[#0a0a0f]">
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-[#0a0a0f] bg-[#0a0a0f]">
                     {c.avatarUrl ? (
-                      <img src={c.avatarUrl} alt={c.displayName} className="h-full w-full object-cover" />
+                      <img src={resolveMediaUrl(c.avatarUrl) || ""} alt={c.displayName} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full items-center justify-center bg-white/[0.08] text-sm font-bold text-white/60">{(c.displayName || "?")[0]}</div>
                     )}
@@ -257,14 +257,14 @@ export default function UmateLandingPage() {
               >
                 <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.03]">
                   {item.media[0]?.url ? (
-                    <img src={item.media[0].url} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                    <img src={resolveMediaUrl(item.media[0].url) || ""} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                   ) : (
-                    <div className="h-full w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
+                    <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/15 via-purple-600/10 to-pink-500/10" />
                   )}
                   {item.visibility === "PREMIUM" && (
                     <>
-                      <div className="absolute inset-0 backdrop-blur-xl" />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40">
+                      <div className="absolute inset-0 backdrop-blur-xl bg-black/20" />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                         <div className="rounded-full bg-white/10 p-3 backdrop-blur-sm">
                           <Lock className="h-6 w-6 text-white/80" />
                         </div>
@@ -283,8 +283,12 @@ export default function UmateLandingPage() {
                 </div>
                 <div className="p-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 overflow-hidden rounded-full bg-white/[0.08]">
-                      {item.creator.avatarUrl && <img src={item.creator.avatarUrl} alt="" className="h-full w-full object-cover" />}
+                    <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white/[0.08]">
+                      {item.creator.avatarUrl ? (
+                        <img src={resolveMediaUrl(item.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/40">{(item.creator.displayName || "?")[0]}</div>
+                      )}
                     </div>
                     <p className="truncate text-sm font-semibold text-white/90">{item.creator.displayName}</p>
                   </div>

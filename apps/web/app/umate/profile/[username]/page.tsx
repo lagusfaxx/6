@@ -305,30 +305,51 @@ export default function CreatorProfilePage() {
                   viewerUsername={me?.user?.username}
                 >
                   <div className="relative">
-                    {post.media[0].url ? (
-                      <img
-                        src={resolveMediaUrl(post.media[0].url) || ""}
-                        alt=""
-                        className={`w-full object-cover ${post.isBlurred ? "scale-105 blur-2xl" : ""}`}
-                        style={{ maxHeight: 600 }}
-                      />
+                    {post.isBlurred ? (
+                      <div className="relative aspect-[4/5] w-full overflow-hidden">
+                        {post.media[0].url ? (
+                          <img
+                            src={resolveMediaUrl(post.media[0].url) || ""}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover scale-110 blur-3xl brightness-50"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/20 via-purple-600/15 to-pink-500/10" />
+                        )}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+                          <div className="rounded-full bg-white/10 p-4 backdrop-blur-sm">
+                            <Lock className="h-8 w-8 text-white/70" />
+                          </div>
+                          <p className="mt-3 text-sm font-bold text-white">Contenido premium</p>
+                          <p className="mt-1 text-xs text-white/40">Suscríbete para desbloquear</p>
+                          <Link
+                            href="/umate/plans"
+                            className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
+                          >
+                            Incluido con tu plan U-Mate
+                          </Link>
+                        </div>
+                      </div>
+                    ) : post.media[0].url ? (
+                      post.media[0].type === "VIDEO" ? (
+                        <video
+                          src={resolveMediaUrl(post.media[0].url) || ""}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="w-full object-cover"
+                          style={{ maxHeight: 600 }}
+                        />
+                      ) : (
+                        <img
+                          src={resolveMediaUrl(post.media[0].url) || ""}
+                          alt=""
+                          className="w-full object-cover"
+                          style={{ maxHeight: 600 }}
+                        />
+                      )
                     ) : (
                       <div className="aspect-[4/5] w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
-                    )}
-                    {post.isBlurred && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-                        <div className="rounded-full bg-white/10 p-4">
-                          <Lock className="h-8 w-8 text-white/70" />
-                        </div>
-                        <p className="mt-3 text-sm font-bold text-white">Contenido premium</p>
-                        <p className="mt-1 text-xs text-white/40">Suscribete para desbloquear</p>
-                        <Link
-                          href="/umate/plans"
-                          className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
-                        >
-                          Incluido con tu plan U-Mate
-                        </Link>
-                      </div>
                     )}
                     {post.visibility === "PREMIUM" && !post.isBlurred && (
                       <span className="absolute right-3 top-3 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 backdrop-blur-sm">

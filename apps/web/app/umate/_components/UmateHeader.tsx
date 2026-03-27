@@ -93,7 +93,7 @@ export default function UmateHeader() {
           </button>
 
           <Link
-            href="/umate/explore"
+            href="/chats"
             className="relative flex h-9 w-9 items-center justify-center rounded-full text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
           >
             <MessageCircle className="h-5 w-5" />
