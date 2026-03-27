@@ -9,12 +9,14 @@ export const verificationRouter = Router();
 
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const RESEND_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
+const MAX_VERIFY_ATTEMPTS = 5; // Max wrong code attempts before invalidation
 
 interface PendingCode {
   code: string;
   expiresAt: number;
   lastSentAt: number;
   email: string;
+  attempts: number;
 }
 
 const pendingCodes = new Map<string, PendingCode>();
@@ -121,6 +123,7 @@ verificationRouter.post(
       expiresAt: Date.now() + CODE_TTL_MS,
       lastSentAt: Date.now(),
       email: normalizedEmail,
+      attempts: 0,
     });
 
     if (config.resendApiKey) {
@@ -171,6 +174,13 @@ verificationRouter.post(
     }
 
     if (entry.code !== String(code).trim()) {
+      entry.attempts++;
+      if (entry.attempts >= MAX_VERIFY_ATTEMPTS) {
+        pendingCodes.delete(normalizedEmail);
+        return res
+          .status(429)
+          .json({ error: "TOO_MANY_ATTEMPTS", message: "Demasiados intentos. Solicita un nuevo código." });
+      }
       return res
         .status(400)
         .json({ error: "CODE_INVALID", message: "El código ingresado no es correcto." });
@@ -284,6 +294,7 @@ verificationRouter.post(
       expiresAt: Date.now() + CODE_TTL_MS,
       lastSentAt: Date.now(),
       email: normalizedEmail,
+      attempts: 0,
     });
 
     if (config.resendApiKey) {
@@ -334,6 +345,13 @@ verificationRouter.post(
     }
 
     if (entry.code !== String(code).trim()) {
+      entry.attempts++;
+      if (entry.attempts >= MAX_VERIFY_ATTEMPTS) {
+        pendingResetCodes.delete(normalizedEmail);
+        return res
+          .status(429)
+          .json({ error: "TOO_MANY_ATTEMPTS", message: "Demasiados intentos. Solicita un nuevo código." });
+      }
       return res
         .status(400)
         .json({ error: "CODE_INVALID", message: "El código ingresado no es correcto." });
@@ -376,6 +394,13 @@ verificationRouter.post(
     }
 
     if (entry.code !== String(code).trim()) {
+      entry.attempts++;
+      if (entry.attempts >= MAX_VERIFY_ATTEMPTS) {
+        pendingResetCodes.delete(normalizedEmail);
+        return res
+          .status(429)
+          .json({ error: "TOO_MANY_ATTEMPTS", message: "Demasiados intentos. Solicita un nuevo código." });
+      }
       return res
         .status(400)
         .json({ error: "CODE_INVALID", message: "El código ingresado no es correcto." });
