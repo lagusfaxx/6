@@ -1,12 +1,14 @@
 import { Router } from "express";
 import multer from "multer";
 import path from "path";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { config } from "../config";
 import { requireAuth, requireAdmin } from "../auth/middleware";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { optimizeImage } from "../lib/imageOptimizer";
 import { validateUploadedFile } from "../lib/uploads";
+import { sendToUser } from "../realtime/sse";
 
 export const umateRouter = Router();
 
@@ -18,6 +20,31 @@ const storage = new LocalStorageProvider(
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 },
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// RATE LIMITERS
+// ══════════════════════════════════════════════════════════════════════
+
+const paymentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => (req as any).user?.id || req.ip,
+  message: { error: "RATE_LIMIT", message: "Demasiadas solicitudes de pago. Intenta en un minuto." },
+});
+
+const contentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => (req as any).user?.id || req.ip,
+  message: { error: "RATE_LIMIT", message: "Demasiadas acciones. Intenta en un minuto." },
+});
+
+const commentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => (req as any).user?.id || req.ip,
+  message: { error: "RATE_LIMIT", message: "Demasiados comentarios. Espera un momento." },
 });
 
 // ══════════════════════════════════════════════════════════════════════
@@ -85,6 +112,14 @@ umateRouter.get("/umate/feed", async (req, res) => {
     skip: offset,
   });
 
+  // Increment view counts (fire & forget)
+  if (posts.length > 0) {
+    prisma.umatePost.updateMany({
+      where: { id: { in: posts.map((p) => p.id) } },
+      data: { viewCount: { increment: 1 } },
+    }).catch(() => {});
+  }
+
   // Determine which creators the user is subscribed to
   let subscribedCreatorIds = new Set<string>();
   let likedPostIds = new Set<string>();
@@ -111,6 +146,7 @@ umateRouter.get("/umate/feed", async (req, res) => {
       visibility: post.visibility,
       likeCount: post.likeCount,
       viewCount: post.viewCount,
+      commentCount: (post as any).commentCount || 0,
       createdAt: post.createdAt,
       creator: post.creator,
       media: showContent
@@ -204,6 +240,14 @@ umateRouter.get("/umate/profile/:username", async (req, res) => {
     take: 50,
   });
 
+  // Increment view counts (fire & forget)
+  if (posts.length > 0) {
+    prisma.umatePost.updateMany({
+      where: { id: { in: posts.map((p) => p.id) } },
+      data: { viewCount: { increment: 1 } },
+    }).catch(() => {});
+  }
+
   let likedPostIds = new Set<string>();
   if (userId) {
     const likes = await prisma.umateLike.findMany({
@@ -217,6 +261,7 @@ umateRouter.get("/umate/profile/:username", async (req, res) => {
     const showContent = post.visibility === "FREE" || isSubscribed;
     return {
       ...post,
+      commentCount: (post as any).commentCount || 0,
       media: showContent
         ? post.media
         : post.media.map((m) => ({ ...m, url: null })),
@@ -275,7 +320,7 @@ umateRouter.post("/umate/posts/:postId/like", requireAuth, async (req, res) => {
 // AUTH — Subscribe to plan (checkout)
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.post("/umate/subscribe", requireAuth, async (req, res) => {
+umateRouter.post("/umate/subscribe", requireAuth, paymentLimiter, async (req, res) => {
   const userId = (req as any).user.id;
   const { tier } = req.body as { tier: string };
 
@@ -486,6 +531,17 @@ umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, async (req
       return { slotsUsed: freshSub.slotsUsed + 1, slotsTotal: freshSub.slotsTotal };
     });
 
+    // Notify creator of new subscriber
+    prisma.notification.create({
+      data: {
+        userId: creator.userId,
+        type: "UMATE_NEW_SUBSCRIBER",
+        data: { subscriberId: userId, creatorId },
+      },
+    }).then(() => {
+      sendToUser(creator.userId, "umate:new_subscriber", { creatorId });
+    }).catch(() => {});
+
     res.json({ subscribed: true, slotsUsed: result.slotsUsed, slotsTotal: result.slotsTotal });
   } catch (err: any) {
     if (err?.message === "NO_SLOTS") {
@@ -660,7 +716,7 @@ umateRouter.post("/umate/creator/cover", requireAuth, upload.single("file"), asy
 // AUTH — Creator content management
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.post("/umate/posts", requireAuth, upload.array("files", 10), async (req, res) => {
+umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("files", 10), async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator || creator.status !== "ACTIVE") {
@@ -700,6 +756,27 @@ umateRouter.post("/umate/posts", requireAuth, upload.array("files", 10), async (
     where: { id: creator.id },
     data: { totalPosts: { increment: 1 } },
   });
+
+  // Notify subscribers of new post (fire & forget)
+  prisma.umateCreatorSub.findMany({
+    where: { creatorId: creator.id, expiresAt: { gt: new Date() } },
+    select: { subscriberId: true },
+  }).then((subs) => {
+    for (const sub of subs) {
+      prisma.notification.create({
+        data: {
+          userId: sub.subscriberId,
+          type: "UMATE_NEW_POST",
+          data: { creatorId: creator.id, postId: post.id, creatorName: creator.displayName },
+        },
+      }).catch(() => {});
+      sendToUser(sub.subscriberId, "umate:new_post", {
+        creatorId: creator.id,
+        postId: post.id,
+        creatorName: creator.displayName,
+      });
+    }
+  }).catch(() => {});
 
   res.json({ post });
 });
@@ -779,7 +856,7 @@ umateRouter.get("/umate/creator/stats", requireAuth, async (req, res) => {
 // AUTH — Creator withdrawals
 // ══════════════════════════════════════════════════════════════════════
 
-umateRouter.post("/umate/creator/withdraw", requireAuth, async (req, res) => {
+umateRouter.post("/umate/creator/withdraw", requireAuth, paymentLimiter, async (req, res) => {
   const userId = (req as any).user.id;
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
@@ -840,6 +917,381 @@ umateRouter.get("/umate/creator/withdrawals", requireAuth, async (req, res) => {
   });
 
   res.json({ withdrawals });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// AUTH — Edit post
+// ══════════════════════════════════════════════════════════════════════
+
+umateRouter.put("/umate/posts/:postId", requireAuth, contentLimiter, async (req, res) => {
+  const userId = (req as any).user.id;
+  const creator = await prisma.umateCreator.findUnique({ where: { userId } });
+  if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
+
+  const post = await prisma.umatePost.findUnique({ where: { id: req.params.postId } });
+  if (!post || post.creatorId !== creator.id) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const { caption, visibility } = req.body;
+  const data: any = {};
+  if (caption !== undefined) data.caption = caption || null;
+  if (visibility && ["FREE", "PREMIUM"].includes(visibility)) data.visibility = visibility;
+
+  const updated = await prisma.umatePost.update({
+    where: { id: post.id },
+    data,
+    include: { media: { orderBy: { pos: "asc" } } },
+  });
+
+  res.json({ post: updated });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// AUTH — Cancel subscription (plan)
+// ══════════════════════════════════════════════════════════════════════
+
+umateRouter.post("/umate/subscription/cancel", requireAuth, async (req, res) => {
+  const userId = (req as any).user.id;
+  const sub = await getActiveSubscription(userId);
+  if (!sub) return res.status(400).json({ error: "NO_ACTIVE_SUBSCRIPTION" });
+
+  // Mark as cancelled — access remains until cycleEnd
+  await prisma.umateSubscription.update({
+    where: { id: sub.id },
+    data: { status: "CANCELLED" },
+  });
+
+  res.json({ cancelled: true, accessUntil: sub.cycleEnd });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// AUTH — Unsubscribe from a specific creator
+// ══════════════════════════════════════════════════════════════════════
+
+umateRouter.post("/umate/creators/:creatorId/unsubscribe", requireAuth, async (req, res) => {
+  const userId = (req as any).user.id;
+  const { creatorId } = req.params;
+
+  const creatorSub = await prisma.umateCreatorSub.findFirst({
+    where: { subscriberId: userId, creatorId, expiresAt: { gt: new Date() } },
+    include: { subscription: true },
+  });
+
+  if (!creatorSub) return res.status(400).json({ error: "NOT_SUBSCRIBED" });
+
+  await prisma.$transaction(async (tx) => {
+    // Delete the creator subscription
+    await tx.umateCreatorSub.delete({ where: { id: creatorSub.id } });
+
+    // Free up the slot
+    await tx.umateSubscription.update({
+      where: { id: creatorSub.subscriptionId },
+      data: { slotsUsed: { decrement: 1 } },
+    });
+
+    // Decrement creator subscriber count
+    const freshCreator = await tx.umateCreator.findUnique({ where: { id: creatorId }, select: { subscriberCount: true } });
+    if (freshCreator && freshCreator.subscriberCount > 0) {
+      await tx.umateCreator.update({
+        where: { id: creatorId },
+        data: { subscriberCount: { decrement: 1 } },
+      });
+    }
+  });
+
+  res.json({ unsubscribed: true });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// AUTH — Comments
+// ══════════════════════════════════════════════════════════════════════
+
+umateRouter.get("/umate/posts/:postId/comments", async (req, res) => {
+  const { postId } = req.params;
+  const limit = Math.min(parseInt(String(req.query.limit || "30"), 10) || 30, 100);
+  const offset = parseInt(String(req.query.offset || "0"), 10) || 0;
+
+  const post = await prisma.umatePost.findUnique({ where: { id: postId } });
+  if (!post) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const [comments, total] = await Promise.all([
+    prisma.umateComment.findMany({
+      where: { postId },
+      include: {
+        user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      skip: offset,
+    }),
+    prisma.umateComment.count({ where: { postId } }),
+  ]);
+
+  res.json({ comments, total });
+});
+
+umateRouter.post("/umate/posts/:postId/comments", requireAuth, commentLimiter, async (req, res) => {
+  const userId = (req as any).user.id;
+  const { postId } = req.params;
+  const { text } = req.body;
+
+  if (!text || typeof text !== "string" || text.trim().length === 0) {
+    return res.status(400).json({ error: "TEXT_REQUIRED" });
+  }
+  if (text.length > 1000) {
+    return res.status(400).json({ error: "TEXT_TOO_LONG", message: "Máximo 1000 caracteres." });
+  }
+
+  const post = await prisma.umatePost.findUnique({
+    where: { id: postId },
+    include: { creator: { select: { id: true, userId: true, displayName: true } } },
+  });
+  if (!post) return res.status(404).json({ error: "NOT_FOUND" });
+
+  // Check access: premium posts require subscription
+  if (post.visibility === "PREMIUM") {
+    const isCreatorOwner = post.creator.userId === userId;
+    if (!isCreatorOwner) {
+      const subscribed = await isSubscribedToCreator(userId, post.creatorId);
+      if (!subscribed) return res.status(403).json({ error: "PREMIUM_ONLY" });
+    }
+  }
+
+  const comment = await prisma.umateComment.create({
+    data: { postId, userId, text: text.trim() },
+    include: {
+      user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+    },
+  });
+
+  await prisma.umatePost.update({
+    where: { id: postId },
+    data: { commentCount: { increment: 1 } },
+  });
+
+  // Notify creator of new comment (fire & forget)
+  if (post.creator.userId !== userId) {
+    prisma.notification.create({
+      data: {
+        userId: post.creator.userId,
+        type: "UMATE_NEW_COMMENT",
+        data: { postId, commentId: comment.id, userId, creatorId: post.creatorId },
+      },
+    }).then(() => {
+      sendToUser(post.creator.userId, "umate:new_comment", { postId, commentId: comment.id });
+    }).catch(() => {});
+  }
+
+  res.json({ comment });
+});
+
+umateRouter.delete("/umate/comments/:commentId", requireAuth, async (req, res) => {
+  const userId = (req as any).user.id;
+  const comment = await prisma.umateComment.findUnique({
+    where: { id: req.params.commentId },
+    include: { post: { select: { creatorId: true } } },
+  });
+  if (!comment) return res.status(404).json({ error: "NOT_FOUND" });
+
+  // Allow comment author or post creator to delete
+  const creator = await prisma.umateCreator.findUnique({ where: { userId } });
+  const isCommentAuthor = comment.userId === userId;
+  const isPostCreator = creator && comment.post.creatorId === creator.id;
+
+  if (!isCommentAuthor && !isPostCreator) {
+    return res.status(403).json({ error: "FORBIDDEN" });
+  }
+
+  await prisma.umateComment.delete({ where: { id: comment.id } });
+
+  // Decrement comment count
+  const freshPost = await prisma.umatePost.findUnique({ where: { id: comment.postId }, select: { commentCount: true } });
+  if (freshPost && freshPost.commentCount > 0) {
+    await prisma.umatePost.update({
+      where: { id: comment.postId },
+      data: { commentCount: { decrement: 1 } },
+    });
+  }
+
+  res.json({ deleted: true });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// PUBLIC — Trending / Recommended feed
+// ══════════════════════════════════════════════════════════════════════
+
+umateRouter.get("/umate/trending", async (req, res) => {
+  const limit = Math.min(parseInt(String(req.query.limit || "20"), 10) || 20, 50);
+
+  // Trending = posts from last 7 days with highest engagement (likes + views + comments)
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const posts = await prisma.umatePost.findMany({
+    where: {
+      createdAt: { gte: weekAgo },
+      creator: { status: "ACTIVE" },
+      visibility: "FREE", // Only show free content in trending
+    },
+    include: {
+      creator: { select: { id: true, userId: true, displayName: true, avatarUrl: true, subscriberCount: true, user: { select: { username: true } } } },
+      media: { orderBy: { pos: "asc" } },
+    },
+    orderBy: [{ likeCount: "desc" }, { viewCount: "desc" }, { commentCount: "desc" }],
+    take: limit,
+  });
+
+  const items = posts.map((post) => ({
+    id: post.id,
+    caption: post.caption,
+    visibility: post.visibility,
+    likeCount: post.likeCount,
+    viewCount: post.viewCount,
+    commentCount: post.commentCount,
+    createdAt: post.createdAt,
+    creator: post.creator,
+    media: post.media,
+    isBlurred: false,
+    isLiked: false,
+  }));
+
+  res.json({ items });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// PUBLIC — Suggested creators (for sidebar)
+// ══════════════════════════════════════════════════════════════════════
+
+umateRouter.get("/umate/suggested", async (req, res) => {
+  const userId = (req as any).user?.id;
+  const limit = Math.min(parseInt(String(req.query.limit || "5"), 10) || 5, 20);
+
+  // Get creators the user is NOT subscribed to
+  let excludeCreatorIds: string[] = [];
+  if (userId) {
+    const subs = await prisma.umateCreatorSub.findMany({
+      where: { subscriberId: userId, expiresAt: { gt: new Date() } },
+      select: { creatorId: true },
+    });
+    excludeCreatorIds = subs.map((s) => s.creatorId);
+  }
+
+  const creators = await prisma.umateCreator.findMany({
+    where: {
+      status: "ACTIVE",
+      ...(excludeCreatorIds.length > 0 ? { id: { notIn: excludeCreatorIds } } : {}),
+    },
+    select: {
+      id: true,
+      displayName: true,
+      avatarUrl: true,
+      coverUrl: true,
+      subscriberCount: true,
+      totalPosts: true,
+      totalLikes: true,
+      bio: true,
+      user: { select: { username: true, isVerified: true } },
+    },
+    orderBy: [{ subscriberCount: "desc" }, { totalLikes: "desc" }],
+    take: limit,
+  });
+
+  res.json({ creators });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// AUTH — Payment verification (used by checkout page)
+// ══════════════════════════════════════════════════════════════════════
+
+umateRouter.get("/umate/payment/status", requireAuth, async (req, res) => {
+  const ref = req.query.ref as string;
+  if (!ref) return res.status(400).json({ error: "MISSING_REF" });
+
+  const intent = await prisma.paymentIntent.findUnique({ where: { id: ref } });
+  if (!intent) return res.status(404).json({ error: "NOT_FOUND" });
+
+  // Only the payer can check their own payment
+  if (intent.subscriberId !== (req as any).user.id) {
+    return res.status(403).json({ error: "FORBIDDEN" });
+  }
+
+  const statusMap: Record<string, string> = {
+    PAID: "paid",
+    PENDING: "pending",
+    FAILED: "error",
+    EXPIRED: "error",
+  };
+
+  res.json({
+    status: statusMap[intent.status] || "pending",
+    intentId: intent.id,
+    purpose: intent.purpose,
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// AUTH — Creator detailed post analytics
+// ══════════════════════════════════════════════════════════════════════
+
+umateRouter.get("/umate/creator/analytics", requireAuth, async (req, res) => {
+  const userId = (req as any).user.id;
+  const creator = await prisma.umateCreator.findUnique({ where: { userId } });
+  if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
+
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const [
+    totalViews,
+    recentSubs,
+    weekSubs,
+    topPosts,
+    postsByVisibility,
+    recentEarnings,
+  ] = await Promise.all([
+    prisma.umatePost.aggregate({
+      _sum: { viewCount: true, likeCount: true, commentCount: true },
+      where: { creatorId: creator.id },
+    }),
+    prisma.umateCreatorSub.count({
+      where: { creatorId: creator.id, activatedAt: { gte: thirtyDaysAgo } },
+    }),
+    prisma.umateCreatorSub.count({
+      where: { creatorId: creator.id, activatedAt: { gte: sevenDaysAgo } },
+    }),
+    prisma.umatePost.findMany({
+      where: { creatorId: creator.id },
+      select: { id: true, caption: true, visibility: true, likeCount: true, viewCount: true, commentCount: true, createdAt: true },
+      orderBy: { likeCount: "desc" },
+      take: 5,
+    }),
+    prisma.umatePost.groupBy({
+      by: ["visibility"],
+      _count: { id: true },
+      where: { creatorId: creator.id },
+    }),
+    prisma.umateLedgerEntry.aggregate({
+      _sum: { creatorPayout: true },
+      where: { creatorId: creator.id, createdAt: { gte: thirtyDaysAgo }, type: "SLOT_ACTIVATION" },
+    }),
+  ]);
+
+  const freeCount = postsByVisibility.find((p) => p.visibility === "FREE")?._count.id || 0;
+  const premiumCount = postsByVisibility.find((p) => p.visibility === "PREMIUM")?._count.id || 0;
+
+  res.json({
+    totalViews: totalViews._sum.viewCount || 0,
+    totalLikes: totalViews._sum.likeCount || 0,
+    totalComments: totalViews._sum.commentCount || 0,
+    newSubs30d: recentSubs,
+    newSubs7d: weekSubs,
+    earnings30d: recentEarnings._sum.creatorPayout || 0,
+    topPosts,
+    postBreakdown: { free: freeCount, premium: premiumCount },
+    subscriberCount: creator.subscriberCount,
+    pendingBalance: creator.pendingBalance,
+    availableBalance: creator.availableBalance,
+    totalEarned: creator.totalEarned,
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════════

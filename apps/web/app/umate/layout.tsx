@@ -15,9 +15,9 @@ export const metadata: Metadata = {
 
 export default function UmateLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="umate-theme min-h-screen bg-[#fffaf8] text-slate-900">
+    <div className="umate-theme min-h-screen bg-[#0a0a0f] text-white">
       <UmateHeader />
-      <main className="pb-24 lg:pb-8">{children}</main>
+      <main className="pb-20 lg:pb-0">{children}</main>
       <UmateMobileNav />
     </div>
   );

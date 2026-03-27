@@ -11,7 +11,6 @@ import {
   Loader2,
   Receipt,
   TrendingUp,
-  Wallet,
   XCircle,
 } from "lucide-react";
 import { apiFetch } from "../../../../lib/api";
@@ -22,7 +21,6 @@ type Stats = {
   totalEarned: number;
   ledger: { id: string; type: string; creatorPayout: number; createdAt: string; description: string | null }[];
 };
-
 type Withdrawal = { id: string; amount: number; status: string; bankName: string; createdAt: string };
 
 export default function WalletPage() {
@@ -60,89 +58,67 @@ export default function WalletPage() {
     setWithdrawing(false);
   };
 
-  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-fuchsia-500" /></div>;
-  if (!stats) return <div className="py-24 text-center text-slate-500">No eres creadora aún.</div>;
+  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/20" /></div>;
+  if (!stats) return <div className="py-24 text-center text-white/30">No eres creadora aún.</div>;
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div>
-        <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 shadow-lg shadow-emerald-200/30">
-            <Wallet className="h-5 w-5 text-white" />
-          </div>
-          <h1 className="text-2xl font-black text-slate-900">Ingresos</h1>
-        </div>
-        <p className="mt-1 text-sm text-slate-500">Balance, retiros y detalle de cada movimiento financiero.</p>
+        <h1 className="text-xl font-bold text-white">Ingresos</h1>
+        <p className="mt-1 text-sm text-white/30">Balance, retiros y movimientos.</p>
       </div>
 
       {/* Balance cards */}
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-emerald-700" />
-            <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Disponible</p>
-          </div>
-          <p className="mt-2 text-3xl font-black text-emerald-800">${stats.availableBalance.toLocaleString("es-CL")}</p>
-          <p className="mt-1 text-xs text-emerald-600">Listo para retirar</p>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
+          <DollarSign className="h-4 w-4 text-emerald-400" />
+          <p className="mt-2 text-2xl font-extrabold text-emerald-400">${stats.availableBalance.toLocaleString("es-CL")}</p>
+          <p className="text-xs text-white/20">Disponible</p>
         </div>
-
-        <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-amber-700" />
-            <p className="text-xs font-bold uppercase tracking-wide text-amber-700">Retenido</p>
-          </div>
-          <p className="mt-2 text-3xl font-black text-amber-800">${stats.pendingBalance.toLocaleString("es-CL")}</p>
-          <p className="mt-1 text-xs text-amber-600">En período de retención</p>
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4">
+          <Clock className="h-4 w-4 text-amber-400" />
+          <p className="mt-2 text-2xl font-extrabold text-amber-400">${stats.pendingBalance.toLocaleString("es-CL")}</p>
+          <p className="text-xs text-white/20">Retenido</p>
         </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-slate-600" />
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Total histórico</p>
-          </div>
-          <p className="mt-2 text-3xl font-black text-slate-900">${stats.totalEarned.toLocaleString("es-CL")}</p>
-          <p className="mt-1 text-xs text-slate-500">Acumulado total</p>
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <TrendingUp className="h-4 w-4 text-white/30" />
+          <p className="mt-2 text-2xl font-extrabold text-white">${stats.totalEarned.toLocaleString("es-CL")}</p>
+          <p className="text-xs text-white/20">Total histórico</p>
         </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-slate-600" />
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Retiros</p>
-          </div>
-          <p className="mt-2 text-3xl font-black text-slate-900">{withdrawals.length}</p>
-          <p className="mt-1 text-xs text-slate-500">Solicitudes realizadas</p>
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <Receipt className="h-4 w-4 text-white/30" />
+          <p className="mt-2 text-2xl font-extrabold text-white">{withdrawals.length}</p>
+          <p className="text-xs text-white/20">Retiros</p>
         </div>
-      </section>
+      </div>
 
-      {/* Withdraw action + Summary */}
-      <section className="grid gap-5 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
         {/* Ledger */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Movimientos</h2>
-            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">{stats.ledger.length} registros</span>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Movimientos</h2>
+            <span className="text-[11px] text-white/15">{stats.ledger.length} registros</span>
           </div>
 
           {stats.ledger.length === 0 && (
-            <div className="mt-6 rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
-              Aún no hay movimientos registrados.
-            </div>
+            <p className="mt-6 text-center text-sm text-white/20">Sin movimientos aún.</p>
           )}
 
-          <div className="mt-4 space-y-1.5">
+          <div className="mt-4 space-y-1">
             {stats.ledger.map((entry) => (
-              <div key={entry.id} className="flex items-center justify-between rounded-lg border border-slate-50 p-3 transition hover:bg-slate-50">
+              <div key={entry.id} className="flex items-center justify-between rounded-lg border border-white/[0.03] p-3 transition hover:bg-white/[0.02]">
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${entry.creatorPayout >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
-                    {entry.creatorPayout >= 0 ? <ArrowUpRight className="h-4 w-4 text-emerald-600" /> : <ArrowDownRight className="h-4 w-4 text-red-600" />}
-                  </div>
+                  {entry.creatorPayout >= 0 ? (
+                    <ArrowUpRight className="h-4 w-4 text-emerald-400" />
+                  ) : (
+                    <ArrowDownRight className="h-4 w-4 text-red-400" />
+                  )}
                   <div>
-                    <p className="text-sm font-semibold text-slate-700">{entry.description || entry.type}</p>
-                    <p className="text-[11px] text-slate-500">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</p>
+                    <p className="text-sm font-medium text-white/60">{entry.description || entry.type}</p>
+                    <p className="text-[10px] text-white/20">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</p>
                   </div>
                 </div>
-                <span className={`text-sm font-bold ${entry.creatorPayout >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                <span className={`text-sm font-semibold ${entry.creatorPayout >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                   {entry.creatorPayout >= 0 ? "+" : "-"}${Math.abs(entry.creatorPayout).toLocaleString("es-CL")}
                 </span>
               </div>
@@ -150,68 +126,60 @@ export default function WalletPage() {
           </div>
         </div>
 
-        {/* Right sidebar */}
+        {/* Sidebar */}
         <div className="space-y-4">
-          {/* Withdraw */}
-          <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-sm">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-emerald-700">Solicitar retiro</h2>
-            <p className="mt-2 text-2xl font-black text-emerald-800">${stats.availableBalance.toLocaleString("es-CL")}</p>
-            <p className="text-xs text-emerald-600">Saldo disponible</p>
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-5">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-400/70">Solicitar retiro</h2>
+            <p className="mt-2 text-2xl font-extrabold text-emerald-400">${stats.availableBalance.toLocaleString("es-CL")}</p>
             <button
               onClick={handleWithdraw}
               disabled={withdrawing || stats.availableBalance <= 0}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-200/50 transition hover:brightness-105 disabled:opacity-50"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-500/90 disabled:opacity-40"
             >
-              {withdrawing ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ArrowDown className="h-4 w-4" /> Retirar fondos</>}
+              {withdrawing ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ArrowDown className="h-4 w-4" /> Retirar</>}
             </button>
           </div>
 
-          {/* Income vs expenses */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Resumen</h2>
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Resumen</h2>
             <div className="mt-3 space-y-2">
-              <div className="flex items-center justify-between rounded-lg bg-emerald-50 p-3">
-                <span className="text-xs font-semibold text-emerald-700">Ingresos</span>
-                <span className="font-bold text-emerald-800">${totals.income.toLocaleString("es-CL")}</span>
+              <div className="flex items-center justify-between rounded-lg bg-emerald-500/[0.06] p-2.5 text-sm">
+                <span className="text-emerald-400/70">Ingresos</span>
+                <span className="font-semibold text-emerald-400">${totals.income.toLocaleString("es-CL")}</span>
               </div>
-              <div className="flex items-center justify-between rounded-lg bg-red-50 p-3">
-                <span className="text-xs font-semibold text-red-700">Ajustes/Comisiones</span>
-                <span className="font-bold text-red-800">${totals.expenses.toLocaleString("es-CL")}</span>
+              <div className="flex items-center justify-between rounded-lg bg-red-500/[0.06] p-2.5 text-sm">
+                <span className="text-red-400/70">Comisiones</span>
+                <span className="font-semibold text-red-400">${totals.expenses.toLocaleString("es-CL")}</span>
               </div>
-              <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3">
-                <span className="text-xs font-semibold text-slate-600">Neto</span>
-                <span className="font-bold text-slate-900">${(totals.income - totals.expenses).toLocaleString("es-CL")}</span>
+              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-2.5 text-sm">
+                <span className="text-white/30">Neto</span>
+                <span className="font-semibold text-white">${(totals.income - totals.expenses).toLocaleString("es-CL")}</span>
               </div>
             </div>
           </div>
 
-          {/* Withdrawal history */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-500">
-              <Receipt className="h-3.5 w-3.5" /> Historial de retiros
-            </h2>
-            {withdrawals.length === 0 && (
-              <p className="mt-3 text-xs text-slate-500">Sin retiros aún.</p>
-            )}
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-white/25">Historial de retiros</h2>
+            {withdrawals.length === 0 && <p className="mt-3 text-xs text-white/20">Sin retiros aún.</p>}
             <div className="mt-3 space-y-1.5">
               {withdrawals.map((w) => (
-                <div key={w.id} className="flex items-center justify-between rounded-lg border border-slate-50 p-2.5">
+                <div key={w.id} className="flex items-center justify-between rounded-lg border border-white/[0.03] p-2.5">
                   <div className="flex items-center gap-2">
-                    {w.status === "APPROVED" && <CheckCircle className="h-4 w-4 text-emerald-600" />}
-                    {w.status === "PENDING" && <Clock className="h-4 w-4 text-amber-600" />}
-                    {w.status === "REJECTED" && <XCircle className="h-4 w-4 text-red-600" />}
+                    {w.status === "APPROVED" && <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />}
+                    {w.status === "PENDING" && <Clock className="h-3.5 w-3.5 text-amber-400" />}
+                    {w.status === "REJECTED" && <XCircle className="h-3.5 w-3.5 text-red-400" />}
                     <div>
-                      <p className="text-sm font-semibold text-slate-700">${w.amount.toLocaleString("es-CL")}</p>
-                      <p className="text-[10px] text-slate-500">{w.bankName}</p>
+                      <p className="text-sm font-medium text-white/60">${w.amount.toLocaleString("es-CL")}</p>
+                      <p className="text-[10px] text-white/15">{w.bankName}</p>
                     </div>
                   </div>
-                  <span className="text-[11px] text-slate-400">{new Date(w.createdAt).toLocaleDateString("es-CL")}</span>
+                  <span className="text-[10px] text-white/15">{new Date(w.createdAt).toLocaleDateString("es-CL")}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

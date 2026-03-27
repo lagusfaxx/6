@@ -469,6 +469,7 @@ model User {
   umateSubscriptions     UmateSubscription[]
   umateCreatorSubs       UmateCreatorSub[]   @relation("UmateSubscriber")
   umateLikes             UmateLike[]
+  umateComments          UmateComment[]
 }
 
 model PushSubscription {
@@ -1156,9 +1157,12 @@ model UmatePost {
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
-  creator UmateCreator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  media   UmatePostMedia[]
-  likes   UmateLike[]
+  commentCount Int                 @default(0)
+
+  creator  UmateCreator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  media    UmatePostMedia[]
+  likes    UmateLike[]
+  comments UmateComment[]
 
   @@index([creatorId, createdAt])
   @@index([visibility, createdAt])
@@ -1188,6 +1192,22 @@ model UmateLike {
   user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
+  @@index([userId])
+}
+
+// ── Comments ──
+
+model UmateComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @db.Uuid
+  userId    String   @db.Uuid
+  text      String
+  createdAt DateTime @default(now())
+
+  post UmatePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
   @@index([userId])
 }
 

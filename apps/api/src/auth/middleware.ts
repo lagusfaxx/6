@@ -45,6 +45,9 @@ const PUBLIC_PREFIXES = [
   "/umate/feed",        // ✅ U-Mate feed (public, enriched when logged in)
   "/umate/creators",    // ✅ U-Mate creator explore (public)
   "/umate/profile",     // ✅ U-Mate creator profile (public)
+  "/umate/trending",    // ✅ U-Mate trending posts (public)
+  "/umate/suggested",   // ✅ U-Mate suggested creators (public)
+  "/umate/posts",       // ✅ U-Mate post comments (public GET)
 ];
 
 /**

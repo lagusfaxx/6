@@ -271,10 +271,93 @@ export function startWorker() {
     tick().catch((e) => console.error("[worker] tick error", e));
   });
 
+  // U-Mate: expire subscriptions and move pending→available every hour
+  cron.schedule("15 * * * *", () => {
+    umateSubscriptionTick().catch((e) => console.error("[worker] umate tick error", e));
+  });
+
   // Run once on startup (delayed 10s to let the API finish booting)
   setTimeout(() => {
     tick().catch((e) => console.error("[worker] initial tick error", e));
   }, 10_000);
+}
+
+/* ─── U-Mate subscription expiry & balance release ─── */
+
+async function umateSubscriptionTick() {
+  const now = new Date();
+
+  // 1. Expire active subscriptions past their cycleEnd
+  const expired = await prisma.umateSubscription.updateMany({
+    where: { status: "ACTIVE", cycleEnd: { lt: now } },
+    data: { status: "EXPIRED" },
+  });
+  if (expired.count > 0) {
+    console.log(`[worker/umate] expired ${expired.count} subscriptions`);
+  }
+
+  // 2. Move pending balance → available for active creators
+  // This represents the monthly settlement: funds held in pendingBalance
+  // become available once the subscription cycle confirms the subscriber stayed.
+  const creatorsWithPending = await prisma.umateCreator.findMany({
+    where: { status: "ACTIVE", pendingBalance: { gt: 0 } },
+    select: { id: true, pendingBalance: true },
+  });
+
+  for (const creator of creatorsWithPending) {
+    // Only release if creator has had the pending balance for at least 7 days
+    // (safety period for chargebacks/disputes)
+    const oldestPendingEntry = await prisma.umateLedgerEntry.findFirst({
+      where: {
+        creatorId: creator.id,
+        type: "SLOT_ACTIVATION",
+        createdAt: { lt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    if (oldestPendingEntry) {
+      await prisma.umateCreator.update({
+        where: { id: creator.id },
+        data: {
+          availableBalance: { increment: creator.pendingBalance },
+          pendingBalance: 0,
+        },
+      });
+      console.log(`[worker/umate] released $${creator.pendingBalance} CLP for creator ${creator.id}`);
+    }
+  }
+
+  // 3. Clean up expired creator subscriptions (UmateCreatorSub)
+  // and decrement subscriber counts for creators that lost subs
+  const expiredCreatorSubs = await prisma.umateCreatorSub.findMany({
+    where: { expiresAt: { lt: now } },
+    select: { id: true, creatorId: true },
+  });
+
+  if (expiredCreatorSubs.length > 0) {
+    // Group by creator to batch decrement
+    const countByCreator = new Map<string, number>();
+    for (const sub of expiredCreatorSubs) {
+      countByCreator.set(sub.creatorId, (countByCreator.get(sub.creatorId) || 0) + 1);
+    }
+
+    await prisma.umateCreatorSub.deleteMany({
+      where: { id: { in: expiredCreatorSubs.map((s) => s.id) } },
+    });
+
+    for (const [creatorId, count] of countByCreator) {
+      const creator = await prisma.umateCreator.findUnique({ where: { id: creatorId }, select: { subscriberCount: true } });
+      if (creator) {
+        await prisma.umateCreator.update({
+          where: { id: creatorId },
+          data: { subscriberCount: Math.max(0, creator.subscriberCount - count) },
+        });
+      }
+    }
+
+    console.log(`[worker/umate] cleaned ${expiredCreatorSubs.length} expired creator subs`);
+  }
 }
 
 // Allow standalone execution: `node dist/worker.js`
