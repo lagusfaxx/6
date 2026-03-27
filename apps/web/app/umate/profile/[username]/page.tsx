@@ -417,7 +417,7 @@ export default function CreatorProfilePage() {
                       <div key={c.id} className="group flex gap-2">
                         <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white/[0.06]">
                           {c.user.avatarUrl ? (
-                            <img src={c.user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                            <img src={resolveMediaUrl(c.user.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                           ) : (
                             <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/40">{(c.user.displayName || c.user.username)[0]}</div>
                           )}

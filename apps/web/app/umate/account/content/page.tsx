@@ -128,11 +128,11 @@ export default function ContentPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-white">Publicaciones</h1>
-          <p className="mt-1 text-sm text-white/40">Biblioteca de contenido y editor.</p>
+          <p className="mt-1 text-sm text-white/30">Biblioteca de contenido y editor.</p>
         </div>
         <button
           onClick={() => setShowEditor(!showEditor)}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[#00aff0] px-5 py-2 text-sm font-semibold text-white shadow-[0_2px_12px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_20px_rgba(0,175,240,0.35)]"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-5 py-2 text-sm font-semibold text-white shadow-[0_2px_12px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_20px_rgba(0,175,240,0.35)]"
         >
           <Plus className="h-4 w-4" /> {showEditor ? "Cerrar editor" : "Nueva publicación"}
         </button>
@@ -145,7 +145,7 @@ export default function ContentPage() {
           { label: "Gratis", value: freeCount, border: "border-emerald-500/20" },
           { label: "Premium", value: premiumCount, border: "border-amber-500/20" },
         ].map((s) => (
-          <div key={s.label} className={`rounded-xl border ${s.border} bg-white/[0.02] p-3 text-center`}>
+          <div key={s.label} className={`rounded-xl border ${s.border} bg-white/[0.015] p-3 text-center`}>
             <p className="text-xl font-extrabold text-white">{s.value}</p>
             <p className="text-[11px] text-white/40">{s.label}</p>
           </div>
@@ -154,7 +154,7 @@ export default function ContentPage() {
 
       {/* Editor */}
       {showEditor && (
-        <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
+        <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
           <h2 className="text-sm font-bold text-white/50">Crear publicación</h2>
 
           <textarea
@@ -207,7 +207,7 @@ export default function ContentPage() {
           <button
             onClick={handlePublish}
             disabled={uploading || !files.length}
-            className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90 disabled:opacity-40"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90 disabled:opacity-40"
           >
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Publicar <Check className="h-4 w-4" /></>}
           </button>
@@ -241,7 +241,7 @@ export default function ContentPage() {
       </div>
 
       {/* Posts grid */}
-      {loading && <div className="py-16 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-white/45" /></div>}
+      {loading && <div className="py-16 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-[#00aff0]/60" /></div>}
 
       {!loading && filteredPosts.length === 0 && (
         <div className="rounded-2xl border border-dashed border-white/[0.06] p-20 text-center">
@@ -253,7 +253,7 @@ export default function ContentPage() {
       {!loading && filteredPosts.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {filteredPosts.map((post) => (
-            <article key={post.id} className="group overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition hover:border-white/[0.12]">
+            <article key={post.id} className="group overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.015] transition hover:border-white/[0.12]">
               <div className="relative aspect-[4/3] overflow-hidden bg-white/[0.03]">
                 {post.media[0]?.url && <img src={resolveMediaUrl(post.media[0].url) || ""} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />}
                 <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -332,13 +332,13 @@ export default function ContentPage() {
               <button
                 onClick={handleEditPost}
                 disabled={saving}
-                className="rounded-full bg-[#00aff0] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90 disabled:opacity-50"
+                className="rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-5 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90 disabled:opacity-50"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar cambios"}
               </button>
               <button
                 onClick={() => setEditingPost(null)}
-                className="rounded-full border border-white/[0.08] px-4 py-2 text-sm text-white/40 transition hover:text-white/60"
+                className="rounded-xl border border-white/[0.06] px-4 py-2 text-sm text-white/30 transition hover:text-white/50"
               >
                 Cancelar
               </button>
