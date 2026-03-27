@@ -2,38 +2,10 @@ import type { Request, Response, NextFunction } from "express";
 import { prisma } from "../db";
 import { config } from "../config";
 import { isBusinessPlanActive } from "../lib/subscriptions";
+import { getCachedUser, setCachedUser, type CachedUser } from "./userCache";
 
-// ── User cache — avoid 1 DB query per request for recently-seen users ──
-const USER_CACHE_TTL = 60_000; // 1 minute
-const USER_CACHE_MAX = 10_000;
-type CachedUser = {
-  data: { id: string; email: string; role: string; profileType: string; membershipExpiresAt: Date | null; shopTrialEndsAt: Date | null; createdAt: Date };
-  ts: number;
-};
-const userCache = new Map<string, CachedUser>();
-
-function getCachedUser(userId: string): CachedUser["data"] | null {
-  const entry = userCache.get(userId);
-  if (!entry) return null;
-  if (Date.now() - entry.ts > USER_CACHE_TTL) {
-    userCache.delete(userId);
-    return null;
-  }
-  return entry.data;
-}
-
-function setCachedUser(userId: string, data: CachedUser["data"]) {
-  if (userCache.size >= USER_CACHE_MAX) {
-    // Evict oldest 20%
-    const keys = Array.from(userCache.keys());
-    for (let i = 0; i < keys.length * 0.2; i++) userCache.delete(keys[i]);
-  }
-  userCache.set(userId, { data, ts: Date.now() });
-}
-
-export function invalidateUserCache(userId: string) {
-  userCache.delete(userId);
-}
+// Re-export for backward compat
+export { invalidateUserCache } from "./userCache";
 
 /**
  * Rutas que deben ser PUBLICAS (sin sesión).

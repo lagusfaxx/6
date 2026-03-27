@@ -34,9 +34,12 @@ async function khipuFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: globalThis.Response;
   try {
     res = await fetch(url, { ...init, headers, signal: controller.signal });
-  } finally {
+  } catch (err: any) {
     clearTimeout(timeout);
+    if (err?.name === "AbortError") throw new KhipuError(504, `Khipu timeout: ${path}`, null);
+    throw err;
   }
+  clearTimeout(timeout);
   const text = await res.text();
   let data: any = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
@@ -167,9 +170,12 @@ async function flowFetch<T>(path: string, method: "GET" | "POST", params: Record
         signal: controller.signal,
       });
     }
-  } finally {
+  } catch (err: any) {
     clearTimeout(timeout);
+    if (err?.name === "AbortError") throw new FlowError(504, `Flow timeout: ${path}`, null);
+    throw err;
   }
+  clearTimeout(timeout);
 
   const text = await res.text();
   let data: any = null;
