@@ -118,11 +118,19 @@ export default function AdminProfilesPage() {
   async function toggleProfile(p: Profile) {
     setBusy(p.id);
     setError(null);
+    // Optimistic update: toggle locally first for instant feedback
+    const prevProfiles = [...profiles];
+    setProfiles((prev) => prev.map((pr) => pr.id === p.id ? { ...pr, isActive: !pr.isActive } : pr));
     try {
-      await apiFetch(`/admin/profiles/${p.id}/toggle`, { method: "PUT" });
+      await apiFetch(`/admin/profiles/${p.id}/toggle`, {
+        method: "PUT",
+        body: JSON.stringify({}),
+      });
       setSuccess(`${p.displayName || p.username} ${p.isActive ? "desactivado" : "activado"}.`);
       await loadProfiles();
     } catch {
+      // Revert optimistic update on failure
+      setProfiles(prevProfiles);
       setError("No se pudo cambiar el estado del perfil.");
     } finally {
       setBusy(null);
