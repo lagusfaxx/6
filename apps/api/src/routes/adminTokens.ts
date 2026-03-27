@@ -5,11 +5,20 @@ import { sendDepositApprovedEmail, sendWithdrawalApprovedEmail } from "../lib/tr
 
 export const adminTokensRouter = Router();
 
+/* ── Allowed platform config keys (whitelist) ── */
+const ALLOWED_CONFIG_KEYS = [
+  "token_rate_clp",
+  "platform_commission_percent",
+  "noshow_penalty_tokens",
+  "min_withdrawal_tokens",
+  "max_withdrawal_tokens",
+];
+
 // ── GET /admin/deposits — list transfer deposits only (Flow is automatic) ──
 adminTokensRouter.get("/admin/deposits", requireAdmin, async (req, res) => {
   const status = String(req.query.status || "PENDING");
-  const limit = Math.min(parseInt(String(req.query.limit || "50"), 10), 100);
-  const offset = parseInt(String(req.query.offset || "0"), 10);
+  const limit = Math.min(Math.max(parseInt(String(req.query.limit || "50"), 10) || 50, 1), 100);
+  const offset = Math.max(parseInt(String(req.query.offset || "0"), 10) || 0, 0);
 
   const where: any = { method: "TRANSFER" };
   if (status !== "ALL") where.status = status;
@@ -43,27 +52,29 @@ adminTokensRouter.put("/admin/deposits/:id/approve", requireAdmin, async (req, r
   if (deposit.method === "FLOW") return res.status(400).json({ error: "Flow deposits are automatic" });
   if (deposit.status !== "PENDING") return res.status(400).json({ error: "Already processed" });
 
-  // Approve and credit tokens atomically
-  await prisma.$transaction([
-    prisma.tokenDeposit.update({
+  // Use interactive transaction for correct balance tracking
+  await prisma.$transaction(async (tx) => {
+    await tx.tokenDeposit.update({
       where: { id: deposit.id },
       data: { status: "APPROVED", reviewedBy: req.session.userId!, reviewedAt: new Date() },
-    }),
-    prisma.wallet.update({
+    });
+
+    const updatedWallet = await tx.wallet.update({
       where: { id: deposit.walletId },
       data: { balance: { increment: deposit.amount } },
-    }),
-    prisma.tokenTransaction.create({
+    });
+
+    await tx.tokenTransaction.create({
       data: {
         walletId: deposit.walletId,
         type: "DEPOSIT",
         amount: deposit.amount,
-        balance: deposit.wallet.balance + deposit.amount,
+        balance: updatedWallet.balance,
         referenceId: deposit.id,
         description: `Depósito aprobado: ${deposit.amount} tokens`,
       },
-    }),
-  ]);
+    });
+  });
 
   // Send approval email (fire & forget)
   const depositUser = await prisma.user.findFirst({
@@ -74,6 +85,7 @@ adminTokensRouter.put("/admin/deposits/:id/approve", requireAdmin, async (req, r
     sendDepositApprovedEmail(depositUser.email, { tokens: deposit.amount, clpAmount: deposit.clpAmount }).catch((err) => console.error("[admin] deposit approved email failed", err));
   }
 
+  console.log(`[admin] deposit ${deposit.id} approved by ${req.session.userId} — ${deposit.amount} tokens`);
   res.json({ ok: true });
 });
 
@@ -84,24 +96,30 @@ adminTokensRouter.put("/admin/deposits/:id/reject", requireAdmin, async (req, re
   if (deposit.method === "FLOW") return res.status(400).json({ error: "Flow deposits are automatic" });
   if (deposit.status !== "PENDING") return res.status(400).json({ error: "Already processed" });
 
+  const reason = req.body.reason;
+  if (reason !== undefined && reason !== null && (typeof reason !== "string" || reason.length > 500)) {
+    return res.status(400).json({ error: "Razón inválida (máximo 500 caracteres)" });
+  }
+
   await prisma.tokenDeposit.update({
     where: { id: deposit.id },
     data: {
       status: "REJECTED",
       reviewedBy: req.session.userId!,
       reviewedAt: new Date(),
-      rejectReason: req.body.reason || null,
+      rejectReason: reason || null,
     },
   });
 
+  console.log(`[admin] deposit ${deposit.id} rejected by ${req.session.userId}`);
   res.json({ ok: true });
 });
 
 // ── GET /admin/withdrawals — list withdrawal requests ──
 adminTokensRouter.get("/admin/withdrawals", requireAdmin, async (req, res) => {
   const status = String(req.query.status || "PENDING");
-  const limit = Math.min(parseInt(String(req.query.limit || "50"), 10), 100);
-  const offset = parseInt(String(req.query.offset || "0"), 10);
+  const limit = Math.min(Math.max(parseInt(String(req.query.limit || "50"), 10) || 50, 1), 100);
+  const offset = Math.max(parseInt(String(req.query.offset || "0"), 10) || 0, 0);
 
   const where = status === "ALL" ? {} : { status: status as any };
   const [withdrawals, total] = await Promise.all([
@@ -143,6 +161,7 @@ adminTokensRouter.put("/admin/withdrawals/:id/approve", requireAdmin, async (req
     sendWithdrawalApprovedEmail(wrUser.email, { tokens: wr.amount, clpAmount: wr.clpAmount, bankName: wr.bankName }).catch((err) => console.error("[admin] withdrawal approved email failed", err));
   }
 
+  console.log(`[admin] withdrawal ${wr.id} approved by ${req.session.userId} — ${wr.amount} tokens`);
   res.json({ ok: true });
 });
 
@@ -155,33 +174,41 @@ adminTokensRouter.put("/admin/withdrawals/:id/reject", requireAdmin, async (req,
   if (!wr) return res.status(404).json({ error: "Not found" });
   if (wr.status !== "PENDING") return res.status(400).json({ error: "Already processed" });
 
-  // Refund tokens back to wallet
-  await prisma.$transaction([
-    prisma.withdrawalRequest.update({
+  const reason = req.body.reason;
+  if (reason !== undefined && reason !== null && (typeof reason !== "string" || reason.length > 500)) {
+    return res.status(400).json({ error: "Razón inválida (máximo 500 caracteres)" });
+  }
+
+  // Refund tokens back to wallet — use interactive transaction for correct balance
+  await prisma.$transaction(async (tx) => {
+    await tx.withdrawalRequest.update({
       where: { id: wr.id },
       data: {
         status: "REJECTED",
         reviewedBy: req.session.userId!,
         reviewedAt: new Date(),
-        rejectReason: req.body.reason || null,
+        rejectReason: reason || null,
       },
-    }),
-    prisma.wallet.update({
+    });
+
+    const updatedWallet = await tx.wallet.update({
       where: { id: wr.walletId },
       data: { balance: { increment: wr.amount } },
-    }),
-    prisma.tokenTransaction.create({
+    });
+
+    await tx.tokenTransaction.create({
       data: {
         walletId: wr.walletId,
         type: "ADJUSTMENT",
         amount: wr.amount,
-        balance: wr.wallet.balance + wr.amount,
+        balance: updatedWallet.balance,
         referenceId: wr.id,
         description: `Retiro rechazado — tokens devueltos: ${wr.amount}`,
       },
-    }),
-  ]);
+    });
+  });
 
+  console.log(`[admin] withdrawal ${wr.id} rejected by ${req.session.userId} — ${wr.amount} tokens refunded`);
   res.json({ ok: true });
 });
 
@@ -197,6 +224,20 @@ adminTokensRouter.put("/admin/platform-config", requireAdmin, async (req, res) =
   const entries = req.body.entries as { key: string; value: string }[];
   if (!Array.isArray(entries)) return res.status(400).json({ error: "entries array required" });
 
+  // Validate all entries before writing
+  for (const e of entries) {
+    if (!e.key || typeof e.key !== "string") {
+      return res.status(400).json({ error: "Clave inválida" });
+    }
+    if (!ALLOWED_CONFIG_KEYS.includes(e.key)) {
+      return res.status(400).json({ error: `Clave no permitida: ${e.key}` });
+    }
+    const numVal = parseInt(String(e.value), 10);
+    if (!Number.isFinite(numVal) || numVal < 0 || numVal > 1_000_000) {
+      return res.status(400).json({ error: `Valor inválido para ${e.key}: debe ser un número entre 0 y 1.000.000` });
+    }
+  }
+
   await prisma.$transaction(
     entries.map((e) =>
       prisma.platformConfig.upsert({
@@ -206,5 +247,7 @@ adminTokensRouter.put("/admin/platform-config", requireAdmin, async (req, res) =
       }),
     ),
   );
+
+  console.log(`[admin] platform config updated by ${req.session.userId}:`, entries.map((e) => `${e.key}=${e.value}`).join(", "));
   res.json({ ok: true });
 });
