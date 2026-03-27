@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import AuthForm, { type RegisterFormData } from "../../components/AuthForm";
 import TermsModal from "../../components/TermsModal";
 import EmailVerification from "../../components/EmailVerification";
 import Link from "next/link";
-import { apiFetch, friendlyErrorMessage } from "../../lib/api";
-import { Briefcase, Building2, ShoppingBag, User, Clock, Phone, CheckCircle2, ArrowLeft, ArrowRight } from "lucide-react";
+import { apiFetch, getApiBase, friendlyErrorMessage } from "../../lib/api";
+import { Briefcase, Building2, ShoppingBag, User, Clock, Phone, CheckCircle2, ArrowLeft, ArrowRight, Camera, Upload, Sparkles, Gift } from "lucide-react";
 
 type ProfileType = "CLIENT" | "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
 
@@ -54,7 +54,7 @@ const businessOptions: Array<{
 ];
 
 export default function RegisterClient() {
-  const [step, setStep] = useState<"choose" | "form" | "verify" | "pending">("choose");
+  const [step, setStep] = useState<"choose" | "form" | "verify" | "avatar" | "pending">("choose");
   const [profileType, setProfileType] = useState<ProfileType>("CLIENT");
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -62,8 +62,14 @@ export default function RegisterClient() {
   const [pendingFormData, setPendingFormData] = useState<RegisterFormData | null>(null);
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const isBusinessProfile = profileType === "PROFESSIONAL" || profileType === "ESTABLISHMENT" || profileType === "SHOP";
+  const isProfessional = profileType === "PROFESSIONAL";
 
   const selected = useMemo(() => {
     if (profileType === "CLIENT") return consumerOption;
@@ -83,7 +89,10 @@ export default function RegisterClient() {
         body: JSON.stringify(pendingFormData),
       });
       // Register auto-creates the session, no separate login needed
-      if (isBusinessProfile) {
+      if (isProfessional) {
+        // Professionals MUST upload a profile photo before continuing
+        setStep("avatar");
+      } else if (isBusinessProfile) {
         setStep("pending");
       } else {
         window.location.replace("/");
@@ -94,6 +103,49 @@ export default function RegisterClient() {
       setStep("form");
     } finally {
       setRegistering(false);
+    }
+  }
+
+  function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setAvatarError("Solo se permiten imágenes (JPG, PNG, WebP).");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setAvatarError("La imagen no puede superar 10 MB.");
+      return;
+    }
+    setAvatarError(null);
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  }
+
+  async function uploadAvatarAndContinue() {
+    if (!avatarFile) {
+      setAvatarError("Debes subir una foto de perfil para continuar.");
+      return;
+    }
+    setUploadingAvatar(true);
+    setAvatarError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", avatarFile);
+      const base = getApiBase();
+      const resp = await fetch(`${base}/profile/avatar`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        throw new Error("Error al subir la imagen.");
+      }
+      setStep("pending");
+    } catch (err: any) {
+      setAvatarError(err?.message || "Error al subir la imagen. Intenta nuevamente.");
+    } finally {
+      setUploadingAvatar(false);
     }
   }
 
@@ -129,13 +181,37 @@ export default function RegisterClient() {
               ? "Elige el tipo de cuenta que mejor se ajuste a ti"
               : step === "pending"
                 ? "Tu registro ha sido recibido"
-                : `Registrándote como: ${selected?.title ?? profileType}`}
+                : step === "avatar"
+                  ? "Un último paso antes de completar tu registro"
+                  : `Registrándote como: ${selected?.title ?? profileType}`}
           </p>
         </div>
 
         {/* Card */}
         <div className="relative rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
+
+          {/* Promo banner for professionals */}
+          {isProfessional && step === "form" && (
+            <div className="relative overflow-hidden rounded-2xl border border-fuchsia-500/30 bg-gradient-to-r from-fuchsia-600/20 via-violet-600/20 to-pink-600/20 p-5 mx-8 mt-6 mb-0">
+              <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-fuchsia-500/10 blur-3xl" />
+              <div className="absolute bottom-0 left-0 h-16 w-16 rounded-full bg-violet-500/10 blur-2xl" />
+              <div className="relative flex items-center gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500/30 to-violet-500/30 border border-fuchsia-400/20">
+                  <Gift className="h-6 w-6 text-fuchsia-300" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-400" />
+                    <span className="text-sm font-bold text-white">Promo: 3 meses gratis</span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-white/60 leading-relaxed">
+                    Regístrate ahora y disfruta 3 meses de membresía sin costo.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {step === "choose" ? (
             <div className="p-8">
@@ -243,6 +319,75 @@ export default function RegisterClient() {
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Cambiar tipo de registro
+              </button>
+            </div>
+          ) : step === "avatar" ? (
+            <div className="p-8">
+              <div className="text-center mb-6">
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 border border-fuchsia-400/20">
+                  <Camera className="h-7 w-7 text-fuchsia-300" />
+                </div>
+                <h2 className="text-xl font-bold text-white">Sube tu foto de perfil</h2>
+                <p className="mt-1.5 text-sm text-white/50 leading-relaxed">
+                  Una foto de perfil es <span className="text-fuchsia-300 font-semibold">obligatoria</span> para profesionales. Los perfiles con foto reciben muchas más visitas.
+                </p>
+              </div>
+
+              {/* Avatar preview / upload area */}
+              <div className="flex flex-col items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  className={`relative group w-40 h-40 rounded-full border-2 border-dashed transition-all duration-200 overflow-hidden ${
+                    avatarPreview
+                      ? "border-fuchsia-400/50 shadow-[0_0_30px_rgba(232,121,249,0.15)]"
+                      : "border-white/20 hover:border-fuchsia-400/40 hover:bg-white/[0.03]"
+                  }`}
+                >
+                  {avatarPreview ? (
+                    <>
+                      <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition">
+                        <Camera className="h-6 w-6 text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full gap-2">
+                      <Upload className="h-8 w-8 text-white/30" />
+                      <span className="text-xs text-white/40">Toca para subir</span>
+                    </div>
+                  )}
+                </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleAvatarSelect}
+                  className="hidden"
+                />
+                <p className="text-xs text-white/30">JPG, PNG o WebP. Máximo 10 MB.</p>
+              </div>
+
+              {avatarError && (
+                <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200 text-center">
+                  {avatarError}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={uploadAvatarAndContinue}
+                disabled={!avatarFile || uploadingAvatar}
+                className="mt-6 w-full btn-primary py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {uploadingAvatar ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Continuar
+                  </>
+                )}
               </button>
             </div>
           ) : step === "pending" ? (

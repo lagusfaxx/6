@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, LogIn } from "lucide-react";
+import { Eye, EyeOff, LogIn, ArrowLeft } from "lucide-react";
 import { apiFetch, friendlyErrorMessage, safeRedirect } from "../../lib/api";
 
 export default function LoginClient() {
@@ -146,8 +146,19 @@ export default function LoginClient() {
           </div>
         </div>
 
+        {/* Back to home */}
+        <div className="mt-6 flex justify-center">
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-sm text-white/50 hover:text-white/70 transition"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Volver al inicio
+          </Link>
+        </div>
+
         {/* Support */}
-        <p className="mt-6 text-center text-xs text-white/30">
+        <p className="mt-4 text-center text-xs text-white/30">
           ¿Problemas para ingresar?{" "}
           <a href="mailto:soporte@uzeed.cl" className="text-white/50 hover:text-white/70 underline transition">
             soporte@uzeed.cl
