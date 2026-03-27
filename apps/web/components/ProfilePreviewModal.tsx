@@ -55,10 +55,13 @@ type FullProfile = {
   availableNow?: boolean;
 };
 
-function formatWhatsAppUrl(phone: string) {
+function formatWhatsAppUrl(phone: string, displayName?: string | null) {
   const cleaned = phone.replace(/[^0-9+]/g, "");
   const num = cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
-  return `https://wa.me/${num}`;
+  const message = displayName
+    ? `Hola ${displayName}, te vi en Uzeed.cl`
+    : "Hola, te vi en Uzeed.cl";
+  return `https://wa.me/${num}?text=${encodeURIComponent(message)}`;
 }
 
 export default function ProfilePreviewModal({ profile, onClose }: Props) {
@@ -464,7 +467,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                   </Link>
                   {fullProfile?.phone && (
                     <a
-                      href={formatWhatsAppUrl(fullProfile.phone)}
+                      href={formatWhatsAppUrl(fullProfile.phone, fullProfile.displayName || profile.displayName)}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={onClose}

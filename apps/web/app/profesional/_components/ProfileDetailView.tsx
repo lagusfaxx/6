@@ -471,7 +471,10 @@ export default function ProfileDetailView({
   function formatWhatsAppUrl(phone: string) {
     const cleaned = phone.replace(/[^0-9+]/g, "");
     const num = cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
-    return `https://wa.me/${num}`;
+    const message = professional?.displayName
+      ? `Hola ${professional.displayName}, te vi en Uzeed.cl`
+      : "Hola, te vi en Uzeed.cl";
+    return `https://wa.me/${num}?text=${encodeURIComponent(message)}`;
   }
 
   async function toggleFavorite() {
