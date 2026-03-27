@@ -526,7 +526,7 @@ directoryRouter.get(
 
     if (!Number.isFinite(lastViewTs) || nowTs - lastViewTs >= viewWindowMs) {
       await prisma.user.updateMany({
-        where: { id, profileType: "PROFESSIONAL" },
+        where: { id, profileType: "PROFESSIONAL", isVerified: true },
         data: { profileViews: { increment: 1 } },
       });
       req.session.profileViewTracker = { ...tracker, [id]: nowTs };
@@ -581,7 +581,7 @@ directoryRouter.get(
     let u: any;
     try {
       u = await prisma.user.findUnique({
-        where: { id, profileType: "PROFESSIONAL" },
+        where: { id, profileType: "PROFESSIONAL", isVerified: true },
         select: { ...baseDetailSelect, avgResponseMinutes: true },
       });
     } catch (err) {
@@ -590,7 +590,7 @@ directoryRouter.get(
         err instanceof Prisma.PrismaClientValidationError
       ) {
         u = await prisma.user.findUnique({
-          where: { id, profileType: "PROFESSIONAL" },
+          where: { id, profileType: "PROFESSIONAL", isVerified: true },
           select: baseDetailSelect,
         });
       } else {

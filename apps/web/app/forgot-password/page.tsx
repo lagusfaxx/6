@@ -18,6 +18,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [expiresIn, setExpiresIn] = useState(600);
+  const [codeExpired, setCodeExpired] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const cooldownRef = useRef<ReturnType<typeof setInterval>>();
   const expiryRef = useRef<ReturnType<typeof setInterval>>();
@@ -39,11 +40,13 @@ export default function ForgotPasswordPage() {
 
   function startExpiryTimer() {
     setExpiresIn(600);
+    setCodeExpired(false);
     if (expiryRef.current) clearInterval(expiryRef.current);
     expiryRef.current = setInterval(() => {
       setExpiresIn((prev) => {
         if (prev <= 1) {
           if (expiryRef.current) clearInterval(expiryRef.current);
+          setCodeExpired(true);
           return 0;
         }
         return prev - 1;
@@ -275,7 +278,7 @@ export default function ForgotPasswordPage() {
                       value={digit}
                       onChange={(e) => handleCodeChange(i, e.target.value)}
                       onKeyDown={(e) => handleCodeKeyDown(i, e)}
-                      disabled={loading}
+                      disabled={loading || codeExpired}
                       className={`w-12 h-14 text-center text-xl font-bold rounded-xl border transition-all duration-200 outline-none bg-white/5 ${
                         digit
                           ? "border-fuchsia-400/50 text-white shadow-[0_0_15px_rgba(232,121,249,0.15)]"
@@ -287,9 +290,15 @@ export default function ForgotPasswordPage() {
 
                 {/* Timer */}
                 <div className="mt-4 flex justify-center">
-                  <span className={`text-xs font-mono ${expiresIn < 60 ? "text-red-400" : "text-white/40"}`}>
-                    Expira en {formatTime(expiresIn)}
-                  </span>
+                  {codeExpired ? (
+                    <span className="text-xs font-medium text-red-400">
+                      El código ha expirado. Solicita uno nuevo.
+                    </span>
+                  ) : (
+                    <span className={`text-xs font-mono ${expiresIn < 60 ? "text-red-400" : "text-white/40"}`}>
+                      Expira en {formatTime(expiresIn)}
+                    </span>
+                  )}
                 </div>
 
                 {error && (
@@ -403,9 +412,16 @@ export default function ForgotPasswordPage() {
                 href={step === "email" ? "/login" : "#"}
                 onClick={step !== "email" ? (e) => {
                   e.preventDefault();
-                  if (step === "code") setStep("email");
-                  if (step === "newPassword") setStep("code");
+                  if (step === "code") {
+                    setStep("email");
+                    setCodeExpired(false);
+                  }
+                  if (step === "newPassword") {
+                    verifiedCode.current = "";
+                    setStep("code");
+                  }
                   setError(null);
+                  setCode(["", "", "", "", "", ""]);
                 } : undefined}
                 className="mt-6 w-full flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 py-3 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white transition"
               >
