@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import path from "node:path";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../lib/auth";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
@@ -22,6 +23,29 @@ const storage = new LocalStorageProvider(
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+/* ── Constants ── */
+const MAX_DEPOSIT_TOKENS = 10_000;
+const MAX_WITHDRAWAL_TOKENS = 10_000;
+const MAX_DAILY_WITHDRAWALS = 5;
+const VALID_ACCOUNT_TYPES = ["corriente", "vista", "ahorro", "rut"];
+
+/* ── Rate limiters for financial endpoints ── */
+const depositLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 5,
+  message: { error: "Demasiadas solicitudes. Intenta en un minuto." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const withdrawLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 3,
+  message: { error: "Demasiadas solicitudes. Intenta en un minuto." },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 /* ── Helper: get or create wallet ── */
@@ -82,8 +106,8 @@ walletRouter.get("/wallet", requireAuth, async (req, res) => {
 // ── GET /wallet/transactions — transaction history ──
 walletRouter.get("/wallet/transactions", requireAuth, async (req, res) => {
   const wallet = await getOrCreateWallet(req.session.userId!);
-  const limit = Math.min(parseInt(String(req.query.limit || "50"), 10), 100);
-  const offset = parseInt(String(req.query.offset || "0"), 10);
+  const limit = Math.min(Math.max(parseInt(String(req.query.limit || "50"), 10) || 50, 1), 100);
+  const offset = Math.max(parseInt(String(req.query.offset || "0"), 10) || 0, 0);
 
   const transactions = await prisma.tokenTransaction.findMany({
     where: { walletId: wallet.id },
@@ -101,13 +125,15 @@ walletRouter.get("/wallet/transactions", requireAuth, async (req, res) => {
 walletRouter.post(
   "/wallet/deposit",
   requireAuth,
+  depositLimiter,
   upload.single("receipt"),
   async (req, res) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: "Receipt image required" });
 
     const tokens = parseInt(String(req.body.tokens || "0"), 10);
-    if (tokens < 1) return res.status(400).json({ error: "Minimum 1 token" });
+    if (!Number.isFinite(tokens) || tokens < 1) return res.status(400).json({ error: "Mínimo 1 token" });
+    if (tokens > MAX_DEPOSIT_TOKENS) return res.status(400).json({ error: `Máximo ${MAX_DEPOSIT_TOKENS} tokens por depósito` });
 
     const rate = await getTokenRate();
     const clpAmount = tokens * rate;
@@ -169,10 +195,11 @@ walletRouter.get("/wallet/packages", async (_req, res) => {
 });
 
 // ── POST /wallet/deposit/flow — pay for tokens via Flow ──
-walletRouter.post("/wallet/deposit/flow", requireAuth, async (req, res) => {
+walletRouter.post("/wallet/deposit/flow", requireAuth, depositLimiter, async (req, res) => {
   const userId = req.session.userId!;
   const tokens = parseInt(String(req.body.tokens || "0"), 10);
-  if (tokens < 1) return res.status(400).json({ error: "Mínimo 1 token" });
+  if (!Number.isFinite(tokens) || tokens < 1) return res.status(400).json({ error: "Mínimo 1 token" });
+  if (tokens > MAX_DEPOSIT_TOKENS) return res.status(400).json({ error: `Máximo ${MAX_DEPOSIT_TOKENS} tokens por depósito` });
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -270,7 +297,7 @@ walletRouter.get("/wallet/deposits", requireAuth, async (req, res) => {
 });
 
 // ── POST /wallet/withdraw — request withdrawal ──
-walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
+walletRouter.post("/wallet/withdraw", requireAuth, withdrawLimiter, async (req, res) => {
   const {
     amount,
     bankName,
@@ -280,50 +307,70 @@ walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
     holderRut,
   } = req.body;
   const tokens = parseInt(String(amount || "0"), 10);
-  if (tokens < 1) return res.status(400).json({ error: "Minimum 1 token" });
-  if (
-    !bankName ||
-    !accountType ||
-    !accountNumber ||
-    !holderName ||
-    !holderRut
-  ) {
-    return res.status(400).json({ error: "All bank details required" });
+
+  // ── Input validation ──
+  if (!Number.isFinite(tokens) || tokens < 1) return res.status(400).json({ error: "Mínimo 1 token" });
+  if (tokens > MAX_WITHDRAWAL_TOKENS) return res.status(400).json({ error: `Máximo ${MAX_WITHDRAWAL_TOKENS} tokens por retiro` });
+
+  if (!bankName || typeof bankName !== "string" || bankName.length > 100) {
+    return res.status(400).json({ error: "Banco inválido" });
+  }
+  if (!accountType || !VALID_ACCOUNT_TYPES.includes(String(accountType).toLowerCase())) {
+    return res.status(400).json({ error: "Tipo de cuenta inválido" });
+  }
+  if (!accountNumber || typeof accountNumber !== "string" || accountNumber.length > 30) {
+    return res.status(400).json({ error: "Número de cuenta inválido" });
+  }
+  if (!holderName || typeof holderName !== "string" || holderName.length > 120) {
+    return res.status(400).json({ error: "Nombre del titular inválido" });
+  }
+  if (!holderRut || typeof holderRut !== "string" || holderRut.length > 15) {
+    return res.status(400).json({ error: "RUT inválido" });
   }
 
-  const wallet = await getOrCreateWallet(req.session.userId!);
-  if (wallet.balance < tokens) {
-    return res.status(400).json({ error: "Insufficient balance" });
+  // ── Daily withdrawal limit ──
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayWithdrawals = await prisma.withdrawalRequest.count({
+    where: {
+      wallet: { userId: req.session.userId! },
+      createdAt: { gte: todayStart },
+    },
+  });
+  if (todayWithdrawals >= MAX_DAILY_WITHDRAWALS) {
+    return res.status(429).json({ error: `Máximo ${MAX_DAILY_WITHDRAWALS} retiros por día` });
   }
 
   const rate = await getTokenRate();
   const clpAmount = tokens * rate;
 
-  // Use interactive transaction to prevent race conditions
+  // ── Atomic withdrawal: balance check + deduction in single transaction ──
+  // No pre-transaction balance check — the transaction IS the check.
+  const wallet = await getOrCreateWallet(req.session.userId!);
+
   const withdrawal = await prisma.$transaction(async (tx) => {
-    // Lock the wallet row and verify balance inside the transaction
+    // Re-read wallet inside transaction for consistency
     const currentWallet = await tx.wallet.findUnique({ where: { id: wallet.id } });
     if (!currentWallet || currentWallet.balance < tokens) {
       throw new Error("INSUFFICIENT_BALANCE");
     }
 
-    await tx.wallet.update({
+    // Deduct and read new balance atomically
+    const updatedWallet = await tx.wallet.update({
       where: { id: wallet.id },
       data: { balance: { decrement: tokens } },
     });
-
-    const newBalance = currentWallet.balance - tokens;
 
     const wd = await tx.withdrawalRequest.create({
       data: {
         walletId: wallet.id,
         amount: tokens,
         clpAmount,
-        bankName,
-        accountType,
-        accountNumber,
-        holderName,
-        holderRut,
+        bankName: String(bankName).trim(),
+        accountType: String(accountType).toLowerCase().trim(),
+        accountNumber: String(accountNumber).trim(),
+        holderName: String(holderName).trim(),
+        holderRut: String(holderRut).trim(),
       },
     });
 
@@ -332,7 +379,7 @@ walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
         walletId: wallet.id,
         type: "WITHDRAWAL",
         amount: -tokens,
-        balance: newBalance,
+        balance: updatedWallet.balance,
         description: `Solicitud de retiro: ${tokens} tokens ($${clpAmount.toLocaleString("es-CL")} CLP)`,
       },
     });
@@ -344,7 +391,7 @@ walletRouter.post("/wallet/withdraw", requireAuth, async (req, res) => {
   });
 
   if (!withdrawal) {
-    return res.status(400).json({ error: "Insufficient balance" });
+    return res.status(400).json({ error: "Saldo insuficiente" });
   }
 
   // Send confirmation email (fire & forget)
