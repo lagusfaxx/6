@@ -47,6 +47,7 @@ import { analyticsRouter } from "./analytics/routes";
 import { umateRouter } from "./umate/routes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
+import { startWorker } from "./worker";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -239,6 +240,7 @@ async function boot() {
 
   app.listen(config.port, () => {
     console.log(`[api] listening on :${config.port}`);
+    startWorker();
   });
 }
 

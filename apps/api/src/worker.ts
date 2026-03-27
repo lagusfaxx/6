@@ -187,7 +187,11 @@ async function tick() {
   console.log("[worker] tick completed");
 }
 
-async function main() {
+/**
+ * Start the worker cron jobs.
+ * Can be called from the main API process or run standalone via `node dist/worker.js`.
+ */
+export function startWorker() {
   console.log("[worker] started");
 
   // Run every hour to catch thresholds
@@ -195,11 +199,15 @@ async function main() {
     tick().catch((e) => console.error("[worker] tick error", e));
   });
 
-  // Run once on startup
-  tick().catch((e) => console.error("[worker] initial tick error", e));
+  // Run once on startup (delayed 10s to let the API finish booting)
+  setTimeout(() => {
+    tick().catch((e) => console.error("[worker] initial tick error", e));
+  }, 10_000);
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+// Allow standalone execution: `node dist/worker.js`
+const isMain =
+  typeof require !== "undefined" && require.main === module;
+if (isMain) {
+  startWorker();
+}
