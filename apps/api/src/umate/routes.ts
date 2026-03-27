@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import path from "path";
+
 import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { config } from "../config";
@@ -16,10 +16,10 @@ export const umateRouter = Router();
 const ALLOWED_IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const ALLOWED_MEDIA_MIMES = [...ALLOWED_IMAGE_MIMES, "video/mp4", "video/quicktime", "video/webm"];
 
-const storage = new LocalStorageProvider(
-  path.join(process.cwd(), config.storageDir),
-  `${(config.apiUrl || "").replace(/\/$/, "")}/uploads`,
-);
+const storage = new LocalStorageProvider({
+  baseDir: config.storageDir,
+  publicPathPrefix: `${(config.apiUrl || "").replace(/\/$/, "")}/uploads`,
+});
 
 const upload = multer({
   storage: multer.memoryStorage(),
