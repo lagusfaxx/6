@@ -846,20 +846,6 @@ export default function HomePage() {
   }, [recentPros]);
   const FEATURED_PAGE_SIZE = 3;
 
-  // Preload first visible profile images for instant visual impact
-  useEffect(() => {
-    const first6 = availableCarouselProfiles.slice(0, 6);
-    for (const p of first6) {
-      const src = resolveProfileImage(p);
-      if (src && src !== "/brand/isotipo-new.png") {
-        const link = document.createElement("link");
-        link.rel = "preload";
-        link.as = "image";
-        link.href = src;
-        document.head.appendChild(link);
-      }
-    }
-  }, [availableCarouselProfiles]);
   const featuredPageCount = Math.max(1, Math.ceil(featuredCarouselProfiles.length / FEATURED_PAGE_SIZE));
   const [featuredPage, setFeaturedPage] = useState(0);
 
@@ -876,6 +862,21 @@ export default function HomePage() {
     () => (availableProfiles.length > 0 ? [...availableProfiles, ...availableProfiles] : []),
     [availableProfiles],
   );
+  // Preload first visible profile images for instant visual impact
+  useEffect(() => {
+    const first6 = availableCarouselProfiles.slice(0, 6);
+    for (const p of first6) {
+      const src = resolveProfileImage(p);
+      if (src && src !== "/brand/isotipo-new.png") {
+        const link = document.createElement("link");
+        link.rel = "preload";
+        link.as = "image";
+        link.href = src;
+        document.head.appendChild(link);
+      }
+    }
+  }, [availableCarouselProfiles]);
+
   const shouldAutoScrollAvailable = availableProfiles.length > 1 && isAvailableInView && !isAvailableInteracting;
   const nearProfiles = discoverSections["near"] || [];
   const newProfiles = discoverSections["new"] || [];
