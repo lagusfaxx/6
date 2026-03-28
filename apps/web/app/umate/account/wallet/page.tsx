@@ -15,11 +15,21 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../../../../lib/api";
 
+type LedgerEntry = {
+  id: string;
+  type: string;
+  grossAmount: number;
+  platformFee: number;
+  ivaAmount: number;
+  creatorPayout: number;
+  createdAt: string;
+  description: string | null;
+};
 type Stats = {
   pendingBalance: number;
   availableBalance: number;
   totalEarned: number;
-  ledger: { id: string; type: string; creatorPayout: number; createdAt: string; description: string | null }[];
+  ledger: LedgerEntry[];
 };
 type Withdrawal = { id: string; amount: number; status: string; bankName: string; createdAt: string };
 
@@ -43,11 +53,13 @@ export default function WalletPage() {
   const totals = useMemo(() => {
     return (stats?.ledger || []).reduce(
       (acc, entry) => {
+        if (entry.grossAmount > 0) acc.gross += entry.grossAmount;
+        acc.commission += entry.platformFee || 0;
+        acc.iva += entry.ivaAmount || 0;
         if (entry.creatorPayout >= 0) acc.income += entry.creatorPayout;
-        else acc.expenses += Math.abs(entry.creatorPayout);
         return acc;
       },
-      { income: 0, expenses: 0 },
+      { gross: 0, commission: 0, iva: 0, income: 0 },
     );
   }, [stats?.ledger]);
 
@@ -158,17 +170,22 @@ export default function WalletPage() {
           <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
             <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Resumen</h2>
             <div className="mt-3 space-y-2">
-              <div className="flex items-center justify-between rounded-lg bg-emerald-500/[0.06] p-2.5 text-sm">
-                <span className="text-emerald-400/70">Ingresos</span>
-                <span className="font-semibold text-emerald-400">${totals.income.toLocaleString("es-CL")}</span>
+              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-2.5 text-sm">
+                <span className="text-white/50">Bruto</span>
+                <span className="font-semibold text-white">${totals.gross.toLocaleString("es-CL")}</span>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-red-500/[0.06] p-2.5 text-sm">
-                <span className="text-red-400/70">Comisiones</span>
-                <span className="font-semibold text-red-400">${totals.expenses.toLocaleString("es-CL")}</span>
+                <span className="text-red-400/70">Comisión</span>
+                <span className="font-semibold text-red-400">-${totals.commission.toLocaleString("es-CL")}</span>
               </div>
-              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-2.5 text-sm">
-                <span className="text-white/40">Neto</span>
-                <span className="font-semibold text-white">${(totals.income - totals.expenses).toLocaleString("es-CL")}</span>
+              <div className="flex items-center justify-between rounded-lg bg-red-500/[0.06] p-2.5 text-sm">
+                <span className="text-red-400/70">IVA</span>
+                <span className="font-semibold text-red-400">-${totals.iva.toLocaleString("es-CL")}</span>
+              </div>
+              <div className="h-px bg-white/[0.06]" />
+              <div className="flex items-center justify-between rounded-lg bg-emerald-500/[0.06] p-2.5 text-sm">
+                <span className="text-emerald-400/70">Neto recibido</span>
+                <span className="font-semibold text-emerald-400">${totals.income.toLocaleString("es-CL")}</span>
               </div>
             </div>
           </div>
