@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import {
+  ChevronLeft,
+  ChevronRight,
   Crown,
   Heart,
   Loader2,
   Lock,
   MessageCircle,
+  Play,
   Send,
   Sparkles,
   Trash2,
@@ -45,6 +48,187 @@ type Creator = {
   subscriberCount: number;
   user: { username: string };
 };
+
+type CreatorGroup = {
+  creator: FeedItem["creator"];
+  posts: FeedItem[];
+};
+
+/* ── Mini carousel for each creator's posts ── */
+function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsername }: {
+  posts: FeedItem[];
+  onLike: (id: string) => void;
+  onOpenComments: (id: string) => void;
+  isBlurredAll: boolean;
+  viewerUsername?: string;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [current, setCurrent] = useState(0);
+
+  const scroll = (dir: number) => {
+    if (!scrollRef.current) return;
+    const newIdx = Math.max(0, Math.min(posts.length - 1, current + dir));
+    const child = scrollRef.current.children[newIdx] as HTMLElement;
+    if (child) {
+      child.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+      setCurrent(newIdx);
+    }
+  };
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+    const idx = Math.round(el.scrollLeft / el.offsetWidth);
+    setCurrent(idx);
+  };
+
+  return (
+    <div className="space-y-0">
+      {/* Media carousel */}
+      <div className="group/media relative">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          {posts.map((post, idx) => (
+            <div key={post.id} className="w-full shrink-0 snap-start">
+              <ProtectedMedia
+                enabled={!post.isBlurred && post.visibility === "PREMIUM"}
+                viewerUsername={viewerUsername}
+              >
+                <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.03]">
+                  {post.isBlurred ? (
+                    <div className="relative h-full w-full">
+                      {post.media[0]?.url ? (
+                        <img
+                          src={resolveMediaUrl(post.media[0].url) || ""}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover scale-110 blur-3xl brightness-[0.35] saturate-150"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/15 via-purple-600/10 to-rose-500/10" />
+                      )}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <div className="rounded-2xl bg-white/[0.08] p-5 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                          <Lock className="h-8 w-8 text-white/60" />
+                        </div>
+                        <p className="mt-4 text-sm font-bold text-white/80">Contenido exclusivo</p>
+                        <p className="mt-1 text-xs text-white/35">Suscríbete para desbloquear</p>
+                        <Link
+                          href="/umate/plans"
+                          className="mt-4 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.35)] transition hover:shadow-[0_6px_28px_rgba(0,175,240,0.45)]"
+                        >
+                          Desbloquear
+                        </Link>
+                      </div>
+                    </div>
+                  ) : post.media[0]?.url ? (
+                    post.media[0].type === "VIDEO" ? (
+                      <>
+                        <video
+                          src={resolveMediaUrl(post.media[0].url) || ""}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          crossOrigin="anonymous"
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="pointer-events-none absolute left-3 bottom-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm">
+                          <Play className="h-3 w-3 text-white fill-current" />
+                        </div>
+                      </>
+                    ) : (
+                      <img
+                        src={resolveMediaUrl(post.media[0].url) || ""}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    )
+                  ) : (
+                    <div className="h-full w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
+                  )}
+
+                  {/* Visibility badge */}
+                  <span className={`absolute right-2 top-2 rounded-lg px-2 py-0.5 text-[10px] font-bold ${
+                    post.visibility === "FREE"
+                      ? "bg-emerald-500/90 text-white"
+                      : "bg-gradient-to-r from-amber-500/90 to-orange-500/90 text-white"
+                  }`}>
+                    {post.visibility === "FREE" ? "Gratis" : "Premium"}
+                  </span>
+                </div>
+              </ProtectedMedia>
+
+              {/* Caption + Actions for this post */}
+              <div className="px-4 py-2.5">
+                {post.caption && (
+                  <p className="text-sm leading-relaxed text-white/55 line-clamp-2">{post.caption}</p>
+                )}
+                <div className="mt-1.5 flex items-center gap-1">
+                  <button
+                    onClick={() => onLike(post.id)}
+                    className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs transition ${
+                      post.isLiked ? "bg-rose-500/10 text-rose-400" : "text-white/30 hover:bg-white/[0.04] hover:text-rose-400"
+                    }`}
+                  >
+                    <Heart className={`h-4 w-4 ${post.isLiked ? "fill-current" : ""}`} />
+                    <span className="font-semibold">{post.likeCount}</span>
+                  </button>
+                  <button
+                    onClick={() => onOpenComments(post.id)}
+                    className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-white/30 transition hover:bg-white/[0.04] hover:text-white/50"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    {(post.commentCount || 0) > 0 && <span className="font-semibold">{post.commentCount}</span>}
+                  </button>
+                  <span className="ml-auto text-[10px] text-white/20">
+                    {new Date(post.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Carousel dots */}
+        {posts.length > 1 && (
+          <div className="flex justify-center gap-1.5 py-2">
+            {posts.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === current ? "w-5 bg-[#00aff0]" : "w-1.5 bg-white/15"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Arrows */}
+        {posts.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={() => scroll(-1)}
+              className="absolute left-2 top-1/3 z-10 hidden h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-sm transition hover:bg-black/70 hover:text-white group-hover/media:flex"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scroll(1)}
+              className="absolute right-2 top-1/3 z-10 hidden h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-sm transition hover:bg-black/70 hover:text-white group-hover/media:flex"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ExplorePage() {
   const { me } = useMe();
@@ -106,9 +290,22 @@ export default function ExplorePage() {
     setItems((prev) => prev.map((i) => (i.id === postId ? { ...i, commentCount: Math.max(0, (i.commentCount || 1) - 1) } : i)));
   };
 
+  // Group posts by creator
+  const creatorGroups = useMemo<CreatorGroup[]>(() => {
+    const map = new Map<string, CreatorGroup>();
+    for (const item of items) {
+      const key = item.creator.id;
+      if (!map.has(key)) {
+        map.set(key, { creator: item.creator, posts: [] });
+      }
+      map.get(key)!.posts.push(item);
+    }
+    return Array.from(map.values());
+  }, [items]);
+
   return (
     <div className="min-h-screen">
-      {/* Filter bar - uses header search, no duplicate */}
+      {/* Filter bar */}
       <div className="sticky top-14 z-30 border-b border-white/[0.03] bg-[#0a0a12]/85 py-3 backdrop-blur-2xl backdrop-saturate-[1.8]">
         <div className="mx-auto flex max-w-[700px] items-center gap-2 px-4">
           <div className="flex items-center gap-0.5 rounded-xl bg-white/[0.04] p-1">
@@ -136,7 +333,7 @@ export default function ExplorePage() {
 
       <div className="mx-auto max-w-[1170px] px-4 py-6">
         <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-          {/* Main Feed */}
+          {/* Main Feed — grouped by creator */}
           <div className="mx-auto w-full max-w-[600px] lg:mx-0">
             {loading && (
               <div className="flex flex-col items-center justify-center py-24 gap-3">
@@ -162,136 +359,58 @@ export default function ExplorePage() {
             )}
 
             {!loading && (
-              <div className="space-y-5">
-                {items.map((item) => (
-                  <article key={item.id} className="overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.08] hover:shadow-[0_8px_40px_rgba(0,0,0,0.2)]">
+              <div className="space-y-6">
+                {creatorGroups.map((group) => (
+                  <article
+                    key={group.creator.id}
+                    className="overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.08]"
+                  >
                     {/* Creator header */}
                     <Link
-                      href={`/umate/profile/${item.creator.user?.username || item.creator.id}`}
+                      href={`/umate/profile/${group.creator.user?.username || group.creator.id}`}
                       className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.02]"
                     >
-                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-white/[0.02]">
-                        {item.creator.avatarUrl ? (
-                          <img src={resolveMediaUrl(item.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
+                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/[0.1] bg-gradient-to-br from-white/[0.06] to-white/[0.02]">
+                        {group.creator.avatarUrl ? (
+                          <img src={resolveMediaUrl(group.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{(item.creator.displayName || "?")[0]}</div>
+                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{(group.creator.displayName || "?")[0]}</div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white/90 truncate">{item.creator.displayName}</p>
+                        <p className="text-sm font-bold text-white/90 truncate">{group.creator.displayName}</p>
                         <p className="text-[11px] text-white/30">
-                          @{item.creator.user?.username || "creator"} · {new Date(item.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                          @{group.creator.user?.username || "creator"} · {group.posts.length} publicacion{group.posts.length > 1 ? "es" : ""}
                         </p>
                       </div>
-                      <span className={`rounded-lg px-2.5 py-1 text-[10px] font-bold tracking-wide ${
-                        item.visibility === "FREE"
-                          ? "bg-emerald-500/10 text-emerald-400/80"
-                          : "bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-400/80"
-                      }`}>
-                        {item.visibility === "FREE" ? "Gratis" : "Premium"}
-                      </span>
+                      <ChevronRight className="h-4 w-4 text-white/20 shrink-0" />
                     </Link>
 
-                    {/* Caption */}
-                    {item.caption && (
-                      <div className="px-4 pb-3">
-                        <p className="text-sm leading-relaxed text-white/60">{item.caption}</p>
-                      </div>
-                    )}
+                    {/* Posts carousel for this creator */}
+                    <PostCarousel
+                      posts={group.posts}
+                      onLike={toggleLike}
+                      onOpenComments={(postId) =>
+                        openComments === postId ? setOpenComments(null) : loadComments(postId)
+                      }
+                      isBlurredAll={group.posts.every((p) => p.isBlurred)}
+                      viewerUsername={me?.user?.username}
+                    />
 
-                    {/* Media */}
-                    {item.media[0] && (
-                      <ProtectedMedia
-                        enabled={!item.isBlurred && item.visibility === "PREMIUM"}
-                        viewerUsername={me?.user?.username}
-                      >
-                        <div className="relative">
-                          {item.isBlurred ? (
-                            <div className="relative aspect-[4/5] w-full overflow-hidden">
-                              {item.media[0].url ? (
-                                <img
-                                  src={resolveMediaUrl(item.media[0].url) || ""}
-                                  alt=""
-                                  className="absolute inset-0 h-full w-full object-cover scale-110 blur-3xl brightness-[0.35] saturate-150"
-                                />
-                              ) : (
-                                <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/15 via-purple-600/10 to-rose-500/10" />
-                              )}
-                              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <div className="rounded-2xl bg-white/[0.08] p-5 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-                                  <Lock className="h-8 w-8 text-white/60" />
-                                </div>
-                                <p className="mt-4 text-sm font-bold text-white/80">Contenido exclusivo</p>
-                                <p className="mt-1 text-xs text-white/35">Suscríbete para desbloquear</p>
-                                <Link
-                                  href="/umate/plans"
-                                  className="mt-4 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.35)] transition hover:shadow-[0_6px_28px_rgba(0,175,240,0.45)]"
-                                >
-                                  Desbloquear con U-Mate
-                                </Link>
-                              </div>
-                            </div>
-                          ) : item.media[0].url ? (
-                            item.media[0].type === "VIDEO" ? (
-                              <video
-                                src={resolveMediaUrl(item.media[0].url) || ""}
-                                controls
-                                playsInline
-                                preload="metadata"
-                                className="w-full object-cover"
-                                style={{ maxHeight: 600 }}
-                              />
-                            ) : (
-                              <img
-                                src={resolveMediaUrl(item.media[0].url) || ""}
-                                alt=""
-                                className="w-full object-cover"
-                                style={{ maxHeight: 600 }}
-                              />
-                            )
-                          ) : (
-                            <div className="aspect-[4/5] w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
-                          )}
-                        </div>
-                      </ProtectedMedia>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 px-4 py-3">
-                      <button
-                        onClick={() => toggleLike(item.id)}
-                        className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm transition ${
-                          item.isLiked ? "bg-rose-500/10 text-rose-400" : "text-white/35 hover:bg-white/[0.04] hover:text-rose-400"
-                        }`}
-                      >
-                        <Heart className={`h-5 w-5 ${item.isLiked ? "fill-current" : ""}`} />
-                        <span className="text-xs font-semibold">{item.likeCount}</span>
-                      </button>
-                      <button
-                        onClick={() => openComments === item.id ? setOpenComments(null) : loadComments(item.id)}
-                        className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm transition ${
-                          openComments === item.id ? "bg-[#00aff0]/10 text-[#00aff0]" : "text-white/35 hover:bg-white/[0.04] hover:text-white/50"
-                        }`}
-                      >
-                        <MessageCircle className="h-5 w-5" />
-                        {(item.commentCount || 0) > 0 && <span className="text-xs font-semibold">{item.commentCount}</span>}
-                      </button>
-                    </div>
-
-                    {/* Comments section */}
-                    {openComments === item.id && (
+                    {/* Comments section (shows for whichever post is open) */}
+                    {group.posts.some((p) => p.id === openComments) && (
                       <div className="border-t border-white/[0.04] px-4 py-3 space-y-3">
                         <div className="flex items-center gap-2">
                           <input
                             value={commentText}
                             onChange={(e) => setCommentText(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && postComment(item.id)}
+                            onKeyDown={(e) => e.key === "Enter" && openComments && postComment(openComments)}
                             placeholder="Escribe un comentario..."
                             className="flex-1 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:border-[#00aff0]/30"
                             maxLength={1000}
                           />
                           <button
-                            onClick={() => postComment(item.id)}
+                            onClick={() => openComments && postComment(openComments)}
                             disabled={!commentText.trim()}
                             className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] text-white shadow-[0_2px_10px_rgba(0,175,240,0.25)] transition disabled:opacity-30"
                           >
@@ -320,7 +439,7 @@ export default function ExplorePage() {
                                 <p className="mt-0.5 text-[10px] text-white/25">{new Date(c.createdAt).toLocaleDateString("es-CL")}</p>
                               </div>
                               <button
-                                onClick={() => deleteComment(c.id, item.id)}
+                                onClick={() => openComments && deleteComment(c.id, openComments)}
                                 className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/30 hover:text-red-400"
                               >
                                 <Trash2 className="h-3 w-3" />

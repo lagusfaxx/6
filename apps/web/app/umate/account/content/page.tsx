@@ -11,6 +11,7 @@ import {
   Image,
   Loader2,
   Lock,
+  Play,
   Plus,
   Search,
   Trash2,
@@ -255,7 +256,28 @@ export default function ContentPage() {
           {filteredPosts.map((post) => (
             <article key={post.id} className="group overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.015] transition hover:border-white/[0.12]">
               <div className="relative aspect-[4/3] overflow-hidden bg-white/[0.03]">
-                {post.media[0]?.url && <img src={resolveMediaUrl(post.media[0].url) || ""} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />}
+                {post.media[0]?.url && (
+                  post.media[0].type === "VIDEO" ? (
+                    <div className="relative h-full w-full">
+                      <video
+                        src={resolveMediaUrl(post.media[0].url) || ""}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        crossOrigin="anonymous"
+                        className="h-full w-full object-cover transition group-hover:scale-105"
+                        onLoadedData={(e) => { const v = e.currentTarget; if (v.readyState >= 2) v.currentTime = 0.1; }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm">
+                          <Play className="h-4 w-4 text-white fill-current" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <img src={resolveMediaUrl(post.media[0].url) || ""} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+                  )
+                )}
                 <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${
                   post.visibility === "FREE" ? "bg-emerald-500/90 text-white" : "bg-amber-500/90 text-white"
                 }`}>

@@ -67,9 +67,12 @@ app.use(
   "/uploads",
   (_req, res, next) => {
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Headers", "Range");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length");
     next();
   },
-  express.static(uploadsPath, { maxAge: "30d", immutable: true })
+  express.static(uploadsPath, { maxAge: "30d", immutable: true, acceptRanges: true })
 );
 
 app.get("/health", (_req, res) => res.json({ ok: true }));

@@ -35,7 +35,7 @@ type FeedItem = {
   caption: string | null;
   visibility: "FREE" | "PREMIUM";
   creator: { displayName: string; avatarUrl: string | null; user?: { username: string } };
-  media: { id: string; url: string | null }[];
+  media: { id: string; type: string; url: string | null }[];
 };
 
 const FALLBACK_CREATORS: Creator[] = [
@@ -265,7 +265,11 @@ export default function UmateLandingPage() {
                 >
                   <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.03]">
                     {item.media[0]?.url ? (
-                      <img src={resolveMediaUrl(item.media[0].url) || ""} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                      item.media[0].type === "VIDEO" ? (
+                        <video src={resolveMediaUrl(item.media[0].url) || ""} muted playsInline preload="metadata" crossOrigin="anonymous" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                      ) : (
+                        <img src={resolveMediaUrl(item.media[0].url) || ""} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                      )
                     ) : (
                       <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/15 via-purple-600/10 to-pink-500/10" />
                     )}

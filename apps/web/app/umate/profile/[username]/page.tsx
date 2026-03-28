@@ -364,6 +364,7 @@ export default function CreatorProfilePage() {
                           controls
                           playsInline
                           preload="metadata"
+                          crossOrigin="anonymous"
                           className="w-full object-cover"
                           style={{ maxHeight: 600 }}
                         />
