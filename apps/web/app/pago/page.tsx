@@ -13,11 +13,11 @@ import useMe from "../../hooks/useMe";
 
 // ── Bank account details for direct transfers ──
 const BANK_INFO = {
-  bank: "Banco Estado",
-  accountType: "Cuenta Corriente",
-  accountNumber: "123456789",
-  rut: "12.345.678-9",
-  name: "UZEED SpA",
+  bank: "Banco de Chile",
+  accountType: "Cuenta Vista",
+  accountNumber: "00-007-96260-84",
+  rut: "78.374.984-K",
+  name: "APLICATIVOS MOVILES Y SERVICIOS PUBLICITARIOS SpA",
   email: "pagos@uzeed.cl",
 };
 
