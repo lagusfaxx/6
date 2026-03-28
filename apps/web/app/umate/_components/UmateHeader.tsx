@@ -60,7 +60,7 @@ export default function UmateHeader() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [mobileSearch, setMobileSearch] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
