@@ -198,93 +198,96 @@ export default function CreatorProfilePage() {
         </div>
       )}
 
-      <div className="relative z-10">
-      {/* Cover */}
-      <div className="relative h-48 overflow-hidden md:h-64 lg:h-72">
-        {creator.coverUrl ? (
-          <img src={resolveMediaUrl(creator.coverUrl) || ""} alt="" className="h-full w-full object-cover" />
-        ) : creator.avatarUrl ? (
-          <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover scale-125 blur-2xl brightness-75 saturate-150" />
-        ) : (
-          <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/20 via-purple-600/15 to-pink-500/10" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a12]/90 via-[#0a0a12]/30 to-transparent" />
-      </div>
-
-      {/* Profile info */}
+      <div className="relative z-10 pt-6 pb-8">
       <div className="mx-auto max-w-[700px] px-4">
-        <div className="-mt-12 flex items-end gap-4">
-          {/* Avatar */}
-          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-white/10 shadow-[0_4px_30px_rgba(0,175,240,0.15),0_4px_24px_rgba(0,0,0,0.4)] ring-1 ring-white/5 md:h-28 md:w-28">
-            {creator.avatarUrl ? (
-              <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
+        {/* Profile card */}
+        <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-sm">
+          {/* Cover - contained */}
+          <div className="relative h-40 md:h-52 overflow-hidden">
+            {creator.coverUrl ? (
+              <img src={resolveMediaUrl(creator.coverUrl) || ""} alt="" className="h-full w-full object-cover" />
+            ) : creator.avatarUrl ? (
+              <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover scale-125 blur-2xl brightness-75 saturate-150" />
             ) : (
-              <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#00aff0]/20 to-purple-600/20 text-2xl font-bold text-white/60">{(creator.displayName || "?")[0]}</div>
+              <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/20 via-purple-600/15 to-pink-500/10" />
             )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           </div>
 
-          {/* Subscribe / Actions - desktop */}
-          <div className="ml-auto flex items-center gap-2 pb-1">
-            {isSubscribed ? (
-              <button
-                onClick={handleUnsubscribe}
-                disabled={unsubscribing}
-                className="group inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-400 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
-              >
-                {unsubscribing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+          {/* Avatar + info */}
+          <div className="relative px-5 pb-5">
+            {/* Avatar - overlapping the cover */}
+            <div className="-mt-14 mb-3 flex items-end justify-between">
+              <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-[#0a0a12] bg-white/10 shadow-[0_4px_30px_rgba(0,175,240,0.15),0_4px_24px_rgba(0,0,0,0.4)] md:h-28 md:w-28">
+                {creator.avatarUrl ? (
+                  <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4 group-hover:hidden" />
-                    <UserMinus className="hidden h-4 w-4 group-hover:block" />
-                  </>
+                  <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#00aff0]/20 to-purple-600/20 text-2xl font-bold text-white/60">{(creator.displayName || "?")[0]}</div>
                 )}
-                <span className="group-hover:hidden">Suscrito</span>
-                <span className="hidden group-hover:inline">Cancelar</span>
-              </button>
-            ) : isCreatorUser ? (
-              <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-white/35">
-                <Shield className="h-4 w-4" /> Modo creadora
-              </span>
-            ) : (
-              <button
-                onClick={handleSubscribe}
-                disabled={subscribing}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.3)] transition-all duration-200 hover:shadow-[0_6px_28px_rgba(0,175,240,0.4)] hover:-translate-y-px disabled:opacity-50"
-              >
-                {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Suscribirme"}
-              </button>
-            )}
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] text-white/35 transition hover:border-white/15 hover:text-white/50">
-              <Share2 className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Name & info */}
-        <div className="mt-3">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold tracking-tight text-white md:text-2xl">{creator.displayName}</h1>
-            {creator.user.isVerified && <BadgeCheck className="h-5 w-5 text-[#00aff0]" />}
-          </div>
-          <p className="text-sm text-white/30">@{creator.user.username}</p>
-          {creator.bio && <p className="mt-3 text-sm leading-relaxed text-white/40">{creator.bio}</p>}
-
-          {/* Stats row */}
-          <div className="mt-5 flex gap-4">
-            {[
-              { value: creator.totalPosts, label: "Posts" },
-              { value: creator.subscriberCount, label: "Suscriptores" },
-              { value: creator.totalLikes, label: "Likes" },
-            ].map((s) => (
-              <div key={s.label} className="rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/[0.06] px-4 py-3 text-center flex-1">
-                <p className="text-base font-extrabold text-white">{s.value}</p>
-                <p className="text-[11px] text-white/30">{s.label}</p>
               </div>
-            ))}
-          </div>
 
-          <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent mt-5" />
+              {/* Subscribe / Actions */}
+              <div className="flex items-center gap-2 pb-1">
+                {isSubscribed ? (
+                  <button
+                    onClick={handleUnsubscribe}
+                    disabled={unsubscribing}
+                    className="group inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-400 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                  >
+                    {unsubscribing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4 group-hover:hidden" />
+                        <UserMinus className="hidden h-4 w-4 group-hover:block" />
+                      </>
+                    )}
+                    <span className="group-hover:hidden">Suscrito</span>
+                    <span className="hidden group-hover:inline">Cancelar</span>
+                  </button>
+                ) : isCreatorUser ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-white/35">
+                    <Shield className="h-4 w-4" /> Modo creadora
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleSubscribe}
+                    disabled={subscribing}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.3)] transition-all duration-200 hover:shadow-[0_6px_28px_rgba(0,175,240,0.4)] hover:-translate-y-px disabled:opacity-50"
+                  >
+                    {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Suscribirme"}
+                  </button>
+                )}
+                <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] text-white/35 transition hover:border-white/15 hover:text-white/50">
+                  <Share2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Name & info */}
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-extrabold tracking-tight text-white md:text-2xl">{creator.displayName}</h1>
+                {creator.user.isVerified && <BadgeCheck className="h-5 w-5 text-[#00aff0]" />}
+              </div>
+              <p className="text-sm text-white/30">@{creator.user.username}</p>
+              {creator.bio && <p className="mt-3 text-sm leading-relaxed text-white/50">{creator.bio}</p>}
+
+              {/* Stats row */}
+              <div className="mt-4 flex gap-3">
+                {[
+                  { value: creator.totalPosts, label: "Posts" },
+                  { value: creator.subscriberCount, label: "Suscriptores" },
+                  { value: creator.totalLikes, label: "Likes" },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-xl bg-white/[0.06] border border-white/[0.06] px-4 py-2.5 text-center flex-1">
+                    <p className="text-base font-extrabold text-white">{s.value}</p>
+                    <p className="text-[11px] text-white/30">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Content tabs */}
