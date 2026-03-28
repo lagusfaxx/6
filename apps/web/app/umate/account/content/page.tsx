@@ -223,20 +223,56 @@ export default function ContentPage() {
               </button>
             </div>
 
-            <input ref={fileRef} type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => setFiles(Array.from(e.target.files || []))} />
+            <input ref={fileRef} type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => {
+              const newFiles = Array.from(e.target.files || []);
+              setFiles((prev) => [...prev, ...newFiles].slice(0, 10));
+              if (fileRef.current) fileRef.current.value = "";
+            }} />
             <button onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-4 py-1.5 text-sm font-medium text-white/40 transition hover:text-white/60">
-              <Upload className="h-4 w-4" /> Subir archivos
+              <Upload className="h-4 w-4" /> {files.length > 0 ? "Agregar más" : "Subir archivos"}
             </button>
+            {files.length > 0 && (
+              <span className="text-[11px] text-white/30">{files.length}/10</span>
+            )}
           </div>
 
+          {/* File previews */}
           {files.length > 0 && (
-            <div className="mt-3 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-lg bg-[#00aff0]/10 px-3 py-1 text-xs font-semibold text-[#00aff0]">
-                <Image className="h-3 w-3" /> {files.length} archivo(s)
-              </span>
-              <button onClick={() => setFiles([])} className="text-xs text-rose-400 hover:text-rose-300">
-                <X className="h-3 w-3" />
-              </button>
+            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+              {files.map((file, idx) => (
+                <div key={`${file.name}-${idx}`} className="group relative aspect-square overflow-hidden rounded-xl border border-white/[0.06] bg-black">
+                  {file.type.startsWith("video/") ? (
+                    <video
+                      src={URL.createObjectURL(file)}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-contain"
+                      onLoadedData={(e) => { const v = e.currentTarget; if (v.readyState >= 2) v.currentTime = 0.1; }}
+                    />
+                  ) : (
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt=""
+                      className="h-full w-full object-contain"
+                    />
+                  )}
+                  {file.type.startsWith("video/") && (
+                    <div className="absolute left-1.5 bottom-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm">
+                      <Play className="h-2.5 w-2.5 text-white fill-current ml-px" />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setFiles((prev) => prev.filter((_, i) => i !== idx))}
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/70 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/80 hover:text-white"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                  <span className="absolute left-1.5 top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-black/60 px-1 text-[9px] font-bold text-white/70 backdrop-blur-sm">
+                    {idx + 1}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
 
