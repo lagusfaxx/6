@@ -33,6 +33,16 @@ export default function TermsPage() {
           </section>
         ))}
       </div>
+
+      <div className="rounded-2xl border border-[#00aff0]/15 bg-[#00aff0]/[0.04] p-5 text-center space-y-3">
+        <p className="text-sm text-white/50">¿Necesitas aceptar los términos para activar tu cuenta de creadora?</p>
+        <Link
+          href="/umate/onboarding"
+          className="inline-flex items-center gap-2 rounded-full bg-[#00aff0] px-6 py-2.5 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.2)] transition hover:bg-[#00aff0]/90"
+        >
+          Ir al onboarding <ChevronLeft className="h-3.5 w-3.5 rotate-180" />
+        </Link>
+      </div>
     </div>
   );
 }

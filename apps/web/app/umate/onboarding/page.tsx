@@ -35,6 +35,7 @@ export default function OnboardingPage() {
   const avatarRef = useRef<HTMLInputElement>(null);
   const coverRef = useRef<HTMLInputElement>(null);
   const [isSubscriber, setIsSubscriber] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
@@ -46,6 +47,16 @@ export default function OnboardingPage() {
   const [termsChecked, setTermsChecked] = useState(false);
   const [rulesChecked, setRulesChecked] = useState(false);
   const [contractChecked, setContractChecked] = useState(false);
+
+  // Warn user if leaving mid-registration (steps 1-3)
+  useEffect(() => {
+    if (!creator || step >= 4 || step === 0) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [creator, step]);
 
   useEffect(() => {
     Promise.all([
@@ -180,7 +191,7 @@ export default function OnboardingPage() {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center space-y-6">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#00aff0]/10 border border-[#00aff0]/20">
-          <img src="/brand/umate-logo-white.svg" alt="U-Mate" className="h-10 w-auto" />
+          <img src="/brand/Umate.png" alt="U-Mate" className="h-10 w-auto" />
         </div>
         <h1 className="text-2xl font-extrabold tracking-tight text-white">Bienvenida a U-Mate</h1>
         <p className="text-sm text-white/45 leading-relaxed">
@@ -204,13 +215,40 @@ export default function OnboardingPage() {
             {error}
           </div>
         )}
-        <button
-          onClick={handleStart}
-          disabled={saving}
-          className="inline-flex items-center gap-2 rounded-full bg-[#00aff0] px-8 py-3 text-sm font-bold text-white shadow-[0_2px_20px_rgba(0,175,240,0.3)] transition-all duration-300 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_30px_rgba(0,175,240,0.4)] hover:-translate-y-px disabled:opacity-50"
-        >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Crear cuenta <ArrowRight className="h-4 w-4" /></>}
-        </button>
+
+        {!showConfirm ? (
+          <button
+            onClick={() => setShowConfirm(true)}
+            className="inline-flex items-center gap-2 rounded-full bg-[#00aff0] px-8 py-3 text-sm font-bold text-white shadow-[0_2px_20px_rgba(0,175,240,0.3)] transition-all duration-300 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_30px_rgba(0,175,240,0.4)] hover:-translate-y-px"
+          >
+            Crear cuenta <ArrowRight className="h-4 w-4" />
+          </button>
+        ) : (
+          <div className="mx-auto max-w-xs space-y-4 rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-5">
+            <div className="flex items-center gap-2 text-amber-400">
+              <Shield className="h-5 w-5" />
+              <p className="text-sm font-bold">¿Estás segura?</p>
+            </div>
+            <p className="text-xs text-white/45 leading-relaxed">
+              Tu cuenta se convertirá en una cuenta de creadora. Necesitarás completar tu perfil, datos bancarios y aceptar los términos para poder publicar.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleStart}
+                disabled={saving}
+                className="flex-1 rounded-full bg-[#00aff0] py-2.5 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.2)] transition hover:bg-[#00aff0]/90 disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Sí, crear cuenta"}
+              </button>
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 rounded-full border border-white/[0.08] py-2.5 text-sm font-medium text-white/40 transition hover:bg-white/[0.04] hover:text-white/60"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
