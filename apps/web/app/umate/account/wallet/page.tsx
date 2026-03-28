@@ -30,6 +30,7 @@ type Stats = {
   availableBalance: number;
   totalEarned: number;
   ledger: LedgerEntry[];
+  totals: { gross: number; iva: number; commission: number; net: number };
 };
 type Withdrawal = { id: string; amount: number; status: string; bankName: string; createdAt: string };
 
@@ -51,17 +52,14 @@ export default function WalletPage() {
   }, []);
 
   const totals = useMemo(() => {
-    return (stats?.ledger || []).reduce(
-      (acc, entry) => {
-        if (entry.grossAmount > 0) acc.gross += entry.grossAmount;
-        acc.commission += entry.platformFee || 0;
-        acc.iva += entry.ivaAmount || 0;
-        if (entry.creatorPayout >= 0) acc.income += entry.creatorPayout;
-        return acc;
-      },
-      { gross: 0, commission: 0, iva: 0, income: 0 },
-    );
-  }, [stats?.ledger]);
+    if (!stats?.totals) return { gross: 0, commission: 0, iva: 0, income: 0 };
+    return {
+      gross: stats.totals.gross,
+      commission: stats.totals.commission,
+      iva: stats.totals.iva,
+      income: stats.totals.net,
+    };
+  }, [stats?.totals]);
 
   const handleWithdraw = async () => {
     if (!stats?.availableBalance) return;
@@ -133,21 +131,30 @@ export default function WalletPage() {
 
           <div className="mt-4 space-y-1">
             {stats.ledger.map((entry) => (
-              <div key={entry.id} className="flex items-center justify-between rounded-lg border border-white/[0.03] p-3 transition hover:bg-white/[0.015]">
-                <div className="flex items-center gap-3">
-                  {entry.creatorPayout >= 0 ? (
-                    <ArrowUpRight className="h-4 w-4 text-emerald-400" />
-                  ) : (
-                    <ArrowDownRight className="h-4 w-4 text-red-400" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium text-white/60">{entry.description || entry.type}</p>
-                    <p className="text-[11px] text-white/45">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</p>
+              <div key={entry.id} className="rounded-lg border border-white/[0.03] p-3 transition hover:bg-white/[0.015]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {entry.creatorPayout >= 0 ? (
+                      <ArrowUpRight className="h-4 w-4 text-emerald-400" />
+                    ) : (
+                      <ArrowDownRight className="h-4 w-4 text-red-400" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-white/60">{entry.description || entry.type}</p>
+                      <p className="text-[11px] text-white/45">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</p>
+                    </div>
                   </div>
+                  <span className={`text-sm font-semibold ${entry.creatorPayout >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {entry.creatorPayout >= 0 ? "+" : "-"}${Math.abs(entry.creatorPayout).toLocaleString("es-CL")}
+                  </span>
                 </div>
-                <span className={`text-sm font-semibold ${entry.creatorPayout >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                  {entry.creatorPayout >= 0 ? "+" : "-"}${Math.abs(entry.creatorPayout).toLocaleString("es-CL")}
-                </span>
+                {entry.type === "SLOT_ACTIVATION" && entry.grossAmount > 0 && (
+                  <div className="mt-2 ml-7 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-white/30">
+                    <span>Bruto: ${entry.grossAmount.toLocaleString("es-CL")}</span>
+                    {entry.ivaAmount > 0 && <span>IVA: -${entry.ivaAmount.toLocaleString("es-CL")}</span>}
+                    {entry.platformFee > 0 && <span>Comisión: -${entry.platformFee.toLocaleString("es-CL")}</span>}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -157,7 +164,9 @@ export default function WalletPage() {
         <div className="space-y-4">
           <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-5">
             <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-400/70">Solicitar retiro</h2>
+            <p className="mt-1 text-[11px] text-white/35">El monto ya tiene descontado IVA y comisiones.</p>
             <p className="mt-2 text-2xl font-extrabold text-emerald-400">${stats.availableBalance.toLocaleString("es-CL")}</p>
+            <p className="text-[11px] text-white/35">Neto a recibir en tu cuenta</p>
             <button
               onClick={handleWithdraw}
               disabled={withdrawing || stats.availableBalance <= 0}
@@ -168,23 +177,24 @@ export default function WalletPage() {
           </div>
 
           <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Resumen</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Desglose total</h2>
+            <p className="mt-1 text-[11px] text-white/25">Acumulado de todas tus ganancias</p>
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-2.5 text-sm">
-                <span className="text-white/50">Bruto</span>
+                <span className="text-white/50">Ingreso bruto</span>
                 <span className="font-semibold text-white">${totals.gross.toLocaleString("es-CL")}</span>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-red-500/[0.06] p-2.5 text-sm">
-                <span className="text-red-400/70">Comisión</span>
-                <span className="font-semibold text-red-400">-${totals.commission.toLocaleString("es-CL")}</span>
+                <span className="text-red-400/70">IVA (19%)</span>
+                <span className="font-semibold text-red-400">-${totals.iva.toLocaleString("es-CL")}</span>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-red-500/[0.06] p-2.5 text-sm">
-                <span className="text-red-400/70">IVA</span>
-                <span className="font-semibold text-red-400">-${totals.iva.toLocaleString("es-CL")}</span>
+                <span className="text-red-400/70">Comisión plataforma</span>
+                <span className="font-semibold text-red-400">-${totals.commission.toLocaleString("es-CL")}</span>
               </div>
               <div className="h-px bg-white/[0.06]" />
               <div className="flex items-center justify-between rounded-lg bg-emerald-500/[0.06] p-2.5 text-sm">
-                <span className="text-emerald-400/70">Neto recibido</span>
+                <span className="text-emerald-400/70">Neto ganado</span>
                 <span className="font-semibold text-emerald-400">${totals.income.toLocaleString("es-CL")}</span>
               </div>
             </div>
