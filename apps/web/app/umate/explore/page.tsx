@@ -54,6 +54,46 @@ type CreatorGroup = {
   posts: FeedItem[];
 };
 
+/* ── Video with thumbnail preview ── */
+function VideoPreview({ src, className }: { src: string; className?: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+
+  const handlePlay = () => {
+    setPlaying(true);
+    setTimeout(() => videoRef.current?.play(), 0);
+  };
+
+  return (
+    <div className="relative h-full w-full">
+      <video
+        ref={videoRef}
+        src={src}
+        controls={playing}
+        playsInline
+        preload="metadata"
+        crossOrigin="anonymous"
+        className={className}
+        onPause={() => {
+          if (videoRef.current && videoRef.current.currentTime > 0) return;
+          setPlaying(false);
+        }}
+        onEnded={() => setPlaying(false)}
+      />
+      {!playing && (
+        <button
+          onClick={handlePlay}
+          className="absolute inset-0 flex items-center justify-center bg-black/20 transition hover:bg-black/30"
+        >
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.3)] transition hover:scale-110 hover:bg-white/30">
+            <Play className="h-6 w-6 text-white fill-current ml-0.5" />
+          </div>
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* ── Mini carousel for each creator's posts ── */
 function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsername }: {
   posts: FeedItem[];
@@ -127,19 +167,10 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
                     </div>
                   ) : post.media[0]?.url ? (
                     post.media[0].type === "VIDEO" ? (
-                      <>
-                        <video
-                          src={resolveMediaUrl(post.media[0].url) || ""}
-                          controls
-                          playsInline
-                          preload="metadata"
-                          crossOrigin="anonymous"
-                          className="h-full w-full object-cover"
-                        />
-                        <div className="pointer-events-none absolute left-3 bottom-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm">
-                          <Play className="h-3 w-3 text-white fill-current" />
-                        </div>
-                      </>
+                      <VideoPreview
+                        src={resolveMediaUrl(post.media[0].url) || ""}
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       <img
                         src={resolveMediaUrl(post.media[0].url) || ""}
@@ -333,9 +364,9 @@ export default function ExplorePage() {
       </div>
 
       <div className="mx-auto max-w-[1170px] px-4 py-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_300px] justify-center">
+        <div className="flex justify-center gap-6">
           {/* Main Feed — grouped by creator */}
-          <div className="mx-auto w-full max-w-[600px]">
+          <div className="w-full max-w-[600px]">
             {loading && (
               <div className="flex flex-col items-center justify-center py-24 gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-[#00aff0]/60" />
@@ -456,8 +487,8 @@ export default function ExplorePage() {
             )}
           </div>
 
-          {/* Sidebar */}
-          <aside className="hidden lg:block">
+          {/* Sidebar — positioned to the right without affecting feed centering */}
+          <aside className="hidden shrink-0 lg:block w-[300px]">
             <div className="sticky top-28 space-y-4">
               {/* Suggested creators */}
               <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-4">
