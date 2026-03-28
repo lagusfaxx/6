@@ -87,6 +87,7 @@ enum NotificationType {
   REMINDER_VIDEOCALL_CONFIG
   VIDEOCALL_BOOKED
   SERVICE_REQUEST_NEW
+  UMATE_PLAN_ACTIVATED
 }
 
 enum PaymentIntentPurpose {
