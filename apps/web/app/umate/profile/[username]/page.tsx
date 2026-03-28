@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   BadgeCheck,
   Calendar,
   CheckCircle,
+  ChevronLeft,
+  ChevronRight,
   Grid3X3,
   Heart,
   ImageIcon,
   Loader2,
   Lock,
   MessageCircle,
+  Play,
   Send,
   Share2,
   Shield,
@@ -56,6 +59,97 @@ type Comment = {
   createdAt: string;
   user: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
 };
+
+function MediaCarousel({ media }: { media: { id: string; type: string; url: string | null; pos: number }[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [current, setCurrent] = useState(0);
+  const sorted = [...media].sort((a, b) => a.pos - b.pos);
+
+  const scroll = (dir: number) => {
+    if (!scrollRef.current) return;
+    const newIdx = Math.max(0, Math.min(sorted.length - 1, current + dir));
+    const child = scrollRef.current.children[newIdx] as HTMLElement;
+    if (child) {
+      child.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+      setCurrent(newIdx);
+    }
+  };
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+    const idx = Math.round(el.scrollLeft / el.offsetWidth);
+    setCurrent(idx);
+  };
+
+  return (
+    <div className="relative">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        {sorted.map((m) => (
+          <div key={m.id} className="w-full shrink-0 snap-start">
+            {m.url ? (
+              m.type === "VIDEO" ? (
+                <video
+                  src={resolveMediaUrl(m.url) || ""}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  crossOrigin="anonymous"
+                  className="w-full aspect-[4/5] object-contain bg-black"
+                />
+              ) : (
+                <img
+                  src={resolveMediaUrl(m.url) || ""}
+                  alt=""
+                  className="w-full aspect-[4/5] object-contain bg-black"
+                />
+              )
+            ) : (
+              <div className="aspect-[4/5] w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
+            )}
+          </div>
+        ))}
+      </div>
+      {sorted.length > 1 && (
+        <>
+          <div className="flex justify-center gap-1.5 py-2">
+            {sorted.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === current ? "w-5 bg-[#00aff0]" : "w-1.5 bg-white/15"
+                }`}
+              />
+            ))}
+          </div>
+          {current > 0 && (
+            <button
+              type="button"
+              onClick={() => scroll(-1)}
+              className="absolute left-2 top-1/3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white/90 backdrop-blur-sm shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition hover:bg-black/80 hover:scale-105"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          )}
+          {current < sorted.length - 1 && (
+            <button
+              type="button"
+              onClick={() => scroll(1)}
+              className="absolute right-2 top-1/3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white/90 backdrop-blur-sm shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition hover:bg-black/80 hover:scale-105"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function CreatorProfilePage() {
   const { username } = useParams<{ username: string }>();
@@ -329,7 +423,7 @@ export default function CreatorProfilePage() {
               )}
 
               {/* Media */}
-              {post.media[0] && (
+              {post.media.length > 0 && (
                 <ProtectedMedia
                   enabled={!post.isBlurred && post.visibility === "PREMIUM"}
                   viewerUsername={me?.user?.username}
@@ -372,28 +466,11 @@ export default function CreatorProfilePage() {
                           </Link>
                         </div>
                       </div>
-                    ) : post.media[0].url ? (
-                      post.media[0].type === "VIDEO" ? (
-                        <video
-                          src={resolveMediaUrl(post.media[0].url) || ""}
-                          controls
-                          playsInline
-                          preload="metadata"
-                          crossOrigin="anonymous"
-                          className="w-full aspect-[4/5] object-contain bg-black"
-                        />
-                      ) : (
-                        <img
-                          src={resolveMediaUrl(post.media[0].url) || ""}
-                          alt=""
-                          className="w-full aspect-[4/5] object-contain bg-black"
-                        />
-                      )
                     ) : (
-                      <div className="aspect-[4/5] w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
+                      <MediaCarousel media={post.media} />
                     )}
                     {post.visibility === "PREMIUM" && !post.isBlurred && (
-                      <span className="absolute right-3 top-3 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 backdrop-blur-sm">
+                      <span className="absolute right-3 top-3 z-10 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 backdrop-blur-sm">
                         Premium
                       </span>
                     )}
