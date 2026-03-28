@@ -782,6 +782,16 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
     return res.status(403).json({ error: "NOT_ACTIVE_CREATOR" });
   }
 
+  // All onboarding steps must be complete before publishing
+  const pending: string[] = [];
+  if (!creator.termsAcceptedAt) pending.push("terms");
+  if (!creator.rulesAcceptedAt) pending.push("rules");
+  if (!creator.contractAcceptedAt) pending.push("contract");
+  if (!creator.bankName || !creator.accountNumber || !creator.holderName || !creator.holderRut) pending.push("bank");
+  if (pending.length > 0) {
+    return res.status(403).json({ error: "ONBOARDING_INCOMPLETE", pending, message: "Completa todos los pasos de tu perfil antes de publicar." });
+  }
+
   const { caption, visibility } = req.body;
   const files = req.files as Express.Multer.File[];
   if (!files?.length) return res.status(400).json({ error: "NO_FILES" });

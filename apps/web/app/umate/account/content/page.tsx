@@ -32,6 +32,13 @@ type Post = {
 
 type FilterKey = "ALL" | "FREE" | "PREMIUM" | "DRAFT";
 
+type CreatorStatus = {
+  bankConfigured: boolean;
+  termsAccepted: boolean;
+  rulesAccepted: boolean;
+  contractAccepted: boolean;
+};
+
 export default function ContentPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,14 +55,23 @@ export default function ContentPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [publishError, setPublishError] = useState("");
+  const [creatorStatus, setCreatorStatus] = useState<CreatorStatus | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    apiFetch<{ posts: Post[] }>("/umate/creator/posts")
-      .then((d) => setPosts(d?.posts || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      apiFetch<{ posts: Post[] }>("/umate/creator/posts").catch(() => null),
+      apiFetch<CreatorStatus>("/umate/creator/stats").catch(() => null),
+    ]).then(([postsData, statusData]) => {
+      setPosts(postsData?.posts || []);
+      if (statusData) setCreatorStatus(statusData);
+      setLoading(false);
+    });
   }, []);
+
+  const onboardingComplete = creatorStatus
+    ? creatorStatus.bankConfigured && creatorStatus.termsAccepted && creatorStatus.rulesAccepted && creatorStatus.contractAccepted
+    : true;
 
   const filteredPosts = useMemo(() => {
     return posts.filter((post) => {
@@ -132,8 +148,9 @@ export default function ContentPage() {
           <p className="mt-1 text-sm text-white/30">Biblioteca de contenido y editor.</p>
         </div>
         <button
-          onClick={() => setShowEditor(!showEditor)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-5 py-2 text-sm font-semibold text-white shadow-[0_2px_12px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_20px_rgba(0,175,240,0.35)]"
+          onClick={() => onboardingComplete && setShowEditor(!showEditor)}
+          disabled={!onboardingComplete}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-5 py-2 text-sm font-semibold text-white shadow-[0_2px_12px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_20px_rgba(0,175,240,0.35)] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Plus className="h-4 w-4" /> {showEditor ? "Cerrar editor" : "Nueva publicación"}
         </button>
@@ -153,8 +170,29 @@ export default function ContentPage() {
         ))}
       </div>
 
+      {/* Onboarding incomplete warning */}
+      {!onboardingComplete && creatorStatus && (
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
+          <p className="text-sm font-semibold text-amber-300">Completa tu perfil para publicar</p>
+          <p className="mt-1 text-xs text-white/45">Debes completar todos los pasos antes de poder crear publicaciones:</p>
+          <ul className="mt-2 space-y-1 text-xs">
+            {!creatorStatus.termsAccepted && <li className="flex items-center gap-2 text-red-400"><X className="h-3 w-3" /> Aceptar términos y condiciones</li>}
+            {!creatorStatus.rulesAccepted && <li className="flex items-center gap-2 text-red-400"><X className="h-3 w-3" /> Aceptar reglas de la comunidad</li>}
+            {!creatorStatus.contractAccepted && <li className="flex items-center gap-2 text-red-400"><X className="h-3 w-3" /> Firmar contrato</li>}
+            {!creatorStatus.bankConfigured && <li className="flex items-center gap-2 text-red-400"><X className="h-3 w-3" /> Configurar datos bancarios</li>}
+            {creatorStatus.termsAccepted && <li className="flex items-center gap-2 text-emerald-400"><Check className="h-3 w-3" /> Términos y condiciones</li>}
+            {creatorStatus.rulesAccepted && <li className="flex items-center gap-2 text-emerald-400"><Check className="h-3 w-3" /> Reglas de la comunidad</li>}
+            {creatorStatus.contractAccepted && <li className="flex items-center gap-2 text-emerald-400"><Check className="h-3 w-3" /> Contrato firmado</li>}
+            {creatorStatus.bankConfigured && <li className="flex items-center gap-2 text-emerald-400"><Check className="h-3 w-3" /> Datos bancarios</li>}
+          </ul>
+          <a href="/umate/account/creator" className="mt-3 inline-flex items-center gap-1 rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/25">
+            Ir a mi cuenta
+          </a>
+        </div>
+      )}
+
       {/* Editor */}
-      {showEditor && (
+      {showEditor && onboardingComplete && (
         <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
           <h2 className="text-sm font-bold text-white/50">Crear publicación</h2>
 
