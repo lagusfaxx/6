@@ -1204,21 +1204,6 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   contain-intrinsic-size: auto 400px;
 }
 
-/* ═══ U-Mate Animated Background ═══ */
-
-@keyframes float-slow {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  25% { transform: translate(30px, -40px) scale(1.05); }
-  50% { transform: translate(-20px, 20px) scale(0.95); }
-  75% { transform: translate(15px, 35px) scale(1.02); }
-}
-
-@keyframes float-drift {
-  0%, 100% { transform: translate(0, 0); }
-  33% { transform: translate(40px, -30px); }
-  66% { transform: translate(-30px, 20px); }
-}
-
 /* ═══ U-Mate Premium Theme ═══ */
 
 .umate-theme {

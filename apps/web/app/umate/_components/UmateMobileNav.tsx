@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Compass,
   Crown,
   Heart,
   Home,
@@ -24,15 +23,13 @@ type NavItem = {
 };
 
 const clientItems: NavItem[] = [
-  { href: "/umate", label: "Inicio", icon: Home, exact: true },
-  { href: "/umate/explore", label: "Explorar", icon: Compass },
+  { href: "/umate/explore", label: "Inicio", icon: Home, exact: true },
   { href: "/umate/plans", label: "Planes", icon: Crown },
   { href: "/umate/account", label: "Mi cuenta", icon: User, exact: true },
 ];
 
 const creatorItems: NavItem[] = [
-  { href: "/umate", label: "Inicio", icon: Home, exact: true },
-  { href: "/umate/explore", label: "Explorar", icon: Compass },
+  { href: "/umate/explore", label: "Inicio", icon: Home, exact: true },
   { href: "/umate/account/content", label: "Publicar", icon: Plus, isAction: true },
   { href: "/umate/account/wallet", label: "Ingresos", icon: Wallet },
   { href: "/umate/account", label: "Studio", icon: User, exact: true },
