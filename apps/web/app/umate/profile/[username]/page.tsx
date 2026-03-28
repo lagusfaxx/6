@@ -110,6 +110,13 @@ function MediaCarousel({ media }: { media: { id: string; type: string; url: stri
                   <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-pink-500/15" />
                 )}
                 <div className="absolute inset-0 bg-black/10" />
+                {/* Video badge on blurred content */}
+                {m.type === "VIDEO" && (
+                  <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-lg bg-black/50 px-2.5 py-1 backdrop-blur-sm">
+                    <Play className="h-3.5 w-3.5 text-white fill-current" />
+                    <span className="text-[11px] font-semibold text-white">Video</span>
+                  </div>
+                )}
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <div className="rounded-full bg-white/[0.12] p-4 backdrop-blur-md">
                     <Lock className="h-8 w-8 text-white/80" />
