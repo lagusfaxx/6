@@ -1170,12 +1170,13 @@ model UmatePost {
 }
 
 model UmatePostMedia {
-  id         String              @id @default(uuid()) @db.Uuid
-  postId     String              @db.Uuid
-  type       MediaType
-  url        String
-  pos        Int                 @default(0)
-  visibility UmatePostVisibility @default(FREE)
+  id           String              @id @default(uuid()) @db.Uuid
+  postId       String              @db.Uuid
+  type         MediaType
+  url          String
+  thumbnailUrl String?
+  pos          Int                 @default(0)
+  visibility   UmatePostVisibility @default(FREE)
 
   post UmatePost @relation(fields: [postId], references: [id], onDelete: Cascade)
 

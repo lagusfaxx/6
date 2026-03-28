@@ -160,7 +160,7 @@ export default function ContentPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
         {[
           { label: "Total", value: posts.length, border: "border-white/[0.06]" },
           { label: "Gratis", value: freeCount, border: "border-emerald-500/20" },
@@ -316,7 +316,7 @@ export default function ContentPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar..."
-            className="w-48 rounded-full border border-white/[0.06] bg-white/[0.03] py-1.5 pl-9 pr-3 text-xs text-white placeholder-white/20 outline-none transition focus:border-[#00aff0]/40"
+            className="w-full sm:w-48 rounded-full border border-white/[0.06] bg-white/[0.03] py-1.5 pl-9 pr-3 text-xs text-white placeholder-white/20 outline-none transition focus:border-[#00aff0]/40"
           />
         </div>
       </div>
@@ -325,7 +325,7 @@ export default function ContentPage() {
       {loading && <div className="py-16 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-[#00aff0]/60" /></div>}
 
       {!loading && filteredPosts.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-white/[0.06] p-20 text-center">
+        <div className="rounded-2xl border border-dashed border-white/[0.06] p-10 sm:p-20 text-center">
           <Grid3X3 className="mx-auto mb-4 h-8 w-8 text-white/[0.07]" />
           <p className="text-sm font-medium text-white/45">No hay publicaciones.</p>
         </div>
@@ -364,7 +364,7 @@ export default function ContentPage() {
                   {post.visibility === "FREE" ? "Gratis" : "Premium"}
                 </span>
                 {/* Edit/Delete overlay */}
-                <div className="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                <div className="absolute right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
                   <button
                     onClick={() => { setEditingPost(post); setEditCaption(post.caption || ""); setEditVisibility(post.visibility); }}
                     className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white/80 backdrop-blur-sm hover:text-white"

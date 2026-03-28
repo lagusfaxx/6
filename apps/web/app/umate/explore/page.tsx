@@ -29,7 +29,7 @@ type FeedItem = {
   commentCount?: number;
   createdAt: string;
   creator: { id: string; displayName: string; avatarUrl: string | null; user?: { username: string } };
-  media: { id: string; type: string; url: string | null; pos: number; visibility?: string; isBlurred?: boolean }[];
+  media: { id: string; type: string; url: string | null; thumbnailUrl?: string | null; pos: number; visibility?: string; isBlurred?: boolean }[];
   isBlurred: boolean;
   isLiked: boolean;
 };
@@ -55,7 +55,7 @@ type CreatorGroup = {
 };
 
 /* ── Video with thumbnail preview ── */
-function VideoPreview({ src, className }: { src: string; className?: string }) {
+function VideoPreview({ src, poster, className }: { src: string; poster?: string; className?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
 
@@ -69,6 +69,7 @@ function VideoPreview({ src, className }: { src: string; className?: string }) {
       <video
         ref={videoRef}
         src={src}
+        poster={poster}
         controls={playing}
         playsInline
         preload="metadata"
@@ -138,18 +139,14 @@ function MediaCarousel({ media, viewerUsername }: {
                 <div className="relative aspect-[4/5] overflow-hidden bg-black">
                   {blurred ? (
                     <div className="relative h-full w-full">
-                      {m.url ? (
-                        m.type === "VIDEO" ? (
-                          <video
-                            src={resolveMediaUrl(m.url) || ""}
-                            muted playsInline preload="metadata" crossOrigin="anonymous"
-                            className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-                          />
-                        ) : (
-                          <img src={resolveMediaUrl(m.url) || ""} alt=""
-                            className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-                          />
-                        )
+                      {m.type === "VIDEO" && m.thumbnailUrl ? (
+                        <img src={resolveMediaUrl(m.thumbnailUrl) || ""} alt=""
+                          className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                        />
+                      ) : m.url && m.type !== "VIDEO" ? (
+                        <img src={resolveMediaUrl(m.url) || ""} alt=""
+                          className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                        />
                       ) : (
                         <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-rose-500/15" />
                       )}
@@ -172,6 +169,7 @@ function MediaCarousel({ media, viewerUsername }: {
                     m.type === "VIDEO" ? (
                       <VideoPreview
                         src={resolveMediaUrl(m.url) || ""}
+                        poster={m.thumbnailUrl ? resolveMediaUrl(m.thumbnailUrl) || undefined : undefined}
                         className="h-full w-full object-contain"
                       />
                     ) : (
@@ -424,7 +422,7 @@ export default function ExplorePage() {
       {/* Filter bar */}
       <div className="sticky top-14 z-30 border-b border-white/[0.03] bg-[#0a0a12]/85 py-3 backdrop-blur-2xl backdrop-saturate-[1.8]">
         <div className="mx-auto flex max-w-[700px] items-center gap-2 px-4">
-          <div className="flex items-center gap-0.5 rounded-xl bg-white/[0.04] p-1">
+          <div className="flex flex-wrap items-center gap-0.5 rounded-xl bg-white/[0.04] p-1">
             {[
               { key: "", label: "Para ti", icon: Sparkles },
               { key: "free", label: "Gratis" },
@@ -433,7 +431,7 @@ export default function ExplorePage() {
               <button
                 key={f.label}
                 onClick={() => setFilter(f.key)}
-                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all duration-200 ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition-all duration-200 ${
                   filter === f.key
                     ? "bg-gradient-to-r from-[#00aff0] to-[#0090d0] text-white shadow-[0_2px_12px_rgba(0,175,240,0.25)]"
                     : "text-white/40 hover:text-white/60"

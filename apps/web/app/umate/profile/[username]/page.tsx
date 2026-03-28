@@ -48,7 +48,7 @@ type Post = {
   likeCount: number;
   commentCount?: number;
   createdAt: string;
-  media: { id: string; type: string; url: string | null; pos: number; visibility?: string; isBlurred?: boolean }[];
+  media: { id: string; type: string; url: string | null; thumbnailUrl?: string | null; pos: number; visibility?: string; isBlurred?: boolean }[];
   isBlurred: boolean;
   isLiked: boolean;
 };
@@ -60,7 +60,7 @@ type Comment = {
   user: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
 };
 
-function MediaCarousel({ media }: { media: { id: string; type: string; url: string | null; pos: number; visibility?: string; isBlurred?: boolean }[] }) {
+function MediaCarousel({ media }: { media: { id: string; type: string; url: string | null; thumbnailUrl?: string | null; pos: number; visibility?: string; isBlurred?: boolean }[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState(0);
   const sorted = [...media].sort((a, b) => a.pos - b.pos);
@@ -94,23 +94,18 @@ function MediaCarousel({ media }: { media: { id: string; type: string; url: stri
           <div key={m.id} className="w-full shrink-0 snap-start">
             {m.isBlurred ? (
               <div className="relative aspect-[4/5] w-full overflow-hidden">
-                {m.url ? (
-                  m.type === "VIDEO" ? (
-                    <video
-                      src={resolveMediaUrl(m.url) || ""}
-                      muted
-                      playsInline
-                      preload="metadata"
-                      crossOrigin="anonymous"
-                      className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-                    />
-                  ) : (
-                    <img
-                      src={resolveMediaUrl(m.url) || ""}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-                    />
-                  )
+                {m.type === "VIDEO" && m.thumbnailUrl ? (
+                  <img
+                    src={resolveMediaUrl(m.thumbnailUrl) || ""}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                  />
+                ) : m.url && m.type !== "VIDEO" ? (
+                  <img
+                    src={resolveMediaUrl(m.url) || ""}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                  />
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-pink-500/15" />
                 )}
@@ -132,6 +127,7 @@ function MediaCarousel({ media }: { media: { id: string; type: string; url: stri
               m.type === "VIDEO" ? (
                 <video
                   src={resolveMediaUrl(m.url) || ""}
+                  poster={m.thumbnailUrl ? resolveMediaUrl(m.thumbnailUrl) || undefined : undefined}
                   controls
                   playsInline
                   preload="metadata"
@@ -333,7 +329,7 @@ export default function CreatorProfilePage() {
         {/* Profile card */}
         <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-sm">
           {/* Cover - contained */}
-          <div className="relative h-40 md:h-52 overflow-hidden">
+          <div className="relative h-32 sm:h-40 md:h-52 overflow-hidden">
             {creator.coverUrl ? (
               <img src={resolveMediaUrl(creator.coverUrl) || ""} alt="" className="h-full w-full object-cover" />
             ) : creator.avatarUrl ? (
@@ -345,7 +341,7 @@ export default function CreatorProfilePage() {
           </div>
 
           {/* Avatar + info */}
-          <div className="relative px-5 pb-5">
+          <div className="relative px-3 sm:px-5 pb-4 sm:pb-5">
             {/* Avatar - overlapping the cover */}
             <div className="-mt-14 mb-3 flex items-end justify-between">
               <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-[#0a0a12] bg-white/10 shadow-[0_4px_30px_rgba(0,175,240,0.15),0_4px_24px_rgba(0,0,0,0.4)] md:h-28 md:w-28">
@@ -404,15 +400,15 @@ export default function CreatorProfilePage() {
               {creator.bio && <p className="mt-3 text-sm leading-relaxed text-white/50">{creator.bio}</p>}
 
               {/* Stats row */}
-              <div className="mt-4 flex gap-3">
+              <div className="mt-4 flex gap-2 sm:gap-3">
                 {[
                   { value: creator.totalPosts, label: "Posts" },
                   { value: creator.subscriberCount, label: "Suscriptores" },
                   { value: creator.totalLikes, label: "Likes" },
                 ].map((s) => (
-                  <div key={s.label} className="rounded-xl bg-white/[0.06] border border-white/[0.06] px-4 py-2.5 text-center flex-1">
+                  <div key={s.label} className="rounded-xl bg-white/[0.06] border border-white/[0.06] px-2 sm:px-4 py-2 sm:py-2.5 text-center flex-1 min-w-0">
                     <p className="text-base font-extrabold text-white">{s.value}</p>
-                    <p className="text-[11px] text-white/30">{s.label}</p>
+                    <p className="text-[10px] sm:text-[11px] text-white/30 truncate">{s.label}</p>
                   </div>
                 ))}
               </div>
@@ -476,7 +472,7 @@ export default function CreatorProfilePage() {
               )}
 
               {/* Actions */}
-              <div className="flex items-center gap-4 px-4 py-3">
+              <div className="flex items-center gap-2 sm:gap-4 px-4 py-3">
                 <button
                   onClick={() => toggleLike(post.id)}
                   className={`flex items-center gap-1.5 text-sm transition ${

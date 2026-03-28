@@ -142,7 +142,7 @@ export default function WalletPage() {
                   )}
                   <div>
                     <p className="text-sm font-medium text-white/60">{entry.description || entry.type}</p>
-                    <p className="text-[10px] text-white/45">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</p>
+                    <p className="text-[11px] text-white/45">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</p>
                   </div>
                 </div>
                 <span className={`text-sm font-semibold ${entry.creatorPayout >= 0 ? "text-emerald-400" : "text-red-400"}`}>
@@ -202,10 +202,10 @@ export default function WalletPage() {
                     {w.status === "REJECTED" && <XCircle className="h-3.5 w-3.5 text-red-400" />}
                     <div>
                       <p className="text-sm font-medium text-white/60">${w.amount.toLocaleString("es-CL")}</p>
-                      <p className="text-[10px] text-white/40">{w.bankName}</p>
+                      <p className="text-[11px] text-white/40">{w.bankName}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] text-white/40">{new Date(w.createdAt).toLocaleDateString("es-CL")}</span>
+                  <span className="text-[11px] text-white/40">{new Date(w.createdAt).toLocaleDateString("es-CL")}</span>
                 </div>
               ))}
             </div>
