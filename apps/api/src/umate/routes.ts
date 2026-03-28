@@ -925,6 +925,37 @@ umateRouter.get("/umate/creator/stats", requireAuth, asyncHandler(async (req, re
 }));
 
 // ══════════════════════════════════════════════════════════════════════
+// AUTH — Creator subscribers list
+// ══════════════════════════════════════════════════════════════════════
+
+umateRouter.get("/umate/creator/subscribers", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as any).user.id;
+  const creator = await prisma.umateCreator.findUnique({ where: { userId } });
+  if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
+
+  const now = new Date();
+  const subs = await prisma.umateCreatorSub.findMany({
+    where: { creatorId: creator.id, expiresAt: { gt: now } },
+    include: {
+      subscriber: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+      subscription: { include: { plan: { select: { tier: true, name: true } } } },
+    },
+    orderBy: { activatedAt: "desc" },
+  });
+
+  const subscribers = subs.map((s) => ({
+    id: s.id,
+    activatedAt: s.activatedAt,
+    expiresAt: s.expiresAt,
+    tier: s.subscription.plan.tier,
+    planName: s.subscription.plan.name,
+    user: s.subscriber,
+  }));
+
+  res.json({ subscribers });
+}));
+
+// ══════════════════════════════════════════════════════════════════════
 // AUTH — Creator withdrawals
 // ══════════════════════════════════════════════════════════════════════
 

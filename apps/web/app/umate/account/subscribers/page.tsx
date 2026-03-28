@@ -4,35 +4,68 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
   Crown,
+  Gem,
   Heart,
   Loader2,
+  Medal,
   RefreshCcw,
   TrendingUp,
   UserMinus,
   UserPlus,
   Users,
 } from "lucide-react";
-import { apiFetch } from "../../../../lib/api";
+import { apiFetch, resolveMediaUrl } from "../../../../lib/api";
 
 type Stats = { subscriberCount: number; newSubsThisCycle: number; totalLikes: number; totalPosts: number };
 
+type Subscriber = {
+  id: string;
+  activatedAt: string;
+  expiresAt: string;
+  tier: "SILVER" | "GOLD" | "DIAMOND";
+  planName: string;
+  user: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
+};
+
+const TIER_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; icon: typeof Crown }> = {
+  DIAMOND: { label: "Diamond", color: "text-purple-300", bg: "bg-purple-500/15", border: "border-purple-500/25", icon: Gem },
+  GOLD: { label: "Gold", color: "text-amber-300", bg: "bg-amber-500/15", border: "border-amber-500/25", icon: Crown },
+  SILVER: { label: "Silver", color: "text-white/60", bg: "bg-white/10", border: "border-white/15", icon: Medal },
+};
+
 export default function SubscribersPage() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tierFilter, setTierFilter] = useState<string>("");
 
   useEffect(() => {
-    apiFetch<Stats>("/umate/creator/stats")
-      .then(setStats)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      apiFetch<Stats>("/umate/creator/stats").catch(() => null),
+      apiFetch<{ subscribers: Subscriber[] }>("/umate/creator/subscribers").catch(() => null),
+    ]).then(([s, subData]) => {
+      if (s) setStats(s);
+      setSubscribers(subData?.subscribers || []);
+      setLoading(false);
+    });
   }, []);
 
   const churn = useMemo(() => Math.max(Math.round((stats?.newSubsThisCycle || 0) * 0.28), 0), [stats?.newSubsThisCycle]);
-  const recurrent = useMemo(() => Math.max((stats?.subscriberCount || 0) - (stats?.newSubsThisCycle || 0), 0), [stats]);
   const retentionRate = useMemo(() => {
     if (!stats?.subscriberCount) return 0;
     return Math.round(((stats.subscriberCount - churn) / stats.subscriberCount) * 100);
   }, [stats, churn]);
+
+  const tierCounts = useMemo(() => {
+    const counts = { SILVER: 0, GOLD: 0, DIAMOND: 0 };
+    for (const s of subscribers) counts[s.tier] = (counts[s.tier] || 0) + 1;
+    return counts;
+  }, [subscribers]);
+
+  const filtered = useMemo(() => {
+    if (!tierFilter) return subscribers;
+    return subscribers.filter((s) => s.tier === tierFilter);
+  }, [subscribers, tierFilter]);
 
   if (loading) return <div className="flex flex-col items-center justify-center py-24 gap-3"><Loader2 className="h-8 w-8 animate-spin text-[#00aff0]/60" /></div>;
   if (!stats) return <div className="py-24 text-center text-white/40">No hay datos disponibles.</div>;
@@ -41,7 +74,7 @@ export default function SubscribersPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-white">Suscriptores</h1>
-        <p className="mt-1 text-sm text-white/30">Comunidad, conversión y fans.</p>
+        <p className="mt-1 text-sm text-white/30">Comunidad, planes y fans.</p>
       </div>
 
       {/* KPIs */}
@@ -50,7 +83,7 @@ export default function SubscribersPage() {
           { label: "Activos", value: stats.subscriberCount.toLocaleString(), icon: Users, color: "text-[#00aff0]", border: "border-[#00aff0]/20" },
           { label: "Altas del ciclo", value: `+${stats.newSubsThisCycle}`, icon: UserPlus, color: "text-emerald-400", border: "border-emerald-500/20" },
           { label: "Bajas estimadas", value: `-${churn}`, icon: UserMinus, color: "text-rose-400", border: "border-rose-500/20" },
-          { label: "Recurrentes", value: recurrent.toLocaleString(), icon: RefreshCcw, color: "text-amber-400", border: "border-amber-500/20" },
+          { label: "Retención", value: `${retentionRate}%`, icon: RefreshCcw, color: "text-amber-400", border: "border-amber-500/20" },
         ].map((m) => (
           <div key={m.label} className={`rounded-xl border ${m.border} bg-white/[0.015] p-4`}>
             <m.icon className={`h-4 w-4 ${m.color}`} />
@@ -60,83 +93,94 @@ export default function SubscribersPage() {
         ))}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* Funnel */}
-        <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Embudo de conversión</h2>
-          <div className="mt-4 space-y-3">
-            {[
-              { step: "Alcance", value: (stats.totalLikes * 4).toLocaleString(), pct: 100 },
-              { step: "Interés", value: stats.totalLikes.toLocaleString(), pct: 65 },
-              { step: "Conversión", value: `+${stats.newSubsThisCycle}`, pct: 25 },
-            ].map((item) => (
-              <div key={item.step} className="rounded-lg bg-white/[0.03] p-3.5">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-white/50">{item.step}</p>
-                  <span className="text-base font-extrabold text-white">{item.value}</span>
-                </div>
-                <div className="mt-2 h-1.5 rounded-full bg-white/[0.06]">
-                  <div className="h-full rounded-full bg-[#00aff0]" style={{ width: `${item.pct}%` }} />
-                </div>
+      {/* Tier distribution */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        {(["DIAMOND", "GOLD", "SILVER"] as const).map((tier) => {
+          const cfg = TIER_CONFIG[tier];
+          const Icon = cfg.icon;
+          return (
+            <div key={tier} className={`rounded-xl border ${cfg.border} ${cfg.bg} p-4 flex items-center gap-3`}>
+              <Icon className={`h-5 w-5 ${cfg.color}`} />
+              <div>
+                <p className="text-xl font-extrabold text-white">{tierCounts[tier]}</p>
+                <p className={`text-xs ${cfg.color}`}>{cfg.label}</p>
               </div>
-            ))}
-          </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Subscriber list */}
+      <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Suscriptores activos</h2>
+          <span className="text-[11px] text-white/40">{filtered.length} de {subscribers.length}</span>
         </div>
 
-        <div className="space-y-4">
-          {/* Retention */}
-          <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Retención</h2>
-            <div className="mt-3 flex items-center gap-4">
-              <div className="relative h-20 w-20">
-                <svg viewBox="0 0 36 36" className="h-20 w-20 -rotate-90">
-                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
-                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#00aff0" strokeWidth="3" strokeDasharray={`${retentionRate}, 100`} strokeLinecap="round" />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-extrabold text-white">{retentionRate}%</span>
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white/60">Tasa de retención</p>
-                <p className="text-xs text-white/40">Suscriptores que renuevan su ciclo.</p>
-              </div>
-            </div>
-          </div>
+        {/* Tier filter */}
+        <div className="flex gap-1.5 mb-4">
+          {[
+            { key: "", label: "Todos" },
+            { key: "DIAMOND", label: "Diamond" },
+            { key: "GOLD", label: "Gold" },
+            { key: "SILVER", label: "Silver" },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setTierFilter(f.key)}
+              className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
+                tierFilter === f.key
+                  ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25"
+                  : "text-white/40 hover:text-white/50"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
 
-          {/* Top fans */}
-          <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Top fans</h2>
-              <Crown className="h-3.5 w-3.5 text-amber-400" />
-            </div>
-            <div className="mt-3 space-y-1.5">
-              {[
-                { name: "@luna_mode", action: "Nueva suscripción", isNew: true },
-                { name: "@alma.fit", action: "Renovación mensual", isNew: false },
-                { name: "@mia.dark", action: "Nueva suscripción", isNew: true },
-                { name: "@valentinax", action: "Renovación mensual", isNew: false },
-                { name: "@sofia.rise", action: "3 meses seguidos", isNew: true },
-              ].map((fan) => (
-                <div key={fan.name} className="flex items-center justify-between rounded-lg border border-white/[0.03] p-2.5 transition hover:bg-white/[0.015]">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06] text-xs font-bold text-white/40">
-                      {fan.name[1].toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white/60">{fan.name}</p>
-                      <p className="text-[10px] text-white/45">{fan.action}</p>
-                    </div>
+        {filtered.length === 0 && (
+          <p className="text-center text-sm text-white/45 py-6">Sin suscriptores aún.</p>
+        )}
+
+        <div className="space-y-1.5">
+          {filtered.map((sub) => {
+            const cfg = TIER_CONFIG[sub.tier];
+            const Icon = cfg.icon;
+            const isNew = new Date(sub.activatedAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            return (
+              <div key={sub.id} className="flex items-center justify-between rounded-lg border border-white/[0.03] p-3 transition hover:bg-white/[0.015]">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/[0.06]">
+                    {sub.user.avatarUrl ? (
+                      <img src={resolveMediaUrl(sub.user.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-xs font-bold text-white/40">
+                        {(sub.user.displayName || sub.user.username)[0].toUpperCase()}
+                      </div>
+                    )}
                   </div>
-                  {fan.isNew ? (
-                    <span className="text-[11px] font-medium text-emerald-400"><ArrowUpRight className="inline h-3 w-3" /> Nueva</span>
-                  ) : (
-                    <span className="text-[11px] font-medium text-[#00aff0]"><RefreshCcw className="inline h-3 w-3" /> Activa</span>
-                  )}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-white/70 truncate">
+                        {sub.user.displayName || `@${sub.user.username}`}
+                      </p>
+                      {isNew && (
+                        <span className="shrink-0 text-[10px] font-medium text-emerald-400 flex items-center gap-0.5">
+                          <ArrowUpRight className="h-2.5 w-2.5" /> Nueva
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-white/40">@{sub.user.username} · desde {new Date(sub.activatedAt).toLocaleDateString("es-CL")}</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className={`shrink-0 flex items-center gap-1.5 rounded-full ${cfg.bg} border ${cfg.border} px-2.5 py-1`}>
+                  <Icon className={`h-3 w-3 ${cfg.color}`} />
+                  <span className={`text-[11px] font-semibold ${cfg.color}`}>{cfg.label}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
