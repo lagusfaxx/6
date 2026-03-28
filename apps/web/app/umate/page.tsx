@@ -7,12 +7,9 @@ import {
   BadgeCheck,
   ChevronLeft,
   ChevronRight,
-  Crown,
-  Diamond,
   Heart,
   Lock,
-  Shield,
-  Sparkles,
+  Play,
   Users,
 } from "lucide-react";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
@@ -63,7 +60,35 @@ type CreatorFeedGroup = {
   posts: FeedItem[];
 };
 
-/* ── Auto-rotating media card per creator ── */
+/* ── Animated floating orbs background ── */
+function AnimatedBackground() {
+  return (
+    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      {/* Large slow-moving orbs */}
+      <div className="absolute -top-32 -left-32 h-[600px] w-[600px] rounded-full bg-[#00aff0]/[0.04] blur-[120px] animate-[float-slow_25s_ease-in-out_infinite]" />
+      <div className="absolute top-1/3 -right-48 h-[500px] w-[500px] rounded-full bg-purple-600/[0.04] blur-[140px] animate-[float-slow_30s_ease-in-out_infinite_reverse]" />
+      <div className="absolute -bottom-24 left-1/3 h-[450px] w-[450px] rounded-full bg-cyan-500/[0.03] blur-[130px] animate-[float-drift_20s_ease-in-out_infinite]" />
+
+      {/* Smaller accent orbs */}
+      <div className="absolute top-[20%] left-[15%] h-[200px] w-[200px] rounded-full bg-[#00aff0]/[0.06] blur-[80px] animate-[float-drift_15s_ease-in-out_infinite_2s]" />
+      <div className="absolute top-[60%] right-[20%] h-[180px] w-[180px] rounded-full bg-pink-500/[0.04] blur-[90px] animate-[float-slow_18s_ease-in-out_infinite_4s]" />
+
+      {/* Subtle grid overlay */}
+      <div
+        className="absolute inset-0 opacity-[0.015]"
+        style={{
+          backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+        }}
+      />
+
+      {/* Gradient noise texture */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0a0a12]/50 to-[#0a0a12]" />
+    </div>
+  );
+}
+
+/* ── Auto-rotating media card per creator (BLUR FIXED) ── */
 function AutoRotateCard({ group }: { group: CreatorFeedGroup }) {
   const [current, setCurrent] = useState(0);
   const posts = group.posts;
@@ -78,15 +103,16 @@ function AutoRotateCard({ group }: { group: CreatorFeedGroup }) {
 
   const post = posts[current];
   const username = group.creator.user?.username || "";
+  const isPremium = post?.visibility === "PREMIUM";
 
   return (
     <Link
       href={username ? `/umate/profile/${username}` : "/umate/explore"}
-      className="group w-[280px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)] md:w-[300px]"
+      className="group w-[280px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm transition-all duration-500 hover:border-[#00aff0]/20 hover:shadow-[0_8px_40px_rgba(0,175,240,0.1)] hover:-translate-y-1 md:w-[300px]"
     >
       {/* Creator header */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/[0.1] bg-white/[0.06]">
+        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/[0.1] bg-white/[0.06] ring-2 ring-transparent group-hover:ring-[#00aff0]/20 transition-all duration-500">
           {group.creator.avatarUrl ? (
             <img src={resolveMediaUrl(group.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -99,42 +125,42 @@ function AutoRotateCard({ group }: { group: CreatorFeedGroup }) {
         </div>
       </div>
 
-      {/* Auto-rotating media */}
+      {/* Auto-rotating media — blur rendered conditionally, not as overlay */}
       <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.03]">
-        {post?.media[0]?.url ? (
+        {isPremium ? (
+          /* PREMIUM: Only render blurred version — never show clear image */
+          <div className="relative h-full w-full">
+            {post.media[0]?.url ? (
+              <img
+                src={resolveMediaUrl(post.media[0].url) || ""}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-rose-500/15" />
+            )}
+            <div className="absolute inset-0 bg-black/10" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="rounded-2xl bg-white/[0.12] p-4 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+                <Lock className="h-7 w-7 text-white/80" />
+              </div>
+              <p className="mt-3 text-sm font-bold text-white drop-shadow-lg">Premium</p>
+              <p className="mt-1 text-[11px] text-white/50">Suscribete para ver</p>
+            </div>
+          </div>
+        ) : post?.media[0]?.url ? (
+          /* FREE with media */
           post.media[0].type === "VIDEO" ? (
             <video src={resolveMediaUrl(post.media[0].url) || ""} muted playsInline preload="metadata" crossOrigin="anonymous" className="h-full w-full object-cover transition-opacity duration-700" />
           ) : (
             <img key={post.id} src={resolveMediaUrl(post.media[0].url) || ""} alt="" className="h-full w-full object-cover transition-opacity duration-700" />
           )
         ) : (
+          /* No media placeholder */
           <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/15 via-purple-600/10 to-pink-500/10" />
         )}
 
-        {/* Blur overlay for premium */}
-        {post?.visibility === "PREMIUM" && (
-          <>
-            {post.media[0]?.url && (
-              <img
-                src={resolveMediaUrl(post.media[0].url) || ""}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-              />
-            )}
-            {!post.media[0]?.url && (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-rose-500/15" />
-            )}
-            <div className="absolute inset-0 bg-black/10" />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="rounded-full bg-white/[0.12] p-3 backdrop-blur-md">
-                <Lock className="h-6 w-6 text-white/80" />
-              </div>
-              <p className="mt-2 text-sm font-bold text-white drop-shadow-lg">Premium</p>
-            </div>
-          </>
-        )}
-
-        {post?.visibility === "FREE" && (
+        {!isPremium && (
           <span className="absolute left-2 top-2 rounded-md bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
             Gratis
           </span>
@@ -211,17 +237,15 @@ export default function UmateLandingPage() {
     });
   }, []);
 
-  const tierIcon: Record<string, typeof Sparkles> = { SILVER: Sparkles, GOLD: Crown, DIAMOND: Diamond };
   const catalogCreators = useMemo(() => (creators.length > 0 ? creators : FALLBACK_CREATORS), [creators]);
   const catalogFeed = useMemo(() => (feed.length > 0 ? feed : FALLBACK_FEED), [feed]);
 
   const featuredCreators = catalogCreators.slice(0, 8);
 
-  // Group feed items by creator for profile-based cards
   const feedByCreator = useMemo<CreatorFeedGroup[]>(() => {
     const map = new Map<string, CreatorFeedGroup>();
     for (const item of catalogFeed) {
-      const key = item.creator.displayName; // group by name as fallback when no id
+      const key = item.creator.displayName;
       if (!map.has(key)) {
         map.set(key, { creator: item.creator, posts: [] });
       }
@@ -231,65 +255,44 @@ export default function UmateLandingPage() {
   }, [catalogFeed]);
 
   return (
-    <div className="space-y-0">
-      {/* ═══ Hero Section ═══ */}
-      <section className="relative overflow-hidden border-b border-white/[0.03] bg-gradient-to-b from-[#0e0e18] via-[#0a0a12] to-[#0a0a12] pb-14 pt-10 lg:pb-24 lg:pt-20">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 left-1/4 h-[700px] w-[700px] rounded-full bg-[#00aff0]/[0.04] blur-[160px]" />
-          <div className="absolute -right-24 top-16 h-[500px] w-[500px] rounded-full bg-purple-600/[0.03] blur-[140px]" />
-          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00aff0]/10 to-transparent" />
-        </div>
+    <div className="relative min-h-screen">
+      <AnimatedBackground />
 
-        <div className="relative mx-auto max-w-[1170px] px-4 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.025] px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-widest text-white/40">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#00aff0] shadow-[0_0_6px_rgba(0,175,240,0.5)]" />
-            Plataforma de suscripcion premium
-          </div>
-
-          <h1 className="mx-auto mt-7 max-w-3xl text-[2.2rem] font-extrabold leading-[1.08] tracking-[-0.02em] text-white md:text-5xl lg:text-[3.5rem]">
-            Contenido exclusivo de creadoras que te{" "}
-            <span className="bg-gradient-to-r from-[#00aff0] via-[#00c4ff] to-cyan-400 bg-clip-text text-transparent">importan.</span>
-          </h1>
-          <p className="mx-auto mt-5 max-w-lg text-[15px] leading-relaxed text-white/45 md:text-base">
-            Suscríbete a tus creadoras favoritas. Desbloquea contenido premium, conecta directamente y apoya su trabajo.
-          </p>
-
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link
-              href="/umate/explore"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-3.5 text-sm font-bold text-white shadow-[0_4px_24px_rgba(0,175,240,0.35)] transition-all duration-300 hover:shadow-[0_8px_36px_rgba(0,175,240,0.45)] hover:-translate-y-0.5"
-            >
-              Explorar creadoras <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/umate/onboarding"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/50 transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/[0.03]"
-            >
-              Ser creadora
-            </Link>
-          </div>
-
-          {/* Stats — single row, never stacks */}
-          <div className="mx-auto mt-10 flex max-w-md items-center justify-center gap-0 rounded-2xl border border-white/[0.05] bg-white/[0.02] overflow-hidden">
-            {[
-              { value: `${Math.max(catalogCreators.length, 40)}+`, label: "Creadoras" },
-              { value: `${Math.max(catalogCreators.reduce((a, c) => a + c.subscriberCount, 0), 980).toLocaleString()}+`, label: "Suscriptores" },
-              { value: `${Math.max(catalogCreators.reduce((a, c) => a + c.totalPosts, 0), 1300).toLocaleString()}+`, label: "Publicaciones" },
-            ].map((s, i) => (
-              <div
-                key={s.label}
-                className={`flex-1 py-4 ${i > 0 ? "border-l border-white/[0.05]" : ""}`}
+      {/* ═══ Compact Hero ═══ */}
+      <section className="relative pt-8 pb-6 lg:pt-14 lg:pb-10">
+        <div className="mx-auto max-w-[1170px] px-4">
+          <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-white md:text-3xl lg:text-4xl">
+                Bienvenido a{" "}
+                <span className="bg-gradient-to-r from-[#00aff0] via-[#00c4ff] to-cyan-400 bg-clip-text text-transparent">
+                  U-Mate
+                </span>
+              </h1>
+              <p className="mt-2 max-w-md text-sm text-white/40">
+                Descubre contenido exclusivo de creadoras que te importan.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/umate/explore"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_24px_rgba(0,175,240,0.25)] transition-all duration-300 hover:shadow-[0_8px_36px_rgba(0,175,240,0.4)] hover:-translate-y-0.5"
               >
-                <p className="text-lg font-extrabold tracking-tight text-white md:text-2xl">{s.value}</p>
-                <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-white/35 md:text-[11px]">{s.label}</p>
-              </div>
-            ))}
+                Explorar <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/umate/onboarding"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] px-5 py-2.5 text-sm font-medium text-white/50 backdrop-blur-sm transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/[0.05]"
+              >
+                Ser creadora
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ═══ Creadoras destacadas — Carousel ═══ */}
-      <section className="border-b border-white/[0.03] py-14 lg:py-20">
+      {/* ═══ Creadoras destacadas ═══ */}
+      <section className="relative py-10 lg:py-14">
         <div className="mx-auto max-w-[1170px] px-4">
           <div className="flex items-center justify-between">
             <div>
@@ -307,11 +310,11 @@ export default function UmateLandingPage() {
                 <Link
                   key={c.id}
                   href={`/umate/profile/${c.user.username}`}
-                  className="group w-[260px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:bg-white/[0.035] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)] md:w-[280px]"
+                  className="group w-[260px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm transition-all duration-500 hover:border-[#00aff0]/20 hover:bg-white/[0.04] hover:shadow-[0_8px_40px_rgba(0,175,240,0.08)] hover:-translate-y-1 md:w-[280px]"
                 >
                   <div className="relative aspect-[3/2] overflow-hidden bg-white/[0.03]">
                     {c.coverUrl ? (
-                      <img src={resolveMediaUrl(c.coverUrl) || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                      <img src={resolveMediaUrl(c.coverUrl) || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-700 group-hover:scale-110" />
                     ) : (
                       <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/10 to-purple-500/10" />
                     )}
@@ -323,7 +326,7 @@ export default function UmateLandingPage() {
                     )}
                   </div>
                   <div className="-mt-6 relative px-4 pb-4">
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-white/10">
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-white/10 ring-2 ring-transparent group-hover:ring-[#00aff0]/20 transition-all duration-500">
                       {c.avatarUrl ? (
                         <img src={resolveMediaUrl(c.avatarUrl) || ""} alt={c.displayName} className="h-full w-full object-cover" />
                       ) : (
@@ -345,8 +348,8 @@ export default function UmateLandingPage() {
         </div>
       </section>
 
-      {/* ═══ Contenido reciente — Per-creator cards with auto-rotating carousels ═══ */}
-      <section className="border-b border-white/[0.03] py-14 lg:py-20">
+      {/* ═══ Contenido reciente ═══ */}
+      <section className="relative py-10 lg:py-14">
         <div className="mx-auto max-w-[1170px] px-4">
           <div className="flex items-center justify-between">
             <div>
@@ -368,119 +371,34 @@ export default function UmateLandingPage() {
         </div>
       </section>
 
-      {/* ═══ Planes de suscripción (MOVED UP, before "Cómo funciona") ═══ */}
-      <section className="border-b border-white/[0.03] py-14 lg:py-20">
+      {/* ═══ Minimal CTA ═══ */}
+      <section className="relative py-10 lg:py-16">
         <div className="mx-auto max-w-[1170px] px-4">
-          <h2 className="text-center text-xl font-bold tracking-tight text-white">Planes de suscripcion</h2>
-          <p className="mt-2 text-center text-sm text-white/40">Elige el plan que se adapte a ti</p>
-
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {(plans.length > 0 ? plans : [
-              { id: "s", tier: "SILVER", name: "Silver", priceCLP: 14990, maxSlots: 1 },
-              { id: "g", tier: "GOLD", name: "Gold", priceCLP: 24990, maxSlots: 3 },
-              { id: "d", tier: "DIAMOND", name: "Diamond", priceCLP: 34990, maxSlots: 5 },
-            ]).map((plan) => {
-              const Icon = tierIcon[plan.tier] || Sparkles;
-              const isPopular = plan.tier === "GOLD";
-              return (
-                <div
-                  key={plan.id}
-                  className={`relative rounded-2xl border p-7 text-center transition-all duration-300 hover:-translate-y-1 ${
-                    isPopular
-                      ? "border-[#00aff0]/25 bg-[#00aff0]/[0.03] shadow-[0_8px_40px_rgba(0,175,240,0.08)]"
-                      : "border-white/[0.05] bg-white/[0.02] hover:border-white/[0.08]"
-                  }`}
-                >
-                  {isPopular && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#00aff0] px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-white shadow-[0_2px_12px_rgba(0,175,240,0.35)]">
-                      Popular
-                    </span>
-                  )}
-                  <div className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${isPopular ? "bg-[#00aff0]/15" : "bg-white/[0.06]"}`}>
-                    <Icon className={`h-5 w-5 ${isPopular ? "text-[#00aff0]" : "text-white/50"}`} />
-                  </div>
-                  <h3 className="mt-4 text-lg font-bold text-white">{plan.name}</h3>
-                  <p className="mt-2 text-3xl font-extrabold text-white">
-                    ${plan.priceCLP.toLocaleString("es-CL")}
-                    <span className="text-sm font-medium text-white/40">/mes</span>
-                  </p>
-                  <p className="mt-1 text-xs text-white/40">{plan.maxSlots} cupo{plan.maxSlots > 1 ? "s" : ""} por ciclo</p>
-                  <Link
-                    href="/umate/plans"
-                    className={`mt-5 block rounded-full py-2.5 text-sm font-bold transition ${
-                      isPopular
-                        ? "bg-[#00aff0] text-white hover:bg-[#00aff0]/90"
-                        : "border border-white/[0.1] bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
-                    }`}
-                  >
-                    Elegir plan
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ Cómo funciona ═══ */}
-      <section className="border-b border-white/[0.03] py-14 lg:py-20">
-        <div className="mx-auto max-w-[1170px] px-4">
-          <h2 className="text-center text-xl font-bold tracking-tight text-white">Como funciona</h2>
-          <p className="mt-2 text-center text-sm text-white/40">Tres pasos simples para empezar</p>
-
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {[
-              { step: "01", title: "Descubre", desc: "Explora un catalogo de creadoras activas con contenido exclusivo.", icon: Sparkles },
-              { step: "02", title: "Suscribete", desc: "Elige un plan con cupos mensuales para acceder a contenido premium.", icon: Crown },
-              { step: "03", title: "Disfruta", desc: "Desbloquea contenido, interactua y conecta con tus creadoras favoritas.", icon: Heart },
-            ].map((item) => (
-              <div key={item.step} className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-7 transition-all duration-300 hover:border-white/[0.08] hover:bg-white/[0.03]">
-                <div className="flex items-center justify-between">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#00aff0]/[0.08]">
-                    <item.icon className="h-5 w-5 text-[#00aff0]" />
-                  </div>
-                  <span className="text-3xl font-extrabold text-white/[0.04]">{item.step}</span>
-                </div>
-                <h3 className="mt-5 text-base font-bold text-white">{item.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/40">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ CTA Banner ═══ */}
-      <section className="py-14 lg:py-20">
-        <div className="mx-auto max-w-[1170px] px-4">
-          <div className="relative overflow-hidden rounded-3xl border border-[#00aff0]/10 bg-gradient-to-br from-[#00aff0]/[0.06] via-purple-500/[0.04] to-[#00aff0]/[0.06] p-10 text-center lg:p-16">
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute left-1/2 top-0 h-px w-1/2 -translate-x-1/2 bg-gradient-to-r from-transparent via-[#00aff0]/25 to-transparent" />
-              <div className="absolute bottom-0 left-1/4 h-[300px] w-[300px] rounded-full bg-[#00aff0]/[0.03] blur-[100px]" />
+          <div className="relative overflow-hidden rounded-3xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-8 text-center lg:p-12">
+            {/* Animated accent inside CTA */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute -top-20 left-1/2 -translate-x-1/2 h-[300px] w-[500px] rounded-full bg-[#00aff0]/[0.05] blur-[100px] animate-[float-drift_12s_ease-in-out_infinite]" />
             </div>
-            <h2 className="relative text-2xl font-extrabold tracking-tight text-white md:text-3xl">
-              Tu próxima comunidad favorita está en U-Mate.
+
+            <h2 className="relative text-xl font-extrabold tracking-tight text-white md:text-2xl">
+              Tu proxima comunidad favorita esta aqui.
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-white/40">
-              Explora creadoras, desbloquea contenido premium y construye conexiones reales.
+            <p className="relative mx-auto mt-3 max-w-md text-sm text-white/40">
+              Explora creadoras, desbloquea contenido premium y conecta.
             </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <div className="relative mt-6 flex flex-wrap justify-center gap-3">
               <Link
                 href="/umate/explore"
-                className="rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-3.5 text-sm font-bold text-white shadow-[0_4px_24px_rgba(0,175,240,0.35)] transition-all duration-300 hover:shadow-[0_8px_36px_rgba(0,175,240,0.45)] hover:-translate-y-0.5"
+                className="rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-3 text-sm font-bold text-white shadow-[0_4px_24px_rgba(0,175,240,0.25)] transition-all duration-300 hover:shadow-[0_8px_36px_rgba(0,175,240,0.4)] hover:-translate-y-0.5"
               >
                 Explorar ahora
               </Link>
               <Link
                 href="/umate/onboarding"
-                className="rounded-xl border border-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/40 transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/[0.03]"
+                className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-6 py-3 text-sm font-medium text-white/40 backdrop-blur-sm transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/[0.05]"
               >
                 Crear perfil de creadora
               </Link>
-            </div>
-            <div className="mt-5 flex flex-wrap justify-center gap-4 text-[11px] text-white/40">
-              <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> Pagos seguros</span>
-              <span className="flex items-center gap-1"><BadgeCheck className="h-3 w-3" /> Perfiles verificados</span>
-              <span className="flex items-center gap-1"><Lock className="h-3 w-3" /> Contenido protegido</span>
             </div>
           </div>
         </div>
