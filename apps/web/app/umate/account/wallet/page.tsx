@@ -73,7 +73,7 @@ export default function WalletPage() {
           ...stats,
           availableBalance: Math.max(0, stats.availableBalance - res.withdrawn),
           ledger: [
-            { id: `wd-${Date.now()}`, type: "WITHDRAWAL", creatorPayout: -res.withdrawn, createdAt: new Date().toISOString(), description: "Retiro solicitado" },
+            { id: `wd-${Date.now()}`, type: "WITHDRAWAL", grossAmount: 0, platformFee: 0, ivaAmount: 0, creatorPayout: -res.withdrawn, createdAt: new Date().toISOString(), description: "Retiro solicitado" },
             ...stats.ledger,
           ],
         });
