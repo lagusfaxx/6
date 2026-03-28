@@ -517,16 +517,17 @@ export default function WalletPage() {
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/60">Datos Bancarios UZEED</p>
                         <button
-                          onClick={() => navigator.clipboard?.writeText("Banco Estado · Cuenta Corriente · UZEED SpA · 000-000-000")}
+                          onClick={() => navigator.clipboard?.writeText("Banco de Chile · Cuenta Vista · APLICATIVOS MOVILES Y SERVICIOS PUBLICITARIOS SpA · RUT: 78.374.984-K · N° 00-007-96260-84")}
                           className="rounded-lg p-1 text-white/30 hover:bg-white/10 hover:text-white/50 transition"
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </button>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-xs text-white/70">Banco Estado · Cuenta Corriente</p>
-                        <p className="text-xs text-white/70">UZEED SpA · RUT: 77.xxx.xxx-x</p>
-                        <p className="text-xs text-white/70">N° Cuenta: 000-000-000</p>
+                        <p className="text-xs text-white/70">Banco de Chile · Cuenta Vista</p>
+                        <p className="text-xs text-white/70">APLICATIVOS MOVILES Y SERVICIOS PUBLICITARIOS SpA</p>
+                        <p className="text-xs text-white/70">RUT: 78.374.984-K</p>
+                        <p className="text-xs text-white/70">N° Cuenta: 00-007-96260-84</p>
                       </div>
                     </div>
 
