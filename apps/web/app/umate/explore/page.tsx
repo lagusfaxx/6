@@ -29,7 +29,7 @@ type FeedItem = {
   commentCount?: number;
   createdAt: string;
   creator: { id: string; displayName: string; avatarUrl: string | null; user?: { username: string } };
-  media: { id: string; type: string; url: string | null; pos: number }[];
+  media: { id: string; type: string; url: string | null; pos: number; visibility?: string; isBlurred?: boolean }[];
   isBlurred: boolean;
   isLiked: boolean;
 };
@@ -94,7 +94,143 @@ function VideoPreview({ src, className }: { src: string; className?: string }) {
   );
 }
 
-/* ── Mini carousel for each creator's posts ── */
+/* ── Media carousel within a single post ── */
+function MediaCarousel({ media, viewerUsername }: {
+  media: FeedItem["media"];
+  viewerUsername?: string;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [current, setCurrent] = useState(0);
+
+  const scroll = (dir: number) => {
+    if (!scrollRef.current) return;
+    const newIdx = Math.max(0, Math.min(media.length - 1, current + dir));
+    const child = scrollRef.current.children[newIdx] as HTMLElement;
+    if (child) {
+      child.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+      setCurrent(newIdx);
+    }
+  };
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+    const idx = Math.round(el.scrollLeft / el.offsetWidth);
+    setCurrent(idx);
+  };
+
+  return (
+    <div className="relative">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        {media.map((m, idx) => {
+          const blurred = m.isBlurred === true;
+          return (
+            <div key={m.id || idx} className="w-full shrink-0 snap-start">
+              <ProtectedMedia
+                enabled={!blurred && m.visibility === "PREMIUM"}
+                viewerUsername={viewerUsername}
+              >
+                <div className="relative aspect-[4/5] overflow-hidden bg-black">
+                  {blurred ? (
+                    <div className="relative h-full w-full">
+                      {m.url ? (
+                        m.type === "VIDEO" ? (
+                          <video
+                            src={resolveMediaUrl(m.url) || ""}
+                            muted playsInline preload="metadata" crossOrigin="anonymous"
+                            className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                          />
+                        ) : (
+                          <img src={resolveMediaUrl(m.url) || ""} alt=""
+                            className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                          />
+                        )
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-rose-500/15" />
+                      )}
+                      <div className="absolute inset-0 bg-black/10" />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <div className="rounded-2xl bg-white/[0.12] p-5 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+                          <Lock className="h-8 w-8 text-white/80" />
+                        </div>
+                        <p className="mt-4 text-sm font-bold text-white drop-shadow-lg">Contenido exclusivo</p>
+                        <p className="mt-1 text-xs text-white/60 drop-shadow-lg">Suscríbete para desbloquear</p>
+                        <Link
+                          href="/umate/plans"
+                          className="mt-4 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.35)] transition hover:shadow-[0_6px_28px_rgba(0,175,240,0.45)]"
+                        >
+                          Desbloquear
+                        </Link>
+                      </div>
+                    </div>
+                  ) : m.url ? (
+                    m.type === "VIDEO" ? (
+                      <VideoPreview
+                        src={resolveMediaUrl(m.url) || ""}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <img src={resolveMediaUrl(m.url) || ""} alt="" className="h-full w-full object-contain" />
+                    )
+                  ) : (
+                    <div className="h-full w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
+                  )}
+
+                  {/* Per-media visibility badge */}
+                  <span className={`absolute right-2 top-2 rounded-lg px-2 py-0.5 text-[10px] font-bold ${
+                    m.visibility === "PREMIUM"
+                      ? "bg-gradient-to-r from-amber-500/90 to-orange-500/90 text-white"
+                      : "bg-emerald-500/90 text-white"
+                  }`}>
+                    {m.visibility === "PREMIUM" ? "Premium" : "Gratis"}
+                  </span>
+                </div>
+              </ProtectedMedia>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Dots */}
+      {media.length > 1 && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+          {media.map((_, i) => (
+            <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${
+              i === current ? "w-5 bg-[#00aff0]" : "w-1.5 bg-white/40"
+            }`} />
+          ))}
+        </div>
+      )}
+
+      {/* Arrows */}
+      {media.length > 1 && (
+        <>
+          {current > 0 && (
+            <button type="button" onClick={() => scroll(-1)}
+              className="absolute left-2 top-1/3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white/90 backdrop-blur-sm shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition hover:bg-black/80 hover:text-white hover:scale-105"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          )}
+          {current < media.length - 1 && (
+            <button type="button" onClick={() => scroll(1)}
+              className="absolute right-2 top-1/3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white/90 backdrop-blur-sm shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition hover:bg-black/80 hover:text-white hover:scale-105"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── Post list for a creator's group ── */
 function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsername }: {
   posts: FeedItem[];
   onLike: (id: string) => void;
@@ -124,7 +260,7 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
 
   return (
     <div className="space-y-0">
-      {/* Media carousel */}
+      {/* Posts carousel */}
       <div className="group/media relative">
         <div
           ref={scrollRef}
@@ -132,79 +268,12 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
           className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {posts.map((post, idx) => (
+          {posts.map((post) => (
             <div key={post.id} className="w-full shrink-0 snap-start">
-              <ProtectedMedia
-                enabled={!post.isBlurred && post.visibility === "PREMIUM"}
-                viewerUsername={viewerUsername}
-              >
-                <div className="relative aspect-[4/5] overflow-hidden bg-black">
-                  {post.isBlurred ? (
-                    <div className="relative h-full w-full">
-                      {post.media[0]?.url ? (
-                        post.media[0].type === "VIDEO" ? (
-                          <video
-                            src={resolveMediaUrl(post.media[0].url) || ""}
-                            muted
-                            playsInline
-                            preload="metadata"
-                            crossOrigin="anonymous"
-                            className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-                          />
-                        ) : (
-                          <img
-                            src={resolveMediaUrl(post.media[0].url) || ""}
-                            alt=""
-                            className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-                          />
-                        )
-                      ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-rose-500/15" />
-                      )}
-                      <div className="absolute inset-0 bg-black/10" />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <div className="rounded-2xl bg-white/[0.12] p-5 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-                          <Lock className="h-8 w-8 text-white/80" />
-                        </div>
-                        <p className="mt-4 text-sm font-bold text-white drop-shadow-lg">Contenido exclusivo</p>
-                        <p className="mt-1 text-xs text-white/60 drop-shadow-lg">Suscríbete para desbloquear</p>
-                        <Link
-                          href="/umate/plans"
-                          className="mt-4 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.35)] transition hover:shadow-[0_6px_28px_rgba(0,175,240,0.45)]"
-                        >
-                          Desbloquear
-                        </Link>
-                      </div>
-                    </div>
-                  ) : post.media[0]?.url ? (
-                    post.media[0].type === "VIDEO" ? (
-                      <VideoPreview
-                        src={resolveMediaUrl(post.media[0].url) || ""}
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <img
-                        src={resolveMediaUrl(post.media[0].url) || ""}
-                        alt=""
-                        className="h-full w-full object-contain"
-                      />
-                    )
-                  ) : (
-                    <div className="h-full w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
-                  )}
+              {/* Media carousel within this post */}
+              <MediaCarousel media={post.media} viewerUsername={viewerUsername} />
 
-                  {/* Visibility badge */}
-                  <span className={`absolute right-2 top-2 rounded-lg px-2 py-0.5 text-[10px] font-bold ${
-                    post.visibility === "FREE"
-                      ? "bg-emerald-500/90 text-white"
-                      : "bg-gradient-to-r from-amber-500/90 to-orange-500/90 text-white"
-                  }`}>
-                    {post.visibility === "FREE" ? "Gratis" : "Premium"}
-                  </span>
-                </div>
-              </ProtectedMedia>
-
-              {/* Caption + Actions for this post */}
+              {/* Caption + Actions */}
               <div className="px-4 py-2.5">
                 {post.caption && (
                   <p className="text-sm leading-relaxed text-white/55 line-clamp-2">{post.caption}</p>
@@ -235,7 +304,7 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
           ))}
         </div>
 
-        {/* Carousel dots */}
+        {/* Post-level carousel dots */}
         {posts.length > 1 && (
           <div className="flex justify-center gap-1.5 py-2">
             {posts.map((_, i) => (
@@ -249,7 +318,7 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
           </div>
         )}
 
-        {/* Arrows */}
+        {/* Post-level arrows */}
         {posts.length > 1 && (
           <>
             {current > 0 && (
