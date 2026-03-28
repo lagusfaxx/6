@@ -364,6 +364,33 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
     // status 2 = paid
     if (payment.status !== 2) {
       console.log("[flow] payment webhook: not paid", { token, status: payment.status });
+
+      // Mark rejected/canceled payments as FAILED so the frontend can show proper state
+      if (payment.status === 3 || payment.status === 4) {
+        const commerceOrder = String(payment.commerceOrder || "").trim();
+        const intentIdFromQuery = String(query.intentId || body.intentId || "").trim();
+        const refFromQuery = String(query.ref || body.ref || "").trim();
+        const candidates = Array.from(new Set([commerceOrder, intentIdFromQuery, refFromQuery].filter(Boolean)));
+
+        const failedIntent = await prisma.paymentIntent.findFirst({
+          where: {
+            OR: [
+              ...(candidates.length ? [{ id: { in: candidates } }] : []),
+              { providerPaymentId: token }
+            ],
+            status: "PENDING",
+          }
+        });
+
+        if (failedIntent) {
+          await prisma.paymentIntent.update({
+            where: { id: failedIntent.id },
+            data: { status: "FAILED", providerPaymentId: token },
+          });
+          console.log("[flow webhook] payment marked as FAILED", { intentId: failedIntent.id, flowStatus });
+        }
+      }
+
       return res.status(200).send("OK");
     }
 

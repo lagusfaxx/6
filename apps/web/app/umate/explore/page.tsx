@@ -28,7 +28,7 @@ type FeedItem = {
   likeCount: number;
   commentCount?: number;
   createdAt: string;
-  creator: { id: string; displayName: string; avatarUrl: string | null; user?: { username: string } };
+  creator: { id: string; displayName: string; avatarUrl: string | null; subscriberCount?: number; user?: { username: string } };
   media: { id: string; type: string; url: string | null; thumbnailUrl?: string | null; pos: number; visibility?: string; isBlurred?: boolean }[];
   isBlurred: boolean;
   isLiked: boolean;
@@ -236,12 +236,13 @@ function MediaCarousel({ media, viewerUsername }: {
 }
 
 /* ── Post list for a creator's group ── */
-function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsername }: {
+function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsername, activeFilter }: {
   posts: FeedItem[];
   onLike: (id: string) => void;
   onOpenComments: (id: string) => void;
   isBlurredAll: boolean;
   viewerUsername?: string;
+  activeFilter?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState(0);
@@ -275,8 +276,15 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
         >
           {posts.map((post) => (
             <div key={post.id} className="w-full shrink-0 snap-start">
-              {/* Show only the first media item in explore; full gallery lives on the profile */}
-              <MediaCarousel media={[post.media[0]]} viewerUsername={viewerUsername} />
+              {/* Show only one representative media item in explore; full gallery lives on the profile */}
+              <MediaCarousel media={[
+                (activeFilter === "premium"
+                  ? post.media.find((m) => m.visibility === "PREMIUM")
+                  : activeFilter === "free"
+                    ? post.media.find((m) => m.visibility === "FREE")
+                    : undefined
+                ) || post.media[0]
+              ]} viewerUsername={viewerUsername} />
 
               {/* Multi-media indicator */}
               {post.media.length > 1 && (
@@ -496,25 +504,42 @@ export default function ExplorePage() {
                     className="overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.08]"
                   >
                     {/* Creator header */}
-                    <Link
-                      href={`/umate/profile/${group.creator.user?.username || group.creator.id}`}
-                      className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.02]"
-                    >
-                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/[0.1] bg-gradient-to-br from-white/[0.06] to-white/[0.02]">
-                        {group.creator.avatarUrl ? (
-                          <img src={resolveMediaUrl(group.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{(group.creator.displayName || "?")[0]}</div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white/90 truncate">{group.creator.displayName}</p>
-                        <p className="text-[11px] text-white/30">
-                          @{group.creator.user?.username || "creator"} · {group.posts.length} publicacion{group.posts.length > 1 ? "es" : ""}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-white/20 shrink-0" />
-                    </Link>
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <Link
+                        href={`/umate/profile/${group.creator.user?.username || group.creator.id}`}
+                        className="flex flex-1 items-center gap-3 min-w-0 transition hover:opacity-80"
+                      >
+                        <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/[0.1] bg-gradient-to-br from-white/[0.06] to-white/[0.02]">
+                          {group.creator.avatarUrl ? (
+                            <img src={resolveMediaUrl(group.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{(group.creator.displayName || "?")[0]}</div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-white/90 truncate">{group.creator.displayName}</p>
+                          <p className="text-[11px] text-white/30">
+                            @{group.creator.user?.username || "creator"} · {group.posts.length} publicacion{group.posts.length > 1 ? "es" : ""}
+                          </p>
+                        </div>
+                      </Link>
+                      {group.posts.some((p) => p.isBlurred) ? (
+                        <Link
+                          href="/umate/plans"
+                          className="shrink-0 flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-4 py-2 text-xs font-bold text-white shadow-[0_2px_10px_rgba(0,175,240,0.25)] transition hover:shadow-[0_4px_16px_rgba(0,175,240,0.35)]"
+                        >
+                          <Crown className="h-3.5 w-3.5" />
+                          <span>Suscribirse</span>
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/umate/profile/${group.creator.user?.username || group.creator.id}`}
+                          className="shrink-0 rounded-xl border border-white/[0.08] px-4 py-2 text-xs font-semibold text-white/50 transition hover:bg-white/[0.04] hover:text-white/70"
+                        >
+                          Ver perfil
+                        </Link>
+                      )}
+                    </div>
 
                     {/* Posts carousel for this creator */}
                     <PostCarousel
@@ -525,6 +550,7 @@ export default function ExplorePage() {
                       }
                       isBlurredAll={group.posts.every((p) => p.isBlurred)}
                       viewerUsername={me?.user?.username}
+                      activeFilter={filter}
                     />
 
                     {/* Comments section (shows for whichever post is open) */}
