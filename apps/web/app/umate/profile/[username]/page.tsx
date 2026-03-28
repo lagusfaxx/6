@@ -182,23 +182,44 @@ export default function CreatorProfilePage() {
   );
   if (!creator) return <div className="py-24 text-center text-white/30">Perfil no encontrado.</div>;
 
+  const heroImage = creator.coverUrl || creator.avatarUrl;
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen relative">
+      {/* Blurred background image behind entire profile */}
+      {heroImage && (
+        <div className="fixed inset-0 z-0">
+          <img
+            src={resolveMediaUrl(heroImage) || ""}
+            alt=""
+            className="h-full w-full object-cover scale-110 blur-[80px] brightness-[0.3] saturate-150"
+          />
+          <div className="absolute inset-0 bg-[#0a0a12]/60" />
+        </div>
+      )}
+
+      <div className="relative z-10">
       {/* Cover */}
-      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#00aff0]/10 via-purple-600/[0.05] to-transparent md:h-64 lg:h-72">
-        {creator.coverUrl && <img src={resolveMediaUrl(creator.coverUrl) || ""} alt="" className="h-full w-full object-cover" />}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a12] via-[#0a0a12]/40 to-transparent" />
+      <div className="relative h-48 overflow-hidden md:h-64 lg:h-72">
+        {creator.coverUrl ? (
+          <img src={resolveMediaUrl(creator.coverUrl) || ""} alt="" className="h-full w-full object-cover" />
+        ) : creator.avatarUrl ? (
+          <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover scale-125 blur-2xl brightness-75 saturate-150" />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/20 via-purple-600/15 to-pink-500/10" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a12]/90 via-[#0a0a12]/30 to-transparent" />
       </div>
 
       {/* Profile info */}
       <div className="mx-auto max-w-[700px] px-4">
         <div className="-mt-12 flex items-end gap-4">
           {/* Avatar */}
-          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border-4 border-[#0a0a12] bg-[#0a0a12] shadow-[0_4px_24px_rgba(0,0,0,0.5)] md:h-28 md:w-28">
+          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-white/10 shadow-[0_4px_30px_rgba(0,175,240,0.15),0_4px_24px_rgba(0,0,0,0.4)] ring-1 ring-white/5 md:h-28 md:w-28">
             {creator.avatarUrl ? (
               <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full items-center justify-center bg-gradient-to-br from-white/[0.08] to-white/[0.04] text-2xl font-bold text-white/40">{(creator.displayName || "?")[0]}</div>
+              <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#00aff0]/20 to-purple-600/20 text-2xl font-bold text-white/60">{(creator.displayName || "?")[0]}</div>
             )}
           </div>
 
@@ -256,7 +277,7 @@ export default function CreatorProfilePage() {
               { value: creator.subscriberCount, label: "Suscriptores" },
               { value: creator.totalLikes, label: "Likes" },
             ].map((s) => (
-              <div key={s.label} className="rounded-xl bg-white/[0.03] px-4 py-3 text-center flex-1">
+              <div key={s.label} className="rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/[0.06] px-4 py-3 text-center flex-1">
                 <p className="text-base font-extrabold text-white">{s.value}</p>
                 <p className="text-[11px] text-white/30">{s.label}</p>
               </div>
@@ -295,7 +316,7 @@ export default function CreatorProfilePage() {
         {/* Posts feed */}
         <div className="mt-5 space-y-5 pb-8">
           {filtered.map((post) => (
-            <article key={post.id} className="overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.015] transition-all duration-300 hover:border-white/[0.08] hover:shadow-[0_8px_40px_rgba(0,0,0,0.2)]">
+            <article key={post.id} className="overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.04] backdrop-blur-sm transition-all duration-300 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,175,240,0.08)]">
               {/* Caption */}
               {post.caption && (
                 <div className="px-4 pt-4 pb-3">
@@ -453,6 +474,7 @@ export default function CreatorProfilePage() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

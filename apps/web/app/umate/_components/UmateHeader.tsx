@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -17,6 +17,29 @@ import {
 import useMe from "../../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
 
+type NotificationItem = {
+  id: string;
+  type: string;
+  data?: Record<string, unknown>;
+  readAt?: string | null;
+  createdAt: string;
+};
+
+function notifLabel(item: NotificationItem): string {
+  if (item.data?.title && typeof item.data.title === "string") return item.data.title;
+  switch (item.type) {
+    case "MESSAGE_RECEIVED":          return "Nuevo mensaje";
+    case "SUBSCRIPTION_STARTED":      return "Suscripción activada";
+    case "SUBSCRIPTION_RENEWED":      return "Suscripción renovada";
+    case "POST_PUBLISHED":            return "Nueva publicación";
+    default:                          return "Nueva notificación";
+  }
+}
+
+function notifUrl(item: NotificationItem): string | null {
+  return (item.data?.url as string) || null;
+}
+
 export default function UmateHeader() {
   const pathname = usePathname();
   const router = useRouter();
@@ -25,6 +48,13 @@ export default function UmateHeader() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreator, setIsCreator] = useState(false);
   const [mobileSearch, setMobileSearch] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
+  const bellRef = useRef<HTMLDivElement | null>(null);
+  const isAuthed = Boolean(me?.user?.id);
+
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
 
   useEffect(() => {
     if (!me?.user) return;
@@ -32,6 +62,41 @@ export default function UmateHeader() {
       .then((d) => setIsCreator(Boolean(d?.creator && d.creator.status !== "SUSPENDED")))
       .catch(() => {});
   }, [me]);
+
+  /* Load notifications */
+  useEffect(() => {
+    if (!isAuthed) { setNotifications([]); return; }
+    setLoadingNotifs(true);
+    apiFetch<{ notifications: NotificationItem[] }>("/notifications")
+      .then((res) => setNotifications(res?.notifications ?? []))
+      .catch(() => setNotifications([]))
+      .finally(() => setLoadingNotifs(false));
+  }, [isAuthed]);
+
+  /* Close bell on outside click */
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) setBellOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleNotifClick = async (item: NotificationItem) => {
+    try {
+      await apiFetch(`/notifications/${item.id}/read`, { method: "POST" });
+      setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, readAt: new Date().toISOString() } : n)));
+    } catch { /* silent */ }
+    const url = notifUrl(item);
+    if (url) { setBellOpen(false); router.push(url); }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await apiFetch("/notifications/read-all", { method: "POST" });
+      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));
+    } catch { /* silent */ }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,10 +183,58 @@ export default function UmateHeader() {
             <MessageCircle className="h-5 w-5" />
           </Link>
 
-          <button className="relative flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-white/[0.06] hover:text-white/70">
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#00aff0] shadow-[0_0_6px_rgba(0,175,240,0.6)]" />
-          </button>
+          <div className="relative" ref={bellRef}>
+            <button
+              type="button"
+              onClick={() => setBellOpen((prev) => !prev)}
+              className="relative flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-[#00aff0] px-1 py-0.5 text-center text-[9px] font-bold leading-none text-white shadow-[0_0_8px_rgba(0,175,240,0.6)]">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {bellOpen && (
+              <div className="absolute right-0 top-12 w-[300px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a12]/95 shadow-[0_18px_48px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:w-[340px]">
+                <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+                  <span className="text-sm font-semibold text-white">Notificaciones</span>
+                  {unreadCount > 0 && (
+                    <button type="button" onClick={handleMarkAllRead} className="text-[11px] font-medium text-[#00aff0] hover:text-[#00aff0]/80 transition">
+                      Marcar leídas
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-[320px] overflow-y-auto p-2">
+                  {loadingNotifs ? (
+                    <div className="px-3 py-6 text-center text-sm text-white/40">Cargando…</div>
+                  ) : notifications.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-sm text-white/40">Sin notificaciones</div>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {notifications.slice(0, 15).map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleNotifClick(item)}
+                          className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
+                        >
+                          <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.readAt ? "bg-white/20" : "bg-[#00aff0] shadow-[0_0_6px_rgba(0,175,240,0.5)]"}`} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm text-white/90">{notifLabel(item)}</div>
+                            {item.data?.body && <div className="mt-0.5 text-[11px] text-white/35 line-clamp-1">{String(item.data.body)}</div>}
+                            <div className="mt-1 text-[10px] text-white/25">{new Date(item.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {me?.user ? (
             <Link
