@@ -338,17 +338,18 @@ export default function CreatorProfilePage() {
                           <img
                             src={resolveMediaUrl(post.media[0].url) || ""}
                             alt=""
-                            className="absolute inset-0 h-full w-full object-cover scale-110 blur-3xl brightness-50"
+                            className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
                           />
                         ) : (
-                          <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/20 via-purple-600/15 to-pink-500/10" />
+                          <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-pink-500/15" />
                         )}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
-                          <div className="rounded-full bg-white/10 p-4 backdrop-blur-sm">
-                            <Lock className="h-8 w-8 text-white/70" />
+                        <div className="absolute inset-0 bg-black/10" />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <div className="rounded-full bg-white/[0.12] p-4 backdrop-blur-md">
+                            <Lock className="h-8 w-8 text-white/80" />
                           </div>
-                          <p className="mt-3 text-sm font-bold text-white">Contenido premium</p>
-                          <p className="mt-1 text-xs text-white/40">Suscríbete para desbloquear</p>
+                          <p className="mt-3 text-sm font-bold text-white drop-shadow-lg">Contenido premium</p>
+                          <p className="mt-1 text-xs text-white/60 drop-shadow-lg">Suscríbete para desbloquear</p>
                           <Link
                             href="/umate/plans"
                             className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
