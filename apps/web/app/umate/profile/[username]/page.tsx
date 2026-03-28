@@ -94,23 +94,12 @@ function MediaCarousel({ media }: { media: { id: string; type: string; url: stri
           <div key={m.id} className="w-full shrink-0 snap-start">
             {m.isBlurred ? (
               <div className="relative aspect-[4/5] w-full overflow-hidden">
-                {m.url ? (
-                  m.type === "VIDEO" ? (
-                    <video
-                      src={resolveMediaUrl(m.url) || ""}
-                      muted
-                      playsInline
-                      preload="metadata"
-                      crossOrigin="anonymous"
-                      className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-                    />
-                  ) : (
-                    <img
-                      src={resolveMediaUrl(m.url) || ""}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-                    />
-                  )
+                {m.url && m.type !== "VIDEO" ? (
+                  <img
+                    src={resolveMediaUrl(m.url) || ""}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                  />
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-pink-500/15" />
                 )}
