@@ -189,7 +189,6 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
 
   const items = posts.map((post) => {
     const isSubscribed = subscribedCreatorIds.has(post.creatorId);
-    const showContent = post.visibility === "FREE" || isSubscribed;
     return {
       id: post.id,
       caption: post.caption,
@@ -199,8 +198,11 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
       commentCount: (post as any).commentCount || 0,
       createdAt: post.createdAt,
       creator: post.creator,
-      media: post.media,
-      isBlurred: !showContent,
+      media: post.media.map((m: any) => ({
+        ...m,
+        isBlurred: m.visibility === "PREMIUM" && !isSubscribed,
+      })),
+      isBlurred: post.visibility === "PREMIUM" && !isSubscribed,
       isLiked: likedPostIds.has(post.id),
     };
   });
@@ -306,12 +308,14 @@ umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
   }
 
   const postsWithAccess = posts.map((post) => {
-    const showContent = post.visibility === "FREE" || isSubscribed;
     return {
       ...post,
       commentCount: (post as any).commentCount || 0,
-      media: post.media,
-      isBlurred: !showContent,
+      media: post.media.map((m: any) => ({
+        ...m,
+        isBlurred: m.visibility === "PREMIUM" && !isSubscribed,
+      })),
+      isBlurred: post.visibility === "PREMIUM" && !isSubscribed,
       isLiked: likedPostIds.has(post.id),
     };
   });
@@ -793,6 +797,12 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
   }
 
   const { caption, visibility } = req.body;
+  // mediaVisibility is a JSON array like ["FREE","PREMIUM","PREMIUM"] matching file order
+  let mediaVisibilities: string[] = [];
+  try {
+    mediaVisibilities = req.body.mediaVisibility ? JSON.parse(req.body.mediaVisibility) : [];
+  } catch { /* ignore parse errors */ }
+
   const files = req.files as Express.Multer.File[];
   if (!files?.length) return res.status(400).json({ error: "NO_FILES" });
 
@@ -803,7 +813,7 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
     }
   }
 
-  const mediaItems: { type: "IMAGE" | "VIDEO"; url: string; pos: number }[] = [];
+  const mediaItems: { type: "IMAGE" | "VIDEO"; url: string; pos: number; visibility: "FREE" | "PREMIUM" }[] = [];
   for (let i = 0; i < files.length; i++) {
     const saved = await storage.save({
       buffer: files[i].buffer,
@@ -811,18 +821,24 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
       mimeType: files[i].mimetype,
       folder: "umate-posts",
     });
+    const mediaVis = mediaVisibilities[i] === "PREMIUM" ? "PREMIUM" : "FREE";
     mediaItems.push({
       type: saved.type === "video" ? "VIDEO" : "IMAGE",
       url: saved.url,
       pos: i,
+      visibility: mediaVis,
     });
   }
+
+  // Post visibility: PREMIUM if any media is premium
+  const hasPremium = mediaItems.some((m) => m.visibility === "PREMIUM");
+  const postVisibility = visibility === "PREMIUM" || hasPremium ? "PREMIUM" : "FREE";
 
   const post = await prisma.umatePost.create({
     data: {
       creatorId: creator.id,
       caption: caption || null,
-      visibility: visibility === "PREMIUM" ? "PREMIUM" : "FREE",
+      visibility: postVisibility,
       media: { create: mediaItems },
     },
     include: { media: true },

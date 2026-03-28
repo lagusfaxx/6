@@ -48,6 +48,7 @@ export default function ContentPage() {
   const [filter, setFilter] = useState<FilterKey>("ALL");
   const [query, setQuery] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [fileVisibilities, setFileVisibilities] = useState<("FREE" | "PREMIUM")[]>([]);
   const [showEditor, setShowEditor] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [editCaption, setEditCaption] = useState("");
@@ -91,6 +92,7 @@ export default function ContentPage() {
       files.forEach((file) => form.append("files", file));
       form.append("caption", caption);
       form.append("visibility", visibility);
+      form.append("mediaVisibility", JSON.stringify(fileVisibilities));
 
       const res = await fetch(`${getApiBase()}/umate/posts`, {
         method: "POST",
@@ -102,6 +104,7 @@ export default function ContentPage() {
         const json = await res.json();
         if (json?.post) setPosts((prev) => [json.post, ...prev]);
         setFiles([]);
+        setFileVisibilities([]);
         setCaption("");
         setShowEditor(false);
       } else {
@@ -203,7 +206,7 @@ export default function ContentPage() {
             className="mt-3 h-28 w-full rounded-lg border border-white/[0.08] bg-white/[0.03] p-3.5 text-sm text-white placeholder-white/20 outline-none transition focus:border-[#00aff0]/40"
           />
 
-          <div className="mt-3 flex flex-wrap gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1 rounded-full bg-white/[0.04] p-1">
               <button
                 onClick={() => setVisibility("FREE")}
@@ -222,10 +225,14 @@ export default function ContentPage() {
                 <Lock className="h-3 w-3" /> Premium
               </button>
             </div>
+            {files.length > 0 && (
+              <span className="text-[10px] text-white/30">Toca cada archivo para cambiar su visibilidad</span>
+            )}
 
             <input ref={fileRef} type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => {
               const newFiles = Array.from(e.target.files || []);
               setFiles((prev) => [...prev, ...newFiles].slice(0, 10));
+              setFileVisibilities((prev) => [...prev, ...newFiles.map(() => visibility)].slice(0, 10));
               if (fileRef.current) fileRef.current.value = "";
             }} />
             <button onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-4 py-1.5 text-sm font-medium text-white/40 transition hover:text-white/60">
@@ -239,40 +246,57 @@ export default function ContentPage() {
           {/* File previews */}
           {files.length > 0 && (
             <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-              {files.map((file, idx) => (
-                <div key={`${file.name}-${idx}`} className="group relative aspect-square overflow-hidden rounded-xl border border-white/[0.06] bg-black">
-                  {file.type.startsWith("video/") ? (
-                    <video
-                      src={URL.createObjectURL(file)}
-                      muted
-                      playsInline
-                      preload="metadata"
-                      className="h-full w-full object-contain"
-                      onLoadedData={(e) => { const v = e.currentTarget; if (v.readyState >= 2) v.currentTime = 0.1; }}
-                    />
-                  ) : (
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt=""
-                      className="h-full w-full object-contain"
-                    />
-                  )}
-                  {file.type.startsWith("video/") && (
-                    <div className="absolute left-1.5 bottom-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm">
-                      <Play className="h-2.5 w-2.5 text-white fill-current ml-px" />
-                    </div>
-                  )}
-                  <button
-                    onClick={() => setFiles((prev) => prev.filter((_, i) => i !== idx))}
-                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/70 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/80 hover:text-white"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                  <span className="absolute left-1.5 top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-black/60 px-1 text-[9px] font-bold text-white/70 backdrop-blur-sm">
-                    {idx + 1}
-                  </span>
-                </div>
-              ))}
+              {files.map((file, idx) => {
+                const vis = fileVisibilities[idx] || "FREE";
+                return (
+                  <div key={`${file.name}-${idx}`} className="group relative aspect-square overflow-hidden rounded-xl border border-white/[0.06] bg-black">
+                    {file.type.startsWith("video/") ? (
+                      <video
+                        src={URL.createObjectURL(file)}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="h-full w-full object-contain"
+                        onLoadedData={(e) => { const v = e.currentTarget; if (v.readyState >= 2) v.currentTime = 0.1; }}
+                      />
+                    ) : (
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt=""
+                        className="h-full w-full object-contain"
+                      />
+                    )}
+                    {file.type.startsWith("video/") && (
+                      <div className="absolute left-1.5 bottom-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm">
+                        <Play className="h-2.5 w-2.5 text-white fill-current ml-px" />
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        setFiles((prev) => prev.filter((_, i) => i !== idx));
+                        setFileVisibilities((prev) => prev.filter((_, i) => i !== idx));
+                      }}
+                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/70 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/80 hover:text-white"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    <span className="absolute left-1.5 top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-black/60 px-1 text-[9px] font-bold text-white/70 backdrop-blur-sm">
+                      {idx + 1}
+                    </span>
+                    {/* Per-file visibility toggle */}
+                    <button
+                      onClick={() => setFileVisibilities((prev) => prev.map((v, i) => i === idx ? (v === "FREE" ? "PREMIUM" : "FREE") : v))}
+                      className={`absolute right-1 bottom-1 rounded-full px-2 py-0.5 text-[9px] font-bold backdrop-blur-sm transition ${
+                        vis === "PREMIUM"
+                          ? "bg-amber-500/90 text-white"
+                          : "bg-emerald-500/90 text-white"
+                      }`}
+                    >
+                      {vis === "PREMIUM" ? "Premium" : "Gratis"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 
