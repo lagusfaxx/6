@@ -234,7 +234,7 @@ export default function UmateAdminPage() {
           <button
             key={t.key}
             onClick={() => setTab(t.key as any)}
-            className={`flex items-center gap-1.5 shrink-0 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all duration-200 ${
+            className={`flex items-center gap-1.5 shrink-0 border-b-2 px-3 sm:px-4 py-2.5 text-xs font-semibold transition-all duration-200 ${
               tab === t.key ? "border-[#00aff0] text-white" : "border-transparent text-white/40 hover:text-white/50"
             }`}
           >
@@ -373,7 +373,7 @@ export default function UmateAdminPage() {
                     <p className="text-[11px] text-white/40">@{c.user.username} · {c.user.email}</p>
                   </div>
                   {/* Actions */}
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex flex-wrap items-center gap-1 shrink-0">
                     {c.status === "PENDING_REVIEW" && (
                       <>
                         <button
@@ -437,7 +437,7 @@ export default function UmateAdminPage() {
                 /* Edit mode */
                 <div className="space-y-3">
                   <h3 className="text-xs font-bold text-white/50">Editando: {plan.tier}</h3>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
                     <div>
                       <label className="block text-[10px] font-medium text-white/40 mb-1">Nombre</label>
                       <input value={editName} onChange={(e) => setEditName(e.target.value)} className={inputClass} />
@@ -649,32 +649,34 @@ export default function UmateAdminPage() {
 
           {/* Ledger table */}
           {ledger.length > 0 && (
-            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] overflow-hidden">
-              {/* Header */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 border-b border-white/[0.06] px-5 py-3 text-[10px] font-bold text-white/40 uppercase tracking-wider">
-                <span>Descripción</span>
-                <span className="text-right">Bruto</span>
-                <span className="text-right">IVA</span>
-                <span className="text-right">Comisión</span>
-                <span className="text-right">Creadora</span>
-                <span className="text-right">Fecha</span>
-              </div>
-              {/* Rows */}
-              {ledger.map((entry) => (
-                <div key={entry.id} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 border-b border-white/[0.04] px-5 py-3 text-xs last:border-0">
-                  <div className="min-w-0">
-                    <p className="text-white/50 truncate">{entry.description || entry.type}</p>
-                    <p className="text-[10px] text-white/45 truncate">
-                      {entry.creator?.displayName} (@{entry.creator?.user?.username})
-                    </p>
-                  </div>
-                  <span className="text-right text-white/50 font-medium tabular-nums">${entry.grossAmount.toLocaleString("es-CL")}</span>
-                  <span className="text-right text-amber-300/50 tabular-nums">${(entry.ivaAmount || 0).toLocaleString("es-CL")}</span>
-                  <span className="text-right text-red-300/50 tabular-nums">${(entry.platformFee || 0).toLocaleString("es-CL")}</span>
-                  <span className="text-right text-emerald-300 font-medium tabular-nums">${entry.creatorPayout.toLocaleString("es-CL")}</span>
-                  <span className="text-right text-white/45 tabular-nums">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</span>
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] overflow-hidden overflow-x-auto">
+              <div className="min-w-[600px]">
+                {/* Header */}
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 border-b border-white/[0.06] px-5 py-3 text-[10px] font-bold text-white/40 uppercase tracking-wider">
+                  <span>Descripción</span>
+                  <span className="text-right">Bruto</span>
+                  <span className="text-right">IVA</span>
+                  <span className="text-right">Comisión</span>
+                  <span className="text-right">Creadora</span>
+                  <span className="text-right">Fecha</span>
                 </div>
-              ))}
+                {/* Rows */}
+                {ledger.map((entry) => (
+                  <div key={entry.id} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 border-b border-white/[0.04] px-5 py-3 text-xs last:border-0">
+                    <div className="min-w-0">
+                      <p className="text-white/50 truncate">{entry.description || entry.type}</p>
+                      <p className="text-[10px] text-white/45 truncate">
+                        {entry.creator?.displayName} (@{entry.creator?.user?.username})
+                      </p>
+                    </div>
+                    <span className="text-right text-white/50 font-medium tabular-nums">${entry.grossAmount.toLocaleString("es-CL")}</span>
+                    <span className="text-right text-amber-300/50 tabular-nums">${(entry.ivaAmount || 0).toLocaleString("es-CL")}</span>
+                    <span className="text-right text-red-300/50 tabular-nums">${(entry.platformFee || 0).toLocaleString("es-CL")}</span>
+                    <span className="text-right text-emerald-300 font-medium tabular-nums">${entry.creatorPayout.toLocaleString("es-CL")}</span>
+                    <span className="text-right text-white/45 tabular-nums">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

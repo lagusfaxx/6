@@ -150,7 +150,7 @@ export default function SubscribersPage() {
             const isNew = new Date(sub.activatedAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
             return (
               <div key={sub.id} className="flex items-center justify-between rounded-lg border border-white/[0.03] p-3 transition hover:bg-white/[0.015]">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/[0.06]">
                     {sub.user.avatarUrl ? (
                       <img src={resolveMediaUrl(sub.user.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
@@ -166,12 +166,12 @@ export default function SubscribersPage() {
                         {sub.user.displayName || `@${sub.user.username}`}
                       </p>
                       {isNew && (
-                        <span className="shrink-0 text-[10px] font-medium text-emerald-400 flex items-center gap-0.5">
+                        <span className="shrink-0 text-[11px] font-medium text-emerald-400 flex items-center gap-0.5">
                           <ArrowUpRight className="h-2.5 w-2.5" /> Nueva
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-white/40">@{sub.user.username} · desde {new Date(sub.activatedAt).toLocaleDateString("es-CL")}</p>
+                    <p className="text-[11px] text-white/40">@{sub.user.username} · desde {new Date(sub.activatedAt).toLocaleDateString("es-CL")}</p>
                   </div>
                 </div>
                 <div className={`shrink-0 flex items-center gap-1.5 rounded-full ${cfg.bg} border ${cfg.border} px-2.5 py-1`}>

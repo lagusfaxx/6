@@ -424,7 +424,7 @@ export default function ExplorePage() {
       {/* Filter bar */}
       <div className="sticky top-14 z-30 border-b border-white/[0.03] bg-[#0a0a12]/85 py-3 backdrop-blur-2xl backdrop-saturate-[1.8]">
         <div className="mx-auto flex max-w-[700px] items-center gap-2 px-4">
-          <div className="flex items-center gap-0.5 rounded-xl bg-white/[0.04] p-1">
+          <div className="flex flex-wrap items-center gap-0.5 rounded-xl bg-white/[0.04] p-1">
             {[
               { key: "", label: "Para ti", icon: Sparkles },
               { key: "free", label: "Gratis" },
@@ -433,7 +433,7 @@ export default function ExplorePage() {
               <button
                 key={f.label}
                 onClick={() => setFilter(f.key)}
-                className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all duration-200 ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 sm:px-4 py-2 text-xs font-semibold transition-all duration-200 ${
                   filter === f.key
                     ? "bg-gradient-to-r from-[#00aff0] to-[#0090d0] text-white shadow-[0_2px_12px_rgba(0,175,240,0.25)]"
                     : "text-white/40 hover:text-white/60"
