@@ -8,10 +8,13 @@ import {
   Bell,
   Crown,
   Home,
+  Loader2,
   MessageCircle,
   Plus,
   Search,
   User,
+  Users,
+  X,
 } from "lucide-react";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
@@ -22,6 +25,14 @@ type NotificationItem = {
   data?: Record<string, unknown>;
   readAt?: string | null;
   createdAt: string;
+};
+
+type SearchCreator = {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  subscriberCount: number;
+  user: { username: string; isVerified?: boolean };
 };
 
 function notifLabel(item: NotificationItem): string {
@@ -45,6 +56,11 @@ export default function UmateHeader() {
   const { me } = useMe();
   const isStudio = pathname.startsWith("/umate/account");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchCreator[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const [isCreator, setIsCreator] = useState(false);
   const [mobileSearch, setMobileSearch] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
@@ -81,6 +97,34 @@ export default function UmateHeader() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  /* Close search dropdown on outside click */
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchFocused(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  /* Real-time search with debounce */
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    debounceRef.current = setTimeout(() => {
+      apiFetch<{ creators: SearchCreator[] }>(`/umate/creators?q=${encodeURIComponent(q)}&limit=8`)
+        .then((res) => setSearchResults(res?.creators || []))
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearchLoading(false));
+    }, 250);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchQuery]);
+
   const handleNotifClick = async (item: NotificationItem) => {
     try {
       await apiFetch(`/notifications/${item.id}/read`, { method: "POST" });
@@ -97,14 +141,54 @@ export default function UmateHeader() {
     } catch { /* silent */ }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = searchQuery.trim();
-    if (q) {
-      router.push(`/umate/creators?q=${encodeURIComponent(q)}`);
-      setMobileSearch(false);
-    }
+  const handleSelectResult = (username: string) => {
+    setSearchQuery("");
+    setSearchFocused(false);
+    setMobileSearch(false);
+    router.push(`/umate/profile/${username}`);
   };
+
+  const showDropdown = searchFocused && searchQuery.trim().length > 0;
+
+  const searchDropdown = (
+    <div className="absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a12]/95 shadow-[0_18px_48px_rgba(0,0,0,0.5)] backdrop-blur-2xl z-50">
+      {searchLoading ? (
+        <div className="flex items-center justify-center gap-2 px-4 py-6">
+          <Loader2 className="h-4 w-4 animate-spin text-[#00aff0]/60" />
+          <span className="text-xs text-white/30">Buscando...</span>
+        </div>
+      ) : searchResults.length === 0 ? (
+        <div className="px-4 py-6 text-center text-sm text-white/30">
+          No se encontraron creadoras
+        </div>
+      ) : (
+        <div className="max-h-[360px] overflow-y-auto p-2">
+          {searchResults.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => handleSelectResult(c.user.username)}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
+            >
+              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.04]">
+                {c.avatarUrl ? (
+                  <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{(c.displayName || "?")[0]}</div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-white/90">{c.displayName}</p>
+                <p className="text-[11px] text-white/35 flex items-center gap-1">
+                  @{c.user.username} · <Users className="h-2.5 w-2.5" /> {c.subscriberCount}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.04] bg-[#0a0a12]/85 backdrop-blur-2xl backdrop-saturate-[1.8]">
@@ -143,17 +227,28 @@ export default function UmateHeader() {
           </nav>
         </div>
 
-        {/* Center: Search */}
+        {/* Center: Search with real-time results */}
         <div className="hidden flex-1 justify-center md:flex">
-          <form onSubmit={handleSearch} className="relative w-full max-w-md">
+          <div ref={searchRef} className="relative w-full max-w-md">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
               placeholder="Buscar creadoras..."
               className="w-full rounded-xl border border-white/[0.06] bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-[#00aff0]/30 focus:bg-white/[0.06] focus:shadow-[0_0_0_3px_rgba(0,175,240,0.06)]"
             />
-          </form>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => { setSearchQuery(""); setSearchResults([]); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+            {showDropdown && searchDropdown}
+          </div>
         </div>
 
         {/* Right: Actions */}
@@ -171,7 +266,7 @@ export default function UmateHeader() {
             onClick={() => setMobileSearch(!mobileSearch)}
             className="flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-white/[0.06] hover:text-white/70 md:hidden"
           >
-            {mobileSearch ? <span className="text-xs font-bold">✕</span> : <Search className="h-5 w-5" />}
+            {mobileSearch ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
           </button>
 
           <Link
@@ -267,19 +362,69 @@ export default function UmateHeader() {
         </div>
       </div>
 
-      {/* Mobile search overlay */}
+      {/* Mobile search overlay with real-time results */}
       {mobileSearch && (
         <div className="border-t border-white/[0.04] bg-[#0a0a12] px-4 py-3 md:hidden">
-          <form onSubmit={handleSearch} className="relative">
+          <div className="relative" ref={!searchRef.current ? searchRef : undefined}>
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
             <input
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setSearchFocused(true); }}
               placeholder="Buscar creadoras..."
               autoFocus
-              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-white placeholder-white/25 outline-none focus:border-[#00aff0]/30"
+              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 pl-10 pr-10 text-sm text-white placeholder-white/25 outline-none focus:border-[#00aff0]/30"
             />
-          </form>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => { setSearchQuery(""); setSearchResults([]); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Mobile search results */}
+          {searchQuery.trim() && (
+            <div className="mt-3 max-h-[50vh] overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.02]">
+              {searchLoading ? (
+                <div className="flex items-center justify-center gap-2 px-4 py-6">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#00aff0]/60" />
+                  <span className="text-xs text-white/30">Buscando...</span>
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm text-white/30">
+                  No se encontraron creadoras
+                </div>
+              ) : (
+                <div className="p-1">
+                  {searchResults.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => handleSelectResult(c.user.username)}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
+                    >
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.04]">
+                        {c.avatarUrl ? (
+                          <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{(c.displayName || "?")[0]}</div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-white/90">{c.displayName}</p>
+                        <p className="text-[11px] text-white/35 flex items-center gap-1">
+                          @{c.user.username} · <Users className="h-2.5 w-2.5" /> {c.subscriberCount}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </header>
