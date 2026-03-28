@@ -268,8 +268,17 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
         >
           {posts.map((post) => (
             <div key={post.id} className="w-full shrink-0 snap-start">
-              {/* Media carousel within this post */}
-              <MediaCarousel media={post.media} viewerUsername={viewerUsername} />
+              {/* Show only the first media item in explore; full gallery lives on the profile */}
+              <MediaCarousel media={[post.media[0]]} viewerUsername={viewerUsername} />
+
+              {/* Multi-media indicator */}
+              {post.media.length > 1 && (
+                <div className="flex items-center justify-center gap-1.5 py-1.5">
+                  {post.media.map((_, i) => (
+                    <div key={i} className={`h-1.5 rounded-full ${i === 0 ? "w-5 bg-[#00aff0]" : "w-1.5 bg-white/15"}`} />
+                  ))}
+                </div>
+              )}
 
               {/* Caption + Actions */}
               <div className="px-4 py-2.5">
