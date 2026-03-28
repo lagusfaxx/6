@@ -965,7 +965,7 @@ umateRouter.get("/umate/creator/stats", requireAuth, asyncHandler(async (req, re
   const now = new Date();
   const cycleStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [newSubsThisCycle, recentLedger] = await Promise.all([
+  const [newSubsThisCycle, recentLedger, allEarnings] = await Promise.all([
     prisma.umateCreatorSub.count({
       where: { creatorId: creator.id, activatedAt: { gte: cycleStart } },
     }),
@@ -974,7 +974,22 @@ umateRouter.get("/umate/creator/stats", requireAuth, asyncHandler(async (req, re
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
+    prisma.umateLedgerEntry.findMany({
+      where: { creatorId: creator.id, type: "SLOT_ACTIVATION" },
+      select: { grossAmount: true, ivaAmount: true, platformFee: true, creatorPayout: true },
+    }),
   ]);
+
+  // Calculate lifetime totals from ALL earnings (not just last 20)
+  const totals = allEarnings.reduce(
+    (acc, e) => ({
+      gross: acc.gross + e.grossAmount,
+      iva: acc.iva + e.ivaAmount,
+      commission: acc.commission + e.platformFee,
+      net: acc.net + e.creatorPayout,
+    }),
+    { gross: 0, iva: 0, commission: 0, net: 0 },
+  );
 
   res.json({
     subscriberCount: freshCreator.subscriberCount,
@@ -986,6 +1001,7 @@ umateRouter.get("/umate/creator/stats", requireAuth, asyncHandler(async (req, re
     totalEarned: freshCreator.totalEarned,
     status: freshCreator.status,
     ledger: recentLedger,
+    totals,
     bankConfigured: Boolean(freshCreator.bankName),
     termsAccepted: Boolean(freshCreator.termsAcceptedAt),
     rulesAccepted: Boolean(freshCreator.rulesAcceptedAt),
