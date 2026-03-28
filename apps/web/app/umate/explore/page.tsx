@@ -138,7 +138,7 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
                 enabled={!post.isBlurred && post.visibility === "PREMIUM"}
                 viewerUsername={viewerUsername}
               >
-                <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.03]">
+                <div className="relative aspect-[4/5] overflow-hidden bg-black">
                   {post.isBlurred ? (
                     <div className="relative h-full w-full">
                       {post.media[0]?.url ? (
@@ -180,13 +180,13 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
                     post.media[0].type === "VIDEO" ? (
                       <VideoPreview
                         src={resolveMediaUrl(post.media[0].url) || ""}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain"
                       />
                     ) : (
                       <img
                         src={resolveMediaUrl(post.media[0].url) || ""}
                         alt=""
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain"
                       />
                     )
                   ) : (
@@ -252,20 +252,24 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
         {/* Arrows */}
         {posts.length > 1 && (
           <>
-            <button
-              type="button"
-              onClick={() => scroll(-1)}
-              className="absolute left-2 top-1/3 z-10 hidden h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-sm transition hover:bg-black/70 hover:text-white group-hover/media:flex"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => scroll(1)}
-              className="absolute right-2 top-1/3 z-10 hidden h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-sm transition hover:bg-black/70 hover:text-white group-hover/media:flex"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            {current > 0 && (
+              <button
+                type="button"
+                onClick={() => scroll(-1)}
+                className="absolute left-2 top-1/3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white/90 backdrop-blur-sm shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition hover:bg-black/80 hover:text-white hover:scale-105"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            {current < posts.length - 1 && (
+              <button
+                type="button"
+                onClick={() => scroll(1)}
+                className="absolute right-2 top-1/3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white/90 backdrop-blur-sm shadow-[0_2px_8px_rgba(0,0,0,0.4)] transition hover:bg-black/80 hover:text-white hover:scale-105"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            )}
           </>
         )}
       </div>
