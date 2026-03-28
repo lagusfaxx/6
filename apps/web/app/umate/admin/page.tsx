@@ -313,11 +313,7 @@ export default function UmateAdminPage() {
           {/* Quick config overview */}
           <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
             <h2 className="text-sm font-bold mb-3">Configuración activa</h2>
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="text-white/40 text-xs">Payout por cupo</p>
-                <p className="font-bold">${dashboard.config.payoutPerSlot.toLocaleString("es-CL")} CLP</p>
-              </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-white/40 text-xs">Comisión plataforma</p>
                 <p className="font-bold">{dashboard.config.platformCommPct}%</p>
@@ -658,13 +654,14 @@ export default function UmateAdminPage() {
               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 border-b border-white/[0.06] px-5 py-3 text-[10px] font-bold text-white/40 uppercase tracking-wider">
                 <span>Descripción</span>
                 <span className="text-right">Bruto</span>
+                <span className="text-right">IVA</span>
                 <span className="text-right">Comisión</span>
                 <span className="text-right">Creadora</span>
                 <span className="text-right">Fecha</span>
               </div>
               {/* Rows */}
               {ledger.map((entry) => (
-                <div key={entry.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 border-b border-white/[0.04] px-5 py-3 text-xs last:border-0">
+                <div key={entry.id} className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 border-b border-white/[0.04] px-5 py-3 text-xs last:border-0">
                   <div className="min-w-0">
                     <p className="text-white/50 truncate">{entry.description || entry.type}</p>
                     <p className="text-[10px] text-white/45 truncate">
@@ -672,6 +669,7 @@ export default function UmateAdminPage() {
                     </p>
                   </div>
                   <span className="text-right text-white/50 font-medium tabular-nums">${entry.grossAmount.toLocaleString("es-CL")}</span>
+                  <span className="text-right text-amber-300/50 tabular-nums">${(entry.ivaAmount || 0).toLocaleString("es-CL")}</span>
                   <span className="text-right text-red-300/50 tabular-nums">${(entry.platformFee || 0).toLocaleString("es-CL")}</span>
                   <span className="text-right text-emerald-300 font-medium tabular-nums">${entry.creatorPayout.toLocaleString("es-CL")}</span>
                   <span className="text-right text-white/45 tabular-nums">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</span>
@@ -694,17 +692,6 @@ export default function UmateAdminPage() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-white/40 mb-1.5">Payout por cupo (CLP)</label>
-              <input
-                type="number"
-                value={payoutPerSlot}
-                onChange={(e) => setPayoutPerSlot(parseInt(e.target.value) || 0)}
-                className={inputClass}
-              />
-              <p className="mt-1 text-[10px] text-white/45">Monto que recibe la creadora por cada suscripción activa recibida</p>
-            </div>
-
-            <div>
               <label className="block text-[11px] font-semibold text-white/40 mb-1.5">Comisión plataforma (%)</label>
               <input
                 type="number"
@@ -714,7 +701,7 @@ export default function UmateAdminPage() {
                 onChange={(e) => setPlatformCommPct(Math.min(100, parseInt(e.target.value) || 0))}
                 className={inputClass}
               />
-              <p className="mt-1 text-[10px] text-white/45">Porcentaje que retiene la plataforma. 0% = sin comisión (promoción)</p>
+              <p className="mt-1 text-[10px] text-white/45">Porcentaje que retiene la plataforma del neto (sin IVA). 0% = sin comisión</p>
             </div>
 
             <div>
@@ -727,30 +714,37 @@ export default function UmateAdminPage() {
                 onChange={(e) => setIvaPct(Math.min(100, parseInt(e.target.value) || 0))}
                 className={inputClass}
               />
-              <p className="mt-1 text-[10px] text-white/45">IVA sobre la comisión (19% en Chile). Se descuenta al creador.</p>
+              <p className="mt-1 text-[10px] text-white/45">IVA incluido en el precio del plan (19% en Chile)</p>
             </div>
 
-            {/* Preview calculation */}
+            {/* Preview calculation — example with Silver plan $14.990 / 1 slot */}
             {(() => {
-              const commission = Math.round(payoutPerSlot * platformCommPct / 100);
-              const iva = Math.round(commission * ivaPct / 100);
-              const creatorReceives = payoutPerSlot - commission - iva;
-              const platformNet = commission;
+              const examplePrice = 14990;
+              const exampleSlots = 1;
+              const grossPerSlot = Math.round(examplePrice / exampleSlots);
+              const iva = Math.round(grossPerSlot * ivaPct / (100 + ivaPct));
+              const netAfterIva = grossPerSlot - iva;
+              const commission = Math.round(netAfterIva * platformCommPct / 100);
+              const creatorReceives = netAfterIva - commission;
               return (
                 <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] p-4 space-y-3">
-                  <p className="text-[10px] font-bold text-white/40">Vista previa por cada suscripción</p>
+                  <p className="text-[10px] font-bold text-white/40">Ejemplo: Plan Silver ($14.990 / 1 cupo)</p>
                   <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-white/50">Bruto</span>
-                      <span className="font-bold">${payoutPerSlot.toLocaleString("es-CL")}</span>
+                      <span className="text-white/50">Cliente paga</span>
+                      <span className="font-bold">${grossPerSlot.toLocaleString("es-CL")}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-amber-400/70">IVA incluido ({ivaPct}%)</span>
+                      <span className="font-bold text-amber-300/60">-${iva.toLocaleString("es-CL")}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Neto sin IVA</span>
+                      <span className="font-bold">${netAfterIva.toLocaleString("es-CL")}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-red-400/70">Comisión ({platformCommPct}%)</span>
                       <span className="font-bold text-red-300/60">-${commission.toLocaleString("es-CL")}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-red-400/70">IVA ({ivaPct}% s/comisión)</span>
-                      <span className="font-bold text-red-300/60">-${iva.toLocaleString("es-CL")}</span>
                     </div>
                     <div className="h-px bg-white/[0.06]" />
                     <div className="flex justify-between">
@@ -762,16 +756,8 @@ export default function UmateAdminPage() {
                   <div className="space-y-1.5 text-xs">
                     <p className="text-[10px] font-bold text-white/40">Ganancia plataforma</p>
                     <div className="flex justify-between">
-                      <span className="text-white/50">Comisión</span>
-                      <span className="font-bold text-white/70">${commission.toLocaleString("es-CL")}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-amber-400/70">IVA a pagar</span>
-                      <span className="font-bold text-amber-300/60">-${iva.toLocaleString("es-CL")}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[#00aff0]/70">Neto plataforma</span>
-                      <span className="font-bold text-[#00aff0]">${(platformNet - iva).toLocaleString("es-CL")}</span>
+                      <span className="text-[#00aff0]/70">Comisión neta</span>
+                      <span className="font-bold text-[#00aff0]">${commission.toLocaleString("es-CL")}</span>
                     </div>
                   </div>
                 </div>

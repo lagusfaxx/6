@@ -520,10 +520,16 @@ umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, asyncHandl
     return res.status(400).json({ error: "ALREADY_SUBSCRIBED" });
   }
 
-  // Activate slot
-  const payoutPerSlot = await getUmateConfig("umate_payout_per_slot", 5000);
+  // Activate slot — calculate economics from plan price
   const platformCommPct = await getUmateConfig("umate_platform_commission_pct", 0);
   const ivaPct = await getUmateConfig("umate_iva_pct", 19);
+
+  // Plan price includes IVA; split per slot
+  const grossPerSlot = Math.round(sub.plan.priceCLP / sub.plan.maxSlots);
+  const ivaAmount = Math.round(grossPerSlot * ivaPct / (100 + ivaPct));
+  const netAfterIva = grossPerSlot - ivaAmount;
+  const platformFee = Math.round(netAfterIva * platformCommPct / 100);
+  const creatorPayout = netAfterIva - platformFee;
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -549,11 +555,6 @@ umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, asyncHandl
         data: { slotsUsed: { increment: 1 } },
       });
 
-      // Calculate fees: commission + IVA on commission
-      const platformFee = Math.round(payoutPerSlot * platformCommPct / 100);
-      const ivaAmount = Math.round(platformFee * ivaPct / 100);
-      const creatorPayout = payoutPerSlot - platformFee - ivaAmount;
-
       // Increment creator subscriber count
       await tx.umateCreator.update({
         where: { id: creatorId },
@@ -569,12 +570,12 @@ umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, asyncHandl
         data: {
           creatorId,
           type: "SLOT_ACTIVATION",
-          grossAmount: payoutPerSlot,
+          grossAmount: grossPerSlot,
           platformFee,
           ivaAmount,
           creatorPayout,
           netAmount: creatorPayout,
-          description: `Suscripción de usuario`,
+          description: `Suscripción de usuario (${sub.plan.name})`,
           referenceId: sub.id,
           referenceType: "subscription",
         },
