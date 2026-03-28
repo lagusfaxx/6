@@ -224,7 +224,7 @@ export default function UmateHeader() {
                           <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.readAt ? "bg-white/20" : "bg-[#00aff0] shadow-[0_0_6px_rgba(0,175,240,0.5)]"}`} />
                           <div className="min-w-0 flex-1">
                             <div className="text-sm text-white/90">{notifLabel(item)}</div>
-                            {item.data?.body && <div className="mt-0.5 text-[11px] text-white/35 line-clamp-1">{String(item.data.body as string)}</div>}
+                            {!!item.data?.body && <div className="mt-0.5 text-[11px] text-white/35 line-clamp-1">{String(item.data.body)}</div>}
                             <div className="mt-1 text-[10px] text-white/25">{new Date(item.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
                           </div>
                         </button>
