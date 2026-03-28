@@ -335,11 +335,22 @@ export default function CreatorProfilePage() {
                     {post.isBlurred ? (
                       <div className="relative aspect-[4/5] w-full overflow-hidden">
                         {post.media[0].url ? (
-                          <img
-                            src={resolveMediaUrl(post.media[0].url) || ""}
-                            alt=""
-                            className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-                          />
+                          post.media[0].type === "VIDEO" ? (
+                            <video
+                              src={resolveMediaUrl(post.media[0].url) || ""}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              crossOrigin="anonymous"
+                              className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                            />
+                          ) : (
+                            <img
+                              src={resolveMediaUrl(post.media[0].url) || ""}
+                              alt=""
+                              className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                            />
+                          )
                         ) : (
                           <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-pink-500/15" />
                         )}
