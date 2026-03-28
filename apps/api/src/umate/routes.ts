@@ -1053,6 +1053,10 @@ umateRouter.get("/umate/creator/subscribers", requireAuth, asyncHandler(async (r
 
 umateRouter.post("/umate/creator/withdraw", requireAuth, paymentLimiter, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
+
+  // Mature pending balances before attempting withdrawal
+  await maturePendingBalances().catch(() => {});
+
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
 
