@@ -380,15 +380,13 @@ export default function CreatorProfilePage() {
                           playsInline
                           preload="metadata"
                           crossOrigin="anonymous"
-                          className="w-full object-cover"
-                          style={{ maxHeight: 600 }}
+                          className="w-full aspect-[4/5] object-contain bg-black"
                         />
                       ) : (
                         <img
                           src={resolveMediaUrl(post.media[0].url) || ""}
                           alt=""
-                          className="w-full object-cover"
-                          style={{ maxHeight: 600 }}
+                          className="w-full aspect-[4/5] object-contain bg-black"
                         />
                       )
                     ) : (
