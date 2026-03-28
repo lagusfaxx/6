@@ -199,9 +199,7 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
       commentCount: (post as any).commentCount || 0,
       createdAt: post.createdAt,
       creator: post.creator,
-      media: showContent
-        ? post.media
-        : post.media.map((m) => ({ ...m, url: null })),
+      media: post.media,
       isBlurred: !showContent,
       isLiked: likedPostIds.has(post.id),
     };
@@ -312,9 +310,7 @@ umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
     return {
       ...post,
       commentCount: (post as any).commentCount || 0,
-      media: showContent
-        ? post.media
-        : post.media.map((m) => ({ ...m, url: null })),
+      media: post.media,
       isBlurred: !showContent,
       isLiked: likedPostIds.has(post.id),
     };
