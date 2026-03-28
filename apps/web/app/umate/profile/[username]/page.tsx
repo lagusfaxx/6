@@ -100,6 +100,15 @@ function MediaCarousel({ media }: { media: { id: string; type: string; url: stri
                     alt=""
                     className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
                   />
+                ) : m.type === "VIDEO" && m.url ? (
+                  <video
+                    src={resolveMediaUrl(m.url) || ""}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    crossOrigin="anonymous"
+                    className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                  />
                 ) : m.url && m.type !== "VIDEO" ? (
                   <img
                     src={resolveMediaUrl(m.url) || ""}
