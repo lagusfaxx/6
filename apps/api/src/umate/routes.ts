@@ -185,8 +185,15 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
   const where: any = {
     creator: { status: "ACTIVE" },
   };
-  if (filter === "free") where.visibility = "FREE";
-  if (filter === "premium") where.visibility = "PREMIUM";
+  if (filter === "free") {
+    // Only posts where ALL media are free
+    where.visibility = "FREE";
+    where.media = { every: { visibility: "FREE" } };
+  }
+  if (filter === "premium") {
+    // Only posts that have at least one premium media
+    where.media = { some: { visibility: "PREMIUM" } };
+  }
 
   const posts = await prisma.umatePost.findMany({
     where,
