@@ -105,17 +105,18 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
                         <img
                           src={resolveMediaUrl(post.media[0].url) || ""}
                           alt=""
-                          className="absolute inset-0 h-full w-full object-cover scale-110 blur-3xl brightness-[0.35] saturate-150"
+                          className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
                         />
                       ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/15 via-purple-600/10 to-rose-500/10" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-rose-500/15" />
                       )}
+                      <div className="absolute inset-0 bg-black/10" />
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <div className="rounded-2xl bg-white/[0.08] p-5 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-                          <Lock className="h-8 w-8 text-white/60" />
+                        <div className="rounded-2xl bg-white/[0.12] p-5 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+                          <Lock className="h-8 w-8 text-white/80" />
                         </div>
-                        <p className="mt-4 text-sm font-bold text-white/80">Contenido exclusivo</p>
-                        <p className="mt-1 text-xs text-white/35">Suscríbete para desbloquear</p>
+                        <p className="mt-4 text-sm font-bold text-white drop-shadow-lg">Contenido exclusivo</p>
+                        <p className="mt-1 text-xs text-white/60 drop-shadow-lg">Suscríbete para desbloquear</p>
                         <Link
                           href="/umate/plans"
                           className="mt-4 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.35)] transition hover:shadow-[0_6px_28px_rgba(0,175,240,0.45)]"
@@ -332,9 +333,9 @@ export default function ExplorePage() {
       </div>
 
       <div className="mx-auto max-w-[1170px] px-4 py-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="grid gap-6 lg:grid-cols-[1fr_300px] justify-center">
           {/* Main Feed — grouped by creator */}
-          <div className="mx-auto w-full max-w-[600px] lg:mx-0">
+          <div className="mx-auto w-full max-w-[600px]">
             {loading && (
               <div className="flex flex-col items-center justify-center py-24 gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-[#00aff0]/60" />

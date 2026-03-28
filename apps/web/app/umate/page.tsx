@@ -34,7 +34,7 @@ type FeedItem = {
   id: string;
   caption: string | null;
   visibility: "FREE" | "PREMIUM";
-  creator: { displayName: string; avatarUrl: string | null; user?: { username: string } };
+  creator: { id?: string; displayName: string; avatarUrl: string | null; user?: { username: string } };
   media: { id: string; type: string; url: string | null }[];
 };
 
@@ -57,6 +57,108 @@ const FALLBACK_FEED: FeedItem[] = [
   { id: "f5", caption: "Stories exclusivas para mi comunidad.", visibility: "PREMIUM", creator: { displayName: "Mia Fox", avatarUrl: null }, media: [] },
   { id: "f6", caption: "Clip gratis + acceso al contenido completo.", visibility: "FREE", creator: { displayName: "Naya Luna", avatarUrl: null }, media: [] },
 ];
+
+type CreatorFeedGroup = {
+  creator: FeedItem["creator"];
+  posts: FeedItem[];
+};
+
+/* ── Auto-rotating media card per creator ── */
+function AutoRotateCard({ group }: { group: CreatorFeedGroup }) {
+  const [current, setCurrent] = useState(0);
+  const posts = group.posts;
+
+  useEffect(() => {
+    if (posts.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % posts.length);
+    }, 3500);
+    return () => clearInterval(timer);
+  }, [posts.length]);
+
+  const post = posts[current];
+  const username = group.creator.user?.username || "";
+
+  return (
+    <Link
+      href={username ? `/umate/profile/${username}` : "/umate/explore"}
+      className="group w-[280px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)] md:w-[300px]"
+    >
+      {/* Creator header */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/[0.1] bg-white/[0.06]">
+          {group.creator.avatarUrl ? (
+            <img src={resolveMediaUrl(group.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm font-bold text-white/40">{(group.creator.displayName || "?")[0]}</div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-white/90 truncate">{group.creator.displayName}</p>
+          <p className="text-[10px] text-white/30">{posts.length} publicacion{posts.length > 1 ? "es" : ""}</p>
+        </div>
+      </div>
+
+      {/* Auto-rotating media */}
+      <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.03]">
+        {post?.media[0]?.url ? (
+          post.media[0].type === "VIDEO" ? (
+            <video src={resolveMediaUrl(post.media[0].url) || ""} muted playsInline preload="metadata" crossOrigin="anonymous" className="h-full w-full object-cover transition-opacity duration-700" />
+          ) : (
+            <img key={post.id} src={resolveMediaUrl(post.media[0].url) || ""} alt="" className="h-full w-full object-cover transition-opacity duration-700" />
+          )
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/15 via-purple-600/10 to-pink-500/10" />
+        )}
+
+        {/* Blur overlay for premium */}
+        {post?.visibility === "PREMIUM" && (
+          <>
+            {post.media[0]?.url && (
+              <img
+                src={resolveMediaUrl(post.media[0].url) || ""}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+              />
+            )}
+            {!post.media[0]?.url && (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-rose-500/15" />
+            )}
+            <div className="absolute inset-0 bg-black/10" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="rounded-full bg-white/[0.12] p-3 backdrop-blur-md">
+                <Lock className="h-6 w-6 text-white/80" />
+              </div>
+              <p className="mt-2 text-sm font-bold text-white drop-shadow-lg">Premium</p>
+            </div>
+          </>
+        )}
+
+        {post?.visibility === "FREE" && (
+          <span className="absolute left-2 top-2 rounded-md bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
+            Gratis
+          </span>
+        )}
+
+        {/* Dots */}
+        {posts.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+            {posts.map((_, i) => (
+              <div key={i} className={`h-1 rounded-full transition-all duration-500 ${i === current ? "w-4 bg-[#00aff0]" : "w-1 bg-white/30"}`} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Caption */}
+      {post?.caption && (
+        <div className="px-4 py-2.5">
+          <p className="text-xs text-white/45 line-clamp-2">{post.caption}</p>
+        </div>
+      )}
+    </Link>
+  );
+}
 
 /* ── Reusable horizontal carousel ── */
 function Carousel({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -115,17 +217,17 @@ export default function UmateLandingPage() {
 
   const featuredCreators = catalogCreators.slice(0, 8);
 
-  // Alternate free/premium strictly: free, premium, free, premium...
-  const alternatingFeed = useMemo(() => {
-    const free = catalogFeed.filter((i) => i.visibility === "FREE");
-    const premium = catalogFeed.filter((i) => i.visibility === "PREMIUM");
-    const result: FeedItem[] = [];
-    const maxLen = Math.max(free.length, premium.length);
-    for (let i = 0; i < maxLen; i++) {
-      if (i < free.length) result.push(free[i]);
-      if (i < premium.length) result.push(premium[i]);
+  // Group feed items by creator for profile-based cards
+  const feedByCreator = useMemo<CreatorFeedGroup[]>(() => {
+    const map = new Map<string, CreatorFeedGroup>();
+    for (const item of catalogFeed) {
+      const key = item.creator.displayName; // group by name as fallback when no id
+      if (!map.has(key)) {
+        map.set(key, { creator: item.creator, posts: [] });
+      }
+      map.get(key)!.posts.push(item);
     }
-    return result.slice(0, 12);
+    return Array.from(map.values());
   }, [catalogFeed]);
 
   return (
@@ -243,7 +345,7 @@ export default function UmateLandingPage() {
         </div>
       </section>
 
-      {/* ═══ Contenido reciente — Carousel, alternating free/premium ═══ */}
+      {/* ═══ Contenido reciente — Per-creator cards with auto-rotating carousels ═══ */}
       <section className="border-b border-white/[0.03] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <div className="flex items-center justify-between">
@@ -258,55 +360,8 @@ export default function UmateLandingPage() {
 
           <div className="mt-6">
             <Carousel>
-              {alternatingFeed.map((item) => (
-                <article
-                  key={item.id}
-                  className="group w-[240px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)] md:w-[260px]"
-                >
-                  <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.03]">
-                    {item.media[0]?.url ? (
-                      item.media[0].type === "VIDEO" ? (
-                        <video src={resolveMediaUrl(item.media[0].url) || ""} muted playsInline preload="metadata" crossOrigin="anonymous" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                      ) : (
-                        <img src={resolveMediaUrl(item.media[0].url) || ""} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                      )
-                    ) : (
-                      <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/15 via-purple-600/10 to-pink-500/10" />
-                    )}
-                    {item.visibility === "PREMIUM" && (
-                      <>
-                        <div className="absolute inset-0 backdrop-blur-xl bg-black/20" />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                          <div className="rounded-full bg-white/10 p-3 backdrop-blur-sm">
-                            <Lock className="h-6 w-6 text-white/80" />
-                          </div>
-                          <p className="text-sm font-semibold text-white/80">Premium</p>
-                          <Link href="/umate/plans" className="mt-1 rounded-full bg-[#00aff0] px-5 py-1.5 text-xs font-bold text-white transition hover:bg-[#00aff0]/90">
-                            Suscríbete
-                          </Link>
-                        </div>
-                      </>
-                    )}
-                    {item.visibility === "FREE" && (
-                      <span className="absolute left-2 top-2 rounded-md bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
-                        Gratis
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white/[0.08]">
-                        {item.creator.avatarUrl ? (
-                          <img src={resolveMediaUrl(item.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/40">{(item.creator.displayName || "?")[0]}</div>
-                        )}
-                      </div>
-                      <p className="truncate text-sm font-semibold text-white/90">{item.creator.displayName}</p>
-                    </div>
-                    {item.caption && <p className="mt-2 line-clamp-2 text-xs text-white/40">{item.caption}</p>}
-                  </div>
-                </article>
+              {feedByCreator.map((group) => (
+                <AutoRotateCard key={group.creator.displayName} group={group} />
               ))}
             </Carousel>
           </div>
