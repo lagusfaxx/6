@@ -109,8 +109,8 @@ async function getActiveSubscription(userId: string) {
 /** Move matured pendingBalance to availableBalance for all eligible creators.
  *  Called opportunistically on creator stats/wallet reads. */
 async function maturePendingBalances() {
-  // Move pending balances that are older than 7 days to available
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  // Move pending balances that are older than 1 day to available
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const creators = await prisma.umateCreator.findMany({
     where: { pendingBalance: { gt: 0 }, status: "ACTIVE" },
     select: { id: true, pendingBalance: true },
@@ -122,7 +122,7 @@ async function maturePendingBalances() {
       where: {
         creatorId: creator.id,
         type: "SLOT_ACTIVATION",
-        createdAt: { lte: sevenDaysAgo },
+        createdAt: { lte: oneDayAgo },
         maturedAt: null,
       },
     });
@@ -1053,6 +1053,10 @@ umateRouter.get("/umate/creator/subscribers", requireAuth, asyncHandler(async (r
 
 umateRouter.post("/umate/creator/withdraw", requireAuth, paymentLimiter, asyncHandler(async (req, res) => {
   const userId = (req as any).user.id;
+
+  // Mature pending balances before attempting withdrawal
+  await maturePendingBalances().catch(() => {});
+
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
 
