@@ -1,21 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
   BadgeCheck,
+  ChevronLeft,
   ChevronRight,
   Crown,
   Diamond,
   Heart,
   Lock,
-  Play,
   Shield,
   Sparkles,
-  Star,
   Users,
-  Zap,
 } from "lucide-react";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 
@@ -60,6 +58,40 @@ const FALLBACK_FEED: FeedItem[] = [
   { id: "f6", caption: "Clip gratis + acceso al contenido completo.", visibility: "FREE", creator: { displayName: "Naya Luna", avatarUrl: null }, media: [] },
 ];
 
+/* ── Reusable horizontal carousel ── */
+function Carousel({ children, className }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const scroll = (dir: number) => {
+    if (!ref.current) return;
+    ref.current.scrollBy({ left: dir * ref.current.offsetWidth * 0.7, behavior: "smooth" });
+  };
+  return (
+    <div className="group/carousel relative">
+      <div
+        ref={ref}
+        className={`flex gap-4 overflow-x-auto scroll-smooth scrollbar-hide snap-x snap-mandatory ${className || ""}`}
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        {children}
+      </div>
+      <button
+        type="button"
+        onClick={() => scroll(-1)}
+        className="absolute left-0 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 hidden h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#0a0a12]/90 text-white/60 backdrop-blur-xl transition hover:bg-white/10 hover:text-white md:group-hover/carousel:flex"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => scroll(1)}
+        className="absolute right-0 top-1/2 z-10 translate-x-1/2 -translate-y-1/2 hidden h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#0a0a12]/90 text-white/60 backdrop-blur-xl transition hover:bg-white/10 hover:text-white md:group-hover/carousel:flex"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 export default function UmateLandingPage() {
   const [creators, setCreators] = useState<Creator[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -82,107 +114,79 @@ export default function UmateLandingPage() {
   const catalogFeed = useMemo(() => (feed.length > 0 ? feed : FALLBACK_FEED), [feed]);
 
   const featuredCreators = catalogCreators.slice(0, 8);
-  const heroCreator = catalogCreators[0];
-  const latestContent = catalogFeed.slice(0, 6);
+
+  // Alternate free/premium strictly: free, premium, free, premium...
+  const alternatingFeed = useMemo(() => {
+    const free = catalogFeed.filter((i) => i.visibility === "FREE");
+    const premium = catalogFeed.filter((i) => i.visibility === "PREMIUM");
+    const result: FeedItem[] = [];
+    const maxLen = Math.max(free.length, premium.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i < free.length) result.push(free[i]);
+      if (i < premium.length) result.push(premium[i]);
+    }
+    return result.slice(0, 12);
+  }, [catalogFeed]);
 
   return (
     <div className="space-y-0">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-white/[0.03] bg-gradient-to-b from-[#0e0e18] via-[#0a0a12] to-[#0a0a12] pb-16 pt-10 lg:pb-28 lg:pt-20">
+      {/* ═══ Hero Section ═══ */}
+      <section className="relative overflow-hidden border-b border-white/[0.03] bg-gradient-to-b from-[#0e0e18] via-[#0a0a12] to-[#0a0a12] pb-14 pt-10 lg:pb-24 lg:pt-20">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -top-40 left-1/4 h-[700px] w-[700px] rounded-full bg-[#00aff0]/[0.04] blur-[160px]" />
           <div className="absolute -right-24 top-16 h-[500px] w-[500px] rounded-full bg-purple-600/[0.03] blur-[140px]" />
-          <div className="absolute bottom-1/3 left-1/2 h-[400px] w-[400px] rounded-full bg-rose-500/[0.015] blur-[120px]" />
           <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00aff0]/10 to-transparent" />
         </div>
 
-        <div className="relative mx-auto max-w-[1170px] px-4">
-          <div className="grid items-center gap-10 lg:grid-cols-[1fr_1fr] lg:gap-16">
-            {/* Left: Copy */}
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.025] px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-widest text-white/40">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#00aff0] shadow-[0_0_6px_rgba(0,175,240,0.5)]" />
-                Plataforma de suscripcion premium
-              </div>
+        <div className="relative mx-auto max-w-[1170px] px-4 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.025] px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-widest text-white/40">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#00aff0] shadow-[0_0_6px_rgba(0,175,240,0.5)]" />
+            Plataforma de suscripcion premium
+          </div>
 
-              <h1 className="mt-7 text-[2.5rem] font-extrabold leading-[1.08] tracking-[-0.02em] text-white md:text-5xl lg:text-[3.5rem]">
-                Contenido exclusivo de creadoras que te{" "}
-                <span className="bg-gradient-to-r from-[#00aff0] via-[#00c4ff] to-cyan-400 bg-clip-text text-transparent">importan.</span>
-              </h1>
-              <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-white/45 md:text-base">
-                Suscríbete a tus creadoras favoritas. Desbloquea contenido premium, conecta directamente y apoya su trabajo.
-              </p>
+          <h1 className="mx-auto mt-7 max-w-3xl text-[2.2rem] font-extrabold leading-[1.08] tracking-[-0.02em] text-white md:text-5xl lg:text-[3.5rem]">
+            Contenido exclusivo de creadoras que te{" "}
+            <span className="bg-gradient-to-r from-[#00aff0] via-[#00c4ff] to-cyan-400 bg-clip-text text-transparent">importan.</span>
+          </h1>
+          <p className="mx-auto mt-5 max-w-lg text-[15px] leading-relaxed text-white/45 md:text-base">
+            Suscríbete a tus creadoras favoritas. Desbloquea contenido premium, conecta directamente y apoya su trabajo.
+          </p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  href="/umate/explore"
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-3.5 text-sm font-bold text-white shadow-[0_4px_24px_rgba(0,175,240,0.35)] transition-all duration-300 hover:shadow-[0_8px_36px_rgba(0,175,240,0.45)] hover:-translate-y-0.5"
-                >
-                  Explorar creadoras <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  href="/umate/onboarding"
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/50 transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/[0.03]"
-                >
-                  Ser creadora
-                </Link>
-              </div>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/umate/explore"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-3.5 text-sm font-bold text-white shadow-[0_4px_24px_rgba(0,175,240,0.35)] transition-all duration-300 hover:shadow-[0_8px_36px_rgba(0,175,240,0.45)] hover:-translate-y-0.5"
+            >
+              Explorar creadoras <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/umate/onboarding"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/50 transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/[0.03]"
+            >
+              Ser creadora
+            </Link>
+          </div>
 
-              {/* Stats */}
-              <div className="mt-10 flex gap-8 border-t border-white/[0.04] pt-8">
-                {[
-                  { value: `${Math.max(catalogCreators.length, 40)}+`, label: "Creadoras" },
-                  { value: `${Math.max(catalogCreators.reduce((a, c) => a + c.subscriberCount, 0), 980).toLocaleString()}+`, label: "Suscriptores" },
-                  { value: `${Math.max(catalogCreators.reduce((a, c) => a + c.totalPosts, 0), 1300).toLocaleString()}+`, label: "Publicaciones" },
-                ].map((s) => (
-                  <div key={s.label}>
-                    <p className="text-2xl font-extrabold tracking-tight text-white">{s.value}</p>
-                    <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-white/40">{s.label}</p>
-                  </div>
-                ))}
+          {/* Stats — single row, never stacks */}
+          <div className="mx-auto mt-10 flex max-w-md items-center justify-center gap-0 rounded-2xl border border-white/[0.05] bg-white/[0.02] overflow-hidden">
+            {[
+              { value: `${Math.max(catalogCreators.length, 40)}+`, label: "Creadoras" },
+              { value: `${Math.max(catalogCreators.reduce((a, c) => a + c.subscriberCount, 0), 980).toLocaleString()}+`, label: "Suscriptores" },
+              { value: `${Math.max(catalogCreators.reduce((a, c) => a + c.totalPosts, 0), 1300).toLocaleString()}+`, label: "Publicaciones" },
+            ].map((s, i) => (
+              <div
+                key={s.label}
+                className={`flex-1 py-4 ${i > 0 ? "border-l border-white/[0.05]" : ""}`}
+              >
+                <p className="text-lg font-extrabold tracking-tight text-white md:text-2xl">{s.value}</p>
+                <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-white/35 md:text-[11px]">{s.label}</p>
               </div>
-            </div>
-
-            {/* Right: Featured Creators Grid */}
-            <div className="relative">
-              <div className="grid grid-cols-2 gap-3">
-                {featuredCreators.slice(0, 4).map((c, idx) => (
-                  <Link
-                    key={c.id}
-                    href={`/umate/profile/${c.user.username}`}
-                    className={`group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-500 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.3)] ${
-                      idx === 0 ? "col-span-2 aspect-[2/1]" : "aspect-[3/4]"
-                    }`}
-                  >
-                    {c.coverUrl || c.avatarUrl ? (
-                      <img src={resolveMediaUrl(c.coverUrl || c.avatarUrl) || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                    ) : (
-                      <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/20 via-purple-500/10 to-transparent" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                    <div className="absolute bottom-3 left-3 right-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 overflow-hidden rounded-full border-2 border-white/20 bg-white/10">
-                          {c.avatarUrl ? <img src={resolveMediaUrl(c.avatarUrl) || ""} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xs font-bold text-white">{(c.displayName || "?")[0]}</div>}
-                        </div>
-                        <div>
-                          <p className="flex items-center gap-1 text-sm font-bold text-white">
-                            {c.displayName}
-                            {c.user.isVerified && <BadgeCheck className="h-3.5 w-3.5 text-[#00aff0]" />}
-                          </p>
-                          <p className="text-[11px] text-white/50">@{c.user.username}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Featured Creators */}
+      {/* ═══ Creadoras destacadas — Carousel ═══ */}
       <section className="border-b border-white/[0.03] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <div className="flex items-center justify-between">
@@ -195,49 +199,51 @@ export default function UmateLandingPage() {
             </Link>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {featuredCreators.map((c) => (
-              <Link
-                key={c.id}
-                href={`/umate/profile/${c.user.username}`}
-                className="group overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:bg-white/[0.035] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)]"
-              >
-                <div className="relative aspect-[3/2] overflow-hidden bg-white/[0.03]">
-                  {c.coverUrl ? (
-                    <img src={resolveMediaUrl(c.coverUrl) || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                  ) : (
-                    <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/10 to-purple-500/10" />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-transparent" />
-                  {c.user.isVerified && (
-                    <span className="absolute right-2 top-2 rounded-full bg-black/50 p-1 backdrop-blur-sm">
-                      <BadgeCheck className="h-3.5 w-3.5 text-[#00aff0]" />
-                    </span>
-                  )}
-                </div>
-                <div className="-mt-6 relative px-4 pb-4">
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-[#0a0a0f] bg-[#0a0a0f]">
-                    {c.avatarUrl ? (
-                      <img src={resolveMediaUrl(c.avatarUrl) || ""} alt={c.displayName} className="h-full w-full object-cover" />
+          <div className="mt-8">
+            <Carousel>
+              {featuredCreators.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/umate/profile/${c.user.username}`}
+                  className="group w-[260px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:bg-white/[0.035] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)] md:w-[280px]"
+                >
+                  <div className="relative aspect-[3/2] overflow-hidden bg-white/[0.03]">
+                    {c.coverUrl ? (
+                      <img src={resolveMediaUrl(c.coverUrl) || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                     ) : (
-                      <div className="flex h-full items-center justify-center bg-white/[0.08] text-sm font-bold text-white/60">{(c.displayName || "?")[0]}</div>
+                      <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/10 to-purple-500/10" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-transparent" />
+                    {c.user.isVerified && (
+                      <span className="absolute right-2 top-2 rounded-full bg-black/50 p-1 backdrop-blur-sm">
+                        <BadgeCheck className="h-3.5 w-3.5 text-[#00aff0]" />
+                      </span>
                     )}
                   </div>
-                  <h3 className="mt-2 text-sm font-bold text-white">{c.displayName}</h3>
-                  <p className="text-[11px] text-white/40">@{c.user.username}</p>
-                  <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-white/40">{c.bio || "Contenido exclusivo"}</p>
-                  <div className="mt-3 flex items-center gap-3 text-[11px] text-white/45">
-                    <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {c.subscriberCount}</span>
-                    <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {c.totalLikes}</span>
+                  <div className="-mt-6 relative px-4 pb-4">
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white/20 bg-white/10">
+                      {c.avatarUrl ? (
+                        <img src={resolveMediaUrl(c.avatarUrl) || ""} alt={c.displayName} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center bg-white/[0.08] text-sm font-bold text-white/60">{(c.displayName || "?")[0]}</div>
+                      )}
+                    </div>
+                    <h3 className="mt-2 text-sm font-bold text-white">{c.displayName}</h3>
+                    <p className="text-[11px] text-white/40">@{c.user.username}</p>
+                    <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-white/40">{c.bio || "Contenido exclusivo"}</p>
+                    <div className="mt-3 flex items-center gap-3 text-[11px] text-white/45">
+                      <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {c.subscriberCount}</span>
+                      <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {c.totalLikes}</span>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))}
+            </Carousel>
           </div>
         </div>
       </section>
 
-      {/* Latest Content Feed Preview */}
+      {/* ═══ Contenido reciente — Carousel, alternating free/premium ═══ */}
       <section className="border-b border-white/[0.03] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <div className="flex items-center justify-between">
@@ -250,85 +256,60 @@ export default function UmateLandingPage() {
             </Link>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {latestContent.map((item) => (
-              <article
-                key={item.id}
-                className="group overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)]"
-              >
-                <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.03]">
-                  {item.media[0]?.url ? (
-                    <img src={resolveMediaUrl(item.media[0].url) || ""} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                  ) : (
-                    <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/15 via-purple-600/10 to-pink-500/10" />
-                  )}
-                  {item.visibility === "PREMIUM" && (
-                    <>
-                      <div className="absolute inset-0 backdrop-blur-xl bg-black/20" />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                        <div className="rounded-full bg-white/10 p-3 backdrop-blur-sm">
-                          <Lock className="h-6 w-6 text-white/80" />
+          <div className="mt-6">
+            <Carousel>
+              {alternatingFeed.map((item) => (
+                <article
+                  key={item.id}
+                  className="group w-[240px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)] md:w-[260px]"
+                >
+                  <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.03]">
+                    {item.media[0]?.url ? (
+                      <img src={resolveMediaUrl(item.media[0].url) || ""} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/15 via-purple-600/10 to-pink-500/10" />
+                    )}
+                    {item.visibility === "PREMIUM" && (
+                      <>
+                        <div className="absolute inset-0 backdrop-blur-xl bg-black/20" />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                          <div className="rounded-full bg-white/10 p-3 backdrop-blur-sm">
+                            <Lock className="h-6 w-6 text-white/80" />
+                          </div>
+                          <p className="text-sm font-semibold text-white/80">Premium</p>
+                          <Link href="/umate/plans" className="mt-1 rounded-full bg-[#00aff0] px-5 py-1.5 text-xs font-bold text-white transition hover:bg-[#00aff0]/90">
+                            Suscríbete
+                          </Link>
                         </div>
-                        <p className="text-sm font-semibold text-white/80">Contenido premium</p>
-                        <Link href="/umate/plans" className="mt-1 rounded-full bg-[#00aff0] px-5 py-1.5 text-xs font-bold text-white transition hover:bg-[#00aff0]/90">
-                          Suscríbete para desbloquear
-                        </Link>
+                      </>
+                    )}
+                    {item.visibility === "FREE" && (
+                      <span className="absolute left-2 top-2 rounded-md bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
+                        Gratis
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white/[0.08]">
+                        {item.creator.avatarUrl ? (
+                          <img src={resolveMediaUrl(item.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/40">{(item.creator.displayName || "?")[0]}</div>
+                        )}
                       </div>
-                    </>
-                  )}
-                  {item.visibility === "FREE" && (
-                    <span className="absolute left-2 top-2 rounded-md bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
-                      Gratis
-                    </span>
-                  )}
-                </div>
-                <div className="p-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white/[0.08]">
-                      {item.creator.avatarUrl ? (
-                        <img src={resolveMediaUrl(item.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/40">{(item.creator.displayName || "?")[0]}</div>
-                      )}
+                      <p className="truncate text-sm font-semibold text-white/90">{item.creator.displayName}</p>
                     </div>
-                    <p className="truncate text-sm font-semibold text-white/90">{item.creator.displayName}</p>
+                    {item.caption && <p className="mt-2 line-clamp-2 text-xs text-white/40">{item.caption}</p>}
                   </div>
-                  {item.caption && <p className="mt-2 line-clamp-2 text-xs text-white/40">{item.caption}</p>}
-                </div>
-              </article>
-            ))}
+                </article>
+              ))}
+            </Carousel>
           </div>
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="border-b border-white/[0.03] py-14 lg:py-20">
-        <div className="mx-auto max-w-[1170px] px-4">
-          <h2 className="text-center text-xl font-bold tracking-tight text-white">Como funciona</h2>
-          <p className="mt-2 text-center text-sm text-white/40">Tres pasos simples para empezar</p>
-
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {[
-              { step: "01", title: "Descubre", desc: "Explora un catalogo de creadoras activas con contenido exclusivo.", icon: Sparkles },
-              { step: "02", title: "Suscribete", desc: "Elige un plan con cupos mensuales para acceder a contenido premium.", icon: Crown },
-              { step: "03", title: "Disfruta", desc: "Desbloquea contenido, interactua y conecta con tus creadoras favoritas.", icon: Heart },
-            ].map((item) => (
-              <div key={item.step} className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-7 transition-all duration-300 hover:border-white/[0.08] hover:bg-white/[0.03]">
-                <div className="flex items-center justify-between">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#00aff0]/[0.08]">
-                    <item.icon className="h-5 w-5 text-[#00aff0]" />
-                  </div>
-                  <span className="text-3xl font-extrabold text-white/[0.04]">{item.step}</span>
-                </div>
-                <h3 className="mt-5 text-base font-bold text-white">{item.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/40">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Plans Preview */}
+      {/* ═══ Planes de suscripción (MOVED UP, before "Cómo funciona") ═══ */}
       <section className="border-b border-white/[0.03] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <h2 className="text-center text-xl font-bold tracking-tight text-white">Planes de suscripcion</h2>
@@ -382,7 +363,34 @@ export default function UmateLandingPage() {
         </div>
       </section>
 
-      {/* CTA Banner */}
+      {/* ═══ Cómo funciona ═══ */}
+      <section className="border-b border-white/[0.03] py-14 lg:py-20">
+        <div className="mx-auto max-w-[1170px] px-4">
+          <h2 className="text-center text-xl font-bold tracking-tight text-white">Como funciona</h2>
+          <p className="mt-2 text-center text-sm text-white/40">Tres pasos simples para empezar</p>
+
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            {[
+              { step: "01", title: "Descubre", desc: "Explora un catalogo de creadoras activas con contenido exclusivo.", icon: Sparkles },
+              { step: "02", title: "Suscribete", desc: "Elige un plan con cupos mensuales para acceder a contenido premium.", icon: Crown },
+              { step: "03", title: "Disfruta", desc: "Desbloquea contenido, interactua y conecta con tus creadoras favoritas.", icon: Heart },
+            ].map((item) => (
+              <div key={item.step} className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-7 transition-all duration-300 hover:border-white/[0.08] hover:bg-white/[0.03]">
+                <div className="flex items-center justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#00aff0]/[0.08]">
+                    <item.icon className="h-5 w-5 text-[#00aff0]" />
+                  </div>
+                  <span className="text-3xl font-extrabold text-white/[0.04]">{item.step}</span>
+                </div>
+                <h3 className="mt-5 text-base font-bold text-white">{item.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/40">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ CTA Banner ═══ */}
       <section className="py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <div className="relative overflow-hidden rounded-3xl border border-[#00aff0]/10 bg-gradient-to-br from-[#00aff0]/[0.06] via-purple-500/[0.04] to-[#00aff0]/[0.06] p-10 text-center lg:p-16">
