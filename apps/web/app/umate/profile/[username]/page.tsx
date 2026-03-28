@@ -48,7 +48,7 @@ type Post = {
   likeCount: number;
   commentCount?: number;
   createdAt: string;
-  media: { id: string; type: string; url: string | null; pos: number }[];
+  media: { id: string; type: string; url: string | null; pos: number; visibility?: string; isBlurred?: boolean }[];
   isBlurred: boolean;
   isLiked: boolean;
 };
@@ -60,7 +60,7 @@ type Comment = {
   user: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
 };
 
-function MediaCarousel({ media }: { media: { id: string; type: string; url: string | null; pos: number }[] }) {
+function MediaCarousel({ media }: { media: { id: string; type: string; url: string | null; pos: number; visibility?: string; isBlurred?: boolean }[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState(0);
   const sorted = [...media].sort((a, b) => a.pos - b.pos);
@@ -92,7 +92,43 @@ function MediaCarousel({ media }: { media: { id: string; type: string; url: stri
       >
         {sorted.map((m) => (
           <div key={m.id} className="w-full shrink-0 snap-start">
-            {m.url ? (
+            {m.isBlurred ? (
+              <div className="relative aspect-[4/5] w-full overflow-hidden">
+                {m.url ? (
+                  m.type === "VIDEO" ? (
+                    <video
+                      src={resolveMediaUrl(m.url) || ""}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      crossOrigin="anonymous"
+                      className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                    />
+                  ) : (
+                    <img
+                      src={resolveMediaUrl(m.url) || ""}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                    />
+                  )
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-pink-500/15" />
+                )}
+                <div className="absolute inset-0 bg-black/10" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="rounded-full bg-white/[0.12] p-4 backdrop-blur-md">
+                    <Lock className="h-8 w-8 text-white/80" />
+                  </div>
+                  <p className="mt-3 text-sm font-bold text-white drop-shadow-lg">Premium</p>
+                  <Link
+                    href="/umate/plans"
+                    className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
+                  >
+                    Desbloquear
+                  </Link>
+                </div>
+              </div>
+            ) : m.url ? (
               m.type === "VIDEO" ? (
                 <video
                   src={resolveMediaUrl(m.url) || ""}
@@ -429,46 +465,7 @@ export default function CreatorProfilePage() {
                   viewerUsername={me?.user?.username}
                 >
                   <div className="relative">
-                    {post.isBlurred ? (
-                      <div className="relative aspect-[4/5] w-full overflow-hidden">
-                        {post.media[0].url ? (
-                          post.media[0].type === "VIDEO" ? (
-                            <video
-                              src={resolveMediaUrl(post.media[0].url) || ""}
-                              muted
-                              playsInline
-                              preload="metadata"
-                              crossOrigin="anonymous"
-                              className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-                            />
-                          ) : (
-                            <img
-                              src={resolveMediaUrl(post.media[0].url) || ""}
-                              alt=""
-                              className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
-                            />
-                          )
-                        ) : (
-                          <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/30 via-purple-600/20 to-pink-500/15" />
-                        )}
-                        <div className="absolute inset-0 bg-black/10" />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <div className="rounded-full bg-white/[0.12] p-4 backdrop-blur-md">
-                            <Lock className="h-8 w-8 text-white/80" />
-                          </div>
-                          <p className="mt-3 text-sm font-bold text-white drop-shadow-lg">Contenido premium</p>
-                          <p className="mt-1 text-xs text-white/60 drop-shadow-lg">Suscríbete para desbloquear</p>
-                          <Link
-                            href="/umate/plans"
-                            className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
-                          >
-                            Incluido con tu plan U-Mate
-                          </Link>
-                        </div>
-                      </div>
-                    ) : (
-                      <MediaCarousel media={post.media} />
-                    )}
+                    <MediaCarousel media={post.media} />
                     {post.visibility === "PREMIUM" && !post.isBlurred && (
                       <span className="absolute right-3 top-3 z-10 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 backdrop-blur-sm">
                         Premium
