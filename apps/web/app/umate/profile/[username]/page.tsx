@@ -48,7 +48,7 @@ type Post = {
   likeCount: number;
   commentCount?: number;
   createdAt: string;
-  media: { id: string; type: string; url: string | null; pos: number; visibility?: string; isBlurred?: boolean }[];
+  media: { id: string; type: string; url: string | null; thumbnailUrl?: string | null; pos: number; visibility?: string; isBlurred?: boolean }[];
   isBlurred: boolean;
   isLiked: boolean;
 };
@@ -60,7 +60,7 @@ type Comment = {
   user: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
 };
 
-function MediaCarousel({ media }: { media: { id: string; type: string; url: string | null; pos: number; visibility?: string; isBlurred?: boolean }[] }) {
+function MediaCarousel({ media }: { media: { id: string; type: string; url: string | null; thumbnailUrl?: string | null; pos: number; visibility?: string; isBlurred?: boolean }[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState(0);
   const sorted = [...media].sort((a, b) => a.pos - b.pos);
@@ -94,7 +94,13 @@ function MediaCarousel({ media }: { media: { id: string; type: string; url: stri
           <div key={m.id} className="w-full shrink-0 snap-start">
             {m.isBlurred ? (
               <div className="relative aspect-[4/5] w-full overflow-hidden">
-                {m.url && m.type !== "VIDEO" ? (
+                {m.type === "VIDEO" && m.thumbnailUrl ? (
+                  <img
+                    src={resolveMediaUrl(m.thumbnailUrl) || ""}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                  />
+                ) : m.url && m.type !== "VIDEO" ? (
                   <img
                     src={resolveMediaUrl(m.url) || ""}
                     alt=""

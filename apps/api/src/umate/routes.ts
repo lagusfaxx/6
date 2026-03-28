@@ -1,5 +1,10 @@
 import { Router } from "express";
 import multer from "multer";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
@@ -10,6 +15,8 @@ import { optimizeImage } from "../lib/imageOptimizer";
 import { validateUploadedFile } from "../lib/uploads";
 import { sendToUser } from "../realtime/sse";
 import { asyncHandler } from "../lib/asyncHandler";
+
+const execFileAsync = promisify(execFile);
 
 export const umateRouter = Router();
 
@@ -25,6 +32,36 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 },
 });
+
+/** Extract first frame from a video buffer and save as JPEG thumbnail */
+async function extractVideoThumbnail(videoBuffer: Buffer, originalFilename: string): Promise<string | null> {
+  try {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "umate-thumb-"));
+    const tmpVideo = path.join(tmpDir, "input" + path.extname(originalFilename));
+    const tmpThumb = path.join(tmpDir, "thumb.jpg");
+    await fs.writeFile(tmpVideo, videoBuffer);
+    await execFileAsync("ffmpeg", [
+      "-i", tmpVideo,
+      "-vframes", "1",
+      "-ss", "0.5",
+      "-vf", "scale=640:-2",
+      "-q:v", "8",
+      tmpThumb,
+    ], { timeout: 15000 });
+    const thumbBuffer = await fs.readFile(tmpThumb);
+    const saved = await storage.save({
+      buffer: thumbBuffer,
+      filename: "thumb.jpg",
+      mimeType: "image/jpeg",
+      folder: "umate-thumbs",
+    });
+    // Cleanup temp files
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    return saved.url;
+  } catch {
+    return null;
+  }
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // RATE LIMITERS
@@ -813,7 +850,7 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
     }
   }
 
-  const mediaItems: { type: "IMAGE" | "VIDEO"; url: string; pos: number; visibility: "FREE" | "PREMIUM" }[] = [];
+  const mediaItems: { type: "IMAGE" | "VIDEO"; url: string; thumbnailUrl?: string; pos: number; visibility: "FREE" | "PREMIUM" }[] = [];
   for (let i = 0; i < files.length; i++) {
     const saved = await storage.save({
       buffer: files[i].buffer,
@@ -822,9 +859,15 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
       folder: "umate-posts",
     });
     const mediaVis = mediaVisibilities[i] === "PREMIUM" ? "PREMIUM" : "FREE";
+    let thumbnailUrl: string | undefined;
+    if (saved.type === "video") {
+      const thumb = await extractVideoThumbnail(files[i].buffer, files[i].originalname);
+      if (thumb) thumbnailUrl = thumb;
+    }
     mediaItems.push({
       type: saved.type === "video" ? "VIDEO" : "IMAGE",
       url: saved.url,
+      thumbnailUrl,
       pos: i,
       visibility: mediaVis,
     });

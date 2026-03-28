@@ -29,7 +29,7 @@ type FeedItem = {
   commentCount?: number;
   createdAt: string;
   creator: { id: string; displayName: string; avatarUrl: string | null; user?: { username: string } };
-  media: { id: string; type: string; url: string | null; pos: number; visibility?: string; isBlurred?: boolean }[];
+  media: { id: string; type: string; url: string | null; thumbnailUrl?: string | null; pos: number; visibility?: string; isBlurred?: boolean }[];
   isBlurred: boolean;
   isLiked: boolean;
 };
@@ -138,7 +138,11 @@ function MediaCarousel({ media, viewerUsername }: {
                 <div className="relative aspect-[4/5] overflow-hidden bg-black">
                   {blurred ? (
                     <div className="relative h-full w-full">
-                      {m.url && m.type !== "VIDEO" ? (
+                      {m.type === "VIDEO" && m.thumbnailUrl ? (
+                        <img src={resolveMediaUrl(m.thumbnailUrl) || ""} alt=""
+                          className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
+                        />
+                      ) : m.url && m.type !== "VIDEO" ? (
                         <img src={resolveMediaUrl(m.url) || ""} alt=""
                           className="absolute inset-0 h-full w-full object-cover scale-110 blur-2xl brightness-75 saturate-150"
                         />
