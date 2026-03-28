@@ -55,7 +55,7 @@ type CreatorGroup = {
 };
 
 /* ── Video with thumbnail preview ── */
-function VideoPreview({ src, className }: { src: string; className?: string }) {
+function VideoPreview({ src, poster, className }: { src: string; poster?: string; className?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
 
@@ -69,6 +69,7 @@ function VideoPreview({ src, className }: { src: string; className?: string }) {
       <video
         ref={videoRef}
         src={src}
+        poster={poster}
         controls={playing}
         playsInline
         preload="metadata"
@@ -168,6 +169,7 @@ function MediaCarousel({ media, viewerUsername }: {
                     m.type === "VIDEO" ? (
                       <VideoPreview
                         src={resolveMediaUrl(m.url) || ""}
+                        poster={m.thumbnailUrl ? resolveMediaUrl(m.thumbnailUrl) || undefined : undefined}
                         className="h-full w-full object-contain"
                       />
                     ) : (

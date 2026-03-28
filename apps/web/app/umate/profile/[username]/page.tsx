@@ -127,6 +127,7 @@ function MediaCarousel({ media }: { media: { id: string; type: string; url: stri
               m.type === "VIDEO" ? (
                 <video
                   src={resolveMediaUrl(m.url) || ""}
+                  poster={m.thumbnailUrl ? resolveMediaUrl(m.thumbnailUrl) || undefined : undefined}
                   controls
                   playsInline
                   preload="metadata"
