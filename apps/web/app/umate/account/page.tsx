@@ -318,8 +318,8 @@ export default function UmateAccountPage() {
 
   // ─── CREATOR VIEW ───
   const checks = [
-    { label: "Términos de servicio", ok: creatorStats?.termsAccepted, href: "/umate/terms", desc: "Lee y acepta los términos" },
-    { label: "Reglas de la plataforma", ok: creatorStats?.rulesAccepted, href: "/umate/rules", desc: "Lee y acepta las reglas" },
+    { label: "Términos de servicio", ok: creatorStats?.termsAccepted, href: "/umate/onboarding", desc: "Acepta los términos en el onboarding" },
+    { label: "Reglas de la plataforma", ok: creatorStats?.rulesAccepted, href: "/umate/onboarding", desc: "Acepta las reglas en el onboarding" },
     { label: "Contrato de creadora", ok: creatorStats?.contractAccepted, href: "/umate/onboarding", desc: "Completa en el onboarding" },
     { label: "Datos bancarios", ok: creatorStats?.bankConfigured, href: "/umate/onboarding", desc: "Configura en el onboarding" },
   ];
@@ -333,11 +333,21 @@ export default function UmateAccountPage() {
       </div>
 
       {pendingCount > 0 && (
-        <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.03] p-4">
+        <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.03] p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-amber-400">
             <AlertCircle className="h-4 w-4" /> {pendingCount} pendiente{pendingCount > 1 ? "s" : ""} para activar tu cuenta
           </div>
-          <p className="mt-1 text-xs text-white/30">Completa el onboarding para poder publicar y recibir suscriptores.</p>
+          <p className="text-xs text-white/30">
+            {creator?.status === "DRAFT" || creator?.status === "PENDING_BANK" || creator?.status === "PENDING_TERMS"
+              ? "Tu registro está incompleto. Debes completar todos los pasos del onboarding (perfil, datos bancarios y términos) para que tu cuenta esté activa."
+              : "Completa el onboarding para poder publicar y recibir suscriptores."}
+          </p>
+          <Link
+            href="/umate/onboarding"
+            className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-5 py-2 text-xs font-bold text-amber-400 transition hover:bg-amber-500/15"
+          >
+            Continuar registro <ArrowRight className="h-3 w-3" />
+          </Link>
         </div>
       )}
 
