@@ -1400,7 +1400,7 @@ umateRouter.get("/umate/payment/status", requireAuth, asyncHandler(async (req, r
   const ref = req.query.ref as string;
   if (!ref) return res.status(400).json({ error: "MISSING_REF" });
 
-  const intent = await prisma.paymentIntent.findUnique({ where: { id: ref } });
+  let intent = await prisma.paymentIntent.findUnique({ where: { id: ref } });
   if (!intent) return res.status(404).json({ error: "NOT_FOUND" });
 
   // Only the payer can check their own payment
@@ -1408,11 +1408,29 @@ umateRouter.get("/umate/payment/status", requireAuth, asyncHandler(async (req, r
     return res.status(403).json({ error: "FORBIDDEN" });
   }
 
+  // If still pending and we have a Flow token, check directly with Flow
+  if (intent.status === "PENDING" && intent.providerPaymentId) {
+    try {
+      const { getFlowPaymentStatus } = await import("../khipu/client");
+      const flowPayment = await getFlowPaymentStatus(intent.providerPaymentId);
+      // Flow status: 1=pending, 2=paid, 3=rejected, 4=canceled
+      if (flowPayment.status === 3 || flowPayment.status === 4) {
+        await prisma.paymentIntent.update({
+          where: { id: intent.id },
+          data: { status: "FAILED" },
+        });
+        intent = { ...intent, status: "FAILED" };
+      }
+    } catch {
+      // If Flow check fails, keep current status
+    }
+  }
+
   const statusMap: Record<string, string> = {
     PAID: "paid",
     PENDING: "pending",
-    FAILED: "error",
-    EXPIRED: "error",
+    FAILED: "rejected",
+    EXPIRED: "expired",
   };
 
   res.json({
