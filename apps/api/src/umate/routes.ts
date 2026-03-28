@@ -523,6 +523,7 @@ umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, asyncHandl
   // Activate slot
   const payoutPerSlot = await getUmateConfig("umate_payout_per_slot", 5000);
   const platformCommPct = await getUmateConfig("umate_platform_commission_pct", 0);
+  const ivaPct = await getUmateConfig("umate_iva_pct", 19);
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -548,26 +549,31 @@ umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, asyncHandl
         data: { slotsUsed: { increment: 1 } },
       });
 
+      // Calculate fees: commission + IVA on commission
+      const platformFee = Math.round(payoutPerSlot * platformCommPct / 100);
+      const ivaAmount = Math.round(platformFee * ivaPct / 100);
+      const creatorPayout = payoutPerSlot - platformFee - ivaAmount;
+
       // Increment creator subscriber count
       await tx.umateCreator.update({
         where: { id: creatorId },
         data: {
           subscriberCount: { increment: 1 },
-          pendingBalance: { increment: payoutPerSlot },
-          totalEarned: { increment: payoutPerSlot },
+          pendingBalance: { increment: creatorPayout },
+          totalEarned: { increment: creatorPayout },
         },
       });
 
       // Ledger: slot activation
-      const platformFee = Math.round(payoutPerSlot * platformCommPct / 100);
       await tx.umateLedgerEntry.create({
         data: {
           creatorId,
           type: "SLOT_ACTIVATION",
           grossAmount: payoutPerSlot,
           platformFee,
-          creatorPayout: payoutPerSlot - platformFee,
-          netAmount: payoutPerSlot - platformFee,
+          ivaAmount,
+          creatorPayout,
+          netAmount: creatorPayout,
           description: `Suscripción de usuario`,
           referenceId: sub.id,
           referenceType: "subscription",
@@ -1389,6 +1395,13 @@ umateRouter.get("/admin/umate/dashboard", requireAdmin, asyncHandler(async (_req
 
   const payoutPerSlot = await getUmateConfig("umate_payout_per_slot", 5000);
   const platformCommPct = await getUmateConfig("umate_platform_commission_pct", 0);
+  const ivaPct = await getUmateConfig("umate_iva_pct", 19);
+
+  // Platform earnings: sum of platformFee and ivaAmount from all slot activations
+  const platformEarnings = await prisma.umateLedgerEntry.aggregate({
+    _sum: { platformFee: true, ivaAmount: true },
+    where: { type: "SLOT_ACTIVATION" },
+  });
 
   res.json({
     totalCreators,
@@ -1399,7 +1412,9 @@ umateRouter.get("/admin/umate/dashboard", requireAdmin, asyncHandler(async (_req
     newSubsThisMonth,
     totalPosts,
     totalRevenue: totalRevenue._sum.grossAmount || 0,
-    config: { payoutPerSlot, platformCommPct },
+    totalCommissions: platformEarnings._sum.platformFee || 0,
+    totalIva: platformEarnings._sum.ivaAmount || 0,
+    config: { payoutPerSlot, platformCommPct, ivaPct },
   });
 }));
 
@@ -1472,7 +1487,7 @@ umateRouter.put("/admin/umate/plans/:id", requireAdmin, asyncHandler(async (req,
 }));
 
 umateRouter.put("/admin/umate/config", requireAdmin, asyncHandler(async (req, res) => {
-  const { payoutPerSlot, platformCommPct } = req.body;
+  const { payoutPerSlot, platformCommPct, ivaPct } = req.body;
 
   if (payoutPerSlot !== undefined) {
     const val = parseInt(String(payoutPerSlot), 10);
@@ -1490,6 +1505,15 @@ umateRouter.put("/admin/umate/config", requireAdmin, asyncHandler(async (req, re
       where: { key: "umate_platform_commission_pct" },
       update: { value: String(val) },
       create: { key: "umate_platform_commission_pct", value: String(val) },
+    });
+  }
+  if (ivaPct !== undefined) {
+    const val = parseInt(String(ivaPct), 10);
+    if (isNaN(val) || val < 0 || val > 100) return res.status(400).json({ error: "INVALID_IVA" });
+    await prisma.platformConfig.upsert({
+      where: { key: "umate_iva_pct" },
+      update: { value: String(val) },
+      create: { key: "umate_iva_pct", value: String(val) },
     });
   }
 

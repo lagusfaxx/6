@@ -18,7 +18,9 @@ type Dashboard = {
   newSubsThisMonth: number;
   totalPosts: number;
   totalRevenue: number;
-  config: { payoutPerSlot: number; platformCommPct: number };
+  totalCommissions: number;
+  totalIva: number;
+  config: { payoutPerSlot: number; platformCommPct: number; ivaPct: number };
 };
 
 type Creator = {
@@ -55,6 +57,7 @@ type LedgerEntry = {
   type: string;
   grossAmount: number;
   platformFee: number;
+  ivaAmount: number;
   creatorPayout: number;
   netAmount: number;
   description: string | null;
@@ -100,6 +103,7 @@ export default function UmateAdminPage() {
   // Config state
   const [payoutPerSlot, setPayoutPerSlot] = useState(5000);
   const [platformCommPct, setPlatformCommPct] = useState(0);
+  const [ivaPct, setIvaPct] = useState(19);
   const [saving, setSaving] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
 
@@ -125,6 +129,7 @@ export default function UmateAdminPage() {
         if (d?.config) {
           setPayoutPerSlot(d.config.payoutPerSlot);
           setPlatformCommPct(d.config.platformCommPct);
+          setIvaPct(d.config.ivaPct);
         }
       }).catch(() => {}).finally(() => setLoading(false));
     } else if (tab === "creators") {
@@ -199,7 +204,7 @@ export default function UmateAdminPage() {
   const saveConfig = async () => {
     setSaving(true);
     setConfigSaved(false);
-    await apiFetch("/admin/umate/config", { method: "PUT", body: JSON.stringify({ payoutPerSlot, platformCommPct }) });
+    await apiFetch("/admin/umate/config", { method: "PUT", body: JSON.stringify({ payoutPerSlot, platformCommPct, ivaPct }) });
     setSaving(false);
     setConfigSaved(true);
     setTimeout(() => setConfigSaved(false), 3000);
@@ -263,24 +268,52 @@ export default function UmateAdminPage() {
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5 text-center">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-center">
               <p className="text-2xl font-extrabold text-emerald-300">${dashboard.totalRevenue.toLocaleString("es-CL")}</p>
-              <p className="text-[10px] text-white/40 mt-1">Ingresos totales</p>
+              <p className="text-[10px] text-white/40 mt-1">Ingresos brutos</p>
             </div>
-            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5 text-center">
+            <div className="rounded-2xl border border-[#00aff0]/15 bg-[#00aff0]/[0.04] p-4 text-center">
+              <p className="text-2xl font-extrabold text-[#00aff0]">${(dashboard.totalCommissions - dashboard.totalIva).toLocaleString("es-CL")}</p>
+              <p className="text-[10px] text-white/40 mt-1">Ganancia neta plataforma</p>
+            </div>
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-center">
               <p className="text-2xl font-extrabold">{dashboard.totalPosts}</p>
               <p className="text-[10px] text-white/40 mt-1">Posts totales</p>
             </div>
-            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5 text-center">
+            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4 text-center">
               <p className="text-2xl font-extrabold">{dashboard.totalCreators}</p>
               <p className="text-[10px] text-white/40 mt-1">Creadoras registradas</p>
             </div>
           </div>
+
+          {/* Platform earnings breakdown */}
+          <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
+            <h2 className="text-sm font-bold mb-3">Desglose financiero plataforma</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-sm">
+              <div>
+                <p className="text-white/40 text-xs">Comisiones cobradas</p>
+                <p className="font-bold text-white">${dashboard.totalCommissions.toLocaleString("es-CL")}</p>
+              </div>
+              <div>
+                <p className="text-white/40 text-xs">IVA retenido</p>
+                <p className="font-bold text-amber-300">${dashboard.totalIva.toLocaleString("es-CL")}</p>
+              </div>
+              <div>
+                <p className="text-white/40 text-xs">Neto plataforma</p>
+                <p className="font-bold text-[#00aff0]">${(dashboard.totalCommissions - dashboard.totalIva).toLocaleString("es-CL")}</p>
+              </div>
+              <div>
+                <p className="text-white/40 text-xs">Pagado a creadoras</p>
+                <p className="font-bold text-emerald-300">${(dashboard.totalRevenue - dashboard.totalCommissions - dashboard.totalIva).toLocaleString("es-CL")}</p>
+              </div>
+            </div>
+          </div>
+
           {/* Quick config overview */}
           <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
             <h2 className="text-sm font-bold mb-3">Configuración activa</h2>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
                 <p className="text-white/40 text-xs">Payout por cupo</p>
                 <p className="font-bold">${dashboard.config.payoutPerSlot.toLocaleString("es-CL")} CLP</p>
@@ -288,6 +321,10 @@ export default function UmateAdminPage() {
               <div>
                 <p className="text-white/40 text-xs">Comisión plataforma</p>
                 <p className="font-bold">{dashboard.config.platformCommPct}%</p>
+              </div>
+              <div>
+                <p className="text-white/40 text-xs">IVA</p>
+                <p className="font-bold">{dashboard.config.ivaPct}%</p>
               </div>
             </div>
           </div>
@@ -680,24 +717,66 @@ export default function UmateAdminPage() {
               <p className="mt-1 text-[10px] text-white/45">Porcentaje que retiene la plataforma. 0% = sin comisión (promoción)</p>
             </div>
 
-            {/* Preview calculation */}
-            <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] p-4">
-              <p className="text-[10px] font-bold text-white/40 mb-2">Vista previa por cada suscripción</p>
-              <div className="grid grid-cols-3 gap-3 text-center text-xs">
-                <div>
-                  <p className="font-bold">${payoutPerSlot.toLocaleString("es-CL")}</p>
-                  <p className="text-[10px] text-white/45">Bruto</p>
-                </div>
-                <div>
-                  <p className="font-bold text-red-300/60">${Math.round(payoutPerSlot * platformCommPct / 100).toLocaleString("es-CL")}</p>
-                  <p className="text-[10px] text-white/45">Comisión</p>
-                </div>
-                <div>
-                  <p className="font-bold text-emerald-300">${(payoutPerSlot - Math.round(payoutPerSlot * platformCommPct / 100)).toLocaleString("es-CL")}</p>
-                  <p className="text-[10px] text-white/45">Creadora recibe</p>
-                </div>
-              </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-white/40 mb-1.5">IVA (%)</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={ivaPct}
+                onChange={(e) => setIvaPct(Math.min(100, parseInt(e.target.value) || 0))}
+                className={inputClass}
+              />
+              <p className="mt-1 text-[10px] text-white/45">IVA sobre la comisión (19% en Chile). Se descuenta al creador.</p>
             </div>
+
+            {/* Preview calculation */}
+            {(() => {
+              const commission = Math.round(payoutPerSlot * platformCommPct / 100);
+              const iva = Math.round(commission * ivaPct / 100);
+              const creatorReceives = payoutPerSlot - commission - iva;
+              const platformNet = commission;
+              return (
+                <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] p-4 space-y-3">
+                  <p className="text-[10px] font-bold text-white/40">Vista previa por cada suscripción</p>
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Bruto</span>
+                      <span className="font-bold">${payoutPerSlot.toLocaleString("es-CL")}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-red-400/70">Comisión ({platformCommPct}%)</span>
+                      <span className="font-bold text-red-300/60">-${commission.toLocaleString("es-CL")}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-red-400/70">IVA ({ivaPct}% s/comisión)</span>
+                      <span className="font-bold text-red-300/60">-${iva.toLocaleString("es-CL")}</span>
+                    </div>
+                    <div className="h-px bg-white/[0.06]" />
+                    <div className="flex justify-between">
+                      <span className="text-emerald-400/70">Creadora recibe</span>
+                      <span className="font-bold text-emerald-300">${creatorReceives.toLocaleString("es-CL")}</span>
+                    </div>
+                  </div>
+                  <div className="h-px bg-white/[0.06]" />
+                  <div className="space-y-1.5 text-xs">
+                    <p className="text-[10px] font-bold text-white/40">Ganancia plataforma</p>
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Comisión</span>
+                      <span className="font-bold text-white/70">${commission.toLocaleString("es-CL")}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-amber-400/70">IVA a pagar</span>
+                      <span className="font-bold text-amber-300/60">-${iva.toLocaleString("es-CL")}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#00aff0]/70">Neto plataforma</span>
+                      <span className="font-bold text-[#00aff0]">${(platformNet - iva).toLocaleString("es-CL")}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <button
               onClick={saveConfig}
