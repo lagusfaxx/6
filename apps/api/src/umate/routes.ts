@@ -1669,6 +1669,66 @@ umateRouter.put("/admin/umate/withdrawals/:id/approve", requireAdmin, asyncHandl
   res.json({ approved: true });
 }));
 
+/** Backfill thumbnails for existing videos that don't have one */
+umateRouter.post("/admin/umate/backfill-thumbnails", requireAdmin, asyncHandler(async (_req, res) => {
+  const videos = await prisma.umatePostMedia.findMany({
+    where: { type: "VIDEO", thumbnailUrl: null },
+    select: { id: true, url: true },
+  });
+
+  let processed = 0;
+  let failed = 0;
+
+  for (const video of videos) {
+    try {
+      // Resolve URL to physical path: strip the public prefix to get relative filename
+      const publicPrefix = `${(config.apiUrl || "").replace(/\/$/, "")}/uploads/`;
+      let relativePath = video.url;
+      if (relativePath.startsWith(publicPrefix)) {
+        relativePath = decodeURIComponent(relativePath.slice(publicPrefix.length));
+      } else if (relativePath.startsWith("/uploads/")) {
+        relativePath = decodeURIComponent(relativePath.slice("/uploads/".length));
+      }
+      const absPath = path.resolve(config.storageDir, relativePath);
+
+      // Check file exists
+      await fs.access(absPath);
+
+      // Extract thumbnail
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "umate-backfill-"));
+      const tmpThumb = path.join(tmpDir, "thumb.jpg");
+      await execFileAsync("ffmpeg", [
+        "-i", absPath,
+        "-vframes", "1",
+        "-ss", "0.5",
+        "-vf", "scale=640:-2",
+        "-q:v", "8",
+        tmpThumb,
+      ], { timeout: 15000 });
+
+      const thumbBuffer = await fs.readFile(tmpThumb);
+      const saved = await storage.save({
+        buffer: thumbBuffer,
+        filename: "thumb.jpg",
+        mimeType: "image/jpeg",
+        folder: "umate-thumbs",
+      });
+
+      await prisma.umatePostMedia.update({
+        where: { id: video.id },
+        data: { thumbnailUrl: saved.url },
+      });
+
+      await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+      processed++;
+    } catch {
+      failed++;
+    }
+  }
+
+  res.json({ total: videos.length, processed, failed });
+}));
+
 umateRouter.put("/admin/umate/withdrawals/:id/reject", requireAdmin, asyncHandler(async (req, res) => {
   const w = await prisma.umateWithdrawal.findUnique({ where: { id: req.params.id } });
   if (!w || w.status !== "PENDING") return res.status(400).json({ error: "NOT_PENDING" });

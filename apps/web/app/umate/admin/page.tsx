@@ -106,6 +106,7 @@ export default function UmateAdminPage() {
   const [ivaPct, setIvaPct] = useState(19);
   const [saving, setSaving] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
+  const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
 
   // Plan editing
   const [editingPlan, setEditingPlan] = useState<string | null>(null);
@@ -775,6 +776,37 @@ export default function UmateAdminPage() {
                 <span className="flex items-center justify-center gap-2"><CheckCircle className="h-4 w-4" /> Guardado</span>
               ) : "Guardar configuración"}
             </button>
+          </div>
+
+          {/* Tools */}
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-3">
+            <h3 className="text-sm font-bold text-white/70">Herramientas</h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Generar thumbnails de videos</p>
+                <p className="text-[11px] text-white/30">Procesa videos existentes sin preview para móvil</p>
+              </div>
+              <button
+                onClick={async () => {
+                  setBackfillStatus("loading");
+                  try {
+                    const res = await apiFetch<{ total: number; processed: number; failed: number }>("/admin/umate/backfill-thumbnails", { method: "POST" });
+                    setBackfillStatus(`${res.processed}/${res.total} procesados${res.failed ? `, ${res.failed} fallidos` : ""}`);
+                  } catch {
+                    setBackfillStatus("error");
+                  }
+                }}
+                disabled={backfillStatus === "loading"}
+                className="shrink-0 rounded-lg bg-white/[0.06] px-4 py-2 text-xs font-semibold text-white/60 transition hover:bg-white/[0.1] hover:text-white/80 disabled:opacity-50"
+              >
+                {backfillStatus === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ejecutar"}
+              </button>
+            </div>
+            {backfillStatus && backfillStatus !== "loading" && (
+              <p className={`text-[11px] ${backfillStatus === "error" ? "text-red-400" : "text-emerald-400"}`}>
+                {backfillStatus === "error" ? "Error al procesar" : backfillStatus}
+              </p>
+            )}
           </div>
 
           {/* Danger zone */}
