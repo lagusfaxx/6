@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Bell,
-  Compass,
   Crown,
   Home,
   MessageCircle,
@@ -115,15 +114,14 @@ export default function UmateHeader() {
       <div className="mx-auto flex h-[56px] max-w-[1170px] items-center justify-between gap-3 px-4">
         {/* Left: Logo + Nav */}
         <div className="flex items-center gap-4">
-          <Link href="/umate" className="flex shrink-0 items-center gap-2">
+          <Link href="/umate/explore" className="flex shrink-0 items-center gap-2">
             <img src="/brand/Umate.png" alt="U-Mate" className="h-7 w-auto" />
           </Link>
 
           {/* Desktop nav */}
           <nav className="hidden items-center gap-0.5 md:flex">
             {[
-              { href: "/umate", icon: Home, label: "Inicio", exact: true },
-              { href: "/umate/explore", icon: Compass, label: "Explorar" },
+              { href: "/umate/explore", icon: Home, label: "Inicio", exact: true },
               ...(isCreator ? [{ href: "/umate/account/creator", icon: Crown, label: "Studio", exact: false }] : []),
             ].map((item) => {
               const active = ("exact" in item && item.exact) ? pathname === item.href : pathname.startsWith(item.href);
