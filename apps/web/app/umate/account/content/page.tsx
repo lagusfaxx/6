@@ -206,33 +206,11 @@ export default function ContentPage() {
             className="mt-3 h-28 w-full rounded-lg border border-white/[0.08] bg-white/[0.03] p-3.5 text-sm text-white placeholder-white/20 outline-none transition focus:border-[#00aff0]/40"
           />
 
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1 rounded-full bg-white/[0.04] p-1">
-              <button
-                onClick={() => setVisibility("FREE")}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  visibility === "FREE" ? "bg-emerald-500/10 text-emerald-400" : "text-white/40"
-                }`}
-              >
-                <Globe className="h-3 w-3" /> Gratis
-              </button>
-              <button
-                onClick={() => setVisibility("PREMIUM")}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  visibility === "PREMIUM" ? "bg-amber-500/10 text-amber-400" : "text-white/40"
-                }`}
-              >
-                <Lock className="h-3 w-3" /> Premium
-              </button>
-            </div>
-            {files.length > 0 && (
-              <span className="text-[10px] text-white/30">Toca cada archivo para cambiar su visibilidad</span>
-            )}
-
+          <div className="mt-3 flex items-center gap-3">
             <input ref={fileRef} type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => {
               const newFiles = Array.from(e.target.files || []);
               setFiles((prev) => [...prev, ...newFiles].slice(0, 10));
-              setFileVisibilities((prev) => [...prev, ...newFiles.map(() => visibility)].slice(0, 10));
+              setFileVisibilities((prev) => [...prev, ...newFiles.map(() => "FREE" as const)].slice(0, 10));
               if (fileRef.current) fileRef.current.value = "";
             }} />
             <button onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-4 py-1.5 text-sm font-medium text-white/40 transition hover:text-white/60">
@@ -243,56 +221,60 @@ export default function ContentPage() {
             )}
           </div>
 
-          {/* File previews */}
+          {/* File previews with visibility */}
           {files.length > 0 && (
-            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+            <div className="mt-3 space-y-2">
               {files.map((file, idx) => {
                 const vis = fileVisibilities[idx] || "FREE";
+                const isFree = vis === "FREE";
                 return (
-                  <div key={`${file.name}-${idx}`} className="group relative aspect-square overflow-hidden rounded-xl border border-white/[0.06] bg-black">
-                    {file.type.startsWith("video/") ? (
-                      <video
-                        src={URL.createObjectURL(file)}
-                        muted
-                        playsInline
-                        preload="metadata"
-                        className="h-full w-full object-contain"
-                        onLoadedData={(e) => { const v = e.currentTarget; if (v.readyState >= 2) v.currentTime = 0.1; }}
-                      />
-                    ) : (
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt=""
-                        className="h-full w-full object-contain"
-                      />
-                    )}
-                    {file.type.startsWith("video/") && (
-                      <div className="absolute left-1.5 bottom-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm">
-                        <Play className="h-2.5 w-2.5 text-white fill-current ml-px" />
-                      </div>
-                    )}
+                  <div key={`${file.name}-${idx}`} className={`flex items-center gap-3 rounded-xl border p-2 transition ${
+                    isFree ? "border-emerald-500/20 bg-emerald-500/[0.04]" : "border-amber-500/20 bg-amber-500/[0.04]"
+                  }`}>
+                    {/* Thumbnail */}
+                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-black">
+                      {file.type.startsWith("video/") ? (
+                        <video
+                          src={URL.createObjectURL(file)}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="h-full w-full object-contain"
+                          onLoadedData={(e) => { const v = e.currentTarget; if (v.readyState >= 2) v.currentTime = 0.1; }}
+                        />
+                      ) : (
+                        <img src={URL.createObjectURL(file)} alt="" className="h-full w-full object-contain" />
+                      )}
+                    </div>
+
+                    {/* File info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-white/60 truncate">{file.name}</p>
+                      <p className="text-[10px] text-white/30">{file.type.startsWith("video/") ? "Video" : "Imagen"}</p>
+                    </div>
+
+                    {/* Visibility toggle */}
+                    <button
+                      onClick={() => setFileVisibilities((prev) => prev.map((v, i) => i === idx ? (v === "FREE" ? "PREMIUM" : "FREE") : v))}
+                      className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition ${
+                        isFree
+                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+                          : "bg-amber-500/15 text-amber-400 border border-amber-500/25"
+                      }`}
+                    >
+                      {isFree ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                      {isFree ? "Gratis" : "Premium"}
+                    </button>
+
+                    {/* Remove */}
                     <button
                       onClick={() => {
                         setFiles((prev) => prev.filter((_, i) => i !== idx));
                         setFileVisibilities((prev) => prev.filter((_, i) => i !== idx));
                       }}
-                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/70 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/80 hover:text-white"
+                      className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full text-white/30 transition hover:bg-red-500/15 hover:text-red-400"
                     >
-                      <X className="h-3 w-3" />
-                    </button>
-                    <span className="absolute left-1.5 top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-black/60 px-1 text-[9px] font-bold text-white/70 backdrop-blur-sm">
-                      {idx + 1}
-                    </span>
-                    {/* Per-file visibility toggle */}
-                    <button
-                      onClick={() => setFileVisibilities((prev) => prev.map((v, i) => i === idx ? (v === "FREE" ? "PREMIUM" : "FREE") : v))}
-                      className={`absolute right-1 bottom-1 rounded-full px-2 py-0.5 text-[9px] font-bold backdrop-blur-sm transition ${
-                        vis === "PREMIUM"
-                          ? "bg-amber-500/90 text-white"
-                          : "bg-emerald-500/90 text-white"
-                      }`}
-                    >
-                      {vis === "PREMIUM" ? "Premium" : "Gratis"}
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 );
