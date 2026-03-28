@@ -26,6 +26,27 @@ export async function canMessage(viewerId: string, targetId: string): Promise<bo
     return !!subscription;
   }
 
+  // Check U-Mate subscriptions (either direction: viewer subscribed to target's creator, or target subscribed to viewer's creator)
+  const umateCreatorSub = await prisma.umateCreatorSub.findFirst({
+    where: {
+      expiresAt: { gt: new Date() },
+      OR: [
+        // viewer is subscribed to target (target is creator)
+        {
+          subscriberId: viewerId,
+          creator: { userId: targetId },
+        },
+        // target is subscribed to viewer (viewer is creator)
+        {
+          subscriberId: targetId,
+          creator: { userId: viewerId },
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  if (umateCreatorSub) return true;
+
   const existingConversation = await prisma.message.findFirst({
     where: {
       OR: [

@@ -1562,3 +1562,147 @@ umateRouter.put("/admin/umate/withdrawals/:id/reject", requireAdmin, asyncHandle
 
   res.json({ rejected: true });
 }));
+
+// ══════════════════════════════════════════════════════════════════════
+// U-Mate Messages — Conversations list
+// ══════════════════════════════════════════════════════════════════════
+
+umateRouter.get("/umate/messages/conversations", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as any).user?.id;
+  if (!userId) return res.status(401).json({ error: "UNAUTHENTICATED" });
+
+  // Find all active U-Mate creator subs where user is subscriber or creator
+  const creatorProfile = await prisma.umateCreator.findUnique({
+    where: { userId },
+    select: { id: true },
+  });
+
+  // Get all creators the user is subscribed to
+  const subscribedTo = await prisma.umateCreatorSub.findMany({
+    where: { subscriberId: userId, expiresAt: { gt: new Date() } },
+    select: {
+      creator: {
+        select: {
+          id: true,
+          userId: true,
+          displayName: true,
+          avatarUrl: true,
+          user: { select: { username: true } },
+        },
+      },
+    },
+  });
+
+  // Get all subscribers to this user's creator profile
+  const subscribers = creatorProfile
+    ? await prisma.umateCreatorSub.findMany({
+        where: { creatorId: creatorProfile.id, expiresAt: { gt: new Date() } },
+        select: {
+          subscriber: {
+            select: {
+              id: true,
+              displayName: true,
+              username: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      })
+    : [];
+
+  // Build contact list with last message
+  const contacts: {
+    userId: string;
+    displayName: string;
+    username: string;
+    avatarUrl: string | null;
+    isCreator: boolean;
+    lastMessage: { body: string; createdAt: string; fromId: string } | null;
+    unreadCount: number;
+  }[] = [];
+
+  const contactUserIds = new Set<string>();
+
+  for (const s of subscribedTo) {
+    if (!contactUserIds.has(s.creator.userId)) {
+      contactUserIds.add(s.creator.userId);
+      contacts.push({
+        userId: s.creator.userId,
+        displayName: s.creator.displayName,
+        username: s.creator.user.username,
+        avatarUrl: s.creator.avatarUrl,
+        isCreator: true,
+        lastMessage: null,
+        unreadCount: 0,
+      });
+    }
+  }
+
+  for (const s of subscribers) {
+    if (!contactUserIds.has(s.subscriber.id)) {
+      contactUserIds.add(s.subscriber.id);
+      contacts.push({
+        userId: s.subscriber.id,
+        displayName: s.subscriber.displayName || s.subscriber.username,
+        username: s.subscriber.username,
+        avatarUrl: s.subscriber.avatarUrl,
+        isCreator: false,
+        lastMessage: null,
+        unreadCount: 0,
+      });
+    }
+  }
+
+  // Fetch last message and unread count for each contact
+  if (contacts.length > 0) {
+    const otherIds = contacts.map((c) => c.userId);
+    const lastMessages = await prisma.message.findMany({
+      where: {
+        OR: [
+          { fromId: userId, toId: { in: otherIds } },
+          { fromId: { in: otherIds }, toId: userId },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
+
+    const lastByContact = new Map<string, typeof lastMessages[number]>();
+    for (const msg of lastMessages) {
+      const otherId = msg.fromId === userId ? msg.toId : msg.fromId;
+      if (!lastByContact.has(otherId)) {
+        lastByContact.set(otherId, msg);
+      }
+    }
+
+    const unreadCounts = await prisma.message.groupBy({
+      by: ["fromId"],
+      where: { toId: userId, readAt: null, fromId: { in: otherIds } },
+      _count: { _all: true },
+    });
+    const unreadMap = new Map(unreadCounts.map((r) => [r.fromId, r._count._all]));
+
+    for (const contact of contacts) {
+      const last = lastByContact.get(contact.userId);
+      if (last) {
+        contact.lastMessage = {
+          body: last.body,
+          createdAt: last.createdAt.toISOString(),
+          fromId: last.fromId,
+        };
+      }
+      contact.unreadCount = unreadMap.get(contact.userId) || 0;
+    }
+
+    // Sort: unread first, then by last message date
+    contacts.sort((a, b) => {
+      if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
+      if (b.unreadCount > 0 && a.unreadCount === 0) return 1;
+      const aTime = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const bTime = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+  }
+
+  res.json({ conversations: contacts });
+}));

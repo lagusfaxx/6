@@ -7,6 +7,7 @@ import {
   Crown,
   Heart,
   Home,
+  MessageCircle,
   Plus,
   User,
   Wallet,
@@ -24,12 +25,14 @@ type NavItem = {
 
 const clientItems: NavItem[] = [
   { href: "/umate/explore", label: "Inicio", icon: Home, exact: true },
+  { href: "/umate/messages", label: "Mensajes", icon: MessageCircle },
   { href: "/umate/plans", label: "Planes", icon: Crown },
   { href: "/umate/account", label: "Mi cuenta", icon: User, exact: true },
 ];
 
 const creatorItems: NavItem[] = [
   { href: "/umate/explore", label: "Inicio", icon: Home, exact: true },
+  { href: "/umate/messages", label: "Mensajes", icon: MessageCircle },
   { href: "/umate/account/content", label: "Publicar", icon: Plus, isAction: true },
   { href: "/umate/account/wallet", label: "Ingresos", icon: Wallet },
   { href: "/umate/account", label: "Studio", icon: User, exact: true },

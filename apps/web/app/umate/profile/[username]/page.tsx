@@ -27,6 +27,7 @@ import ProtectedMedia from "../../_components/ProtectedMedia";
 
 type Creator = {
   id: string;
+  userId: string;
   displayName: string;
   bio: string | null;
   avatarUrl: string | null;
@@ -254,6 +255,14 @@ export default function CreatorProfilePage() {
               >
                 {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Suscribirme"}
               </button>
+            )}
+            {isSubscribed && creator && (
+              <Link
+                href={`/umate/messages/${creator.userId}`}
+                className="flex h-10 items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 text-sm font-medium text-white/60 transition hover:border-[#00aff0]/20 hover:bg-white/[0.06] hover:text-white"
+              >
+                <MessageCircle className="h-4 w-4" /> Mensaje
+              </Link>
             )}
             <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] text-white/35 transition hover:border-white/15 hover:text-white/50">
               <Share2 className="h-4 w-4" />
