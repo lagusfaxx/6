@@ -88,11 +88,12 @@ export default function UmateLandingPage() {
   return (
     <div className="space-y-0">
       {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-white/[0.04] bg-gradient-to-b from-[#0d0d16] via-[#08080d] to-[#08080d] pb-16 pt-10 lg:pb-28 lg:pt-20">
+      <section className="relative overflow-hidden border-b border-white/[0.03] bg-gradient-to-b from-[#0e0e18] via-[#0a0a12] to-[#0a0a12] pb-16 pt-10 lg:pb-28 lg:pt-20">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 left-1/4 h-[600px] w-[600px] rounded-full bg-[#00aff0]/[0.035] blur-[140px]" />
-          <div className="absolute -right-24 top-16 h-[450px] w-[450px] rounded-full bg-purple-600/[0.025] blur-[120px]" />
-          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
+          <div className="absolute -top-40 left-1/4 h-[700px] w-[700px] rounded-full bg-[#00aff0]/[0.04] blur-[160px]" />
+          <div className="absolute -right-24 top-16 h-[500px] w-[500px] rounded-full bg-purple-600/[0.03] blur-[140px]" />
+          <div className="absolute bottom-1/3 left-1/2 h-[400px] w-[400px] rounded-full bg-rose-500/[0.015] blur-[120px]" />
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00aff0]/10 to-transparent" />
         </div>
 
         <div className="relative mx-auto max-w-[1170px] px-4">
@@ -115,13 +116,13 @@ export default function UmateLandingPage() {
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/umate/explore"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#00aff0] px-7 py-3 text-sm font-bold text-white shadow-[0_2px_20px_rgba(0,175,240,0.3)] transition-all duration-300 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_30px_rgba(0,175,240,0.4)] hover:-translate-y-px"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-3.5 text-sm font-bold text-white shadow-[0_4px_24px_rgba(0,175,240,0.35)] transition-all duration-300 hover:shadow-[0_8px_36px_rgba(0,175,240,0.45)] hover:-translate-y-0.5"
                 >
                   Explorar creadoras <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   href="/umate/onboarding"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-6 py-3 text-sm font-semibold text-white/60 transition-all duration-300 hover:border-white/[0.16] hover:text-white hover:bg-white/[0.03]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/50 transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/[0.03]"
                 >
                   Ser creadora
                 </Link>
@@ -149,7 +150,7 @@ export default function UmateLandingPage() {
                   <Link
                     key={c.id}
                     href={`/umate/profile/${c.user.username}`}
-                    className={`group relative overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition-all duration-500 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.3)] ${
+                    className={`group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-500 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.3)] ${
                       idx === 0 ? "col-span-2 aspect-[2/1]" : "aspect-[3/4]"
                     }`}
                   >
@@ -182,7 +183,7 @@ export default function UmateLandingPage() {
       </section>
 
       {/* Featured Creators */}
-      <section className="border-b border-white/[0.04] py-14 lg:py-20">
+      <section className="border-b border-white/[0.03] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <div className="flex items-center justify-between">
             <div>
@@ -199,11 +200,11 @@ export default function UmateLandingPage() {
               <Link
                 key={c.id}
                 href={`/umate/profile/${c.user.username}`}
-                className="group overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:bg-white/[0.035] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)]"
+                className="group overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:bg-white/[0.035] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)]"
               >
                 <div className="relative aspect-[3/2] overflow-hidden bg-white/[0.03]">
                   {c.coverUrl ? (
-                    <img src={c.coverUrl} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                    <img src={resolveMediaUrl(c.coverUrl) || ""} alt={c.displayName} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                   ) : (
                     <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/10 to-purple-500/10" />
                   )}
@@ -215,9 +216,9 @@ export default function UmateLandingPage() {
                   )}
                 </div>
                 <div className="-mt-6 relative px-4 pb-4">
-                  <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-[#0a0a0f] bg-[#0a0a0f]">
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-[#0a0a0f] bg-[#0a0a0f]">
                     {c.avatarUrl ? (
-                      <img src={c.avatarUrl} alt={c.displayName} className="h-full w-full object-cover" />
+                      <img src={resolveMediaUrl(c.avatarUrl) || ""} alt={c.displayName} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full items-center justify-center bg-white/[0.08] text-sm font-bold text-white/60">{(c.displayName || "?")[0]}</div>
                     )}
@@ -237,7 +238,7 @@ export default function UmateLandingPage() {
       </section>
 
       {/* Latest Content Feed Preview */}
-      <section className="border-b border-white/[0.04] py-14 lg:py-20">
+      <section className="border-b border-white/[0.03] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <div className="flex items-center justify-between">
             <div>
@@ -253,18 +254,18 @@ export default function UmateLandingPage() {
             {latestContent.map((item) => (
               <article
                 key={item.id}
-                className="group overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)]"
+                className="group overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-white/[0.1] hover:shadow-[0_8px_40px_rgba(0,0,0,0.25)]"
               >
                 <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.03]">
                   {item.media[0]?.url ? (
-                    <img src={item.media[0].url} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                    <img src={resolveMediaUrl(item.media[0].url) || ""} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                   ) : (
-                    <div className="h-full w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
+                    <div className="h-full w-full bg-gradient-to-br from-[#00aff0]/15 via-purple-600/10 to-pink-500/10" />
                   )}
                   {item.visibility === "PREMIUM" && (
                     <>
-                      <div className="absolute inset-0 backdrop-blur-xl" />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40">
+                      <div className="absolute inset-0 backdrop-blur-xl bg-black/20" />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                         <div className="rounded-full bg-white/10 p-3 backdrop-blur-sm">
                           <Lock className="h-6 w-6 text-white/80" />
                         </div>
@@ -283,8 +284,12 @@ export default function UmateLandingPage() {
                 </div>
                 <div className="p-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 overflow-hidden rounded-full bg-white/[0.08]">
-                      {item.creator.avatarUrl && <img src={item.creator.avatarUrl} alt="" className="h-full w-full object-cover" />}
+                    <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white/[0.08]">
+                      {item.creator.avatarUrl ? (
+                        <img src={resolveMediaUrl(item.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/40">{(item.creator.displayName || "?")[0]}</div>
+                      )}
                     </div>
                     <p className="truncate text-sm font-semibold text-white/90">{item.creator.displayName}</p>
                   </div>
@@ -297,7 +302,7 @@ export default function UmateLandingPage() {
       </section>
 
       {/* How it works */}
-      <section className="border-b border-white/[0.04] py-14 lg:py-20">
+      <section className="border-b border-white/[0.03] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <h2 className="text-center text-xl font-bold tracking-tight text-white">Como funciona</h2>
           <p className="mt-2 text-center text-sm text-white/40">Tres pasos simples para empezar</p>
@@ -308,7 +313,7 @@ export default function UmateLandingPage() {
               { step: "02", title: "Suscribete", desc: "Elige un plan con cupos mensuales para acceder a contenido premium.", icon: Crown },
               { step: "03", title: "Disfruta", desc: "Desbloquea contenido, interactua y conecta con tus creadoras favoritas.", icon: Heart },
             ].map((item) => (
-              <div key={item.step} className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-7 transition-all duration-300 hover:border-white/[0.08] hover:bg-white/[0.03]">
+              <div key={item.step} className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-7 transition-all duration-300 hover:border-white/[0.08] hover:bg-white/[0.03]">
                 <div className="flex items-center justify-between">
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#00aff0]/[0.08]">
                     <item.icon className="h-5 w-5 text-[#00aff0]" />
@@ -324,7 +329,7 @@ export default function UmateLandingPage() {
       </section>
 
       {/* Plans Preview */}
-      <section className="border-b border-white/[0.04] py-14 lg:py-20">
+      <section className="border-b border-white/[0.03] py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
           <h2 className="text-center text-xl font-bold tracking-tight text-white">Planes de suscripcion</h2>
           <p className="mt-2 text-center text-sm text-white/40">Elige el plan que se adapte a ti</p>
@@ -380,7 +385,7 @@ export default function UmateLandingPage() {
       {/* CTA Banner */}
       <section className="py-14 lg:py-20">
         <div className="mx-auto max-w-[1170px] px-4">
-          <div className="relative overflow-hidden rounded-3xl border border-white/[0.05] bg-gradient-to-br from-[#00aff0]/[0.06] via-purple-500/[0.03] to-[#00aff0]/[0.06] p-10 text-center lg:p-16">
+          <div className="relative overflow-hidden rounded-3xl border border-[#00aff0]/10 bg-gradient-to-br from-[#00aff0]/[0.06] via-purple-500/[0.04] to-[#00aff0]/[0.06] p-10 text-center lg:p-16">
             <div className="pointer-events-none absolute inset-0">
               <div className="absolute left-1/2 top-0 h-px w-1/2 -translate-x-1/2 bg-gradient-to-r from-transparent via-[#00aff0]/25 to-transparent" />
               <div className="absolute bottom-0 left-1/4 h-[300px] w-[300px] rounded-full bg-[#00aff0]/[0.03] blur-[100px]" />
@@ -394,13 +399,13 @@ export default function UmateLandingPage() {
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link
                 href="/umate/explore"
-                className="rounded-full bg-[#00aff0] px-7 py-3 text-sm font-bold text-white shadow-[0_2px_20px_rgba(0,175,240,0.3)] transition-all duration-300 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_30px_rgba(0,175,240,0.4)] hover:-translate-y-px"
+                className="rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-3.5 text-sm font-bold text-white shadow-[0_4px_24px_rgba(0,175,240,0.35)] transition-all duration-300 hover:shadow-[0_8px_36px_rgba(0,175,240,0.45)] hover:-translate-y-0.5"
               >
                 Explorar ahora
               </Link>
               <Link
                 href="/umate/onboarding"
-                className="rounded-full border border-white/[0.08] px-6 py-3 text-sm font-semibold text-white/50 transition-all duration-300 hover:border-white/[0.16] hover:text-white hover:bg-white/[0.03]"
+                className="rounded-xl border border-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/40 transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/[0.03]"
               >
                 Crear perfil de creadora
               </Link>

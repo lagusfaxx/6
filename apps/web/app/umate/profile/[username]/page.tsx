@@ -175,26 +175,30 @@ export default function CreatorProfilePage() {
   const premiumCount = posts.filter((p) => p.visibility === "PREMIUM").length;
   const freeCount = posts.filter((p) => p.visibility === "FREE").length;
 
-  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/45" /></div>;
-  if (!creator) return <div className="py-24 text-center text-white/40">Perfil no encontrado.</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-24 gap-3">
+      <Loader2 className="h-8 w-8 animate-spin text-[#00aff0]/60" />
+    </div>
+  );
+  if (!creator) return <div className="py-24 text-center text-white/30">Perfil no encontrado.</div>;
 
   return (
     <div className="min-h-screen">
       {/* Cover */}
-      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#00aff0]/15 via-purple-600/[0.08] to-transparent md:h-64 lg:h-72">
+      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#00aff0]/10 via-purple-600/[0.05] to-transparent md:h-64 lg:h-72">
         {creator.coverUrl && <img src={resolveMediaUrl(creator.coverUrl) || ""} alt="" className="h-full w-full object-cover" />}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#08080d] via-[#08080d]/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a12] via-[#0a0a12]/40 to-transparent" />
       </div>
 
       {/* Profile info */}
       <div className="mx-auto max-w-[700px] px-4">
         <div className="-mt-12 flex items-end gap-4">
           {/* Avatar */}
-          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-[#08080d] bg-[#08080d] shadow-[0_4px_20px_rgba(0,0,0,0.4)] md:h-28 md:w-28">
+          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border-4 border-[#0a0a12] bg-[#0a0a12] shadow-[0_4px_24px_rgba(0,0,0,0.5)] md:h-28 md:w-28">
             {creator.avatarUrl ? (
               <img src={resolveMediaUrl(creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full items-center justify-center bg-white/[0.08] text-2xl font-bold text-white/50">{(creator.displayName || "?")[0]}</div>
+              <div className="flex h-full items-center justify-center bg-gradient-to-br from-white/[0.08] to-white/[0.04] text-2xl font-bold text-white/40">{(creator.displayName || "?")[0]}</div>
             )}
           </div>
 
@@ -204,7 +208,7 @@ export default function CreatorProfilePage() {
               <button
                 onClick={handleUnsubscribe}
                 disabled={unsubscribing}
-                className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-5 py-2 text-sm font-semibold text-emerald-400 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                className="group inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-400 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
               >
                 {unsubscribing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -218,19 +222,19 @@ export default function CreatorProfilePage() {
                 <span className="hidden group-hover:inline">Cancelar</span>
               </button>
             ) : isCreatorUser ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-5 py-2 text-sm font-medium text-white/40">
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-white/35">
                 <Shield className="h-4 w-4" /> Modo creadora
               </span>
             ) : (
               <button
                 onClick={handleSubscribe}
                 disabled={subscribing}
-                className="inline-flex items-center gap-1.5 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.25)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_24px_rgba(0,175,240,0.35)] disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.3)] transition-all duration-200 hover:shadow-[0_6px_28px_rgba(0,175,240,0.4)] hover:-translate-y-px disabled:opacity-50"
               >
                 {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Suscribirme"}
               </button>
             )}
-            <button className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] text-white/40 transition hover:border-white/20 hover:text-white/50">
+            <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] text-white/35 transition hover:border-white/15 hover:text-white/50">
               <Share2 className="h-4 w-4" />
             </button>
           </div>
@@ -242,54 +246,56 @@ export default function CreatorProfilePage() {
             <h1 className="text-xl font-extrabold tracking-tight text-white md:text-2xl">{creator.displayName}</h1>
             {creator.user.isVerified && <BadgeCheck className="h-5 w-5 text-[#00aff0]" />}
           </div>
-          <p className="text-sm text-white/40">@{creator.user.username}</p>
-          {creator.bio && <p className="mt-3 text-sm leading-relaxed text-white/50">{creator.bio}</p>}
+          <p className="text-sm text-white/30">@{creator.user.username}</p>
+          {creator.bio && <p className="mt-3 text-sm leading-relaxed text-white/40">{creator.bio}</p>}
 
           {/* Stats row */}
-          <div className="mt-4 flex gap-6 border-b border-white/[0.05] pb-5">
-            <div className="text-center">
-              <p className="text-base font-extrabold text-white">{creator.totalPosts}</p>
-              <p className="text-[11px] text-white/40">Posts</p>
-            </div>
-            <div className="text-center">
-              <p className="text-base font-extrabold text-white">{creator.subscriberCount}</p>
-              <p className="text-[11px] text-white/40">Suscriptores</p>
-            </div>
-            <div className="text-center">
-              <p className="text-base font-extrabold text-white">{creator.totalLikes}</p>
-              <p className="text-[11px] text-white/40">Likes</p>
-            </div>
+          <div className="mt-5 flex gap-4">
+            {[
+              { value: creator.totalPosts, label: "Posts" },
+              { value: creator.subscriberCount, label: "Suscriptores" },
+              { value: creator.totalLikes, label: "Likes" },
+            ].map((s) => (
+              <div key={s.label} className="rounded-xl bg-white/[0.03] px-4 py-3 text-center flex-1">
+                <p className="text-base font-extrabold text-white">{s.value}</p>
+                <p className="text-[11px] text-white/30">{s.label}</p>
+              </div>
+            ))}
           </div>
+
+          <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent mt-5" />
         </div>
 
         {/* Content tabs */}
-        <div className="mt-5 flex gap-1 overflow-x-auto border-b border-white/[0.05] pb-px scrollbar-hide">
-          {([
-            { key: "all" as const, label: `Todos`, count: posts.length },
-            { key: "photos" as const, label: "Fotos", icon: ImageIcon },
-            { key: "videos" as const, label: "Videos", icon: Video },
-            { key: "free" as const, label: "Gratis", count: freeCount },
-            { key: "premium" as const, label: "Premium", count: premiumCount },
-          ]).map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-semibold transition-all duration-200 ${
-                tab === t.key
-                  ? "border-[#00aff0] text-[#00aff0]"
-                  : "border-transparent text-white/40 hover:text-white/50"
-              }`}
-            >
-              {t.label}
-              {"count" in t && t.count !== undefined && <span className="ml-1 text-white/45">{t.count}</span>}
-            </button>
-          ))}
+        <div className="mt-5 flex gap-1 overflow-x-auto pb-px scrollbar-hide">
+          <div className="flex items-center gap-0.5 rounded-xl bg-white/[0.03] p-1">
+            {([
+              { key: "all" as const, label: "Todos", count: posts.length },
+              { key: "photos" as const, label: "Fotos" },
+              { key: "videos" as const, label: "Videos" },
+              { key: "free" as const, label: "Gratis", count: freeCount },
+              { key: "premium" as const, label: "Premium", count: premiumCount },
+            ]).map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`shrink-0 rounded-lg px-4 py-2 text-xs font-semibold transition-all duration-200 ${
+                  tab === t.key
+                    ? "bg-gradient-to-r from-[#00aff0] to-[#0090d0] text-white shadow-[0_2px_12px_rgba(0,175,240,0.2)]"
+                    : "text-white/35 hover:text-white/50"
+                }`}
+              >
+                {t.label}
+                {"count" in t && t.count !== undefined && <span className="ml-1 opacity-60">{t.count}</span>}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Posts feed - OnlyFans style (single column) */}
-        <div className="mt-4 space-y-4 pb-8">
+        {/* Posts feed */}
+        <div className="mt-5 space-y-5 pb-8">
           {filtered.map((post) => (
-            <article key={post.id} className="overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.02] transition-colors duration-200 hover:border-white/[0.07]">
+            <article key={post.id} className="overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.015] transition-all duration-300 hover:border-white/[0.08] hover:shadow-[0_8px_40px_rgba(0,0,0,0.2)]">
               {/* Caption */}
               {post.caption && (
                 <div className="px-4 pt-4 pb-3">
@@ -305,30 +311,51 @@ export default function CreatorProfilePage() {
                   viewerUsername={me?.user?.username}
                 >
                   <div className="relative">
-                    {post.media[0].url ? (
-                      <img
-                        src={resolveMediaUrl(post.media[0].url) || ""}
-                        alt=""
-                        className={`w-full object-cover ${post.isBlurred ? "scale-105 blur-2xl" : ""}`}
-                        style={{ maxHeight: 600 }}
-                      />
+                    {post.isBlurred ? (
+                      <div className="relative aspect-[4/5] w-full overflow-hidden">
+                        {post.media[0].url ? (
+                          <img
+                            src={resolveMediaUrl(post.media[0].url) || ""}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover scale-110 blur-3xl brightness-50"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-br from-[#00aff0]/20 via-purple-600/15 to-pink-500/10" />
+                        )}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+                          <div className="rounded-full bg-white/10 p-4 backdrop-blur-sm">
+                            <Lock className="h-8 w-8 text-white/70" />
+                          </div>
+                          <p className="mt-3 text-sm font-bold text-white">Contenido premium</p>
+                          <p className="mt-1 text-xs text-white/40">Suscríbete para desbloquear</p>
+                          <Link
+                            href="/umate/plans"
+                            className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
+                          >
+                            Incluido con tu plan U-Mate
+                          </Link>
+                        </div>
+                      </div>
+                    ) : post.media[0].url ? (
+                      post.media[0].type === "VIDEO" ? (
+                        <video
+                          src={resolveMediaUrl(post.media[0].url) || ""}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="w-full object-cover"
+                          style={{ maxHeight: 600 }}
+                        />
+                      ) : (
+                        <img
+                          src={resolveMediaUrl(post.media[0].url) || ""}
+                          alt=""
+                          className="w-full object-cover"
+                          style={{ maxHeight: 600 }}
+                        />
+                      )
                     ) : (
                       <div className="aspect-[4/5] w-full bg-gradient-to-br from-white/[0.04] to-white/[0.02]" />
-                    )}
-                    {post.isBlurred && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-                        <div className="rounded-full bg-white/10 p-4">
-                          <Lock className="h-8 w-8 text-white/70" />
-                        </div>
-                        <p className="mt-3 text-sm font-bold text-white">Contenido premium</p>
-                        <p className="mt-1 text-xs text-white/40">Suscribete para desbloquear</p>
-                        <Link
-                          href="/umate/plans"
-                          className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
-                        >
-                          Incluido con tu plan U-Mate
-                        </Link>
-                      </div>
                     )}
                     {post.visibility === "PREMIUM" && !post.isBlurred && (
                       <span className="absolute right-3 top-3 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 backdrop-blur-sm">
@@ -390,7 +417,7 @@ export default function CreatorProfilePage() {
                       <div key={c.id} className="group flex gap-2">
                         <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white/[0.06]">
                           {c.user.avatarUrl ? (
-                            <img src={c.user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                            <img src={resolveMediaUrl(c.user.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
                           ) : (
                             <div className="flex h-full items-center justify-center text-[10px] font-bold text-white/40">{(c.user.displayName || c.user.username)[0]}</div>
                           )}
@@ -417,9 +444,12 @@ export default function CreatorProfilePage() {
           ))}
 
           {filtered.length === 0 && (
-            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.015] p-20 text-center">
-              <Grid3X3 className="mx-auto mb-4 h-8 w-8 text-white/[0.07]" />
-              <p className="text-sm font-medium text-white/45">No hay contenido en esta categoria.</p>
+            <div className="rounded-2xl border border-white/[0.04] bg-gradient-to-br from-white/[0.02] to-transparent p-16 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.04]">
+                <Grid3X3 className="h-6 w-6 text-white/15" />
+              </div>
+              <p className="text-sm font-medium text-white/40">No hay contenido en esta categoría</p>
+              <p className="mt-1 text-xs text-white/25">Vuelve pronto para ver nuevo contenido.</p>
             </div>
           )}
         </div>

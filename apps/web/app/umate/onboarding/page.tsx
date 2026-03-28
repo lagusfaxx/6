@@ -279,7 +279,7 @@ export default function OnboardingPage() {
 
       {/* Step 1: Profile */}
       {step === 1 && (
-        <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 space-y-5">
+        <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6 space-y-5">
           <div>
             <h2 className="text-base font-bold tracking-tight text-white">Perfil de creadora</h2>
             <p className="mt-1 text-xs text-white/40">Así te verán tus suscriptores</p>
@@ -335,7 +335,7 @@ export default function OnboardingPage() {
 
       {/* Step 2: Bank */}
       {step === 2 && (
-        <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 space-y-4">
+        <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6 space-y-4">
           <div>
             <h2 className="text-base font-bold tracking-tight text-white">Datos bancarios</h2>
             <p className="mt-1 text-xs text-white/40">Para recibir tus pagos</p>
@@ -361,7 +361,7 @@ export default function OnboardingPage() {
 
       {/* Step 3: Terms */}
       {step === 3 && (
-        <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-6 space-y-5">
+        <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6 space-y-5">
           <div>
             <h2 className="text-base font-bold tracking-tight text-white">Terminos y condiciones</h2>
             <p className="mt-1 text-xs text-white/40">Lee y acepta para continuar</p>

@@ -42,14 +42,14 @@ export default function StatsPage() {
     return { engagement, conversion, growth, revenuePerSub, churnRate };
   }, [stats]);
 
-  if (loading) return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-white/45" /></div>;
+  if (loading) return <div className="flex flex-col items-center justify-center py-24 gap-3"><Loader2 className="h-8 w-8 animate-spin text-[#00aff0]/60" /></div>;
   if (!stats || !analytics) return <div className="py-24 text-center text-white/40">No eres creadora aún.</div>;
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-white">Estadisticas</h1>
-        <p className="mt-1 text-sm text-white/40">Rendimiento, crecimiento y conversión.</p>
+        <h1 className="text-xl font-bold tracking-tight text-white">Estadísticas</h1>
+        <p className="mt-1 text-sm text-white/30">Rendimiento, crecimiento y conversión.</p>
       </div>
 
       {/* KPIs */}
@@ -60,7 +60,7 @@ export default function StatsPage() {
           { label: "Publicaciones", value: stats.totalPosts.toLocaleString(), icon: Eye, color: "text-purple-400" },
           { label: "Likes totales", value: stats.totalLikes.toLocaleString(), icon: Heart, color: "text-rose-400" },
         ].map((m) => (
-          <div key={m.label} className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-4">
+          <div key={m.label} className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-4">
             <m.icon className={`h-4 w-4 ${m.color}`} />
             <p className="mt-3 text-2xl font-extrabold text-white">{m.value}</p>
             <p className="text-xs text-white/40">{m.label}</p>
@@ -70,7 +70,7 @@ export default function StatsPage() {
 
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         {/* Performance bars */}
-        <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
+        <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
           <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Rendimiento</h2>
           <div className="mt-5 space-y-5">
             {[
@@ -112,7 +112,7 @@ export default function StatsPage() {
           </div>
 
           {/* Financial */}
-          <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
+          <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
             <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Métricas financieras</h2>
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between rounded-lg bg-emerald-500/[0.06] p-2.5 text-sm">
