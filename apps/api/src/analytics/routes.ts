@@ -1,11 +1,8 @@
-import { Router, text } from "express";
+import { Router } from "express";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 
 export const analyticsRouter = Router();
-
-// Parse text/plain bodies as raw text (used by sendBeacon from the frontend)
-const textParser = text({ type: "text/plain", limit: "4kb" });
 
 /* ─── Track page view (called from frontend) ─── */
 
@@ -46,19 +43,15 @@ analyticsRouter.post(
 
 analyticsRouter.post(
   "/analytics/action",
-  textParser,
   asyncHandler(async (req, res) => {
-    // Support both JSON body and text/plain from sendBeacon
-    let body = req.body;
-    if (typeof body === "string") {
-      try { body = JSON.parse(body); } catch { return res.status(400).json({ error: "invalid JSON" }); }
-    }
-    const { action, targetId, metadata } = body;
+    const { action, targetId, metadata } = req.body;
     if (!action || typeof action !== "string") {
       return res.status(400).json({ error: "action required" });
     }
 
     const userId = req.session?.userId || null;
+
+    console.log("[analytics] action:", action, "target:", targetId, "user:", userId);
 
     await prisma.userAction.create({
       data: {
