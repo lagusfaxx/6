@@ -41,6 +41,7 @@ const PUBLIC_PREFIXES = [
   "/stats/platform",    // ✅ contadores públicos para hero del home
   "/privacy",           // ✅ solicitudes públicas de eliminación de cuenta/datos
   "/billing/status",    // ✅ verificación pública de pago Flow por ref (retorno pasarela)
+  "/analytics",          // ✅ tracking de pageviews y acciones (funciona sin sesión)
   "/umate/plans",       // ✅ U-Mate plans (public)
   "/umate/feed",        // ✅ U-Mate feed (public, enriched when logged in)
   "/umate/creators",    // ✅ U-Mate creator explore (public)
