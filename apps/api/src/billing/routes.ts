@@ -7,6 +7,7 @@ import {
   createFlowCustomer,
   createFlowSubscription,
   getFlowSubscription,
+  cancelFlowSubscription,
   createFlowPayment
 } from "../khipu/client";
 
@@ -41,12 +42,45 @@ billingRouter.post("/billing/payment/flow", requireAuth, asyncHandler(async (req
   const userId = req.session.userId!;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, displayName: true, username: true, profileType: true }
+    select: { id: true, email: true, displayName: true, username: true, profileType: true, membershipExpiresAt: true }
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
   if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
     return res.status(400).json({ error: "NOT_REQUIRED", message: "Este tipo de perfil no requiere suscripción" });
+  }
+
+  // Prevent duplicate payment if membership is still active (more than 3 days remaining)
+  const now = new Date();
+  if (user.membershipExpiresAt) {
+    const msRemaining = user.membershipExpiresAt.getTime() - now.getTime();
+    const daysRemaining = msRemaining / (1000 * 60 * 60 * 24);
+    if (daysRemaining > 3) {
+      return res.status(400).json({
+        error: "MEMBERSHIP_STILL_ACTIVE",
+        message: `Tu plan está activo hasta el ${user.membershipExpiresAt.toLocaleDateString("es-CL")}. Puedes renovar cuando falten 3 días o menos.`,
+        membershipExpiresAt: user.membershipExpiresAt.toISOString(),
+        daysRemaining: Math.ceil(daysRemaining)
+      });
+    }
+  }
+
+  // Check for recent pending payment to avoid creating duplicate intents
+  const recentPending = await prisma.paymentIntent.findFirst({
+    where: {
+      subscriberId: userId,
+      purpose: "MEMBERSHIP_PLAN",
+      method: "FLOW",
+      status: "PENDING",
+      createdAt: { gte: new Date(now.getTime() - 30 * 60 * 1000) } // last 30 minutes
+    }
+  });
+  if (recentPending) {
+    return res.status(400).json({
+      error: "PAYMENT_ALREADY_PENDING",
+      message: "Ya tienes un pago en proceso. Espera unos minutos o intenta de nuevo más tarde.",
+      intentId: recentPending.id
+    });
   }
 
   const email = (user.email || "").trim().toLowerCase();
@@ -104,12 +138,27 @@ billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async 
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, profileType: true }
+    select: { id: true, profileType: true, membershipExpiresAt: true }
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
   if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
     return res.status(400).json({ error: "NOT_REQUIRED" });
+  }
+
+  // Prevent duplicate payment if membership is still active (more than 3 days remaining)
+  const now = new Date();
+  if (user.membershipExpiresAt) {
+    const msRemaining = user.membershipExpiresAt.getTime() - now.getTime();
+    const daysRemaining = msRemaining / (1000 * 60 * 60 * 24);
+    if (daysRemaining > 3) {
+      return res.status(400).json({
+        error: "MEMBERSHIP_STILL_ACTIVE",
+        message: `Tu plan está activo hasta el ${user.membershipExpiresAt.toLocaleDateString("es-CL")}. Puedes renovar cuando falten 3 días o menos.`,
+        membershipExpiresAt: user.membershipExpiresAt.toISOString(),
+        daysRemaining: Math.ceil(daysRemaining)
+      });
+    }
   }
 
   const notesParts: string[] = [];
@@ -374,4 +423,29 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     flowSubscriptionId: user.flowSubscriptionId || null,
     flowSubscriptionStatus
   });
+}));
+
+// ── Cancel Flow subscription (PAC) ──────────────────────────────────────────
+
+billingRouter.post("/billing/subscription/cancel", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, flowSubscriptionId: true }
+  });
+  if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+  if (!user.flowSubscriptionId) {
+    return res.status(400).json({ error: "NO_SUBSCRIPTION", message: "No tienes una suscripción activa para cancelar" });
+  }
+
+  try {
+    // Cancel at period end so the user keeps access until expiry
+    await cancelFlowSubscription(user.flowSubscriptionId, true);
+  } catch (err: any) {
+    console.error("[billing] cancel subscription failed", { userId, subscriptionId: user.flowSubscriptionId, error: err.message });
+    return res.status(500).json({ error: "CANCEL_FAILED", message: "No se pudo cancelar la suscripción. Intenta de nuevo." });
+  }
+
+  console.log("[billing] subscription canceled", { userId, subscriptionId: user.flowSubscriptionId });
+  return res.json({ ok: true, message: "Tu suscripción se canceló. Mantendrás acceso hasta el fin del periodo actual." });
 }));
