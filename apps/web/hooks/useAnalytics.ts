@@ -37,10 +37,14 @@ export function usePageViewTracker() {
   }, [pathname]);
 }
 
-/** Track a specific user action */
+/** Track a specific user action (survives page navigation/close via keepalive) */
 export function trackAction(action: string, targetId?: string, metadata?: Record<string, unknown>) {
+  const payload = JSON.stringify({ action, targetId, metadata });
+
+  // Use keepalive so the request completes even when navigating away (e.g. opening WhatsApp)
   apiFetch("/analytics/action", {
     method: "POST",
-    body: JSON.stringify({ action, targetId, metadata }),
+    body: payload,
+    keepalive: true,
   }).catch(() => {});
 }
