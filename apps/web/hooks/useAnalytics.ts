@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { apiFetch } from "../lib/api";
+import { apiFetch, getApiBase } from "../lib/api";
 
 let sessionId: string | null = null;
 
@@ -37,14 +37,20 @@ export function usePageViewTracker() {
   }, [pathname]);
 }
 
-/** Track a specific user action (survives page navigation/close via keepalive) */
+/** Track a specific user action (survives page navigation/close) */
 export function trackAction(action: string, targetId?: string, metadata?: Record<string, unknown>) {
   const payload = JSON.stringify({ action, targetId, metadata });
 
-  // Use keepalive so the request completes even when navigating away (e.g. opening WhatsApp)
+  // Use sendBeacon with text/plain to avoid CORS preflight — survives navigation to wa.me
+  if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+    const url = `${getApiBase()}/analytics/action`;
+    navigator.sendBeacon(url, new Blob([payload], { type: "text/plain" }));
+    return;
+  }
+
+  // Fallback for older browsers
   apiFetch("/analytics/action", {
     method: "POST",
     body: payload,
-    keepalive: true,
   }).catch(() => {});
 }
