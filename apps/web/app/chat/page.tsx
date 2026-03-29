@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   MessageCircle,
@@ -109,6 +109,10 @@ export default function ChatInboxPage() {
     load();
   }, [load]);
 
+  // Keep a ref to load so the realtime listener always uses the latest version
+  const loadRef = useRef(load);
+  useEffect(() => { loadRef.current = load; }, [load]);
+
   // Listen for real-time new messages to update conversation list
   useEffect(() => {
     const disconnect = connectRealtime((event) => {
@@ -163,13 +167,13 @@ export default function ChatInboxPage() {
             return [newConv, ...prev];
           }
 
-          load();
+          loadRef.current();
           return prev;
         });
       }
     });
     return () => disconnect();
-  }, [load]);
+  }, []);
 
   // Close context menu on outside click
   useEffect(() => {

@@ -88,6 +88,7 @@ enum NotificationType {
   VIDEOCALL_BOOKED
   SERVICE_REQUEST_NEW
   UMATE_PLAN_ACTIVATED
+  UMATE_NEW_SUBSCRIBER
 }
 
 enum PaymentIntentPurpose {
@@ -346,6 +347,7 @@ model PrivateShow {
 
   @@index([streamId])
   @@index([buyerId])
+  @@index([hostId])
 }
 
 
@@ -502,6 +504,8 @@ model Post {
 
   author User?  @relation(fields: [authorId], references: [id], onDelete: SetNull)
   media  Media[]
+
+  @@index([authorId, createdAt])
 }
 
 model Media {
@@ -532,6 +536,9 @@ model Payment {
 
   user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   subscription KhipuSubscription? @relation("KhipuSubscriptionPayments", fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status, createdAt])
 }
 
 model KhipuSubscription {
@@ -650,6 +657,10 @@ model Message {
 
   from User @relation("SentMessages", fields: [fromId], references: [id], onDelete: Cascade)
   to   User @relation("ReceivedMessages", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@index([fromId])
+  @@index([toId])
+  @@index([createdAt])
 }
 
 model ServiceRating {
@@ -707,6 +718,7 @@ model Favorite {
   professional User @relation("FavoritesForProfessional", fields: [professionalId], references: [id], onDelete: Cascade)
 
   @@unique([userId, professionalId])
+  @@index([userId])
 }
 
 model ServiceRequest {
@@ -727,6 +739,9 @@ model ServiceRequest {
   client       User               @relation("ClientRequests", fields: [clientId], references: [id], onDelete: Cascade)
   professional User               @relation("ProfessionalRequests", fields: [professionalId], references: [id], onDelete: Cascade)
   review       ProfessionalReview?
+
+  @@index([clientId, status])
+  @@index([professionalId, status])
 }
 
 model ProfessionalReview {
