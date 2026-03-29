@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
 import useMe from "../../hooks/useMe";
+import { trackAction } from "../../hooks/useAnalytics";
 import type { MapMarker } from "../../components/MapboxMap";
 import UserLevelBadge from "../../components/UserLevelBadge";
 
@@ -360,6 +361,7 @@ const FeaturedCard = memo(function FeaturedCard({
             href={formatWhatsAppUrl(profile.phone)}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackAction("whatsapp_click", profile.id, { source: "services_card", displayName: profile.displayName })}
             className="flex items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/[0.08] px-3 py-2.5 text-xs text-emerald-300 hover:bg-emerald-500/15 transition-all"
             title="WhatsApp"
           >
@@ -465,6 +467,7 @@ const ProfileCard = memo(function ProfileCard({
             href={formatWhatsAppUrl(profile.phone)}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackAction("whatsapp_click", profile.id, { source: "services_compact", displayName: profile.displayName })}
             className="flex items-center justify-center rounded-xl border border-emerald-500/15 bg-emerald-500/[0.08] px-2.5 py-2 text-[11px] text-emerald-300 hover:bg-emerald-500/15 transition-all"
             title="WhatsApp"
           >
@@ -724,6 +727,7 @@ function ProfileDetailPanel({
             href={formatWhatsAppUrl(profile.phone)}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackAction("whatsapp_click", profile.id, { source: "services_detail", displayName: profile.displayName })}
             className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.08] px-4 py-3 text-sm font-medium text-emerald-300 transition-all hover:bg-emerald-500/15 hover:border-emerald-500/30"
             title="WhatsApp"
           >

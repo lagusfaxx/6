@@ -8,6 +8,7 @@ import UserLevelBadge from "./UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import StatusBadgeIcon from "./StatusBadgeIcon";
 import useMe from "../hooks/useMe";
+import { trackAction } from "../hooks/useAnalytics";
 
 type Props = {
   profile: {
@@ -470,7 +471,10 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                       href={formatWhatsAppUrl(fullProfile.phone, fullProfile.displayName || profile.displayName)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={onClose}
+                      onClick={() => {
+                        trackAction("whatsapp_click", profile.id, { source: "preview_modal", displayName: fullProfile.displayName || profile.displayName });
+                        onClose();
+                      }}
                       className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] py-2.5 text-xs font-semibold text-emerald-200 transition-all hover:bg-emerald-500/15 hover:border-emerald-500/40"
                     >
                       <Phone className="h-3.5 w-3.5" />

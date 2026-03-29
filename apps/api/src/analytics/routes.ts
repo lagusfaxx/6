@@ -108,6 +108,9 @@ analyticsRouter.get(
       totalVideocallBookings,
       totalServiceRequests,
       totalFavorites,
+      // WhatsApp
+      totalWhatsAppClicks,
+      topWhatsAppProfiles,
       // Daily breakdown
       dailyViews,
       dailyNewUsers,
@@ -174,6 +177,16 @@ analyticsRouter.get(
       prisma.serviceRequest.count({ where: { createdAt: { gte: periodStart } } }),
       // Favorites in period
       prisma.favorite.count({ where: { createdAt: { gte: periodStart } } }),
+      // WhatsApp clicks in period
+      prisma.userAction.count({ where: { action: "whatsapp_click", createdAt: { gte: periodStart } } }),
+      // Top profiles contacted via WhatsApp
+      prisma.userAction.groupBy({
+        by: ["targetId"],
+        where: { action: "whatsapp_click", createdAt: { gte: periodStart }, targetId: { not: null } },
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 15,
+      }),
       // Daily page views breakdown (last 7 or 30 days)
       prisma.$queryRawUnsafe<{ day: string; count: bigint }[]>(
         `SELECT DATE("createdAt") as day, COUNT(*)::bigint as count
@@ -238,6 +251,24 @@ analyticsRouter.get(
         videocallBookings: totalVideocallBookings,
         serviceRequests: totalServiceRequests,
         favorites: totalFavorites,
+        whatsappClicks: totalWhatsAppClicks,
+      },
+      whatsapp: {
+        total: totalWhatsAppClicks,
+        topProfiles: await (async () => {
+          const profileIds = topWhatsAppProfiles.map((p) => p.targetId).filter(Boolean) as string[];
+          if (!profileIds.length) return [];
+          const users = await prisma.user.findMany({
+            where: { id: { in: profileIds } },
+            select: { id: true, displayName: true, username: true },
+          });
+          const nameMap = new Map(users.map((u) => [u.id, u.displayName || u.username || u.id]));
+          return topWhatsAppProfiles.map((p) => ({
+            profileId: p.targetId,
+            displayName: nameMap.get(p.targetId!) || p.targetId,
+            count: p._count.id,
+          }));
+        })(),
       },
       locations: {
         cities: topCities.map((c) => ({ city: c.city, count: c._count.id })),
