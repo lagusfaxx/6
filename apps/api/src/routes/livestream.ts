@@ -299,58 +299,66 @@ livestreamRouter.post("/live/:id/tip", requireAuth, async (req, res) => {
   });
 
   // Execute tip transaction
-  const tip = await prisma.$transaction(async (tx) => {
-    // Deduct from sender
-    const updatedSender = await tx.wallet.updateMany({
-      where: { id: senderWallet.id, balance: { gte: amount } },
-      data: { balance: { decrement: amount }, totalSpent: { increment: amount } },
-    });
-    if (updatedSender.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+  let tip;
+  try {
+    tip = await prisma.$transaction(async (tx) => {
+      // Deduct from sender
+      const updatedSender = await tx.wallet.updateMany({
+        where: { id: senderWallet.id, balance: { gte: amount } },
+        data: { balance: { decrement: amount }, totalSpent: { increment: amount } },
+      });
+      if (updatedSender.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
-    // Credit to host
-    await tx.wallet.update({
-      where: { id: hostWallet.id },
-      data: { balance: { increment: hostPay }, totalEarned: { increment: hostPay } },
-    });
+      // Credit to host
+      await tx.wallet.update({
+        where: { id: hostWallet.id },
+        data: { balance: { increment: hostPay }, totalEarned: { increment: hostPay } },
+      });
 
-    // Record transactions
-    await tx.tokenTransaction.create({
-      data: {
-        walletId: senderWallet.id,
-        type: "TIP",
-        amount: -amount,
-        balance: senderWallet.balance - amount,
-        description: `Propina en live: -${amount} tokens`,
-      },
-    });
-    await tx.tokenTransaction.create({
-      data: {
-        walletId: hostWallet.id,
-        type: "TIP",
-        amount: hostPay,
-        balance: hostWallet.balance + hostPay,
-        description: `Propina recibida: +${hostPay} tokens (${amount} - ${platformFee} comisión)`,
-      },
-    });
+      // Record transactions
+      await tx.tokenTransaction.create({
+        data: {
+          walletId: senderWallet.id,
+          type: "TIP",
+          amount: -amount,
+          balance: senderWallet.balance - amount,
+          description: `Propina en live: -${amount} tokens`,
+        },
+      });
+      await tx.tokenTransaction.create({
+        data: {
+          walletId: hostWallet.id,
+          type: "TIP",
+          amount: hostPay,
+          balance: hostWallet.balance + hostPay,
+          description: `Propina recibida: +${hostPay} tokens (${amount} - ${platformFee} comisión)`,
+        },
+      });
 
-    // Update stream totalTipsEarned
-    await tx.liveStream.update({
-      where: { id: stream.id },
-      data: { totalTipsEarned: { increment: amount } },
-    });
+      // Update stream totalTipsEarned
+      await tx.liveStream.update({
+        where: { id: stream.id },
+        data: { totalTipsEarned: { increment: amount } },
+      });
 
-    // Record tip
-    return tx.liveTip.create({
-      data: {
-        streamId: stream.id,
-        senderId: userId,
-        receiverId: stream.hostId,
-        amount,
-        message: message || null,
-        optionId,
-      },
+      // Record tip
+      return tx.liveTip.create({
+        data: {
+          streamId: stream.id,
+          senderId: userId,
+          receiverId: stream.hostId,
+          amount,
+          message: message || null,
+          optionId,
+        },
+      });
     });
-  });
+  } catch (err: any) {
+    if (err?.message === "INSUFFICIENT_BALANCE") {
+      return res.status(400).json({ error: "Saldo insuficiente", required: amount, available: senderWallet.balance });
+    }
+    throw err;
+  }
 
   // Find the option label if applicable
   let optionLabel: string | null = null;
@@ -576,16 +584,6 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) =>
     }
   }
 
-  // If there is an active show, allow this user to join it (single payment per active show per user)
-  if (activeShow) {
-    const alreadyJoined = await prisma.privateShow.findFirst({
-      where: { streamId: stream.id, isActive: true, buyerId: userId },
-    });
-    if (alreadyJoined) {
-      return res.status(400).json({ error: "Ya te uniste al show privado activo" });
-    }
-  }
-
   const price = stream.privateShowPrice;
   if (!price || price < 1) {
     return res.status(400).json({ error: "El show privado no está disponible: la profesional no configuró el precio" });
@@ -606,46 +604,54 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) =>
     select: { displayName: true, username: true },
   });
 
-  const show = await prisma.$transaction(async (tx) => {
-    const updated = await tx.wallet.updateMany({
-      where: { id: buyerWallet.id, balance: { gte: price } },
-      data: { balance: { decrement: price }, totalSpent: { increment: price } },
-    });
-    if (updated.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+  let show;
+  try {
+    show = await prisma.$transaction(async (tx) => {
+      const updated = await tx.wallet.updateMany({
+        where: { id: buyerWallet.id, balance: { gte: price } },
+        data: { balance: { decrement: price }, totalSpent: { increment: price } },
+      });
+      if (updated.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
-    await tx.wallet.update({
-      where: { id: hostWallet.id },
-      data: { balance: { increment: hostPay }, totalEarned: { increment: hostPay } },
-    });
+      await tx.wallet.update({
+        where: { id: hostWallet.id },
+        data: { balance: { increment: hostPay }, totalEarned: { increment: hostPay } },
+      });
 
-    await tx.tokenTransaction.create({
-      data: {
-        walletId: buyerWallet.id,
-        type: "PRIVATE_SHOW",
-        amount: -price,
-        balance: buyerWallet.balance - price,
-        description: `Show privado: -${price} tokens`,
-      },
-    });
-    await tx.tokenTransaction.create({
-      data: {
-        walletId: hostWallet.id,
-        type: "PRIVATE_SHOW",
-        amount: hostPay,
-        balance: hostWallet.balance + hostPay,
-        description: `Show privado: +${hostPay} tokens (${price} - ${platformFee} comisión)`,
-      },
-    });
+      await tx.tokenTransaction.create({
+        data: {
+          walletId: buyerWallet.id,
+          type: "PRIVATE_SHOW",
+          amount: -price,
+          balance: buyerWallet.balance - price,
+          description: `Show privado: -${price} tokens`,
+        },
+      });
+      await tx.tokenTransaction.create({
+        data: {
+          walletId: hostWallet.id,
+          type: "PRIVATE_SHOW",
+          amount: hostPay,
+          balance: hostWallet.balance + hostPay,
+          description: `Show privado: +${hostPay} tokens (${price} - ${platformFee} comisión)`,
+        },
+      });
 
-    return tx.privateShow.create({
-      data: {
-        streamId: stream.id,
-        hostId: stream.hostId,
-        buyerId: userId,
-        price,
-      },
+      return tx.privateShow.create({
+        data: {
+          streamId: stream.id,
+          hostId: stream.hostId,
+          buyerId: userId,
+          price,
+        },
+      });
     });
-  });
+  } catch (err: any) {
+    if (err?.message === "INSUFFICIENT_BALANCE") {
+      return res.status(400).json({ error: "Saldo insuficiente", required: price, available: buyerWallet.balance });
+    }
+    throw err;
+  }
 
   // Broadcast private show purchase to ALL viewers (non-buyers keep blur)
   broadcast("live:private_show_started", {

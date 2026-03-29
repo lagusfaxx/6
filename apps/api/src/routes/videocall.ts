@@ -243,42 +243,49 @@ videocallRouter.post("/videocall/book", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Insufficient tokens", required: totalTokens, available: clientWallet.balance });
   }
 
-  // Hold tokens from client (move from balance to held)
-  const updated = await prisma.wallet.updateMany({
-    where: { id: clientWallet.id, balance: { gte: totalTokens } },
-    data: { balance: { decrement: totalTokens }, heldBalance: { increment: totalTokens } },
-  });
-  if (updated.count === 0) return res.status(400).json({ error: "Insufficient tokens" });
-
-  const updatedWallet = await prisma.wallet.findUnique({ where: { id: clientWallet.id } });
-  if (!updatedWallet) return res.status(500).json({ error: "Wallet not found after update" });
-
-  // Create booking
+  // Hold tokens + create booking atomically
   const roomId = randomUUID();
-  const [booking] = await prisma.$transaction([
-    prisma.videocallBooking.create({
-      data: {
-        configId: config.id,
-        clientId,
-        professionalId,
-        scheduledAt: scheduledDate,
-        durationMinutes: duration,
-        totalTokens,
-        platformFee,
-        professionalPay,
-        roomId,
-      },
-    }),
-    prisma.tokenTransaction.create({
-      data: {
-        walletId: clientWallet.id,
-        type: "VIDEOCALL_HOLD",
-        amount: -totalTokens,
-        balance: updatedWallet!.balance,
-        description: `Reserva videollamada: ${totalTokens} tokens retenidos`,
-      },
-    }),
-  ]);
+  let booking;
+  try {
+    booking = await prisma.$transaction(async (tx) => {
+      const updated = await tx.wallet.updateMany({
+        where: { id: clientWallet.id, balance: { gte: totalTokens } },
+        data: { balance: { decrement: totalTokens }, heldBalance: { increment: totalTokens } },
+      });
+      if (updated.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+
+      const updatedWallet = await tx.wallet.findUnique({ where: { id: clientWallet.id } });
+
+      const newBooking = await tx.videocallBooking.create({
+        data: {
+          configId: config.id,
+          clientId,
+          professionalId,
+          scheduledAt: scheduledDate,
+          durationMinutes: duration,
+          totalTokens,
+          platformFee,
+          professionalPay,
+          roomId,
+        },
+      });
+      await tx.tokenTransaction.create({
+        data: {
+          walletId: clientWallet.id,
+          type: "VIDEOCALL_HOLD",
+          amount: -totalTokens,
+          balance: updatedWallet?.balance ?? clientWallet.balance - totalTokens,
+          description: `Reserva videollamada: ${totalTokens} tokens retenidos`,
+        },
+      });
+      return newBooking;
+    });
+  } catch (err: any) {
+    if (err?.message === "INSUFFICIENT_BALANCE") {
+      return res.status(400).json({ error: "Saldo insuficiente", required: totalTokens, available: clientWallet.balance });
+    }
+    throw err;
+  }
 
   // Notify professional via SSE
   sendToUser(professionalId, "videocall:booked", {

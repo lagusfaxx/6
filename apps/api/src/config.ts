@@ -6,6 +6,15 @@ function required(name: string): string {
   return v;
 }
 
+/** Require env var only in production; fallback to empty string in dev */
+function requiredInProd(name: string): string {
+  const v = process.env[name];
+  if (!v && process.env.NODE_ENV === "production") {
+    console.error(`[config] WARNING: Missing env ${name} in production`);
+  }
+  return v || "";
+}
+
 export const config = {
   env: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT || 3001),
@@ -15,15 +24,15 @@ export const config = {
   databaseUrl: required("DATABASE_URL"),
   sessionSecret: required("SESSION_SECRET"),
   cookieDomain: process.env.COOKIE_DOMAIN,
-  khipuApiKey: process.env.KHIPU_API_KEY || "",
+  khipuApiKey: requiredInProd("KHIPU_API_KEY"),
   khipuBaseUrl: process.env.KHIPU_BASE_URL || "https://payment-api.khipu.com",
   khipuSubscriptionNotifyUrl: process.env.KHIPU_SUBSCRIPTION_NOTIFY_URL || "",
   khipuChargeNotifyUrl: process.env.KHIPU_CHARGE_NOTIFY_URL || "",
   khipuReturnUrl: process.env.KHIPU_RETURN_URL || "",
   khipuCancelUrl: process.env.KHIPU_CANCEL_URL || "",
   khipuWebhookSecret: process.env.KHIPU_WEBHOOK_SECRET || "",
-  flowApiKey: process.env.FLOW_API_KEY || "",
-  flowSecretKey: process.env.FLOW_SECRET_KEY || "",
+  flowApiKey: requiredInProd("FLOW_API_KEY"),
+  flowSecretKey: requiredInProd("FLOW_SECRET_KEY"),
   flowBaseUrl: process.env.FLOW_BASE_URL || "https://www.flow.cl/api",
   flowCallbackUrl: process.env.FLOW_CALLBACK_URL || "",
   flowPlanId: process.env.FLOW_PLAN_ID || "UZEED_PRO_MENSUAL",
@@ -41,5 +50,5 @@ export const config = {
     pass: process.env.SMTP_PASS,
     from: process.env.SMTP_FROM
   },
-  resendApiKey: process.env.RESEND_API_KEY || "",
+  resendApiKey: requiredInProd("RESEND_API_KEY"),
 };
