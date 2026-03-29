@@ -31,6 +31,11 @@ type Analytics = {
     videocallBookings: number;
     serviceRequests: number;
     favorites: number;
+    whatsappClicks: number;
+  };
+  whatsapp: {
+    total: number;
+    topProfiles: { profileId: string; displayName: string; count: number }[];
   };
   locations: {
     cities: { city: string; count: number }[];
@@ -49,6 +54,7 @@ const ACTION_LABELS: Record<string, string> = {
   book_encounter: "Solicitar encuentro",
   view_story: "Ver story",
   share_profile: "Compartir perfil",
+  whatsapp_click: "Click WhatsApp",
 };
 
 export default function AdminEstadisticas() {
@@ -120,8 +126,24 @@ export default function AdminEstadisticas() {
               <MetricCard label="Videollamadas agendadas" value={data.interactions.videocallBookings} color="fuchsia" />
               <MetricCard label="Solicitudes de encuentro" value={data.interactions.serviceRequests} color="violet" />
               <MetricCard label="Favoritos agregados" value={data.interactions.favorites} color="pink" />
+              <MetricCard label="Clicks WhatsApp" value={data.interactions.whatsappClicks} color="emerald" />
             </div>
           </section>
+
+          {/* WhatsApp top profiles */}
+          {data.whatsapp.topProfiles.length > 0 && (
+            <section className="mb-8">
+              <h2 className="text-sm uppercase tracking-[0.18em] text-white/60 mb-3">Top perfiles contactados por WhatsApp</h2>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <RankingList
+                  items={data.whatsapp.topProfiles.map((p) => ({
+                    label: p.displayName,
+                    value: p.count,
+                  }))}
+                />
+              </div>
+            </section>
+          )}
 
           {/* Profile health */}
           <section className="mb-8">

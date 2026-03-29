@@ -9,6 +9,7 @@ import {
   buildLoginHref,
 } from "../../../lib/chat";
 import useMe from "../../../hooks/useMe";
+import { trackAction } from "../../../hooks/useAnalytics";
 import StarRating from "../../../components/StarRating";
 import SkeletonCard from "../../../components/SkeletonCard";
 import Link from "next/link";
@@ -1252,6 +1253,7 @@ export default function ProfileDetailView({
                       href={formatWhatsAppUrl(professional.phone)}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => trackAction("whatsapp_click", professional.id, { source: "profile_detail", displayName: professional.name })}
                       className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 py-2.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                     >
                       <Phone className="h-3.5 w-3.5" />
@@ -1395,6 +1397,7 @@ export default function ProfileDetailView({
               href={formatWhatsAppUrl(professional.phone)}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackAction("whatsapp_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
               className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
             >
               <Phone className="h-3.5 w-3.5" />
