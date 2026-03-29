@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { apiFetch, getApiBase } from "../lib/api";
+import { apiFetch } from "../lib/api";
 
 let sessionId: string | null = null;
 
@@ -37,20 +37,15 @@ export function usePageViewTracker() {
   }, [pathname]);
 }
 
-/** Track a specific user action (survives page navigation/close) */
+/** Track a specific user action */
 export function trackAction(action: string, targetId?: string, metadata?: Record<string, unknown>) {
-  const payload = JSON.stringify({ action, targetId, metadata });
-
-  // Use sendBeacon with text/plain to avoid CORS preflight — survives navigation to wa.me
-  if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-    const url = `${getApiBase()}/analytics/action`;
-    navigator.sendBeacon(url, new Blob([payload], { type: "text/plain" }));
-    return;
-  }
-
-  // Fallback for older browsers
+  console.log("[uzeed] trackAction:", action, targetId);
   apiFetch("/analytics/action", {
     method: "POST",
-    body: payload,
-  }).catch(() => {});
+    body: JSON.stringify({ action, targetId, metadata }),
+  }).then(() => {
+    console.log("[uzeed] trackAction OK:", action);
+  }).catch((err) => {
+    console.error("[uzeed] trackAction FAILED:", action, err);
+  });
 }
