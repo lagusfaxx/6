@@ -933,3 +933,37 @@ adminRouter.delete(
     return res.json({ ok: true });
   }),
 );
+
+adminRouter.post(
+  "/quick-listings/:id/upload",
+  upload.single("file"),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (!req.file) return res.status(400).json({ error: "NO_FILE" });
+
+    const listing = await prisma.establishment.findUnique({ where: { id }, select: { galleryUrls: true } });
+    if (!listing) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const url = storageProvider.publicUrl(req.file.filename);
+    const galleryUrls = [...(listing.galleryUrls || []), url];
+
+    await prisma.establishment.update({ where: { id }, data: { galleryUrls } });
+    return res.json({ url, galleryUrls });
+  }),
+);
+
+adminRouter.delete(
+  "/quick-listings/:id/gallery",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { url } = req.body ?? {};
+    if (!url) return res.status(400).json({ error: "VALIDATION", message: "url required" });
+
+    const listing = await prisma.establishment.findUnique({ where: { id }, select: { galleryUrls: true } });
+    if (!listing) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const galleryUrls = (listing.galleryUrls || []).filter((u) => u !== url);
+    await prisma.establishment.update({ where: { id }, data: { galleryUrls } });
+    return res.json({ ok: true, galleryUrls });
+  }),
+);

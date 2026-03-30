@@ -228,9 +228,46 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
       .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9))
     : categoryFiltered;
 
-  return res.json({
-    shops: filtered.map(({ category, serviceCategory, serviceItemCategories, serviceItemCategoryIds, productCategoryIds, ...shop }) => shop)
+  /* ── Quick listings (externalOnly) from Establishment table ── */
+  const shopCategorySlugs = ["sexshop", "sex-shop", "shop", "tienda"];
+  const quickCategories = await prisma.category.findMany({
+    where: { slug: { in: shopCategorySlugs } },
+    select: { id: true },
   });
+  const quickCategoryIds = quickCategories.map((c) => c.id);
+
+  const quickListings = quickCategoryIds.length
+    ? await prisma.establishment.findMany({
+        where: { externalOnly: true, categoryId: { in: quickCategoryIds } },
+        include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
+      })
+    : [];
+
+  const quickMapped = quickListings.map((ql) => {
+    const distance = lat != null && lng != null && ql.latitude != null && ql.longitude != null
+      ? distKm(lat, lng, ql.latitude, ql.longitude)
+      : null;
+    return {
+      id: ql.id,
+      username: ql.id,
+      name: ql.name,
+      avatarUrl: ql.galleryUrls?.[0] || null,
+      city: ql.city,
+      address: ql.address,
+      latitude: ql.latitude,
+      longitude: ql.longitude,
+      distance,
+      websiteUrl: ql.websiteUrl,
+      externalOnly: true,
+    };
+  })
+    .filter((ql) => (ql.distance != null && lat != null && lng != null ? ql.distance <= rangeKm : true))
+    .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+
+  const cleanedFiltered = filtered.map(({ category, serviceCategory, serviceItemCategories, serviceItemCategoryIds, productCategoryIds, ...shop }) => shop);
+  const allShops = [...cleanedFiltered, ...quickMapped].sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+
+  return res.json({ shops: allShops });
 }));
 
 // ✅ PUBLIC: productos de un sex-shop

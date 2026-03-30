@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { MapPin } from "lucide-react";
+import { MapPin, ExternalLink } from "lucide-react";
 
 const MapboxMap = dynamic(() => import("../../components/MapboxMap"), { ssr: false });
 import StarRating from "../../components/StarRating";
@@ -26,6 +26,8 @@ type Item = {
   longitude?: number | null;
   category?: "MOTEL" | "HOTEL";
   isOpen?: boolean;
+  websiteUrl?: string | null;
+  externalOnly?: boolean;
 };
 
 export default function LodgingClient() {
@@ -71,7 +73,7 @@ export default function LodgingClient() {
             userLocation={location}
             markers={items
               .filter((i) => i.latitude != null && i.longitude != null)
-              .map((i) => ({ id: i.id, name: i.name, lat: Number(i.latitude), lng: Number(i.longitude), subtitle: i.address, href: `/hospedaje/${i.id}` }))}
+              .map((i) => ({ id: i.id, name: i.name, lat: Number(i.latitude), lng: Number(i.longitude), subtitle: i.address, href: i.externalOnly && i.websiteUrl ? i.websiteUrl : `/hospedaje/${i.id}` }))}
           />
         </div>
 
@@ -83,28 +85,43 @@ export default function LodgingClient() {
                   <SkeletonCard key={i} className="h-32" />
                 ))}
               </div>
-            ) : items.map((e) => (
-              <Link key={e.id} href={`/hospedaje/${e.id}`} className="group block rounded-2xl border border-white/15 bg-gradient-to-b from-white/10 to-white/5 p-3 transition-all duration-200 hover:border-fuchsia-300/40 hover:shadow-lg hover:shadow-fuchsia-500/5">
-                <div className="flex gap-3">
-                  <div className="relative overflow-hidden rounded-xl">
-                    <img src={resolveMediaUrl(e.coverUrl) || "/brand/isotipo-new.png"} alt={e.name} className="h-24 w-28 border border-white/10 object-cover transition-transform duration-300 group-hover:scale-105" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-2xl font-semibold leading-tight group-hover:text-fuchsia-100 transition-colors">{e.name}</div>
-                    <div className="mt-1 text-sm font-medium text-fuchsia-200">Desde ${e.fromPrice.toLocaleString("es-CL")}</div>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-white/70"><MapPin className="h-3.5 w-3.5" />{e.distance != null ? `${e.distance.toFixed(1)} km` : e.address}</div>
-                    <div className="mt-0.5 inline-flex items-center gap-1 text-xs text-white/70">
-                      <StarRating rating={e.rating} size={12} />
-                      <span className="text-white/50">({e.reviewsCount})</span>
+            ) : items.map((e) => {
+              const isExternal = e.externalOnly && e.websiteUrl;
+              const Wrapper = isExternal ? "a" : Link;
+              const wrapperProps = isExternal
+                ? { href: e.websiteUrl!, target: "_blank", rel: "noopener noreferrer" }
+                : { href: `/hospedaje/${e.id}` };
+              return (
+                <Wrapper key={e.id} {...(wrapperProps as any)} className="group block rounded-2xl border border-white/15 bg-gradient-to-b from-white/10 to-white/5 p-3 transition-all duration-200 hover:border-fuchsia-300/40 hover:shadow-lg hover:shadow-fuchsia-500/5">
+                  <div className="flex gap-3">
+                    <div className="relative overflow-hidden rounded-xl">
+                      <img src={resolveMediaUrl(e.coverUrl) || "/brand/isotipo-new.png"} alt={e.name} className="h-24 w-28 border border-white/10 object-cover transition-transform duration-300 group-hover:scale-105" />
                     </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${e.isOpen ? "border-emerald-300/40 bg-emerald-500/20 text-emerald-100" : "border-rose-300/40 bg-rose-500/20 text-rose-100"}`}>{e.isOpen ? "Abierto ahora" : "Cerrado"}</span>
-                      <span className="btn-primary text-sm">Reservar</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-2xl font-semibold leading-tight group-hover:text-fuchsia-100 transition-colors">{e.name}</div>
+                      {!isExternal && e.fromPrice > 0 && (
+                        <div className="mt-1 text-sm font-medium text-fuchsia-200">Desde ${e.fromPrice.toLocaleString("es-CL")}</div>
+                      )}
+                      <div className="mt-1 flex items-center gap-2 text-xs text-white/70"><MapPin className="h-3.5 w-3.5" />{e.distance != null ? `${e.distance.toFixed(1)} km` : e.address}</div>
+                      <div className="mt-0.5 inline-flex items-center gap-1 text-xs text-white/70">
+                        <StarRating rating={e.rating} size={12} />
+                        <span className="text-white/50">({e.reviewsCount})</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${e.isOpen ? "border-emerald-300/40 bg-emerald-500/20 text-emerald-100" : "border-rose-300/40 bg-rose-500/20 text-rose-100"}`}>{e.isOpen ? "Abierto ahora" : "Cerrado"}</span>
+                        {isExternal ? (
+                          <span className="btn-primary flex items-center gap-1.5 text-sm">
+                            Visitar web <ExternalLink className="h-3 w-3" />
+                          </span>
+                        ) : (
+                          <span className="btn-primary text-sm">Reservar</span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Wrapper>
+              );
+            })}
             {!loading && !items.length ? <div className="rounded-2xl border border-fuchsia-300/20 bg-fuchsia-500/10 p-4 text-sm text-fuchsia-100">No hay hospedajes publicados con ubicación válida.</div> : null}
           </div>
         </div>
