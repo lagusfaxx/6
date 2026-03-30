@@ -9,6 +9,7 @@ import {
   getFlowRegisterStatus,
   createFlowSubscription,
   getFlowSubscription,
+  listFlowSubscriptions,
   cancelFlowSubscription,
   createFlowPayment
 } from "../khipu/client";
@@ -457,6 +458,7 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
       profileType: true,
       membershipExpiresAt: true,
       shopTrialEndsAt: true,
+      flowCustomerId: true,
       flowSubscriptionId: true,
       flowCardType: true,
       flowCardLast4: true,
@@ -506,19 +508,40 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     }
   });
 
+  // If flowSubscriptionId is missing but flowCustomerId exists, try to find subscription in Flow
+  if (!user.flowSubscriptionId && user.flowCustomerId && config.flowPlanId) {
+    try {
+      const subs = await listFlowSubscriptions({ planId: config.flowPlanId, filter: user.flowCustomerId });
+      const activeSub = subs.data?.find((s: any) => Number(s.status) === 1 && s.customerId === user.flowCustomerId);
+      if (activeSub) {
+        console.log("[billing] found Flow subscription via list fallback", { userId, subscriptionId: activeSub.subscriptionId, customerId: user.flowCustomerId });
+        // Store it so we don't need the fallback next time
+        await prisma.user.update({
+          where: { id: userId },
+          data: { flowSubscriptionId: activeSub.subscriptionId }
+        });
+        (user as any).flowSubscriptionId = activeSub.subscriptionId;
+      }
+    } catch (err: any) {
+      console.error("[billing] subscription list fallback failed", { error: err?.message });
+    }
+  }
+
   // Check Flow subscription status if available
   let flowSubscriptionStatus: string | null = null;
   if (user.flowSubscriptionId) {
     try {
       const flowSub = await getFlowSubscription(user.flowSubscriptionId);
-      const FLOW_ACTIVE = 1;
-      const FLOW_CANCELED = 4;
-      flowSubscriptionStatus = flowSub.status === FLOW_ACTIVE ? "active"
-        : flowSub.status === FLOW_CANCELED ? "canceled"
+      console.log("[billing] getFlowSubscription result", { subscriptionId: user.flowSubscriptionId, status: flowSub.status, statusType: typeof flowSub.status });
+      const statusNum = Number(flowSub.status);
+      flowSubscriptionStatus = statusNum === 1 ? "active"
+        : statusNum === 3 || statusNum === 4 ? "canceled"
         : "inactive";
-    } catch {
-      // Flow API unreachable or subscription not found — don't block the response
-      flowSubscriptionStatus = null;
+    } catch (err: any) {
+      console.error("[billing] getFlowSubscription failed, assuming active", { subscriptionId: user.flowSubscriptionId, error: err?.message });
+      // Fail-open: if we have a subscriptionId stored, assume it's active
+      // rather than hiding PAC status due to a transient API error
+      flowSubscriptionStatus = "active";
     }
   }
 
