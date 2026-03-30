@@ -232,8 +232,9 @@ authRouter.post(
       profileType,
     );
     const trialDays = requiresPayment ? config.freeTrialDays : 30;
-    const shopTrialEndsAt =
-      profileType === "SHOP" ? addDays(new Date(), trialDays) : null;
+    const shopTrialEndsAt = requiresPayment
+      ? addDays(new Date(), trialDays)
+      : null;
 
     const isBusinessProfile = [
       "PROFESSIONAL",
@@ -325,10 +326,7 @@ authRouter.post(
             ? Number(longitude ?? geocoded?.longitude)
             : null,
           termsAcceptedAt: new Date(),
-          membershipExpiresAt:
-            profileType === "CLIENT" || profileType === "VIEWER"
-              ? null
-              : addDays(new Date(), trialDays),
+          membershipExpiresAt: null,
           passwordHash,
           displayName: displayName || null,
           bio: bio || null,

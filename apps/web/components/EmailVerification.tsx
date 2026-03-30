@@ -103,6 +103,8 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
       // Call onVerified (which now creates the account) and wait for it
       await onVerified();
     } catch (err: any) {
+      setSuccess(false);
+      setCreatingAccount(false);
       const msg = err?.body?.message || "Código incorrecto";
       setError(msg);
       setCode(["", "", "", "", "", ""]);
