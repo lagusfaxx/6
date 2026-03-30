@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "../lib/api";
 
 type SubscriptionStatus = {
@@ -31,29 +31,25 @@ export default function useSubscriptionStatus() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let alive = true;
-    
+  const fetchStatus = useCallback(() => {
+    setLoading(true);
     apiFetch<SubscriptionStatus>("/billing/subscription/status")
       .then((data) => {
-        if (!alive) return;
         setStatus(data);
         setError(null);
       })
       .catch((err) => {
-        if (!alive) return;
         console.error("Failed to fetch subscription status:", err);
         setError(err.message || "Failed to load subscription status");
       })
       .finally(() => {
-        if (!alive) return;
         setLoading(false);
       });
-    
-    return () => {
-      alive = false;
-    };
   }, []);
 
-  return { status, loading, error };
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  return { status, loading, error, refetch: fetchStatus };
 }

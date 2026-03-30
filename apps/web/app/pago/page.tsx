@@ -26,7 +26,7 @@ type Tab = "pac" | "flow" | "transfer";
 export default function PagoPage() {
   const router = useRouter();
   const { me } = useMe();
-  const { status: sub, loading: subLoading } = useSubscriptionStatus();
+  const { status: sub, loading: subLoading, refetch: refetchSub } = useSubscriptionStatus();
 
   const [tab, setTab] = useState<Tab>("pac");
 
@@ -91,6 +91,7 @@ export default function PagoPage() {
     try {
       await apiFetch("/billing/subscription/cancel", { method: "POST" });
       setCancelDone(true);
+      refetchSub();
     } catch (err: any) {
       setPacError(err?.body?.message || err?.message || "Error al cancelar la suscripción.");
     } finally {

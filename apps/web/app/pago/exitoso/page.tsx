@@ -1,29 +1,55 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
+
+const POLL_INTERVAL = 3000; // 3 seconds
+const POLL_MAX = 60000; // stop after 60 seconds
 
 function ExitosoContent() {
   const params = useSearchParams();
   const ref = params.get("ref");
 
   const [status, setStatus] = useState<"loading" | "paid" | "pending" | "error">("loading");
+  const elapsed = useRef(0);
 
   useEffect(() => {
     if (!ref) { setStatus("error"); return; }
 
-    // Payment gateway return page: only query backend status by ref.
-    fetch(`/api/billing/status?ref=${encodeURIComponent(ref)}`, { credentials: "include" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`HTTP_${response.status}`);
-        const data = await response.json() as { status?: "paid" | "pending" | "error" };
-        if (data?.status === "paid") return setStatus("paid");
-        if (data?.status === "pending") return setStatus("pending");
-        return setStatus("error");
-      })
-      .catch(() => setStatus("error"));
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let alive = true;
+
+    const check = () => {
+      fetch(`/api/billing/status?ref=${encodeURIComponent(ref)}`, { credentials: "include" })
+        .then(async (response) => {
+          if (!alive) return;
+          if (!response.ok) throw new Error(`HTTP_${response.status}`);
+          const data = await response.json() as { status?: "paid" | "pending" | "error" };
+          if (data?.status === "paid") {
+            setStatus("paid");
+            return;
+          }
+          // Still pending — keep polling if within time limit
+          setStatus("pending");
+          elapsed.current += POLL_INTERVAL;
+          if (elapsed.current < POLL_MAX && alive) {
+            timer = setTimeout(check, POLL_INTERVAL);
+          }
+        })
+        .catch(() => {
+          if (!alive) return;
+          setStatus("error");
+        });
+    };
+
+    check();
+
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+    };
   }, [ref]);
 
   return (
@@ -44,7 +70,7 @@ function ExitosoContent() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-emerald-300">Pago aprobado</h1>
-            <p className="mt-2 text-sm text-white/50">Tu suscripción mensual está activa. Ya puedes usar todas las funciones de tu perfil profesional.</p>
+            <p className="mt-2 text-sm text-white/50">Tu suscripcion mensual esta activa. Ya puedes usar todas las funciones de tu perfil profesional.</p>
           </div>
           <div className="flex flex-col gap-2 pt-2">
             <Link href="/cuenta" className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white hover:shadow-[0_0_20px_rgba(168,85,247,0.35)] transition">
@@ -65,8 +91,8 @@ function ExitosoContent() {
             </div>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-amber-300">Pago pendiente</h1>
-            <p className="mt-2 text-sm text-white/50">Tu pago está siendo procesado. Puede tardar unos minutos en confirmarse. Recibirás una notificación cuando esté listo.</p>
+            <h1 className="text-xl font-bold text-amber-300">Procesando pago...</h1>
+            <p className="mt-2 text-sm text-white/50">Estamos confirmando tu pago con Flow. Esto puede tardar unos segundos.</p>
           </div>
           <Link href="/cuenta" className="inline-flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-6 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/[0.06] transition">
             Volver a mi cuenta

@@ -273,6 +273,15 @@ billingRouter.post("/admin/billing/transfers/:id/reject", requireAdmin, asyncHan
     }
   });
 
+  // Notify the user their transfer was rejected
+  await prisma.notification.create({
+    data: {
+      userId: intent.subscriberId,
+      type: "TRANSFER_REJECTED",
+      data: { intentId: intent.id, reason: reason || "Sin motivo especificado" }
+    }
+  });
+
   console.log("[admin] transfer rejected", { intentId: id, userId: intent.subscriberId, adminId, reason });
   return res.json({ ok: true, intentId: id });
 }));
