@@ -264,6 +264,12 @@ export default function AdminIndex() {
             subtitle="Eliminación de cuentas y datos"
           />
           <ActionCard
+            href="/admin/quick-listings"
+            title="Listados Rápidos"
+            subtitle="Moteles, sexshops externos"
+            tone="fuchsia"
+          />
+          <ActionCard
             href="/admin/estadisticas"
             title="Estadísticas"
             subtitle="Visitas, acciones, ubicaciones"

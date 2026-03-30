@@ -693,18 +693,20 @@ model Category {
 }
 
 model Establishment {
-  id          String               @id @default(uuid()) @db.Uuid
-  categoryId  String               @db.Uuid
-  name        String
-  city        String
-  address     String
-  phone       String
-  description String?
-  latitude    Float?
-  longitude   Float?
-  galleryUrls String[]             @default([])
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  id           String               @id @default(uuid()) @db.Uuid
+  categoryId   String               @db.Uuid
+  name         String
+  city         String
+  address      String
+  phone        String
+  description  String?
+  latitude     Float?
+  longitude    Float?
+  galleryUrls  String[]             @default([])
+  websiteUrl   String?
+  externalOnly Boolean              @default(false)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 
   category Category            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   reviews  EstablishmentReview[]

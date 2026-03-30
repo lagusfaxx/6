@@ -828,3 +828,108 @@ adminRouter.put(
     return res.json({ rules: all });
   }),
 );
+
+/* ══════════════════════════════════════════════════════════════
+   QUICK LISTINGS (External Establishments)
+   Admin can add motels, sexshops, etc. without creating a user
+   account. These show on the map and link to the external site.
+   ══════════════════════════════════════════════════════════════ */
+
+adminRouter.get(
+  "/quick-listings",
+  asyncHandler(async (req, res) => {
+    const { categoryId, q, limit, offset } = req.query as Record<string, string | undefined>;
+    const take = Math.min(parseInt(limit || "50", 10) || 50, 200);
+    const skip = parseInt(offset || "0", 10) || 0;
+
+    const where: any = { externalOnly: true };
+    if (categoryId) where.categoryId = categoryId;
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { city: { contains: q, mode: "insensitive" } },
+        { address: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    const [listings, total] = await Promise.all([
+      prisma.establishment.findMany({
+        where,
+        include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
+        orderBy: { createdAt: "desc" },
+        take,
+        skip,
+      }),
+      prisma.establishment.count({ where }),
+    ]);
+
+    return res.json({ listings, total });
+  }),
+);
+
+adminRouter.post(
+  "/quick-listings",
+  asyncHandler(async (req, res) => {
+    const { name, address, city, phone, description, categoryId, websiteUrl, latitude, longitude } = req.body ?? {};
+
+    if (!name || !address || !city || !categoryId) {
+      return res.status(400).json({ error: "VALIDATION", message: "name, address, city and categoryId are required" });
+    }
+
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category) return res.status(400).json({ error: "VALIDATION", message: "Invalid categoryId" });
+
+    const listing = await prisma.establishment.create({
+      data: {
+        name: String(name),
+        address: String(address),
+        city: String(city),
+        phone: phone ? String(phone) : "",
+        description: description ? String(description) : null,
+        categoryId: String(categoryId),
+        websiteUrl: websiteUrl ? String(websiteUrl) : null,
+        latitude: latitude != null ? Number(latitude) : null,
+        longitude: longitude != null ? Number(longitude) : null,
+        externalOnly: true,
+      },
+      include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
+    });
+
+    return res.json({ listing });
+  }),
+);
+
+adminRouter.put(
+  "/quick-listings/:id",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { name, address, city, phone, description, categoryId, websiteUrl, latitude, longitude } = req.body ?? {};
+
+    const data: any = {};
+    if (name !== undefined) data.name = String(name);
+    if (address !== undefined) data.address = String(address);
+    if (city !== undefined) data.city = String(city);
+    if (phone !== undefined) data.phone = String(phone);
+    if (description !== undefined) data.description = description ? String(description) : null;
+    if (categoryId !== undefined) data.categoryId = String(categoryId);
+    if (websiteUrl !== undefined) data.websiteUrl = websiteUrl ? String(websiteUrl) : null;
+    if (latitude !== undefined) data.latitude = latitude != null ? Number(latitude) : null;
+    if (longitude !== undefined) data.longitude = longitude != null ? Number(longitude) : null;
+
+    const listing = await prisma.establishment.update({
+      where: { id },
+      data,
+      include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
+    });
+    return res.json({ listing });
+  }),
+);
+
+adminRouter.delete(
+  "/quick-listings/:id",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    await prisma.establishment.delete({ where: { id } });
+    return res.json({ ok: true });
+  }),
+);

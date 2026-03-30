@@ -863,7 +863,53 @@ directoryRouter.get(
       )
       .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
 
-    return res.json({ establishments: filtered });
+    /* ── Quick listings (externalOnly) from Establishment table ── */
+    const qlWhere: any = { externalOnly: true };
+    if (categoryRef?.id) qlWhere.categoryId = categoryRef.id;
+
+    const quickListings = await prisma.establishment.findMany({
+      where: qlWhere,
+      include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
+      take: 250,
+    });
+
+    const quickMapped = quickListings.map((ql) => {
+      const rating = cnt.get(ql.id) ? sum.get(ql.id)! / cnt.get(ql.id)! : null;
+      const distance =
+        lat != null && lng != null && ql.latitude != null && ql.longitude != null
+          ? haversineKm(lat, lng, ql.latitude, ql.longitude)
+          : null;
+      return {
+        id: ql.id,
+        name: ql.name,
+        city: ql.city,
+        address: ql.address,
+        phone: ql.phone,
+        description: ql.description,
+        rating: rating ? Number(rating.toFixed(2)) : null,
+        distance,
+        latitude: ql.latitude,
+        longitude: ql.longitude,
+        gallery: ql.galleryUrls || [],
+        category: ql.category,
+        websiteUrl: ql.websiteUrl,
+        externalOnly: true,
+      };
+    })
+      .filter((ql) =>
+        lat != null && lng != null && ql.distance != null
+          ? ql.distance <= rangeKm
+          : true,
+      )
+      .filter((ql) =>
+        minRating != null && ql.rating != null ? ql.rating >= minRating : true,
+      );
+
+    const all = [...filtered, ...quickMapped].sort(
+      (a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9),
+    );
+
+    return res.json({ establishments: all });
   }),
 );
 
@@ -1111,6 +1157,55 @@ directoryRouter.get(
   "/establishments/:id",
   asyncHandler(async (req, res) => {
     const id = String(req.params.id);
+
+    /* Try quick listing (Establishment table) first */
+    const ql = await prisma.establishment.findUnique({
+      where: { id },
+      include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
+    });
+
+    if (ql && ql.externalOnly) {
+      const reviews = await prisma.establishmentReview.findMany({
+        where: { establishmentId: id },
+        select: { id: true, stars: true, comment: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      });
+      const rating = reviews.length
+        ? reviews.reduce((a, r) => a + r.stars, 0) / reviews.length
+        : null;
+      const recentReviews = reviews.map((r) => ({
+        id: r.id,
+        rating: r.stars,
+        comment: r.comment,
+        createdAt: r.createdAt.toISOString(),
+      }));
+
+      return res.json({
+        establishment: {
+          id: ql.id,
+          name: ql.name,
+          city: ql.city,
+          address: ql.address,
+          phone: ql.phone,
+          description: ql.description,
+          latitude: ql.latitude,
+          longitude: ql.longitude,
+          gallery: ql.galleryUrls || [],
+          category: ql.category,
+          websiteUrl: ql.websiteUrl,
+          externalOnly: true,
+          rating: rating ? Number(rating.toFixed(2)) : null,
+          reviewCount: reviews.length,
+          recentReviews,
+          rooms: [],
+          packs: [],
+          promotions: [],
+        },
+      });
+    }
+
+    /* Full profile (User table) */
     const u = await prisma.user.findUnique({
       where: { id },
       select: {

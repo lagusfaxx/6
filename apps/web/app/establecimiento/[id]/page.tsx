@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, Phone, Clock, Star, X, MessageSquare, Bed, Tag, Gift } from "lucide-react";
+import { MapPin, Phone, Clock, Star, X, MessageSquare, Bed, Tag, Gift, ExternalLink, Globe } from "lucide-react";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
 import Avatar from "../../../components/Avatar";
 import SkeletonCard from "../../../components/SkeletonCard";
@@ -33,6 +33,10 @@ type Establishment = {
   features?: string[];
   isOpen?: boolean;
   fromPrice?: number;
+  websiteUrl?: string | null;
+  externalOnly?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
   rooms?: { id: string; name: string; description?: string | null; price: number }[];
   packs?: { id: string; name: string; description?: string | null; price: number }[];
   promotions?: { id: string; title: string; description?: string | null; discountPercent?: number | null }[];
@@ -176,6 +180,18 @@ export default function EstablishmentDetailPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              {data.externalOnly && data.websiteUrl && (
+                <a
+                  href={data.websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_8px_32px_rgba(168,85,247,0.35)]"
+                >
+                  <Globe className="h-4 w-4" />
+                  Visitar sitio web
+                  <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+                </a>
+              )}
               <Link href={`/calificar/establecimiento/${data.id}`} className="btn-primary">
                 Calificar experiencia
               </Link>
