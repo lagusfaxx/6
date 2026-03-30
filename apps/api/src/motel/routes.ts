@@ -303,7 +303,54 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
   .filter((u) => (minRating != null ? (u.rating || 0) >= minRating : true))
   .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
 
-  return res.json({ establishments: mapped });
+  /* ── Quick listings (externalOnly) from Establishment table ── */
+  const motelCategorySlugs = ["motel", "moteles", "hotel", "hoteles-por-hora", "hoteles"];
+  const quickCategories = await prisma.category.findMany({
+    where: { slug: { in: motelCategorySlugs } },
+    select: { id: true, slug: true, displayName: true },
+  });
+  const quickCategoryIds = quickCategories.map((c) => c.id);
+
+  const quickListings = quickCategoryIds.length
+    ? await prisma.establishment.findMany({
+        where: { externalOnly: true, categoryId: { in: quickCategoryIds } },
+        include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
+      })
+    : [];
+
+  const quickMapped = quickListings.map((ql) => {
+    const safeLat = ql.latitude ?? -33.4489;
+    const safeLng = ql.longitude ?? -70.6693;
+    const distance = lat != null && lng != null ? toDistance(lat, lng, safeLat, safeLng) : null;
+    const catSlug = (ql.category?.slug || "").toLowerCase();
+    const isHotel = catSlug.includes("hotel");
+    return {
+      id: ql.id,
+      name: ql.name,
+      address: ql.address,
+      city: ql.city,
+      latitude: safeLat,
+      longitude: safeLng,
+      distance,
+      rating: reviewMap.get(ql.id)?.rating ? Number((reviewMap.get(ql.id)?.rating || 0).toFixed(2)) : null,
+      reviewsCount: reviewMap.get(ql.id)?.reviews || 0,
+      fromPrice: 0,
+      coverUrl: ql.galleryUrls?.[0] || null,
+      tags: [] as string[],
+      hasPromo: false,
+      category: isHotel ? "HOTEL" : "MOTEL",
+      isOpen: true,
+      websiteUrl: ql.websiteUrl,
+      externalOnly: true,
+    };
+  })
+    .filter((ql) => (category === "hotel" ? ql.category === "HOTEL" : category === "motel" ? ql.category === "MOTEL" : true))
+    .filter((ql) => (search ? `${ql.city} ${ql.address} ${ql.name}`.toLowerCase().includes(search) : true))
+    .filter((ql) => (ql.distance != null ? ql.distance <= rangeKm : true));
+
+  const all = [...mapped, ...quickMapped].sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+
+  return res.json({ establishments: all });
 }));
 
 motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {

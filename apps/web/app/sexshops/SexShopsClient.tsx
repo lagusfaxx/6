@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { ExternalLink } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 
 const MapboxMap = dynamic(() => import("../../components/MapboxMap"), { ssr: false });
@@ -19,6 +20,8 @@ type Shop = {
   latitude?: number | null;
   longitude?: number | null;
   distance: number | null;
+  websiteUrl?: string | null;
+  externalOnly?: boolean;
 };
 
 export default function SexShopsClient() {
@@ -84,7 +87,7 @@ export default function SexShopsClient() {
                 lat: Number(s.latitude),
                 lng: Number(s.longitude),
                 subtitle: s.city || null,
-                href: `/sexshop/${s.username}`,
+                href: s.externalOnly && s.websiteUrl ? s.websiteUrl : `/sexshop/${s.username}`,
                 avatarUrl: s.avatarUrl
               }))}
           />
@@ -95,22 +98,32 @@ export default function SexShopsClient() {
         <div className="text-white/60">Cargando tiendas...</div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {items.map((s) => (
-            <Link
-              key={s.id}
-              href={`/sexshop/${s.username}`}
-              className="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-white/30"
-            >
-              <div className="flex items-center gap-4">
-                <Avatar src={s.avatarUrl} alt={s.name} size={48} />
-                <div>
-                  <div className="font-semibold">{s.name}</div>
-                  <div className="text-xs text-white/60">{s.city || s.address || "Tienda"}</div>
+          {items.map((s) => {
+            const isExternal = s.externalOnly && s.websiteUrl;
+            const Wrapper = isExternal ? "a" : Link;
+            const wrapperProps = isExternal
+              ? { href: s.websiteUrl!, target: "_blank", rel: "noopener noreferrer" }
+              : { href: `/sexshop/${s.username}` };
+            return (
+              <Wrapper
+                key={s.id}
+                {...(wrapperProps as any)}
+                className="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-white/30"
+              >
+                <div className="flex items-center gap-4">
+                  <Avatar src={s.avatarUrl} alt={s.name} size={48} />
+                  <div>
+                    <div className="flex items-center gap-2 font-semibold">
+                      {s.name}
+                      {isExternal && <ExternalLink className="h-3 w-3 text-fuchsia-400" />}
+                    </div>
+                    <div className="text-xs text-white/60">{s.city || s.address || "Tienda"}</div>
+                  </div>
                 </div>
-              </div>
-              <div className="mt-3 text-xs text-white/60">{s.distance ? `${s.distance.toFixed(1)} km` : "Sin distancia"}</div>
-            </Link>
-          ))}
+                <div className="mt-3 text-xs text-white/60">{s.distance ? `${s.distance.toFixed(1)} km` : "Sin distancia"}</div>
+              </Wrapper>
+            );
+          })}
           {!items.length ? <div className="card p-6 text-white/60">No encontramos tiendas con estos filtros.</div> : null}
         </div>
       )}

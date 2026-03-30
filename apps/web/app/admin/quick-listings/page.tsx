@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import useMe from "../../../hooks/useMe";
-import { apiFetch } from "../../../lib/api";
+import { apiFetch, resolveMediaUrl } from "../../../lib/api";
 import {
   ArrowLeft,
   Plus,
@@ -14,6 +14,7 @@ import {
   Loader2,
   Globe,
   MapPin,
+  ImagePlus,
 } from "lucide-react";
 
 const MapboxAddressAutocomplete = dynamic(
@@ -40,6 +41,7 @@ type QuickListing = {
   latitude: number | null;
   longitude: number | null;
   categoryId: string;
+  galleryUrls: string[];
   category: { id: string; name: string; displayName: string; slug: string };
   createdAt: string;
 };
@@ -57,6 +59,9 @@ export default function AdminQuickListingsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetId = useRef<string | null>(null);
 
   /* Form state */
   const [showForm, setShowForm] = useState(false);
@@ -179,11 +184,63 @@ export default function AdminQuickListingsPage() {
     }
   }
 
+  function triggerUpload(id: string) {
+    uploadTargetId.current = id;
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const id = uploadTargetId.current;
+    if (!file || !id) return;
+    e.target.value = "";
+
+    setUploading(id);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      await apiFetch(`/admin/quick-listings/${id}/upload`, {
+        method: "POST",
+        body: form,
+      });
+      setSuccess("Foto subida");
+      await loadData();
+    } catch {
+      setError("Error al subir foto");
+    } finally {
+      setUploading(null);
+    }
+  }
+
+  async function handleDeletePhoto(id: string, url: string) {
+    setUploading(id);
+    try {
+      await apiFetch(`/admin/quick-listings/${id}/gallery`, {
+        method: "DELETE",
+        body: JSON.stringify({ url }),
+      });
+      await loadData();
+    } catch {
+      setError("Error al eliminar foto");
+    } finally {
+      setUploading(null);
+    }
+  }
+
   if (loading) return <div className="p-8 text-white/60">Cargando...</div>;
   if (!isAdmin) return <div className="p-8 text-red-400">Acceso denegado</div>;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4">
+      {/* Hidden file input for uploads */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -352,7 +409,7 @@ export default function AdminQuickListingsPage() {
         </form>
       )}
 
-      {/* Listings table */}
+      {/* Listings */}
       {busy && !showForm ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-fuchsia-400" />
@@ -362,48 +419,87 @@ export default function AdminQuickListingsPage() {
           No hay listados rápidos aún. Haz clic en &quot;Agregar&quot; para crear uno.
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {items.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
             >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="truncate font-semibold">{item.name}</h3>
-                  <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-white/60">
-                    {item.category?.displayName || item.category?.name}
-                  </span>
-                </div>
-                <p className="mt-1 flex items-center gap-1.5 text-xs text-white/50">
-                  <MapPin className="h-3 w-3" />
-                  {item.address}, {item.city}
-                </p>
-                {item.websiteUrl && (
-                  <p className="mt-0.5 flex items-center gap-1.5 text-xs text-fuchsia-400/70">
-                    <Globe className="h-3 w-3" />
-                    <a href={item.websiteUrl} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">
-                      {item.websiteUrl}
-                    </a>
+              {/* Top row: info + actions */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="truncate font-semibold">{item.name}</h3>
+                    <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-white/60">
+                      {item.category?.displayName || item.category?.name}
+                    </span>
+                  </div>
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-white/50">
+                    <MapPin className="h-3 w-3" />
+                    {item.address}, {item.city}
                   </p>
-                )}
+                  {item.websiteUrl && (
+                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-fuchsia-400/70">
+                      <Globe className="h-3 w-3" />
+                      <a href={item.websiteUrl} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">
+                        {item.websiteUrl}
+                      </a>
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={() => triggerUpload(item.id)}
+                    disabled={uploading === item.id}
+                    className="flex items-center gap-1.5 rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-2 text-xs font-medium text-fuchsia-300 hover:bg-fuchsia-500/20 disabled:opacity-50"
+                    title="Subir foto"
+                  >
+                    {uploading === item.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ImagePlus className="h-4 w-4" />
+                    )}
+                    Foto
+                  </button>
+                  <button
+                    onClick={() => openEdit(item)}
+                    className="rounded-lg border border-white/10 p-2 hover:bg-white/10"
+                    title="Editar"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="rounded-lg border border-red-500/20 p-2 text-red-400 hover:bg-red-500/10"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  onClick={() => openEdit(item)}
-                  className="rounded-lg border border-white/10 p-2 hover:bg-white/10"
-                  title="Editar"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  className="rounded-lg border border-red-500/20 p-2 text-red-400 hover:bg-red-500/10"
-                  title="Eliminar"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+
+              {/* Gallery row */}
+              {item.galleryUrls && item.galleryUrls.length > 0 && (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  {item.galleryUrls.map((url, idx) => (
+                    <div key={`${url}-${idx}`} className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-white/10">
+                      <img
+                        src={resolveMediaUrl(url) ?? url}
+                        alt={`Foto ${idx + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePhoto(item.id, url)}
+                        className="absolute right-0.5 top-0.5 hidden rounded-full bg-black/70 p-0.5 text-red-400 hover:text-red-300 group-hover:block"
+                        title="Eliminar foto"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
