@@ -275,7 +275,9 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
     return res.json({ ok: true, subscriptionId, status: flowStatus, activated: false });
   }
 
-  // Activate membership inside a transaction (idempotency check inside tx to prevent races)
+  // Activate/extend membership inside a transaction
+  // For PAC (recurring): Flow sends this webhook each billing cycle, so we must
+  // ALWAYS extend the membership, even if it's currently active.
   const now = new Date();
   const result = await prisma.$transaction(async (tx) => {
     const current = await tx.user.findUnique({
@@ -283,11 +285,7 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
       select: { membershipExpiresAt: true }
     });
 
-    // Idempotency: if membership is already active, skip activation
-    if (current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()) {
-      return { activated: false, reason: "ALREADY_ACTIVE" as const };
-    }
-
+    // Extend from current expiry if still active, otherwise from now
     const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
       ? current.membershipExpiresAt
       : now;
@@ -302,19 +300,18 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
       data: {
         userId: user.id,
         type: "SUBSCRIPTION_RENEWED",
-        data: { subscriptionId, source: "flow" }
+        data: { subscriptionId, source: "flow_subscription", previousExpiry: current?.membershipExpiresAt?.toISOString() || null }
       }
     });
 
-    return { activated: true, reason: undefined };
+    return { extended: true, previousExpiry: current?.membershipExpiresAt, newExpiry: expiresAt };
   });
 
-  if (!result.activated) {
-    console.log("[flow] webhook: membership already active, skipping", { subscriptionId });
-    return res.json({ ok: true, subscriptionId, status: flowStatus, activated: false, reason: result.reason });
-  }
-
-  console.log("[flow] membership activated via webhook", { userId: user.id, subscriptionId });
+  console.log("[flow] membership extended via subscription webhook", {
+    userId: user.id, subscriptionId,
+    previousExpiry: result.previousExpiry?.toISOString() || null,
+    newExpiry: result.newExpiry.toISOString()
+  });
   return res.json({ ok: true, subscriptionId, status: flowStatus, activated: true });
 }));
 

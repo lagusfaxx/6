@@ -348,6 +348,12 @@ export async function getFlowSubscription(subscriptionId: string): Promise<FlowS
   return flowFetch<FlowSubscription>("/subscription/get", "GET", { subscriptionId });
 }
 
+export async function cancelFlowSubscription(subscriptionId: string, at_period_end?: boolean): Promise<FlowSubscription> {
+  const params: Record<string, string> = { subscriptionId };
+  if (at_period_end) params.at_period_end = "1";
+  return flowFetch<FlowSubscription>("/subscription/cancel", "POST", params);
+}
+
 // ── Flow Payment API (one-time) ─────────────────────────────────────
 
 export type FlowCreatePaymentRequest = {

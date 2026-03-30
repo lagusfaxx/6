@@ -230,6 +230,28 @@ async function tickVideocallConfigReminder() {
   }
 }
 
+/* ─── 5. Expire stale PENDING payment intents ─── */
+/* Flow payments that were never completed (user abandoned checkout) */
+
+async function tickExpireStalePendingIntents() {
+  const now = new Date();
+  // Expire PENDING Flow payment intents older than 2 hours
+  const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+
+  const expired = await prisma.paymentIntent.updateMany({
+    where: {
+      status: "PENDING",
+      method: "FLOW",
+      createdAt: { lt: twoHoursAgo },
+    },
+    data: { status: "EXPIRED" },
+  });
+
+  if (expired.count > 0) {
+    console.log(`[worker] expired ${expired.count} stale PENDING payment intents`);
+  }
+}
+
 /* ─── Main tick: runs all checks independently ─── */
 
 async function tick() {
@@ -246,6 +268,7 @@ async function tick() {
     { name: "noPhotoReminder", fn: tickNoPhotoReminder },
     { name: "inactiveReminder", fn: tickInactiveReminder },
     { name: "videocallConfig", fn: tickVideocallConfigReminder },
+    { name: "expireStalePendingIntents", fn: tickExpireStalePendingIntents },
   ];
 
   for (const task of tasks) {
