@@ -5,12 +5,12 @@ import SplashScreen from '../components/SplashScreen';
 
 export const metadata: Metadata = {
   title: {
-    default: 'UZEED: Escorts, Putas y Profesionales en Chile',
+    default: 'UZEED: Escorts y experiencias únicas para adultos',
     template: '%s | UZEED',
   },
-  description: 'Encuentra las mejores escorts, putas y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados, sexo incógnito y disponibilidad hoy en UZEED.',
+  description: 'Encuentra las mejores escorts, acompañantes y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados, sexo incógnito y disponibilidad hoy en UZEED.',
   keywords: [
-    'escorts chile', 'putas chile', 'escorts santiago', 'putas santiago',
+    'escorts chile', 'acompañantes chile', 'escorts santiago', 'acompañantes santiago',
     'escorts las condes', 'escorts providencia', 'escorts viña del mar',
     'acompañantes chile', 'servicios para adultos chile', 'escorts verificadas',
     'masajistas chile', 'moteles chile', 'sexshop chile',
@@ -26,8 +26,8 @@ export const metadata: Metadata = {
     locale: 'es_CL',
     url: 'https://uzeed.cl',
     siteName: 'UZEED',
-    title: 'UZEED: Escorts, Putas y Profesionales en Chile',
-    description: 'Encuentra las mejores escorts, putas y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados, sexo incógnito y disponibilidad hoy.',
+    title: 'UZEED: Escorts y experiencias únicas para adultos',
+    description: 'Encuentra las mejores escorts, acompañantes y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados, sexo incógnito y disponibilidad hoy.',
     images: [
       {
         url: '/brand/isotipo-new.png',
@@ -39,8 +39,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'UZEED: Escorts, Putas y Profesionales en Chile',
-    description: 'Encuentra las mejores escorts, putas y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados y disponibilidad hoy.',
+    title: 'UZEED: Escorts y experiencias únicas para adultos',
+    description: 'Encuentra las mejores escorts, acompañantes y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados y disponibilidad hoy.',
     images: ['/brand/isotipo-new.png'],
   },
   robots: {
@@ -83,7 +83,7 @@ const jsonLd = {
       '@id': 'https://uzeed.cl/#website',
       url: 'https://uzeed.cl',
       name: 'UZEED',
-      description: 'Escorts, putas y profesionales en Chile. Perfiles verificados con disponibilidad hoy.',
+      description: 'Escorts, acompañantes y profesionales en Chile. Perfiles verificados con disponibilidad hoy.',
       inLanguage: 'es-CL',
       potentialAction: {
         '@type': 'SearchAction',
