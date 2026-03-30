@@ -313,6 +313,37 @@ export async function createFlowCustomer(req: FlowCreateCustomerRequest): Promis
   return flowFetch<FlowCustomer>("/customer/create", "POST", params);
 }
 
+// ── Flow Customer Card Registration ────────────────────────────────
+
+export type FlowRegisterResponse = {
+  url: string;
+  token: string;
+};
+
+export type FlowRegisterStatus = {
+  customerId: string;
+  status: number; // 0=pending, 1=registered, 2=rejected
+  creditCardType?: string;
+  last4CardDigits?: string;
+};
+
+/**
+ * Initiates card registration for a customer.
+ * Returns a URL+token to redirect the customer to Flow's card enrollment page.
+ * After enrollment, Flow POSTs to url_return with a token parameter.
+ */
+export async function registerFlowCustomer(customerId: string, urlReturn: string): Promise<FlowRegisterResponse> {
+  return flowFetch<FlowRegisterResponse>("/customer/register", "POST", { customerId, url_return: urlReturn });
+}
+
+/**
+ * Checks the result of a customer card registration.
+ * Call this after the customer returns from the card enrollment page.
+ */
+export async function getFlowRegisterStatus(token: string): Promise<FlowRegisterStatus> {
+  return flowFetch<FlowRegisterStatus>("/customer/getRegisterStatus", "GET", { token });
+}
+
 // ── Flow Subscription API ───────────────────────────────────────────
 
 export type FlowSubscription = {

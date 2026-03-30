@@ -62,23 +62,23 @@ export default function PagoPage() {
   const isActive = sub?.isActive;
   const hasPAC = sub?.flowSubscriptionId && sub?.flowSubscriptionStatus === "active";
 
-  // ── PAC subscription start ───────────────────────────────────────
+  // ── PAC: Step 1 — Register card (redirects to Flow) ──────────────
   const handleStartPAC = async () => {
     setPacError(null);
     setPacBusy(true);
     try {
-      const data = await apiFetch<{ subscriptionId: string }>("/billing/subscription/start", {
+      const data = await apiFetch<{ url: string; token: string }>("/billing/subscription/register-card", {
         method: "POST",
         body: JSON.stringify({}),
       });
-      if (data?.subscriptionId) {
-        // Subscription created — refresh page to show new status
-        window.location.reload();
+      if (data?.url) {
+        // Redirect to Flow card enrollment page
+        window.location.href = data.url;
       } else {
-        setPacError("No se pudo crear la suscripción. Intenta de nuevo.");
+        setPacError("No se pudo iniciar el registro de tarjeta. Intenta de nuevo.");
       }
     } catch (err: any) {
-      setPacError(err?.body?.message || err?.message || "Error al activar el pago automático.");
+      setPacError(err?.body?.message || err?.message || "Error al iniciar el registro de tarjeta.");
     } finally {
       setPacBusy(false);
     }
@@ -255,10 +255,10 @@ export default function PagoPage() {
           {tab === "pac" && (
             <div className="rounded-3xl border border-white/[0.07] bg-white/[0.02] p-5 space-y-4">
               <div>
-                <h2 className="text-sm font-semibold mb-1">Pago Automático con Cargo (PAC)</h2>
+                <h2 className="text-sm font-semibold mb-1">Pago Automatico con Cargo (PAC)</h2>
                 <p className="text-xs text-white/50">
-                  Activa el cobro automático mensual y no te preocupes más por renovar tu plan.
-                  Se cargará automáticamente cada mes a tu tarjeta.
+                  Registra tu tarjeta y activa el cobro automatico mensual.
+                  Se cargara automaticamente cada mes sin que tengas que hacer nada.
                 </p>
               </div>
 
@@ -290,9 +290,9 @@ export default function PagoPage() {
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3.5 text-sm font-semibold text-white transition-all hover:shadow-[0_0_24px_rgba(168,85,247,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {pacBusy ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Activando pago automático...</>
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Redirigiendo a Flow...</>
                 ) : (
-                  <><RefreshCw className="h-4 w-4" /> Activar pago automático — ${price.toLocaleString("es-CL")}/mes</>
+                  <><CreditCard className="h-4 w-4" /> Registrar tarjeta y activar PAC — ${price.toLocaleString("es-CL")}/mes</>
                 )}
               </button>
             </div>
