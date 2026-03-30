@@ -551,8 +551,10 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
       const flowSub = await getFlowSubscription(resolvedSubscriptionId);
       console.log("[billing] getFlowSubscription result", { subscriptionId: resolvedSubscriptionId, status: flowSub.status, statusType: typeof flowSub.status });
       const statusNum = Number(flowSub.status);
-      flowSubscriptionStatus = statusNum === 1 ? "active"
-        : statusNum === 3 || statusNum === 4 ? "canceled"
+      // Flow statuses: 0=created/trial, 1=active(paid), 2=past_due, 3=cancelled, 4=completed
+      // Treat both 0 (trial) and 1 (active) as "active" for our purposes
+      flowSubscriptionStatus = (statusNum === 0 || statusNum === 1) ? "active"
+        : (statusNum === 3 || statusNum === 4) ? "canceled"
         : "inactive";
     } catch (err: any) {
       console.error("[billing] getFlowSubscription failed, assuming active", { subscriptionId: resolvedSubscriptionId, error: err?.message });
