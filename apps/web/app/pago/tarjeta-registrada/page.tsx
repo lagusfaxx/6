@@ -35,7 +35,10 @@ function TarjetaRegistradaContent() {
           setStatus("rejected");
         }
       })
-      .catch(() => setStatus("error"));
+      .catch((err) => {
+        console.error("[tarjeta-registrada] register-status error", err);
+        setStatus("error");
+      });
   }, [token]);
 
   const handleActivateSubscription = async () => {
