@@ -203,10 +203,10 @@ export default function RegisterClient() {
                 <div>
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-amber-400" />
-                    <span className="text-sm font-bold text-white">7 días gratis</span>
+                    <span className="text-sm font-bold text-white">Promo: 3 meses gratis</span>
                   </div>
                   <p className="mt-0.5 text-xs text-white/60 leading-relaxed">
-                    Regístrate ahora y prueba la plataforma sin costo por 7 días.
+                    Regístrate ahora y disfruta 3 meses de membresía sin costo.
                   </p>
                 </div>
               </div>
