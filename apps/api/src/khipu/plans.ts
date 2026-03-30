@@ -46,25 +46,55 @@ plansRouter.post("/plans/create", requireAuth, asyncHandler(async (req, res) => 
 }));
 
 /**
- * POST /plans/setup – One-time convenience endpoint to create the standard UZEED plan in Flow.
+ * POST /plans/setup – Idempotent: creates or updates the standard UZEED plan in Flow.
  *
- * Uses config defaults:
+ * Uses config defaults from .env:
  *   planId        = FLOW_PLAN_ID  (default: UZEED_PRO_MENSUAL)
  *   amount        = MEMBERSHIP_PRICE_CLP (default: 4990)
  *   interval      = 3 (monthly)
- *   urlCallback   = FLOW_CALLBACK_URL
+ *   trial         = FREE_TRIAL_DAYS (default: 7)
+ *   urlCallback   = API_URL/webhooks/flow/subscription
  *
- * Call this ONCE to register the plan in Flow, then use /customer/create + /subscription/create.
+ * If the plan already exists in Flow, it updates it with current .env values.
+ * Call this after changing pricing in .env to sync with Flow.
  */
 plansRouter.post("/plans/setup", requireAdmin, asyncHandler(async (req, res) => {
   const planId = req.body.planId || config.flowPlanId;
   const name = req.body.name || "Plan Profesional UZEED";
   const amount = req.body.amount !== undefined ? Number(req.body.amount) : config.membershipPriceClp;
   const interval = req.body.interval !== undefined ? Number(req.body.interval) : 3; // 3 = monthly
-  const urlCallback = req.body.urlCallback || config.flowCallbackUrl;
+  const apiUrl = config.apiUrl.replace(/\/$/, "");
+  const urlCallback = req.body.urlCallback || `${apiUrl}/webhooks/flow/subscription`;
   const trial_period_days = req.body.trial_period_days !== undefined ? Number(req.body.trial_period_days) : config.freeTrialDays;
 
-  const plan = await createFlowPlan({
+  // Try to get existing plan first
+  let existing = null;
+  try {
+    existing = await getFlowPlan(planId);
+  } catch {
+    // Plan doesn't exist yet — will create below
+  }
+
+  let plan;
+  if (existing) {
+    // Plan exists — update it with current .env values
+    // Note: Flow only allows editing trial_period_days if plan has active subscribers
+    plan = await editFlowPlan({
+      planId,
+      name,
+      amount,
+      currency: req.body.currency || "CLP",
+      interval,
+      interval_count: 1,
+      trial_period_days,
+      urlCallback: urlCallback || undefined
+    });
+    console.log("[flow] plan updated via /plans/setup", { planId: plan.planId, amount, interval, trial_period_days });
+    return res.json({ ...plan, action: "updated" });
+  }
+
+  // Plan doesn't exist — create it
+  plan = await createFlowPlan({
     planId,
     name,
     currency: req.body.currency || "CLP",
@@ -76,8 +106,8 @@ plansRouter.post("/plans/setup", requireAdmin, asyncHandler(async (req, res) => 
     urlCallback: urlCallback || undefined
   });
 
-  console.log("[flow] plan created via /plans/setup", { planId: plan.planId, amount, interval });
-  return res.json(plan);
+  console.log("[flow] plan created via /plans/setup", { planId: plan.planId, amount, interval, trial_period_days });
+  return res.json({ ...plan, action: "created" });
 }));
 
 /** GET /plans/get */

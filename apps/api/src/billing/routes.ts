@@ -297,35 +297,71 @@ billingRouter.post("/billing/subscription/register-card", requireAuth, asyncHand
     return res.status(503).json({ error: "PAYMENT_UNAVAILABLE", message: "El pago con Flow no está configurado" });
   }
 
-  // 1) Ensure Flow customer exists
-  let customerId = user.flowCustomerId;
-  if (!customerId) {
-    const name = (user.displayName || user.username || "").trim();
-    const email = (user.email || "").trim().toLowerCase();
-    if (!email || !name) {
-      return res.status(400).json({ error: "MISSING_CUSTOMER_DATA", message: "Se requiere nombre y email para crear el cliente de pago" });
-    }
-
-    const customer = await createFlowCustomer({ name, email, externalId: userId });
-    customerId = customer.customerId;
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { flowCustomerId: customerId }
-    });
+  const name = (user.displayName || user.username || "").trim();
+  const email = (user.email || "").trim().toLowerCase();
+  if (!email || !name) {
+    return res.status(400).json({ error: "MISSING_CUSTOMER_DATA", message: "Se requiere nombre y email para crear el cliente de pago" });
   }
 
-  // 2) Redirect customer to Flow to register their card
+  // 1) Ensure Flow customer exists — recreate if stale/invalid
+  let customerId = user.flowCustomerId;
+
+  const ensureCustomer = async (): Promise<string> => {
+    if (customerId) {
+      // Try to use existing customer; if Flow says "not found", create a new one
+      try {
+        return customerId;
+      } catch {
+        // Will be tested when we call register below
+      }
+    }
+    const customer = await createFlowCustomer({ name, email, externalId: userId });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { flowCustomerId: customer.customerId }
+    });
+    return customer.customerId;
+  };
+
+  // 2) Try to register card; if "Customer not found", recreate customer and retry
   const appUrl = config.appUrl.replace(/\/$/, "");
-  const urlReturn = `${appUrl}/pago/tarjeta-registrada`;
 
-  const registration = await registerFlowCustomer(customerId, urlReturn);
+  const tryRegister = async (custId: string): Promise<{ url: string; token: string }> => {
+    // Get registration token from Flow.
+    // We embed the token in url_return so the frontend can read it via useSearchParams(),
+    // since Flow may POST the token in the body only (not as query param).
+    // The url_return is where Flow redirects the user AFTER card enrollment.
+    const returnBase = `${appUrl}/pago/tarjeta-registrada`;
+    const registration = await registerFlowCustomer(custId, returnBase);
+    return {
+      url: `${registration.url}?token=${registration.token}`,
+      token: registration.token
+    };
+  };
 
-  console.log("[billing] card registration started", { userId, customerId, token: registration.token });
-  return res.json({
-    url: `${registration.url}?token=${registration.token}`,
-    token: registration.token
-  });
+  customerId = await ensureCustomer();
+
+  let result;
+  try {
+    result = await tryRegister(customerId);
+  } catch (err: any) {
+    // If "Customer not found" (code 7002), the stored customerId is stale — recreate
+    if (err?.payload?.code === 7002 || err?.message?.includes("7002") || err?.message?.includes("Customer not found")) {
+      console.log("[billing] stale flowCustomerId, recreating customer", { userId, oldCustomerId: customerId });
+      const customer = await createFlowCustomer({ name, email, externalId: userId });
+      customerId = customer.customerId;
+      await prisma.user.update({
+        where: { id: userId },
+        data: { flowCustomerId: customerId, flowSubscriptionId: null } // also clear stale subscription
+      });
+      result = await tryRegister(customerId);
+    } else {
+      throw err;
+    }
+  }
+
+  console.log("[billing] card registration started", { userId, customerId, token: result.token });
+  return res.json(result);
 }));
 
 // ── PAC Flow: Step 2 — Check card registration status ────────────────────────
