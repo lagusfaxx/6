@@ -219,12 +219,84 @@ function addDays(base: Date, days: number): Date {
   return d;
 }
 
-/** POST /webhooks/flow/subscription – Flow subscription confirmation callback */
+/**
+ * POST /webhooks/flow/subscription – Flow subscription callback (urlCallback on Plan).
+ *
+ * Flow docs indicate two possible patterns for plan callbacks:
+ *   A) Direct: subscriptionId + status + signature (subscription lifecycle events)
+ *   B) Token-based: token param → call getFlowSubscription to get details
+ * We handle both for maximum compatibility.
+ */
 plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) => {
   const body = req.body as Record<string, string>;
+  const query = (req.query || {}) as Record<string, string>;
+
+  console.log("[flow] subscription webhook received", { body, query });
+
+  // ── Pattern B: token-based callback ──────────────────────────────────
+  // Flow may send just a token; we fetch subscription details via API.
+  const token = String(body.token || query.token || "").trim();
+  if (token && !body.subscriptionId) {
+    let subData;
+    try {
+      subData = await getFlowSubscription(token);
+    } catch (err) {
+      console.error("[flow] subscription webhook: failed to get subscription by token", { token, err });
+      // Try treating token as a payment token and fetching payment status
+      try {
+        const paymentStatus = await getFlowPaymentStatus(token);
+        console.log("[flow] subscription webhook: token resolved as payment", { token, status: paymentStatus.status });
+        // If it's a paid payment, find the user's subscription via commerceOrder
+        if (paymentStatus.status === 2) {
+          // Delegate to the payment webhook handler by forwarding
+          // For now, just log - the /webhooks/flow/payment handler should pick this up
+          console.log("[flow] subscription webhook: paid payment token — should be handled by payment webhook", { token });
+        }
+      } catch {
+        console.error("[flow] subscription webhook: token is not a valid subscription or payment", { token });
+      }
+      return res.status(200).send("OK");
+    }
+
+    // Found subscription — proceed to extend membership
+    const subId = subData.subscriptionId;
+    const subStatus = subData.status;
+    const isActive = subStatus === 1;
+
+    if (!isActive) {
+      console.log("[flow] subscription webhook (token): not active", { subId, status: subStatus });
+      return res.status(200).send("OK");
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { flowSubscriptionId: subId },
+      select: { id: true, membershipExpiresAt: true }
+    });
+
+    if (!user) {
+      console.error("[flow] subscription webhook (token): user not found for subscription", { subId });
+      return res.status(200).send("OK");
+    }
+
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.user.findUnique({ where: { id: user.id }, select: { membershipExpiresAt: true } });
+      const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
+        ? current.membershipExpiresAt : now;
+      const expiresAt = addDays(base, config.membershipDays);
+      await tx.user.update({ where: { id: user.id }, data: { membershipExpiresAt: expiresAt } });
+      await tx.notification.create({
+        data: { userId: user.id, type: "SUBSCRIPTION_RENEWED", data: { subscriptionId: subId, source: "flow_subscription_token" } }
+      });
+    });
+
+    console.log("[flow] membership extended via subscription webhook (token)", { userId: user.id, subId });
+    return res.status(200).send("OK");
+  }
+
+  // ── Pattern A: direct subscriptionId + status + signature ────────────
   const { s, ...params } = body;
 
-  // 1) Signature verification (timing-safe)
   if (!config.flowSecretKey) {
     console.error("[flow] webhook rejected: FLOW_SECRET_KEY not configured");
     return res.status(500).json({ error: "WEBHOOK_NOT_CONFIGURED" });
@@ -249,13 +321,11 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
   }
 
   const { subscriptionId, status } = params;
-  console.log("[flow] subscription webhook received", { subscriptionId, status });
 
   if (!subscriptionId) {
     return res.status(400).json({ error: "MISSING_SUBSCRIPTION_ID" });
   }
 
-  // 2) Validate subscriptionId exists in our database
   const user = await prisma.user.findFirst({
     where: { flowSubscriptionId: subscriptionId },
     select: { id: true, membershipExpiresAt: true, flowSubscriptionId: true }
@@ -266,7 +336,6 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
     return res.status(404).json({ error: "SUBSCRIPTION_NOT_FOUND" });
   }
 
-  // Flow status 1 = active, 4 = canceled
   const flowStatus = Number(status);
   const isActive = flowStatus === 1;
 
@@ -275,7 +344,6 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
     return res.json({ ok: true, subscriptionId, status: flowStatus, activated: false });
   }
 
-  // Activate/extend membership inside a transaction
   // For PAC (recurring): Flow sends this webhook each billing cycle, so we must
   // ALWAYS extend the membership, even if it's currently active.
   const now = new Date();
@@ -285,7 +353,6 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
       select: { membershipExpiresAt: true }
     });
 
-    // Extend from current expiry if still active, otherwise from now
     const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
       ? current.membershipExpiresAt
       : now;
