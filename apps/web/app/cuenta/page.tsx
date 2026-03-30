@@ -247,7 +247,17 @@ export default function AccountPage() {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  {subscriptionStatus.isActive ? (
+                  {isTrialPeriod ? (
+                    <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 space-y-2">
+                      <p className="text-sm font-medium text-amber-300">
+                        Estás en el plan gratuito de prueba
+                      </p>
+                      <p className="text-xs text-white/50">
+                        Tu período de prueba vence en <span className="font-semibold text-amber-400">{subscriptionStatus.daysRemaining || 0} días</span>.
+                        Contrata un plan pagado para seguir visible después de la prueba.
+                      </p>
+                    </div>
+                  ) : subscriptionStatus.isActive ? (
                     <>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-white/60">Días restantes:</span>
@@ -262,11 +272,6 @@ export default function AccountPage() {
                             {new Date(subscriptionStatus.membershipExpiresAt).toLocaleDateString("es-CL")}
                           </span>
                         </div>
-                      )}
-                      {isTrialPeriod && (
-                        <p className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2 border border-amber-500/20">
-                          Período de prueba gratis
-                        </p>
                       )}
                     </>
                   ) : (
@@ -308,7 +313,7 @@ export default function AccountPage() {
                       onClick={handleSubscribe}
                       className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
                     >
-                      {subscriptionStatus.isActive ? "Renovar suscripción" : "Suscribirse al plan mensual"}
+                      {isTrialPeriod ? "Contratar plan" : subscriptionStatus.isActive ? "Renovar suscripción" : "Suscribirse al plan mensual"}
                     </button>
                   </>
                 )}

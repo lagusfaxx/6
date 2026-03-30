@@ -61,7 +61,8 @@ export default function PagoPage() {
   const price = sub?.subscriptionPrice ?? 4990;
   const isActive = sub?.isActive;
   const hasPAC = sub?.flowSubscriptionId && sub?.flowSubscriptionStatus === "active";
-  const canPayOneTime = !isActive || (sub?.daysRemaining ?? 0) <= 3; // Can only do one-time payment when <=3 days remain
+  const isTrialPeriod = sub?.trialActive && !sub?.membershipActive;
+  const canPayOneTime = !isActive || (sub?.daysRemaining ?? 0) <= 3 || isTrialPeriod; // Can pay one-time when <=3 days remain OR on free trial
 
   // ── PAC: Step 1 — Register card (redirects to Flow) ──────────────
   const handleStartPAC = async () => {
