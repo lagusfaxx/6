@@ -61,7 +61,10 @@ plansRouter.post("/plans/setup", requireAdmin, asyncHandler(async (req, res) => 
   const name = req.body.name || "Plan Profesional UZEED";
   const amount = req.body.amount !== undefined ? Number(req.body.amount) : config.membershipPriceClp;
   const interval = req.body.interval !== undefined ? Number(req.body.interval) : 3; // 3 = monthly
-  const urlCallback = req.body.urlCallback || config.flowCallbackUrl;
+  // For subscription plans, the callback should go to the subscription webhook
+  // (not the one-time payment webhook) so recurring charges extend the membership.
+  const apiUrl = config.apiUrl.replace(/\/$/, "");
+  const urlCallback = req.body.urlCallback || `${apiUrl}/webhooks/flow/subscription`;
   const trial_period_days = req.body.trial_period_days !== undefined ? Number(req.body.trial_period_days) : config.freeTrialDays;
 
   const plan = await createFlowPlan({
