@@ -379,6 +379,22 @@ export async function getFlowSubscription(subscriptionId: string): Promise<FlowS
   return flowFetch<FlowSubscription>("/subscription/get", "GET", { subscriptionId });
 }
 
+export type FlowSubscriptionListResponse = {
+  total: number;
+  hasMore: number;
+  data: FlowSubscription[];
+};
+
+export async function listFlowSubscriptions(opts?: { planId?: string; start?: number; limit?: number; filter?: string; status?: number }): Promise<FlowSubscriptionListResponse> {
+  const params: Record<string, string> = {};
+  if (opts?.planId) params.planId = opts.planId;
+  if (opts?.start !== undefined) params.start = String(opts.start);
+  if (opts?.limit !== undefined) params.limit = String(opts.limit);
+  if (opts?.filter) params.filter = opts.filter;
+  if (opts?.status !== undefined) params.status = String(opts.status);
+  return flowFetch<FlowSubscriptionListResponse>("/subscription/list", "GET", params);
+}
+
 export async function cancelFlowSubscription(subscriptionId: string, at_period_end?: boolean): Promise<FlowSubscription> {
   const params: Record<string, string> = { subscriptionId };
   if (at_period_end) params.at_period_end = "1";
