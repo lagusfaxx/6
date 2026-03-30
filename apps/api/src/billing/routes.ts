@@ -5,6 +5,8 @@ import { config } from "../config";
 import { asyncHandler } from "../lib/asyncHandler";
 import {
   createFlowCustomer,
+  registerFlowCustomer,
+  getFlowRegisterStatus,
   createFlowSubscription,
   getFlowSubscription,
   cancelFlowSubscription,
@@ -274,26 +276,25 @@ billingRouter.post("/admin/billing/transfers/:id/reject", requireAdmin, asyncHan
   return res.json({ ok: true, intentId: id });
 }));
 
-// ── Flow subscription start (one-click: creates customer + subscription) ────
+// ── PAC Flow: Step 1 — Register card (creates customer + redirects to Flow card enrollment) ──
 
-billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(async (req, res) => {
+billingRouter.post("/billing/subscription/register-card", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.session.userId!;
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
-      id: true,
-      email: true,
-      displayName: true,
-      username: true,
-      profileType: true,
-      flowCustomerId: true,
-      flowSubscriptionId: true
+      id: true, email: true, displayName: true, username: true,
+      profileType: true, flowCustomerId: true
     }
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
   if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
     return res.status(400).json({ error: "NOT_REQUIRED", message: "Este tipo de perfil no requiere suscripción" });
+  }
+
+  if (!config.flowApiKey) {
+    return res.status(503).json({ error: "PAYMENT_UNAVAILABLE", message: "El pago con Flow no está configurado" });
   }
 
   // 1) Ensure Flow customer exists
@@ -314,19 +315,77 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
     });
   }
 
-  // 2) Create Flow subscription
+  // 2) Redirect customer to Flow to register their card
+  const appUrl = config.appUrl.replace(/\/$/, "");
+  const urlReturn = `${appUrl}/pago/tarjeta-registrada`;
+
+  const registration = await registerFlowCustomer(customerId, urlReturn);
+
+  console.log("[billing] card registration started", { userId, customerId, token: registration.token });
+  return res.json({
+    url: `${registration.url}?token=${registration.token}`,
+    token: registration.token
+  });
+}));
+
+// ── PAC Flow: Step 2 — Check card registration status ────────────────────────
+
+billingRouter.get("/billing/subscription/register-status", requireAuth, asyncHandler(async (req, res) => {
+  const token = String(req.query.token || "").trim();
+  if (!token) return res.status(400).json({ error: "MISSING_TOKEN" });
+
+  const status = await getFlowRegisterStatus(token);
+  // status: 0=pending, 1=registered, 2=rejected
+  const registered = status.status === 1;
+
+  return res.json({
+    registered,
+    status: status.status,
+    creditCardType: status.creditCardType || null,
+    last4CardDigits: status.last4CardDigits || null,
+    customerId: status.customerId
+  });
+}));
+
+// ── PAC Flow: Step 3 — Create subscription (only after card is registered) ───
+
+billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true, profileType: true, flowCustomerId: true, flowSubscriptionId: true
+    }
+  });
+  if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+  if (!["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType)) {
+    return res.status(400).json({ error: "NOT_REQUIRED", message: "Este tipo de perfil no requiere suscripción" });
+  }
+
+  if (!user.flowCustomerId) {
+    return res.status(400).json({ error: "CARD_NOT_REGISTERED", message: "Primero debes registrar tu tarjeta. Usa /billing/subscription/register-card" });
+  }
+
+  // If already has an active subscription, don't create another
+  if (user.flowSubscriptionId) {
+    try {
+      const existing = await getFlowSubscription(user.flowSubscriptionId);
+      if (existing.status === 1) { // 1 = active
+        return res.status(400).json({ error: "SUBSCRIPTION_ALREADY_ACTIVE", message: "Ya tienes una suscripción activa" });
+      }
+    } catch {
+      // Subscription not found in Flow — allow creating a new one
+    }
+  }
+
   const planId = req.body?.planId || config.flowPlanId;
-  const { subscription_start, couponId, trial_period_days } = req.body || {};
 
   const subscription = await createFlowSubscription({
     planId,
-    customerId,
-    subscription_start,
-    couponId,
-    trial_period_days: trial_period_days !== undefined ? Number(trial_period_days) : undefined
+    customerId: user.flowCustomerId,
   });
 
-  // 3) Store subscriptionId (membership activates via webhook)
   await prisma.user.update({
     where: { id: userId },
     data: { flowSubscriptionId: subscription.subscriptionId }
