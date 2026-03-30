@@ -2,16 +2,16 @@ import type { Metadata } from "next";
 import HomeClient from "./HomeClient";
 
 export const metadata: Metadata = {
-  title: "UZEED: Escorts, Putas y Profesionales en Chile",
+  title: "UZEED: Escorts y experiencias únicas para adultos",
   description:
-    "Encuentra las mejores escorts, putas y profesionales en Santiago, Las Condes, Providencia y Viña del Mar. Perfiles verificados con fotos reales, sexo incógnito y disponibilidad hoy en UZEED.",
+    "Encuentra las mejores escorts, acompañantes y profesionales en Santiago, Las Condes, Providencia y Viña del Mar. Perfiles verificados con fotos reales, sexo incógnito y disponibilidad hoy en UZEED.",
   keywords: [
-    "escorts chile", "putas chile", "escorts santiago", "putas santiago",
+    "escorts chile", "acompañantes chile", "escorts santiago", "acompañantes santiago",
     "escorts las condes", "escorts providencia", "escorts viña del mar",
-    "acompañantes chile", "escorts verificadas", "putas verificadas",
+    "acompañantes verificadas", "escorts verificadas",
     "escorts colombianas santiago", "escorts venezolanas santiago",
     "masajistas chile", "moteles chile", "sexshop chile",
-    "escorts cerca de mi", "putas cerca de mi",
+    "escorts cerca de mi", "acompañantes cerca de mi",
   ],
   alternates: { canonical: "/" },
   openGraph: {
@@ -19,9 +19,9 @@ export const metadata: Metadata = {
     locale: "es_CL",
     url: "https://uzeed.cl",
     siteName: "UZEED",
-    title: "UZEED: Escorts, Putas y Profesionales en Chile",
+    title: "UZEED: Escorts y experiencias únicas para adultos",
     description:
-      "Encuentra las mejores escorts, putas y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados y disponibilidad hoy.",
+      "Encuentra las mejores escorts, acompañantes y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados y disponibilidad hoy.",
     images: [
       {
         url: "https://uzeed.cl/brand/isotipo-new.png",
@@ -33,9 +33,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "UZEED: Escorts, Putas y Profesionales en Chile",
+    title: "UZEED: Escorts y experiencias únicas para adultos",
     description:
-      "Encuentra las mejores escorts, putas y profesionales en Santiago y todo Chile. Perfiles verificados y disponibilidad hoy.",
+      "Encuentra las mejores escorts, acompañantes y profesionales en Santiago y todo Chile. Perfiles verificados y disponibilidad hoy.",
     images: ["https://uzeed.cl/brand/isotipo-new.png"],
   },
 };
@@ -46,10 +46,10 @@ const homeFaqJsonLd = {
   mainEntity: [
     {
       "@type": "Question",
-      name: "¿Cómo encontrar escorts y putas cerca de mí en Chile?",
+      name: "¿Cómo encontrar escorts y acompañantes cerca de mí en Chile?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "En UZEED puedes activar tu ubicación para ver escorts y putas cercanas ordenadas por distancia. También puedes filtrar por comuna o ciudad como Santiago, Las Condes, Providencia o Viña del Mar.",
+        text: "En UZEED puedes activar tu ubicación para ver escorts y acompañantes cercanas ordenadas por distancia. También puedes filtrar por comuna o ciudad como Santiago, Las Condes, Providencia o Viña del Mar.",
       },
     },
     {
@@ -90,17 +90,17 @@ export default function HomePage() {
       />
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
         <h2 className="text-xl font-bold text-white/80 mb-3">
-          Escorts, Putas y Profesionales en Chile — UZEED
+          Escorts, Acompañantes y Profesionales en Chile — UZEED
         </h2>
         <p className="mb-4">
-          UZEED es la plataforma N°1 para encontrar escorts, putas y profesionales en Chile.
+          UZEED es la plataforma N°1 para encontrar escorts, acompañantes y profesionales en Chile.
           Navega por miles de perfiles verificados con fotos reales en Santiago, Las Condes,
           Providencia, Viña del Mar, Concepción y todo el país. Contacto directo por WhatsApp,
           disponibilidad en tiempo real y verificación de identidad.
         </p>
 
         <h3 className="text-base font-semibold text-white/70 mb-1">
-          Escorts y Putas en Santiago
+          Escorts y Acompañantes en Santiago
         </h3>
         <p className="mb-4">
           Encuentra escorts disponibles hoy en Santiago Centro, Las Condes, Providencia, Ñuñoa,
@@ -131,7 +131,7 @@ export default function HomePage() {
         <h3 className="text-base font-semibold text-white/70 mb-3">Preguntas Frecuentes</h3>
         <details className="mb-3 group">
           <summary className="cursor-pointer font-medium text-white/70 group-open:text-fuchsia-300">
-            ¿Cómo encontrar escorts y putas cerca de mí?
+            ¿Cómo encontrar escorts y acompañantes cerca de mí?
           </summary>
           <p className="mt-1 pl-4 text-white/50">
             Activa tu ubicación en UZEED para ver escorts cercanas. También puedes buscar por comuna

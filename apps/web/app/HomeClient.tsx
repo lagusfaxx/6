@@ -1044,7 +1044,7 @@ export default function HomeClient() {
           </motion.h1>
 
           <motion.h2 initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mx-auto mt-5 max-w-2xl text-[13px] font-medium leading-relaxed text-white/45 sm:text-sm md:text-base">
-            Las mejores Escorts y Putas en Santiago, Las Condes y regiones. Todo lo que buscas en un entorno discreto, verificado y premium.
+            Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Todo lo que buscas en un entorno discreto, verificado y premium.
           </motion.h2>
 
           <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp} className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
