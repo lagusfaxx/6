@@ -276,23 +276,18 @@ export default function AccountPage() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between text-sm pt-3 border-t border-white/[0.06]">
-                  <span className="text-white/60">Precio mensual:</span>
-                  <span className="font-semibold text-white/90">
-                    ${(subscriptionStatus.subscriptionPrice || 4990).toLocaleString("es-CL")} CLP
-                  </span>
-                </div>
-
                 {subscriptionStatus.flowSubscriptionStatus === "active" ? (
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3 space-y-1">
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3 space-y-2">
                     <div className="flex items-center gap-2">
                       <RefreshCw className="h-3.5 w-3.5 text-emerald-400" />
                       <span className="text-sm font-medium text-emerald-300">PAC activo</span>
                     </div>
                     <p className="text-xs text-white/50">
                       {subscriptionStatus.flowCardType && subscriptionStatus.flowCardLast4
-                        ? `${subscriptionStatus.flowCardType} terminada en ${subscriptionStatus.flowCardLast4} — renovación automática`
-                        : "Renovación automática cada mes"}
+                        ? `${subscriptionStatus.flowCardType} terminada en ${subscriptionStatus.flowCardLast4}`
+                        : "Tarjeta registrada"}
+                      {" — "}
+                      ${(subscriptionStatus.subscriptionPrice || 4990).toLocaleString("es-CL")} CLP/mes, renovación automática
                     </p>
                     <button
                       onClick={handleSubscribe}
@@ -302,12 +297,20 @@ export default function AccountPage() {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={handleSubscribe}
-                    className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
-                  >
-                    {subscriptionStatus.isActive ? "Renovar suscripción" : "Suscribirse al plan mensual"}
-                  </button>
+                  <>
+                    <div className="flex items-center justify-between text-sm pt-3 border-t border-white/[0.06]">
+                      <span className="text-white/60">Precio mensual:</span>
+                      <span className="font-semibold text-white/90">
+                        ${(subscriptionStatus.subscriptionPrice || 4990).toLocaleString("es-CL")} CLP
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleSubscribe}
+                      className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
+                    >
+                      {subscriptionStatus.isActive ? "Renovar suscripción" : "Suscribirse al plan mensual"}
+                    </button>
+                  </>
                 )}
 
                 {subscriptionStatus.recentPayments && subscriptionStatus.recentPayments.length > 0 && (

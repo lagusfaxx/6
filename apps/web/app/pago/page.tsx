@@ -61,6 +61,7 @@ export default function PagoPage() {
   const price = sub?.subscriptionPrice ?? 4990;
   const isActive = sub?.isActive;
   const hasPAC = sub?.flowSubscriptionId && sub?.flowSubscriptionStatus === "active";
+  const canPayOneTime = !isActive || (sub?.daysRemaining ?? 0) <= 3; // Can only do one-time payment when <=3 days remain
 
   // ── PAC: Step 1 — Register card (redirects to Flow) ──────────────
   const handleStartPAC = async () => {
@@ -211,6 +212,19 @@ export default function PagoPage() {
         </div>
       )}
 
+      {/* If membership active (>3 days) and no PAC, show info instead of payment options */}
+      {!hasPAC && isActive && sub?.daysRemaining && sub.daysRemaining > 3 && (
+        <div className="mb-4 rounded-2xl border border-violet-500/20 bg-violet-500/[0.06] p-4 space-y-3">
+          <p className="text-sm text-violet-300 font-medium">Tu plan está activo</p>
+          <p className="text-xs text-white/50">
+            Te quedan {sub.daysRemaining} días. Podrás renovar cuando falten 3 días o menos.
+          </p>
+          <p className="text-xs text-white/40">
+            Si prefieres no preocuparte por renovaciones, activa el pago automático (PAC) a continuación.
+          </p>
+        </div>
+      )}
+
       {/* Payment method selector — only show if no active PAC or user wants to change */}
       {!hasPAC && (
         <>
@@ -227,30 +241,34 @@ export default function PagoPage() {
               <RefreshCw className="h-4 w-4" />
               PAC
             </button>
-            <button
-              type="button"
-              onClick={() => setTab("flow")}
-              className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all ${
-                tab === "flow"
-                  ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25"
-                  : "text-white/40 hover:text-white/60"
-              }`}
-            >
-              <CreditCard className="h-4 w-4" />
-              Pago único
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("transfer")}
-              className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all ${
-                tab === "transfer"
-                  ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25"
-                  : "text-white/40 hover:text-white/60"
-              }`}
-            >
-              <Banknote className="h-4 w-4" />
-              Transferencia
-            </button>
+            {canPayOneTime && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setTab("flow")}
+                  className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all ${
+                    tab === "flow"
+                      ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25"
+                      : "text-white/40 hover:text-white/60"
+                  }`}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Pago único
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab("transfer")}
+                  className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all ${
+                    tab === "transfer"
+                      ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25"
+                      : "text-white/40 hover:text-white/60"
+                  }`}
+                >
+                  <Banknote className="h-4 w-4" />
+                  Transferencia
+                </button>
+              </>
+            )}
           </div>
 
           {/* ── PAC tab ── */}
