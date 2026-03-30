@@ -510,7 +510,20 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
   const now = new Date();
   const membershipActive = user.membershipExpiresAt ? user.membershipExpiresAt.getTime() > now.getTime() : false;
   const trialActive = user.shopTrialEndsAt ? user.shopTrialEndsAt.getTime() > now.getTime() : false;
-  const isActive = membershipActive || trialActive;
+
+  // Legacy fix: users registered before the trial fix have membershipExpiresAt set
+  // but no shopTrialEndsAt. Detect them by checking if they ever had a PAID payment.
+  const hasPaidPayment = await prisma.paymentIntent.count({
+    where: {
+      subscriberId: userId,
+      purpose: { in: ["MEMBERSHIP_PLAN", "SHOP_PLAN"] },
+      status: "PAID",
+    },
+  });
+  const isLegacyTrial = membershipActive && !trialActive && hasPaidPayment === 0;
+  const effectiveTrialActive = trialActive || isLegacyTrial;
+  const effectiveMembershipActive = isLegacyTrial ? false : membershipActive;
+  const isActive = effectiveMembershipActive || effectiveTrialActive;
 
   // Calculate days remaining
   let daysRemaining = 0;
@@ -578,8 +591,8 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
   return res.json({
     requiresPayment: true,
     isActive,
-    membershipActive,
-    trialActive,
+    membershipActive: effectiveMembershipActive,
+    trialActive: effectiveTrialActive,
     daysRemaining,
     membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null,
     shopTrialEndsAt: user.shopTrialEndsAt?.toISOString() || null,
