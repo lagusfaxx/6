@@ -546,10 +546,11 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
 
   // Check Flow subscription status if available
   let flowSubscriptionStatus: string | null = null;
+  let _flowRawStatus: any = null; // debug
   if (resolvedSubscriptionId) {
     try {
       const flowSub = await getFlowSubscription(resolvedSubscriptionId);
-      console.log("[billing] getFlowSubscription result", { subscriptionId: resolvedSubscriptionId, status: flowSub.status, statusType: typeof flowSub.status });
+      _flowRawStatus = { status: flowSub.status, type: typeof flowSub.status, keys: Object.keys(flowSub) };
       const statusNum = Number(flowSub.status);
       // Flow statuses: 0=created/trial, 1=active(paid), 2=past_due, 3=cancelled, 4=completed
       // Treat both 0 (trial) and 1 (active) as "active" for our purposes
@@ -557,6 +558,7 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
         : (statusNum === 3 || statusNum === 4) ? "canceled"
         : "inactive";
     } catch (err: any) {
+      _flowRawStatus = { error: err?.message };
       console.error("[billing] getFlowSubscription failed, assuming active", { subscriptionId: resolvedSubscriptionId, error: err?.message });
       // Fail-open: if we have a subscriptionId stored, assume it's active
       // rather than hiding PAC status due to a transient API error
@@ -580,6 +582,7 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     flowSubscriptionStatus,
     flowCardType,
     flowCardLast4,
+    _debug: _flowRawStatus,
   });
 }));
 
