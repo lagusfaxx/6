@@ -2,6 +2,8 @@ import "dotenv/config";
 import cron from "node-cron";
 import { prisma } from "./db";
 import { sendExpiryEmail, smtpEnabled } from "./worker/email";
+import { getFlowSubscription } from "./khipu/client";
+import { config } from "./config";
 import {
   sendNoPhotoReminder,
   sendInactiveProfileReminder,
@@ -252,6 +254,56 @@ async function tickExpireStalePendingIntents() {
   }
 }
 
+/**
+ * Catch missed PAC webhooks: for users with active Flow subscriptions
+ * whose membership is about to expire or already expired, verify with
+ * Flow and extend if the subscription is still alive.
+ */
+async function tickSyncPacSubscriptions() {
+  const now = new Date();
+  // Check users whose membership expires within 2 days or already expired (up to 7 days ago)
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const twoDaysFromNow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+
+  const users = await prisma.user.findMany({
+    where: {
+      flowSubscriptionId: { not: null },
+      membershipExpiresAt: { gte: sevenDaysAgo, lte: twoDaysFromNow },
+    },
+    select: { id: true, flowSubscriptionId: true, membershipExpiresAt: true },
+    take: 50,
+  });
+
+  if (users.length === 0) return;
+
+  for (const user of users) {
+    try {
+      const flowSub = await getFlowSubscription(user.flowSubscriptionId!);
+      const statusNum = Number(flowSub.status);
+      // If subscription is alive (not canceled/completed) and membership already expired or about to
+      if (statusNum !== 3 && statusNum !== 4 && user.membershipExpiresAt && user.membershipExpiresAt.getTime() < now.getTime()) {
+        // Membership expired but PAC is alive — webhook was missed, extend now
+        const base = now;
+        const expiresAt = new Date(base.getTime() + config.membershipDays * 24 * 60 * 60 * 1000);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { membershipExpiresAt: expiresAt },
+        });
+        await prisma.notification.create({
+          data: {
+            userId: user.id,
+            type: "SUBSCRIPTION_RENEWED",
+            data: { source: "pac_sync_worker", previousExpiry: user.membershipExpiresAt.toISOString() },
+          },
+        });
+        console.log("[worker] PAC sync: extended membership (missed webhook)", { userId: user.id, newExpiry: expiresAt.toISOString() });
+      }
+    } catch (err: any) {
+      console.error("[worker] PAC sync failed for user", { userId: user.id, error: err?.message });
+    }
+  }
+}
+
 /* ─── Main tick: runs all checks independently ─── */
 
 async function tick() {
@@ -269,6 +321,7 @@ async function tick() {
     { name: "inactiveReminder", fn: tickInactiveReminder },
     { name: "videocallConfig", fn: tickVideocallConfigReminder },
     { name: "expireStalePendingIntents", fn: tickExpireStalePendingIntents },
+    { name: "syncPacSubscriptions", fn: tickSyncPacSubscriptions },
   ];
 
   for (const task of tasks) {
