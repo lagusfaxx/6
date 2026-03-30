@@ -304,26 +304,21 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
   .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
 
   /* ── Quick listings (externalOnly) from Establishment table ── */
-  const motelCategorySlugs = ["motel", "moteles", "hotel", "hoteles-por-hora", "hoteles"];
-  const quickCategories = await prisma.category.findMany({
-    where: { slug: { in: motelCategorySlugs } },
-    select: { id: true, slug: true, displayName: true },
+  const quickListings = await prisma.establishment.findMany({
+    where: {
+      externalOnly: true,
+      category: { kind: "ESTABLISHMENT" },
+    },
+    include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
   });
-  const quickCategoryIds = quickCategories.map((c) => c.id);
-
-  const quickListings = quickCategoryIds.length
-    ? await prisma.establishment.findMany({
-        where: { externalOnly: true, categoryId: { in: quickCategoryIds } },
-        include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
-      })
-    : [];
 
   const quickMapped = quickListings.map((ql) => {
     const safeLat = ql.latitude ?? -33.4489;
     const safeLng = ql.longitude ?? -70.6693;
     const distance = lat != null && lng != null ? toDistance(lat, lng, safeLat, safeLng) : null;
     const catSlug = (ql.category?.slug || "").toLowerCase();
-    const isHotel = catSlug.includes("hotel");
+    const catName = (ql.category?.displayName || ql.category?.name || "").toLowerCase();
+    const isHotel = catSlug.includes("hotel") || catName.includes("hotel");
     return {
       id: ql.id,
       name: ql.name,

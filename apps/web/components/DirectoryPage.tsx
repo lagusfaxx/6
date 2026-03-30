@@ -39,6 +39,8 @@ export type DirectoryResult = {
   gender: string | null;
   profileType?: string | null;
   avgResponseMinutes?: number | null;
+  websiteUrl?: string | null;
+  externalOnly?: boolean;
 };
 
 /* Catalog constants (also used by TopHeader chips/mega menu) */
@@ -85,8 +87,11 @@ function ProfileCard({
   categorySlug?: string;
   onOpenModal: (profile: DirectoryResult) => void;
 }) {
+  const isExternal = p.externalOnly && p.websiteUrl;
   let href: string;
-  if (entityType === "establishment") {
+  if (isExternal) {
+    href = p.websiteUrl!;
+  } else if (entityType === "establishment") {
     href = categorySlug === "motel" ? `/hospedaje/${p.id}` : `/establecimiento/${p.id}`;
   } else if (entityType === "shop") {
     href = `/sexshop/${p.username || p.id}`;
@@ -109,9 +114,13 @@ function ProfileCard({
     e.preventDefault();
     e.stopPropagation();
 
-    // Establishments & shops → navigate directly to detail page
+    // Establishments & shops → navigate directly to detail page (or external site)
     if (entityType === "establishment" || entityType === "shop") {
-      window.location.href = href;
+      if (isExternal) {
+        window.open(href, "_blank", "noopener,noreferrer");
+      } else {
+        window.location.href = href;
+      }
       return;
     }
 
@@ -327,7 +336,13 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
           lng: Number(p.longitude),
           subtitle: p.serviceCategory || p.city || title,
           username: p.username,
-          href: `/profesional/${p.id}`,
+          href: p.externalOnly && p.websiteUrl
+            ? p.websiteUrl
+            : entityType === "establishment"
+              ? (categorySlug === "motel" ? `/hospedaje/${p.id}` : `/establecimiento/${p.id}`)
+              : entityType === "shop"
+                ? `/sexshop/${p.username || p.id}`
+                : `/profesional/${p.id}`,
           avatarUrl: p.avatarUrl,
           coverUrl: p.coverUrl,
           age: p.age,
