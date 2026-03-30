@@ -369,16 +369,20 @@ billingRouter.get("/billing/subscription/register-status", requireAuth, asyncHan
   // status: 0=pending, 1=registered, 2=rejected
   const registered = statusNum === 1;
 
-  // Save card info to user when card is registered
+  // Save card info to user when card is registered (may fail if migration hasn't run)
   if (registered && (rawStatus.creditCardType || rawStatus.last4CardDigits)) {
     const userId = req.session.userId!;
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        flowCardType: rawStatus.creditCardType || null,
-        flowCardLast4: rawStatus.last4CardDigits || null,
-      }
-    });
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          flowCardType: rawStatus.creditCardType || null,
+          flowCardLast4: rawStatus.last4CardDigits || null,
+        }
+      });
+    } catch {
+      // Migration for card fields hasn't run yet — skip
+    }
   }
 
   return res.json({
@@ -460,13 +464,25 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
       shopTrialEndsAt: true,
       flowCustomerId: true,
       flowSubscriptionId: true,
-      flowCardType: true,
-      flowCardLast4: true,
       createdAt: true
     }
   });
 
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+  // Try to get card info (may fail if migration hasn't run yet)
+  let flowCardType: string | null = null;
+  let flowCardLast4: string | null = null;
+  try {
+    const cardInfo = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { flowCardType: true, flowCardLast4: true }
+    });
+    flowCardType = cardInfo?.flowCardType || null;
+    flowCardLast4 = cardInfo?.flowCardLast4 || null;
+  } catch {
+    // Migration hasn't run yet — skip card info
+  }
 
   const requiresPayment = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType);
   
@@ -557,10 +573,11 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     profileType: user.profileType,
     subscriptionPrice: config.membershipPriceClp,
     recentPayments,
+    flowCustomerId: user.flowCustomerId || null,
     flowSubscriptionId: resolvedSubscriptionId || null,
     flowSubscriptionStatus,
-    flowCardType: user.flowCardType || null,
-    flowCardLast4: user.flowCardLast4 || null,
+    flowCardType,
+    flowCardLast4,
   });
 }));
 
