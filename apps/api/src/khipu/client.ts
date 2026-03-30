@@ -381,7 +381,7 @@ export async function getFlowSubscription(subscriptionId: string): Promise<FlowS
 
 export type FlowSubscriptionListResponse = {
   total: number;
-  hasMore: boolean;
+  hasMore: number;
   data: FlowSubscription[];
 };
 

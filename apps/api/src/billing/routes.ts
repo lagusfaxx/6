@@ -304,25 +304,17 @@ billingRouter.post("/billing/subscription/register-card", requireAuth, asyncHand
     return res.status(400).json({ error: "MISSING_CUSTOMER_DATA", message: "Se requiere nombre y email para crear el cliente de pago" });
   }
 
-  // 1) Ensure Flow customer exists — recreate if stale/invalid
+  // 1) Ensure Flow customer exists
   let customerId = user.flowCustomerId;
 
-  const ensureCustomer = async (): Promise<string> => {
-    if (customerId) {
-      // Try to use existing customer; if Flow says "not found", create a new one
-      try {
-        return customerId;
-      } catch {
-        // Will be tested when we call register below
-      }
-    }
+  if (!customerId) {
     const customer = await createFlowCustomer({ name, email, externalId: userId });
+    customerId = customer.customerId;
     await prisma.user.update({
       where: { id: userId },
-      data: { flowCustomerId: customer.customerId }
+      data: { flowCustomerId: customerId }
     });
-    return customer.customerId;
-  };
+  }
 
   // 2) Try to register card; if "Customer not found", recreate customer and retry
   const appUrl = config.appUrl.replace(/\/$/, "");
@@ -339,8 +331,6 @@ billingRouter.post("/billing/subscription/register-card", requireAuth, asyncHand
       token: registration.token
     };
   };
-
-  customerId = await ensureCustomer();
 
   let result;
   try {
@@ -424,7 +414,7 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
   if (user.flowSubscriptionId) {
     try {
       const existing = await getFlowSubscription(user.flowSubscriptionId);
-      if (existing.status === 1) { // 1 = active
+      if (Number(existing.status) === 1) { // 1 = active
         return res.status(400).json({ error: "SUBSCRIPTION_ALREADY_ACTIVE", message: "Ya tienes una suscripción activa" });
       }
     } catch {
@@ -432,12 +422,22 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
     }
   }
 
-  const planId = req.body?.planId || config.flowPlanId;
+  const planId = config.flowPlanId;
 
-  const subscription = await createFlowSubscription({
-    planId,
-    customerId: user.flowCustomerId,
-  });
+  let subscription;
+  try {
+    subscription = await createFlowSubscription({
+      planId,
+      customerId: user.flowCustomerId,
+    });
+  } catch (err: any) {
+    // If "Customer not found" (7002), the stored customerId is stale
+    if (err?.payload?.code === 7002 || err?.message?.includes("7002") || err?.message?.includes("Customer not found")) {
+      console.error("[billing] stale flowCustomerId in /start, cannot auto-fix — user must re-register card", { userId });
+      return res.status(400).json({ error: "CARD_NOT_REGISTERED", message: "Tu tarjeta ya no está registrada. Debes registrarla nuevamente." });
+    }
+    throw err;
+  }
 
   await prisma.user.update({
     where: { id: userId },
@@ -509,18 +509,19 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
   });
 
   // If flowSubscriptionId is missing but flowCustomerId exists, try to find subscription in Flow
-  if (!user.flowSubscriptionId && user.flowCustomerId && config.flowPlanId) {
+  let resolvedSubscriptionId = user.flowSubscriptionId;
+  if (!resolvedSubscriptionId && user.flowCustomerId && config.flowPlanId) {
     try {
-      const subs = await listFlowSubscriptions({ planId: config.flowPlanId, filter: user.flowCustomerId });
-      const activeSub = subs.data?.find((s: any) => Number(s.status) === 1 && s.customerId === user.flowCustomerId);
+      const subs = await listFlowSubscriptions({ planId: config.flowPlanId, status: 1 });
+      const activeSub = subs.data?.find((s) => s.customerId === user.flowCustomerId);
       if (activeSub) {
         console.log("[billing] found Flow subscription via list fallback", { userId, subscriptionId: activeSub.subscriptionId, customerId: user.flowCustomerId });
+        resolvedSubscriptionId = activeSub.subscriptionId;
         // Store it so we don't need the fallback next time
         await prisma.user.update({
           where: { id: userId },
           data: { flowSubscriptionId: activeSub.subscriptionId }
         });
-        (user as any).flowSubscriptionId = activeSub.subscriptionId;
       }
     } catch (err: any) {
       console.error("[billing] subscription list fallback failed", { error: err?.message });
@@ -529,16 +530,16 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
 
   // Check Flow subscription status if available
   let flowSubscriptionStatus: string | null = null;
-  if (user.flowSubscriptionId) {
+  if (resolvedSubscriptionId) {
     try {
-      const flowSub = await getFlowSubscription(user.flowSubscriptionId);
-      console.log("[billing] getFlowSubscription result", { subscriptionId: user.flowSubscriptionId, status: flowSub.status, statusType: typeof flowSub.status });
+      const flowSub = await getFlowSubscription(resolvedSubscriptionId);
+      console.log("[billing] getFlowSubscription result", { subscriptionId: resolvedSubscriptionId, status: flowSub.status, statusType: typeof flowSub.status });
       const statusNum = Number(flowSub.status);
       flowSubscriptionStatus = statusNum === 1 ? "active"
         : statusNum === 3 || statusNum === 4 ? "canceled"
         : "inactive";
     } catch (err: any) {
-      console.error("[billing] getFlowSubscription failed, assuming active", { subscriptionId: user.flowSubscriptionId, error: err?.message });
+      console.error("[billing] getFlowSubscription failed, assuming active", { subscriptionId: resolvedSubscriptionId, error: err?.message });
       // Fail-open: if we have a subscriptionId stored, assume it's active
       // rather than hiding PAC status due to a transient API error
       flowSubscriptionStatus = "active";
@@ -556,7 +557,7 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     profileType: user.profileType,
     subscriptionPrice: config.membershipPriceClp,
     recentPayments,
-    flowSubscriptionId: user.flowSubscriptionId || null,
+    flowSubscriptionId: resolvedSubscriptionId || null,
     flowSubscriptionStatus,
     flowCardType: user.flowCardType || null,
     flowCardLast4: user.flowCardLast4 || null,
@@ -580,8 +581,14 @@ billingRouter.post("/billing/subscription/cancel", requireAuth, asyncHandler(asy
     // Cancel at period end so the user keeps access until expiry
     await cancelFlowSubscription(user.flowSubscriptionId, true);
   } catch (err: any) {
-    console.error("[billing] cancel subscription failed", { userId, subscriptionId: user.flowSubscriptionId, error: err.message });
-    return res.status(500).json({ error: "CANCEL_FAILED", message: "No se pudo cancelar la suscripción. Intenta de nuevo." });
+    // If already canceled or not found, treat as success (idempotent)
+    const errMsg = err?.message || "";
+    const alreadyCanceled = errMsg.includes("canceled") || errMsg.includes("cancelled") || err?.payload?.code === 7003;
+    if (!alreadyCanceled) {
+      console.error("[billing] cancel subscription failed", { userId, subscriptionId: user.flowSubscriptionId, error: errMsg });
+      return res.status(500).json({ error: "CANCEL_FAILED", message: "No se pudo cancelar la suscripción. Intenta de nuevo." });
+    }
+    console.log("[billing] subscription already canceled (idempotent)", { userId, subscriptionId: user.flowSubscriptionId });
   }
 
   console.log("[billing] subscription canceled", { userId, subscriptionId: user.flowSubscriptionId });
