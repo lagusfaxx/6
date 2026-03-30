@@ -13,7 +13,7 @@ import {
   User, Settings, Image, MapPin, MessageSquare, Heart,
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
-  TrendingUp, Zap, Shield, Wallet, Video,
+  TrendingUp, Zap, Shield, Wallet, Video, RefreshCw,
 } from "lucide-react";
 
 const fadeUp = {
@@ -283,12 +283,32 @@ export default function AccountPage() {
                   </span>
                 </div>
 
-                <button
-                  onClick={handleSubscribe}
-                  className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
-                >
-                  {subscriptionStatus.isActive ? "Renovar suscripción" : "Suscribirse al plan mensual"}
-                </button>
+                {subscriptionStatus.flowSubscriptionStatus === "active" ? (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="h-3.5 w-3.5 text-emerald-400" />
+                      <span className="text-sm font-medium text-emerald-300">PAC activo</span>
+                    </div>
+                    <p className="text-xs text-white/50">
+                      {subscriptionStatus.flowCardType && subscriptionStatus.flowCardLast4
+                        ? `${subscriptionStatus.flowCardType} terminada en ${subscriptionStatus.flowCardLast4} — renovación automática`
+                        : "Renovación automática cada mes"}
+                    </p>
+                    <button
+                      onClick={handleSubscribe}
+                      className="text-xs text-white/40 hover:text-white/70 transition underline underline-offset-2 mt-1"
+                    >
+                      Administrar suscripción
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleSubscribe}
+                    className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
+                  >
+                    {subscriptionStatus.isActive ? "Renovar suscripción" : "Suscribirse al plan mensual"}
+                  </button>
+                )}
 
                 {subscriptionStatus.recentPayments && subscriptionStatus.recentPayments.length > 0 && (
                   <div className="pt-4 border-t border-white/[0.06]">
