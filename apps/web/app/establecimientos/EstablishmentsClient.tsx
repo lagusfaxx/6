@@ -21,6 +21,8 @@ type Establishment = {
   longitude?: number | null;
   gallery: string[];
   category: { id: string; name: string; displayName?: string | null } | null;
+  websiteUrl?: string | null;
+  externalOnly?: boolean;
 };
 
 export default function EstablishmentsClient() {
