@@ -370,16 +370,20 @@ billingRouter.get("/billing/subscription/register-status", requireAuth, asyncHan
   const token = String(req.query.token || "").trim();
   if (!token) return res.status(400).json({ error: "MISSING_TOKEN" });
 
-  const status = await getFlowRegisterStatus(token);
+  const rawStatus = await getFlowRegisterStatus(token);
+  console.log("[billing] getRegisterStatus response", JSON.stringify(rawStatus));
+
+  // Flow may return status as number or string. Normalize.
+  const statusNum = Number(rawStatus.status);
   // status: 0=pending, 1=registered, 2=rejected
-  const registered = status.status === 1;
+  const registered = statusNum === 1;
 
   return res.json({
     registered,
-    status: status.status,
-    creditCardType: status.creditCardType || null,
-    last4CardDigits: status.last4CardDigits || null,
-    customerId: status.customerId
+    status: statusNum,
+    creditCardType: rawStatus.creditCardType || null,
+    last4CardDigits: rawStatus.last4CardDigits || null,
+    customerId: rawStatus.customerId
   });
 }));
 
