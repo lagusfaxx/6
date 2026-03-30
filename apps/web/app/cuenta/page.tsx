@@ -301,7 +301,7 @@ export default function AccountPage() {
                       Administrar suscripción
                     </button>
                   </div>
-                ) : (
+                ) : !isTrialPeriod ? (
                   <>
                     <div className="flex items-center justify-between text-sm pt-3 border-t border-white/[0.06]">
                       <span className="text-white/60">Precio mensual:</span>
@@ -313,10 +313,10 @@ export default function AccountPage() {
                       onClick={handleSubscribe}
                       className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-medium text-white transition-all hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
                     >
-                      {isTrialPeriod ? "Contratar plan" : subscriptionStatus.isActive ? "Renovar suscripción" : "Suscribirse al plan mensual"}
+                      {subscriptionStatus.isActive ? "Renovar suscripción" : "Suscribirse al plan mensual"}
                     </button>
                   </>
-                )}
+                ) : null}
 
                 {subscriptionStatus.recentPayments && subscriptionStatus.recentPayments.length > 0 && (
                   <div className="pt-4 border-t border-white/[0.06]">
