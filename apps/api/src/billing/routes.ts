@@ -378,6 +378,18 @@ billingRouter.get("/billing/subscription/register-status", requireAuth, asyncHan
   // status: 0=pending, 1=registered, 2=rejected
   const registered = statusNum === 1;
 
+  // Save card info to user when card is registered
+  if (registered && (rawStatus.creditCardType || rawStatus.last4CardDigits)) {
+    const userId = req.session.userId!;
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        flowCardType: rawStatus.creditCardType || null,
+        flowCardLast4: rawStatus.last4CardDigits || null,
+      }
+    });
+  }
+
   return res.json({
     registered,
     status: statusNum,
@@ -446,6 +458,8 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
       membershipExpiresAt: true,
       shopTrialEndsAt: true,
       flowSubscriptionId: true,
+      flowCardType: true,
+      flowCardLast4: true,
       createdAt: true
     }
   });
@@ -520,7 +534,9 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     subscriptionPrice: config.membershipPriceClp,
     recentPayments,
     flowSubscriptionId: user.flowSubscriptionId || null,
-    flowSubscriptionStatus
+    flowSubscriptionStatus,
+    flowCardType: user.flowCardType || null,
+    flowCardLast4: user.flowCardLast4 || null,
   });
 }));
 

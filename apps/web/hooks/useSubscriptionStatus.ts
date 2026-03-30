@@ -22,6 +22,8 @@ type SubscriptionStatus = {
   }>;
   flowSubscriptionId?: string | null;
   flowSubscriptionStatus?: string | null;
+  flowCardType?: string | null;
+  flowCardLast4?: string | null;
 };
 
 export default function useSubscriptionStatus() {

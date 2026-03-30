@@ -191,7 +191,9 @@ export default function PagoPage() {
             <p className="text-sm font-medium text-emerald-300">Pago automático activo</p>
           </div>
           <p className="text-xs text-white/50">
-            Tu plan se renueva automáticamente cada mes. No necesitas hacer nada.
+            {sub?.flowCardType && sub?.flowCardLast4
+              ? `${sub.flowCardType} terminada en ${sub.flowCardLast4} — tu plan se renueva automáticamente cada mes.`
+              : "Tu plan se renueva automáticamente cada mes. No necesitas hacer nada."}
           </p>
           <button
             onClick={handleCancelPAC}

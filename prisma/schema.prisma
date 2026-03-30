@@ -425,6 +425,8 @@ model User {
   membershipExpiresAt DateTime?
   flowCustomerId      String?           @unique
   flowSubscriptionId  String?           @unique
+  flowCardType        String?
+  flowCardLast4       String?
   completedServices   Int               @default(0)
   profileViews        Int               @default(0)
   reviewTagsSummary   Json?
