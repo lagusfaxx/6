@@ -45,7 +45,7 @@ billingRouter.post("/billing/payment/flow", requireAuth, asyncHandler(async (req
   const userId = req.session.userId!;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, displayName: true, username: true, profileType: true, membershipExpiresAt: true }
+    select: { id: true, email: true, displayName: true, username: true, profileType: true, membershipExpiresAt: true, shopTrialEndsAt: true }
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
@@ -53,9 +53,11 @@ billingRouter.post("/billing/payment/flow", requireAuth, asyncHandler(async (req
     return res.status(400).json({ error: "NOT_REQUIRED", message: "Este tipo de perfil no requiere suscripción" });
   }
 
-  // Prevent duplicate payment if membership is still active (more than 3 days remaining)
+  // Prevent duplicate payment if PAID membership is still active (more than 3 days remaining)
+  // Allow payment if user is on free trial (even if membershipExpiresAt is set from legacy data)
   const now = new Date();
-  if (user.membershipExpiresAt) {
+  const trialActive = user.shopTrialEndsAt ? user.shopTrialEndsAt.getTime() > now.getTime() : false;
+  if (user.membershipExpiresAt && !trialActive) {
     const msRemaining = user.membershipExpiresAt.getTime() - now.getTime();
     const daysRemaining = msRemaining / (1000 * 60 * 60 * 24);
     if (daysRemaining > 3) {
@@ -141,7 +143,7 @@ billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async 
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, profileType: true, membershipExpiresAt: true }
+    select: { id: true, profileType: true, membershipExpiresAt: true, shopTrialEndsAt: true }
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
@@ -149,9 +151,11 @@ billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async 
     return res.status(400).json({ error: "NOT_REQUIRED" });
   }
 
-  // Prevent duplicate payment if membership is still active (more than 3 days remaining)
+  // Prevent duplicate payment if PAID membership is still active (more than 3 days remaining)
+  // Allow payment if user is on free trial
   const now = new Date();
-  if (user.membershipExpiresAt) {
+  const trialActive = user.shopTrialEndsAt ? user.shopTrialEndsAt.getTime() > now.getTime() : false;
+  if (user.membershipExpiresAt && !trialActive) {
     const msRemaining = user.membershipExpiresAt.getTime() - now.getTime();
     const daysRemaining = msRemaining / (1000 * 60 * 60 * 24);
     if (daysRemaining > 3) {
