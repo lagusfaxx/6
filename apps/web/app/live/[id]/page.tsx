@@ -250,10 +250,13 @@ export default function LiveStreamPage() {
     if (!videoEl) return;
     for (const participant of room.remoteParticipants.values()) {
       for (const pub of participant.trackPublications.values()) {
-        if (pub.isSubscribed && pub.track && pub.track.kind === Track.Kind.Video) {
-          pub.track.attach(videoEl);
-          setVideoReady(true);
-          return;
+        if (pub.isSubscribed && pub.track) {
+          if (pub.track.kind === Track.Kind.Video) {
+            pub.track.attach(videoEl);
+            setVideoReady(true);
+          } else if (pub.track.kind === Track.Kind.Audio) {
+            pub.track.attach();
+          }
         }
       }
     }
@@ -283,17 +286,21 @@ export default function LiveStreamPage() {
         if (state === "disconnected") setRtcState("disconnected");
       })
       .on(RoomEvent.TrackSubscribed, (track) => {
-        if (!isHostRef.current && track.kind === Track.Kind.Video) {
-          const tryAttach = () => {
-            const videoEl = remoteVideoRef.current;
-            if (videoEl) {
-              track.attach(videoEl);
-              setVideoReady(true);
-            } else {
-              requestAnimationFrame(tryAttach);
-            }
-          };
-          tryAttach();
+        if (!isHostRef.current) {
+          if (track.kind === Track.Kind.Video) {
+            const tryAttach = () => {
+              const videoEl = remoteVideoRef.current;
+              if (videoEl) {
+                track.attach(videoEl);
+                setVideoReady(true);
+              } else {
+                requestAnimationFrame(tryAttach);
+              }
+            };
+            tryAttach();
+          } else if (track.kind === Track.Kind.Audio) {
+            track.attach();
+          }
         }
       })
       .on(RoomEvent.TrackUnsubscribed, (track) => { track.detach(); })
