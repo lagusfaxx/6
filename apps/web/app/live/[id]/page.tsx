@@ -1333,7 +1333,7 @@ export default function LiveStreamPage() {
               {/* Top-right: expand */}
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="absolute right-3 top-3 z-30 flex h-8 w-8 items-center justify-center rounded-xl bg-black/50 text-white/50 backdrop-blur-xl transition-all hover:bg-black/70 hover:text-white border border-white/10 sm:right-4 sm:top-4"
+                className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-xl bg-black/50 text-white/50 backdrop-blur-xl transition-all hover:bg-black/70 hover:text-white border border-white/10 sm:right-4 sm:top-4 ${isExpanded ? "z-[100]" : "z-30"}`}
                 style={isExpanded ? { right: "max(0.75rem, env(safe-area-inset-right))", top: "max(0.75rem, env(safe-area-inset-top))" } : undefined}
               >
                 {isExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
@@ -1470,11 +1470,11 @@ export default function LiveStreamPage() {
               </div>
 
               {/* ── Mobile: bottom overlay panel ── */}
-              <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden lg:hidden" style={{ maxHeight: "55%" }}>
-                <div className="h-10 shrink-0 bg-gradient-to-b from-transparent to-black/60" />
-                <div className="flex min-h-0 flex-col bg-black/60 backdrop-blur-xl">
+              <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden lg:hidden" style={{ maxHeight: "60%" }}>
+                <div className="h-6 shrink-0 bg-gradient-to-b from-transparent to-black/60" />
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-black/60 backdrop-blur-xl">
                   {/* Controls bar */}
-                  <div className="flex items-center justify-between px-3 py-2">
+                  <div className="flex shrink-0 items-center justify-between px-3 py-2">
                     <div className="flex items-center gap-2">
                       {stream.host.avatarUrl ? (
                         <img src={resolveMediaUrl(stream.host.avatarUrl) ?? undefined} alt="" className="h-6 w-6 rounded-lg object-cover border border-white/10" />
@@ -1500,7 +1500,7 @@ export default function LiveStreamPage() {
 
                   {/* Quick tips */}
                   {stream.isActive && !isHost && (
-                    <div className="px-3 pb-2">
+                    <div className="shrink-0 px-3 pb-2">
                       {tipOptions.length > 0 && (
                         <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
                           {tipOptions.map((opt) => (
@@ -1522,7 +1522,7 @@ export default function LiveStreamPage() {
                   )}
 
                   {/* Chat */}
-                  <div className="min-h-0 max-h-[18vh] overflow-y-auto px-3 py-1 scrollbar-thin">
+                  <div className="min-h-0 flex-1 overflow-y-auto px-3 py-1 scrollbar-thin">
                     {messages.slice(-20).map((msg) => (
                       <div key={msg.id} className={`mb-0.5 ${msg.isTip ? "rounded-md bg-amber-500/[0.06] px-1.5 py-0.5" : ""}`}>
                         <span className={`text-[10px] font-semibold ${msg.isTip ? "text-amber-300" : msg.userId === myId ? "text-fuchsia-300" : "text-violet-300/80"}`}>
@@ -1536,7 +1536,7 @@ export default function LiveStreamPage() {
                   </div>
 
                   {/* Chat input */}
-                  <div className="flex gap-2 px-3 pt-1" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+                  <div className="flex shrink-0 gap-2 px-3 pt-1" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
                     <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendChat()} placeholder="Escribe..." maxLength={300} className="flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-[11px] text-white outline-none placeholder:text-white/20 focus:border-fuchsia-500/25 backdrop-blur" />
                     <button onClick={sendChat} disabled={!chatInput.trim()} className="rounded-xl bg-fuchsia-600/80 px-3 py-2 backdrop-blur transition hover:bg-fuchsia-500 disabled:opacity-30">
                       <Send className="h-3.5 w-3.5" />
