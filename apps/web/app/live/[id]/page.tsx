@@ -912,7 +912,6 @@ export default function LiveStreamPage() {
                   <div className="space-y-2">
                     {tipOptions.map((opt) => (
                       <div key={opt.id} className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
-                        <span className="text-xl">{opt.emoji || "🎁"}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold text-white/80 truncate">{opt.label}</p>
                           <p className="text-[10px] text-amber-300">{opt.price} tokens</p>
@@ -1334,7 +1333,6 @@ export default function LiveStreamPage() {
                       <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
                         {tipOptions.map((opt) => (
                           <button key={opt.id} onClick={() => sendTip(opt.price, opt.id)} disabled={sendingTip} className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-black/40 px-2.5 py-1.5 text-[10px] font-semibold transition hover:border-fuchsia-500/25 active:scale-95 disabled:opacity-40">
-                            <span>{opt.emoji || "🎁"}</span>
                             <span className="text-white/70">{opt.label}</span>
                             <span className="text-amber-300">{opt.price} tk</span>
                           </button>
@@ -1417,18 +1415,18 @@ export default function LiveStreamPage() {
                 ) : (
                   <button
                     onClick={() => setShowPrivateModal(true)}
-                    className="group flex w-full items-center gap-3 px-3 py-2.5 transition-all hover:bg-amber-500/[0.04]"
+                    className="group mx-2 my-2 flex w-[calc(100%-16px)] items-center gap-3 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 px-4 py-3 shadow-[0_0_20px_rgba(245,158,11,0.08)] transition-all hover:border-amber-400/50 hover:shadow-[0_0_24px_rgba(245,158,11,0.15)] active:scale-[0.98]"
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 border border-amber-500/15">
-                      <Sparkles className="h-4 w-4 text-amber-400/70" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-500/20 border border-amber-400/25 shadow-inner">
+                      <Sparkles className="h-5 w-5 text-amber-300" />
                     </div>
                     <div className="flex-1 text-left min-w-0">
-                      <p className="text-[11px] font-semibold text-white/60 group-hover:text-white/80">Show Privado</p>
-                      <p className="text-[10px] text-white/30">Contenido exclusivo</p>
+                      <p className="text-xs font-bold text-white/90">Show Privado</p>
+                      <p className="text-[10px] text-amber-200/50">Contenido exclusivo 1-a-1</p>
                     </div>
-                    <div className="flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/[0.08] px-2.5 py-1">
-                      <Coins className="h-3 w-3 text-amber-400" />
-                      <span className="text-[11px] font-bold text-amber-300">{stream.privateShowPrice} tk</span>
+                    <div className="flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/20 px-3 py-1.5">
+                      <Coins className="h-3.5 w-3.5 text-amber-300" />
+                      <span className="text-xs font-bold text-amber-200">{stream.privateShowPrice} tk</span>
                     </div>
                   </button>
                 )}
@@ -1457,8 +1455,7 @@ export default function LiveStreamPage() {
                       disabled={sendingTip}
                       className="group flex shrink-0 flex-col items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 transition-all hover:border-fuchsia-500/25 hover:bg-fuchsia-500/[0.06] active:scale-95 disabled:opacity-40"
                     >
-                      <span className="text-lg leading-none">{opt.emoji || "🎁"}</span>
-                      <span className="text-[9px] font-medium text-white/50 group-hover:text-white/70 max-w-[64px] truncate">{opt.label}</span>
+                      <span className="text-[10px] font-medium text-white/60 group-hover:text-white/80 max-w-[72px] truncate">{opt.label}</span>
                       <span className="text-[10px] font-bold text-amber-300">{opt.price} tk</span>
                     </button>
                   ))}
