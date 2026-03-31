@@ -461,7 +461,42 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
     data: { flowSubscriptionId: subscription.subscriptionId }
   });
 
-  console.log("[billing] Flow subscription created", { userId, subscriptionId: subscription.subscriptionId, planId });
+  // Activate membership immediately so user doesn't wait for webhook.
+  // The webhook will extend on future billing cycles.
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    const current = await tx.user.findUnique({
+      where: { id: userId },
+      select: { membershipExpiresAt: true }
+    });
+
+    const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
+      ? current.membershipExpiresAt
+      : now;
+
+    function addDays(d: Date, days: number): Date {
+      const r = new Date(d.getTime());
+      r.setUTCDate(r.getUTCDate() + days);
+      return r;
+    }
+
+    const expiresAt = addDays(base, config.membershipDays);
+
+    await tx.user.update({
+      where: { id: userId },
+      data: { membershipExpiresAt: expiresAt }
+    });
+
+    await tx.notification.create({
+      data: {
+        userId,
+        type: "SUBSCRIPTION_RENEWED",
+        data: { subscriptionId: subscription.subscriptionId, source: "flow_pac_start" }
+      }
+    });
+  });
+
+  console.log("[billing] Flow subscription created + membership activated", { userId, subscriptionId: subscription.subscriptionId, planId });
   return res.json({ subscriptionId: subscription.subscriptionId, subscription });
 }));
 
