@@ -30,6 +30,7 @@ import {
   TrendingUp,
   Users,
   Video,
+  Volume2,
   Wifi,
   WifiOff,
   X,
@@ -125,6 +126,13 @@ export default function LiveStudioPage() {
   const [previewCam, setPreviewCam] = useState(true);
   const [cameraError, setCameraError] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Audio level check
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [audioDetected, setAudioDetected] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioRafRef = useRef<number>(0);
 
   const isProfessional = me?.user?.profileType === "PROFESSIONAL";
   const elapsed = useElapsed(data?.activeStream?.startedAt);
@@ -287,6 +295,67 @@ export default function LiveStudioPage() {
     previewStream.getVideoTracks().forEach((t) => { t.enabled = previewCam; });
   }, [previewCam, previewStream]);
 
+  // Audio level monitoring — detect if mic is actually picking up sound
+  useEffect(() => {
+    if (!previewStream || !previewMic) {
+      setAudioLevel(0);
+      return;
+    }
+
+    const audioTrack = previewStream.getAudioTracks()[0];
+    if (!audioTrack || !audioTrack.enabled) {
+      setAudioLevel(0);
+      return;
+    }
+
+    try {
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.5;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let peakDetected = false;
+
+      const poll = () => {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        // Normalize to 0-100
+        const level = Math.min(100, Math.round((avg / 128) * 100));
+        setAudioLevel(level);
+        if (level > 3 && !peakDetected) {
+          peakDetected = true;
+          setAudioDetected(true);
+        }
+        audioRafRef.current = requestAnimationFrame(poll);
+      };
+      poll();
+    } catch {
+      // AudioContext not supported
+    }
+
+    return () => {
+      cancelAnimationFrame(audioRafRef.current);
+      audioCtxRef.current?.close().catch(() => {});
+      audioCtxRef.current = null;
+      analyserRef.current = null;
+    };
+  }, [previewStream, previewMic]);
+
+  // Reset audio detected when stream changes
+  useEffect(() => {
+    if (!previewStream) {
+      setAudioDetected(false);
+      setAudioLevel(0);
+    }
+  }, [previewStream]);
+
   const sortedTips = useMemo(
     () => (data?.tipOptions || []).filter((t) => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder),
     [data]
@@ -380,15 +449,17 @@ export default function LiveStudioPage() {
 
   /* ── Readiness score ── */
   const cameraReady = !!previewStream && !cameraError && permissionState === "granted";
+  const micReady = cameraReady && audioDetected && previewMic;
   const readinessItems = data
     ? [
         { ok: data.checks.hasPrivateShowPrice, label: "Precio show privado", required: true },
         { ok: data.checks.hasTipOptions, label: "Opciones de propina", required: false },
         { ok: cameraReady, label: "Cámara y micrófono", required: true },
+        { ok: micReady, label: "Prueba de audio", required: true },
       ]
     : [];
   const readyCount = readinessItems.filter((r) => r.ok).length;
-  const canGoLive = data?.checks.readyToGoLive && cameraReady;
+  const canGoLive = data?.checks.readyToGoLive && cameraReady && micReady;
 
   return (
     <div className="min-h-screen bg-[#070816] text-white pb-24">
@@ -664,6 +735,41 @@ export default function LiveStudioPage() {
                         >
                           {previewCam ? <Video className="h-4 w-4" /> : <CameraOff className="h-4 w-4" />}
                         </button>
+                      </div>
+                    )}
+
+                    {/* Audio level meter + status */}
+                    {!data.activeStream && previewStream && (
+                      <div className="absolute right-3 bottom-20 z-10 flex flex-col items-center gap-1.5">
+                        {/* Vertical level bar */}
+                        <div className="flex flex-col-reverse h-20 w-2.5 rounded-full bg-black/40 backdrop-blur-lg border border-white/10 overflow-hidden">
+                          <div
+                            className={`w-full rounded-full transition-all duration-100 ${
+                              audioLevel > 60 ? "bg-emerald-400" : audioLevel > 20 ? "bg-emerald-500/80" : audioLevel > 3 ? "bg-amber-400/80" : "bg-white/10"
+                            }`}
+                            style={{ height: `${Math.max(2, audioLevel)}%` }}
+                          />
+                        </div>
+                        {/* Status label */}
+                        <div className={`rounded-full px-2 py-0.5 text-[9px] font-bold backdrop-blur-lg border ${
+                          !previewMic
+                            ? "bg-red-500/20 border-red-500/30 text-red-300"
+                            : audioDetected
+                              ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-300"
+                              : "bg-amber-500/20 border-amber-500/30 text-amber-300"
+                        }`}>
+                          {!previewMic ? "MUTE" : audioDetected ? "OK" : "Sin audio"}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Audio warning banner */}
+                    {!data.activeStream && previewStream && previewMic && !audioDetected && (
+                      <div className="absolute top-3 right-3 z-10 flex items-center gap-2 rounded-xl bg-amber-500/15 backdrop-blur-lg border border-amber-500/25 px-3 py-2 max-w-[220px]">
+                        <Volume2 className="h-4 w-4 shrink-0 text-amber-400" />
+                        <p className="text-[10px] text-amber-200/90 leading-tight">
+                          No detectamos tu audio. Habla para verificar que el micrófono funciona.
+                        </p>
                       </div>
                     )}
 
