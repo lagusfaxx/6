@@ -35,7 +35,7 @@ const envTurnServer = envTurnUrls.length > 0
     } satisfies RTCIceServer]
   : [];
 
-const ICE_SERVERS: RTCIceServer[] = [
+export const ICE_SERVERS: RTCIceServer[] = [
   ...STUN_SERVERS,
   ...(envTurnServer.length > 0 ? envTurnServer : DEFAULT_TURN_SERVERS),
 ];
