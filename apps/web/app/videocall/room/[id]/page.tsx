@@ -6,6 +6,7 @@ import { apiFetch, resolveMediaUrl } from "../../../../lib/api";
 import { connectRealtime } from "../../../../lib/realtime";
 import useMe from "../../../../hooks/useMe";
 import { getLivekitToken } from "../../../../lib/livekit";
+import { ICE_SERVERS } from "../../../../lib/webrtc";
 import { Room, RoomEvent, type RemoteParticipant, Track } from "livekit-client";
 import {
   Mic, MicOff, VideoIcon, VideoOff, PhoneOff, Clock, User,
@@ -139,7 +140,11 @@ export default function VideocallRoomPage() {
     setConnectingElapsed(0);
     connectingTimerRef.current = setInterval(() => setConnectingElapsed((e) => e + 1), 1000);
 
-    const room = new Room({ adaptiveStream: true, dynacast: true });
+    const room = new Room({
+      adaptiveStream: true,
+      dynacast: true,
+      rtcConfig: { iceServers: ICE_SERVERS },
+    });
     roomRef.current = room;
 
     room

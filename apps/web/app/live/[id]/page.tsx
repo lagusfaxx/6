@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch, resolveMediaUrl, getApiBase } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 import { connectRealtime } from "../../../lib/realtime";
-import { getLocalMedia } from "../../../lib/webrtc";
+import { getLocalMedia, ICE_SERVERS } from "../../../lib/webrtc";
 import { getLivekitToken } from "../../../lib/livekit";
 import { Room, RoomEvent, Track } from "livekit-client";
 import {
@@ -269,7 +269,11 @@ export default function LiveStreamPage() {
     setRtcError("");
     setRtcState("connecting");
 
-    const room = new Room({ adaptiveStream: true, dynacast: true });
+    const room = new Room({
+      adaptiveStream: true,
+      dynacast: true,
+      rtcConfig: { iceServers: ICE_SERVERS },
+    });
     roomRef.current = room;
 
     room
