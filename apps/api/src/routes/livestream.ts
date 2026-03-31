@@ -1,5 +1,6 @@
 import { Router } from "express";
 import path from "node:path";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../lib/auth";
 import { broadcast, sendToUser } from "../realtime/sse";
@@ -13,6 +14,27 @@ const storageProvider = new LocalStorageProvider(
 );
 
 export const livestreamRouter = Router();
+
+/* ── Rate limiters for financial live endpoints ── */
+const tipLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 15,
+  message: { error: "Demasiadas propinas. Espera un momento." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const privateShowLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 5,
+  message: { error: "Demasiadas solicitudes. Intenta en un momento." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/* ── Constants ── */
+const MAX_TIP_AMOUNT = 10_000;
+const MAX_PRIVATE_SHOW_PRICE = 50_000;
 
 // ── POST /live/start — professional starts a live stream ──
 livestreamRouter.post("/live/start", requireAuth, async (req, res) => {
@@ -42,6 +64,9 @@ livestreamRouter.post("/live/start", requireAuth, async (req, res) => {
 
   if (!Number.isFinite(configuredPrivatePrice) || configuredPrivatePrice < 1) {
     return res.status(400).json({ error: "Configura el precio del show privado antes de iniciar el live" });
+  }
+  if (configuredPrivatePrice > MAX_PRIVATE_SHOW_PRICE) {
+    return res.status(400).json({ error: `Precio máximo del show privado: ${MAX_PRIVATE_SHOW_PRICE} tokens` });
   }
 
   const stream = await prisma.liveStream.create({
@@ -339,7 +364,7 @@ livestreamRouter.post("/live/:id/chat", requireAuth, async (req, res) => {
 // ══════════════════════════════════════════════════════════
 
 // ── POST /live/:id/tip — send a tip during a live stream ──
-livestreamRouter.post("/live/:id/tip", requireAuth, async (req, res) => {
+livestreamRouter.post("/live/:id/tip", requireAuth, tipLimiter, async (req, res) => {
   const userId = req.session.userId!;
   const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
   if (!stream || !stream.isActive) return res.status(400).json({ error: "Stream not active" });
@@ -350,6 +375,7 @@ livestreamRouter.post("/live/:id/tip", requireAuth, async (req, res) => {
   const optionId = req.body.optionId ? String(req.body.optionId) : null;
 
   if (amount < 1) return res.status(400).json({ error: "Minimum 1 token" });
+  if (amount > MAX_TIP_AMOUNT) return res.status(400).json({ error: `Máximo ${MAX_TIP_AMOUNT} tokens por propina` });
 
   // If tipping a specific option, verify it exists and price matches
   if (optionId) {
@@ -394,18 +420,21 @@ livestreamRouter.post("/live/:id/tip", requireAuth, async (req, res) => {
       if (updatedSender.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
       // Credit to host
-      await tx.wallet.update({
+      const updatedHost = await tx.wallet.update({
         where: { id: hostWallet.id },
         data: { balance: { increment: hostPay }, totalEarned: { increment: hostPay } },
       });
 
-      // Record transactions
+      // Read actual sender balance after deduction
+      const senderAfter = await tx.wallet.findUnique({ where: { id: senderWallet.id } });
+
+      // Record transactions with accurate post-update balances
       await tx.tokenTransaction.create({
         data: {
           walletId: senderWallet.id,
           type: "TIP",
           amount: -amount,
-          balance: senderWallet.balance - amount,
+          balance: senderAfter?.balance ?? 0,
           description: `Propina en live: -${amount} tokens`,
         },
       });
@@ -414,7 +443,7 @@ livestreamRouter.post("/live/:id/tip", requireAuth, async (req, res) => {
           walletId: hostWallet.id,
           type: "TIP",
           amount: hostPay,
-          balance: hostWallet.balance + hostPay,
+          balance: updatedHost.balance,
           description: `Propina recibida: +${hostPay} tokens (${amount} - ${platformFee} comisión)`,
         },
       });
@@ -539,6 +568,7 @@ livestreamRouter.post("/live/tip-options/add", requireAuth, async (req, res) => 
   const price = parseInt(String(req.body.price || "0"), 10);
   const emoji = String(req.body.emoji || "").trim().slice(0, 4) || null;
   if (!label || price < 1) return res.status(400).json({ error: "Label and price required" });
+  if (price > MAX_TIP_AMOUNT) return res.status(400).json({ error: `Máximo ${MAX_TIP_AMOUNT} tokens por opción` });
 
   const count = await prisma.liveTipOption.count({ where: { hostId: userId, streamId: null, isActive: true } });
   if (count >= 20) return res.status(400).json({ error: "Max 20 tip options" });
@@ -640,6 +670,7 @@ livestreamRouter.put("/live/studio/settings", requireAuth, async (req, res) => {
 
   const privateShowPrice = parseInt(String(req.body.privateShowPrice || "0"), 10);
   if (privateShowPrice < 1) return res.status(400).json({ error: "Private show price must be at least 1 token" });
+  if (privateShowPrice > MAX_PRIVATE_SHOW_PRICE) return res.status(400).json({ error: `Máximo ${MAX_PRIVATE_SHOW_PRICE} tokens` });
 
   await prisma.platformConfig.upsert({
     where: { key: `live:host:${userId}:privateShowPrice` },
@@ -667,7 +698,7 @@ livestreamRouter.put("/live/studio/settings", requireAuth, async (req, res) => {
 // ══════════════════════════════════════════════════════════
 
 // ── POST /live/:id/private-show — pay to start/join active private show ──
-livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) => {
+livestreamRouter.post("/live/:id/private-show", requireAuth, privateShowLimiter, async (req, res) => {
   const userId = req.session.userId!;
   const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
   if (!stream || !stream.isActive) return res.status(400).json({ error: "Stream not active" });
@@ -716,17 +747,20 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) =>
       });
       if (updated.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
-      await tx.wallet.update({
+      const updatedHostWallet = await tx.wallet.update({
         where: { id: hostWallet.id },
         data: { balance: { increment: hostPay }, totalEarned: { increment: hostPay } },
       });
+
+      // Read actual buyer balance after deduction
+      const buyerAfter = await tx.wallet.findUnique({ where: { id: buyerWallet.id } });
 
       await tx.tokenTransaction.create({
         data: {
           walletId: buyerWallet.id,
           type: "PRIVATE_SHOW",
           amount: -price,
-          balance: buyerWallet.balance - price,
+          balance: buyerAfter?.balance ?? 0,
           description: `Show privado: -${price} tokens`,
         },
       });
@@ -735,7 +769,7 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, async (req, res) =>
           walletId: hostWallet.id,
           type: "PRIVATE_SHOW",
           amount: hostPay,
-          balance: hostWallet.balance + hostPay,
+          balance: updatedHostWallet.balance,
           description: `Show privado: +${hostPay} tokens (${price} - ${platformFee} comisión)`,
         },
       });
