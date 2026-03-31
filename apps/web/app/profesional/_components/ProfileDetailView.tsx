@@ -1361,15 +1361,15 @@ export default function ProfileDetailView({
             />
           </button>
         </div>
-        {/* Actions row */}
+        {/* Main CTA */}
+        <button
+          onClick={() => handleChatClick("message")}
+          className="btn-primary mb-2 w-full rounded-2xl py-3 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)]"
+        >
+          Enviar mensaje
+        </button>
+        {/* Secondary actions */}
         <div className="flex gap-2">
-          <button
-            onClick={() => handleChatClick("message")}
-            className="btn-primary flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold"
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-            Mensaje
-          </button>
           {hasVideocall && (
             <Link
               href={`/videocall?professional=${professional.id}`}
