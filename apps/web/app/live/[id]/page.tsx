@@ -272,7 +272,6 @@ export default function LiveStreamPage() {
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
-      rtcConfig: { iceServers: ICE_SERVERS },
     });
     roomRef.current = room;
 
@@ -317,7 +316,10 @@ export default function LiveStreamPage() {
 
     try {
       const tokenRes = await getLivekitToken({ kind: "live", streamId: sId, roomName: `live:${sId}` });
-      await room.connect(tokenRes.url, tokenRes.token, { autoSubscribe: true });
+      await room.connect(tokenRes.url, tokenRes.token, {
+        autoSubscribe: true,
+        rtcConfig: { iceServers: ICE_SERVERS },
+      });
 
       if (isHostRef.current) {
         const localStream = localStreamRef.current;
