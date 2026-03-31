@@ -246,7 +246,89 @@ servicesRouter.get(
         return a.distance - b.distance;
       });
 
-    return res.json({ profiles: sorted });
+    /* ── Quick listings (externalOnly) from Establishment table ── */
+    const quickListings = await prisma.establishment.findMany({
+      where: {
+        externalOnly: true,
+        ...(types.length
+          ? {
+              category: {
+                kind: {
+                  in: types.map((t) =>
+                    t === "SHOP" ? "SHOP" : t === "ESTABLISHMENT" ? "ESTABLISHMENT" : "PROFESSIONAL",
+                  ),
+                },
+              },
+            }
+          : {}),
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: "insensitive" as const } },
+                { city: { contains: q, mode: "insensitive" as const } },
+                { address: { contains: q, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        category: { select: { id: true, name: true, displayName: true, slug: true, kind: true } },
+      },
+    });
+
+    const quickProfiles = quickListings
+      .filter((ql) => ql.latitude != null && ql.longitude != null)
+      .map((ql) => {
+        const distance =
+          lat !== null && lng !== null && ql.latitude != null && ql.longitude != null
+            ? haversine(lat, lng, ql.latitude, ql.longitude)
+            : null;
+        const kind = ql.category?.kind;
+        const profileType =
+          kind === "SHOP" ? "SHOP" : kind === "ESTABLISHMENT" ? "ESTABLISHMENT" : "PROFESSIONAL";
+        return {
+          id: ql.id,
+          displayName: ql.name,
+          username: ql.id,
+          avatarUrl: ql.galleryUrls?.[0] || null,
+          coverUrl: ql.galleryUrls?.[0] || null,
+          bio: ql.description || null,
+          city: ql.city,
+          latitude: ql.latitude,
+          longitude: ql.longitude,
+          realLatitude: ql.latitude,
+          realLongitude: ql.longitude,
+          serviceCategory: ql.category?.displayName || ql.category?.name || null,
+          serviceDescription: ql.description || null,
+          profileType,
+          isActive: true,
+          isOnline: false,
+          locality: ql.city || null,
+          distance,
+          availableNow: false,
+          age: null,
+          heightCm: null,
+          hairColor: null,
+          weightKg: null,
+          baseRate: null,
+          lastSeen: null,
+          phone: ql.phone || null,
+          completedServices: null,
+          profileViews: null,
+          userLevel: null,
+          profileTags: [] as string[],
+          serviceTags: [] as string[],
+          websiteUrl: ql.websiteUrl || null,
+          externalOnly: true,
+        };
+      })
+      .filter((ql) =>
+        rangeKm != null && ql.distance != null ? ql.distance <= rangeKm : true,
+      );
+
+    const allProfiles = [...sorted, ...quickProfiles];
+
+    return res.json({ profiles: allProfiles });
   }),
 );
 
@@ -314,10 +396,66 @@ servicesRouter.get(
         };
       });
 
+    const filteredProfiles = enriched.filter((p) =>
+      rangeKm != null && p.distance != null ? p.distance <= rangeKm : true,
+    );
+
+    /* ── Quick listings (externalOnly) from Establishment table ── */
+    const quickMapListings = await prisma.establishment.findMany({
+      where: {
+        externalOnly: true,
+        latitude: { not: null },
+        longitude: { not: null },
+        ...(types.length
+          ? {
+              category: {
+                kind: {
+                  in: types.map((t) =>
+                    t === "SHOP" ? "SHOP" : t === "ESTABLISHMENT" ? "ESTABLISHMENT" : "PROFESSIONAL",
+                  ),
+                },
+              },
+            }
+          : {}),
+      },
+      include: {
+        category: { select: { id: true, name: true, displayName: true, slug: true, kind: true } },
+      },
+    });
+
+    const quickMapProfiles = quickMapListings
+      .filter((ql) => ql.latitude != null && ql.longitude != null)
+      .map((ql) => {
+        const distance =
+          lat !== null && lng !== null && ql.latitude != null && ql.longitude != null
+            ? haversine(lat, lng, ql.latitude, ql.longitude)
+            : null;
+        const kind = ql.category?.kind;
+        const profileType =
+          kind === "SHOP" ? "SHOP" : kind === "ESTABLISHMENT" ? "ESTABLISHMENT" : "PROFESSIONAL";
+        return {
+          id: ql.id,
+          displayName: ql.name,
+          username: ql.id,
+          profileType,
+          latitude: ql.latitude,
+          longitude: ql.longitude,
+          realLatitude: ql.latitude,
+          realLongitude: ql.longitude,
+          city: ql.city,
+          serviceCategory: ql.category?.displayName || ql.category?.name || null,
+          locality: ql.city || null,
+          distance,
+          websiteUrl: ql.websiteUrl || null,
+          externalOnly: true,
+        };
+      })
+      .filter((ql) =>
+        rangeKm != null && ql.distance != null ? ql.distance <= rangeKm : true,
+      );
+
     return res.json({
-      profiles: enriched.filter((p) =>
-        rangeKm != null && p.distance != null ? p.distance <= rangeKm : true,
-      ),
+      profiles: [...filteredProfiles, ...quickMapProfiles],
     });
   }),
 );
