@@ -10,7 +10,7 @@ import { env } from "../lib/env";
 
 const storageProvider = new LocalStorageProvider(
   path.join(process.cwd(), env.UPLOADS_DIR),
-  `${env.API_BASE_URL}/uploads`,
+  "/uploads",
 );
 
 export const livestreamRouter = Router();

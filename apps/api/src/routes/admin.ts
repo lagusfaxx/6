@@ -9,7 +9,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 
 export const adminRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
-const storage = new LocalStorageProvider(path.join(process.cwd(), env.UPLOADS_DIR), `${env.API_BASE_URL}/uploads`);
+const storage = new LocalStorageProvider(path.join(process.cwd(), env.UPLOADS_DIR), "/uploads");
 
 adminRouter.get("/admin/posts", requireAdmin, asyncHandler(async (req, res) => {
   const posts = await prisma.post.findMany({ orderBy: { createdAt: "desc" }, include: { media: true } });
