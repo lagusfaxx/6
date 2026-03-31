@@ -18,24 +18,14 @@ import { connectRealtime } from "../../../lib/realtime";
 import Avatar from "../../../components/Avatar";
 import {
   ArrowLeft,
-  Calendar,
-  Clock,
-  Image as ImageIcon,
   MapPin,
   Paperclip,
-  Phone,
   Send,
   X,
-  CheckCircle2,
-  XCircle,
   AlertCircle,
   Hotel,
   DollarSign,
 } from "lucide-react";
-
-function normalizePhoneForWhatsApp(phone: string) {
-  return phone.replace(/[^\d+]/g, "").replace(/^\+/, "");
-}
 
 type Message = {
   id: string;
@@ -53,31 +43,6 @@ type ChatUser = {
   profileType: string;
   city: string | null;
   phone?: string | null;
-};
-
-type ServiceRequest = {
-  id: string;
-  status: string;
-  requestedDate?: string | null;
-  requestedTime?: string | null;
-  agreedLocation?: string | null;
-  clientComment?: string | null;
-  professionalPriceClp?: number | null;
-  professionalDurationM?: number | null;
-  professionalComment?: string | null;
-  contactUnlocked?: boolean;
-  client?: {
-    id: string;
-    displayName?: string | null;
-    username: string;
-    phone?: string | null;
-  };
-  professional?: {
-    id: string;
-    displayName?: string | null;
-    username: string;
-    phone?: string | null;
-  };
 };
 
 type MotelBooking = {
@@ -103,30 +68,6 @@ type MeResponse = {
     profileType: string | null;
   } | null;
 };
-
-function statusLabel(status: string) {
-  if (status === "PENDIENTE_APROBACION") return "Solicitud enviada";
-  if (status === "APROBADO") return "Propuesta recibida";
-  if (status === "ACTIVO") return "Confirmada";
-  if (status === "FINALIZADO") return "Finalizado";
-  if (status === "RECHAZADO") return "Rechazada";
-  if (status === "CANCELADO_CLIENTE") return "Cancelada";
-  return status.toLowerCase();
-}
-
-function statusColor(status: string) {
-  if (status === "ACTIVO")
-    return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-  if (status === "APROBADO")
-    return "text-amber-400 bg-amber-500/10 border-amber-500/20";
-  if (status === "PENDIENTE_APROBACION")
-    return "text-blue-400 bg-blue-500/10 border-blue-500/20";
-  if (status === "FINALIZADO")
-    return "text-white/50 bg-white/5 border-white/10";
-  if (status === "RECHAZADO" || status === "CANCELADO_CLIENTE")
-    return "text-red-400 bg-red-500/10 border-red-500/20";
-  return "text-white/50 bg-white/5 border-white/10";
-}
 
 function profileLabel(type: string) {
   if (type === "PROFESSIONAL") return "Experiencia";
@@ -175,27 +116,8 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeRequest, setActiveRequest] = useState<ServiceRequest | null>(
-    null,
-  );
   const [activeBooking, setActiveBooking] = useState<MotelBooking | null>(null);
   const [bookingBusy, setBookingBusy] = useState(false);
-  const [requesting, setRequesting] = useState(false);
-  const [requestModalOpen, setRequestModalOpen] = useState(false);
-  const [requestDate, setRequestDate] = useState("");
-  const [requestTime, setRequestTime] = useState("");
-  const [requestLocation, setRequestLocation] = useState("");
-  const [requestComment, setRequestComment] = useState("");
-  const today = new Date();
-  const minRequestDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
-  const [proposalPrice, setProposalPrice] = useState("");
-  const [proposalDuration, setProposalDuration] = useState("60");
-  const [proposalComment, setProposalComment] = useState("");
-  const [proposalSubmitting, setProposalSubmitting] = useState(false);
-  const [selectedReviewTags, setSelectedReviewTags] = useState<string[]>([]);
-  const [reviewTagsSent, setReviewTagsSent] = useState(false);
-  const [sendingReviewTags, setSendingReviewTags] = useState(false);
   const [lastRealtimeAt, setLastRealtimeAt] = useState(0);
   const fallbackStepsMs = [2000, 5000, 10000, 20000] as const;
   const fallbackStepRef = useRef(0);
@@ -220,34 +142,6 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages.length]);
-
-  async function loadServiceState(profile: MeResponse["user"] | null) {
-    if (!profile) {
-      setActiveRequest(null);
-      return;
-    }
-
-    if (profile.profileType === "CLIENT") {
-      const res = await apiFetch<{ services: ServiceRequest[] }>(
-        "/services/active",
-      );
-      const match = res.services.find(
-        (service) => service.professional?.id === userId,
-      );
-      setActiveRequest(match || null);
-      return;
-    }
-
-    if (profile.profileType === "PROFESSIONAL") {
-      const res = await apiFetch<{ request: ServiceRequest | null }>(
-        `/services/requests/with/${userId}`,
-      );
-      setActiveRequest(res.request || null);
-      return;
-    }
-
-    setActiveRequest(null);
-  }
 
   async function loadBookingState(profile: MeResponse["user"] | null) {
     if (
@@ -277,10 +171,7 @@ export default function ChatPage() {
     setMe(meResp.user);
     setMessages(msgResp.messages);
     setOther(msgResp.other);
-    await Promise.all([
-      loadServiceState(meResp.user),
-      loadBookingState(meResp.user),
-    ]);
+    await loadBookingState(meResp.user);
   }
 
   useEffect(() => {
@@ -304,8 +195,6 @@ export default function ChatPage() {
   useEffect(() => {
     const draft = searchParams.get("draft");
     if (draft && !body) setBody(draft);
-    const mode = searchParams.get("mode");
-    if (mode === "request") setRequestModalOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -316,7 +205,7 @@ export default function ChatPage() {
       );
       setMessages(msgResp.messages);
       setOther(msgResp.other);
-      await Promise.all([loadServiceState(me), loadBookingState(me)]);
+      await loadBookingState(me);
     } catch {
       // silent polling
     }
@@ -352,7 +241,7 @@ export default function ChatPage() {
   useEffect(() => {
     const disconnect = connectRealtime((event) => {
       if (
-        ["connected", "hello", "ping", "message", "service_request"].includes(
+        ["connected", "hello", "ping", "message"].includes(
           event.type,
         )
       ) {
@@ -362,7 +251,6 @@ export default function ChatPage() {
       if (
         [
           "message",
-          "service_request",
           "booking:new",
           "booking:update",
         ].includes(event.type)
@@ -462,201 +350,11 @@ export default function ChatPage() {
     }
   }
 
-  async function submitServiceRequest(e: React.FormEvent) {
-    e.preventDefault();
-    if (!requestDate || !requestTime || !requestLocation.trim()) {
-      setError("Debes completar fecha, hora y ubicación acordada.");
-      return;
-    }
-    if (requestDate < minRequestDate) {
-      setError("La fecha de la solicitud debe ser desde hoy en adelante.");
-      return;
-    }
-    setRequesting(true);
-    try {
-      const res = await apiFetch<{ request: ServiceRequest }>(
-        "/services/request",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            professionalId: userId,
-            date: requestDate,
-            time: requestTime,
-            location: requestLocation,
-            comment: requestComment,
-          }),
-        },
-      );
-      setActiveRequest(res.request || null);
-      setRequestModalOpen(false);
-      setRequestDate("");
-      setRequestTime("");
-      setRequestLocation("");
-      setRequestComment("");
-    } catch (e: any) {
-      setError(e?.message || "No se pudo solicitar el servicio");
-    } finally {
-      setRequesting(false);
-    }
-  }
-
-  async function submitProposal(e: React.FormEvent) {
-    e.preventDefault();
-    if (!activeRequest) return;
-    setProposalSubmitting(true);
-    try {
-      const res = await apiFetch<{ service: ServiceRequest }>(
-        `/services/${activeRequest.id}/approve`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            priceClp: Number(proposalPrice),
-            durationMinutes: Number(proposalDuration),
-            professionalComment: proposalComment,
-          }),
-        },
-      );
-      setActiveRequest(res.service || null);
-      setProposalPrice("");
-      setProposalDuration("60");
-      setProposalComment("");
-    } catch (e: any) {
-      setError(e?.message || "No se pudo enviar la propuesta");
-    } finally {
-      setProposalSubmitting(false);
-    }
-  }
-
-  async function rejectRequest() {
-    if (!activeRequest) return;
-    try {
-      const res = await apiFetch<{ service: ServiceRequest }>(
-        `/services/${activeRequest.id}/reject`,
-        { method: "POST" },
-      );
-      setActiveRequest(res.service || null);
-    } catch (e: any) {
-      setError(e?.message || "No se pudo rechazar la solicitud");
-    }
-  }
-
-  async function confirmProposal() {
-    if (!activeRequest) return;
-    try {
-      const res = await apiFetch<{ service: ServiceRequest }>(
-        `/services/${activeRequest.id}/client-confirm`,
-        { method: "POST" },
-      );
-      setActiveRequest(res.service || null);
-      await loadServiceState(me);
-    } catch (e: any) {
-      setError(e?.message || "No se pudo confirmar la solicitud");
-    }
-  }
-
-  async function cancelProposal() {
-    if (!activeRequest) return;
-    try {
-      const res = await apiFetch<{ service: ServiceRequest }>(
-        `/services/${activeRequest.id}/client-cancel`,
-        { method: "POST" },
-      );
-      setActiveRequest(res.service || null);
-    } catch (e: any) {
-      setError(e?.message || "No se pudo cancelar la solicitud");
-    }
-  }
-
-  async function finishService() {
-    if (!activeRequest) return;
-    try {
-      const res = await apiFetch<{ service: ServiceRequest }>(
-        `/services/${activeRequest.id}/finish`,
-        { method: "POST" },
-      );
-      setActiveRequest(res.service || null);
-    } catch (e: any) {
-      setError(e?.message || "No se pudo finalizar el servicio");
-    }
-  }
-
-  const contactPhone = useMemo(() => {
-    if (!activeRequest) return null;
-    if (
-      !(
-        activeRequest.status === "ACTIVO" ||
-        activeRequest.status === "FINALIZADO"
-      )
-    )
-      return null;
-    if (me?.profileType === "CLIENT")
-      return activeRequest.professional?.phone || null;
-    if (me?.profileType === "PROFESSIONAL")
-      return activeRequest.client?.phone || null;
-    return null;
-  }, [activeRequest, me?.profileType]);
-
-  const professionalWhatsAppLink = useMemo(() => {
-    if (me?.profileType !== "CLIENT") return null;
-    const professionalPhone = activeRequest?.professional?.phone;
-    if (!professionalPhone) return null;
-    const normalizedPhone = normalizePhoneForWhatsApp(professionalPhone);
-    if (!normalizedPhone) return null;
-    return `https://wa.me/${normalizedPhone}`;
-  }, [activeRequest?.professional?.phone, me?.profileType]);
-
-  const canCreateRequest =
-    me?.profileType === "CLIENT" &&
-    other?.profileType === "PROFESSIONAL" &&
-    !activeRequest;
-  const waitingProfessional =
-    me?.profileType === "CLIENT" &&
-    activeRequest?.status === "PENDIENTE_APROBACION";
-  const canConfirmProposal =
-    me?.profileType === "CLIENT" && activeRequest?.status === "APROBADO";
-  const canReviewPendingRequest =
-    me?.profileType === "PROFESSIONAL" &&
-    activeRequest?.status === "PENDIENTE_APROBACION";
-  const waitingClientConfirm =
-    me?.profileType === "PROFESSIONAL" && activeRequest?.status === "APROBADO";
-  const canFinishService =
-    me?.profileType === "PROFESSIONAL" && activeRequest?.status === "ACTIVO";
   const isMotelOwnerChat =
     String(me?.profileType || "").toUpperCase() === "ESTABLISHMENT";
   const isClientChat = String(me?.profileType || "").toUpperCase() === "CLIENT";
   const hasMotelBooking = Boolean(activeBooking);
 
-  const canLeaveQuickReview =
-    me?.profileType === "CLIENT" &&
-    activeRequest?.status === "FINALIZADO" &&
-    !reviewTagsSent;
-
-  useEffect(() => {
-    setSelectedReviewTags([]);
-    setReviewTagsSent(false);
-  }, [activeRequest?.id]);
-
-  async function submitQuickReviewTags() {
-    if (!activeRequest || !selectedReviewTags.length) return;
-    setSendingReviewTags(true);
-    try {
-      await apiFetch(`/services/${activeRequest.id}/review-tags`, {
-        method: "POST",
-        body: JSON.stringify({ tags: selectedReviewTags }),
-      });
-      setReviewTagsSent(true);
-    } catch (e: any) {
-      setError(e?.message || "No se pudieron enviar las etiquetas");
-    } finally {
-      setSendingReviewTags(false);
-    }
-  }
-
-  const quickReviewOptions = [
-    "#Puntual",
-    "#IgualALaFoto",
-    "#Discrecion",
-  ] as const;
   const bookingMapsLink = activeBooking
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([activeBooking.establishmentAddress || "", activeBooking.establishmentCity || ""].join(" ").trim() || "motel")}`
     : "";
@@ -754,29 +452,10 @@ export default function ChatPage() {
           </p>
         </div>
 
-        {/* Request button or status */}
-        <div className="flex shrink-0 items-center gap-2">
-          {canCreateRequest && (
-            <button
-              onClick={() => setRequestModalOpen(true)}
-              className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-xs font-semibold transition hover:brightness-110"
-              disabled={requesting}
-            >
-              Solicitar encuentro
-            </button>
-          )}
-          {activeRequest && (
-            <span
-              className={`rounded-full border px-3 py-1 text-[11px] font-medium ${statusColor(activeRequest.status)}`}
-            >
-              {statusLabel(activeRequest.status)}
-            </span>
-          )}
-        </div>
       </div>
 
-      {/* ── Service request / booking cards ── */}
-      {(hasMotelBooking || activeRequest) && (
+      {/* ── Booking card ── */}
+      {hasMotelBooking && (
         <div className="shrink-0 space-y-2 border-b border-white/10 bg-white/[0.03] px-4 py-3">
           {/* Motel booking card */}
           {hasMotelBooking && (
@@ -906,310 +585,6 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Service request card */}
-          {activeRequest && (
-            <div className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/30 to-transparent" />
-
-              {/* Card header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20">
-                    <Calendar className="h-3.5 w-3.5 text-fuchsia-300" />
-                  </div>
-                  <span className="text-xs font-semibold">Solicitud de encuentro</span>
-                </div>
-                <span
-                  className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusColor(activeRequest.status)}`}
-                >
-                  {statusLabel(activeRequest.status)}
-                </span>
-              </div>
-
-              {/* Card body */}
-              <div className="px-4 py-3 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-white/40 mb-1">
-                      <Calendar className="h-3 w-3" /> Fecha
-                    </div>
-                    <div className="text-xs font-medium text-white/80">
-                      {activeRequest.requestedDate || "-"}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-white/40 mb-1">
-                      <Clock className="h-3 w-3" /> Hora
-                    </div>
-                    <div className="text-xs font-medium text-white/80">
-                      {activeRequest.requestedTime || "-"}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-white/40 mb-1">
-                    <MapPin className="h-3 w-3" /> Ubicación
-                  </div>
-                  <div className="text-xs font-medium text-white/80 truncate">
-                    {activeRequest.agreedLocation || "-"}
-                  </div>
-                </div>
-
-                {activeRequest.clientComment && (
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-xs text-white/60 italic">
-                    &ldquo;{activeRequest.clientComment}&rdquo;
-                  </div>
-                )}
-
-                {/* Professional proposal details */}
-                {(activeRequest.professionalPriceClp != null || activeRequest.professionalDurationM != null) && (
-                  <div className="rounded-xl border border-fuchsia-500/15 bg-gradient-to-r from-fuchsia-500/[0.06] to-violet-500/[0.04] p-3">
-                    <div className="text-[10px] font-semibold text-fuchsia-300/80 uppercase tracking-wider mb-2">
-                      Propuesta profesional
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {activeRequest.professionalPriceClp != null && (
-                        <div className="flex items-center gap-1.5">
-                          <DollarSign className="h-3.5 w-3.5 text-fuchsia-400/70" />
-                          <span className="text-sm font-semibold text-white/90">
-                            ${Number(activeRequest.professionalPriceClp).toLocaleString("es-CL")}
-                          </span>
-                        </div>
-                      )}
-                      {activeRequest.professionalDurationM != null && (
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 text-fuchsia-400/70" />
-                          <span className="text-sm font-medium text-white/80">
-                            {activeRequest.professionalDurationM} min
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    {activeRequest.professionalComment && (
-                      <p className="mt-2 text-xs text-white/50 italic">
-                        &ldquo;{activeRequest.professionalComment}&rdquo;
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Status messages */}
-                {waitingProfessional && (
-                  <div className="flex items-center gap-2 rounded-xl border border-blue-400/15 bg-blue-500/[0.06] px-3 py-2.5">
-                    <div className="h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
-                    <p className="text-xs text-blue-300/80">
-                      Pendiente de revisión por la profesional
-                    </p>
-                  </div>
-                )}
-                {waitingClientConfirm && (
-                  <div className="flex items-center gap-2 rounded-xl border border-amber-400/15 bg-amber-500/[0.06] px-3 py-2.5">
-                    <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                    <p className="text-xs text-amber-300/80">
-                      Esperando confirmación del cliente
-                    </p>
-                  </div>
-                )}
-
-                {/* Confirmed banner */}
-                {activeRequest.status === "ACTIVO" && (
-                  <div className="rounded-xl border border-emerald-500/25 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 p-3 text-center">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                      <span className="text-sm font-bold text-emerald-300">Reserva confirmada</span>
-                    </div>
-                    <p className="text-[11px] text-emerald-200/60">Contacto desbloqueado</p>
-                    {activeRequest.professionalPriceClp != null && activeRequest.professionalDurationM != null && (
-                      <div className="flex items-center justify-center gap-3 mt-2 text-xs text-white/60">
-                        <span>${Number(activeRequest.professionalPriceClp).toLocaleString("es-CL")}</span>
-                        <span className="text-white/20">·</span>
-                        <span>{activeRequest.professionalDurationM} min</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Contact phone */}
-                {contactPhone && (
-                  <div className="flex items-center gap-3 rounded-xl border border-emerald-400/20 bg-emerald-500/[0.06] px-3 py-2.5">
-                    <Phone className="h-4 w-4 text-emerald-400" />
-                    <span className="text-sm font-medium text-emerald-300">
-                      {contactPhone}
-                    </span>
-                    {professionalWhatsAppLink && (
-                      <a
-                        href={professionalWhatsAppLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="ml-auto flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-400/30 bg-emerald-500/15 text-emerald-300 transition hover:bg-emerald-500/30"
-                      >
-                        <svg
-                          viewBox="0 0 24 24"
-                          className="h-4 w-4 fill-current"
-                          aria-hidden="true"
-                        >
-                          <path d="M19.05 4.91A9.82 9.82 0 0 0 12.06 2a9.93 9.93 0 0 0-8.61 14.89L2 22l5.26-1.38A10 10 0 0 0 12.04 22h.01A9.94 9.94 0 0 0 22 12.08a9.8 9.8 0 0 0-2.95-7.17Zm-7 .99a8.12 8.12 0 0 1 8.11 8.1 8.13 8.13 0 0 1-8.11 8.11 8.28 8.28 0 0 1-4.13-1.13l-.3-.18-3.12.82.83-3.04-.2-.31a8.12 8.12 0 0 1 6.92-12.37Zm4.45 9.95c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.34-1.67-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.79-.2-.47-.4-.41-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.1.15 1.52.09.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.03.14-1.14-.06-.11-.22-.17-.46-.29Z" />
-                        </svg>
-                      </a>
-                    )}
-                  </div>
-                )}
-                {!contactPhone && activeRequest.status === "APROBADO" && (
-                  <p className="text-[11px] text-amber-400/60 px-1">
-                    El teléfono se libera al confirmar la propuesta.
-                  </p>
-                )}
-
-                {/* Actions */}
-                {(canConfirmProposal || canFinishService) && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {canConfirmProposal && (
-                      <>
-                        <button
-                          onClick={confirmProposal}
-                          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-xs font-semibold transition hover:brightness-110 hover:shadow-[0_0_16px_rgba(168,85,247,0.3)]"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar propuesta
-                        </button>
-                        <button
-                          onClick={cancelProposal}
-                          className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-xs text-white/70 transition hover:bg-white/10"
-                        >
-                          Cancelar
-                        </button>
-                      </>
-                    )}
-                    {canFinishService && (
-                      <button
-                        onClick={finishService}
-                        className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-xs font-semibold transition hover:brightness-110 hover:shadow-[0_0_16px_rgba(16,185,129,0.3)]"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Servicio terminado
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Professional review form */}
-          {canReviewPendingRequest && (
-            <form
-              onSubmit={submitProposal}
-              className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden"
-            >
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent" />
-
-              <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20">
-                  <DollarSign className="h-3.5 w-3.5 text-violet-300" />
-                </div>
-                <span className="text-xs font-semibold text-violet-200">
-                  Responder solicitud
-                </span>
-              </div>
-
-              <div className="p-4 space-y-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="grid gap-1.5">
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-white/50">
-                      <DollarSign className="h-3.5 w-3.5 text-violet-400/70" /> Valor (CLP)
-                    </span>
-                    <input
-                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
-                      inputMode="numeric"
-                      value={proposalPrice}
-                      onChange={(e) => setProposalPrice(e.target.value)}
-                      placeholder="Ej: 50000"
-                    />
-                  </label>
-                  <label className="grid gap-1.5">
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-white/50">
-                      <Clock className="h-3.5 w-3.5 text-violet-400/70" /> Duración
-                    </span>
-                    <select
-                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
-                      value={proposalDuration}
-                      onChange={(e) => setProposalDuration(e.target.value)}
-                      style={{ colorScheme: "dark" }}
-                    >
-                      <option value="30">30 min</option>
-                      <option value="60">60 min</option>
-                      <option value="90">90 min</option>
-                      <option value="120">120 min</option>
-                    </select>
-                  </label>
-                </div>
-                <label className="grid gap-1.5">
-                  <span className="text-xs font-medium text-white/50">Nota (opcional)</span>
-                  <textarea
-                    className="min-h-[3rem] rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-violet-500/40 focus:ring-1 focus:ring-violet-500/20"
-                    value={proposalComment}
-                    onChange={(e) => setProposalComment(e.target.value)}
-                    placeholder="Información adicional para el cliente"
-                  />
-                </label>
-                <div className="flex gap-2 pt-1">
-                  <button
-                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2.5 text-xs font-semibold transition hover:brightness-110 hover:shadow-[0_0_16px_rgba(168,85,247,0.3)] disabled:opacity-50"
-                    disabled={proposalSubmitting}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    {proposalSubmitting ? "Enviando..." : "Aceptar y enviar propuesta"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={rejectRequest}
-                    className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs text-white/70 transition hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-300"
-                  >
-                    <XCircle className="h-3.5 w-3.5" /> Rechazar
-                  </button>
-                </div>
-              </div>
-            </form>
-          )}
-        </div>
-      )}
-
-      {canLeaveQuickReview && (
-        <div className="mx-4 mb-3 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3">
-          <div className="text-xs font-semibold text-emerald-100">
-            Valora rápido con etiquetas
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {quickReviewOptions.map((tag) => {
-              const selected = selectedReviewTags.includes(tag);
-              return (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() =>
-                    setSelectedReviewTags((prev) =>
-                      selected ? prev.filter((t) => t !== tag) : [...prev, tag],
-                    )
-                  }
-                  className={`rounded-full border px-2.5 py-1 text-[11px] ${selected ? "border-emerald-300/50 bg-emerald-500/20 text-emerald-50" : "border-white/15 bg-white/5 text-white/70"}`}
-                >
-                  {tag}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            disabled={!selectedReviewTags.length || sendingReviewTags}
-            onClick={submitQuickReviewTags}
-            className="mt-2 rounded-lg border border-emerald-300/30 bg-emerald-500/20 px-3 py-1.5 text-xs font-medium text-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {sendingReviewTags ? "Enviando..." : "Enviar valoración"}
-          </button>
-        </div>
-      )}
-      {reviewTagsSent && (
-        <div className="mx-4 mb-3 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-xs text-emerald-100">
-          ¡Gracias! Tu valoración rápida fue enviada.
         </div>
       )}
 
@@ -1358,154 +733,6 @@ export default function ChatPage() {
         </button>
       </form>
 
-      {/* ── Bottom sheet — Solicitar encuentro ── */}
-      {requestModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={() => setRequestModalOpen(false)}>
-          <div
-            className="relative w-full max-w-lg rounded-t-[28px] border-t border-x border-white/10 bg-[#070816] shadow-[0_-20px_60px_rgba(0,0,0,0.6)] overflow-hidden max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drag handle */}
-            <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="h-1 w-10 rounded-full bg-white/20" />
-            </div>
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 pb-3 shrink-0">
-              <div>
-                <h2 className="text-lg font-bold">Solicitar encuentro</h2>
-                <p className="text-xs text-white/40">
-                  con <span className="text-fuchsia-300/80 font-medium">{other?.displayName || other?.username}</span>
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRequestModalOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white/50 transition hover:bg-white/10 hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={submitServiceRequest} className="flex-1 overflow-y-auto px-5 space-y-5 pb-4">
-              {/* Date & Time — compact row */}
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-2 block">Fecha y hora</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="date"
-                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none transition focus:border-fuchsia-500/40"
-                    value={requestDate}
-                    min={minRequestDate}
-                    onChange={(e) => setRequestDate(e.target.value)}
-                    required
-                    style={{ colorScheme: "dark" }}
-                  />
-                  <input
-                    type="time"
-                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white outline-none transition focus:border-fuchsia-500/40"
-                    value={requestTime}
-                    onChange={(e) => setRequestTime(e.target.value)}
-                    required
-                    style={{ colorScheme: "dark" }}
-                  />
-                </div>
-              </div>
-
-              {/* Location — quick options */}
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-2 block">Ubicación</label>
-                <div className="space-y-2">
-                  {/* Quick pick buttons */}
-                  <div className="grid grid-cols-1 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setRequestLocation("Mi domicilio")}
-                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
-                        requestLocation === "Mi domicilio"
-                          ? "border-fuchsia-500/40 bg-fuchsia-500/10 text-white"
-                          : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
-                      }`}
-                    >
-                      <MapPin className="h-4 w-4 shrink-0 text-fuchsia-400/70" />
-                      <span className="font-medium">Mi domicilio</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRequestLocation("Hotel / Motel (a elegir)")}
-                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
-                        requestLocation === "Hotel / Motel (a elegir)"
-                          ? "border-amber-500/40 bg-amber-500/10 text-white"
-                          : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
-                      }`}
-                    >
-                      <Hotel className="h-4 w-4 shrink-0 text-amber-400/70" />
-                      <div>
-                        <span className="font-medium">Hotel / Motel</span>
-                        <span className="block text-[10px] text-white/35">Moteles y hoteles de la app</span>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRequestLocation("A coordinar por chat")}
-                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
-                        requestLocation === "A coordinar por chat"
-                          ? "border-violet-500/40 bg-violet-500/10 text-white"
-                          : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
-                      }`}
-                    >
-                      <Calendar className="h-4 w-4 shrink-0 text-violet-400/70" />
-                      <span className="font-medium">A coordinar por chat</span>
-                    </button>
-                  </div>
-                  {/* Custom location input */}
-                  {requestLocation !== "Mi domicilio" && requestLocation !== "Hotel / Motel (a elegir)" && requestLocation !== "A coordinar por chat" && (
-                    <input
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 transition focus:border-fuchsia-500/40"
-                      value={requestLocation}
-                      onChange={(e) => setRequestLocation(e.target.value)}
-                      placeholder="Otra ubicación..."
-                    />
-                  )}
-                  {(requestLocation === "Mi domicilio" || requestLocation === "Hotel / Motel (a elegir)" || requestLocation === "A coordinar por chat") && (
-                    <button
-                      type="button"
-                      onClick={() => setRequestLocation("")}
-                      className="text-[11px] text-white/35 hover:text-white/60 transition"
-                    >
-                      Escribir otra ubicación...
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Optional note — minimal */}
-              <textarea
-                className="w-full min-h-[2.5rem] rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/20 transition focus:border-fuchsia-500/30"
-                value={requestComment}
-                onChange={(e) => setRequestComment(e.target.value)}
-                placeholder="Nota adicional (opcional)"
-                rows={1}
-              />
-            </form>
-
-            {/* Submit */}
-            <div className="px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 border-t border-white/10 shrink-0">
-              <button
-                type="button"
-                onClick={(e) => {
-                  const form = (e.target as HTMLElement).closest(".flex-col")?.querySelector("form");
-                  if (form) form.requestSubmit();
-                }}
-                className="w-full rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-4 text-sm font-bold text-white transition hover:brightness-110 shadow-[0_8px_32px_rgba(168,85,247,0.3)] disabled:opacity-40"
-                disabled={requesting || !requestDate || !requestTime || !requestLocation.trim()}
-              >
-                {requesting ? "Enviando..." : "Enviar solicitud"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

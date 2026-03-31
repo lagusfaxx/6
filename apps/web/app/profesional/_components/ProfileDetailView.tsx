@@ -1225,14 +1225,8 @@ export default function ProfileDetailView({
 
                 <div className="mt-4 space-y-2.5">
                 <button
-                  onClick={() => handleChatClick("request")}
-                  className="btn-primary w-full rounded-2xl py-3.5 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)] transition-transform duration-200 hover:scale-105 hover:shadow-[0_0_24px_rgba(168,85,247,0.45)]"
-                >
-                  Solicitar encuentro
-                </button>
-                <button
                   onClick={() => handleChatClick("message")}
-                  className="btn-secondary w-full rounded-2xl py-2.5 text-sm"
+                  className="btn-primary w-full rounded-2xl py-3.5 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)] transition-transform duration-200 hover:scale-105 hover:shadow-[0_0_24px_rgba(168,85,247,0.45)]"
                 >
                   Enviar mensaje
                 </button>
@@ -1367,18 +1361,11 @@ export default function ProfileDetailView({
             />
           </button>
         </div>
-        {/* Main CTA */}
-        <button
-          onClick={() => handleChatClick("request")}
-          className="btn-primary mb-2 w-full rounded-2xl py-3 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)]"
-        >
-          Solicitar encuentro
-        </button>
-        {/* Secondary actions — single compact row */}
+        {/* Actions row */}
         <div className="flex gap-2">
           <button
             onClick={() => handleChatClick("message")}
-            className="btn-secondary flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-medium"
+            className="btn-primary flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold"
           >
             <MessageSquare className="h-3.5 w-3.5" />
             Mensaje

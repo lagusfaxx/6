@@ -448,49 +448,39 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
           <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-fuchsia-500/20 to-transparent" />
           <div className="p-4 space-y-2.5">
             {isProfessional && (
-              <>
+              <div className="flex gap-2">
                 <Link
-                  href={isAuthed ? `${chatHref}?mode=request` : `/login?next=${encodeURIComponent(`${chatHref}?mode=request`)}`}
+                  href={chatHref}
                   onClick={onClose}
-                  className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] py-3.5 text-sm font-bold transition-all duration-300 hover:bg-[position:100%_0] shadow-[0_8px_32px_rgba(168,85,247,0.3),inset_0_1px_0_rgba(255,255,255,0.1)]"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/[0.08] py-2.5 text-xs font-semibold text-fuchsia-200 transition-all hover:bg-fuchsia-500/15 hover:border-fuchsia-500/40"
                 >
-                  <Sparkles className="h-4 w-4" />
-                  Solicitar encuentro
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Mensaje
                 </Link>
-                <div className="flex gap-2">
-                  <Link
-                    href={chatHref}
-                    onClick={onClose}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/[0.08] py-2.5 text-xs font-semibold text-fuchsia-200 transition-all hover:bg-fuchsia-500/15 hover:border-fuchsia-500/40"
+                {fullProfile?.phone && (
+                  <a
+                    href={formatWhatsAppUrl(fullProfile.phone, fullProfile.displayName || profile.displayName)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      trackAction("whatsapp_click", profile.id, { source: "preview_modal", displayName: fullProfile.displayName || profile.displayName });
+                      onClose();
+                    }}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] py-2.5 text-xs font-semibold text-emerald-200 transition-all hover:bg-emerald-500/15 hover:border-emerald-500/40"
                   >
-                    <MessageCircle className="h-3.5 w-3.5" />
-                    Mensaje
-                  </Link>
-                  {fullProfile?.phone && (
-                    <a
-                      href={formatWhatsAppUrl(fullProfile.phone, fullProfile.displayName || profile.displayName)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => {
-                        trackAction("whatsapp_click", profile.id, { source: "preview_modal", displayName: fullProfile.displayName || profile.displayName });
-                        onClose();
-                      }}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] py-2.5 text-xs font-semibold text-emerald-200 transition-all hover:bg-emerald-500/15 hover:border-emerald-500/40"
-                    >
-                      <Phone className="h-3.5 w-3.5" />
-                      WhatsApp
-                    </a>
-                  )}
-                  <Link
-                    href={profileHref}
-                    onClick={onClose}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 text-xs font-medium text-white/70 transition-all hover:bg-white/[0.08] hover:border-white/20"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    Ver perfil
-                  </Link>
-                </div>
-              </>
+                    <Phone className="h-3.5 w-3.5" />
+                    WhatsApp
+                  </a>
+                )}
+                <Link
+                  href={profileHref}
+                  onClick={onClose}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 text-xs font-medium text-white/70 transition-all hover:bg-white/[0.08] hover:border-white/20"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Ver perfil
+                </Link>
+              </div>
             )}
             {isEstablishment && (
               <>
