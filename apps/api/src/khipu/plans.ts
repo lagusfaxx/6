@@ -20,7 +20,7 @@ import {
 export const plansRouter = Router();
 
 /** POST /plans/create */
-plansRouter.post("/plans/create", requireAuth, asyncHandler(async (req, res) => {
+plansRouter.post("/plans/create", requireAdmin, asyncHandler(async (req, res) => {
   const { planId, name, currency, amount, interval, interval_count, trial_period_days, days_until_due, periods_number, urlCallback, charges_retries_number, currency_convert_option } = req.body;
 
   if (!planId || !name || amount === undefined || interval === undefined) {
@@ -111,7 +111,7 @@ plansRouter.post("/plans/setup", requireAdmin, asyncHandler(async (req, res) => 
 }));
 
 /** GET /plans/get */
-plansRouter.get("/plans/get", requireAuth, asyncHandler(async (req, res) => {
+plansRouter.get("/plans/get", requireAdmin, asyncHandler(async (req, res) => {
   const planId = req.query.planId as string | undefined;
   if (!planId) return res.status(400).json({ error: "MISSING_PLAN_ID" });
 
@@ -120,7 +120,7 @@ plansRouter.get("/plans/get", requireAuth, asyncHandler(async (req, res) => {
 }));
 
 /** POST /plans/edit */
-plansRouter.post("/plans/edit", requireAuth, asyncHandler(async (req, res) => {
+plansRouter.post("/plans/edit", requireAdmin, asyncHandler(async (req, res) => {
   const { planId, name, currency, amount, interval, interval_count, trial_period_days, days_until_due, periods_number, urlCallback, charges_retries_number, currency_convert_option } = req.body;
 
   if (!planId) return res.status(400).json({ error: "MISSING_PLAN_ID" });
@@ -144,7 +144,7 @@ plansRouter.post("/plans/edit", requireAuth, asyncHandler(async (req, res) => {
 }));
 
 /** POST /plans/delete */
-plansRouter.post("/plans/delete", requireAuth, asyncHandler(async (req, res) => {
+plansRouter.post("/plans/delete", requireAdmin, asyncHandler(async (req, res) => {
   const planId = req.body?.planId as string | undefined;
   if (!planId) return res.status(400).json({ error: "MISSING_PLAN_ID" });
 
@@ -153,7 +153,7 @@ plansRouter.post("/plans/delete", requireAuth, asyncHandler(async (req, res) => 
 }));
 
 /** GET /plans/list */
-plansRouter.get("/plans/list", requireAuth, asyncHandler(async (req, res) => {
+plansRouter.get("/plans/list", requireAdmin, asyncHandler(async (req, res) => {
   const start = req.query.start !== undefined ? Number(req.query.start) : undefined;
   const limit = req.query.limit !== undefined ? Number(req.query.limit) : undefined;
   const filter = req.query.filter as string | undefined;

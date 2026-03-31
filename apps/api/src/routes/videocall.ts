@@ -158,6 +158,26 @@ videocallRouter.put("/videocall/config", requireAuth, async (req, res) => {
   const { pricePerMinute, minDurationMin, maxDurationMin, availableSlots, isActive } = req.body;
   const normalizedSlots = availableSlots === undefined ? undefined : parseAvailabilitySlots(availableSlots);
 
+  // Validate price bounds
+  if (pricePerMinute != null) {
+    const price = parseInt(String(pricePerMinute), 10);
+    if (!Number.isFinite(price) || price < 1 || price > 10_000) {
+      return res.status(400).json({ error: "Precio por minuto debe ser entre 1 y 10.000 tokens" });
+    }
+  }
+  if (minDurationMin != null) {
+    const min = parseInt(String(minDurationMin), 10);
+    if (!Number.isFinite(min) || min < 1 || min > 120) {
+      return res.status(400).json({ error: "Duración mínima debe ser entre 1 y 120 minutos" });
+    }
+  }
+  if (maxDurationMin != null) {
+    const max = parseInt(String(maxDurationMin), 10);
+    if (!Number.isFinite(max) || max < 1 || max > 180) {
+      return res.status(400).json({ error: "Duración máxima debe ser entre 1 y 180 minutos" });
+    }
+  }
+
   const config = await prisma.videocallConfig.upsert({
     where: { professionalId: userId },
     update: {

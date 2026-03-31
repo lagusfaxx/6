@@ -456,12 +456,101 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
     throw err;
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { flowSubscriptionId: subscription.subscriptionId }
-  });
+  // Check subscription status from Flow to determine activation
+  let flowSubStatus = 0; // 0=trial/created, 1=active (charged), 2=past_due, 3=cancelled
+  let trialEnd: Date | null = null;
+  try {
+    const subDetails = await getFlowSubscription(subscription.subscriptionId);
+    flowSubStatus = Number(subDetails.status);
+    if (subDetails.trial_end) {
+      trialEnd = new Date(subDetails.trial_end);
+    }
+  } catch {
+    // Could not verify — don't activate, wait for webhook
+  }
 
-  console.log("[billing] Flow subscription created", { userId, subscriptionId: subscription.subscriptionId, planId });
+  function addDays(d: Date, days: number): Date {
+    const r = new Date(d.getTime());
+    r.setUTCDate(r.getUTCDate() + days);
+    return r;
+  }
+
+  const now = new Date();
+
+  if (flowSubStatus === 1) {
+    // Status 1 = active: Flow already charged successfully.
+    // Safe to activate full membership period.
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.user.findUnique({
+        where: { id: userId },
+        select: { membershipExpiresAt: true }
+      });
+
+      const base = current?.membershipExpiresAt && current.membershipExpiresAt.getTime() > now.getTime()
+        ? current.membershipExpiresAt
+        : now;
+      const expiresAt = addDays(base, config.membershipDays);
+
+      await tx.user.update({
+        where: { id: userId },
+        data: { flowSubscriptionId: subscription.subscriptionId, membershipExpiresAt: expiresAt }
+      });
+
+      await tx.notification.create({
+        data: {
+          userId,
+          type: "SUBSCRIPTION_RENEWED",
+          data: { subscriptionId: subscription.subscriptionId, source: "flow_pac_charged" }
+        }
+      });
+    });
+
+    console.log("[billing] Flow PAC subscription active (charged) — full membership activated", { userId, subscriptionId: subscription.subscriptionId });
+  } else if (flowSubStatus === 0 && trialEnd) {
+    // Status 0 with trial: subscription in trial period.
+    // Only grant access until trial ends — full membership activates via webhook
+    // when Flow successfully charges after trial.
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.user.findUnique({
+        where: { id: userId },
+        select: { membershipExpiresAt: true }
+      });
+
+      // Only set trial expiry if user doesn't already have a longer membership
+      const currentExpiry = current?.membershipExpiresAt?.getTime() ?? 0;
+      if (trialEnd!.getTime() > currentExpiry) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { flowSubscriptionId: subscription.subscriptionId, membershipExpiresAt: trialEnd }
+        });
+      } else {
+        await tx.user.update({
+          where: { id: userId },
+          data: { flowSubscriptionId: subscription.subscriptionId }
+        });
+      }
+
+      await tx.notification.create({
+        data: {
+          userId,
+          type: "SUBSCRIPTION_RENEWED",
+          data: { subscriptionId: subscription.subscriptionId, source: "flow_pac_trial", trialEnd: trialEnd!.toISOString() }
+        }
+      });
+    });
+
+    console.log("[billing] Flow PAC subscription in trial — access until trial end", { userId, subscriptionId: subscription.subscriptionId, trialEnd: trialEnd.toISOString() });
+  } else {
+    // Status 0 without trial, or status 2/3/4 — just save subscription ID.
+    // Full activation happens when Flow webhook confirms payment.
+    await prisma.user.update({
+      where: { id: userId },
+      data: { flowSubscriptionId: subscription.subscriptionId }
+    });
+
+    console.log("[billing] Flow PAC subscription created — waiting for webhook confirmation", { userId, subscriptionId: subscription.subscriptionId, flowSubStatus });
+  }
+
   return res.json({ subscriptionId: subscription.subscriptionId, subscription });
 }));
 
