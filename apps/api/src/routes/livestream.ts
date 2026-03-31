@@ -36,6 +36,20 @@ const privateShowLimiter = rateLimit({
 const MAX_TIP_AMOUNT = 10_000;
 const MAX_PRIVATE_SHOW_PRICE = 50_000;
 
+/* ── Safe select: excludes thumbnailUrl to prevent P2022 if migration hasn't run ── */
+const STREAM_SELECT = {
+  id: true,
+  hostId: true,
+  title: true,
+  isActive: true,
+  viewerCount: true,
+  maxViewers: true,
+  startedAt: true,
+  endedAt: true,
+  privateShowPrice: true,
+  totalTipsEarned: true,
+} as const;
+
 // ── POST /live/start — professional starts a live stream ──
 livestreamRouter.post("/live/start", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
@@ -69,22 +83,40 @@ livestreamRouter.post("/live/start", requireAuth, async (req, res) => {
     return res.status(400).json({ error: `Precio máximo del show privado: ${MAX_PRIVATE_SHOW_PRICE} tokens` });
   }
 
-  const stream = await prisma.liveStream.create({
-    data: {
-      hostId: userId,
-      title: req.body.title || null,
-      privateShowPrice: configuredPrivatePrice,
-    },
-    select: {
-      id: true,
-      hostId: true,
-      title: true,
-      isActive: true,
-      viewerCount: true,
-      maxViewers: true,
-      startedAt: true,
-    },
-  });
+  let stream;
+  try {
+    stream = await prisma.liveStream.create({
+      data: {
+        hostId: userId,
+        title: req.body.title || null,
+        privateShowPrice: configuredPrivatePrice,
+      },
+      select: {
+        id: true,
+        hostId: true,
+        title: true,
+        isActive: true,
+        viewerCount: true,
+        maxViewers: true,
+        startedAt: true,
+      },
+    });
+  } catch (err: any) {
+    // If thumbnailUrl column missing (P2022), retry with raw SQL fallback
+    if (err?.code === "P2022") {
+      const created = await prisma.$queryRawUnsafe<any[]>(
+        `INSERT INTO "LiveStream" ("id", "hostId", "title", "privateShowPrice", "isActive", "viewerCount", "maxViewers", "startedAt")
+         VALUES (gen_random_uuid(), $1, $2, $3, true, 0, 200, NOW())
+         RETURNING "id", "hostId", "title", "isActive", "viewerCount", "maxViewers", "startedAt"`,
+        userId,
+        req.body.title || null,
+        configuredPrivatePrice,
+      );
+      stream = created[0];
+    } else {
+      throw err;
+    }
+  }
 
   broadcast("live:started", {
     streamId: stream.id,
@@ -97,7 +129,7 @@ livestreamRouter.post("/live/start", requireAuth, async (req, res) => {
 
 // ── POST /live/:id/end — end the live stream ──
 livestreamRouter.post("/live/:id/end", requireAuth, async (req, res) => {
-  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
+  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id }, select: STREAM_SELECT });
   if (!stream) return res.status(404).json({ error: "Not found" });
   if (stream.hostId !== req.session.userId!) return res.status(403).json({ error: "Not your stream" });
   if (!stream.isActive) return res.status(400).json({ error: "Already ended" });
@@ -111,6 +143,7 @@ livestreamRouter.post("/live/:id/end", requireAuth, async (req, res) => {
   await prisma.liveStream.update({
     where: { id: stream.id },
     data: { isActive: false, endedAt: new Date() },
+    select: { id: true },
   });
 
   broadcast("live:ended", { streamId: stream.id, hostId: stream.hostId });
@@ -124,7 +157,14 @@ livestreamRouter.get("/live/active", async (_req, res) => {
     const streams = await prisma.liveStream.findMany({
       where: { isActive: true },
       orderBy: { startedAt: "desc" },
-      include: {
+      select: {
+        id: true,
+        hostId: true,
+        title: true,
+        isActive: true,
+        viewerCount: true,
+        maxViewers: true,
+        startedAt: true,
         host: {
           select: {
             id: true,
@@ -144,13 +184,24 @@ livestreamRouter.get("/live/active", async (_req, res) => {
       },
     });
 
+    // Try to get thumbnailUrl (may fail if column doesn't exist yet)
+    let thumbMap: Record<string, string | null> = {};
+    try {
+      const rows = await prisma.$queryRawUnsafe<{ id: string; thumbnailUrl: string | null }[]>(
+        `SELECT "id", "thumbnailUrl" FROM "LiveStream" WHERE "isActive" = true`,
+      );
+      for (const r of rows) thumbMap[r.id] = r.thumbnailUrl;
+    } catch {
+      // Column doesn't exist yet — ignore
+    }
+
     // Flatten: pick best thumbnail (live frame > cover > gallery > avatar)
     const mapped = streams.map((s: any) => {
       const firstMedia = s.host.profileMedia?.[0]?.url || null;
       const profileThumb = s.host.coverUrl || firstMedia || s.host.avatarUrl || null;
       return {
         ...s,
-        thumbnailUrl: s.thumbnailUrl || profileThumb,
+        thumbnailUrl: thumbMap[s.id] || profileThumb,
         host: {
           id: s.host.id,
           displayName: s.host.displayName,
@@ -173,7 +224,17 @@ livestreamRouter.get("/live/:id", async (req, res) => {
   try {
     const stream = await prisma.liveStream.findUnique({
       where: { id: req.params.id },
-      include: {
+      select: {
+        id: true,
+        hostId: true,
+        title: true,
+        isActive: true,
+        viewerCount: true,
+        maxViewers: true,
+        startedAt: true,
+        endedAt: true,
+        privateShowPrice: true,
+        totalTipsEarned: true,
         host: {
           select: { id: true, displayName: true, username: true, avatarUrl: true },
         },
@@ -203,7 +264,7 @@ livestreamRouter.get("/live/:id", async (req, res) => {
 livestreamRouter.post("/live/:id/thumbnail", requireAuth, async (req, res) => {
   try {
     const userId = req.session.userId!;
-    const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
+    const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id }, select: STREAM_SELECT });
     if (!stream) return res.status(404).json({ error: "Not found" });
     if (stream.hostId !== userId) return res.status(403).json({ error: "Not your stream" });
     if (!stream.isActive) return res.status(400).json({ error: "Stream ended" });
@@ -235,6 +296,13 @@ livestreamRouter.post("/live/:id/thumbnail", requireAuth, async (req, res) => {
     await prisma.liveStream.update({
       where: { id: stream.id },
       data: { thumbnailUrl: result.url },
+    }).catch((err) => {
+      // Column may not exist if migration hasn't run yet
+      if (err?.code === "P2022") {
+        console.warn("[live] thumbnailUrl column missing — run migration 20260331100000_add_livestream_thumbnail");
+      } else {
+        throw err;
+      }
     });
 
     res.json({ thumbnailUrl: result.url });
@@ -247,7 +315,7 @@ livestreamRouter.post("/live/:id/thumbnail", requireAuth, async (req, res) => {
 // ── PUT /live/:id/config — professional updates stream config (title, private show price) ──
 livestreamRouter.put("/live/:id/config", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
-  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
+  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id }, select: STREAM_SELECT });
   if (!stream) return res.status(404).json({ error: "Not found" });
   if (stream.hostId !== userId) return res.status(403).json({ error: "Not your stream" });
   if (!stream.isActive) return res.status(400).json({ error: "Stream ended" });
@@ -266,6 +334,7 @@ livestreamRouter.put("/live/:id/config", requireAuth, async (req, res) => {
   const updated = await prisma.liveStream.update({
     where: { id: stream.id },
     data: updates,
+    select: STREAM_SELECT,
   });
 
   broadcast("live:config_updated", {
@@ -280,7 +349,7 @@ livestreamRouter.put("/live/:id/config", requireAuth, async (req, res) => {
 
 // ── POST /live/:id/join — viewer joins a live stream ──
 livestreamRouter.post("/live/:id/join", requireAuth, async (req, res) => {
-  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
+  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id }, select: STREAM_SELECT });
   if (!stream || !stream.isActive) return res.status(404).json({ error: "Stream not active" });
   if (stream.viewerCount >= stream.maxViewers) {
     return res.status(400).json({ error: "Stream is full (max viewers reached)" });
@@ -289,6 +358,7 @@ livestreamRouter.post("/live/:id/join", requireAuth, async (req, res) => {
   await prisma.liveStream.update({
     where: { id: stream.id },
     data: { viewerCount: { increment: 1 } },
+    select: { id: true },
   });
 
   const user = await prisma.user.findUnique({
@@ -308,12 +378,13 @@ livestreamRouter.post("/live/:id/join", requireAuth, async (req, res) => {
 
 // ── POST /live/:id/leave — viewer leaves ──
 livestreamRouter.post("/live/:id/leave", requireAuth, async (req, res) => {
-  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
+  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id }, select: STREAM_SELECT });
   if (!stream) return res.status(404).json({ error: "Not found" });
 
   await prisma.liveStream.update({
     where: { id: stream.id },
     data: { viewerCount: Math.max(0, stream.viewerCount - 1) },
+    select: { id: true },
   });
 
   broadcast("live:viewer_left", {
@@ -327,7 +398,7 @@ livestreamRouter.post("/live/:id/leave", requireAuth, async (req, res) => {
 // ── POST /live/:id/chat — send message in live chat ──
 // BUG FIX: was only sending to host, now broadcasts to all connected users
 livestreamRouter.post("/live/:id/chat", requireAuth, async (req, res) => {
-  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
+  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id }, select: STREAM_SELECT });
   if (!stream || !stream.isActive) return res.status(400).json({ error: "Stream not active" });
 
   const message = String(req.body.message || "").trim().slice(0, 300);
@@ -366,7 +437,7 @@ livestreamRouter.post("/live/:id/chat", requireAuth, async (req, res) => {
 // ── POST /live/:id/tip — send a tip during a live stream ──
 livestreamRouter.post("/live/:id/tip", requireAuth, tipLimiter, async (req, res) => {
   const userId = req.session.userId!;
-  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
+  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id }, select: STREAM_SELECT });
   if (!stream || !stream.isActive) return res.status(400).json({ error: "Stream not active" });
   if (stream.hostId === userId) return res.status(400).json({ error: "Cannot tip yourself" });
 
@@ -452,6 +523,7 @@ livestreamRouter.post("/live/:id/tip", requireAuth, tipLimiter, async (req, res)
       await tx.liveStream.update({
         where: { id: stream.id },
         data: { totalTipsEarned: { increment: amount } },
+        select: { id: true },
       });
 
       // Record tip
@@ -578,7 +650,7 @@ livestreamRouter.post("/live/tip-options/add", requireAuth, async (req, res) => 
   });
 
   // Broadcast to viewers if host is currently live
-  const activeStream = await prisma.liveStream.findFirst({ where: { hostId: userId, isActive: true } });
+  const activeStream = await prisma.liveStream.findFirst({ where: { hostId: userId, isActive: true }, select: { id: true } });
   if (activeStream) {
     broadcast("live:tip_option_added", {
       streamId: activeStream.id,
@@ -598,7 +670,7 @@ livestreamRouter.delete("/live/tip-options/:optionId", requireAuth, async (req, 
   });
 
   // Broadcast removal to viewers if host is currently live
-  const activeStream = await prisma.liveStream.findFirst({ where: { hostId: userId, isActive: true } });
+  const activeStream = await prisma.liveStream.findFirst({ where: { hostId: userId, isActive: true }, select: { id: true } });
   if (activeStream) {
     broadcast("live:tip_option_removed", {
       streamId: activeStream.id,
@@ -621,7 +693,7 @@ livestreamRouter.get("/live/tip-options/:hostId", async (req, res) => {
 // ── POST /live/:id/tip-options — returns host global tip options (legacy compatibility) ──
 livestreamRouter.post("/live/:id/tip-options", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
-  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
+  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id }, select: STREAM_SELECT });
   if (!stream) return res.status(404).json({ error: "Not found" });
   if (stream.hostId !== userId) return res.status(403).json({ error: "Not your stream" });
 
@@ -679,9 +751,9 @@ livestreamRouter.put("/live/studio/settings", requireAuth, async (req, res) => {
   });
 
   // If host is live, sync current stream config to keep runtime behavior consistent
-  const activeStream = await prisma.liveStream.findFirst({ where: { hostId: userId, isActive: true } });
+  const activeStream = await prisma.liveStream.findFirst({ where: { hostId: userId, isActive: true }, select: STREAM_SELECT });
   if (activeStream) {
-    await prisma.liveStream.update({ where: { id: activeStream.id }, data: { privateShowPrice } });
+    await prisma.liveStream.update({ where: { id: activeStream.id }, data: { privateShowPrice }, select: { id: true } });
     broadcast("live:config_updated", {
       streamId: activeStream.id,
       title: activeStream.title,
@@ -700,7 +772,7 @@ livestreamRouter.put("/live/studio/settings", requireAuth, async (req, res) => {
 // ── POST /live/:id/private-show — pay to start/join active private show ──
 livestreamRouter.post("/live/:id/private-show", requireAuth, privateShowLimiter, async (req, res) => {
   const userId = req.session.userId!;
-  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
+  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id }, select: STREAM_SELECT });
   if (!stream || !stream.isActive) return res.status(400).json({ error: "Stream not active" });
   if (stream.hostId === userId) return res.status(400).json({ error: "Host cannot buy private show" });
 
@@ -814,7 +886,7 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, privateShowLimiter,
 // ── POST /live/:id/private-show/end — end the active private show (host only) ──
 livestreamRouter.post("/live/:id/private-show/end", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
-  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
+  const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id }, select: STREAM_SELECT });
   if (!stream) return res.status(404).json({ error: "Not found" });
   if (stream.hostId !== userId) return res.status(403).json({ error: "Only host can end private show" });
 
