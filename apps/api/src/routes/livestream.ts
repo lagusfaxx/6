@@ -463,6 +463,15 @@ livestreamRouter.post("/live/tip-options/add", requireAuth, async (req, res) => 
     data: { hostId: userId, streamId: null, label, price, emoji, sortOrder: count, isActive: true },
   });
 
+  // Broadcast to viewers if host is currently live
+  const activeStream = await prisma.liveStream.findFirst({ where: { hostId: userId, isActive: true } });
+  if (activeStream) {
+    broadcast("live:tip_option_added", {
+      streamId: activeStream.id,
+      option: { id: option.id, label: option.label, price: option.price, emoji: option.emoji },
+    });
+  }
+
   res.json({ option });
 });
 
@@ -473,6 +482,16 @@ livestreamRouter.delete("/live/tip-options/:optionId", requireAuth, async (req, 
     where: { id: req.params.optionId, hostId: userId, streamId: null },
     data: { isActive: false },
   });
+
+  // Broadcast removal to viewers if host is currently live
+  const activeStream = await prisma.liveStream.findFirst({ where: { hostId: userId, isActive: true } });
+  if (activeStream) {
+    broadcast("live:tip_option_removed", {
+      streamId: activeStream.id,
+      optionId: req.params.optionId,
+    });
+  }
+
   res.json({ ok: true });
 });
 

@@ -574,7 +574,7 @@ export default function LiveStreamPage() {
     if (!newTipLabel.trim() || !newTipPrice || addingTipOption) return;
     setAddingTipOption(true);
     try {
-      const res = await apiFetch<{ option: TipOption }>(`/live/${id}/tip-options/add`, {
+      const res = await apiFetch<{ option: TipOption }>("/live/tip-options/add", {
         method: "POST",
         body: JSON.stringify({ label: newTipLabel.trim(), price: parseInt(newTipPrice, 10), emoji: newTipEmoji.trim() || null }),
       });
@@ -591,7 +591,7 @@ export default function LiveStreamPage() {
 
   const removeTipOption = async (optionId: string) => {
     try {
-      await apiFetch(`/live/${id}/tip-options/${optionId}`, { method: "DELETE" });
+      await apiFetch(`/live/tip-options/${optionId}`, { method: "DELETE" });
       setTipOptions((prev) => prev.filter((o) => o.id !== optionId));
     } catch {}
   };
@@ -1294,7 +1294,7 @@ export default function LiveStreamPage() {
 
           {/* ── Expanded mode: floating transparent overlay ── */}
           {isExpanded && joined && (
-            <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden" style={{ maxHeight: "45%" }}>
+            <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden" style={{ maxHeight: "50%" }}>
               <div className="h-12 shrink-0 bg-gradient-to-b from-transparent to-black/50" />
               <div className="flex min-h-0 flex-col bg-black/50 backdrop-blur-lg">
                 {/* Controls bar */}
@@ -1316,15 +1316,10 @@ export default function LiveStreamPage() {
                         <Coins className="h-2.5 w-2.5" /> {myBalance}
                       </div>
                     )}
-                    {stream.isActive && (
-                      <>
-                        <button onClick={() => setShowPrivateModal(true)} className="flex items-center gap-1 rounded-full border border-amber-500/20 bg-black/40 px-2 py-0.5 text-[10px] font-semibold text-amber-300 transition hover:bg-amber-500/15">
-                          <Lock className="h-2.5 w-2.5" /> Privado
-                        </button>
-                        <button onClick={() => setShowTipPanel(!showTipPanel)} className="flex items-center gap-1 rounded-full border border-fuchsia-500/20 bg-black/40 px-2 py-0.5 text-[10px] font-semibold text-fuchsia-300 transition hover:bg-fuchsia-500/15">
-                          <Gift className="h-2.5 w-2.5" /> Propina
-                        </button>
-                      </>
+                    {stream.isActive && stream.privateShowPrice && !isHost && (
+                      <button onClick={() => setShowPrivateModal(true)} className="flex items-center gap-1 rounded-full border border-amber-500/20 bg-black/40 px-2.5 py-1 text-[10px] font-bold text-amber-300 transition hover:bg-amber-500/15">
+                        <Lock className="h-2.5 w-2.5" /> {stream.privateShowPrice} tk
+                      </button>
                     )}
                     <button onClick={() => router.push("/live")} className="rounded-lg p-1 text-white/30 hover:text-white/50">
                       <X className="h-3.5 w-3.5" />
@@ -1332,33 +1327,29 @@ export default function LiveStreamPage() {
                   </div>
                 </div>
 
-                {/* Tip panel (expanded) */}
-                <AnimatePresence>
-                  {showTipPanel && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                      <div className="px-4 pb-2 space-y-2">
-                        {tipOptions.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {tipOptions.map((opt) => (
-                              <button key={opt.id} onClick={() => sendTip(opt.price, opt.id)} disabled={sendingTip} className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/40 px-2.5 py-1.5 text-[10px] font-semibold transition hover:border-fuchsia-500/25 disabled:opacity-40">
-                                <span>{opt.emoji || "🎁"}</span>
-                                <span className="text-white/70">{opt.label}</span>
-                                <span className="text-amber-300">{opt.price}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex gap-1">
-                          {[5, 10, 25, 50, 100].map((amt) => (
-                            <button key={amt} onClick={() => sendTip(amt)} disabled={sendingTip} className="flex-1 rounded-lg border border-white/10 bg-black/40 py-1.5 text-[10px] font-bold text-amber-300 transition hover:bg-amber-500/10 disabled:opacity-40">
-                              {amt}
-                            </button>
-                          ))}
-                        </div>
+                {/* Tip options — always visible in expanded mode */}
+                {stream.isActive && !isHost && (tipOptions.length > 0 || true) && (
+                  <div className="px-4 pb-2">
+                    {tipOptions.length > 0 && (
+                      <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
+                        {tipOptions.map((opt) => (
+                          <button key={opt.id} onClick={() => sendTip(opt.price, opt.id)} disabled={sendingTip} className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-black/40 px-2.5 py-1.5 text-[10px] font-semibold transition hover:border-fuchsia-500/25 active:scale-95 disabled:opacity-40">
+                            <span>{opt.emoji || "🎁"}</span>
+                            <span className="text-white/70">{opt.label}</span>
+                            <span className="text-amber-300">{opt.price} tk</span>
+                          </button>
+                        ))}
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    )}
+                    <div className="flex gap-1">
+                      {[5, 10, 25, 50, 100].map((amt) => (
+                        <button key={amt} onClick={() => sendTip(amt)} disabled={sendingTip} className="flex-1 rounded-lg border border-white/10 bg-black/40 py-1.5 text-[10px] font-bold text-amber-300 transition hover:bg-amber-500/10 active:scale-95 disabled:opacity-40">
+                          {amt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Chat messages */}
                 <div className="min-h-0 max-h-[22vh] overflow-y-auto px-4 py-1 scrollbar-thin">
@@ -1386,78 +1377,116 @@ export default function LiveStreamPage() {
           )}
         </div>
 
-        {/* ── Sidebar: Chat + Tips (normal mode) ── */}
+        {/* ── Sidebar: Tips + Private Show + Chat (normal mode) ── */}
         {!isExpanded && (joined || isHost) && (
-          <div className="flex min-h-0 w-full flex-1 flex-col border-t border-white/[0.06] bg-[#070816] lg:w-[340px] lg:flex-initial lg:border-l lg:border-t-0">
-            {/* Chat header with actions */}
-            <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.01] px-3 py-2">
-              <span className="text-[11px] font-semibold text-white/40">Chat en vivo</span>
-              {stream.isActive && (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setShowPrivateModal(true)}
-                    className="flex items-center gap-1 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-2 py-1 text-[10px] font-semibold text-amber-300 transition-all hover:bg-amber-500/15"
-                  >
-                    <Lock className="h-2.5 w-2.5" /> {stream.privateShowPrice ? `${stream.privateShowPrice}tk` : "Privado"}
-                  </button>
-                  <button
-                    onClick={() => setShowTipPanel(!showTipPanel)}
-                    className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold transition-all ${
-                      showTipPanel
-                        ? "border-fuchsia-500/30 bg-fuchsia-500/15 text-fuchsia-300"
-                        : "border-fuchsia-500/15 bg-fuchsia-500/[0.06] text-fuchsia-300 hover:bg-fuchsia-500/10"
-                    }`}
-                  >
-                    <Gift className="h-2.5 w-2.5" /> Propina
-                  </button>
-                </div>
-              )}
-            </div>
+          <div className="flex min-h-0 w-full flex-1 flex-col border-t border-white/[0.06] bg-[#070816] lg:w-[360px] lg:flex-initial lg:border-l lg:border-t-0">
 
-            {/* Tip panel */}
-            <AnimatePresence>
-              {showTipPanel && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-b border-white/[0.06]">
-                  <div className="p-3 space-y-2.5">
-                    {tipOptions.length > 0 && (
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {tipOptions.map((opt) => (
-                          <button key={opt.id} onClick={() => sendTip(opt.price, opt.id)} disabled={sendingTip} className="group flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2 text-left transition-all hover:border-fuchsia-500/20 hover:bg-fuchsia-500/[0.04] disabled:opacity-40">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-500/10 to-violet-500/[0.06] text-sm">
-                              {opt.emoji || "🎁"}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-[10px] font-semibold text-white/70 group-hover:text-white/90">{opt.label}</p>
-                              <p className="text-[10px] font-bold text-amber-300">{opt.price} tk</p>
-                            </div>
-                          </button>
-                        ))}
+            {/* ── Private Show Banner ── */}
+            {stream.isActive && stream.privateShowPrice && !isHost && (
+              <div className={`border-b ${isPrivateActive ? "border-amber-500/20" : "border-white/[0.06]"}`}>
+                {isPrivateActive && !hasJoinedPrivateShow ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="relative overflow-hidden bg-gradient-to-r from-amber-500/[0.12] via-orange-500/[0.08] to-amber-500/[0.12] px-3 py-3"
+                  >
+                    <div className="pointer-events-none absolute inset-0">
+                      <div className="absolute -left-full top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-amber-400/[0.06] to-transparent" style={{ animation: "shimmer 3s ease-in-out infinite" }} />
+                    </div>
+                    <div className="relative flex items-center gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/25 to-orange-500/20 border border-amber-500/25">
+                        <Lock className="h-5 w-5 text-amber-400 animate-pulse" />
                       </div>
-                    )}
-
-                    {/* Custom amount row */}
-                    <div className="flex gap-1.5">
-                      <input type="number" value={customTipAmount} onChange={(e) => setCustomTipAmount(e.target.value)} placeholder="Tokens" min="1" className="w-20 rounded-lg border border-white/[0.07] bg-white/[0.03] px-2.5 py-2 text-xs outline-none placeholder:text-white/20 focus:border-fuchsia-500/20" />
-                      <input value={tipMessage} onChange={(e) => setTipMessage(e.target.value)} placeholder="Mensaje..." maxLength={200} className="flex-1 rounded-lg border border-white/[0.07] bg-white/[0.03] px-2.5 py-2 text-xs outline-none placeholder:text-white/20 focus:border-fuchsia-500/20" />
-                      <button onClick={() => sendTip(parseInt(customTipAmount, 10) || 0)} disabled={sendingTip || !customTipAmount || parseInt(customTipAmount, 10) < 1} className="rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 px-3 py-2 text-xs font-semibold transition-all disabled:opacity-40 hover:shadow-[0_4px_12px_rgba(245,158,11,0.2)]">
-                        {sendingTip ? "..." : "Enviar"}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-amber-300">Show Privado en curso</p>
+                        <p className="text-[10px] text-amber-200/50">Desbloquea el contenido exclusivo</p>
+                      </div>
+                      <button
+                        onClick={() => setShowPrivateModal(true)}
+                        className="shrink-0 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2.5 text-[11px] font-bold text-white transition-all hover:scale-[1.03] hover:shadow-[0_4px_16px_rgba(245,158,11,0.3)] active:scale-[0.97]"
+                      >
+                        {stream.privateShowPrice} tk
                       </button>
                     </div>
-
-                    {/* Quick amounts */}
-                    <div className="flex gap-1">
-                      {[5, 10, 25, 50, 100].map((amt) => (
-                        <button key={amt} onClick={() => sendTip(amt)} disabled={sendingTip} className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.02] py-1.5 text-[10px] font-bold text-amber-300/80 transition-all hover:bg-amber-500/10 hover:text-amber-300 disabled:opacity-40">
-                          {amt}
-                        </button>
-                      ))}
-                    </div>
+                  </motion.div>
+                ) : hasJoinedPrivateShow ? (
+                  <div className="flex items-center gap-2 bg-emerald-500/[0.06] px-3 py-2">
+                    <Eye className="h-3.5 w-3.5 text-emerald-400" />
+                    <span className="text-[10px] font-semibold text-emerald-300">Tienes acceso al Show Privado</span>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                ) : (
+                  <button
+                    onClick={() => setShowPrivateModal(true)}
+                    className="group flex w-full items-center gap-3 px-3 py-2.5 transition-all hover:bg-amber-500/[0.04]"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 border border-amber-500/15">
+                      <Sparkles className="h-4 w-4 text-amber-400/70" />
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-[11px] font-semibold text-white/60 group-hover:text-white/80">Show Privado</p>
+                      <p className="text-[10px] text-white/30">Contenido exclusivo</p>
+                    </div>
+                    <div className="flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/[0.08] px-2.5 py-1">
+                      <Coins className="h-3 w-3 text-amber-400" />
+                      <span className="text-[11px] font-bold text-amber-300">{stream.privateShowPrice} tk</span>
+                    </div>
+                  </button>
+                )}
+              </div>
+            )}
 
-            {/* Chat messages */}
+            {/* ── Tip Options — Always Visible ── */}
+            {stream.isActive && tipOptions.length > 0 && !isHost && (
+              <div className="border-b border-white/[0.06] px-2.5 py-2.5">
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <div className="flex items-center gap-1.5">
+                    <Gift className="h-3 w-3 text-fuchsia-400/60" />
+                    <span className="text-[10px] font-semibold text-white/40">Propinas</span>
+                  </div>
+                  {myBalance !== null && (
+                    <div className="flex items-center gap-1 text-[10px] text-amber-300/60">
+                      <Coins className="h-2.5 w-2.5" /> {myBalance} tk
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                  {tipOptions.map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => sendTip(opt.price, opt.id)}
+                      disabled={sendingTip}
+                      className="group flex shrink-0 flex-col items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 transition-all hover:border-fuchsia-500/25 hover:bg-fuchsia-500/[0.06] active:scale-95 disabled:opacity-40"
+                    >
+                      <span className="text-lg leading-none">{opt.emoji || "🎁"}</span>
+                      <span className="text-[9px] font-medium text-white/50 group-hover:text-white/70 max-w-[64px] truncate">{opt.label}</span>
+                      <span className="text-[10px] font-bold text-amber-300">{opt.price} tk</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Quick Tip + Custom Amount ── */}
+            {stream.isActive && !isHost && (
+              <div className="border-b border-white/[0.06] px-2.5 py-2">
+                <div className="flex gap-1 mb-1.5">
+                  {[5, 10, 25, 50, 100].map((amt) => (
+                    <button key={amt} onClick={() => sendTip(amt)} disabled={sendingTip} className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.02] py-1.5 text-[10px] font-bold text-amber-300/80 transition-all hover:bg-amber-500/10 hover:text-amber-300 active:scale-95 disabled:opacity-40">
+                      {amt}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-1.5">
+                  <input type="number" value={customTipAmount} onChange={(e) => setCustomTipAmount(e.target.value)} placeholder="Monto" min="1" className="w-16 rounded-lg border border-white/[0.07] bg-white/[0.03] px-2 py-1.5 text-[11px] outline-none placeholder:text-white/20 focus:border-fuchsia-500/20" />
+                  <input value={tipMessage} onChange={(e) => setTipMessage(e.target.value)} placeholder="Mensaje (opcional)" maxLength={200} className="flex-1 rounded-lg border border-white/[0.07] bg-white/[0.03] px-2 py-1.5 text-[11px] outline-none placeholder:text-white/20 focus:border-fuchsia-500/20" />
+                  <button onClick={() => sendTip(parseInt(customTipAmount, 10) || 0)} disabled={sendingTip || !customTipAmount || parseInt(customTipAmount, 10) < 1} className="rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 px-3 py-1.5 text-[10px] font-bold transition-all disabled:opacity-40 hover:shadow-[0_4px_12px_rgba(245,158,11,0.2)] active:scale-95">
+                    {sendingTip ? "..." : "Enviar"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Chat Messages ── */}
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 scrollbar-thin">
               {messages.length === 0 && (
                 <div className="py-10 text-center">
@@ -1497,7 +1526,7 @@ export default function LiveStreamPage() {
               <div ref={chatEndRef} />
             </div>
 
-            {/* Chat input */}
+            {/* ── Chat Input ── */}
             <div className="flex gap-1.5 border-t border-white/[0.06] p-2.5">
               <input
                 value={chatInput}
