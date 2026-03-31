@@ -93,11 +93,42 @@ livestreamRouter.get("/live/active", async (_req, res) => {
       orderBy: { startedAt: "desc" },
       include: {
         host: {
-          select: { id: true, displayName: true, username: true, avatarUrl: true },
+          select: {
+            id: true,
+            displayName: true,
+            username: true,
+            avatarUrl: true,
+            coverUrl: true,
+            bio: true,
+            profileMedia: {
+              where: { type: "IMAGE" },
+              orderBy: { createdAt: "asc" },
+              take: 1,
+              select: { url: true },
+            },
+          },
         },
       },
     });
-    res.json({ streams });
+
+    // Flatten: pick best thumbnail (cover > first gallery photo > avatar)
+    const mapped = streams.map((s: any) => {
+      const firstMedia = s.host.profileMedia?.[0]?.url || null;
+      const thumbnailUrl = s.host.coverUrl || firstMedia || s.host.avatarUrl || null;
+      return {
+        ...s,
+        host: {
+          id: s.host.id,
+          displayName: s.host.displayName,
+          username: s.host.username,
+          avatarUrl: s.host.avatarUrl,
+          bio: s.host.bio,
+          thumbnailUrl,
+        },
+      };
+    });
+
+    res.json({ streams: mapped });
   } catch (err) {
     console.error("Error fetching active streams:", err);
     res.json({ streams: [] });
