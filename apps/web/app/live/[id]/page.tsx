@@ -1170,7 +1170,7 @@ export default function LiveStreamPage() {
       <div className={`relative flex min-h-0 flex-1 ${isExpanded ? "flex-col" : "flex-col lg:flex-row"}`}>
         {/* ── Video Area ── */}
         <div className={`relative flex items-center justify-center overflow-hidden ${
-          isExpanded ? "fixed inset-0 z-[90] h-[100dvh] w-full bg-black lg:right-[340px] lg:w-[calc(100%-340px)]" : "h-[40vh] sm:h-[50vh] flex-shrink-0 bg-black lg:h-auto lg:flex-1 lg:flex-shrink"
+          isExpanded ? "fixed inset-0 z-[90] h-[100dvh] w-full bg-black" : "h-[40vh] sm:h-[50vh] flex-shrink-0 bg-black lg:h-auto lg:flex-1 lg:flex-shrink"
         }`}>
           {/* Ambient gradient behind video */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-fuchsia-950/30 via-transparent to-violet-950/30" />
@@ -1180,7 +1180,7 @@ export default function LiveStreamPage() {
             <video
               ref={remoteVideoRef}
               autoPlay playsInline muted
-              className={`h-full w-full ${isExpanded ? "object-cover" : "object-contain"} ${!videoReady ? "hidden" : ""} ${shouldBlur ? "blur-2xl scale-110 brightness-50" : ""}`}
+              className={`h-full w-full object-contain ${!videoReady ? "hidden" : ""} ${shouldBlur ? "blur-2xl scale-110 brightness-50" : ""}`}
             />
           )}
 
@@ -1316,7 +1316,9 @@ export default function LiveStreamPage() {
           {joined && videoReady && !shouldBlur && (
             <>
               {/* Bottom-left: LIVE + viewers */}
-              <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 sm:bottom-4 sm:left-4">
+              <div className={`absolute left-3 z-20 flex items-center gap-2 sm:left-4 ${isExpanded ? "top-3 sm:top-4" : "bottom-3 sm:bottom-4"}`}
+                style={isExpanded ? { top: "max(0.75rem, env(safe-area-inset-top))" } : undefined}
+              >
                 {stream.isActive && (
                   <div className="flex items-center gap-1.5 rounded-full border border-red-500/25 bg-black/60 px-2.5 py-1 backdrop-blur-xl">
                     <span className="relative flex h-1.5 w-1.5">
@@ -1330,11 +1332,11 @@ export default function LiveStreamPage() {
                   <Users className="h-3 w-3" /> {stream.viewerCount}
                 </div>
               </div>
-              {/* Top-right: expand */}
+              {/* Top-right: expand/minimize */}
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-xl bg-black/50 text-white/50 backdrop-blur-xl transition-all hover:bg-black/70 hover:text-white border border-white/10 sm:right-4 sm:top-4 ${isExpanded ? "z-[100]" : "z-30"}`}
-                style={isExpanded ? { right: "max(0.75rem, env(safe-area-inset-right))", top: "max(0.75rem, env(safe-area-inset-top))" } : undefined}
+                className={`absolute top-3 flex h-8 w-8 items-center justify-center rounded-xl bg-black/50 text-white/50 backdrop-blur-xl transition-all hover:bg-black/70 hover:text-white border border-white/10 sm:top-4 ${isExpanded ? "z-[100] right-3 sm:right-4 lg:right-[356px]" : "z-30 right-3 sm:right-4"}`}
+                style={isExpanded ? { top: "max(0.75rem, env(safe-area-inset-top))" } : undefined}
               >
                 {isExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
               </button>
@@ -1345,7 +1347,7 @@ export default function LiveStreamPage() {
           {isExpanded && joined && (
             <>
               {/* ── Desktop: right sidebar panel ── */}
-              <div className="pointer-events-auto absolute inset-y-0 right-0 z-30 hidden w-[340px] flex-col border-l border-white/[0.06] bg-[#070816]/95 backdrop-blur-2xl lg:flex">
+              <div className="pointer-events-auto fixed inset-y-0 right-0 z-[95] hidden w-[340px] flex-col border-l border-white/[0.06] bg-[#070816]/95 backdrop-blur-2xl lg:flex">
                 {/* Sidebar header */}
                 <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
                   <div className="flex items-center gap-2.5">
@@ -1369,6 +1371,9 @@ export default function LiveStreamPage() {
                         <Coins className="h-2.5 w-2.5" /> {myBalance}
                       </div>
                     )}
+                    <button onClick={() => setIsExpanded(false)} className="flex h-7 w-7 items-center justify-center rounded-lg text-white/30 hover:bg-white/[0.06] hover:text-white/60 transition-all" title="Salir de pantalla completa">
+                      <Minimize2 className="h-3.5 w-3.5" />
+                    </button>
                     <button onClick={() => router.push("/live")} className="flex h-7 w-7 items-center justify-center rounded-lg text-white/30 hover:bg-white/[0.06] hover:text-white/60 transition-all">
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -1492,6 +1497,9 @@ export default function LiveStreamPage() {
                           <Coins className="h-2.5 w-2.5" /> {myBalance}
                         </div>
                       )}
+                      <button onClick={() => setIsExpanded(false)} className="rounded-lg p-1 text-white/30 hover:text-white/50">
+                        <Minimize2 className="h-3 w-3" />
+                      </button>
                       <button onClick={() => router.push("/live")} className="rounded-lg p-1 text-white/30 hover:text-white/50">
                         <X className="h-3 w-3" />
                       </button>
