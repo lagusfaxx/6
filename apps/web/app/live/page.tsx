@@ -22,6 +22,7 @@ import {
 type LiveStream = {
   id: string;
   title: string | null;
+  thumbnailUrl: string | null;
   isActive: boolean;
   viewerCount: number;
   maxViewers: number;
@@ -32,7 +33,6 @@ type LiveStream = {
     username: string;
     avatarUrl: string | null;
     bio?: string | null;
-    thumbnailUrl?: string | null;
   };
 };
 
@@ -155,13 +155,16 @@ export default function LivePage() {
 
         {/* Active Streams List */}
         {loading ? (
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse rounded-2xl bg-white/[0.03] border border-white/[0.04]">
-                <div className="aspect-[3/4] rounded-t-2xl bg-white/[0.03]" />
-                <div className="p-3 space-y-2">
-                  <div className="h-3 w-2/3 rounded bg-white/[0.06]" />
-                  <div className="h-2 w-1/2 rounded bg-white/[0.04]" />
+              <div key={i} className="animate-pulse">
+                <div className="aspect-video rounded-xl bg-white/[0.04]" />
+                <div className="mt-2.5 flex gap-2.5">
+                  <div className="h-9 w-9 shrink-0 rounded-full bg-white/[0.04]" />
+                  <div className="flex-1 space-y-1.5 pt-0.5">
+                    <div className="h-3 w-3/4 rounded bg-white/[0.06]" />
+                    <div className="h-2.5 w-1/2 rounded bg-white/[0.04]" />
+                  </div>
                 </div>
               </div>
             ))}
@@ -189,86 +192,71 @@ export default function LivePage() {
               </span>
             </div>
 
-            <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {streams.map((s) => {
-                const thumbnail = s.host.thumbnailUrl || s.host.avatarUrl;
+                const thumbnail = s.thumbnailUrl || s.host.avatarUrl;
                 return (
                   <Link
                     key={s.id}
                     href={`/live/${s.id}`}
-                    className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] transition-all duration-200 hover:border-fuchsia-500/20 hover:shadow-[0_0_30px_rgba(168,85,247,0.08)]"
+                    className="group block transition-all duration-200"
                   >
-                    {/* Thumbnail — tall card style */}
-                    <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-fuchsia-500/[0.06] to-violet-500/[0.04]">
+                    {/* Thumbnail — 16:9 like Twitch */}
+                    <div className="relative aspect-video overflow-hidden rounded-xl bg-gradient-to-br from-fuchsia-500/[0.06] to-violet-500/[0.04]">
                       {thumbnail ? (
                         <img
                           src={resolveMediaUrl(thumbnail) ?? undefined}
                           alt=""
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center">
-                          <User className="h-16 w-16 text-white/[0.06]" />
+                          <Radio className="h-10 w-10 text-fuchsia-400/15" />
                         </div>
                       )}
 
-                      {/* Dark gradient overlay bottom */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                      {/* Subtle hover overlay */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
 
                       {/* LIVE badge — top left */}
-                      <div className="absolute left-2 top-2 flex items-center gap-1.5 rounded-full bg-red-600/90 px-2 py-0.5 shadow-lg shadow-red-500/30">
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
-                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
-                        </span>
-                        <span className="text-[9px] font-bold text-white tracking-wider">LIVE</span>
+                      <div className="absolute left-2 top-2 flex items-center gap-1.5 rounded bg-red-600 px-1.5 py-0.5">
+                        <span className="text-[10px] font-bold text-white tracking-wide">EN VIVO</span>
                       </div>
 
-                      {/* Viewers — top right */}
-                      <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 backdrop-blur-sm">
-                        <Users className="h-2.5 w-2.5 text-white/70" />
-                        <span className="text-[9px] font-semibold text-white/70">{s.viewerCount}</span>
+                      {/* Viewers — bottom left */}
+                      <div className="absolute left-2 bottom-2 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5">
+                        <Users className="h-2.5 w-2.5 text-white/80" />
+                        <span className="text-[10px] font-medium text-white/80">{s.viewerCount} espectadores</span>
                       </div>
 
-                      {/* Duration — top right, below viewers */}
-                      <div className="absolute right-2 top-8 flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 backdrop-blur-sm">
-                        <Clock className="h-2 w-2 text-white/50" />
-                        <span className="text-[8px] text-white/50">{timeAgo(s.startedAt)}</span>
+                      {/* Duration — bottom right */}
+                      <div className="absolute right-2 bottom-2 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5">
+                        <Clock className="h-2.5 w-2.5 text-white/60" />
+                        <span className="text-[10px] text-white/60">{timeAgo(s.startedAt)}</span>
                       </div>
+                    </div>
 
-                      {/* Play button hover */}
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-fuchsia-500/25 backdrop-blur-xl border border-fuchsia-400/30 shadow-[0_0_32px_rgba(168,85,247,0.4)]">
-                          <Play className="h-6 w-6 text-white ml-0.5" />
+                    {/* Info below thumbnail — Twitch style */}
+                    <div className="mt-2.5 flex gap-2.5">
+                      {/* Avatar */}
+                      {s.host.avatarUrl ? (
+                        <img
+                          src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
+                          alt=""
+                          className="h-9 w-9 shrink-0 rounded-full object-cover border border-white/10"
+                        />
+                      ) : (
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] border border-white/10">
+                          <User className="h-4 w-4 text-white/30" />
                         </div>
-                      </div>
-
-                      {/* Host info overlay — bottom */}
-                      <div className="absolute inset-x-0 bottom-0 p-3">
-                        <div className="flex items-center gap-2.5">
-                          {/* Avatar */}
-                          {s.host.avatarUrl ? (
-                            <img
-                              src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
-                              alt=""
-                              className="h-9 w-9 shrink-0 rounded-full object-cover border-2 border-white/20 shadow-lg"
-                            />
-                          ) : (
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 border-2 border-white/20">
-                              <User className="h-4 w-4 text-white/40" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-bold text-white truncate drop-shadow-lg">
-                              {s.host.displayName || s.host.username}
-                            </p>
-                            {s.title ? (
-                              <p className="text-[10px] text-white/60 truncate drop-shadow">{s.title}</p>
-                            ) : s.host.bio ? (
-                              <p className="text-[10px] text-white/50 truncate drop-shadow">{s.host.bio}</p>
-                            ) : null}
-                          </div>
-                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-white/90 truncate group-hover:text-fuchsia-300 transition-colors">
+                          {s.title || s.host.displayName || s.host.username}
+                        </p>
+                        <p className="text-[11px] text-white/40 truncate">
+                          {s.host.displayName || s.host.username}
+                        </p>
                       </div>
                     </div>
                   </Link>

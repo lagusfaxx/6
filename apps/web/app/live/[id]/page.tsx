@@ -626,6 +626,42 @@ export default function LiveStreamPage() {
     };
   }, [id, isHost, stream?.isActive]);
 
+  // ── Periodic thumbnail capture (host only, every 30s) ──
+  useEffect(() => {
+    if (!isHost || !stream?.isActive || !videoReady) return;
+    const videoEl = localVideoRef.current;
+    if (!videoEl) return;
+
+    const captureThumbnail = async () => {
+      try {
+        if (videoEl.videoWidth === 0 || videoEl.videoHeight === 0) return;
+        const canvas = document.createElement("canvas");
+        // Small thumbnail: 320px wide, keep aspect ratio
+        const scale = 320 / videoEl.videoWidth;
+        canvas.width = 320;
+        canvas.height = Math.round(videoEl.videoHeight * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+        await apiFetch(`/live/${id}/thumbnail`, {
+          method: "POST",
+          body: JSON.stringify({ dataUrl }),
+        });
+      } catch {
+        // Ignore thumbnail capture errors silently
+      }
+    };
+
+    // Capture immediately then every 30 seconds
+    const timeout = setTimeout(captureThumbnail, 3000);
+    const interval = setInterval(captureThumbnail, 30000);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [isHost, stream?.isActive, videoReady, id]);
+
   // ── Age gate ──
   if (!ageConfirmed) {
     return (
