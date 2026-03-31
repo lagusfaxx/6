@@ -11,8 +11,8 @@ import { getLivekitToken } from "../../../lib/livekit";
 import { Room, RoomEvent, Track } from "livekit-client";
 import {
   Radio, Users, Send, X, ShieldAlert, Mic, MicOff, VideoIcon, VideoOff,
-  Camera, Coins, Lock, Eye, Sparkles, Gift, Settings, Plus, Trash2,
-  Clock, DollarSign, Maximize2, Minimize2, ChevronDown, ChevronUp,
+  Camera, Coins, Lock, Eye, EyeOff, Sparkles, Gift, Settings, Plus, Trash2,
+  Clock, DollarSign, Maximize2, Minimize2, ChevronDown, ChevronUp, MessageCircle,
 } from "lucide-react";
 
 /* ── Types ── */
@@ -150,6 +150,7 @@ export default function LiveStreamPage() {
 
   // Viewer: expanded video mode
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showChat, setShowChat] = useState(true);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -1170,7 +1171,7 @@ export default function LiveStreamPage() {
       <div className={`relative flex min-h-0 flex-1 ${isExpanded ? "flex-col" : "flex-col lg:flex-row"}`}>
         {/* ── Video Area ── */}
         <div className={`relative flex items-center justify-center overflow-hidden ${
-          isExpanded ? "fixed inset-0 z-[90] h-[100dvh] w-full bg-black lg:right-[340px] lg:w-[calc(100%-340px)]" : "h-[40vh] sm:h-[50vh] flex-shrink-0 bg-black lg:h-auto lg:flex-1 lg:flex-shrink"
+          isExpanded ? "fixed inset-0 z-[90] h-[100dvh] w-full bg-black" : "h-[40vh] sm:h-[50vh] flex-shrink-0 bg-black lg:h-auto lg:flex-1 lg:flex-shrink"
         }`}>
           {/* Ambient gradient behind video */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-fuchsia-950/30 via-transparent to-violet-950/30" />
@@ -1180,7 +1181,7 @@ export default function LiveStreamPage() {
             <video
               ref={remoteVideoRef}
               autoPlay playsInline muted
-              className={`h-full w-full ${isExpanded ? "object-cover" : "object-contain"} ${!videoReady ? "hidden" : ""} ${shouldBlur ? "blur-2xl scale-110 brightness-50" : ""}`}
+              className={`h-full w-full object-contain ${!videoReady ? "hidden" : ""} ${shouldBlur ? "blur-2xl scale-110 brightness-50" : ""}`}
             />
           )}
 
@@ -1315,8 +1316,8 @@ export default function LiveStreamPage() {
           {/* ── Video overlays: LIVE badge + viewer count + expand ── */}
           {joined && videoReady && !shouldBlur && (
             <>
-              {/* Bottom-left: LIVE + viewers */}
-              <div className="absolute bottom-3 left-3 z-20 flex items-center gap-2 sm:bottom-4 sm:left-4">
+              {/* Bottom-left: LIVE + viewers (hidden in expanded — shown in overlay top bar) */}
+              <div className={`absolute bottom-3 left-3 z-20 flex items-center gap-2 sm:bottom-4 sm:left-4 ${isExpanded ? "hidden" : ""}`}>
                 {stream.isActive && (
                   <div className="flex items-center gap-1.5 rounded-full border border-red-500/25 bg-black/60 px-2.5 py-1 backdrop-blur-xl">
                     <span className="relative flex h-1.5 w-1.5">
@@ -1330,221 +1331,125 @@ export default function LiveStreamPage() {
                   <Users className="h-3 w-3" /> {stream.viewerCount}
                 </div>
               </div>
-              {/* Top-right: expand */}
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-xl bg-black/50 text-white/50 backdrop-blur-xl transition-all hover:bg-black/70 hover:text-white border border-white/10 sm:right-4 sm:top-4 ${isExpanded ? "z-[100]" : "z-30"}`}
-                style={isExpanded ? { right: "max(0.75rem, env(safe-area-inset-right))", top: "max(0.75rem, env(safe-area-inset-top))" } : undefined}
-              >
-                {isExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-              </button>
+              {/* Top-right: expand (only shown when NOT expanded; minimize is in the overlay top bar) */}
+              {!isExpanded && (
+                <button
+                  onClick={() => setIsExpanded(true)}
+                  className="absolute right-3 top-3 z-30 flex h-8 w-8 items-center justify-center rounded-xl bg-black/50 text-white/50 backdrop-blur-xl transition-all hover:bg-black/70 hover:text-white border border-white/10 sm:right-4 sm:top-4"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </>
           )}
 
-          {/* ── Expanded mode: fullscreen cinema layout ── */}
+          {/* ── Expanded mode: transparent chat overlay (unified PC + mobile) ── */}
           {isExpanded && joined && (
-            <>
-              {/* ── Desktop: right sidebar panel ── */}
-              <div className="pointer-events-auto absolute inset-y-0 right-0 z-30 hidden w-[340px] flex-col border-l border-white/[0.06] bg-[#070816]/95 backdrop-blur-2xl lg:flex">
-                {/* Sidebar header */}
-                <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
-                  <div className="flex items-center gap-2.5">
-                    {stream.host.avatarUrl ? (
-                      <img src={resolveMediaUrl(stream.host.avatarUrl) ?? undefined} alt="" className="h-8 w-8 rounded-xl object-cover border border-white/10" />
-                    ) : (
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/15 border border-white/10 text-xs font-bold text-fuchsia-300">{(stream.host.displayName || "?")[0]}</div>
-                    )}
-                    <div>
-                      <p className="text-xs font-semibold text-white/90">{stream.host.displayName || stream.host.username}</p>
-                      <div className="flex items-center gap-2 text-[10px] text-white/35">
-                        <span className="flex items-center gap-1"><Users className="h-2.5 w-2.5" /> {stream.viewerCount}</span>
-                        <span className="text-white/15">·</span>
-                        <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> {elapsed}</span>
-                      </div>
+            <div className="pointer-events-none absolute inset-0 z-[95] flex flex-col justify-end">
+              {/* Top bar: controls */}
+              <div className="pointer-events-auto flex shrink-0 items-center justify-between px-3 pt-3 sm:px-4 sm:pt-4"
+                style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+              >
+                <div className="flex items-center gap-2">
+                  {stream.host.avatarUrl ? (
+                    <img src={resolveMediaUrl(stream.host.avatarUrl) ?? undefined} alt="" className="h-7 w-7 rounded-lg object-cover border border-white/20" />
+                  ) : (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/40 backdrop-blur border border-white/10 text-[10px] font-bold text-fuchsia-300">{(stream.host.displayName || "?")[0]}</div>
+                  )}
+                  <div>
+                    <p className="text-[11px] font-semibold text-white/90 drop-shadow">{stream.host.displayName || stream.host.username}</p>
+                    <div className="flex items-center gap-2 text-[9px] text-white/50">
+                      <span className="flex items-center gap-1"><Users className="h-2.5 w-2.5" /> {stream.viewerCount}</span>
+                      <span className="text-white/20">·</span>
+                      <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> {elapsed}</span>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {myBalance !== null && (
-                      <div className="flex items-center gap-1 rounded-full border border-amber-500/15 bg-amber-500/[0.06] px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-                        <Coins className="h-2.5 w-2.5" /> {myBalance}
-                      </div>
-                    )}
-                    <button onClick={() => router.push("/live")} className="flex h-7 w-7 items-center justify-center rounded-lg text-white/30 hover:bg-white/[0.06] hover:text-white/60 transition-all">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
                   </div>
                 </div>
-
-                {/* Private show banner */}
-                {stream.isActive && stream.privateShowPrice && !isHost && !hasJoinedPrivateShow && (
-                  <button
-                    onClick={() => setShowPrivateModal(true)}
-                    className="mx-3 mt-3 flex items-center gap-2.5 rounded-xl border border-amber-500/25 bg-gradient-to-r from-amber-500/10 to-orange-500/[0.06] px-3 py-2.5 transition-all hover:border-amber-400/40 active:scale-[0.98]"
-                  >
-                    <Lock className="h-4 w-4 text-amber-400 shrink-0" />
-                    <div className="flex-1 text-left">
-                      <p className="text-[11px] font-bold text-amber-300">Show Privado</p>
-                      <p className="text-[9px] text-amber-200/40">Contenido exclusivo</p>
-                    </div>
-                    <span className="rounded-full border border-amber-400/25 bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold text-amber-300">{stream.privateShowPrice} tk</span>
-                  </button>
-                )}
-
-                {/* Tip options */}
-                {stream.isActive && !isHost && (
-                  <div className="border-b border-white/[0.06] px-3 py-3 space-y-2">
-                    {tipOptions.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {tipOptions.map((opt) => (
-                          <button key={opt.id} onClick={() => sendTip(opt.price, opt.id)} disabled={sendingTip} className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5 text-[10px] font-semibold transition-all hover:border-fuchsia-500/20 hover:bg-fuchsia-500/[0.05] active:scale-95 disabled:opacity-40">
-                            <span className="text-white/60">{opt.label}</span>
-                            <span className="text-amber-300">{opt.price} tk</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex gap-1.5">
-                      {[10, 25, 50, 100, 200].map((amt) => (
-                        <button key={amt} onClick={() => sendTip(amt)} disabled={sendingTip} className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.02] py-1.5 text-[10px] font-bold text-amber-300/80 transition-all hover:bg-amber-500/10 hover:border-amber-500/20 active:scale-95 disabled:opacity-40">
-                          {amt} <span className="text-[8px] font-normal text-white/25">tk</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Chat messages */}
-                <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 scrollbar-thin">
-                  {messages.length === 0 && (
-                    <div className="py-10 text-center">
-                      <Send className="mx-auto mb-2 h-5 w-5 text-white/10" />
-                      <p className="text-[11px] text-white/20">Sé el primero en escribir</p>
+                <div className="flex items-center gap-1.5">
+                  {myBalance !== null && (
+                    <div className="flex items-center gap-1 rounded-full border border-amber-500/20 bg-black/40 backdrop-blur px-2 py-0.5 text-[9px] font-semibold text-amber-300">
+                      <Coins className="h-2.5 w-2.5" /> {myBalance}
                     </div>
                   )}
-                  <AnimatePresence initial={false}>
-                    {messages.map((msg) => (
-                      <motion.div
-                        key={msg.id}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.15 }}
-                        className={`mb-1.5 rounded-xl px-2.5 py-1.5 ${
-                          msg.isTip
-                            ? "border border-amber-500/15 bg-gradient-to-r from-amber-500/[0.08] to-orange-500/[0.05]"
-                            : msg.userId === "system"
-                              ? "border border-white/[0.06] bg-white/[0.02]"
-                              : msg.userId === myId
-                                ? "bg-fuchsia-500/[0.06]"
-                                : ""
-                        }`}
-                      >
-                        <span className={`text-[11px] font-semibold ${
-                          msg.isTip ? "text-amber-300" : msg.userId === "system" ? "text-emerald-400/70" : msg.userId === myId ? "text-fuchsia-300" : "text-violet-300/80"
-                        }`}>
-                          {msg.userId === myId ? "Tú" : msg.userName || "Anónimo"}
-                        </span>
-                        <span className="text-[11px] text-white/25"> </span>
-                        <span className={`text-[11px] leading-relaxed ${msg.isTip ? "text-amber-200/70 font-medium" : msg.userId === "system" ? "text-white/50" : "text-white/60"}`}>
-                          {msg.message}
-                        </span>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                  <div ref={chatEndRef} />
-                </div>
-
-                {/* Chat input */}
-                <div className="flex gap-1.5 border-t border-white/[0.06] p-3">
-                  <input
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                    placeholder="Escribe..."
-                    maxLength={300}
-                    className="flex-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-xs outline-none placeholder:text-white/20 focus:border-fuchsia-500/20 transition-all"
-                  />
-                  <button onClick={sendChat} disabled={!chatInput.trim()} className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl bg-fuchsia-600 transition-all hover:bg-fuchsia-500 disabled:opacity-25">
-                    <Send className="h-3.5 w-3.5" />
+                  <button onClick={() => setShowChat(!showChat)} className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/40 backdrop-blur text-white/50 hover:bg-black/60 hover:text-white/80 border border-white/10 transition-all" title={showChat ? "Ocultar chat" : "Mostrar chat"}>
+                    {showChat ? <EyeOff className="h-3.5 w-3.5" /> : <MessageCircle className="h-3.5 w-3.5" />}
+                  </button>
+                  <button onClick={() => setIsExpanded(false)} className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/40 backdrop-blur text-white/50 hover:bg-black/60 hover:text-white/80 border border-white/10 transition-all" title="Salir de pantalla completa">
+                    <Minimize2 className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => router.push("/live")} className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/40 backdrop-blur text-white/50 hover:bg-black/60 hover:text-white/80 border border-white/10 transition-all">
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
 
-              {/* ── Mobile: bottom overlay panel ── */}
-              <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden lg:hidden" style={{ maxHeight: "60%" }}>
-                <div className="h-6 shrink-0 bg-gradient-to-b from-transparent to-black/60" />
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-black/60 backdrop-blur-xl">
-                  {/* Controls bar */}
-                  <div className="flex shrink-0 items-center justify-between px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      {stream.host.avatarUrl ? (
-                        <img src={resolveMediaUrl(stream.host.avatarUrl) ?? undefined} alt="" className="h-6 w-6 rounded-lg object-cover border border-white/10" />
-                      ) : (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/10 text-[9px] font-bold">{(stream.host.displayName || "?")[0]}</div>
-                      )}
-                      <span className="text-[11px] font-semibold text-white/80">{stream.host.displayName || stream.host.username}</span>
-                      <div className="flex items-center gap-1 text-[9px] text-white/30">
-                        <Users className="h-2.5 w-2.5" /> {stream.viewerCount}
+              {/* Spacer — pushes chat to bottom */}
+              <div className="flex-1" />
+
+              {/* Transparent chat overlay */}
+              <AnimatePresence>
+                {showChat && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ duration: 0.2 }}
+                    className="pointer-events-auto flex flex-col w-full sm:max-w-md"
+                    style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+                  >
+                    {/* Quick tips */}
+                    {stream.isActive && !isHost && (
+                      <div className="flex gap-1 px-3 pb-2 overflow-x-auto scrollbar-thin">
+                        {tipOptions.map((opt) => (
+                          <button key={opt.id} onClick={() => sendTip(opt.price, opt.id)} disabled={sendingTip} className="flex shrink-0 items-center gap-1 rounded-lg border border-white/15 bg-black/30 backdrop-blur px-2 py-1 text-[9px] font-semibold transition active:scale-95 disabled:opacity-40">
+                            <span className="text-white/70">{opt.label}</span>
+                            <span className="text-amber-300">{opt.price}</span>
+                          </button>
+                        ))}
+                        {[10, 25, 50, 100].map((amt) => (
+                          <button key={amt} onClick={() => sendTip(amt)} disabled={sendingTip} className="shrink-0 rounded-lg border border-white/15 bg-black/30 backdrop-blur px-2.5 py-1 text-[9px] font-bold text-amber-300 transition hover:bg-amber-500/15 active:scale-95 disabled:opacity-40">
+                            {amt} tk
+                          </button>
+                        ))}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {myBalance !== null && (
-                        <div className="flex items-center gap-1 rounded-full border border-amber-500/15 bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-amber-300">
-                          <Coins className="h-2.5 w-2.5" /> {myBalance}
+                    )}
+
+                    {/* Chat messages — transparent, bottom-aligned */}
+                    <div className="max-h-[30vh] overflow-y-auto px-3 py-1 scrollbar-thin">
+                      {messages.slice(-30).map((msg) => (
+                        <div key={msg.id} className={`mb-1 ${msg.isTip ? "rounded-lg bg-amber-500/10 px-2 py-0.5" : ""}`}>
+                          <span className={`text-[11px] font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] ${
+                            msg.isTip ? "text-amber-300" : msg.userId === "system" ? "text-emerald-400" : msg.userId === myId ? "text-fuchsia-300" : "text-violet-300"
+                          }`}>
+                            {msg.userId === myId ? "Tú" : msg.userName || "Anónimo"}
+                          </span>
+                          <span className="text-[11px] text-white/30"> </span>
+                          <span className={`text-[11px] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] ${msg.isTip ? "text-amber-200/90 font-medium" : "text-white/80"}`}>
+                            {msg.message}
+                          </span>
                         </div>
-                      )}
-                      <button onClick={() => router.push("/live")} className="rounded-lg p-1 text-white/30 hover:text-white/50">
-                        <X className="h-3 w-3" />
+                      ))}
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Chat input */}
+                    <div className="flex gap-2 px-3 pt-1">
+                      <input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && sendChat()}
+                        placeholder="Escribe..."
+                        maxLength={300}
+                        className="flex-1 rounded-xl border border-white/15 bg-black/30 backdrop-blur px-3 py-2 text-[11px] text-white outline-none placeholder:text-white/30 focus:border-fuchsia-500/30 transition-all"
+                      />
+                      <button onClick={sendChat} disabled={!chatInput.trim()} className="rounded-xl bg-fuchsia-600/70 backdrop-blur px-3 py-2 transition hover:bg-fuchsia-500/80 disabled:opacity-25">
+                        <Send className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                  </div>
-
-                  {/* Quick tips */}
-                  {stream.isActive && !isHost && (
-                    <div className="shrink-0 px-3 pb-2">
-                      {tipOptions.length > 0 && (
-                        <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
-                          {tipOptions.map((opt) => (
-                            <button key={opt.id} onClick={() => sendTip(opt.price, opt.id)} disabled={sendingTip} className="flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-[9px] font-semibold transition active:scale-95 disabled:opacity-40">
-                              <span className="text-white/70">{opt.label}</span>
-                              <span className="text-amber-300">{opt.price}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex gap-1">
-                        {[10, 25, 50, 100, 200].map((amt) => (
-                          <button key={amt} onClick={() => sendTip(amt)} disabled={sendingTip} className="flex-1 rounded-lg border border-white/10 bg-black/40 py-1.5 text-[9px] font-bold text-amber-300 transition hover:bg-amber-500/10 active:scale-95 disabled:opacity-40">
-                            {amt}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Chat */}
-                  <div className="min-h-0 flex-1 overflow-y-auto px-3 py-1 scrollbar-thin">
-                    {messages.slice(-20).map((msg) => (
-                      <div key={msg.id} className={`mb-0.5 ${msg.isTip ? "rounded-md bg-amber-500/[0.06] px-1.5 py-0.5" : ""}`}>
-                        <span className={`text-[10px] font-semibold ${msg.isTip ? "text-amber-300" : msg.userId === myId ? "text-fuchsia-300" : "text-violet-300/80"}`}>
-                          {msg.userId === myId ? "Tú" : msg.userName || "Anónimo"}
-                        </span>
-                        <span className="text-[10px] text-white/25">: </span>
-                        <span className={`text-[10px] ${msg.isTip ? "text-amber-200/70 font-medium" : "text-white/50"}`}>{msg.message}</span>
-                      </div>
-                    ))}
-                    <div ref={chatEndRef} />
-                  </div>
-
-                  {/* Chat input */}
-                  <div className="flex shrink-0 gap-2 px-3 pt-1" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
-                    <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendChat()} placeholder="Escribe..." maxLength={300} className="flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-[11px] text-white outline-none placeholder:text-white/20 focus:border-fuchsia-500/25 backdrop-blur" />
-                    <button onClick={sendChat} disabled={!chatInput.trim()} className="rounded-xl bg-fuchsia-600/80 px-3 py-2 backdrop-blur transition hover:bg-fuchsia-500 disabled:opacity-30">
-                      <Send className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           )}
         </div>
 
