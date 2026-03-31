@@ -68,6 +68,7 @@ export default function VideocallRoomPage() {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioEls = useRef<HTMLMediaElement[]>([]);
   const timerRef = useRef<any>(null);
   const connectingTimerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -103,6 +104,12 @@ export default function VideocallRoomPage() {
   }, [bookingId]);
 
   const cleanupRoom = useCallback(async () => {
+    for (const el of remoteAudioEls.current) {
+      el.pause();
+      el.srcObject = null;
+      el.remove();
+    }
+    remoteAudioEls.current = [];
     if (roomRef.current) {
       roomRef.current.removeAllListeners();
       await roomRef.current.disconnect(true);
@@ -124,7 +131,9 @@ export default function VideocallRoomPage() {
       if (pub.track.kind === Track.Kind.Video) {
         pub.track.attach(videoEl);
       } else if (pub.track.kind === Track.Kind.Audio) {
-        pub.track.attach();
+        const audioEl = pub.track.attach();
+        audioEl.volume = 1;
+        remoteAudioEls.current.push(audioEl);
       }
     }
   }, []);
@@ -174,8 +183,7 @@ export default function VideocallRoomPage() {
             const videoEl = remoteVideoRef.current;
             if (videoEl) {
               track.attach(videoEl);
-              videoEl.muted = false;
-              setRemoteAudioOn(true);
+              videoEl.muted = true;
               try {
                 await videoEl.play();
                 setRemoteNeedsInteraction(false);
@@ -189,7 +197,15 @@ export default function VideocallRoomPage() {
           };
           tryAttach();
         } else if (track.kind === Track.Kind.Audio) {
-          track.attach();
+          const audioEl = track.attach();
+          audioEl.volume = 1;
+          remoteAudioEls.current.push(audioEl);
+          setRemoteAudioOn(true);
+          try {
+            await audioEl.play();
+          } catch {
+            setRemoteNeedsInteraction(true);
+          }
         }
       })
       .on(RoomEvent.ParticipantConnected, (participant) => {
@@ -313,10 +329,14 @@ export default function VideocallRoomPage() {
   };
 
   const toggleRemoteAudio = async () => {
-    if (!remoteVideoRef.current) return;
-    remoteVideoRef.current.muted = !remoteVideoRef.current.muted;
-    setRemoteAudioOn(!remoteVideoRef.current.muted);
-    try { await remoteVideoRef.current.play(); setRemoteNeedsInteraction(false); } catch { setRemoteNeedsInteraction(true); }
+    const newMuted = remoteAudioOn;
+    for (const el of remoteAudioEls.current) {
+      el.muted = newMuted;
+      if (!newMuted) {
+        try { await el.play(); } catch { /* autoplay blocked */ }
+      }
+    }
+    setRemoteAudioOn(!newMuted);
   };
 
   const toggleFullscreen = () => {
@@ -480,12 +500,24 @@ export default function VideocallRoomPage() {
           ref={remoteVideoRef}
           autoPlay
           playsInline
+          muted
           className={`h-full w-full object-contain bg-black ${status !== "connected" ? "hidden" : ""}`}
           style={{ transform: "translateZ(0)" }}
         />
 
         {status === "connected" && remoteNeedsInteraction && (
-          <button onClick={toggleRemoteAudio} className="absolute top-4 left-1/2 z-20 -translate-x-1/2 rounded-xl bg-black/70 px-4 py-2 text-xs font-semibold text-white backdrop-blur">
+          <button onClick={async () => {
+            for (const el of remoteAudioEls.current) {
+              el.muted = false;
+              try { await el.play(); } catch { /* ignore */ }
+            }
+            const videoEl = remoteVideoRef.current;
+            if (videoEl) {
+              try { await videoEl.play(); } catch { /* ignore */ }
+            }
+            setRemoteAudioOn(true);
+            setRemoteNeedsInteraction(false);
+          }} className="absolute top-4 left-1/2 z-20 -translate-x-1/2 rounded-xl bg-black/70 px-4 py-2 text-xs font-semibold text-white backdrop-blur">
             Toca para activar audio
           </button>
         )}
