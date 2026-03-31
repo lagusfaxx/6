@@ -319,7 +319,9 @@ export default function LiveStudioPage() {
       analyserRef.current = analyser;
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      let peakDetected = false;
+      let consecutiveAbove = 0;
+      const THRESHOLD = 8; // minimum level to count as real audio
+      const FRAMES_NEEDED = 15; // ~250ms of sustained audio at 60fps
 
       const poll = () => {
         analyser.getByteFrequencyData(dataArray);
@@ -329,9 +331,14 @@ export default function LiveStudioPage() {
         // Normalize to 0-100
         const level = Math.min(100, Math.round((avg / 128) * 100));
         setAudioLevel(level);
-        if (level > 3 && !peakDetected) {
-          peakDetected = true;
-          setAudioDetected(true);
+        if (level > THRESHOLD) {
+          consecutiveAbove++;
+          if (consecutiveAbove >= FRAMES_NEEDED) {
+            setAudioDetected(true);
+          }
+        } else {
+          consecutiveAbove = 0;
+          setAudioDetected(false);
         }
         audioRafRef.current = requestAnimationFrame(poll);
       };
@@ -758,7 +765,7 @@ export default function LiveStudioPage() {
                               ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-300"
                               : "bg-amber-500/20 border-amber-500/30 text-amber-300"
                         }`}>
-                          {!previewMic ? "MUTE" : audioDetected ? "OK" : "Sin audio"}
+                          {!previewMic ? "MUTE" : audioDetected ? "Audio OK" : "Sin audio"}
                         </div>
                       </div>
                     )}
