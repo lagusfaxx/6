@@ -7,9 +7,9 @@ export const env = {
   SESSION_SECRET: process.env.SESSION_SECRET ?? "",
   SESSION_COOKIE_NAME: process.env.SESSION_COOKIE_NAME ?? "uzeed_session",
   COOKIE_DOMAIN: process.env.COOKIE_DOMAIN ?? "",
-  WEB_ORIGIN: process.env.WEB_ORIGIN ?? "http://localhost:3000",
-  API_BASE_URL: process.env.API_BASE_URL ?? "http://localhost:3001",
-  UPLOADS_DIR: process.env.UPLOADS_DIR ?? "uploads",
+  WEB_ORIGIN: process.env.WEB_ORIGIN ?? process.env.CORS_ORIGIN ?? process.env.APP_URL ?? "http://localhost:3000",
+  API_BASE_URL: process.env.API_BASE_URL ?? process.env.API_URL ?? "http://localhost:3001",
+  UPLOADS_DIR: process.env.UPLOADS_DIR ?? process.env.UPLOAD_DIR ?? process.env.STORAGE_DIR ?? "uploads",
 
   KHIPU_RECEIVER_ID: process.env.KHIPU_RECEIVER_ID ?? "",
   KHIPU_SECRET: process.env.KHIPU_SECRET ?? "",
