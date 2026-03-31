@@ -393,8 +393,8 @@ export default function LiveStreamPage() {
           userId: data.senderId,
           userName: data.senderName,
           message: data.optionLabel
-            ? `${data.optionEmoji || "🎁"} ${data.optionLabel} — ${data.amount} tokens${data.message ? ` "${data.message}"` : ""}`
-            : `💰 Envió ${data.amount} tokens${data.message ? ` "${data.message}"` : ""}`,
+            ? `${data.optionLabel} — ${data.amount} tokens${data.message ? ` "${data.message}"` : ""}`
+            : `Propina de ${data.amount} tokens${data.message ? ` "${data.message}"` : ""}`,
           createdAt: data.createdAt,
           isTip: true,
           tipAmount: data.amount,
@@ -576,7 +576,7 @@ export default function LiveStreamPage() {
     try {
       const res = await apiFetch<{ option: TipOption }>("/live/tip-options/add", {
         method: "POST",
-        body: JSON.stringify({ label: newTipLabel.trim(), price: parseInt(newTipPrice, 10), emoji: newTipEmoji.trim() || null }),
+        body: JSON.stringify({ label: newTipLabel.trim(), price: parseInt(newTipPrice, 10), emoji: null }),
       });
       setTipOptions((prev) => [...prev, res.option]);
       setNewTipLabel("");
@@ -687,38 +687,38 @@ export default function LiveStreamPage() {
     return (
       <div className="flex h-dvh max-h-screen flex-col overflow-hidden bg-[#070816] text-white">
         {/* ── Host Top Bar ── */}
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#070816]/90 backdrop-blur-xl px-4 py-2.5">
-          <div className="flex items-center gap-2.5">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#070816]/90 backdrop-blur-xl px-2.5 py-1.5 sm:px-4 sm:py-2.5">
+          <div className="flex items-center gap-2">
             <div className="relative">
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-fuchsia-500/30 to-rose-500/30 blur-lg scale-150" />
-              <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-600/25 to-rose-600/25 border border-fuchsia-500/20">
-                <Radio className="h-4 w-4 text-fuchsia-400" />
+              <div className="absolute inset-0 rounded-lg sm:rounded-xl bg-gradient-to-br from-fuchsia-500/30 to-rose-500/30 blur-lg scale-150" />
+              <div className="relative flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-fuchsia-600/25 to-rose-600/25 border border-fuchsia-500/20">
+                <Radio className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-fuchsia-400" />
               </div>
             </div>
             <div>
-              <h1 className="text-sm font-bold tracking-tight">Studio</h1>
-              <p className="text-[10px] text-white/30 truncate max-w-[120px] sm:max-w-none">{stream.title || "Sin título"}</p>
+              <h1 className="text-xs sm:text-sm font-bold tracking-tight">Studio</h1>
+              <p className="text-[9px] sm:text-[10px] text-white/30 truncate max-w-[100px] sm:max-w-none">{stream.title || "Sin título"}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {stream.isActive && (
-              <div className="flex items-center gap-1.5 rounded-full border border-red-500/25 bg-red-500/10 px-2.5 py-1">
-                <span className="relative flex h-2 w-2">
+              <div className="flex items-center gap-1 rounded-full border border-red-500/25 bg-red-500/10 px-2 py-0.5 sm:px-2.5 sm:py-1">
+                <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                  <span className="relative inline-flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-500" />
                 </span>
-                <span className="text-[10px] font-bold text-red-300">LIVE</span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-red-300">LIVE</span>
               </div>
             )}
-            <div className="flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-[10px] text-white/40">
-              <Clock className="h-3 w-3" /> {elapsed}
+            <div className="flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[10px] text-white/40">
+              <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> {elapsed}
             </div>
           </div>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           {/* ── Video Preview (smaller for host) ── */}
-          <div className="relative flex h-[35vh] min-h-0 flex-shrink-0 items-center justify-center bg-black lg:h-auto lg:flex-1 lg:flex-shrink overflow-hidden">
+          <div className="relative flex h-[30vh] sm:h-[35vh] min-h-0 flex-shrink-0 items-center justify-center bg-black lg:h-auto lg:flex-1 lg:flex-shrink overflow-hidden">
             {/* Ambient glow behind video */}
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-fuchsia-900/20 via-transparent to-violet-900/20" />
             <video
@@ -772,10 +772,12 @@ export default function LiveStreamPage() {
                     exit={{ opacity: 0, x: 40, scale: 0.8 }}
                     className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-black/70 px-4 py-2.5 backdrop-blur-sm"
                   >
-                    <span className="text-lg">{toast.optionEmoji || "💰"}</span>
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500/25 to-orange-500/20">
+                      <Coins className="h-4 w-4 text-amber-300" />
+                    </div>
                     <div>
                       <p className="text-xs font-bold text-amber-300">
-                        {toast.senderName} envió {toast.amount} tokens
+                        {toast.senderName} — {toast.amount} tokens
                       </p>
                       {toast.optionLabel && <p className="text-[10px] text-white/60">{toast.optionLabel}</p>}
                       {toast.message && <p className="text-[10px] text-white/50 italic">&quot;{toast.message}&quot;</p>}
@@ -799,26 +801,26 @@ export default function LiveStreamPage() {
           </div>
 
           {/* ── Host Sidebar Panel ── */}
-          <div className="flex min-h-0 w-full flex-1 flex-col border-t border-white/[0.06] bg-[#070816] lg:w-96 lg:flex-initial lg:border-l lg:border-t-0">
+          <div className="flex min-h-0 w-full flex-1 flex-col border-t border-white/[0.06] bg-[#070816] lg:w-96 lg:flex-initial lg:border-l lg:border-t-0 overflow-hidden">
             {/* Stats bar */}
             <div className="grid grid-cols-3 border-b border-white/[0.06]">
-              <div className="flex flex-col items-center py-3 border-r border-white/[0.04]">
-                <div className="flex items-center gap-1.5 text-base font-bold text-fuchsia-300">
-                  <Users className="h-3.5 w-3.5 opacity-60" /> {stream.viewerCount}
+              <div className="flex flex-col items-center py-2 sm:py-3 border-r border-white/[0.04]">
+                <div className="flex items-center gap-1 text-sm sm:text-base font-bold text-fuchsia-300">
+                  <Users className="h-3 w-3 sm:h-3.5 sm:w-3.5 opacity-60" /> {stream.viewerCount}
                 </div>
-                <span className="text-[9px] text-white/25 mt-0.5">Viewers</span>
+                <span className="text-[8px] sm:text-[9px] text-white/25 mt-0.5">Viewers</span>
               </div>
-              <div className="flex flex-col items-center py-3 border-r border-white/[0.04]">
-                <div className="flex items-center gap-1.5 text-base font-bold text-amber-300">
-                  <Coins className="h-3.5 w-3.5 opacity-60" /> {stream.totalTipsEarned || 0}
+              <div className="flex flex-col items-center py-2 sm:py-3 border-r border-white/[0.04]">
+                <div className="flex items-center gap-1 text-sm sm:text-base font-bold text-amber-300">
+                  <Coins className="h-3 w-3 sm:h-3.5 sm:w-3.5 opacity-60" /> {stream.totalTipsEarned || 0}
                 </div>
-                <span className="text-[9px] text-white/25 mt-0.5">Tokens</span>
+                <span className="text-[8px] sm:text-[9px] text-white/25 mt-0.5">Tokens</span>
               </div>
-              <div className="flex flex-col items-center py-3">
-                <div className="flex items-center gap-1.5 text-base font-bold text-emerald-300">
-                  <Clock className="h-3.5 w-3.5 opacity-60" /> {elapsed}
+              <div className="flex flex-col items-center py-2 sm:py-3">
+                <div className="flex items-center gap-1 text-sm sm:text-base font-bold text-emerald-300">
+                  <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 opacity-60" /> {elapsed}
                 </div>
-                <span className="text-[9px] text-white/25 mt-0.5">Tiempo</span>
+                <span className="text-[8px] sm:text-[9px] text-white/25 mt-0.5">Tiempo</span>
               </div>
             </div>
 
@@ -876,16 +878,16 @@ export default function LiveStreamPage() {
                     </AnimatePresence>
                     <div ref={chatEndRef} />
                   </div>
-                  <div className="flex gap-2 border-t border-white/[0.06] p-3">
+                  <div className="flex gap-1.5 border-t border-white/[0.06] p-2 sm:p-3" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
                     <input
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                      placeholder="Escribe un mensaje..."
+                      placeholder="Escribe..."
                       maxLength={300}
-                      className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-xs outline-none placeholder:text-white/25 focus:border-fuchsia-500/30"
+                      className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 sm:py-2.5 text-xs outline-none placeholder:text-white/25 focus:border-fuchsia-500/30"
                     />
-                    <button onClick={sendChat} disabled={!chatInput.trim()} className="rounded-xl bg-fuchsia-600 px-3 py-2.5 transition hover:bg-fuchsia-500 disabled:opacity-30">
+                    <button onClick={sendChat} disabled={!chatInput.trim()} className="rounded-xl bg-fuchsia-600 px-3 py-2 sm:py-2.5 transition hover:bg-fuchsia-500 disabled:opacity-30">
                       <Send className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -929,22 +931,13 @@ export default function LiveStreamPage() {
                   {/* Add new tip option */}
                   <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-4 space-y-3">
                     <h4 className="text-xs font-semibold text-fuchsia-300">Agregar tipo de propina</h4>
-                    <div className="flex gap-2">
-                      <input
-                        value={newTipEmoji}
-                        onChange={(e) => setNewTipEmoji(e.target.value)}
-                        placeholder="🎁"
-                        maxLength={4}
-                        className="w-12 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2 text-center text-sm outline-none placeholder:text-white/25 focus:border-fuchsia-500/30"
-                      />
-                      <input
-                        value={newTipLabel}
-                        onChange={(e) => setNewTipLabel(e.target.value)}
-                        placeholder="Ej: Bailo para ti"
-                        maxLength={50}
-                        className="flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none placeholder:text-white/25 focus:border-fuchsia-500/30"
-                      />
-                    </div>
+                    <input
+                      value={newTipLabel}
+                      onChange={(e) => setNewTipLabel(e.target.value)}
+                      placeholder="Ej: Bailo para ti"
+                      maxLength={50}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs outline-none placeholder:text-white/25 focus:border-fuchsia-500/30"
+                    />
                     <div className="flex gap-2">
                       <div className="relative flex-1">
                         <input
@@ -1069,49 +1062,49 @@ export default function LiveStreamPage() {
     <div className="flex h-[100dvh] min-h-[100dvh] w-full flex-col overflow-hidden bg-[#070816] text-white">
       {/* ── Viewer Header ── */}
       {!isExpanded && (
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#070816]/90 backdrop-blur-xl px-3 py-2 sm:px-4 sm:py-2.5">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#070816]/90 backdrop-blur-xl px-2.5 py-1.5 sm:px-4 sm:py-2.5">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="relative shrink-0">
               {stream.host.avatarUrl ? (
-                <img src={resolveMediaUrl(stream.host.avatarUrl) ?? undefined} alt="" className="h-8 w-8 rounded-xl object-cover border border-white/10" />
+                <img src={resolveMediaUrl(stream.host.avatarUrl) ?? undefined} alt="" className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg sm:rounded-xl object-cover border border-white/10" />
               ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/15 border border-white/10 text-xs font-bold text-fuchsia-300">{(stream.host.displayName || "?")[0]}</div>
+                <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/15 border border-white/10 text-[10px] sm:text-xs font-bold text-fuchsia-300">{(stream.host.displayName || "?")[0]}</div>
               )}
               {stream.isActive && (
-                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#070816] bg-red-500" />
+                <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full border-2 border-[#070816] bg-red-500" />
               )}
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold truncate">{stream.host.displayName || stream.host.username}</p>
-              {stream.title && <p className="text-[10px] text-white/30 truncate">{stream.title}</p>}
+              <p className="text-[11px] sm:text-xs font-semibold truncate">{stream.host.displayName || stream.host.username}</p>
+              {stream.title && <p className="text-[9px] sm:text-[10px] text-white/30 truncate max-w-[120px] sm:max-w-none">{stream.title}</p>}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-1.5">
             {stream.isActive && (
-              <div className="flex items-center gap-1 rounded-full border border-red-500/25 bg-red-500/10 px-2 py-0.5">
+              <div className="flex items-center gap-1 rounded-full border border-red-500/25 bg-red-500/10 px-1.5 sm:px-2 py-0.5">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
                 </span>
-                <span className="text-[9px] font-bold text-red-300">LIVE</span>
+                <span className="text-[8px] sm:text-[9px] font-bold text-red-300">LIVE</span>
               </div>
             )}
             {isPrivateActive && (
-              <div className="flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5">
+              <div className="hidden sm:flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5">
                 <Lock className="h-2.5 w-2.5 text-amber-400" />
                 <span className="text-[9px] font-bold text-amber-300">PRIVADO</span>
               </div>
             )}
-            <div className="flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/40">
-              <Users className="h-3 w-3" /> {stream.viewerCount}
+            <div className="flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.03] px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] text-white/40">
+              <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> {stream.viewerCount}
             </div>
             {myBalance !== null && (
-              <div className="flex items-center gap-1 rounded-full border border-amber-500/15 bg-amber-500/[0.06] px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+              <div className="flex items-center gap-1 rounded-full border border-amber-500/15 bg-amber-500/[0.06] px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-300">
                 <Coins className="h-2.5 w-2.5" /> {myBalance}
               </div>
             )}
-            <button onClick={() => router.push("/live")} className="flex h-7 w-7 items-center justify-center rounded-lg text-white/30 hover:bg-white/[0.06] hover:text-white/60 transition-all">
-              <X className="h-3.5 w-3.5" />
+            <button onClick={() => router.push("/live")} className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg text-white/30 hover:bg-white/[0.06] hover:text-white/60 transition-all">
+              <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             </button>
           </div>
         </div>
@@ -1120,7 +1113,7 @@ export default function LiveStreamPage() {
       <div className={`relative flex min-h-0 flex-1 ${isExpanded ? "flex-col" : "flex-col lg:flex-row"}`}>
         {/* ── Video Area ── */}
         <div className={`relative flex items-center justify-center overflow-hidden ${
-          isExpanded ? "fixed inset-0 z-[90] h-[100dvh] w-full bg-black" : "h-[60vh] flex-shrink-0 bg-black lg:h-auto lg:flex-1 lg:flex-shrink"
+          isExpanded ? "fixed inset-0 z-[90] h-[100dvh] w-full bg-black" : "h-[40vh] sm:h-[50vh] flex-shrink-0 bg-black lg:h-auto lg:flex-1 lg:flex-shrink"
         }`}>
           {/* Ambient gradient behind video */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-fuchsia-950/30 via-transparent to-violet-950/30" />
@@ -1153,7 +1146,7 @@ export default function LiveStreamPage() {
                 </motion.div>
                 <h3 className="text-lg font-bold">Show Privado</h3>
                 <p className="mt-2 text-sm text-white/40 max-w-xs mx-auto leading-relaxed">
-                  Contenido exclusivo en curso. Únete para desbloquear el acceso completo.
+                  Contenido exclusivo en curso. Paga para desbloquear el acceso completo.
                 </p>
                 {stream.privateShowPrice && (
                   <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/[0.08] px-4 py-2">
@@ -1247,8 +1240,8 @@ export default function LiveStreamPage() {
                   transition={{ type: "spring", damping: 20, stiffness: 300 }}
                   className="flex items-center gap-2.5 rounded-2xl border border-amber-500/25 bg-black/70 px-3.5 py-2.5 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/15 text-lg">
-                    {toast.optionEmoji || "💰"}
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/15">
+                    <Coins className="h-4 w-4 text-amber-300" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[11px] font-bold text-amber-300 truncate">
@@ -1340,7 +1333,7 @@ export default function LiveStreamPage() {
                       </div>
                     )}
                     <div className="flex gap-1">
-                      {[5, 10, 25, 50, 100].map((amt) => (
+                      {[10, 25, 50, 100, 200].map((amt) => (
                         <button key={amt} onClick={() => sendTip(amt)} disabled={sendingTip} className="flex-1 rounded-lg border border-white/10 bg-black/40 py-1.5 text-[10px] font-bold text-amber-300 transition hover:bg-amber-500/10 active:scale-95 disabled:opacity-40">
                           {amt}
                         </button>
@@ -1377,7 +1370,7 @@ export default function LiveStreamPage() {
 
         {/* ── Sidebar: Tips + Private Show + Chat (normal mode) ── */}
         {!isExpanded && (joined || isHost) && (
-          <div className="flex min-h-0 w-full flex-1 flex-col border-t border-white/[0.06] bg-[#070816] lg:w-[360px] lg:flex-initial lg:border-l lg:border-t-0">
+          <div className="flex min-h-0 w-full flex-1 flex-col border-t border-white/[0.06] bg-[#070816] lg:w-[360px] lg:flex-initial lg:border-l lg:border-t-0 overflow-hidden">
 
             {/* ── Private Show Banner ── */}
             {stream.isActive && stream.privateShowPrice && !isHost && (
@@ -1415,18 +1408,18 @@ export default function LiveStreamPage() {
                 ) : (
                   <button
                     onClick={() => setShowPrivateModal(true)}
-                    className="group mx-2 my-2 flex w-[calc(100%-16px)] items-center gap-3 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 px-4 py-3 shadow-[0_0_20px_rgba(245,158,11,0.08)] transition-all hover:border-amber-400/50 hover:shadow-[0_0_24px_rgba(245,158,11,0.15)] active:scale-[0.98]"
+                    className="group mx-2 my-1.5 sm:my-2 flex w-[calc(100%-16px)] items-center gap-2.5 sm:gap-3 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 px-3 py-2.5 sm:px-4 sm:py-3 shadow-[0_0_20px_rgba(245,158,11,0.08)] transition-all hover:border-amber-400/50 hover:shadow-[0_0_24px_rgba(245,158,11,0.15)] active:scale-[0.98]"
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-500/20 border border-amber-400/25 shadow-inner">
-                      <Sparkles className="h-5 w-5 text-amber-300" />
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-500/20 border border-amber-400/25">
+                      <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-amber-300" />
                     </div>
                     <div className="flex-1 text-left min-w-0">
-                      <p className="text-xs font-bold text-white/90">Show Privado</p>
-                      <p className="text-[10px] text-amber-200/50">Contenido exclusivo 1-a-1</p>
+                      <p className="text-[11px] sm:text-xs font-bold text-white/90">Show Privado</p>
+                      <p className="text-[9px] sm:text-[10px] text-amber-200/50">Contenido exclusivo premium</p>
                     </div>
-                    <div className="flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/20 px-3 py-1.5">
-                      <Coins className="h-3.5 w-3.5 text-amber-300" />
-                      <span className="text-xs font-bold text-amber-200">{stream.privateShowPrice} tk</span>
+                    <div className="flex items-center gap-1 sm:gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/20 px-2.5 py-1 sm:px-3 sm:py-1.5">
+                      <Coins className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-300" />
+                      <span className="text-[11px] sm:text-xs font-bold text-amber-200">{stream.privateShowPrice} tk</span>
                     </div>
                   </button>
                 )}
@@ -1463,23 +1456,32 @@ export default function LiveStreamPage() {
               </div>
             )}
 
-            {/* ── Quick Tip + Custom Amount ── */}
+            {/* ── Quick Tip Buttons ── */}
             {stream.isActive && !isHost && (
-              <div className="border-b border-white/[0.06] px-2.5 py-2">
-                <div className="flex gap-1 mb-1.5">
-                  {[5, 10, 25, 50, 100].map((amt) => (
-                    <button key={amt} onClick={() => sendTip(amt)} disabled={sendingTip} className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.02] py-1.5 text-[10px] font-bold text-amber-300/80 transition-all hover:bg-amber-500/10 hover:text-amber-300 active:scale-95 disabled:opacity-40">
-                      {amt}
+              <div className="border-b border-white/[0.06] px-2.5 py-2.5">
+                <div className="flex gap-1.5">
+                  {[10, 25, 50, 100, 200].map((amt) => (
+                    <button key={amt} onClick={() => sendTip(amt)} disabled={sendingTip} className="flex-1 rounded-xl border border-white/[0.06] bg-white/[0.02] py-2 text-[11px] font-bold text-amber-300/80 transition-all hover:bg-amber-500/10 hover:border-amber-500/20 hover:text-amber-300 active:scale-95 disabled:opacity-40">
+                      {amt} <span className="text-[9px] font-normal text-white/30">tk</span>
                     </button>
                   ))}
                 </div>
-                <div className="flex gap-1.5">
-                  <input type="number" value={customTipAmount} onChange={(e) => setCustomTipAmount(e.target.value)} placeholder="Monto" min="1" className="w-16 rounded-lg border border-white/[0.07] bg-white/[0.03] px-2 py-1.5 text-[11px] outline-none placeholder:text-white/20 focus:border-fuchsia-500/20" />
-                  <input value={tipMessage} onChange={(e) => setTipMessage(e.target.value)} placeholder="Mensaje (opcional)" maxLength={200} className="flex-1 rounded-lg border border-white/[0.07] bg-white/[0.03] px-2 py-1.5 text-[11px] outline-none placeholder:text-white/20 focus:border-fuchsia-500/20" />
-                  <button onClick={() => sendTip(parseInt(customTipAmount, 10) || 0)} disabled={sendingTip || !customTipAmount || parseInt(customTipAmount, 10) < 1} className="rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 px-3 py-1.5 text-[10px] font-bold transition-all disabled:opacity-40 hover:shadow-[0_4px_12px_rgba(245,158,11,0.2)] active:scale-95">
-                    {sendingTip ? "..." : "Enviar"}
-                  </button>
-                </div>
+                {/* Custom amount toggle */}
+                <button
+                  onClick={() => setShowTipPanel(!showTipPanel)}
+                  className="mt-1.5 w-full text-center text-[10px] text-white/25 hover:text-white/40 transition-colors py-1"
+                >
+                  {showTipPanel ? "Cerrar" : "Monto personalizado"}
+                </button>
+                {showTipPanel && (
+                  <div className="mt-1 flex gap-1.5">
+                    <input type="number" value={customTipAmount} onChange={(e) => setCustomTipAmount(e.target.value)} placeholder="Cantidad" min="1" className="w-20 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[11px] outline-none placeholder:text-white/20 focus:border-amber-500/20" />
+                    <input value={tipMessage} onChange={(e) => setTipMessage(e.target.value)} placeholder="Mensaje (opcional)" maxLength={200} className="flex-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[11px] outline-none placeholder:text-white/20 focus:border-fuchsia-500/20" />
+                    <button onClick={() => sendTip(parseInt(customTipAmount, 10) || 0)} disabled={sendingTip || !customTipAmount || parseInt(customTipAmount, 10) < 1} className="rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2 text-[11px] font-bold transition-all disabled:opacity-40 hover:shadow-[0_4px_12px_rgba(245,158,11,0.2)] active:scale-95">
+                      {sendingTip ? "..." : "Enviar"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1524,16 +1526,16 @@ export default function LiveStreamPage() {
             </div>
 
             {/* ── Chat Input ── */}
-            <div className="flex gap-1.5 border-t border-white/[0.06] p-2.5">
+            <div className="flex gap-1.5 border-t border-white/[0.06] p-2 sm:p-2.5" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
               <input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                placeholder="Escribe un mensaje..."
+                placeholder="Escribe..."
                 maxLength={300}
-                className="flex-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-xs outline-none placeholder:text-white/20 focus:border-fuchsia-500/20 transition-all"
+                className="flex-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 sm:py-2.5 text-xs outline-none placeholder:text-white/20 focus:border-fuchsia-500/20 transition-all"
               />
-              <button onClick={sendChat} disabled={!chatInput.trim()} className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl bg-fuchsia-600 transition-all hover:bg-fuchsia-500 disabled:opacity-25">
+              <button onClick={sendChat} disabled={!chatInput.trim()} className="flex h-[34px] w-[34px] sm:h-[38px] sm:w-[38px] shrink-0 items-center justify-center rounded-xl bg-fuchsia-600 transition-all hover:bg-fuchsia-500 disabled:opacity-25">
                 <Send className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -1566,12 +1568,12 @@ export default function LiveStreamPage() {
                   </div>
                   <div>
                     <h3 className="text-base font-bold">Show Privado</h3>
-                    <p className="text-[11px] text-white/35">Contenido exclusivo solo para ti</p>
+                    <p className="text-[11px] text-white/35">Contenido exclusivo premium</p>
                   </div>
                 </div>
 
                 <p className="mb-4 text-xs text-white/40 leading-relaxed">
-                  Los demás espectadores verán la transmisión difuminada. Solo tú podrás disfrutar el contenido completo en HD.
+                  Los demás espectadores verán la transmisión difuminada. Quienes paguen podrán disfrutar el contenido completo en HD.
                 </p>
 
                 {stream.privateShowPrice ? (

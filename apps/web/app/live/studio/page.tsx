@@ -89,8 +89,7 @@ function useElapsed(startedAt: string | undefined) {
   return elapsed;
 }
 
-/* ── Suggested emojis ── */
-const EMOJI_SUGGESTIONS = ["💃", "🔥", "💋", "🌹", "💎", "👑", "🎵", "💦", "😘", "🍑", "🫦", "✨"];
+/* (emojis removed — keep tip options clean and simple) */
 
 /* ── Quick price presets ── */
 const PRICE_PRESETS = [25, 50, 100, 200, 500];
@@ -401,7 +400,7 @@ export default function LiveStudioPage() {
     try {
       await apiFetch("/live/tip-options/add", {
         method: "POST",
-        body: JSON.stringify({ label, price, emoji: newTipEmoji.trim() || null }),
+        body: JSON.stringify({ label, price, emoji: null }),
       });
       setNewTipLabel("");
       setNewTipPrice("");
@@ -1006,9 +1005,6 @@ export default function LiveStudioPage() {
                           key={t.id}
                           className="group/tip flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 transition-all hover:border-fuchsia-500/10 hover:bg-white/[0.03]"
                         >
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/10 to-violet-500/[0.06] border border-fuchsia-500/[0.12] text-lg">
-                            {t.emoji || "🎁"}
-                          </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{t.label}</p>
                           </div>
@@ -1039,7 +1035,6 @@ export default function LiveStudioPage() {
                       <div className="space-y-1.5">
                         {inactiveTips.map((t) => (
                           <div key={t.id} className="flex items-center gap-3 rounded-xl border border-white/[0.04] bg-white/[0.01] px-3 py-2 opacity-50">
-                            <span className="text-sm">{t.emoji || "🎁"}</span>
                             <span className="text-xs text-white/40 truncate flex-1">{t.label}</span>
                             <span className="text-[10px] text-white/20">{t.price} tk</span>
                           </div>
@@ -1108,44 +1103,11 @@ export default function LiveStudioPage() {
                         </div>
                       </div>
 
-                      {/* Emoji */}
-                      <div>
-                        <label className="mb-1.5 block text-[11px] font-medium text-white/40">
-                          Emoji (opcional)
-                        </label>
-                        <input
-                          value={newTipEmoji}
-                          onChange={(e) => setNewTipEmoji(e.target.value)}
-                          placeholder="💃"
-                          maxLength={4}
-                          className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/20 focus:border-fuchsia-500/30 focus:outline-none transition-all"
-                        />
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {EMOJI_SUGGESTIONS.map((e) => (
-                            <button
-                              key={e}
-                              type="button"
-                              onClick={() => setNewTipEmoji(e)}
-                              className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm transition-all ${
-                                newTipEmoji === e
-                                  ? "border-fuchsia-500/30 bg-fuchsia-500/10"
-                                  : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05]"
-                              }`}
-                            >
-                              {e}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
                       {/* Preview */}
                       {newTipLabel && newTipPrice && (
                         <div className="rounded-xl border border-fuchsia-500/15 bg-fuchsia-500/[0.04] p-3">
                           <p className="text-[10px] text-white/30 mb-2">Vista previa</p>
                           <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-fuchsia-500/10 text-base">
-                              {newTipEmoji || "🎁"}
-                            </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{newTipLabel}</p>
                             </div>
