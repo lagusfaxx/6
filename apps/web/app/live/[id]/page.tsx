@@ -1175,12 +1175,12 @@ export default function LiveStreamPage() {
           {/* Ambient gradient behind video */}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-fuchsia-950/30 via-transparent to-violet-950/30" />
 
-          {/* Remote video */}
+          {/* Remote video — muted because audio comes via separate LiveKit audio track */}
           {joined && (
             <video
               ref={remoteVideoRef}
-              autoPlay playsInline
-              className={`h-full w-full transition-all duration-500 ${isExpanded ? "object-cover" : "object-contain"} ${!videoReady ? "hidden" : ""} ${shouldBlur ? "blur-2xl scale-110 brightness-50" : ""}`}
+              autoPlay playsInline muted
+              className={`h-full w-full ${isExpanded ? "object-cover" : "object-contain"} ${!videoReady ? "hidden" : ""} ${shouldBlur ? "blur-2xl scale-110 brightness-50" : ""}`}
             />
           )}
 
