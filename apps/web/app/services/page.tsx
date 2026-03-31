@@ -41,6 +41,7 @@ import {
   ShieldCheck,
   Video,
   Phone,
+  ExternalLink,
 } from "lucide-react";
 
 type ProfileResult = {
@@ -75,6 +76,8 @@ type ProfileResult = {
   serviceTags?: string[];
   phone?: string | null;
   userId?: string | null;
+  websiteUrl?: string | null;
+  externalOnly?: boolean;
 };
 
 const INITIAL_RADIUS_KM = 50;
@@ -107,6 +110,7 @@ function formatWhatsAppUrl(phone: string) {
 }
 
 function ownerHref(profile: ProfileResult) {
+  if (profile.externalOnly && profile.websiteUrl) return profile.websiteUrl;
   if (profile.profileType === "ESTABLISHMENT") return `/hospedaje/${profile.id}`;
   if (profile.profileType === "SHOP") return `/sexshop/${profile.username}`;
   return `/profesional/${profile.id}`;
@@ -334,7 +338,16 @@ const FeaturedCard = memo(function FeaturedCard({
       </button>
       {/* CTA bar */}
       <div className="flex gap-2 p-2.5 bg-[#0c0c14]/60">
-        {profile.profileType === "ESTABLISHMENT" ? (
+        {profile.externalOnly && profile.websiteUrl ? (
+          <a
+            href={profile.websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 text-xs font-semibold transition-all hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.2)]"
+          >
+            <ExternalLink className="h-3.5 w-3.5" /> Visitar web
+          </a>
+        ) : profile.profileType === "ESTABLISHMENT" ? (
           <Link
             href={ownerHref(profile)}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 text-xs font-semibold transition-all hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.2)]"
@@ -440,7 +453,16 @@ const ProfileCard = memo(function ProfileCard({
         </div>
       </button>
       <div className="flex gap-1.5 p-2 bg-[#0c0c14]/40">
-        {profile.profileType === "ESTABLISHMENT" ? (
+        {profile.externalOnly && profile.websiteUrl ? (
+          <a
+            href={profile.websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-amber-500/90 to-orange-500/90 py-2 text-[11px] font-semibold transition-all hover:brightness-110"
+          >
+            <ExternalLink className="h-3 w-3" /> Visitar web
+          </a>
+        ) : profile.profileType === "ESTABLISHMENT" ? (
           <Link
             href={ownerHref(profile)}
             className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-amber-500/90 to-orange-500/90 py-2 text-[11px] font-semibold transition-all hover:brightness-110"
@@ -700,7 +722,16 @@ function ProfileDetailPanel({
       {/* Action buttons - premium style */}
       <div className="relative shrink-0 border-t border-white/[0.06] bg-[#0d0e17]/90 backdrop-blur-xl p-3 flex gap-2">
         <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent" />
-        {profile.profileType === "ESTABLISHMENT" ? (
+        {profile.externalOnly && profile.websiteUrl ? (
+          <a
+            href={profile.websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold transition-all hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.2)]"
+          >
+            <ExternalLink className="h-4 w-4" /> Visitar web
+          </a>
+        ) : profile.profileType === "ESTABLISHMENT" ? (
           <Link
             href={ownerHref(profile)}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold transition-all hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.2)]"
