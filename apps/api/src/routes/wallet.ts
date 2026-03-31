@@ -17,7 +17,7 @@ import { emitAdminEvent } from "../lib/adminEvents";
 export const walletRouter = Router();
 
 const storage = new LocalStorageProvider(
-  path.join(process.cwd(), env.UPLOADS_DIR),
+  path.resolve(env.UPLOADS_DIR),
   "/uploads",
 );
 const upload = multer({

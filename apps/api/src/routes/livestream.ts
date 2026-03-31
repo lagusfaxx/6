@@ -1,5 +1,6 @@
 import { Router } from "express";
 import path from "node:path";
+import fs from "node:fs/promises";
 import rateLimit from "express-rate-limit";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../lib/auth";
@@ -9,7 +10,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { env } from "../lib/env";
 
 const storageProvider = new LocalStorageProvider(
-  path.join(process.cwd(), env.UPLOADS_DIR),
+  path.resolve(env.UPLOADS_DIR),
   "/uploads",
 );
 
@@ -284,6 +285,23 @@ livestreamRouter.post("/live/:id/thumbnail", requireAuth, async (req, res) => {
     // Limit size (500KB max for thumbnails)
     if (buffer.length > 500 * 1024) {
       return res.status(400).json({ error: "Thumbnail too large" });
+    }
+
+    // Delete previous thumbnail file if it exists
+    try {
+      const prev = await prisma.$queryRawUnsafe<{ thumbnailUrl: string | null }[]>(
+        `SELECT "thumbnailUrl" FROM "LiveStream" WHERE "id" = $1`,
+        stream.id,
+      );
+      const prevUrl = prev[0]?.thumbnailUrl;
+      if (prevUrl) {
+        // prevUrl is like "/uploads/live-thumbnails/<uuid>.jpg"
+        const relative = prevUrl.replace(/^\/uploads\//, "");
+        const absPath = path.join(path.resolve(env.UPLOADS_DIR), relative);
+        await fs.unlink(absPath).catch(() => {});
+      }
+    } catch {
+      // Column may not exist yet — ignore
     }
 
     const result = await storageProvider.save({
