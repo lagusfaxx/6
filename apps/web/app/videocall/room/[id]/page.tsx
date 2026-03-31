@@ -143,7 +143,6 @@ export default function VideocallRoomPage() {
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
-      rtcConfig: { iceServers: ICE_SERVERS },
     });
     roomRef.current = room;
 
@@ -210,7 +209,10 @@ export default function VideocallRoomPage() {
         bookingId: b.id,
         roomName: `videocall:${b.roomId}`,
       });
-      await room.connect(tokenRes.url, tokenRes.token, { autoSubscribe: true });
+      await room.connect(tokenRes.url, tokenRes.token, {
+        autoSubscribe: true,
+        rtcConfig: { iceServers: ICE_SERVERS },
+      });
       await room.localParticipant.enableCameraAndMicrophone();
       setHasLocalStream(true);
       if (localVideoRef.current) {
