@@ -1,8 +1,16 @@
 import { Router } from "express";
+import path from "node:path";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../lib/auth";
 import { broadcast, sendToUser } from "../realtime/sse";
 import { getOrCreateWallet, getCommissionPercent } from "./wallet";
+import { LocalStorageProvider } from "../storage/localStorageProvider";
+import { env } from "../lib/env";
+
+const storageProvider = new LocalStorageProvider(
+  path.join(process.cwd(), env.UPLOADS_DIR),
+  `${env.API_BASE_URL}/uploads`,
+);
 
 export const livestreamRouter = Router();
 
@@ -93,11 +101,42 @@ livestreamRouter.get("/live/active", async (_req, res) => {
       orderBy: { startedAt: "desc" },
       include: {
         host: {
-          select: { id: true, displayName: true, username: true, avatarUrl: true },
+          select: {
+            id: true,
+            displayName: true,
+            username: true,
+            avatarUrl: true,
+            coverUrl: true,
+            bio: true,
+            profileMedia: {
+              where: { type: "IMAGE" },
+              orderBy: { createdAt: "asc" },
+              take: 1,
+              select: { url: true },
+            },
+          },
         },
       },
     });
-    res.json({ streams });
+
+    // Flatten: pick best thumbnail (live frame > cover > gallery > avatar)
+    const mapped = streams.map((s: any) => {
+      const firstMedia = s.host.profileMedia?.[0]?.url || null;
+      const profileThumb = s.host.coverUrl || firstMedia || s.host.avatarUrl || null;
+      return {
+        ...s,
+        thumbnailUrl: s.thumbnailUrl || profileThumb,
+        host: {
+          id: s.host.id,
+          displayName: s.host.displayName,
+          username: s.host.username,
+          avatarUrl: s.host.avatarUrl,
+          bio: s.host.bio,
+        },
+      };
+    });
+
+    res.json({ streams: mapped });
   } catch (err) {
     console.error("Error fetching active streams:", err);
     res.json({ streams: [] });
@@ -132,6 +171,51 @@ livestreamRouter.get("/live/:id", async (req, res) => {
   } catch (err) {
     console.error("Error fetching stream:", err);
     res.status(500).json({ error: "Error loading stream" });
+  }
+});
+
+// ── POST /live/:id/thumbnail — host uploads a frame capture as stream thumbnail ──
+livestreamRouter.post("/live/:id/thumbnail", requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.userId!;
+    const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id } });
+    if (!stream) return res.status(404).json({ error: "Not found" });
+    if (stream.hostId !== userId) return res.status(403).json({ error: "Not your stream" });
+    if (!stream.isActive) return res.status(400).json({ error: "Stream ended" });
+
+    const { dataUrl } = req.body;
+    if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
+      return res.status(400).json({ error: "Invalid image data" });
+    }
+
+    // Parse base64 data URL
+    const matches = dataUrl.match(/^data:image\/(png|jpeg|webp);base64,(.+)$/);
+    if (!matches) return res.status(400).json({ error: "Invalid data URL format" });
+
+    const ext = matches[1] === "jpeg" ? ".jpg" : `.${matches[1]}`;
+    const buffer = Buffer.from(matches[2], "base64");
+
+    // Limit size (500KB max for thumbnails)
+    if (buffer.length > 500 * 1024) {
+      return res.status(400).json({ error: "Thumbnail too large" });
+    }
+
+    const result = await storageProvider.save({
+      buffer,
+      filename: `thumb${ext}`,
+      mimeType: `image/${matches[1]}`,
+      folder: "live-thumbnails",
+    });
+
+    await prisma.liveStream.update({
+      where: { id: stream.id },
+      data: { thumbnailUrl: result.url },
+    });
+
+    res.json({ thumbnailUrl: result.url });
+  } catch (err) {
+    console.error("Error uploading thumbnail:", err);
+    res.status(500).json({ error: "Error uploading thumbnail" });
   }
 });
 

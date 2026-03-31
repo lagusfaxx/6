@@ -15,7 +15,6 @@ import {
   Eye,
   Clock,
   ChevronRight,
-  Sparkles,
   Monitor,
   Flame,
 } from "lucide-react";
@@ -23,6 +22,7 @@ import {
 type LiveStream = {
   id: string;
   title: string | null;
+  thumbnailUrl: string | null;
   isActive: boolean;
   viewerCount: number;
   maxViewers: number;
@@ -32,6 +32,7 @@ type LiveStream = {
     displayName: string;
     username: string;
     avatarUrl: string | null;
+    bio?: string | null;
   };
 };
 
@@ -75,9 +76,7 @@ export default function LivePage() {
       <div className="mx-auto max-w-5xl px-4 py-6 pb-28">
         {/* Hero */}
         <div className="mb-6 overflow-hidden rounded-2xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-600/[0.08] via-rose-600/[0.04] to-transparent relative">
-          {/* Ambient glow */}
           <div className="pointer-events-none absolute -top-20 -right-20 h-60 w-60 rounded-full bg-fuchsia-500/[0.08] blur-[80px]" />
-
           <div className="relative flex items-center gap-4 p-5 sm:p-6">
             <div className="relative">
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-fuchsia-500/30 to-rose-500/30 blur-xl scale-150" />
@@ -125,7 +124,7 @@ export default function LivePage() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
                   </span>
-                  <span className="text-sm font-semibold">Estás en vivo — Volver al stream</span>
+                  <span className="text-sm font-semibold">Estas en vivo — Volver al stream</span>
                   <ChevronRight className="h-4 w-4 text-white/30 group-hover:text-white/60 transition-colors" />
                 </Link>
                 <Link
@@ -143,7 +142,6 @@ export default function LivePage() {
               >
                 <Radio className="h-5 w-5" />
                 Abrir Live Studio
-                {/* Shimmer */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
                   <div className="absolute -left-full top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent" style={{ animation: "shimmer 3s ease-in-out infinite" }} />
                 </div>
@@ -157,9 +155,18 @@ export default function LivePage() {
 
         {/* Active Streams List */}
         {loading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-56 animate-pulse rounded-2xl bg-white/[0.03] border border-white/[0.04]" />
+              <div key={i} className="animate-pulse">
+                <div className="aspect-video rounded-xl bg-white/[0.04]" />
+                <div className="mt-2.5 flex gap-2.5">
+                  <div className="h-9 w-9 shrink-0 rounded-full bg-white/[0.04]" />
+                  <div className="flex-1 space-y-1.5 pt-0.5">
+                    <div className="h-3 w-3/4 rounded bg-white/[0.06]" />
+                    <div className="h-2.5 w-1/2 rounded bg-white/[0.04]" />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         ) : streams.length === 0 ? (
@@ -172,7 +179,7 @@ export default function LivePage() {
             </div>
             <p className="text-sm font-semibold text-white/50">No hay transmisiones en vivo</p>
             <p className="mt-1.5 max-w-xs text-xs text-white/30 leading-relaxed">
-              Vuelve más tarde o sigue a tus profesionales favoritas para no perderte nada
+              Vuelve mas tarde o sigue a tus profesionales favoritas para no perderte nada
             </p>
           </div>
         ) : (
@@ -181,90 +188,80 @@ export default function LivePage() {
             <div className="mb-3 flex items-center gap-2">
               <Flame className="h-3.5 w-3.5 text-red-400" />
               <span className="text-xs font-semibold text-white/50">
-                {streams.length} transmisi{streams.length === 1 ? "ón" : "ones"} en vivo
+                {streams.length} transmisi{streams.length === 1 ? "on" : "ones"} en vivo
               </span>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {streams.map((s) => (
-                <Link
-                  key={s.id}
-                  href={`/live/${s.id}`}
-                  className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] transition-all duration-200 hover:border-fuchsia-500/20 hover:bg-white/[0.04] hover:shadow-[0_0_30px_rgba(168,85,247,0.06)]"
-                >
-                  {/* Hover glow */}
-                  <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-fuchsia-500/[0.02] to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {streams.map((s) => {
+                const thumbnail = s.thumbnailUrl || s.host.avatarUrl;
+                return (
+                  <Link
+                    key={s.id}
+                    href={`/live/${s.id}`}
+                    className="group block transition-all duration-200"
+                  >
+                    {/* Thumbnail — 16:9 like Twitch */}
+                    <div className="relative aspect-video overflow-hidden rounded-xl bg-gradient-to-br from-fuchsia-500/[0.06] to-violet-500/[0.04]">
+                      {thumbnail ? (
+                        <img
+                          src={resolveMediaUrl(thumbnail) ?? undefined}
+                          alt=""
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Radio className="h-10 w-10 text-fuchsia-400/15" />
+                        </div>
+                      )}
 
-                  {/* Thumbnail area */}
-                  <div className="relative flex h-40 items-center justify-center bg-gradient-to-br from-fuchsia-500/[0.06] to-violet-500/[0.04]">
-                    {s.host.avatarUrl ? (
-                      <img
-                        src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
-                        alt=""
-                        className="h-full w-full object-cover opacity-60 group-hover:opacity-75 transition-opacity duration-300"
-                      />
-                    ) : (
-                      <Radio className="h-12 w-12 text-fuchsia-400/20" />
-                    )}
+                      {/* Subtle hover overlay */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
 
-                    {/* Overlay gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#070816] via-[#070816]/30 to-transparent" />
+                      {/* LIVE badge — top left */}
+                      <div className="absolute left-2 top-2 flex items-center gap-1.5 rounded bg-red-600 px-1.5 py-0.5">
+                        <span className="text-[10px] font-bold text-white tracking-wide">EN VIVO</span>
+                      </div>
 
-                    {/* LIVE badge */}
-                    <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-red-500/30 bg-[#070816]/80 px-2.5 py-1 backdrop-blur-xl">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
-                      </span>
-                      <span className="text-[10px] font-bold text-red-300">LIVE</span>
-                    </div>
+                      {/* Viewers — bottom left */}
+                      <div className="absolute left-2 bottom-2 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5">
+                        <Users className="h-2.5 w-2.5 text-white/80" />
+                        <span className="text-[10px] font-medium text-white/80">{s.viewerCount} espectadores</span>
+                      </div>
 
-                    {/* Viewers */}
-                    <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full border border-white/10 bg-[#070816]/80 px-2.5 py-1 backdrop-blur-xl">
-                      <Users className="h-3 w-3 text-white/50" />
-                      <span className="text-[10px] font-medium text-white/50">{s.viewerCount}</span>
-                    </div>
-
-                    {/* Duration */}
-                    <div className="absolute left-3 bottom-3 flex items-center gap-1 text-[10px] text-white/40">
-                      <Clock className="h-3 w-3" />
-                      {timeAgo(s.startedAt)}
-                    </div>
-
-                    {/* Play overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-fuchsia-500/20 backdrop-blur-xl border border-fuchsia-500/30 shadow-[0_0_24px_rgba(168,85,247,0.3)]">
-                        <Play className="h-5 w-5 text-white ml-0.5" />
+                      {/* Duration — bottom right */}
+                      <div className="absolute right-2 bottom-2 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5">
+                        <Clock className="h-2.5 w-2.5 text-white/60" />
+                        <span className="text-[10px] text-white/60">{timeAgo(s.startedAt)}</span>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Info */}
-                  <div className="relative p-4">
-                    <div className="flex items-center gap-3">
+                    {/* Info below thumbnail — Twitch style */}
+                    <div className="mt-2.5 flex gap-2.5">
+                      {/* Avatar */}
                       {s.host.avatarUrl ? (
                         <img
                           src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
                           alt=""
-                          className="h-10 w-10 rounded-xl object-cover border border-white/10"
+                          className="h-9 w-9 shrink-0 rounded-full object-cover border border-white/10"
                         />
                       ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.06] border border-white/10">
-                          <User className="h-5 w-5 text-white/30" />
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] border border-white/10">
+                          <User className="h-4 w-4 text-white/30" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate group-hover:text-fuchsia-300 transition-colors">
+                        <p className="text-[13px] font-semibold text-white/90 truncate group-hover:text-fuchsia-300 transition-colors">
+                          {s.title || s.host.displayName || s.host.username}
+                        </p>
+                        <p className="text-[11px] text-white/40 truncate">
                           {s.host.displayName || s.host.username}
                         </p>
-                        {s.title && (
-                          <p className="text-[11px] text-white/35 truncate">{s.title}</p>
-                        )}
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           </>
         )}
