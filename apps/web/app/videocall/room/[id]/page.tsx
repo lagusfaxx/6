@@ -60,7 +60,7 @@ export default function VideocallRoomPage() {
 
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
-  const [remoteAudioOn, setRemoteAudioOn] = useState(false);
+  const [remoteAudioOn, setRemoteAudioOn] = useState(true);
   const [remoteNeedsInteraction, setRemoteNeedsInteraction] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -119,10 +119,13 @@ export default function VideocallRoomPage() {
   const attachRemoteVideo = useCallback((participant: RemoteParticipant) => {
     const videoEl = remoteVideoRef.current;
     if (!videoEl) return;
-    const pub = Array.from(participant.trackPublications.values())
-      .find((trackPub) => trackPub.isSubscribed && trackPub.track && trackPub.track.kind === Track.Kind.Video);
-    if (pub?.track && pub.track.kind === Track.Kind.Video) {
-      pub.track.attach(videoEl);
+    for (const pub of participant.trackPublications.values()) {
+      if (!pub.isSubscribed || !pub.track) continue;
+      if (pub.track.kind === Track.Kind.Video) {
+        pub.track.attach(videoEl);
+      } else if (pub.track.kind === Track.Kind.Audio) {
+        pub.track.attach();
+      }
     }
   }, []);
 
@@ -171,8 +174,8 @@ export default function VideocallRoomPage() {
             const videoEl = remoteVideoRef.current;
             if (videoEl) {
               track.attach(videoEl);
-              videoEl.muted = true;
-              setRemoteAudioOn(false);
+              videoEl.muted = false;
+              setRemoteAudioOn(true);
               try {
                 await videoEl.play();
                 setRemoteNeedsInteraction(false);
@@ -185,6 +188,8 @@ export default function VideocallRoomPage() {
             }
           };
           tryAttach();
+        } else if (track.kind === Track.Kind.Audio) {
+          track.attach();
         }
       })
       .on(RoomEvent.ParticipantConnected, (participant) => {
