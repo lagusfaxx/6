@@ -229,19 +229,13 @@ shopRouter.get("/sexshops", asyncHandler(async (req, res) => {
     : categoryFiltered;
 
   /* ── Quick listings (externalOnly) from Establishment table ── */
-  const shopCategorySlugs = ["sexshop", "sex-shop", "shop", "tienda"];
-  const quickCategories = await prisma.category.findMany({
-    where: { slug: { in: shopCategorySlugs } },
-    select: { id: true },
+  const quickListings = await prisma.establishment.findMany({
+    where: {
+      externalOnly: true,
+      category: { kind: "SHOP" },
+    },
+    include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
   });
-  const quickCategoryIds = quickCategories.map((c) => c.id);
-
-  const quickListings = quickCategoryIds.length
-    ? await prisma.establishment.findMany({
-        where: { externalOnly: true, categoryId: { in: quickCategoryIds } },
-        include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
-      })
-    : [];
 
   const quickMapped = quickListings.map((ql) => {
     const distance = lat != null && lng != null && ql.latitude != null && ql.longitude != null

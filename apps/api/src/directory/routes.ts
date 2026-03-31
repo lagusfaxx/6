@@ -1146,9 +1146,63 @@ directoryRouter.get(
       return (b.profileViews ?? 0) - (a.profileViews ?? 0);
     });
 
+    /* ── Quick listings for establishment/shop entity types ── */
+    let quickResults: typeof sorted = [];
+    if (entityType === "establishment" || entityType === "shop") {
+      const qlKind = entityType === "shop" ? "SHOP" : "ESTABLISHMENT";
+      const quickListings = await prisma.establishment.findMany({
+        where: {
+          externalOnly: true,
+          category: { kind: qlKind as any },
+        },
+        include: { category: { select: { id: true, name: true, displayName: true, slug: true } } },
+      });
+
+      quickResults = quickListings.map((ql) => {
+        const distance =
+          lat != null && lng != null && ql.latitude != null && ql.longitude != null
+            ? haversineKm(lat, lng, ql.latitude, ql.longitude)
+            : null;
+        return {
+          id: ql.id,
+          username: ql.id,
+          displayName: ql.name,
+          avatarUrl: ql.galleryUrls?.[0] || null,
+          coverUrl: ql.galleryUrls?.[0] || null,
+          age: null,
+          distance,
+          latitude: ql.latitude,
+          longitude: ql.longitude,
+          availableNow: false,
+          isActive: true,
+          userLevel: "STANDARD",
+          completedServices: 0,
+          profileViews: 0,
+          lastSeen: null,
+          city: ql.city,
+          serviceCategory: ql.category?.displayName || ql.category?.name || null,
+          primaryCategory: ql.category?.slug || null,
+          profileTags: [] as string[],
+          serviceTags: [] as string[],
+          gender: null,
+          profileType: entityType === "shop" ? "SHOP" : "ESTABLISHMENT",
+          avgResponseMinutes: null,
+          websiteUrl: ql.websiteUrl,
+          externalOnly: true,
+        };
+      })
+        .filter((ql) =>
+          lat != null && lng != null && ql.distance != null
+            ? ql.distance <= radiusKm
+            : true,
+        );
+    }
+
+    const allResults = [...sorted.slice(0, limit).map(({ createdAt, isMadura, ...r }) => r), ...quickResults];
+
     return res.json({
-      results: sorted.slice(0, limit).map(({ createdAt, isMadura, ...r }) => r),
-      total: sorted.length,
+      results: allResults,
+      total: sorted.length + quickResults.length,
     });
   }),
 );
