@@ -395,13 +395,13 @@ profileRouter.get(
       orderBy: { createdAt: "desc" },
     });
 
-    // Obfuscate exact location for non-owners to protect privacy
+    // Obfuscate exact location for non-owner PROFESSIONAL profiles to protect personal safety.
+    // ESTABLISHMENT and SHOP profiles are businesses — their address should remain public.
     const safeProfile = { ...profile };
-    if (!isOwner) {
+    if (!isOwner && profile.profileType === "PROFESSIONAL") {
       const obfuscated = obfuscateLocation(profile.latitude, profile.longitude, profile.id);
       safeProfile.latitude = obfuscated.latitude;
       safeProfile.longitude = obfuscated.longitude;
-      // Only show city, not exact address for non-owners
       safeProfile.address = null;
     }
 
