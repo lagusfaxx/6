@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Resend } from "resend";
 import argon2 from "argon2";
+import crypto from "crypto";
 import { config } from "../config";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -196,11 +197,22 @@ verificationRouter.post(
 
 const pendingResetCodes = new Map<string, PendingCode>();
 
-// Cleanup expired reset codes every 5 minutes
+// One-time reset tokens: after code is verified, a secure token is issued
+// that must be presented to /reset-password. This prevents code reuse.
+interface ResetToken {
+  email: string;
+  expiresAt: number;
+}
+const pendingResetTokens = new Map<string, ResetToken>();
+
+// Cleanup expired reset codes and tokens every 5 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of pendingResetCodes) {
     if (entry.expiresAt < now) pendingResetCodes.delete(key);
+  }
+  for (const [key, entry] of pendingResetTokens) {
+    if (entry.expiresAt < now) pendingResetTokens.delete(key);
   }
 }, 5 * 60 * 1000);
 
@@ -358,16 +370,23 @@ verificationRouter.post(
         .json({ error: "CODE_INVALID", message: "El código ingresado no es correcto." });
     }
 
-    // Don't delete the code yet — it's needed for the reset-password step
-    return res.json({ ok: true, verified: true });
+    // Code verified — delete it and issue a one-time reset token
+    pendingResetCodes.delete(normalizedEmail);
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    pendingResetTokens.set(resetToken, {
+      email: normalizedEmail,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes to use the token
+    });
+
+    return res.json({ ok: true, verified: true, resetToken });
   })
 );
 
 verificationRouter.post(
   "/reset-password",
   asyncHandler(async (req, res) => {
-    const { email, code, newPassword } = req.body;
-    if (!email || !code || !newPassword) {
+    const { email, resetToken, newPassword } = req.body;
+    if (!email || !resetToken || !newPassword) {
       return res.status(400).json({ error: "MISSING_FIELDS" });
     }
 
@@ -378,34 +397,33 @@ verificationRouter.post(
       });
     }
 
+    // Validate the one-time reset token (issued by verify-reset-code)
+    const tokenEntry = pendingResetTokens.get(String(resetToken));
+    if (!tokenEntry) {
+      return res.status(400).json({
+        error: "INVALID_TOKEN",
+        message: "El enlace de restablecimiento no es válido. Solicita uno nuevo.",
+      });
+    }
+
+    if (Date.now() > tokenEntry.expiresAt) {
+      pendingResetTokens.delete(String(resetToken));
+      return res.status(400).json({
+        error: "TOKEN_EXPIRED",
+        message: "El enlace de restablecimiento ha expirado. Solicita uno nuevo.",
+      });
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
-    const entry = pendingResetCodes.get(normalizedEmail);
-
-    if (!entry) {
-      return res
-        .status(400)
-        .json({ error: "CODE_NOT_FOUND", message: "No hay un código pendiente para este email." });
+    if (tokenEntry.email !== normalizedEmail) {
+      return res.status(400).json({
+        error: "INVALID_TOKEN",
+        message: "El enlace de restablecimiento no es válido.",
+      });
     }
 
-    if (Date.now() > entry.expiresAt) {
-      pendingResetCodes.delete(normalizedEmail);
-      return res
-        .status(400)
-        .json({ error: "CODE_EXPIRED", message: "El código ha expirado. Solicita uno nuevo." });
-    }
-
-    if (entry.code !== String(code).trim()) {
-      entry.attempts++;
-      if (entry.attempts >= MAX_VERIFY_ATTEMPTS) {
-        pendingResetCodes.delete(normalizedEmail);
-        return res
-          .status(429)
-          .json({ error: "TOO_MANY_ATTEMPTS", message: "Demasiados intentos. Solicita un nuevo código." });
-      }
-      return res
-        .status(400)
-        .json({ error: "CODE_INVALID", message: "El código ingresado no es correcto." });
-    }
+    // Token is valid — consume it immediately (one-time use)
+    pendingResetTokens.delete(String(resetToken));
 
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) {
@@ -418,7 +436,7 @@ verificationRouter.post(
       data: { passwordHash },
     });
 
-    // Invalidate all active sessions for this user
+    // Invalidate all active sessions for this user (parameterized)
     try {
       await prisma.$executeRawUnsafe(
         `DELETE FROM "session" WHERE sess::text LIKE $1`,
@@ -428,7 +446,6 @@ verificationRouter.post(
       console.error("[verification] failed to invalidate sessions", err);
     }
 
-    pendingResetCodes.delete(normalizedEmail);
     return res.json({ ok: true });
   })
 );

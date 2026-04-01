@@ -39,7 +39,7 @@ export const config = {
   membershipDays: Number(process.env.MEMBERSHIP_DAYS || 30),
   membershipPriceClp: Number(process.env.MEMBERSHIP_PRICE_CLP || 4990),
   shopMonthlyPriceClp: Number(process.env.SHOP_MONTHLY_PRICE_CLP || 4990),
-  freeTrialDays: Number(process.env.FREE_TRIAL_DAYS || 7),
+  freeTrialDays: Number(process.env.FREE_TRIAL_DAYS || 90),
   storageDir: process.env.UPLOAD_DIR || process.env.STORAGE_DIR || process.env.UPLOADS_DIR || "./uploads",
   adminEmail: process.env.ADMIN_EMAIL || "admin@uzeed.cl",
   adminPassword: required("ADMIN_PASSWORD"),

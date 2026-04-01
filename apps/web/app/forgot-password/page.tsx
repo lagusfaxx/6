@@ -108,11 +108,11 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     setError(null);
     try {
-      await apiFetch("/auth/verification/verify-reset-code", {
+      const result = await apiFetch<{ resetToken?: string }>("/auth/verification/verify-reset-code", {
         method: "POST",
         body: JSON.stringify({ email, code: fullCode }),
       });
-      verifiedCode.current = fullCode;
+      verifiedCode.current = result.resetToken || fullCode;
       setStep("newPassword");
     } catch (err: any) {
       setError(err?.body?.message || "Código incorrecto.");
@@ -137,7 +137,7 @@ export default function ForgotPasswordPage() {
     try {
       await apiFetch("/auth/verification/reset-password", {
         method: "POST",
-        body: JSON.stringify({ email, code: verifiedCode.current, newPassword }),
+        body: JSON.stringify({ email, resetToken: verifiedCode.current, newPassword }),
       });
       setStep("success");
     } catch (err: any) {

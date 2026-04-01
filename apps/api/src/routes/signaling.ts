@@ -2,6 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { requireAuth } from "../lib/auth";
 import { sendToUser } from "../realtime/sse";
+import { prisma } from "../lib/prisma";
 
 export const signalingRouter = Router();
 
@@ -40,8 +41,49 @@ function validateCandidateSize(candidate: unknown): boolean {
     : false;
 }
 
+/**
+ * Verify that the sender and target have an active relationship:
+ * either a videocall booking or an active livestream.
+ */
+async function validateSignalRelationship(
+  senderId: string,
+  targetUserId: string,
+  bookingId?: string | null,
+  streamId?: string | null,
+): Promise<boolean> {
+  // If bookingId provided, verify both users are part of the booking
+  if (bookingId) {
+    const booking = await prisma.videocallBooking.findFirst({
+      where: {
+        id: bookingId,
+        status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] },
+        OR: [
+          { clientId: senderId, professionalId: targetUserId },
+          { clientId: targetUserId, professionalId: senderId },
+        ],
+      },
+      select: { id: true },
+    });
+    return Boolean(booking);
+  }
+
+  // If streamId provided, verify the stream is active and sender/target are host or viewer
+  if (streamId) {
+    const stream = await prisma.liveStream.findFirst({
+      where: { id: streamId, isActive: true },
+      select: { hostId: true },
+    });
+    if (!stream) return false;
+    // At least one of sender/target must be the host
+    return stream.hostId === senderId || stream.hostId === targetUserId;
+  }
+
+  // No bookingId or streamId — reject (require a context)
+  return false;
+}
+
 // POST /signal/offer — send SDP offer to target user
-signalingRouter.post("/signal/offer", requireAuth, signalLimiter, (req, res) => {
+signalingRouter.post("/signal/offer", requireAuth, signalLimiter, async (req, res) => {
   const { targetUserId, bookingId, streamId, sdp } = req.body;
   if (!validateSignalInput(req.body) || !sdp) {
     return res.status(400).json({ error: "targetUserId and sdp required" });
@@ -51,6 +93,9 @@ signalingRouter.post("/signal/offer", requireAuth, signalLimiter, (req, res) => 
   }
   if (targetUserId === req.session.userId) {
     return res.status(400).json({ error: "Cannot signal yourself" });
+  }
+  if (!(await validateSignalRelationship(req.session.userId!, targetUserId, bookingId, streamId))) {
+    return res.status(403).json({ error: "No active booking or stream between users" });
   }
 
   sendToUser(targetUserId, "signal:offer", {
@@ -64,7 +109,7 @@ signalingRouter.post("/signal/offer", requireAuth, signalLimiter, (req, res) => 
 });
 
 // POST /signal/answer — send SDP answer to target user
-signalingRouter.post("/signal/answer", requireAuth, signalLimiter, (req, res) => {
+signalingRouter.post("/signal/answer", requireAuth, signalLimiter, async (req, res) => {
   const { targetUserId, bookingId, streamId, sdp } = req.body;
   if (!validateSignalInput(req.body) || !sdp) {
     return res.status(400).json({ error: "targetUserId and sdp required" });
@@ -74,6 +119,9 @@ signalingRouter.post("/signal/answer", requireAuth, signalLimiter, (req, res) =>
   }
   if (targetUserId === req.session.userId) {
     return res.status(400).json({ error: "Cannot signal yourself" });
+  }
+  if (!(await validateSignalRelationship(req.session.userId!, targetUserId, bookingId, streamId))) {
+    return res.status(403).json({ error: "No active booking or stream between users" });
   }
 
   sendToUser(targetUserId, "signal:answer", {
@@ -87,7 +135,7 @@ signalingRouter.post("/signal/answer", requireAuth, signalLimiter, (req, res) =>
 });
 
 // POST /signal/ice — send ICE candidate to target user
-signalingRouter.post("/signal/ice", requireAuth, signalLimiter, (req, res) => {
+signalingRouter.post("/signal/ice", requireAuth, signalLimiter, async (req, res) => {
   const { targetUserId, bookingId, streamId, candidate } = req.body;
   if (!validateSignalInput(req.body) || !candidate) {
     return res.status(400).json({ error: "targetUserId and candidate required" });
@@ -97,6 +145,9 @@ signalingRouter.post("/signal/ice", requireAuth, signalLimiter, (req, res) => {
   }
   if (targetUserId === req.session.userId) {
     return res.status(400).json({ error: "Cannot signal yourself" });
+  }
+  if (!(await validateSignalRelationship(req.session.userId!, targetUserId, bookingId, streamId))) {
+    return res.status(403).json({ error: "No active booking or stream between users" });
   }
 
   sendToUser(targetUserId, "signal:ice", {

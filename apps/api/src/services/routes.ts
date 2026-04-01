@@ -178,6 +178,7 @@ servicesRouter.get(
         profileViews: true,
         membershipExpiresAt: true,
         shopTrialEndsAt: true,
+        createdAt: true,
         profileTags: true,
         serviceTags: true,
         tier: true,
@@ -364,6 +365,7 @@ servicesRouter.get(
         serviceCategory: true,
         membershipExpiresAt: true,
         shopTrialEndsAt: true,
+        createdAt: true,
       },
     });
 
