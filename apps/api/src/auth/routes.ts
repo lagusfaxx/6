@@ -17,6 +17,15 @@ const authLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
+// Stricter limiter for registration (prevent mass account creation)
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  limit: 3,
+  message: { error: "TOO_MANY_REGISTRATIONS", message: "Máximo 3 registros por hora. Intenta más tarde." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export const authRouter = Router();
 
 function persistSession(req: any): Promise<void> {
@@ -171,6 +180,7 @@ async function geocodeAddress(address: string) {
 
 authRouter.post(
   "/register",
+  registerLimiter,
   authLimiter,
   asyncHandler(async (req, res) => {
     const payload = { ...req.body } as Record<string, any>;
