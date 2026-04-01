@@ -16,86 +16,37 @@ export function connectRealtime(handler: Handler) {
     try {
       es = new EventSource(url, { withCredentials: true } as any);
 
-      es.addEventListener("hello", (e: MessageEvent) => {
+      // Single shared listener for all named event types (reduces listener count from 24+ to 1 per type)
+      const knownEvents = [
+        "hello", "message", "service_request", "ping",
+        "notification",
+        "forum:newThread", "forum:newPost",
+        "videocall:booked", "videocall:started", "videocall:completed",
+        "videocall:cancelled", "videocall:noshow", "videocall:user_joined", "videocall:chat",
+        "live:started", "live:ended", "live:chat",
+        "live:viewer_joined", "live:viewer_left", "live:tip",
+        "live:private_show_started", "live:private_show_ended",
+        "live:tip_option_added", "live:tip_option_removed", "live:config_updated",
+        "signal:offer", "signal:answer", "signal:ice",
+        "admin_event", "booking:new", "booking:update",
+      ] as const;
+
+      const eventHandler = (e: MessageEvent) => {
         try {
-          handler({ type: "hello", data: JSON.parse(String(e.data || "{}")) });
+          handler({ type: e.type, data: JSON.parse(String(e.data || "{}")) });
         } catch {
-          handler({ type: "hello", data: null });
+          handler({ type: e.type, data: null });
         }
-      });
+      };
+
+      for (const evt of knownEvents) {
+        es.addEventListener(evt, eventHandler);
+      }
 
       es.onopen = () => {
         retryAttempt = 0;
         handler({ type: "connected", data: { ok: true } });
       };
-
-      es.addEventListener("message", (e: MessageEvent) => {
-        try {
-          handler({
-            type: "message",
-            data: JSON.parse(String(e.data || "{}")),
-          });
-        } catch {
-          handler({ type: "message", data: null });
-        }
-      });
-
-      es.addEventListener("service_request", (e: MessageEvent) => {
-        try {
-          handler({
-            type: "service_request",
-            data: JSON.parse(String(e.data || "{}")),
-          });
-        } catch {
-          handler({ type: "service_request", data: null });
-        }
-      });
-
-      es.addEventListener("ping", (e: MessageEvent) => {
-        try {
-          handler({ type: "ping", data: JSON.parse(String(e.data || "{}")) });
-        } catch {
-          handler({ type: "ping", data: null });
-        }
-      });
-
-      for (const evt of [
-        "notification",
-        "forum:newThread",
-        "forum:newPost",
-        "videocall:booked",
-        "videocall:started",
-        "videocall:completed",
-        "videocall:cancelled",
-        "videocall:noshow",
-        "videocall:user_joined",
-        "videocall:chat",
-        "live:started",
-        "live:ended",
-        "live:chat",
-        "live:viewer_joined",
-        "live:viewer_left",
-        "live:tip",
-        "live:private_show_started",
-        "live:private_show_ended",
-        "live:tip_option_added",
-        "live:tip_option_removed",
-        "live:config_updated",
-        "signal:offer",
-        "signal:answer",
-        "signal:ice",
-        "admin_event",
-        "booking:new",
-        "booking:update",
-      ] as const) {
-        es.addEventListener(evt, (e: MessageEvent) => {
-          try {
-            handler({ type: evt, data: JSON.parse(String(e.data || "{}")) });
-          } catch {
-            handler({ type: evt, data: null });
-          }
-        });
-      }
 
       const scheduleReconnect = () => {
         if (closed) return;

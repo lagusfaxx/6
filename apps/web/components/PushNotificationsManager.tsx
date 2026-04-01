@@ -50,22 +50,24 @@ export default function PushNotificationsManager() {
   const [pushError, setPushError] = useState<string | null>(null);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
-  // iOS/Safari is strict: permission prompts must be triggered directly by a user gesture.
-  // Pre-register the service worker in the background so the "Activar" click doesn't need
-  // to await SW registration before calling Notification.requestPermission().
+  // Defer SW registration until the browser is idle to avoid blocking main thread
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const register = async () => {
       try {
         const reg = await registerServiceWorker();
         if (!cancelled) setSwRegistration(reg);
       } catch {
         // ignore
       }
-    })();
-    return () => {
-      cancelled = true;
     };
+    // Use requestIdleCallback to avoid blocking initial paint
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(() => register(), { timeout: 5000 });
+      return () => { cancelled = true; cancelIdleCallback(id); };
+    }
+    const timer = setTimeout(register, 3000);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
   // Service Worker update detection - auto-reload when new version available
@@ -74,33 +76,30 @@ export default function PushNotificationsManager() {
 
     let refreshing = false;
 
-    // Detect when new service worker is installed and waiting
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (refreshing) return;
       refreshing = true;
-      console.log('[SW] New version detected, reloading page...');
       window.location.reload();
     });
 
-    // Check for updates periodically
     const checkForUpdates = async () => {
       try {
         const registration = await navigator.serviceWorker.getRegistration();
         if (registration) {
           await registration.update();
         }
-      } catch (err) {
-        console.error('[SW] Update check failed:', err);
+      } catch {
+        // ignore
       }
     };
 
-    // Check for updates every 30 minutes
-    const interval = setInterval(checkForUpdates, 30 * 60 * 1000);
+    // Check for updates every 60 minutes (reduced from 30min)
+    const interval = setInterval(checkForUpdates, 60 * 60 * 1000);
 
-    // Check once on mount
-    checkForUpdates();
+    // Defer first check to avoid competing with initial page load
+    const firstCheck = setTimeout(checkForUpdates, 30000);
 
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); clearTimeout(firstCheck); };
   }, []);
 
   async function ensureServiceWorkerRegistration() {
