@@ -587,7 +587,7 @@ shopRouter.get("/orders", requireAuth, asyncHandler(async (req, res) => {
   const clientId = req.session.userId!;
 
   const orders = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM "ShopOrder" WHERE "clientId" = $1 ORDER BY "createdAt" DESC LIMIT 200`,
+    `SELECT * FROM "ShopOrder" WHERE "clientId" = $1::uuid ORDER BY "createdAt" DESC LIMIT 200`,
     clientId
   );
 
@@ -620,7 +620,7 @@ shopRouter.get("/orders/shop", requireAuth, asyncHandler(async (req, res) => {
   if (!me || me.profileType !== "SHOP") return res.status(403).json({ error: "NOT_SHOP" });
 
   const orders = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM "ShopOrder" WHERE "shopId" = $1 ORDER BY "createdAt" DESC LIMIT 200`,
+    `SELECT * FROM "ShopOrder" WHERE "shopId" = $1::uuid ORDER BY "createdAt" DESC LIMIT 200`,
     userId
   );
 
@@ -663,7 +663,7 @@ shopRouter.get("/orders/:id", requireAuth, asyncHandler(async (req, res) => {
   }
 
   const items = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM "ShopOrderItem" WHERE "orderId" = $1 ORDER BY "createdAt" ASC`,
+    `SELECT * FROM "ShopOrderItem" WHERE "orderId" = $1::uuid ORDER BY "createdAt" ASC`,
     String(order.id)
   );
 
@@ -711,7 +711,7 @@ shopRouter.post("/orders/:id/action", requireAuth, asyncHandler(async (req, res)
   const updated = updatedRows[0];
 
   const items = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT * FROM "ShopOrderItem" WHERE "orderId" = $1 ORDER BY "createdAt" ASC`,
+    `SELECT * FROM "ShopOrderItem" WHERE "orderId" = $1::uuid ORDER BY "createdAt" ASC`,
     String(updated.id)
   );
 
