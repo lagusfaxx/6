@@ -145,6 +145,17 @@ app.use(
   })
 );
 
+// ── CSRF protection: validate Origin header on state-changing requests ──
+app.use((req, res, next) => {
+  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
+  // Skip for webhooks (server-to-server)
+  if (req.path.startsWith("/webhooks/")) return next();
+  const origin = req.headers.origin;
+  if (!origin) return next(); // Same-origin requests (non-CORS) don't send Origin
+  if (corsOrigins.includes(origin)) return next();
+  return res.status(403).json({ error: "CSRF_REJECTED", message: "Origin not allowed" });
+});
+
 // ✅ Global auth allowlist (categories/auth/health/etc quedan públicos dentro del middleware)
 app.use(requireAuth);
 
@@ -180,6 +191,9 @@ app.use(
     immutable: true,
     setHeaders: (res, filePath) => {
       res.setHeader("Accept-Ranges", "bytes");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      // Prevent any uploaded file from being rendered as HTML
+      res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; media-src 'self'");
       // WebP files get longer cache since they're content-addressed by timestamp
       if (filePath.endsWith(".webp")) {
         res.setHeader("Cache-Control", "public, max-age=2592000, immutable");

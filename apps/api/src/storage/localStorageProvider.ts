@@ -17,6 +17,20 @@ function mimeToType(mime: string): "image" | "video" {
   return "video";
 }
 
+/** Extensions that could execute scripts when served by the browser */
+const DANGEROUS_EXTENSIONS = new Set([
+  ".html", ".htm", ".xhtml", ".svg", ".xml",
+  ".php", ".jsp", ".asp", ".aspx", ".cgi",
+  ".js", ".mjs", ".ts", ".css",
+  ".swf", ".xss",
+]);
+
+function sanitizeExtension(ext: string): string {
+  const lower = ext.toLowerCase();
+  if (DANGEROUS_EXTENSIONS.has(lower)) return ".bin";
+  return lower;
+}
+
 export class LocalStorageProvider {
   private uploadsDirAbs: string;
   private publicBaseUrl: string;
@@ -62,7 +76,8 @@ export class LocalStorageProvider {
     const buffer = isMulter ? (file as any).buffer : (file as any).buffer;
     const folder = !isMulter ? (file as any).folder : undefined;
 
-    const ext = path.extname(filenameIn || "") || "";
+    const rawExt = path.extname(filenameIn || "") || "";
+    const ext = sanitizeExtension(rawExt);
     const safeFolder = folder ? String(folder).replace(/[^a-zA-Z0-9_-]/g, "") : "";
     const unique = randomUUID();
 

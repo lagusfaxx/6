@@ -231,7 +231,7 @@ authRouter.post(
     const requiresPayment = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(
       profileType,
     );
-    const trialDays = requiresPayment ? config.freeTrialDays : 30;
+    const trialDays = requiresPayment ? config.freeTrialDays : 90;
     const shopTrialEndsAt = requiresPayment
       ? addDays(new Date(), trialDays)
       : null;

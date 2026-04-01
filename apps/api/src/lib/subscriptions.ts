@@ -10,13 +10,36 @@ type PlanUser = {
 /**
  * Checks if a business profile (PROFESSIONAL, ESTABLISHMENT, SHOP) has an active subscription.
  * These profiles require payment after their trial period expires.
- * 
+ *
  * @param user - User object with profile type and membership info
  * @returns true if the user has an active subscription or is within trial period, false otherwise
  */
-export function isBusinessPlanActive(_user: PlanUser): boolean {
-  // DEV: all profiles are active during development regardless of subscription
-  return true;
+export function isBusinessPlanActive(user: PlanUser): boolean {
+  const requiresPayment = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType);
+  if (!requiresPayment) return true;
+
+  const now = Date.now();
+
+  // Active paid membership
+  if (user.membershipExpiresAt && user.membershipExpiresAt.getTime() > now) {
+    return true;
+  }
+
+  // Active free trial
+  if (user.shopTrialEndsAt && user.shopTrialEndsAt.getTime() > now) {
+    return true;
+  }
+
+  // Legacy fallback: profiles created before shopTrialEndsAt existed
+  // get a 90-day grace period from their creation date
+  if (!user.shopTrialEndsAt && !user.membershipExpiresAt && user.createdAt) {
+    const gracePeriodMs = 90 * 24 * 60 * 60 * 1000;
+    if (user.createdAt.getTime() + gracePeriodMs > now) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**

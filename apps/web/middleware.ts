@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const protectedPrefixes = ["/chat", "/chats", "/calificar", "/umate/account", "/umate/onboarding"];
+const protectedPrefixes = ["/chat", "/chats", "/calificar", "/umate/account", "/umate/onboarding", "/admin", "/dashboard", "/cuenta", "/favoritos", "/wallet"];
 
 /** Routes where payment gateways (Flow.cl) may POST-redirect users back. */
 const paymentReturnPaths = ["/pago/exitoso", "/pago/tarjeta-registrada", "/wallet", "/umate/checkout"];
@@ -43,5 +43,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/chat/:path*", "/chats/:path*", "/calificar/:path*", "/pago/exitoso", "/pago/tarjeta-registrada", "/wallet", "/umate/account/:path*", "/umate/onboarding", "/umate/checkout"]
+  matcher: ["/chat/:path*", "/chats/:path*", "/calificar/:path*", "/pago/exitoso", "/pago/tarjeta-registrada", "/wallet/:path*", "/umate/account/:path*", "/umate/onboarding", "/umate/checkout", "/admin/:path*", "/dashboard/:path*", "/cuenta/:path*", "/favoritos/:path*"]
 };

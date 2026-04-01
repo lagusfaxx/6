@@ -11,6 +11,7 @@ import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 import { parseAndNormalizeTags } from "../lib/tags";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
+import { obfuscateLocation } from "../lib/locationPrivacy";
 
 const ADMIN_ONLY_PROFILE_TAGS = new Set(["premium", "verificada", "profesional con examenes"]);
 import {
@@ -394,8 +395,18 @@ profileRouter.get(
       orderBy: { createdAt: "desc" },
     });
 
+    // Obfuscate exact location for non-owner PROFESSIONAL profiles to protect personal safety.
+    // ESTABLISHMENT and SHOP profiles are businesses — their address should remain public.
+    const safeProfile = { ...profile };
+    if (!isOwner && profile.profileType === "PROFESSIONAL") {
+      const obfuscated = obfuscateLocation(profile.latitude, profile.longitude, profile.id);
+      safeProfile.latitude = obfuscated.latitude;
+      safeProfile.longitude = obfuscated.longitude;
+      safeProfile.address = null;
+    }
+
     return res.json({
-      profile,
+      profile: safeProfile,
       isSubscribed,
       isOwner,
       subscriptionExpiresAt: subscription?.expiresAt.toISOString() || null,
@@ -420,6 +431,53 @@ profileRouter.get(
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id: req.session.userId! },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        coverUrl: true,
+        coverPositionX: true,
+        coverPositionY: true,
+        bio: true,
+        phone: true,
+        gender: true,
+        preferenceGender: true,
+        profileType: true,
+        address: true,
+        city: true,
+        latitude: true,
+        longitude: true,
+        birthdate: true,
+        serviceCategory: true,
+        serviceDescription: true,
+        subscriptionPrice: true,
+        heightCm: true,
+        weightKg: true,
+        measurements: true,
+        hairColor: true,
+        skinTone: true,
+        languages: true,
+        serviceStyleTags: true,
+        availabilityNote: true,
+        baseRate: true,
+        minDurationMinutes: true,
+        acceptsIncalls: true,
+        acceptsOutcalls: true,
+        allowFreeMessages: true,
+        isActive: true,
+        isOnline: true,
+        isVerified: true,
+        role: true,
+        membershipExpiresAt: true,
+        shopTrialEndsAt: true,
+        primaryCategory: true,
+        profileTags: true,
+        serviceTags: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
     return res.json({ user });

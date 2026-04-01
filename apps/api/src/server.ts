@@ -65,11 +65,17 @@ app.use(express.json({ limit: "2mb" }));
 const uploadsPath = path.resolve(env.UPLOADS_DIR);
 app.use(
   "/uploads",
-  (_req, res, next) => {
+  (req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    }
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Headers", "Range");
     res.setHeader("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; media-src 'self'");
     next();
   },
   express.static(uploadsPath, { maxAge: "30d", immutable: true, acceptRanges: true })
