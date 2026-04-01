@@ -1,13 +1,23 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 
 export const analyticsRouter = Router();
 
+const analyticsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  message: { error: "TOO_MANY_REQUESTS" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 /* ─── Track page view (called from frontend) ─── */
 
 analyticsRouter.post(
   "/analytics/pageview",
+  analyticsLimiter,
   asyncHandler(async (req, res) => {
     const { path, referrer, sessionId } = req.body;
     if (!path || typeof path !== "string") {
@@ -43,6 +53,7 @@ analyticsRouter.post(
 
 analyticsRouter.post(
   "/analytics/action",
+  analyticsLimiter,
   asyncHandler(async (req, res) => {
     const { action, targetId, metadata } = req.body;
     if (!action || typeof action !== "string") {

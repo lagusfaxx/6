@@ -1,10 +1,19 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAdmin } from "../auth/middleware";
 import { broadcast } from "../realtime/sse";
 
 export const forumRouter = Router();
+
+const forumPostLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 5,
+  message: { error: "TOO_MANY_POSTS", message: "Demasiadas publicaciones. Espera un momento." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // ── GET /forum/categories ── list all categories with stats
 forumRouter.get(
@@ -116,8 +125,9 @@ forumRouter.get(
 
     if (!thread) return res.status(404).json({ error: "THREAD_NOT_FOUND" });
 
-    // Increment views
-    await prisma.forumThread.update({ where: { id }, data: { views: { increment: 1 } } });
+    // Increment views (fire & forget, don't block response)
+    // Rate-limited by global limiter; this is best-effort dedup
+    prisma.forumThread.update({ where: { id }, data: { views: { increment: 1 } } }).catch(() => {});
 
     const [posts, total] = await Promise.all([
       prisma.forumPost.findMany({
@@ -161,6 +171,7 @@ forumRouter.get(
 // ── POST /forum/threads ── create a new thread (auth required)
 forumRouter.post(
   "/forum/threads",
+  forumPostLimiter,
   asyncHandler(async (req, res) => {
     const user = (req as any).user;
     if (!user?.id) return res.status(401).json({ error: "UNAUTHENTICATED" });
@@ -172,6 +183,9 @@ forumRouter.post(
 
     if (title.trim().length > 200) {
       return res.status(400).json({ error: "TITLE_TOO_LONG" });
+    }
+    if (content.trim().length > 10000) {
+      return res.status(400).json({ error: "CONTENT_TOO_LONG", message: "Máximo 10.000 caracteres" });
     }
 
     const category = await prisma.forumCategory.findUnique({ where: { id: categoryId } });
@@ -211,6 +225,7 @@ forumRouter.post(
 // ── POST /forum/threads/:id/posts ── reply to a thread (auth required)
 forumRouter.post(
   "/forum/threads/:id/posts",
+  forumPostLimiter,
   asyncHandler(async (req, res) => {
     const user = (req as any).user;
     if (!user?.id) return res.status(401).json({ error: "UNAUTHENTICATED" });
@@ -218,6 +233,9 @@ forumRouter.post(
     const { id } = req.params;
     const { content } = req.body;
     if (!content?.trim()) return res.status(400).json({ error: "MISSING_CONTENT" });
+    if (content.trim().length > 10000) {
+      return res.status(400).json({ error: "CONTENT_TOO_LONG", message: "Máximo 10.000 caracteres" });
+    }
 
     const thread = await prisma.forumThread.findUnique({
       where: { id },

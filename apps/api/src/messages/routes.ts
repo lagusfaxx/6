@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import path from "node:path";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { requireAuth } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -12,6 +13,14 @@ import { isUUID } from "../lib/validators";
 import { sendToUser } from "../realtime/sse";
 
 export const messagesRouter = Router();
+
+const messageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  message: { error: "TOO_MANY_MESSAGES", message: "Demasiados mensajes. Espera un momento." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const storageProvider = new LocalStorageProvider({
   baseDir: config.storageDir,
@@ -143,7 +152,7 @@ messagesRouter.get("/messages/:userId", requireAuth, asyncHandler(async (req, re
   return res.json({ messages, other: otherUser });
 }));
 
-messagesRouter.post("/messages/:userId", requireAuth, asyncHandler(async (req, res) => {
+messagesRouter.post("/messages/:userId", requireAuth, messageLimiter, asyncHandler(async (req, res) => {
   const me = req.session.userId;
   if (!me) return res.status(401).json({ error: "UNAUTHENTICATED" });
   if (!isUUID(me)) return res.status(400).json({ error: "INVALID_USER_ID" });
@@ -153,6 +162,7 @@ messagesRouter.post("/messages/:userId", requireAuth, asyncHandler(async (req, r
   if (!allowed) return res.status(403).json({ error: "CHAT_NOT_ALLOWED" });
   const body = String(req.body?.body || "").trim();
   if (!body) return res.status(400).json({ error: "EMPTY_MESSAGE" });
+  if (body.length > 5000) return res.status(400).json({ error: "MESSAGE_TOO_LONG", message: "Máximo 5000 caracteres por mensaje" });
   const message = await prisma.message.create({
     data: {
       fromId: me,
@@ -198,7 +208,7 @@ messagesRouter.post("/messages/:userId", requireAuth, asyncHandler(async (req, r
   return res.json({ message });
 }));
 
-messagesRouter.post("/messages/:userId/attachment", requireAuth, upload.single("file"), asyncHandler(async (req, res) => {
+messagesRouter.post("/messages/:userId/attachment", requireAuth, messageLimiter, upload.single("file"), asyncHandler(async (req, res) => {
   const me = req.session.userId;
   if (!me) return res.status(401).json({ error: "UNAUTHENTICATED" });
   if (!isUUID(me)) return res.status(400).json({ error: "INVALID_USER_ID" });
