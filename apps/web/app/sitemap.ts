@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
 type ProfessionalItem = {
+  id?: string | null;
   username?: string | null;
   profile?: {
     username?: string | null;
@@ -57,17 +58,16 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
-async function getPublicProfessionalUsernames(): Promise<string[]> {
+async function getPublicProfessionalIds(): Promise<string[]> {
   const data = await fetchJson<ProfessionalsResponse>(
     `${getApiBaseUrl()}/professionals`,
   );
   if (!data) return [];
   const items = Array.isArray(data.professionals) ? data.professionals : [];
-  const usernames = items
-    .map((item) => item.username || item.profile?.username || null)
-    .filter((u): u is string => Boolean(u && u.trim()))
-    .map((u) => u.trim().toLowerCase());
-  return Array.from(new Set(usernames));
+  const ids = items
+    .map((item) => item.id || null)
+    .filter((id): id is string => Boolean(id && id.trim()));
+  return Array.from(new Set(ids));
 }
 
 async function getForumCategorySlugs(): Promise<string[]> {
@@ -185,14 +185,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   add("/privacidad", "yearly", 0.3);
 
   // ── Perfiles públicos dinámicos ──
-  const [usernames, forumSlugs, establishmentIds] = await Promise.all([
-    getPublicProfessionalUsernames(),
+  const [professionalIds, forumSlugs, establishmentIds] = await Promise.all([
+    getPublicProfessionalIds(),
     getForumCategorySlugs(),
     getEstablishmentIds(),
   ]);
 
-  for (const username of usernames.slice(0, 5000)) {
-    add(`/profile/${encodeURIComponent(username)}`, "daily", 0.7);
+  for (const id of professionalIds.slice(0, 5000)) {
+    add(`/profesional/${encodeURIComponent(id)}`, "daily", 0.7);
   }
 
   // ── Categorías del foro ──

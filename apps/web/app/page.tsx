@@ -1,5 +1,33 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import HomeClient from "./HomeClient";
+
+const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
+
+function apiBase(): string {
+  return DEFAULT_API.replace(/\/+$/, "");
+}
+
+type ProfileLink = {
+  id: string;
+  username?: string;
+  displayName?: string | null;
+  city?: string | null;
+};
+
+async function fetchFeaturedProfiles(): Promise<ProfileLink[]> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/profiles/discover?sort=featured&limit=20`,
+      { next: { revalidate: 600 }, headers: { Accept: "application/json" } },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data?.profiles || []).slice(0, 20);
+  } catch {
+    return [];
+  }
+}
 
 export const metadata: Metadata = {
   title: "UZEED: Escorts y experiencias únicas para adultos",
@@ -79,7 +107,9 @@ const homeFaqJsonLd = {
   ],
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const profiles = await fetchFeaturedProfiles();
+
   return (
     <>
       <HomeClient />
@@ -166,6 +196,25 @@ export default function HomePage() {
           </p>
         </details>
       </section>
+
+      {/* Server-rendered profile links for Google crawlability */}
+      {profiles.length > 0 && (
+        <nav className="max-w-4xl mx-auto px-4 pb-12" aria-label="Escorts destacadas">
+          <h3 className="text-base font-semibold text-white/70 mb-2">Escorts Destacadas</h3>
+          <ul className="flex flex-wrap gap-2">
+            {profiles.map((p) => (
+              <li key={p.id}>
+                <Link
+                  href={`/profesional/${p.id}`}
+                  className="inline-block rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm text-white/60 hover:text-fuchsia-300 hover:border-fuchsia-500/30 transition"
+                >
+                  {p.displayName || p.username}{p.city ? ` — ${p.city}` : ""}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </>
   );
 }
