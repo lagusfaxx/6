@@ -75,6 +75,17 @@ body::after {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ── Reduce animations for users who prefer reduced motion & performance ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Hide scrollbar utility */
 .scrollbar-none {
   -ms-overflow-style: none;
@@ -349,11 +360,7 @@ body::after {
 }
 
 .uzeed-hero-logo {
-  animation: uzeed-spin-slow 16s ease-in-out infinite;
-}
-
-.uzeed-hero-logo:hover {
-  animation-play-state: paused;
+  animation: uzeed-spin-slow 16s ease-in-out 1;
 }
 
 
@@ -798,7 +805,7 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 }
 
 .nav-sidebar-glow {
-  animation: nav-glow-pulse 4s ease-in-out infinite;
+  opacity: 0.06;
 }
 
 /* Smooth active indicator for mobile bottom bar */
@@ -828,9 +835,9 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   animation: uzeed-preview-in 0.2s ease-out;
 }
 
-/* Feed card hover refinement */
+/* Feed card hover refinement — will-change removed to reduce GPU layer count */
 .uzeed-card-feed {
-  will-change: transform, box-shadow;
+  transition: transform 300ms, box-shadow 300ms;
 }
 
 /* ── Premium Card System ── */
@@ -845,8 +852,7 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
     rgba(255, 255, 255, 0.02) 40%,
     rgba(168, 85, 247, 0.03) 100%
   );
-  transition: all 400ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, box-shadow;
+  transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 400ms cubic-bezier(0.16, 1, 0.3, 1), border-color 400ms;
 }
 
 .uzeed-premium-card:hover {
@@ -947,8 +953,6 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   border-radius: 999px;
   font-size: 10px;
   font-weight: 600;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   letter-spacing: 0.02em;
 }
@@ -1052,7 +1056,7 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   padding: 2px;
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(52, 211, 153, 0.15), rgba(16, 185, 129, 0.4));
   background-size: 200% 200%;
-  animation: gradient-rotate 3s ease-in-out infinite;
+  animation: gradient-rotate 3s ease-in-out 2;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -1079,9 +1083,8 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-bottom: none;
   background: linear-gradient(180deg, rgba(14, 14, 18, 0.98), rgba(14, 14, 18, 1));
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(168, 85, 247, 0.06);
+  contain: layout style;
 }
 
 /* Desktop quick preview premium overlay */
@@ -1145,10 +1148,8 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   text-transform: capitalize;
-  transition: all 200ms;
+  transition: color 200ms, background 200ms;
 }
 
 .uzeed-tag-fuchsia {
@@ -1171,17 +1172,15 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
 .uzeed-hero-cta::after {
   content: "";
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.08), transparent 30%);
-  animation: cta-shine 4s linear infinite;
+  inset: 0;
+  opacity: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent);
+  transition: opacity 300ms;
   pointer-events: none;
 }
 
-@keyframes cta-shine {
-  100% { transform: rotate(360deg); }
+.uzeed-hero-cta:hover::after {
+  opacity: 1;
 }
 
 /* Responsive card grid */

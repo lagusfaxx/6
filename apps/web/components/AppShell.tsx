@@ -1,18 +1,27 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import TopHeader from "./TopHeader";
 import Footer from "./Footer";
-import PushNotificationsManager from "./PushNotificationsManager";
-import PresenceHeartbeat from "./PresenceHeartbeat";
 import LocationFilterProvider from "./LocationFilterProvider";
 import BackButton from "./BackButton";
 import { ForumNotificationProvider } from "./ForumNotifications";
 import { ChatNotificationProvider } from "./ChatNotifications";
 import { usePageViewTracker } from "../hooks/useAnalytics";
 import ScrollToTop from "./ScrollToTop";
+
+/* Lazy-load non-critical shell components to reduce initial main-thread work */
+const PushNotificationsManager = dynamic(
+  () => import("./PushNotificationsManager"),
+  { ssr: false },
+);
+const PresenceHeartbeat = dynamic(
+  () => import("./PresenceHeartbeat"),
+  { ssr: false },
+);
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
@@ -21,6 +30,17 @@ import ScrollToTop from "./ScrollToTop";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   usePageViewTracker();
   const pathname = usePathname() || "/";
+
+  // Defer non-critical components until after first paint + idle time
+  const [deferredReady, setDeferredReady] = useState(false);
+  useEffect(() => {
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(() => setDeferredReady(true), { timeout: 3000 });
+      return () => cancelIdleCallback(id);
+    }
+    const timer = setTimeout(() => setDeferredReady(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const isAuthRoute =
     pathname === "/login" ||
@@ -59,8 +79,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div style={iosTextSizeFix} className="min-h-[100svh] w-full text-white">
         <ScrollToTop />
-        <PushNotificationsManager />
-        <PresenceHeartbeat />
+        {deferredReady && <PushNotificationsManager />}
+        {deferredReady && <PresenceHeartbeat />}
         {children}
       </div>
     );
@@ -75,8 +95,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           className="min-h-[100svh] w-full bg-transparent text-white"
         >
           <ScrollToTop />
-          <PushNotificationsManager />
-          <PresenceHeartbeat />
+          {deferredReady && <PushNotificationsManager />}
+          {deferredReady && <PresenceHeartbeat />}
           <main className="min-h-[100svh]">
             {children}
           </main>
@@ -98,8 +118,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="relative min-w-0 flex-1">
             <ScrollToTop />
             <TopHeader />
-            <PushNotificationsManager />
-            <PresenceHeartbeat />
+            {deferredReady && <PushNotificationsManager />}
+            {deferredReady && <PresenceHeartbeat />}
             {!isHome && <BackButton />}
             {/* Reduced pt since we removed the category chips row from mobile header */}
             <main className="flex-1 px-4 pt-[76px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[90px] md:pb-6">

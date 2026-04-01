@@ -3,7 +3,7 @@
 import { startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion, type Variants } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import useMe from "../hooks/useMe";
@@ -402,12 +402,25 @@ function useAnimatedCounter(target: number, duration: number, start: boolean) {
   return value;
 }
 
+/* ── Shared platform stats cache — avoids duplicate /stats/platform fetches ── */
+let _platformStatsPromise: Promise<any> | null = null;
+function getPlatformStats() {
+  if (!_platformStatsPromise) {
+    _platformStatsPromise = apiFetch<{ professionals: number; services: number; videocallProfessionals: number }>("/stats/platform")
+      .catch((err) => {
+        _platformStatsPromise = null;
+        throw err;
+      });
+  }
+  return _platformStatsPromise;
+}
+
 function HeroCounters() {
   const [stats, setStats] = useState<{ professionals: number; services: number } | null>(null);
   const [animate, setAnimate] = useState(false);
 
   useEffect(() => {
-    apiFetch<{ professionals: number; services: number }>("/stats/platform")
+    getPlatformStats()
       .then((res) => setStats(res))
       .catch((err) => console.warn("[HeroCounters] failed to load platform stats", err));
   }, []);
@@ -434,29 +447,20 @@ function HeroCounters() {
   ];
 
   return (
-    <motion.div
-      initial="hidden"
-      animate={animate ? "visible" : "hidden"}
-      variants={{
-        hidden: { opacity: 0, y: 16 },
-        visible: {
-          opacity: 1,
-          y: 0,
-          transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-        },
-      }}
-      className="mt-8 flex items-center justify-center gap-6 sm:gap-10"
+    <div
+      className={`mt-8 flex items-center justify-center gap-6 sm:gap-10 ${animate ? "animate-float-up" : "opacity-0"}`}
+      style={{ animationDelay: "320ms", animationFillMode: "both" }}
     >
       {counters.map((c, i) => (
         <div key={i} className="group/stat flex cursor-default flex-col items-center gap-1">
-          <c.icon className="mb-1 h-4 w-4 text-fuchsia-400/70 transition-all duration-150 group-hover/stat:text-fuchsia-400 group-hover/stat:drop-shadow-[0_0_6px_rgba(192,132,252,0.5)]" />
-          <span className="text-xl font-bold tabular-nums tracking-tight text-white/90 transition-transform duration-150 group-hover/stat:scale-110 sm:text-2xl">
+          <c.icon className="mb-1 h-4 w-4 text-fuchsia-400/70 transition-colors duration-150 group-hover/stat:text-fuchsia-400" />
+          <span className="text-xl font-bold tabular-nums tracking-tight text-white/90 sm:text-2xl">
             {c.value}{c.suffix}
           </span>
           <span className="text-[11px] text-white/40 sm:text-xs">{c.label}</span>
         </div>
       ))}
-    </motion.div>
+    </div>
   );
 }
 
@@ -467,12 +471,12 @@ function VideollamadasBanner() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    apiFetch<{ videocallProfessionals: number }>("/stats/platform")
-      .then((res) => {
+    getPlatformStats()
+      .then((res: any) => {
         setCount(res.videocallProfessionals ?? 0);
         setLoaded(true);
       })
-      .catch((err) => {
+      .catch((err: any) => {
         console.warn("[VideollamadasBanner] failed to load stats", err);
         setLoaded(true);
       });
@@ -528,31 +532,6 @@ function formatLastSeenLabel(lastSeen?: string | null) {
   const days = Math.floor(hours / 24);
   return `Activa hace ${days} día${days === 1 ? "" : "s"}`;
 }
-
-/* ── Animation variants ── */
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.08, duration: 0.45, ease: [0.16, 1, 0.3, 1] },
-  }),
-};
-
-const stagger = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
-};
-
-const cardFade = {
-  hidden: { opacity: 0, y: 16 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
-  },
-};
 
 /* ── Tier config ── */
 const TIERS = [
@@ -857,19 +836,20 @@ export default function HomeClient() {
     () => (availableProfiles.length > 0 ? [...availableProfiles, ...availableProfiles] : []),
     [availableProfiles],
   );
-  // Preload first visible profile images for instant visual impact
+  // Prefetch first visible profile images using idle time
   useEffect(() => {
-    const first6 = availableCarouselProfiles.slice(0, 6);
-    for (const p of first6) {
-      const src = resolveProfileImage(p);
-      if (src && src !== "/brand/isotipo-new.png") {
-        const link = document.createElement("link");
-        link.rel = "preload";
-        link.as = "image";
-        link.href = src;
-        document.head.appendChild(link);
+    if (typeof requestIdleCallback !== "function") return;
+    const id = requestIdleCallback(() => {
+      const first4 = availableCarouselProfiles.slice(0, 4);
+      for (const p of first4) {
+        const src = resolveProfileImage(p);
+        if (src && src !== "/brand/isotipo-new.png") {
+          const img = new Image();
+          img.src = src;
+        }
       }
-    }
+    }, { timeout: 4000 });
+    return () => cancelIdleCallback(id);
   }, [availableCarouselProfiles]);
 
   const shouldAutoScrollAvailable = availableProfiles.length > 1 && isAvailableInView && !isAvailableInteracting;
@@ -1020,28 +1000,28 @@ export default function HomeClient() {
       <section className="relative flex min-h-[52vh] items-center justify-center overflow-hidden px-4 md:min-h-[58vh]">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
-        {/* Premium ambient orbs with better colors */}
-        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[140px] animate-hero-drift" />
-        <div className="pointer-events-none absolute right-[8%] top-[18%] -z-10 h-[450px] w-[450px] rounded-full bg-fuchsia-500/[0.06] blur-[120px] animate-[hero-drift_14s_ease-in-out_infinite_reverse]" />
-        <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 h-[350px] w-[350px] rounded-full bg-indigo-500/[0.05] blur-[100px] animate-[hero-drift_18s_ease-in-out_infinite]" />
+        {/* Static ambient orbs — no animation to reduce rendering cost */}
+        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[140px]" />
+        <div className="pointer-events-none absolute right-[8%] top-[18%] -z-10 h-[450px] w-[450px] rounded-full bg-fuchsia-500/[0.06] blur-[120px]" />
+        <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 h-[350px] w-[350px] rounded-full bg-indigo-500/[0.05] blur-[100px]" />
         {/* Noise texture overlay for premium texture */}
         <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
 
         <div className="relative mx-auto max-w-3xl text-center">
-          <motion.div initial="hidden" animate="visible" custom={0} variants={fadeUp} className="mb-5 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/15 bg-gradient-to-r from-fuchsia-500/[0.06] to-violet-500/[0.04] px-5 py-2 text-xs font-medium text-white/60 backdrop-blur-2xl shadow-[0_0_30px_rgba(168,85,247,0.08)]">
-            <Zap className="h-3.5 w-3.5 text-fuchsia-400 animate-breathe" />
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/15 bg-gradient-to-r from-fuchsia-500/[0.06] to-violet-500/[0.04] px-5 py-2 text-xs font-medium text-white/60 backdrop-blur-2xl shadow-[0_0_30px_rgba(168,85,247,0.08)] animate-float-up">
+            <Zap className="h-3.5 w-3.5 text-fuchsia-400" />
             Plataforma #1 de experiencias en Chile
-          </motion.div>
+          </div>
 
-          <motion.h1 initial="hidden" animate="visible" custom={1} variants={fadeUp} className="text-[2rem] font-extrabold leading-[1.08] tracking-tight sm:text-4xl md:text-5xl">
+          <h1 className="text-[2rem] font-extrabold leading-[1.08] tracking-tight sm:text-4xl md:text-5xl animate-float-up" style={{ animationDelay: "80ms", animationFillMode: "both" }}>
             <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
-          </motion.h1>
+          </h1>
 
-          <motion.h2 initial="hidden" animate="visible" custom={2} variants={fadeUp} className="mx-auto mt-5 max-w-2xl text-[13px] font-medium leading-relaxed text-white/45 sm:text-sm md:text-base">
+          <h2 className="mx-auto mt-5 max-w-2xl text-[13px] font-medium leading-relaxed text-white/45 sm:text-sm md:text-base animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
             Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Todo lo que buscas en un entorno discreto, verificado y premium.
-          </motion.h2>
+          </h2>
 
-          <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp} className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center animate-float-up" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
             <Link
               href="/servicios"
               className="uzeed-hero-cta group relative inline-flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)] sm:w-auto"
@@ -1050,7 +1030,7 @@ export default function HomeClient() {
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
             <InstallAppButton />
-          </motion.div>
+          </div>
 
           <HeroCounters />
         </div>
@@ -1246,8 +1226,8 @@ export default function HomeClient() {
           if (!profiles.length) return null;
           const Icon = tier.icon;
           return (
-            <motion.section key={`${tier.key}-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10 uzeed-below-fold">
-              <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
+            <section key={`${tier.key}-${locationKey}`} className="mb-10 uzeed-below-fold">
+              <div className="mb-4 flex items-end justify-between">
                 <div className="flex items-center gap-2.5">
                   <Icon className={`h-5 w-5 bg-gradient-to-r ${tier.gradient} bg-clip-text text-transparent`} />
                   <h2 className="text-xl font-bold tracking-tight">{tier.label}</h2>
@@ -1255,10 +1235,10 @@ export default function HomeClient() {
                 <Link href="/profesionales" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
                   Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
-              </motion.div>
+              </div>
               <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
                 {profiles.map((p) => (
-                  <motion.div key={p.id} variants={cardFade} className="w-[72vw] shrink-0 snap-start sm:w-auto">
+                  <div key={p.id} className="w-[72vw] shrink-0 snap-start sm:w-auto">
                     <button
                       type="button"
                       onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
@@ -1331,17 +1311,17 @@ export default function HomeClient() {
                         </div>
                       </div>
                     </button>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
-            </motion.section>
+            </section>
           );
         })}
 
         {/* ═══ DESTACADAS — Carousel con perfiles Gold y Diamond ═══ */}
         {featuredCarouselProfiles.length > 0 && (
-          <motion.section key={`featured-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
-            <motion.div variants={cardFade} className="mb-4 flex items-end justify-between">
+          <section key={`featured-${locationKey}`} className="mb-10">
+            <div className="mb-4 flex items-end justify-between">
               <div className="flex items-center gap-2.5">
                 <Crown className="h-5 w-5 text-amber-400" />
                 <h2 className="text-xl font-bold tracking-tight">Destacadas</h2>
@@ -1350,7 +1330,7 @@ export default function HomeClient() {
               <Link href="/profesionales" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-amber-400 transition-colors duration-200">
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
-            </motion.div>
+            </div>
             <div className="relative overflow-hidden rounded-2xl">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -1452,13 +1432,13 @@ export default function HomeClient() {
                 </div>
               )}
             </div>
-          </motion.section>
+          </section>
         )}
 
         {/* ═══ CERCA DE TI — Grid for abundance ═══ */}
         {nearProfiles.length > 0 && (
-          <motion.section key={`near-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10 uzeed-below-fold">
-            <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
+          <section key={`near-${locationKey}`} className="mb-10 uzeed-below-fold">
+            <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Navigation className="h-4 w-4 text-fuchsia-300" />
                 <h2 className="text-xl font-bold tracking-tight">Cerca de ti</h2>
@@ -1466,10 +1446,10 @@ export default function HomeClient() {
               <Link href="/servicios?sort=near" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
                 Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
-            </motion.div>
+            </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {nearProfiles.map((profile) => (
-                <motion.article key={profile.id} variants={cardFade} className="uzeed-premium-card group">
+                <article key={profile.id} className="uzeed-premium-card group">
                   <button type="button" onClick={() => startTransition(() => setPreviewProfile(profile))} className="block w-full text-left">
                     <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
@@ -1515,16 +1495,16 @@ export default function HomeClient() {
                       </div>
                     </div>
                   </button>
-                </motion.article>
+                </article>
               ))}
             </div>
-          </motion.section>
+          </section>
         )}
 
         {/* ═══ NUEVAS ═══ */}
         {newProfiles.length > 0 && (
-          <motion.section key={`new-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10 uzeed-below-fold">
-            <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
+          <section key={`new-${locationKey}`} className="mb-10 uzeed-below-fold">
+            <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Sparkles className="h-4 w-4 text-violet-400" />
                 <h2 className="text-xl font-bold tracking-tight">Nuevas</h2>
@@ -1532,10 +1512,10 @@ export default function HomeClient() {
               <Link href="/servicios?sort=new" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-violet-400 transition-colors duration-200">
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
-            </motion.div>
+            </div>
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
               {newProfiles.map((profile) => (
-                <motion.article key={profile.id} variants={cardFade} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto">
+                <article key={profile.id} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto">
                   <button type="button" onClick={() => startTransition(() => setPreviewProfile(profile))} className="block w-full text-left">
                     <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
@@ -1573,22 +1553,22 @@ export default function HomeClient() {
                       </div>
                     </div>
                   </button>
-                </motion.article>
+                </article>
               ))}
             </div>
-          </motion.section>
+          </section>
         )}
 
         {/* ═══ TENDENCIAS ═══ */}
         {recentPros.length > 6 && (
-          <motion.section key={`trending-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10 uzeed-below-fold">
-            <motion.div variants={cardFade} className="mb-4">
+          <section key={`trending-${locationKey}`} className="mb-10 uzeed-below-fold">
+            <div className="mb-4">
               <div className="flex items-center gap-2.5">
                 <TrendingUp className="h-4 w-4 text-violet-400" />
                 <h2 className="text-xl font-bold tracking-tight">Las más buscadas</h2>
               </div>
-            </motion.div>
-            <motion.div variants={cardFade} className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3">
+            </div>
+            <div className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3">
               {recentPros.slice(6, 12).map((p) => (
                 <Link key={`trend-${p.id}`} href={`/profesional/${p.id}`} className="group flex items-center gap-3.5 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5 transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/20 hover:bg-white/[0.05] hover:shadow-[0_12px_32px_rgba(168,85,247,0.08)]">
                   <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-white/[0.04] to-transparent">
@@ -1615,22 +1595,22 @@ export default function HomeClient() {
                   <ChevronRight className="h-4 w-4 shrink-0 text-white/15 transition-all duration-200 group-hover:text-fuchsia-400 group-hover:translate-x-0.5" />
                 </Link>
               ))}
-            </motion.div>
-          </motion.section>
+            </div>
+          </section>
         )}
 
         {/* ═══ EN VIVO AHORA ═══ */}
         {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}
         {liveStreams.length > 0 && (
-          <motion.section key={`live-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
-            <motion.div variants={cardFade} className="mb-4 flex items-center gap-2">
+          <section key={`live-${locationKey}`} className="mb-10">
+            <div className="mb-4 flex items-center gap-2">
               <span className="relative flex h-3 w-3">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                 <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
               </span>
               <h2 className="text-xl font-bold">En Vivo Ahora</h2>
-            </motion.div>
-            <motion.div variants={cardFade} className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
               {liveStreams.map((s: any) => (
                 <Link key={s.id} href={`/live/${s.id}`} className="group relative flex-shrink-0 w-40">
                   <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-red-500/25 bg-gradient-to-br from-fuchsia-900/40 to-violet-900/40 shadow-[0_0_24px_rgba(239,68,68,0.1)] group-hover:shadow-[0_0_32px_rgba(239,68,68,0.2)] transition-shadow duration-300">
@@ -1653,14 +1633,14 @@ export default function HomeClient() {
                   </div>
                 </Link>
               ))}
-            </motion.div>
-          </motion.section>
+            </div>
+          </section>
         )}
 
         {/* ═══ HOTELES / MOTELES ═══ */}
         {moteles.length > 0 && (
-          <motion.section key={`moteles-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
-            <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
+          <section key={`moteles-${locationKey}`} className="mb-10 uzeed-below-fold">
+            <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Hotel className="h-4 w-4 text-amber-400" />
                 <h2 className="text-xl font-bold tracking-tight">Hoteles y Moteles</h2>
@@ -1668,10 +1648,10 @@ export default function HomeClient() {
               <Link href="/moteles" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-amber-400 transition-colors duration-200">
                 Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
-            </motion.div>
+            </div>
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
               {moteles.map((item) => (
-                <motion.article key={item.id} variants={cardFade} className="uzeed-premium-card uzeed-tier-gold group w-[68vw] shrink-0 snap-start sm:w-auto">
+                <article key={item.id} className="uzeed-premium-card uzeed-tier-gold group w-[68vw] shrink-0 snap-start sm:w-auto">
                   <Link href={`/hospedaje/${item.id}`} className="block">
                     <div className="uzeed-card-shimmer relative aspect-[4/3] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       {(item.coverUrl || item.avatarUrl) ? (
@@ -1698,16 +1678,16 @@ export default function HomeClient() {
                       </div>
                     </div>
                   </Link>
-                </motion.article>
+                </article>
               ))}
             </div>
-          </motion.section>
+          </section>
         )}
 
         {/* ═══ SEXSHOP ═══ */}
         {sexshops.length > 0 && (
-          <motion.section key={`sexshop-${locationKey}`} initial="hidden" whileInView="visible" viewport={{ margin: "-60px" }} variants={stagger} className="mb-10">
-            <motion.div variants={cardFade} className="mb-4 flex items-center justify-between">
+          <section key={`sexshop-${locationKey}`} className="mb-10 uzeed-below-fold">
+            <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <ShoppingBag className="h-4 w-4 text-pink-400" />
                 <h2 className="text-xl font-bold tracking-tight">Sex Shop</h2>
@@ -1715,10 +1695,10 @@ export default function HomeClient() {
               <Link href="/sexshop" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-pink-400 transition-colors duration-200">
                 Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
-            </motion.div>
+            </div>
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
               {sexshops.map((item) => (
-                <motion.article key={item.id} variants={cardFade} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto" style={{ borderColor: "rgba(236,72,153,0.1)" }}>
+                <article key={item.id} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto" style={{ borderColor: "rgba(236,72,153,0.1)" }}>
                   <Link href={`/sexshop/${item.username || item.id}`} className="block">
                     <div className="uzeed-card-shimmer relative aspect-[4/3] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       {(item.coverUrl || item.avatarUrl) ? (
@@ -1745,16 +1725,16 @@ export default function HomeClient() {
                       </div>
                     </div>
                   </Link>
-                </motion.article>
+                </article>
               ))}
             </div>
-          </motion.section>
+          </section>
         )}
 
         {/* ═══ CTA — Registration (guests only) ═══ */}
         {!isAuthed && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/10 to-transparent" />}
         {!isAuthed && (
-          <motion.section initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-60px" }} custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-fuchsia-500/10 bg-gradient-to-br from-fuchsia-600/[0.06] via-violet-600/[0.03] to-transparent p-8 text-center md:p-12 shadow-[0_0_80px_rgba(168,85,247,0.04)]">
+          <section className="relative overflow-hidden rounded-3xl border border-fuchsia-500/10 bg-gradient-to-br from-fuchsia-600/[0.06] via-violet-600/[0.03] to-transparent p-8 text-center md:p-12 shadow-[0_0_80px_rgba(168,85,247,0.04)] uzeed-below-fold">
             <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/[0.08] blur-[100px]" />
             <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[250px] w-[250px] rounded-full bg-violet-600/[0.06] blur-[80px]" />
             <h2 className="text-xl font-extrabold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
@@ -1770,7 +1750,7 @@ export default function HomeClient() {
                 Registro Comercio
               </Link>
             </div>
-          </motion.section>
+          </section>
         )}
 
         <HomeCreAccordion />

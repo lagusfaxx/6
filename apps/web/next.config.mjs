@@ -11,7 +11,7 @@ const nextConfig = {
       allowedOrigins: ["flow.cl", "www.flow.cl"],
     },
     // Tree-shake heavy packages — only imports actually used end up in the bundle
-    optimizePackageImports: ["framer-motion", "lucide-react", "@radix-ui/react-icons"],
+    optimizePackageImports: ["framer-motion", "lucide-react", "@radix-ui/react-icons", "date-fns", "zod"],
   },
 
   images: {
