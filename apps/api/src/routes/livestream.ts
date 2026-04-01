@@ -298,7 +298,7 @@ livestreamRouter.post("/live/:id/thumbnail", requireAuth, async (req, res) => {
     // Delete previous thumbnail file if it exists
     try {
       const prev = await prisma.$queryRawUnsafe<{ thumbnailUrl: string | null }[]>(
-        `SELECT "thumbnailUrl" FROM "LiveStream" WHERE "id" = $1`,
+        `SELECT "thumbnailUrl" FROM "LiveStream" WHERE "id" = $1::uuid`,
         stream.id,
       );
       const prevUrl = prev[0]?.thumbnailUrl;

@@ -127,7 +127,7 @@ export default async function ProfessionalDetailPage({ params }: Props) {
         />
       )}
       {p && (
-        <section className="sr-only" aria-hidden="true">
+        <section className="sr-only">
           <h1>{name} — {category} en {city}</h1>
           {p.bio && <p>{p.bio}</p>}
           {p.serviceDescription && <p>{p.serviceDescription}</p>}
