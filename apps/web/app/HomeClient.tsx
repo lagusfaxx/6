@@ -413,13 +413,8 @@ function HeroCounters() {
   }, []);
 
   useEffect(() => {
-    // If splash was already shown (user navigated back to home), animate immediately;
-    // otherwise wait ~3s for the splash screen to finish before starting counters.
-    const splashAlreadyShown =
-      sessionStorage.getItem("uzeed_splash_shown") === "true";
-    // Splash now takes ~1.3s (1s display + 0.3s fade); use 1500ms to let it clear
-    const delay = splashAlreadyShown ? 200 : 1500;
-    const timer = setTimeout(() => setAnimate(true), delay);
+    // Small delay so the counter animation is visible after page paint
+    const timer = setTimeout(() => setAnimate(true), 300);
     return () => clearTimeout(timer);
   }, []);
 

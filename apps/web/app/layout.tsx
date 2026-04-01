@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import "./globals.css";
 import AppShell from '../components/AppShell';
-import SplashScreen from '../components/SplashScreen';
 
 export const metadata: Metadata = {
   title: {
@@ -122,7 +121,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen text-white antialiased">
-        <SplashScreen />
         <AppShell>{children}</AppShell>
       </body>
     </html>
