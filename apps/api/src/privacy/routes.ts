@@ -1,8 +1,17 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { asyncHandler } from "../lib/asyncHandler";
 import { emitAdminEvent } from "../lib/adminEvents";
 
 export const privacyRouter = Router();
+
+const publicFormLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  message: { error: "TOO_MANY_REQUESTS", message: "Demasiadas solicitudes. Intenta en 15 minutos." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /**
  * POST /privacy/request-deletion
@@ -11,6 +20,7 @@ export const privacyRouter = Router();
  */
 privacyRouter.post(
   "/privacy/request-deletion",
+  publicFormLimiter,
   asyncHandler(async (req, res) => {
     const { type, email, message } = req.body || {};
 
@@ -48,6 +58,7 @@ privacyRouter.post(
  */
 privacyRouter.post(
   "/contact",
+  publicFormLimiter,
   asyncHandler(async (req, res) => {
     const { name, email, category, message } = req.body || {};
 

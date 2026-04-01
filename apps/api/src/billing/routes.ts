@@ -129,7 +129,7 @@ billingRouter.post("/billing/payment/flow", requireAuth, asyncHandler(async (req
   // Full redirect URL for Flow payment page
   const redirectUrl = `${payment.url}?token=${payment.token}`;
 
-  console.log("[billing] Flow payment created", { userId, intentId: intent.id, token: payment.token });
+  console.log("[billing] Flow payment created", { userId, intentId: intent.id });
   return res.json({ url: redirectUrl, token: payment.token, intentId: intent.id });
 }));
 
@@ -364,7 +364,7 @@ billingRouter.post("/billing/subscription/register-card", requireAuth, asyncHand
     }
   }
 
-  console.log("[billing] card registration started", { userId, customerId, token: result.token });
+  console.log("[billing] card registration started", { userId, customerId });
   return res.json(result);
 }));
 

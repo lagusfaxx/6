@@ -479,7 +479,10 @@ motelRouter.get("/motel/bookings", asyncHandler(async (req, res) => {
   if (!userId) return res.status(401).json({ error: "UNAUTHENTICATED" });
   const isOwner = isMotelOwner((req as any).user);
 
-  const rows = await prisma.$queryRawUnsafe<any[]>(`SELECT b.*, u."displayName" as "clientName", u."username" as "clientUsername", r."name" as "roomName" FROM "MotelBooking" b LEFT JOIN "User" u ON u.id = b."clientId" LEFT JOIN "MotelRoom" r ON r.id = b."roomId" WHERE ${isOwner ? 'b."establishmentId" = $1::uuid' : 'b."clientId" = $1::uuid'} ORDER BY b."createdAt" DESC LIMIT 300`, userId);
+  const bookingQuery = isOwner
+    ? `SELECT b.*, u."displayName" as "clientName", u."username" as "clientUsername", r."name" as "roomName" FROM "MotelBooking" b LEFT JOIN "User" u ON u.id = b."clientId" LEFT JOIN "MotelRoom" r ON r.id = b."roomId" WHERE b."establishmentId" = $1::uuid ORDER BY b."createdAt" DESC LIMIT 300`
+    : `SELECT b.*, u."displayName" as "clientName", u."username" as "clientUsername", r."name" as "roomName" FROM "MotelBooking" b LEFT JOIN "User" u ON u.id = b."clientId" LEFT JOIN "MotelRoom" r ON r.id = b."roomId" WHERE b."clientId" = $1::uuid ORDER BY b."createdAt" DESC LIMIT 300`;
+  const rows = await prisma.$queryRawUnsafe<any[]>(bookingQuery, userId);
   return res.json({ bookings: rows });
 }));
 
