@@ -25,11 +25,11 @@ export default function SplashScreen() {
     // Show splash
     setIsVisible(true);
 
-    // Hide after 1 second (reduced from 2.5s to improve LCP)
+    // Hide quickly to avoid blocking LCP measurement
     const timer = setTimeout(() => {
       setIsVisible(false);
       sessionStorage.setItem("uzeed_splash_shown", "true");
-    }, 1000);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [pathname]);
