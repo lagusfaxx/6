@@ -8,6 +8,7 @@ import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { asyncHandler } from "../lib/asyncHandler";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
+import { obfuscateLocation } from "../lib/locationPrivacy";
 
 export const storiesRouter = Router();
 

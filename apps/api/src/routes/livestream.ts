@@ -33,6 +33,14 @@ const privateShowLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const liveChatLimiter = rateLimit({
+  windowMs: 10 * 1000,
+  limit: 10,
+  message: { error: "Demasiados mensajes. Espera un momento." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 /* ── Constants ── */
 const MAX_TIP_AMOUNT = 10_000;
 const MAX_PRIVATE_SHOW_PRICE = 50_000;
@@ -415,7 +423,7 @@ livestreamRouter.post("/live/:id/leave", requireAuth, async (req, res) => {
 
 // ── POST /live/:id/chat — send message in live chat ──
 // BUG FIX: was only sending to host, now broadcasts to all connected users
-livestreamRouter.post("/live/:id/chat", requireAuth, async (req, res) => {
+livestreamRouter.post("/live/:id/chat", requireAuth, liveChatLimiter, async (req, res) => {
   const stream = await prisma.liveStream.findUnique({ where: { id: req.params.id }, select: STREAM_SELECT });
   if (!stream || !stream.isActive) return res.status(400).json({ error: "Stream not active" });
 

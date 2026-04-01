@@ -19,10 +19,25 @@ const signalLimiter = rateLimit({
  * Target receives SSE event "signal:offer" | "signal:answer" | "signal:ice"
  */
 
+const MAX_SDP_SIZE = 65_536; // 64KB max for SDP payloads
+const MAX_CANDIDATE_SIZE = 2_048; // 2KB max for ICE candidates
+
 function validateSignalInput(body: any): boolean {
   if (!body.targetUserId || typeof body.targetUserId !== "string") return false;
   if (body.targetUserId.length > 50) return false;
   return true;
+}
+
+function validateSdpSize(sdp: unknown): boolean {
+  return typeof sdp === "string" || (typeof sdp === "object" && sdp !== null)
+    ? JSON.stringify(sdp).length <= MAX_SDP_SIZE
+    : false;
+}
+
+function validateCandidateSize(candidate: unknown): boolean {
+  return typeof candidate === "string" || (typeof candidate === "object" && candidate !== null)
+    ? JSON.stringify(candidate).length <= MAX_CANDIDATE_SIZE
+    : false;
 }
 
 // POST /signal/offer — send SDP offer to target user
@@ -30,6 +45,9 @@ signalingRouter.post("/signal/offer", requireAuth, signalLimiter, (req, res) => 
   const { targetUserId, bookingId, streamId, sdp } = req.body;
   if (!validateSignalInput(req.body) || !sdp) {
     return res.status(400).json({ error: "targetUserId and sdp required" });
+  }
+  if (!validateSdpSize(sdp)) {
+    return res.status(400).json({ error: "SDP payload too large" });
   }
   if (targetUserId === req.session.userId) {
     return res.status(400).json({ error: "Cannot signal yourself" });
@@ -51,6 +69,9 @@ signalingRouter.post("/signal/answer", requireAuth, signalLimiter, (req, res) =>
   if (!validateSignalInput(req.body) || !sdp) {
     return res.status(400).json({ error: "targetUserId and sdp required" });
   }
+  if (!validateSdpSize(sdp)) {
+    return res.status(400).json({ error: "SDP payload too large" });
+  }
   if (targetUserId === req.session.userId) {
     return res.status(400).json({ error: "Cannot signal yourself" });
   }
@@ -70,6 +91,9 @@ signalingRouter.post("/signal/ice", requireAuth, signalLimiter, (req, res) => {
   const { targetUserId, bookingId, streamId, candidate } = req.body;
   if (!validateSignalInput(req.body) || !candidate) {
     return res.status(400).json({ error: "targetUserId and candidate required" });
+  }
+  if (!validateCandidateSize(candidate)) {
+    return res.status(400).json({ error: "ICE candidate too large" });
   }
   if (targetUserId === req.session.userId) {
     return res.status(400).json({ error: "Cannot signal yourself" });
