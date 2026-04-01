@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import useMe from "../hooks/useMe";
@@ -969,7 +969,7 @@ export default function HomeClient() {
   }, []);
 
   const handleAvailableCardClick = useCallback((p: DiscoverProfile) => {
-    if (!didDragRef.current) setPreviewProfile(p);
+    if (!didDragRef.current) startTransition(() => setPreviewProfile(p));
   }, []);
 
   const bannerHref = (banner: Banner) => {
@@ -1475,7 +1475,7 @@ export default function HomeClient() {
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {nearProfiles.map((profile) => (
                 <motion.article key={profile.id} variants={cardFade} className="uzeed-premium-card group">
-                  <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
+                  <button type="button" onClick={() => startTransition(() => setPreviewProfile(profile))} className="block w-full text-left">
                     <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
                       {profile.distanceKm != null && (
@@ -1541,7 +1541,7 @@ export default function HomeClient() {
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
               {newProfiles.map((profile) => (
                 <motion.article key={profile.id} variants={cardFade} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto">
-                  <button type="button" onClick={() => setPreviewProfile(profile)} className="block w-full text-left">
+                  <button type="button" onClick={() => startTransition(() => setPreviewProfile(profile))} className="block w-full text-left">
                     <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
                       <UserLevelBadge level={profile.userLevel} className="absolute right-2 top-2 z-[3] px-2 py-0.5 text-[10px]" />
@@ -1783,7 +1783,7 @@ export default function HomeClient() {
 
       {/* Profile Preview Modal */}
       {previewProfile && (
-        <ProfilePreviewModal profile={previewProfile} onClose={() => setPreviewProfile(null)} />
+        <ProfilePreviewModal profile={previewProfile} onClose={() => startTransition(() => setPreviewProfile(null))} />
       )}
     </div>
   );
