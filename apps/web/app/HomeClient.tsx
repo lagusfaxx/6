@@ -1024,7 +1024,6 @@ export default function HomeClient() {
       {/* ═══ HERO — Premium immersive ═══ */}
       <section className="relative flex min-h-[52vh] items-center justify-center overflow-hidden px-4 md:min-h-[58vh]">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[url('/brand/bg.jpg')] bg-cover bg-center opacity-15" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
         {/* Premium ambient orbs with better colors */}
         <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[140px] animate-hero-drift" />

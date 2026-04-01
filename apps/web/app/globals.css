@@ -37,7 +37,7 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-image: url("/brand/bg.jpg");
+  background-image: url("/brand/bg.webp");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
