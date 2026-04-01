@@ -67,8 +67,7 @@ const SUBSCRIPTION_PROTECTED_PREFIXES = [
 function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some((p) =>
     pathname === p ||
-    pathname.startsWith(p + "/") ||
-    pathname.startsWith(p)
+    pathname.startsWith(p + "/")
   );
 }
 

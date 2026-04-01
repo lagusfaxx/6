@@ -202,8 +202,6 @@ servicesRouter.get(
         );
         return {
           ...p,
-          realLatitude: p.latitude,
-          realLongitude: p.longitude,
           latitude: obfuscated.latitude,
           longitude: obfuscated.longitude,
           locality: p.city || null,
@@ -215,7 +213,7 @@ servicesRouter.get(
           weightKg: p.weightKg,
           baseRate: p.baseRate,
           lastSeen: p.lastSeen ? p.lastSeen.toISOString() : null,
-          phone: p.phone || null,
+          phone: null,
           userLevel: resolveProfessionalLevel({
             baseRate: p.baseRate,
             profileViews: p.profileViews,
@@ -387,8 +385,6 @@ servicesRouter.get(
         );
         return {
           ...p,
-          realLatitude: p.latitude,
-          realLongitude: p.longitude,
           latitude: obfuscated.latitude,
           longitude: obfuscated.longitude,
           locality: p.city || null,
@@ -1047,6 +1043,9 @@ servicesRouter.post(
     }
     const profileId = req.params.userId;
     const raterId = req.session.userId!;
+    if (profileId === raterId) {
+      return res.status(400).json({ error: "CANNOT_RATE_SELF" });
+    }
     const created = await prisma.serviceRating.upsert({
       where: { profileId_raterId: { profileId, raterId } },
       update: { rating },
@@ -1526,16 +1525,28 @@ servicesRouter.post(
   "/services/:id/review",
   requireAuth,
   asyncHandler(async (req, res) => {
+    const userId = req.session.userId!;
     const hearts = Number(req.body?.hearts);
     if (!Number.isFinite(hearts) || hearts < 1 || hearts > 5) {
       return res.status(400).json({ error: "INVALID_RATING" });
     }
+
+    // Verify the authenticated user is the client of this service request
+    const serviceRequest = await prisma.serviceRequest.findUnique({
+      where: { id: req.params.id },
+      select: { clientId: true, status: true },
+    });
+    if (!serviceRequest) return res.status(404).json({ error: "NOT_FOUND" });
+    if (serviceRequest.clientId !== userId) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Solo el cliente puede dejar una reseña" });
+    }
+
     const review = await prisma.professionalReview.create({
       data: {
         serviceRequestId: req.params.id,
         hearts,
         comment:
-          typeof req.body?.comment === "string" ? req.body.comment : null,
+          typeof req.body?.comment === "string" ? req.body.comment.slice(0, 2000) : null,
       },
     });
     await prisma.serviceRequest.update({

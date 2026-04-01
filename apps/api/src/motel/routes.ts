@@ -612,7 +612,12 @@ motelRouter.put("/motel/dashboard/profile", asyncHandler(async (req, res) => {
       avatarUrl: req.body?.avatarUrl !== undefined ? (req.body.avatarUrl ? String(req.body.avatarUrl) : null) : user.avatarUrl,
       bio: req.body?.rules != null ? String(req.body.rules) : user.bio,
       serviceDescription: req.body?.schedule != null ? String(req.body.schedule) : user.serviceDescription
-    }
+    },
+    select: {
+      id: true, displayName: true, username: true, avatarUrl: true, coverUrl: true,
+      address: true, city: true, phone: true, latitude: true, longitude: true,
+      bio: true, serviceDescription: true, profileType: true,
+    },
   });
 
   return res.json({ profile: updated });

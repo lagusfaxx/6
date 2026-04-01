@@ -527,46 +527,58 @@ shopRouter.post("/orders", requireAuth, asyncHandler(async (req, res) => {
     return { productId: product.id, productName: product.name, unitPrice: product.price, quantity: qty };
   });
 
-  // Create order via raw SQL
-  const orderRows = await prisma.$queryRawUnsafe<any[]>(
-    `INSERT INTO "ShopOrder" ("shopId", "clientId", "status", "totalClp", "deliveryAddress", "deliveryPhone", "deliveryNote", "paymentMethod")
-     VALUES ($1, $2, 'PENDING', $3, $4, $5, $6, $7)
-     RETURNING *`,
-    shopId,
-    clientId,
-    totalClp,
-    deliveryAddress,
-    deliveryPhone,
-    deliveryNote,
-    paymentMethod
-  );
-  const order = orderRows[0];
+  // Atomic: create order + decrement stock in a single transaction
+  const result = await prisma.$transaction(async (tx) => {
+    // Re-validate stock inside transaction to prevent race conditions
+    for (const ri of resolvedItems) {
+      const current = await tx.product.findUnique({ where: { id: ri.productId }, select: { stock: true } });
+      if (!current || current.stock < ri.quantity) {
+        throw new Error(`INSUFFICIENT_STOCK:${ri.productId}`);
+      }
+    }
 
-  // Create order items via raw SQL
-  const orderItems: any[] = [];
-  for (const ri of resolvedItems) {
-    const itemRows = await prisma.$queryRawUnsafe<any[]>(
-      `INSERT INTO "ShopOrderItem" ("orderId", "productId", "productName", "unitPrice", "quantity")
-       VALUES ($1, $2, $3, $4, $5)
+    // Decrement stock atomically
+    for (const ri of resolvedItems) {
+      await tx.product.update({
+        where: { id: ri.productId },
+        data: { stock: { decrement: ri.quantity } }
+      });
+    }
+
+    // Create order
+    const orderRows = await tx.$queryRawUnsafe<any[]>(
+      `INSERT INTO "ShopOrder" ("shopId", "clientId", "status", "totalClp", "deliveryAddress", "deliveryPhone", "deliveryNote", "paymentMethod")
+       VALUES ($1, $2, 'PENDING', $3, $4, $5, $6, $7)
        RETURNING *`,
-      String(order.id),
-      ri.productId,
-      ri.productName,
-      ri.unitPrice,
-      ri.quantity
+      shopId, clientId, totalClp, deliveryAddress, deliveryPhone, deliveryNote, paymentMethod
     );
-    orderItems.push(itemRows[0]);
+    const order = orderRows[0];
+
+    // Create order items
+    const orderItems: any[] = [];
+    for (const ri of resolvedItems) {
+      const itemRows = await tx.$queryRawUnsafe<any[]>(
+        `INSERT INTO "ShopOrderItem" ("orderId", "productId", "productName", "unitPrice", "quantity")
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        String(order.id), ri.productId, ri.productName, ri.unitPrice, ri.quantity
+      );
+      orderItems.push(itemRows[0]);
+    }
+
+    return { ...order, items: orderItems };
+  }).catch((err) => {
+    if (err?.message?.startsWith("INSUFFICIENT_STOCK:")) {
+      return null;
+    }
+    throw err;
+  });
+
+  if (!result) {
+    return res.status(400).json({ error: "INSUFFICIENT_STOCK", message: "Stock changed while processing. Try again." });
   }
 
-  // Decrement stock via Prisma
-  for (const ri of resolvedItems) {
-    await prisma.product.update({
-      where: { id: ri.productId },
-      data: { stock: { decrement: ri.quantity } }
-    });
-  }
-
-  return res.json({ order: { ...order, items: orderItems } });
+  return res.json({ order: result });
 }));
 
 // GET /orders - Client lists their orders

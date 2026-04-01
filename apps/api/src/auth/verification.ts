@@ -143,7 +143,7 @@ verificationRouter.post(
           .json({ error: "EMAIL_SEND_FAILED", message: "No se pudo enviar el correo." });
       }
     } else {
-      console.warn("[verification] RESEND_API_KEY not set, code:", code);
+      console.warn("[verification] RESEND_API_KEY not set — cannot send verification email");
     }
 
     return res.json({ ok: true, expiresInSeconds: CODE_TTL_MS / 1000 });
@@ -314,7 +314,7 @@ verificationRouter.post(
           .json({ error: "EMAIL_SEND_FAILED", message: "No se pudo enviar el correo." });
       }
     } else {
-      console.warn("[verification] RESEND_API_KEY not set, reset code:", code);
+      console.warn("[verification] RESEND_API_KEY not set — cannot send reset email");
     }
 
     return res.json({ ok: true, expiresInSeconds: CODE_TTL_MS / 1000 });
