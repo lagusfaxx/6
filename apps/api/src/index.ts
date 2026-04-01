@@ -66,6 +66,9 @@ const corsOrigins = Array.from(
   new Set([
     "https://uzeed.cl",
     "https://www.uzeed.cl",
+    // Capacitor native app origins
+    "capacitor://localhost",
+    "http://localhost",
     ...config.corsOrigin.split(",").map((s) => s.trim()).filter(Boolean)
   ])
 );
