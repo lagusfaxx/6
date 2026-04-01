@@ -239,10 +239,15 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
       commentCount: (post as any).commentCount || 0,
       createdAt: post.createdAt,
       creator: post.creator,
-      media: post.media.map((m: any) => ({
-        ...m,
-        isBlurred: m.visibility === "PREMIUM" && !isSubscribed,
-      })),
+      media: post.media.map((m: any) => {
+        const blurred = m.visibility === "PREMIUM" && !isSubscribed;
+        return {
+          ...m,
+          url: blurred ? null : m.url,
+          thumbnailUrl: blurred ? null : m.thumbnailUrl,
+          isBlurred: blurred,
+        };
+      }),
       isBlurred: post.visibility === "PREMIUM" && !isSubscribed,
       isLiked: likedPostIds.has(post.id),
     };
@@ -352,10 +357,15 @@ umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
     return {
       ...post,
       commentCount: (post as any).commentCount || 0,
-      media: post.media.map((m: any) => ({
-        ...m,
-        isBlurred: m.visibility === "PREMIUM" && !isSubscribed,
-      })),
+      media: post.media.map((m: any) => {
+        const blurred = m.visibility === "PREMIUM" && !isSubscribed;
+        return {
+          ...m,
+          url: blurred ? null : m.url,
+          thumbnailUrl: blurred ? null : m.thumbnailUrl,
+          isBlurred: blurred,
+        };
+      }),
       isBlurred: post.visibility === "PREMIUM" && !isSubscribed,
       isLiked: likedPostIds.has(post.id),
     };
