@@ -344,6 +344,23 @@ videocallRouter.post("/videocall/book", requireAuth, async (req, res) => {
   res.json({ booking });
 });
 
+// ── GET /videocall/booking/:id — single booking detail ──
+videocallRouter.get("/videocall/booking/:id", requireAuth, async (req, res) => {
+  const userId = req.session.userId!;
+  const booking = await prisma.videocallBooking.findUnique({
+    where: { id: req.params.id },
+    include: {
+      client: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
+      professional: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
+    },
+  });
+  if (!booking) return res.status(404).json({ error: "NOT_FOUND" });
+  if (booking.clientId !== userId && booking.professionalId !== userId) {
+    return res.status(403).json({ error: "FORBIDDEN" });
+  }
+  res.json({ booking });
+});
+
 // ── GET /videocall/bookings — my bookings (client or professional) ──
 videocallRouter.get("/videocall/bookings", requireAuth, async (req, res) => {
   const userId = req.session.userId!;
