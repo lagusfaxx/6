@@ -519,6 +519,7 @@ async function updateProfile(req: any, res: any) {
     serviceTags,
     coverPositionX,
     coverPositionY,
+    isOnline,
   } = req.body as Record<string, string | boolean | string[] | number | null>;
   const allowedGenders = new Set(["MALE", "FEMALE", "OTHER"]);
   const allowedPrefs = new Set(["MALE", "FEMALE", "ALL", "OTHER"]);
@@ -648,6 +649,16 @@ async function updateProfile(req: any, res: any) {
     isActive: safeIsActive,
     coverPositionX: clampCoverPosition(coverPositionX),
     coverPositionY: clampCoverPosition(coverPositionY),
+    isOnline:
+      isOnline === undefined
+        ? undefined
+        : typeof isOnline === "boolean"
+          ? isOnline
+          : isOnline === "true"
+            ? true
+            : isOnline === "false"
+              ? false
+              : undefined,
   };
 
   let user: any;
