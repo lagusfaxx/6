@@ -159,6 +159,9 @@ app.use((req, res, next) => {
   return res.status(403).json({ error: "CSRF_REJECTED", message: "Origin not allowed" });
 });
 
+// ── Public routes (before auth middleware) ──
+app.use("/", privacyRouter);
+
 // ✅ Global auth allowlist (categories/auth/health/etc quedan públicos dentro del middleware)
 app.use(requireAuth);
 
@@ -232,7 +235,6 @@ app.use("/", videocallRouter);
 app.use("/", livestreamRouter);
 app.use("/", signalingRouter);
 app.use("/", livekitRouter);
-app.use("/", privacyRouter);
 app.use("/", analyticsRouter);
 app.use("/", umateRouter);
 
