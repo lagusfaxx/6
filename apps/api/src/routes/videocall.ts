@@ -715,3 +715,83 @@ videocallRouter.post("/videocall/:id/cancel", requireAuth, async (req, res) => {
 
   res.json({ ok: true });
 });
+
+// ── POST /videocall/bookings/:id/review — client reviews a completed videocall ──
+videocallRouter.post("/videocall/bookings/:id/review", requireAuth, async (req, res) => {
+  const userId = req.session.userId!;
+  const bookingId = req.params.id;
+
+  const booking = await prisma.videocallBooking.findUnique({ where: { id: bookingId } });
+  if (!booking) return res.status(404).json({ error: "NOT_FOUND" });
+  if (booking.clientId !== userId) return res.status(403).json({ error: "FORBIDDEN" });
+  if (booking.status !== "COMPLETED") return res.status(400).json({ error: "BOOKING_NOT_COMPLETED" });
+
+  const hearts = Number(req.body?.hearts);
+  if (!Number.isFinite(hearts) || hearts < 1 || hearts > 5) {
+    return res.status(400).json({ error: "INVALID_RATING" });
+  }
+
+  const comment = typeof req.body?.comment === "string" ? req.body.comment.slice(0, 2000) : null;
+
+  // Create a ServiceRequest as a bridge for the ProfessionalReview model
+  let serviceRequest = await prisma.serviceRequest.findFirst({
+    where: { clientId: booking.clientId, professionalId: booking.professionalId, agreedLocation: `videocall:${bookingId}` },
+  });
+
+  if (!serviceRequest) {
+    serviceRequest = await prisma.serviceRequest.create({
+      data: {
+        clientId: booking.clientId,
+        professionalId: booking.professionalId,
+        status: "FINALIZADO",
+        agreedLocation: `videocall:${bookingId}`,
+        requestedDate: booking.scheduledAt.toISOString().slice(0, 10),
+        requestedTime: booking.scheduledAt.toISOString().slice(11, 16),
+      },
+    });
+  }
+
+  // Check if already reviewed
+  const existingReview = await prisma.professionalReview.findUnique({
+    where: { serviceRequestId: serviceRequest.id },
+  });
+  if (existingReview) return res.json({ review: existingReview, alreadyReviewed: true });
+
+  const review = await prisma.professionalReview.create({
+    data: { serviceRequestId: serviceRequest.id, hearts, comment },
+  });
+
+  // Update professional's completed services count
+  await prisma.user.update({
+    where: { id: booking.professionalId },
+    data: { completedServices: { increment: 1 } },
+  }).catch(() => {});
+
+  // Handle review tags if provided
+  const rawTags = Array.isArray(req.body?.tags) ? req.body.tags : [];
+  if (rawTags.length > 0) {
+    const tags = rawTags.map((t: unknown) => String(t || "").trim()).filter(Boolean);
+    if (tags.length > 0) {
+      const professional = await prisma.user.findUnique({
+        where: { id: booking.professionalId },
+        select: { reviewTagsSummary: true },
+      });
+      const summary: Record<string, number> = {};
+      if (professional?.reviewTagsSummary && typeof professional.reviewTagsSummary === "object" && !Array.isArray(professional.reviewTagsSummary)) {
+        for (const [key, value] of Object.entries(professional.reviewTagsSummary as Record<string, unknown>)) {
+          const count = Number(value);
+          summary[key] = Number.isFinite(count) ? count : 0;
+        }
+      }
+      for (const tag of tags) {
+        summary[tag] = (summary[tag] || 0) + 1;
+      }
+      await prisma.user.update({
+        where: { id: booking.professionalId },
+        data: { reviewTagsSummary: summary },
+      }).catch(() => {});
+    }
+  }
+
+  return res.json({ review });
+});
