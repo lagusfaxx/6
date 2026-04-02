@@ -13,6 +13,144 @@ const publicFormLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// ── HTML Legal Pages (required by App Store & Google Play) ──────────────
+
+const legalPageStyle = `
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #e5e5e5; line-height: 1.7; padding: 24px; max-width: 720px; margin: 0 auto; }
+    h1 { color: #fff; font-size: 1.75rem; margin-bottom: 8px; }
+    h2 { color: #fff; font-size: 1.15rem; margin-top: 28px; margin-bottom: 8px; }
+    p, li { font-size: 0.95rem; color: #a3a3a3; margin-bottom: 10px; }
+    ul { padding-left: 20px; }
+    a { color: #a78bfa; }
+    .date { font-size: 0.8rem; color: #737373; margin-bottom: 24px; }
+  </style>
+`;
+
+privacyRouter.get("/legal/privacidad", (_req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Política de Privacidad – Uzeed</title>${legalPageStyle}</head><body>
+<h1>Política de Privacidad</h1>
+<p class="date">Última actualización: 2 de abril de 2026</p>
+
+<p>Uzeed ("nosotros", "la plataforma") opera la aplicación móvil Uzeed y el sitio web uzeed.cl. Esta política describe cómo recopilamos, usamos y protegemos tu información personal.</p>
+
+<h2>1. Información que recopilamos</h2>
+<ul>
+  <li><strong>Datos de cuenta:</strong> nombre, correo electrónico, teléfono, ciudad y foto de perfil que proporcionas al registrarte.</li>
+  <li><strong>Contenido del usuario:</strong> mensajes, fotos de galería y transmisiones en vivo que compartes en la plataforma.</li>
+  <li><strong>Datos de uso:</strong> interacciones con la app, horarios de conexión y preferencias.</li>
+  <li><strong>Datos de transacciones:</strong> historial de compras de tokens, depósitos y retiros procesados por Flow.cl.</li>
+  <li><strong>Datos técnicos:</strong> tipo de dispositivo, sistema operativo y dirección IP.</li>
+</ul>
+
+<h2>2. Cómo usamos tu información</h2>
+<ul>
+  <li>Proveer y mejorar los servicios de la plataforma.</li>
+  <li>Procesar transacciones y gestionar tu billetera de tokens.</li>
+  <li>Facilitar la comunicación entre usuarios (mensajes y videollamadas).</li>
+  <li>Enviar notificaciones relevantes sobre tu actividad.</li>
+  <li>Prevenir fraude y garantizar la seguridad de la plataforma.</li>
+</ul>
+
+<h2>3. Compartición de datos</h2>
+<p>No vendemos tu información personal. Compartimos datos limitados con:</p>
+<ul>
+  <li><strong>Flow.cl:</strong> para procesar pagos de forma segura.</li>
+  <li><strong>LiveKit:</strong> para facilitar videollamadas y transmisiones en vivo.</li>
+  <li><strong>Autoridades:</strong> cuando sea requerido por ley.</li>
+</ul>
+
+<h2>4. Almacenamiento y seguridad</h2>
+<p>Tu información se almacena en servidores seguros. Usamos cifrado HTTPS para todas las comunicaciones, autenticación basada en sesiones con cookies seguras, y controles de acceso estrictos.</p>
+
+<h2>5. Tus derechos</h2>
+<p>Puedes en cualquier momento:</p>
+<ul>
+  <li>Acceder y editar tu información personal desde tu perfil.</li>
+  <li>Solicitar la eliminación de tu cuenta y datos.</li>
+  <li>Exportar tus datos personales.</li>
+  <li>Retirar tu consentimiento para comunicaciones opcionales.</li>
+</ul>
+
+<h2>6. Eliminación de cuenta</h2>
+<p>Puedes solicitar la eliminación de tu cuenta directamente desde la app en Perfil → Eliminar cuenta, o enviando un correo a <a href="mailto:contacto@uzeed.cl">contacto@uzeed.cl</a>. Procesaremos tu solicitud en un máximo de 30 días.</p>
+
+<h2>7. Menores de edad</h2>
+<p>Uzeed está destinado exclusivamente a personas mayores de 18 años. No recopilamos intencionalmente datos de menores.</p>
+
+<h2>8. Cambios a esta política</h2>
+<p>Notificaremos cualquier cambio material a esta política a través de la app. El uso continuado constituye aceptación de los cambios.</p>
+
+<h2>9. Contacto</h2>
+<p>Para consultas sobre privacidad: <a href="mailto:contacto@uzeed.cl">contacto@uzeed.cl</a></p>
+</body></html>`);
+});
+
+privacyRouter.get("/legal/terminos", (_req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Términos de Servicio – Uzeed</title>${legalPageStyle}</head><body>
+<h1>Términos de Servicio</h1>
+<p class="date">Última actualización: 2 de abril de 2026</p>
+
+<p>Al usar Uzeed aceptas estos términos. Si no estás de acuerdo, no uses la plataforma.</p>
+
+<h2>1. Descripción del servicio</h2>
+<p>Uzeed es una plataforma que conecta profesionales de servicios con clientes, facilitando comunicación, videollamadas y transmisiones en vivo.</p>
+
+<h2>2. Requisitos de uso</h2>
+<ul>
+  <li>Debes ser mayor de 18 años.</li>
+  <li>Debes proporcionar información veraz al registrarte.</li>
+  <li>Eres responsable de mantener la seguridad de tu cuenta.</li>
+</ul>
+
+<h2>3. Conducta del usuario</h2>
+<p>Al usar Uzeed te comprometes a:</p>
+<ul>
+  <li>No publicar contenido ilegal, difamatorio o que viole derechos de terceros.</li>
+  <li>No utilizar la plataforma para actividades fraudulentas.</li>
+  <li>No acosar, amenazar o intimidar a otros usuarios.</li>
+  <li>No crear cuentas falsas o suplantar identidades.</li>
+  <li>Respetar las normas de la comunidad en transmisiones en vivo.</li>
+</ul>
+
+<h2>4. Sistema de tokens y pagos</h2>
+<ul>
+  <li>Los tokens son una moneda virtual dentro de la plataforma.</li>
+  <li>Las compras de tokens se procesan a través de Flow.cl y son finales.</li>
+  <li>Los profesionales pueden solicitar retiros de sus ganancias según las condiciones vigentes.</li>
+  <li>Nos reservamos el derecho de suspender la billetera en caso de actividad sospechosa.</li>
+</ul>
+
+<h2>5. Contenido del usuario</h2>
+<p>Eres responsable del contenido que publicas. Al subir contenido, nos otorgas una licencia no exclusiva para mostrarlo dentro de la plataforma. Nos reservamos el derecho de eliminar contenido que viole estos términos.</p>
+
+<h2>6. Videollamadas y transmisiones</h2>
+<ul>
+  <li>Las videollamadas son privadas entre los participantes.</li>
+  <li>Está prohibido grabar videollamadas sin consentimiento.</li>
+  <li>Las transmisiones en vivo deben cumplir con las normas de la comunidad.</li>
+</ul>
+
+<h2>7. Limitación de responsabilidad</h2>
+<p>Uzeed es un intermediario tecnológico. No somos responsables por la calidad de los servicios prestados por profesionales, disputas entre usuarios, ni interrupciones técnicas fuera de nuestro control.</p>
+
+<h2>8. Suspensión y terminación</h2>
+<p>Podemos suspender o eliminar cuentas que violen estos términos, sin previo aviso en casos graves. Puedes eliminar tu cuenta en cualquier momento desde la app.</p>
+
+<h2>9. Propiedad intelectual</h2>
+<p>La marca Uzeed, su diseño y código son propiedad de sus creadores. No puedes copiar, modificar o distribuir ningún elemento de la plataforma sin autorización.</p>
+
+<h2>10. Ley aplicable</h2>
+<p>Estos términos se rigen por las leyes de la República de Chile. Cualquier disputa se resolverá ante los tribunales competentes de Santiago.</p>
+
+<h2>11. Contacto</h2>
+<p>Para consultas: <a href="mailto:contacto@uzeed.cl">contacto@uzeed.cl</a></p>
+</body></html>`);
+});
+
 /**
  * POST /privacy/request-deletion
  * Public endpoint – anyone can request account/data deletion.
