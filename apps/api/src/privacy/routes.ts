@@ -88,6 +88,50 @@ privacyRouter.get("/legal/privacidad", (_req, res) => {
 </body></html>`);
 });
 
+privacyRouter.get("/legal/seguridad-infantil", (_req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Estándares de Seguridad Infantil – Uzeed</title>${legalPageStyle}</head><body>
+<h1>Estándares de Seguridad Infantil</h1>
+<p class="date">Última actualización: 2 de abril de 2026</p>
+
+<p>Uzeed tiene tolerancia cero con la explotación y el abuso sexual infantil (EASI) en nuestra plataforma. Estamos comprometidos con la seguridad de los menores y cumplimos con todas las leyes aplicables.</p>
+
+<h2>1. Restricción de edad</h2>
+<p>Uzeed está destinado exclusivamente a personas mayores de 18 años. Verificamos la edad durante el registro y prohibimos el acceso a menores de edad.</p>
+
+<h2>2. Prohibición de contenido EASI</h2>
+<p>Está estrictamente prohibido en Uzeed:</p>
+<ul>
+  <li>Publicar, compartir o solicitar material de abuso sexual infantil (CSAM) en cualquier forma.</li>
+  <li>Usar la plataforma para contactar, atraer o explotar a menores de edad.</li>
+  <li>Compartir contenido que sexualice a menores de cualquier manera.</li>
+  <li>Cualquier conducta que ponga en riesgo la seguridad de un menor.</li>
+</ul>
+
+<h2>3. Detección y prevención</h2>
+<ul>
+  <li>Moderación activa de contenido reportado por usuarios.</li>
+  <li>Sistema de reportes accesible dentro de la aplicación para denunciar contenido o comportamiento inapropiado.</li>
+  <li>Revisión y acción inmediata ante cualquier reporte relacionado con seguridad infantil.</li>
+  <li>Suspensión inmediata de cuentas involucradas en actividades relacionadas con EASI.</li>
+</ul>
+
+<h2>4. Reportar</h2>
+<p>Si encuentras contenido o comportamiento que ponga en riesgo a menores:</p>
+<ul>
+  <li>Usa el botón "Reportar usuario" dentro de la aplicación.</li>
+  <li>Envía un correo a <a href="mailto:contacto@uzeed.cl">contacto@uzeed.cl</a> con el asunto "Seguridad Infantil".</li>
+</ul>
+<p>Todos los reportes relacionados con seguridad infantil son tratados con máxima prioridad.</p>
+
+<h2>5. Cooperación con autoridades</h2>
+<p>Uzeed coopera plenamente con las autoridades policiales y judiciales. Reportamos cualquier caso de EASI identificado a las autoridades competentes, incluyendo el NCMEC (National Center for Missing & Exploited Children) y las autoridades chilenas correspondientes.</p>
+
+<h2>6. Contacto</h2>
+<p>Para reportar problemas de seguridad infantil: <a href="mailto:contacto@uzeed.cl">contacto@uzeed.cl</a></p>
+</body></html>`);
+});
+
 privacyRouter.get("/legal/terminos", (_req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Términos de Servicio – Uzeed</title>${legalPageStyle}</head><body>
