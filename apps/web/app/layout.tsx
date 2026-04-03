@@ -110,6 +110,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <head>
+        {/* Google tag (gtag.js) */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18052031619"></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'AW-18052031619');`
+          }}
+        />
         {/* Preload critical background image so browser fetches it early (LCP improvement) */}
         <link rel="preload" as="image" href="/brand/bg.webp" type="image/webp" />
         {/* DNS prefetch for API domain to reduce connection latency */}
