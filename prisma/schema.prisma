@@ -432,6 +432,7 @@ model User {
   profileViews        Int               @default(0)
   reviewTagsSummary   Json?
   adminManaged        Boolean           @default(false)
+  adminQualityScore   Float?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -470,6 +471,10 @@ model User {
   clientVideocalls       VideocallBooking[] @relation("ClientVideocalls")
   professionalVideocalls VideocallBooking[] @relation("ProfessionalVideocalls")
   liveStreams            LiveStream[]
+
+  // Admin profile ratings
+  adminRatingsReceived   AdminProfileRating[] @relation("AdminRatingsReceived")
+  adminRatingsGiven      AdminProfileRating[] @relation("AdminRatingsGiven")
 
   // U-Mate relations
   umateCreator           UmateCreator?
@@ -1295,4 +1300,26 @@ model UmateWithdrawal {
 
   @@index([creatorId])
   @@index([status])
+}
+
+model AdminProfileRating {
+  id                   String   @id @default(uuid()) @db.Uuid
+  profileId            String   @db.Uuid
+  adminId              String   @db.Uuid
+  ratingPhotoQuality   Int      // 1-10
+  ratingCompleteness   Int      // 1-10
+  ratingPresentation   Int      // 1-10
+  ratingAuthenticity   Int      // 1-10
+  ratingValue          Int      // 1-10
+  overallScore         Float    // promedio calculado
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  profile User @relation("AdminRatingsReceived", fields: [profileId], references: [id], onDelete: Cascade)
+  admin   User @relation("AdminRatingsGiven", fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, adminId])
+  @@index([profileId])
+  @@index([overallScore])
 }

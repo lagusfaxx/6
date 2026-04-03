@@ -622,6 +622,205 @@ adminRouter.get("/profiles/:id/media-videos", requireAdmin, asyncHandler(async (
 }));
 
 /* ══════════════════════════════════════════════════════════════
+   ADMIN PROFILE RATING ("Catador")
+   ══════════════════════════════════════════════════════════════ */
+
+adminRouter.get(
+  "/rating/stats",
+  asyncHandler(async (req, res) => {
+    const adminId = req.session.userId!;
+    const [totalRated, totalProfiles, byType, avgScore, recentlyRated] = await Promise.all([
+      prisma.adminProfileRating.count({ where: { adminId } }),
+      prisma.user.count({
+        where: { profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] }, isActive: true },
+      }),
+      prisma.user.groupBy({
+        by: ["profileType"],
+        where: { profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] }, isActive: true },
+        _count: true,
+      }),
+      prisma.adminProfileRating.aggregate({ where: { adminId }, _avg: { overallScore: true } }),
+      prisma.adminProfileRating.findMany({
+        where: { adminId },
+        orderBy: { updatedAt: "desc" },
+        take: 5,
+        select: {
+          overallScore: true,
+          updatedAt: true,
+          profile: { select: { id: true, displayName: true, username: true, avatarUrl: true } },
+        },
+      }),
+    ]);
+
+    // Count unrated per type
+    const unratedByType: Record<string, number> = {};
+    for (const g of byType) {
+      const rated = await prisma.adminProfileRating.count({
+        where: {
+          adminId,
+          profile: { profileType: g.profileType as any, isActive: true },
+        },
+      });
+      unratedByType[g.profileType] = g._count - rated;
+    }
+
+    return res.json({
+      totalRated,
+      totalProfiles,
+      unratedByType,
+      avgScore: avgScore._avg.overallScore ?? 0,
+      recentlyRated,
+    });
+  }),
+);
+
+adminRouter.get(
+  "/rating/queue",
+  asyncHandler(async (req, res) => {
+    const adminId = req.session.userId!;
+    const limit = Math.min(Number(req.query.limit) || 20, 50);
+    const offset = Number(req.query.offset) || 0;
+    const profileType = req.query.profileType as string | undefined;
+    const city = req.query.city as string | undefined;
+    const unratedOnly = req.query.unratedOnly === "true";
+
+    const where: any = {
+      profileType: { in: profileType ? [profileType] : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
+      isActive: true,
+    };
+    if (city) where.city = { contains: city, mode: "insensitive" };
+    if (unratedOnly) {
+      where.adminRatingsReceived = { none: { adminId } };
+    }
+
+    const [profiles, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }],
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          displayName: true,
+          avatarUrl: true,
+          coverUrl: true,
+          profileType: true,
+          city: true,
+          tier: true,
+          bio: true,
+          isVerified: true,
+          profileTags: true,
+          serviceTags: true,
+          profileViews: true,
+          completedServices: true,
+          adminQualityScore: true,
+          createdAt: true,
+          profileMedia: {
+            take: 6,
+            orderBy: { createdAt: "desc" },
+            select: { id: true, url: true, type: true },
+          },
+          adminRatingsReceived: {
+            where: { adminId },
+            take: 1,
+            select: {
+              ratingPhotoQuality: true,
+              ratingCompleteness: true,
+              ratingPresentation: true,
+              ratingAuthenticity: true,
+              ratingValue: true,
+              overallScore: true,
+              notes: true,
+              updatedAt: true,
+            },
+          },
+        },
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    const mapped = profiles.map((p) => ({
+      ...p,
+      existingRating: p.adminRatingsReceived[0] ?? null,
+      adminRatingsReceived: undefined,
+    }));
+
+    return res.json({ profiles: mapped, total });
+  }),
+);
+
+adminRouter.get(
+  "/rating/:profileId",
+  asyncHandler(async (req, res) => {
+    const adminId = req.session.userId!;
+    const { profileId } = req.params;
+    const rating = await prisma.adminProfileRating.findUnique({
+      where: { profileId_adminId: { profileId, adminId } },
+    });
+    return res.json({ rating });
+  }),
+);
+
+adminRouter.post(
+  "/rating/:profileId",
+  asyncHandler(async (req, res) => {
+    const adminId = req.session.userId!;
+    const { profileId } = req.params;
+    const { ratingPhotoQuality, ratingCompleteness, ratingPresentation, ratingAuthenticity, ratingValue, notes } = req.body;
+
+    // Validate scores 1-10
+    const scores = [ratingPhotoQuality, ratingCompleteness, ratingPresentation, ratingAuthenticity, ratingValue];
+    for (const s of scores) {
+      if (typeof s !== "number" || s < 1 || s > 10) {
+        return res.status(400).json({ error: "Cada puntuacion debe ser un numero entre 1 y 10" });
+      }
+    }
+
+    const overallScore = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10;
+
+    const rating = await prisma.adminProfileRating.upsert({
+      where: { profileId_adminId: { profileId, adminId } },
+      create: { profileId, adminId, ratingPhotoQuality, ratingCompleteness, ratingPresentation, ratingAuthenticity, ratingValue, overallScore, notes },
+      update: { ratingPhotoQuality, ratingCompleteness, ratingPresentation, ratingAuthenticity, ratingValue, overallScore, notes },
+    });
+
+    // Recompute cached adminQualityScore on User (average across all admins)
+    const agg = await prisma.adminProfileRating.aggregate({
+      where: { profileId },
+      _avg: { overallScore: true },
+    });
+    const adminQualityScore = agg._avg.overallScore
+      ? Math.round(agg._avg.overallScore * 10) / 10
+      : null;
+    const profile = await prisma.user.update({
+      where: { id: profileId },
+      data: { adminQualityScore },
+      select: { email: true, displayName: true },
+    });
+
+    // Send quality review email to the professional
+    try {
+      const { sendQualityReviewEmail } = await import("../lib/notificationEmail");
+      await sendQualityReviewEmail(profile.email, {
+        professionalName: profile.displayName || "profesional",
+        ratingPhotoQuality,
+        ratingCompleteness,
+        ratingPresentation,
+        ratingAuthenticity,
+        ratingValue,
+        overallScore,
+      });
+    } catch (err) {
+      console.error("[admin/rating] email failed", err);
+    }
+
+    return res.json({ rating, adminQualityScore });
+  }),
+);
+
+/* ══════════════════════════════════════════════════════════════
    BANNERS (Home Ads)
    ══════════════════════════════════════════════════════════════ */
 

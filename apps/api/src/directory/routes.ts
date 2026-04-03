@@ -563,6 +563,7 @@ directoryRouter.get(
         profileViews: true,
         tier: true,
         reviewTagsSummary: true,
+        adminQualityScore: true,
         category: {
           select: { id: true, name: true, displayName: true, kind: true },
         },
@@ -719,6 +720,7 @@ directoryRouter.get(
           adminTier: u.tier,
         }),
         reviewTagsSummary: u.reviewTagsSummary,
+        adminQualityScore: (u as any).adminQualityScore ?? null,
         avgResponseMinutes: (u as any).avgResponseMinutes ?? null,
         forumThread: forumThread
           ? {
@@ -1013,7 +1015,7 @@ directoryRouter.get(
       completedServices: true, profileViews: true, tier: true, baseRate: true,
       gender: true, city: true, serviceCategory: true, createdAt: true,
       primaryCategory: true, profileTags: true, serviceTags: true, profileType: true,
-      avgResponseMinutes: true,
+      avgResponseMinutes: true, adminQualityScore: true,
       services: { where: { isActive: true }, select: { latitude: true, longitude: true, category: true }, take: 1, orderBy: { createdAt: "desc" as const } },
     };
     const fallbackSelect = {
@@ -1109,6 +1111,7 @@ directoryRouter.get(
         gender: u.gender,
         profileType: u.profileType ?? "PROFESSIONAL",
         avgResponseMinutes: (u as any).avgResponseMinutes ?? null,
+        adminQualityScore: (u as any).adminQualityScore ?? null,
         isMadura,
         createdAt: u.createdAt.toISOString(),
       };

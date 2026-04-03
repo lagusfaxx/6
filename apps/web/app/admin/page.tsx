@@ -30,6 +30,7 @@ import {
   User,
   UserCheck,
   Users,
+  Star,
 } from "lucide-react";
 
 type MetricBundle = {
@@ -80,6 +81,7 @@ const NAV_ITEMS = [
   { href: "/admin/estadisticas", label: "Estadisticas", icon: BarChart3 },
   { href: "/admin/verification", label: "Verificaciones", icon: UserCheck },
   { href: "/admin/profiles", label: "Perfiles", icon: Users },
+  { href: "/admin/rating", label: "Catador", icon: Star },
   { href: "/admin/deposits", label: "Depositos", icon: ArrowDownToLine },
   { href: "/admin/withdrawals", label: "Retiros", icon: ArrowUpFromLine },
   { href: "/admin/banners", label: "Banners", icon: BookImage },
@@ -291,6 +293,7 @@ export default function AdminIndex() {
                 <QuickAction href="/admin/estadisticas" icon={BarChart3} label="Estadisticas" desc="Metricas y graficos" accent="fuchsia" />
                 <QuickAction href="/admin/verification" icon={BadgeCheck} label="Verificaciones" desc={`${metrics.pendingVerifications} pendientes`} accent="amber" />
                 <QuickAction href="/admin/profiles" icon={Users} label="Perfiles" desc="Gestion de usuarios" accent="violet" />
+                <QuickAction href="/admin/rating" icon={Star} label="Catador" desc="Calificar perfiles" accent="amber" />
                 <QuickAction href="/admin/deposits" icon={CircleDollarSign} label="Depositos" desc={`${metrics.pendingDeposits} pendientes`} accent="emerald" />
                 <QuickAction href="/admin/withdrawals" icon={CreditCard} label="Retiros" desc={`${metrics.pendingWithdrawals} pendientes`} accent="blue" />
                 <QuickAction href="/admin/banners" icon={BookImage} label="Banners" desc="Promociones" accent="pink" />
