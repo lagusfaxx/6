@@ -1,23 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 
 const footerLinks = {
   "Explorar": [
-    { label: "Escorts Premium", href: "/servicios?category=escort" },
-    { label: "Masajistas Eróticas", href: "/servicios?category=masajes" },
-    { label: "Escorts Trans Chile", href: "/servicios?category=trans" },
-    { label: "Moteles", href: "/servicios?type=space" },
-    { label: "Sex Shop Online", href: "/sexshops" },
-    { label: "Videollamadas", href: "/servicios?category=videollamadas" },
+    { label: "Escorts Premium", href: "/escorts" },
+    { label: "Masajistas Eróticas", href: "/masajistas" },
+    { label: "Escorts Trans Chile", href: "/escorts?profileTags=trans" },
+    { label: "Moteles", href: "/moteles" },
+    { label: "Sex Shop Online", href: "/sexshop" },
+    { label: "Videollamadas", href: "/videocall" },
   ],
   "Ciudades": [
-    { label: "Escorts en Santiago", href: "/servicios?city=santiago" },
-    { label: "Putas en Viña del Mar", href: "/servicios?city=vina-del-mar" },
-    { label: "Maracas en Valparaíso", href: "/servicios?city=valparaiso" },
-    { label: "Escorts en Concepción", href: "/servicios?city=concepcion" },
-    { label: "Putas en Antofagasta", href: "/servicios?city=antofagasta" },
-    { label: "Escorts en Temuco", href: "/servicios?city=temuco" },
+    { label: "Escorts en Santiago", href: "/escorts?city=santiago" },
+    { label: "Escorts en Viña del Mar", href: "/escorts?city=vina-del-mar" },
+    { label: "Escorts en Valparaíso", href: "/escorts?city=valparaiso" },
+    { label: "Escorts en Concepción", href: "/escorts?city=concepcion" },
+    { label: "Escorts en Antofagasta", href: "/escorts?city=antofagasta" },
+    { label: "Escorts en Temuco", href: "/escorts?city=temuco" },
   ],
   "Cuenta": [
     { label: "Iniciar sesión", href: "/login" },
@@ -60,7 +61,7 @@ export default function Footer() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-white/[0.06] pt-8 md:flex-row">
           <div className="flex items-center gap-3">
-            <img src="/brand/isotipo-new.png" alt="UZEED" className="h-10 w-10 object-contain" />
+            <Image src="/brand/isotipo-new.png" alt="UZEED" width={40} height={40} className="h-10 w-10 object-contain" loading="lazy" />
             <div>
               <div className="text-lg font-semibold text-white/80">Uzeed</div>
               <div className="text-[11px] text-white/30">Plataforma #1 de experiencias en Chile</div>
@@ -93,7 +94,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-2 border-t border-white/[0.06] pt-4">
-          <img src="/brand/isotipo-new.png" alt="UZEED" className="h-6 w-6 object-contain" />
+          <Image src="/brand/isotipo-new.png" alt="UZEED" width={24} height={24} className="h-6 w-6 object-contain" loading="lazy" />
           <span className="text-[10px] text-white/25">
             &copy; {new Date().getFullYear()} UZEED. Solo mayores de 18.
           </span>

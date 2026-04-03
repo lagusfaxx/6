@@ -147,7 +147,7 @@ export default function SeoContent({ variant }: SeoContentProps) {
       />
       {/* Visually hidden but crawlable SEO text at bottom of page */}
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
-        <h2 className="text-xl font-bold text-white/80 mb-3">{data.heading}</h2>
+        <h1 className="text-xl font-bold text-white/80 mb-3">{data.heading}</h1>
         <p className="mb-4">{data.intro}</p>
         {data.sections.map((s, i) => (
           <div key={i} className="mb-4">

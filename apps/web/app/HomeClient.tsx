@@ -3,17 +3,29 @@
 import { startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion } from "framer-motion";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import StatusBadgeIcon from "../components/StatusBadgeIcon";
-import HomeCreAccordion from "../components/HomeCreAccordion";
 
+/* Lazy-load heavy components to reduce initial JS bundle (~120 KiB savings) */
+const HomeCreAccordion = dynamic(() => import("../components/HomeCreAccordion"), { ssr: false });
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
+
+/* Lazy-load framer-motion — only needed for promo carousel transitions.
+   We use a wrapper component to allow dynamic() which requires default export. */
+const AnimatePresence = dynamic(
+  () => import("framer-motion").then((mod) => ({ default: mod.AnimatePresence })),
+  { ssr: false },
+);
+const MotionDiv = dynamic(
+  () => import("framer-motion").then((mod) => ({ default: mod.motion.div })),
+  { ssr: false },
+);
+
 import {
   buildChatHref,
   buildCurrentPathWithSearch,
@@ -120,7 +132,7 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
           className={`group promo-showcase-card relative block aspect-[742/158] md:aspect-[742/200] w-full overflow-hidden rounded-xl border bg-[#0c0a14] shadow-lg ${isGold ? "promo-showcase-card--gold border-transparent" : "border-white/10"}`}
         >
           <AnimatePresence mode="wait">
-            <motion.div
+            <MotionDiv
               key={activePromo.id}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -156,7 +168,7 @@ function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) 
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </MotionDiv>
           </AnimatePresence>
 
           {isGold ? (
@@ -1333,7 +1345,7 @@ export default function HomeClient() {
             </div>
             <div className="relative overflow-hidden rounded-2xl">
               <AnimatePresence mode="wait">
-                <motion.div
+                <MotionDiv
                   key={`featured-page-${featuredPage}`}
                   initial={{ opacity: 0, x: 40 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -1415,7 +1427,7 @@ export default function HomeClient() {
                         </div>
                       </button>
                     ))}
-                </motion.div>
+                </MotionDiv>
               </AnimatePresence>
               {/* Dot indicators — premium style */}
               {featuredPageCount > 1 && (

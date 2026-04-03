@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -256,9 +257,12 @@ export default function TopHeader() {
                 </button>
 
                 <Link href="/" className="flex items-center gap-2.5">
-                  <img
+                  <Image
                     src="/brand/isotipo-new.png"
-                    alt="UZEED"
+                    alt="UZEED - Escorts y Acompañantes en Chile"
+                    width={48}
+                    height={48}
+                    priority
                     className="h-10 w-10 object-contain drop-shadow-[0_4px_12px_rgba(168,85,247,0.4)] md:h-12 md:w-12"
                   />
                   <span className="text-2xl font-bold leading-none tracking-tight text-white drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)] md:text-3xl">
@@ -467,7 +471,7 @@ export default function TopHeader() {
 
             <div className="relative flex items-center justify-between border-b border-white/[0.08] px-4 py-4">
               <div className="flex items-center gap-2">
-                <img src="/brand/isotipo-new.png" alt="UZEED" className="h-10 w-10 object-contain drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)]" />
+                <Image src="/brand/isotipo-new.png" alt="UZEED" width={40} height={40} className="h-10 w-10 object-contain drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)]" />
                 <span className="text-xl font-bold text-white tracking-tight">Uzeed</span>
               </div>
               <button

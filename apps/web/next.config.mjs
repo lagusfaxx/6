@@ -11,7 +11,24 @@ const nextConfig = {
       allowedOrigins: ["flow.cl", "www.flow.cl"],
     },
     // Tree-shake heavy packages — only imports actually used end up in the bundle
-    optimizePackageImports: ["framer-motion", "lucide-react", "@radix-ui/react-icons", "date-fns", "zod"],
+    optimizePackageImports: [
+      "framer-motion",
+      "lucide-react",
+      "@radix-ui/react-icons",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-dialog",
+      "date-fns",
+      "zod",
+      "mapbox-gl",
+      "livekit-client",
+    ],
+  },
+
+  // Modular imports — reduces bundle size by only including used modules
+  modularizeImports: {
+    "lucide-react": {
+      transform: "lucide-react/dist/esm/icons/{{ kebabCase member }}",
+    },
   },
 
   images: {
@@ -68,12 +85,12 @@ const nextConfig = {
         ],
       },
       {
-        // HTML pages — revalidate on navigation + security headers
+        // HTML pages — allow edge caching with stale-while-revalidate for faster TTFB
         source: '/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
+            value: 'public, s-maxage=60, stale-while-revalidate=300',
           },
           {
             key: 'X-Content-Type-Options',
