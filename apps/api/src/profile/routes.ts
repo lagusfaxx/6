@@ -306,8 +306,9 @@ profileRouter.get(
       },
     });
 
-    // DEV: subscription filter removed during development (aligned with /directory/search)
-    return res.json({ profiles });
+    const filtered = profiles.filter((p) => isBusinessPlanActive(p));
+
+    return res.json({ profiles: filtered });
   }),
 );
 

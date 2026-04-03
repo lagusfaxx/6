@@ -186,7 +186,7 @@ servicesRouter.get(
     });
 
     const enriched = profiles
-      // DEV: subscription filter removed during development (aligned with /directory/search)
+      .filter((p) => isBusinessPlanActive(p))
       .map((p) => {
         const distance =
           lat !== null &&
@@ -370,7 +370,7 @@ servicesRouter.get(
     });
 
     const enriched = profiles
-      // DEV: subscription filter removed during development (aligned with /directory/search)
+      .filter((p) => isBusinessPlanActive(p))
       .map((p) => {
         const distance =
           lat !== null &&
