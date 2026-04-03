@@ -11,7 +11,17 @@ const nextConfig = {
       allowedOrigins: ["flow.cl", "www.flow.cl"],
     },
     // Tree-shake heavy packages — only imports actually used end up in the bundle
-    optimizePackageImports: ["framer-motion", "lucide-react", "@radix-ui/react-icons", "date-fns", "zod"],
+    optimizePackageImports: [
+      "framer-motion",
+      "lucide-react",
+      "@radix-ui/react-icons",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-dialog",
+      "date-fns",
+      "zod",
+      "mapbox-gl",
+      "livekit-client",
+    ],
   },
 
   images: {
@@ -68,7 +78,7 @@ const nextConfig = {
         ],
       },
       {
-        // HTML pages — revalidate on navigation + security headers
+        // HTML pages — no cache for dynamic content (auth state, real-time data)
         source: '/:path*',
         headers: [
           {

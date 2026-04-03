@@ -67,20 +67,48 @@ export default async function EscortsTagPage({ params }: Props) {
           />
         )}
       </Suspense>
+      {/* Breadcrumb structured data for rich results */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Inicio", item: "https://uzeed.cl" },
+            { "@type": "ListItem", position: 2, name: "Escorts", item: "https://uzeed.cl/escorts" },
+            { "@type": "ListItem", position: 3, name: `Escorts ${label}` },
+          ],
+        }) }}
+      />
       {/* Server-rendered SEO text for long-tail indexing */}
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
-        <h2 className="text-xl font-bold text-white/80 mb-3">
+        <h1 className="text-xl font-bold text-white/80 mb-3">
           Escorts {label} en Chile — Perfiles Verificados
-        </h2>
+        </h1>
         <p className="mb-4">
           Directorio de escorts {readableTag} en Chile. Encuentra acompañantes {readableTag} verificadas
           en Santiago, Las Condes, Providencia, Viña del Mar y todo el país. Perfiles con fotos reales,
           servicios detallados y contacto directo por WhatsApp en UZEED.
         </p>
-        <p>
+        <p className="mb-4">
           Busca escorts {readableTag} disponibles hoy. Filtra por ubicación, edad, servicios y
           disponibilidad inmediata. Todos los perfiles son verificados para garantizar una experiencia
           segura y confiable.
+        </p>
+        <h2 className="text-base font-semibold text-white/70 mb-1">
+          Escorts {label} en Santiago
+        </h2>
+        <p className="mb-4">
+          Las mejores escorts {readableTag} de Santiago Centro, Las Condes, Providencia, Ñuñoa, Maipú
+          y todas las comunas de la Región Metropolitana. Escorts colombianas, venezolanas y chilenas
+          {readableTag} con disponibilidad inmediata y contacto directo.
+        </p>
+        <h2 className="text-base font-semibold text-white/70 mb-1">
+          Escorts {label} en Regiones
+        </h2>
+        <p>
+          Encuentra escorts {readableTag} en Viña del Mar, Valparaíso, Concepción, Antofagasta, Temuco,
+          La Serena, Arica, Iquique, Puerto Montt y más ciudades de Chile.
         </p>
       </section>
     </>

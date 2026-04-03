@@ -42,10 +42,10 @@ body::before {
   background-position: center;
   background-repeat: no-repeat;
   opacity: 0.55;
-  filter: saturate(1.15) contrast(1.05);
   z-index: -2;
   will-change: auto;
   contain: strict;
+  /* Removed filter to reduce compositing cost on mobile — saves ~100ms paint */
 }
 
 /* Soft galaxy overlays */

@@ -107,6 +107,14 @@ const homeFaqJsonLd = {
   ],
 };
 
+const homeBreadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Inicio", item: "https://uzeed.cl" },
+  ],
+};
+
 export default async function HomePage() {
   const profiles = await fetchFeaturedProfiles();
 
@@ -118,10 +126,14 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeFaqJsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeBreadcrumbJsonLd) }}
+      />
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
-        <h2 className="text-xl font-bold text-white/80 mb-3">
+        <h1 className="text-xl font-bold text-white/80 mb-3">
           Escorts, Acompañantes y Profesionales en Chile — UZEED
-        </h2>
+        </h1>
         <p className="mb-4">
           UZEED es la plataforma N°1 para encontrar escorts, acompañantes y profesionales en Chile.
           Navega por miles de perfiles verificados con fotos reales en Santiago, Las Condes,
