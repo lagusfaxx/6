@@ -13,6 +13,7 @@ import {
   sendWithdrawalConfirmationEmail,
 } from "../lib/transactionEmail";
 import { emitAdminEvent } from "../lib/adminEvents";
+import { validateUploadedBuffer } from "../lib/uploads";
 
 export const walletRouter = Router();
 
@@ -130,6 +131,13 @@ walletRouter.post(
   async (req, res) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: "Receipt image required" });
+
+    // Validate file is actually an image (magic bytes check)
+    try {
+      await validateUploadedBuffer(file.buffer, file.mimetype, "image");
+    } catch {
+      return res.status(400).json({ error: "El archivo debe ser una imagen válida (JPG, PNG, WebP)" });
+    }
 
     const tokens = parseInt(String(req.body.tokens || "0"), 10);
     if (!Number.isFinite(tokens) || tokens < 1) return res.status(400).json({ error: "Mínimo 1 token" });

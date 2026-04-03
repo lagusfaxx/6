@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { loginInputSchema, registerInputSchema } from "@uzeed/shared";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
+import { env } from "../lib/env";
 import { emitAdminEvent } from "../lib/adminEvents";
 
 const authLimiter = rateLimit({
@@ -464,7 +465,7 @@ authRouter.post(
     const userId = req.session.userId;
     req.session.destroy((err) => {
       if (err) return res.status(500).json({ error: "LOGOUT_FAILED" });
-      res.clearCookie("uzeed_session");
+      res.clearCookie(env.SESSION_COOKIE_NAME);
       return res.json({ ok: true });
     });
     if (userId) {

@@ -257,7 +257,8 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
   }
 
   if (err instanceof FlowError) {
-    return res.status(err.status).json({ error: "FLOW_ERROR", status: err.status, message: err.message, payload: err.payload });
+    console.error("[flow] FlowError payload:", JSON.stringify(err.payload));
+    return res.status(err.status).json({ error: "FLOW_ERROR", message: "Error en el procesamiento del pago. Intenta de nuevo." });
   }
 
   if (err?.message === "CORS_NOT_ALLOWED") return res.status(403).json({ error: "CORS_NOT_ALLOWED" });

@@ -6,6 +6,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { env } from "../lib/env";
 import path from "node:path";
 import { asyncHandler } from "../lib/asyncHandler";
+import { validateUploadedBuffer } from "../lib/uploads";
 
 export const adminRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -32,11 +33,10 @@ adminRouter.post("/admin/posts", requireAdmin, upload.array("files", 10), asyncH
   const files = (req.files as Express.Multer.File[]) ?? [];
   const media = [] as any[];
   for (const f of files) {
+    const { type: validatedType } = await validateUploadedBuffer(f.buffer, f.mimetype, "image-or-video");
     const folder = created.id;
-    const mime = f.mimetype;
-    const type = mime.startsWith("video/") ? "VIDEO" : "IMAGE";
-    const stored = await storage.save({ buffer: f.buffer, filename: f.originalname, mimeType: mime, folder });
-    const m = await prisma.media.create({ data: { postId: created.id, type, url: stored.url } });
+    const stored = await storage.save({ buffer: f.buffer, filename: f.originalname, mimeType: f.mimetype, folder });
+    const m = await prisma.media.create({ data: { postId: created.id, type: validatedType, url: stored.url } });
     media.push(m);
   }
 
@@ -57,11 +57,10 @@ adminRouter.post("/admin/posts/:id/media", requireAdmin, upload.array("files", 1
   const files = (req.files as Express.Multer.File[]) ?? [];
   const created = [];
   for (const f of files) {
+    const { type: validatedType } = await validateUploadedBuffer(f.buffer, f.mimetype, "image-or-video");
     const folder = id;
-    const mime = f.mimetype;
-    const type = mime.startsWith("video/") ? "VIDEO" : "IMAGE";
-    const stored = await storage.save({ buffer: f.buffer, filename: f.originalname, mimeType: mime, folder });
-    const m = await prisma.media.create({ data: { postId: id, type, url: stored.url } });
+    const stored = await storage.save({ buffer: f.buffer, filename: f.originalname, mimeType: f.mimetype, folder });
+    const m = await prisma.media.create({ data: { postId: id, type: validatedType, url: stored.url } });
     created.push(m);
   }
   res.json({ media: created });
@@ -125,6 +124,7 @@ adminRouter.delete("/admin/banners/:id", requireAdmin, asyncHandler(async (req, 
 adminRouter.post("/admin/banners/upload", requireAdmin, upload.single("file"), asyncHandler(async (req, res) => {
   const file = (req as any).file as Express.Multer.File | undefined;
   if (!file) return res.status(400).json({ error: "VALIDATION", message: "file required" });
+  await validateUploadedBuffer(file.buffer, file.mimetype, "image");
   const result = await storage.save(file);
   res.json({ url: result.url });
 }));
@@ -209,14 +209,17 @@ adminRouter.put("/admin/profiles/:id/toggle", requireAdmin, asyncHandler(async (
 }));
 
 // Update profile fields (admin override)
+const ALLOWED_ROLES = new Set(["USER", "ADMIN", "MODERATOR"]);
+const ALLOWED_TIERS = new Set(["FREE", "BASIC", "PREMIUM", "GOLD"]);
+
 adminRouter.put("/admin/profiles/:id", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { isActive, tier, role, membershipExpiresAt } = req.body ?? {};
 
   const data: any = {};
   if (isActive !== undefined) data.isActive = Boolean(isActive);
-  if (tier !== undefined) data.tier = tier;
-  if (role !== undefined) data.role = role;
+  if (tier !== undefined && ALLOWED_TIERS.has(String(tier).toUpperCase())) data.tier = String(tier).toUpperCase();
+  if (role !== undefined && ALLOWED_ROLES.has(String(role).toUpperCase())) data.role = String(role).toUpperCase();
   if (membershipExpiresAt !== undefined) {
     data.membershipExpiresAt = membershipExpiresAt ? new Date(membershipExpiresAt) : null;
   }

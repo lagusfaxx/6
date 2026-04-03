@@ -4,6 +4,26 @@ const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 
 export type UploadedKind = "image" | "video" | "image-or-video";
 
+/**
+ * Validate an in-memory buffer (from multer memoryStorage).
+ * Checks magic bytes to ensure the file is actually an image.
+ */
+export async function validateUploadedBuffer(buffer: Buffer, mime: string, kind: "image" | "image-or-video" = "image") {
+  const { fileTypeFromBuffer } = await import("file-type");
+  const detected = await fileTypeFromBuffer(buffer);
+  if (!detected) throw new Error("INVALID_FILE_TYPE");
+
+  const isImage = detected.mime.startsWith("image/");
+  const isVideo = detected.mime.startsWith("video/");
+
+  if (kind === "image" && !isImage) throw new Error("INVALID_FILE_TYPE");
+  if (kind === "image-or-video" && !isImage && !isVideo) throw new Error("INVALID_FILE_TYPE");
+  if (isImage && buffer.length > MAX_IMAGE_SIZE) throw new Error("FILE_TOO_LARGE");
+  if (isVideo && buffer.length > MAX_VIDEO_SIZE) throw new Error("FILE_TOO_LARGE");
+
+  return { type: isVideo ? "VIDEO" as const : "IMAGE" as const, detectedMime: detected.mime };
+}
+
 export async function validateUploadedFile(file: Express.Multer.File, kind: UploadedKind) {
   const { fileTypeFromFile } = await import("file-type");
   const detected = await fileTypeFromFile(file.path);
