@@ -431,6 +431,7 @@ model User {
   completedServices   Int               @default(0)
   profileViews        Int               @default(0)
   reviewTagsSummary   Json?
+  adminManaged        Boolean           @default(false)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
