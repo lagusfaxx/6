@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch, friendlyErrorMessage, safeRedirect } from "../lib/api";
-import { Eye, EyeOff, FileText } from "lucide-react";
+import { Eye, EyeOff, FileText, User, Mail, Phone as PhoneIcon, Lock, Briefcase, Heart, Calendar, AlignLeft, Tag, ArrowRight } from "lucide-react";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
 
 type Mode = "login" | "register";
@@ -68,6 +68,43 @@ export type RegisterFormData = {
   bio?: string;
 };
 
+/* ── Styled field wrapper ── */
+function FieldGroup({
+  icon: Icon,
+  label,
+  hint,
+  children,
+}: {
+  icon?: any;
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <label className="flex items-center gap-2 text-sm font-medium text-white/60">
+        {Icon && <Icon className="h-3.5 w-3.5 text-white/30" />}
+        {label}
+      </label>
+      {children}
+      {hint && <p className="text-[11px] text-white/35 leading-relaxed">{hint}</p>}
+    </div>
+  );
+}
+
+/* ── Section divider ── */
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-3 pt-2">
+      <div className="h-px flex-1 bg-white/[0.06]" />
+      <span className="text-[10px] uppercase tracking-widest text-white/30 font-semibold whitespace-nowrap">
+        {title}
+      </span>
+      <div className="h-px flex-1 bg-white/[0.06]" />
+    </div>
+  );
+}
+
 export default function AuthForm({
   mode,
   initialProfileType,
@@ -112,6 +149,8 @@ export default function AuthForm({
     profileType === "PROFESSIONAL" ||
     profileType === "ESTABLISHMENT" ||
     profileType === "SHOP";
+  const isProfessional = profileType === "PROFESSIONAL";
+  const isEstablishmentOrShop = profileType === "ESTABLISHMENT" || profileType === "SHOP";
   const phoneRegex = /^\+56\s?9(?:[\s-]?\d){8}$/;
 
   const finalTermsAccepted = externalTermsAccepted ?? acceptTerms;
@@ -203,104 +242,141 @@ export default function AuthForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4">
-      {mode === "register" ? (
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-white/70">Nombre público</label>
+    <form onSubmit={onSubmit} className="grid gap-5">
+      {mode === "register" && (
+        <>
+          {/* ── Identity section ── */}
+          <SectionHeader title="Identidad" />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FieldGroup icon={User} label="Nombre público">
+              <input
+                className="input"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Ej: Agus"
+                required
+                minLength={2}
+              />
+            </FieldGroup>
+
+            <FieldGroup icon={User} label="Nombre de usuario">
+              <input
+                className="input"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="tuusuario"
+                required
+                minLength={3}
+              />
+            </FieldGroup>
+          </div>
+        </>
+      )}
+
+      {/* ── Contact section ── */}
+      {mode === "register" && <SectionHeader title="Contacto" />}
+
+      <div className={mode === "register" ? "grid gap-4 sm:grid-cols-2" : "grid gap-4"}>
+        <FieldGroup icon={Mail} label="Email">
           <input
             className="input"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Ej: Agus"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="tu@email.com"
+            type="email"
             required
-            minLength={2}
           />
-        </div>
-      ) : null}
+        </FieldGroup>
 
-      {mode === "register" ? (
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-white/70">Nombre de usuario</label>
-          <input
-            className="input"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="tuusuario"
-            required
-            minLength={3}
-          />
-        </div>
-      ) : null}
-
-      <div className="grid gap-2">
-        <label className="text-sm font-medium text-white/70">Email</label>
-        <input
-          className="input"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="tu@email.com"
-          type="email"
-          required
-        />
+        {mode === "register" && (
+          <FieldGroup icon={PhoneIcon} label="Teléfono" hint="Solo números chilenos (+56 9...)">
+            <input
+              className="input"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+56 9 1234 5678"
+              required
+            />
+          </FieldGroup>
+        )}
       </div>
 
-      {mode === "register" ? (
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-white/70">Teléfono</label>
-          <input
-            className="input"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+56 9 1234 5678"
-            required
-          />
-        </div>
-      ) : null}
+      {/* ── Professional-specific fields ── */}
+      {mode === "register" && isProfessional && (
+        <>
+          <SectionHeader title="Perfil profesional" />
 
-      {mode === "register" && profileType === "PROFESSIONAL" ? (
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-white/70">Género</label>
-          <div className="relative">
-            <select
-              className="input select-dark"
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-            >
-              <option value="FEMALE">Mujer</option>
-              <option value="MALE">Hombre</option>
-              <option value="OTHER">Otro</option>
-            </select>
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">
-              ▾
-            </span>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FieldGroup icon={User} label="Género">
+              <div className="relative">
+                <select
+                  className="input select-dark"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                >
+                  <option value="FEMALE">Mujer</option>
+                  <option value="MALE">Hombre</option>
+                  <option value="OTHER">Otro</option>
+                </select>
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">
+                  ▾
+                </span>
+              </div>
+            </FieldGroup>
+
+            <FieldGroup icon={Calendar} label="Fecha de nacimiento" hint="Debes ser mayor de 18 años.">
+              <input
+                className="input"
+                value={birthdate}
+                onChange={(e) => setBirthdate(e.target.value)}
+                type="date"
+                required
+                max={new Date().toISOString().split("T")[0]}
+              />
+            </FieldGroup>
           </div>
-        </div>
-      ) : null}
 
-      {mode === "register" && !lockProfileType ? (
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-white/70">Tipo de perfil</label>
-          <div className="relative">
-            <select
-              className="input select-dark"
-              value={profileType}
-              onChange={(e) => setProfileType(e.target.value)}
-            >
-              <option value="CLIENT">Cliente</option>
-              <option value="PROFESSIONAL">Experiencia</option>
-              <option value="ESTABLISHMENT">Lugar</option>
-              <option value="SHOP">Tienda</option>
-            </select>
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">
-              ▾
-            </span>
-          </div>
-        </div>
-      ) : null}
+          <FieldGroup icon={Tag} label="¿Cómo te defines? (categoría principal)">
+            <div className="relative">
+              <select
+                className="input appearance-none pr-10"
+                value={primaryCategory}
+                onChange={(e) => setPrimaryCategory(e.target.value)}
+              >
+                <option value="">Selecciona tu categoría</option>
+                <option value="escort">Escort / Acompañante</option>
+                <option value="masajes">Masajista</option>
+                <option value="trans">Trans</option>
+                <option value="despedidas">Despedidas de soltero</option>
+                <option value="videollamadas">Videollamadas</option>
+              </select>
+              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">▾</span>
+            </div>
+          </FieldGroup>
 
-      {mode === "register" && profileType === "CLIENT" ? (
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-white/70">Preferencia de género</label>
+          <FieldGroup icon={AlignLeft} label="Descripción del perfil" hint="Mínimo 20 caracteres. Describe tu experiencia.">
+            <textarea
+              className="input min-h-[100px] resize-none"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Describe tu experiencia en pocas líneas..."
+              required
+            />
+            {bio.length > 0 && (
+              <div className="flex justify-end">
+                <span className={`text-[10px] font-mono ${bio.length >= 20 ? "text-emerald-400/60" : "text-white/30"}`}>
+                  {bio.length}/1000
+                </span>
+              </div>
+            )}
+          </FieldGroup>
+        </>
+      )}
+
+      {/* ── Client preference ── */}
+      {mode === "register" && profileType === "CLIENT" && (
+        <FieldGroup icon={Heart} label="Preferencia de género">
           <div className="relative">
             <select
               className="input select-dark"
@@ -316,71 +392,47 @@ export default function AuthForm({
               ▾
             </span>
           </div>
-        </div>
-      ) : null}
+        </FieldGroup>
+      )}
 
-      {mode === "register" && profileType === "PROFESSIONAL" ? (
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-white/70">Fecha de nacimiento</label>
-          <input
-            className="input"
-            value={birthdate}
-            onChange={(e) => setBirthdate(e.target.value)}
-            type="date"
-            required
-            max={new Date().toISOString().split("T")[0]}
-          />
-          <p className="text-xs text-white/40">Debes ser mayor de 18 años.</p>
-        </div>
-      ) : null}
-
-      {mode === "register" && profileType === "PROFESSIONAL" ? (
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-white/70">¿Cómo te defines? (categoría principal)</label>
+      {/* ── Profile type selector (when not locked) ── */}
+      {mode === "register" && !lockProfileType && (
+        <FieldGroup icon={Briefcase} label="Tipo de perfil">
           <div className="relative">
             <select
-              className="input appearance-none pr-10"
-              value={primaryCategory}
-              onChange={(e) => setPrimaryCategory(e.target.value)}
+              className="input select-dark"
+              value={profileType}
+              onChange={(e) => setProfileType(e.target.value)}
             >
-              <option value="">Selecciona tu categoría</option>
-              <option value="escort">Escort / Acompañante</option>
-              <option value="masajes">Masajista</option>
-              <option value="trans">Trans</option>
-              <option value="despedidas">Despedidas de soltero</option>
-              <option value="videollamadas">Videollamadas</option>
+              <option value="CLIENT">Cliente</option>
+              <option value="PROFESSIONAL">Experiencia</option>
+              <option value="ESTABLISHMENT">Lugar</option>
+              <option value="SHOP">Tienda</option>
             </select>
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">▾</span>
+            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">
+              ▾
+            </span>
           </div>
-        </div>
-      ) : null}
+        </FieldGroup>
+      )}
 
-      {mode === "register" &&
-      (profileType === "PROFESSIONAL" ||
-        profileType === "ESTABLISHMENT" ||
-        profileType === "SHOP") ? (
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-white/70">
-            {profileType === "PROFESSIONAL"
-              ? "Descripción del perfil"
-              : "Descripción comercial"}
-          </label>
+      {/* ── Establishment/Shop bio (optional) ── */}
+      {mode === "register" && isEstablishmentOrShop && (
+        <FieldGroup icon={AlignLeft} label="Descripción comercial">
           <textarea
-            className="input min-h-[110px]"
+            className="input min-h-[90px] resize-none"
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            placeholder={
-              profileType === "PROFESSIONAL"
-                ? "Describe tu experiencia en pocas líneas."
-                : "Describe tu negocio (opcional)."
-            }
-            required={profileType === "PROFESSIONAL"}
+            placeholder="Describe tu negocio (opcional)."
           />
-        </div>
-      ) : null}
+        </FieldGroup>
+      )}
 
-      {mode === "register" && isBusinessProfile ? (
+      {/* ── Address section (business profiles) ── */}
+      {mode === "register" && isBusinessProfile && (
         <>
+          <SectionHeader title="Ubicación" />
+
           <MapboxAddressAutocomplete
             label="Dirección"
             value={address}
@@ -398,15 +450,16 @@ export default function AuthForm({
             placeholder="Busca tu dirección"
             required
           />
-          <p className="text-xs text-white/40">
-            Para publicar perfiles comerciales debes validar la dirección con
-            Mapbox.
+          <p className="text-[11px] text-white/35 -mt-2">
+            Selecciona una dirección del buscador para validar la ubicación.
           </p>
         </>
-      ) : null}
+      )}
 
-      <div className="grid gap-2">
-        <label className="text-sm font-medium text-white/70">Contraseña</label>
+      {/* ── Security section ── */}
+      {mode === "register" && <SectionHeader title="Seguridad" />}
+
+      <FieldGroup icon={Lock} label="Contraseña" hint={mode === "register" ? "Mínimo 8 caracteres" : undefined}>
         <div className="relative">
           <input
             className="input pr-12"
@@ -415,35 +468,45 @@ export default function AuthForm({
             type={showPassword ? "text" : "password"}
             required
             minLength={8}
-            placeholder="Mínimo 8 caracteres"
+            placeholder={mode === "register" ? "Crea una contraseña segura" : "Tu contraseña"}
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition p-1"
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
-      </div>
+      </FieldGroup>
 
-      {mode === "register" ? (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      {/* ── Terms ── */}
+      {mode === "register" && (
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 transition-colors hover:bg-white/[0.04]">
           <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-5 w-5 rounded border-white/20 bg-white/5 accent-fuchsia-500"
-              checked={finalTermsAccepted}
-              onChange={(e) => {
-                if (onOpenTerms && !finalTermsAccepted) {
-                  onOpenTerms();
-                } else {
-                  setAcceptTerms(e.target.checked);
-                }
-              }}
-              required
-            />
-            <span className="text-sm text-white/60 leading-relaxed">
+            <div className="relative mt-0.5">
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={finalTermsAccepted}
+                onChange={(e) => {
+                  if (onOpenTerms && !finalTermsAccepted) {
+                    onOpenTerms();
+                  } else {
+                    setAcceptTerms(e.target.checked);
+                  }
+                }}
+                required
+              />
+              <div className="h-5 w-5 rounded-md border border-white/20 bg-white/5 transition-all peer-checked:border-fuchsia-400/50 peer-checked:bg-fuchsia-500/20 flex items-center justify-center">
+                {finalTermsAccepted && (
+                  <svg className="w-3 h-3 text-fuchsia-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            </div>
+            <span className="text-sm text-white/50 leading-relaxed">
               He leído y acepto los{" "}
               <button
                 type="button"
@@ -457,27 +520,35 @@ export default function AuthForm({
               >
                 <FileText className="h-3 w-3" />
                 Términos y Condiciones
-              </button>
-              {" "}de la plataforma.
+              </button>{" "}
+              de la plataforma.
             </span>
           </label>
         </div>
-      ) : null}
+      )}
 
-      {error ? (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {error}
+      {/* ── Error ── */}
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex items-start gap-2">
+          <svg className="h-4 w-4 mt-0.5 shrink-0 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{error}</span>
         </div>
-      ) : null}
+      )}
 
+      {/* ── Submit ── */}
       <button
         disabled={loading}
-        className="btn-primary w-full py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-50"
+        className="btn-primary w-full py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-50 group"
       >
         {loading ? (
           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
         ) : mode === "register" ? (
-          "Crear cuenta"
+          <>
+            Crear cuenta
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </>
         ) : (
           "Ingresar"
         )}
