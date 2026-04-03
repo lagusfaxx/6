@@ -7,15 +7,11 @@ type Props = { params: Promise<{ tag: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { tag } = await params;
   const label = tag.charAt(0).toUpperCase() + tag.slice(1).replace(/-/g, " ");
-  const title = `Escorts ${label} en Chile`;
-  const description = `Escorts ${label.toLowerCase()} verificadas en Santiago, Viña del Mar y todo Chile. Fotos reales, contacto directo y disponibilidad hoy en UZEED.`;
+  const title = `Escorts ${label} en Chile - Verificadas Hoy`;
+  const description = `Escorts y putas ${label.toLowerCase()} verificadas en Santiago, Viña del Mar y todo Chile. Fotos reales, contacto directo y disponibilidad hoy en UZEED.`;
   return {
     title,
     description,
-    keywords: [
-      `escorts ${label.toLowerCase()}`, `escorts ${label.toLowerCase()} chile`,
-      `escorts ${label.toLowerCase()} santiago`, `acompañantes ${label.toLowerCase()}`,
-    ],
     alternates: { canonical: `/escorts/${tag}` },
     openGraph: {
       title: `${title} | UZEED`,
@@ -82,15 +78,16 @@ export default async function EscortsTagPage({ params }: Props) {
       {/* Server-rendered SEO text for long-tail indexing */}
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
         <h1 className="text-xl font-bold text-white/80 mb-3">
-          Escorts {label} en Chile
+          Escorts y Putas {label} en Chile
         </h1>
         <p className="mb-4">
-          Encuentra acompañantes {readableTag} verificadas en Santiago, Viña del Mar y más de
-          20 ciudades de Chile. Perfiles con fotos reales, contacto directo y disponibilidad hoy.
+          Directorio de escorts y putas {readableTag} verificadas en Chile. Encuentra
+          perfiles con fotos reales en Santiago, Las Condes, Providencia, Viña del Mar
+          y más de 20 ciudades. Contacto directo por WhatsApp y disponibilidad hoy.
         </p>
         <p>
-          Filtra por ubicación, servicios y disponibilidad inmediata. Todos los perfiles
-          son verificados para garantizar una experiencia segura.
+          Usa los filtros de ubicación, servicios y disponibilidad inmediata para encontrar
+          exactamente lo que buscas. Todos los perfiles son verificados con fotos reales.
         </p>
       </section>
     </>

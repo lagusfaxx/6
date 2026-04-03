@@ -15,48 +15,56 @@ const SEO_DATA: Record<SeoContentProps["variant"], {
   faq: { question: string; answer: string }[];
 }> = {
   escorts: {
-    heading: "Escorts y Acompañantes en Chile",
+    heading: "Escorts y Putas en Chile — Perfiles Verificados",
     intro:
-      "Directorio de escorts y acompañantes verificadas en Chile. Todos los perfiles cuentan con fotos reales, verificación de identidad y contacto directo. Disponible en Santiago, Viña del Mar, Concepción y más de 20 ciudades.",
+      "UZEED es el directorio de escorts, putas y acompañantes verificadas en Chile. Cada perfil cuenta con fotos reales, verificación de identidad y contacto directo por WhatsApp. Explora perfiles disponibles hoy en Santiago, Viña del Mar, Concepción y más de 20 ciudades del país.",
     sections: [
       {
-        title: "Cobertura en Santiago y Regiones",
-        text: "Encuentra perfiles disponibles hoy en Santiago Centro, Las Condes, Providencia y más comunas de la Región Metropolitana. También tenemos cobertura en Viña del Mar, Valparaíso, Concepción, Antofagasta y Temuco. Filtra por ubicación, servicios y disponibilidad.",
+        title: "Escorts en Santiago y Regiones",
+        text: "Encuentra escorts y acompañantes disponibles hoy en Santiago Centro, Las Condes, Providencia y la Región Metropolitana. También hay perfiles activos en Viña del Mar, Valparaíso, Concepción, Antofagasta y Temuco. Usa los filtros de ubicación, servicios y disponibilidad para encontrar lo que buscas.",
       },
       {
-        title: "Perfiles verificados",
-        text: "Cada profesional en UZEED pasa por un proceso de verificación. Solo publicamos fotos reales y perfiles auténticos. Busca por características, nacionalidad o tipo de servicio.",
+        title: "Perfiles verificados con fotos reales",
+        text: "Todas las putas y escorts en UZEED pasan por un proceso de verificación de identidad. Solo publicamos perfiles auténticos con fotos reales. Puedes buscar por nacionalidad (colombianas, venezolanas, chilenas), características físicas o tipo de servicio.",
+      },
+      {
+        title: "Servicios disponibles",
+        text: "Cada perfil detalla los servicios que ofrece, tarifas y horarios de atención. Encuentra escorts que ofrecen masajes eróticos, videollamadas, atención a domicilio y más. Contacta directamente por WhatsApp o por el chat interno de UZEED.",
       },
     ],
     faq: [
       {
-        question: "¿Cómo encuentro acompañantes cerca de mí?",
-        answer: "Activa tu ubicación para ver perfiles cercanos ordenados por distancia, o filtra por ciudad o comuna.",
+        question: "¿Cómo encuentro escorts cerca de mí?",
+        answer: "Activa tu ubicación en UZEED para ver perfiles cercanos ordenados por distancia. También puedes filtrar por ciudad o comuna específica.",
       },
       {
-        question: "¿Los perfiles son verificados?",
-        answer: "Sí, UZEED verifica la identidad de cada profesional. Los perfiles verificados muestran una insignia que garantiza fotos reales.",
+        question: "¿Las escorts de UZEED son verificadas?",
+        answer: "Sí, UZEED verifica la identidad de cada profesional. Los perfiles verificados muestran una insignia que garantiza fotos reales y perfil auténtico.",
       },
       {
-        question: "¿Cómo contacto a una profesional?",
-        answer: "Cada perfil tiene contacto directo por WhatsApp y chat interno para comunicarte de forma privada antes de agendar.",
+        question: "¿Cómo contacto a una escort?",
+        answer: "Cada perfil tiene un botón de contacto directo por WhatsApp. También puedes usar el chat interno de UZEED para comunicarte de forma privada.",
+      },
+      {
+        question: "¿Hay escorts disponibles ahora?",
+        answer: "Sí, muchas escorts ofrecen disponibilidad 24/7. Filtra por \"disponible ahora\" para ver solo las que atienden en este momento.",
       },
     ],
   },
   masajistas: {
-    heading: "Masajistas en Chile",
+    heading: "Masajistas Eróticas en Chile — Masajes Sensuales",
     intro:
-      "Directorio de masajistas profesionales en Chile. Encuentra especialistas en masajes tántricos, nuru, relajantes y sensuales con perfiles verificados en Santiago y todo el país.",
+      "Directorio de masajistas eróticas y sensuales en Chile. Encuentra profesionales verificadas con experiencia en masajes tántricos, nuru, relajantes y cuerpo a cuerpo en Santiago y todo el país.",
     sections: [
       {
-        title: "Masajes en Santiago",
-        text: "Masajistas verificadas en Las Condes, Providencia, Ñuñoa y más comunas. Filtra por ubicación y tipo de masaje.",
+        title: "Masajes eróticos en Santiago",
+        text: "Masajistas verificadas en Las Condes, Providencia, Ñuñoa y más comunas de Santiago. Filtra por ubicación, tipo de masaje y disponibilidad inmediata.",
       },
     ],
     faq: [
       {
-        question: "¿Dónde encuentro masajistas en Santiago?",
-        answer: "En UZEED puedes filtrar masajistas verificadas por comuna y tipo de masaje para encontrar la profesional ideal.",
+        question: "¿Dónde encuentro masajistas eróticas en Santiago?",
+        answer: "En UZEED puedes filtrar masajistas verificadas por comuna y tipo de masaje. Hay profesionales disponibles en Las Condes, Providencia y toda la Región Metropolitana.",
       },
     ],
   },

@@ -74,26 +74,26 @@ const homeFaqJsonLd = {
   mainEntity: [
     {
       "@type": "Question",
-      name: "¿Cómo encuentro acompañantes cerca de mí en UZEED?",
+      name: "¿Cómo encuentro escorts o putas cerca de mí?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Activa tu ubicación para ver perfiles ordenados por distancia, o busca directamente por ciudad o comuna.",
+        text: "Activa tu ubicación en UZEED para ver perfiles cercanos ordenados por distancia. También puedes buscar por ciudad o comuna específica.",
       },
     },
     {
       "@type": "Question",
-      name: "¿Los perfiles de UZEED son verificados?",
+      name: "¿Las escorts de UZEED son verificadas?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Sí. UZEED verifica la identidad de cada profesional. Los perfiles verificados muestran una insignia que garantiza fotos reales y perfil auténtico.",
+        text: "Sí, UZEED verifica la identidad de cada profesional. Los perfiles verificados muestran una insignia que garantiza fotos reales y perfil auténtico.",
       },
     },
     {
       "@type": "Question",
-      name: "¿Hay disponibilidad las 24 horas?",
+      name: "¿Hay escorts disponibles las 24 horas?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Muchos profesionales ofrecen atención 24/7. Usa el filtro \"disponible ahora\" para ver solo quienes atienden en este momento.",
+        text: "Sí, muchas escorts ofrecen disponibilidad 24/7. Filtra por \"disponible ahora\" para ver solo las que atienden en este momento.",
       },
     },
     {
@@ -132,60 +132,59 @@ export default async function HomePage() {
       />
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
         <h1 className="text-xl font-bold text-white/80 mb-3">
-          Escorts, Acompañantes y Profesionales en Chile
+          Escorts, Putas y Acompañantes en Chile — UZEED
         </h1>
         <p className="mb-4">
-          UZEED es la plataforma líder para conectar con escorts, acompañantes y profesionales
-          verificados en Chile. Cada perfil cuenta con fotos reales, verificación de identidad
-          y contacto directo por WhatsApp. Explora perfiles disponibles hoy en Santiago,
-          Viña del Mar, Concepción y más de 20 ciudades del país.
+          UZEED es la plataforma líder para encontrar escorts, putas y acompañantes verificadas
+          en Chile. Cada perfil cuenta con fotos reales, verificación de identidad y contacto
+          directo por WhatsApp. Explora perfiles disponibles hoy en Santiago, Viña del Mar,
+          Concepción y más de 20 ciudades del país.
         </p>
 
         <h3 className="text-base font-semibold text-white/70 mb-1">
-          Servicios disponibles
+          Escorts en Santiago y Regiones
         </h3>
         <p className="mb-4">
-          Además de escorts y acompañantes, en UZEED puedes encontrar masajistas con
+          Encuentra escorts disponibles hoy en Santiago Centro, Las Condes, Providencia y toda
+          la Región Metropolitana. También hay perfiles activos en Viña del Mar, Valparaíso,
+          Concepción, Antofagasta y Temuco. Filtra por ubicación, servicios y disponibilidad.
+        </p>
+
+        <h3 className="text-base font-semibold text-white/70 mb-1">
+          Más servicios en UZEED
+        </h3>
+        <p className="mb-4">
+          Además de escorts y acompañantes, puedes encontrar masajistas eróticas con
           especialidad en masajes tántricos y nuru, moteles con precios actualizados,
-          hospedajes discretos y sex shops con envío a todo Chile. Filtra por ubicación,
-          disponibilidad y tipo de servicio.
-        </p>
-
-        <h3 className="text-base font-semibold text-white/70 mb-1">
-          Cobertura nacional
-        </h3>
-        <p className="mb-4">
-          UZEED opera en Santiago, Viña del Mar, Valparaíso, Concepción, Antofagasta, Temuco,
-          La Serena, Puerto Montt y las principales ciudades de Chile. Activa tu ubicación
-          para ver profesionales cerca de ti.
+          hospedajes discretos y sex shops con envío a todo Chile.
         </p>
 
         <h3 className="text-base font-semibold text-white/70 mb-3">Preguntas Frecuentes</h3>
         <details className="mb-3 group">
           <summary className="cursor-pointer font-medium text-white/70 group-open:text-fuchsia-300">
-            ¿Cómo encuentro acompañantes cerca de mí?
+            ¿Cómo encuentro escorts o putas cerca de mí?
           </summary>
           <p className="mt-1 pl-4 text-white/50">
-            Activa tu ubicación para ver perfiles ordenados por distancia, o busca directamente
-            por ciudad o comuna.
+            Activa tu ubicación en UZEED para ver perfiles cercanos ordenados por distancia.
+            También puedes buscar por ciudad o comuna específica.
           </p>
         </details>
         <details className="mb-3 group">
           <summary className="cursor-pointer font-medium text-white/70 group-open:text-fuchsia-300">
-            ¿Los perfiles son verificados?
+            ¿Las escorts de UZEED son verificadas?
           </summary>
           <p className="mt-1 pl-4 text-white/50">
-            Sí. UZEED verifica la identidad de cada profesional. Los perfiles verificados
+            Sí, UZEED verifica la identidad de cada profesional. Los perfiles verificados
             muestran una insignia que garantiza fotos reales y perfil auténtico.
           </p>
         </details>
         <details className="mb-3 group">
           <summary className="cursor-pointer font-medium text-white/70 group-open:text-fuchsia-300">
-            ¿Hay disponibilidad las 24 horas?
+            ¿Hay escorts disponibles las 24 horas?
           </summary>
           <p className="mt-1 pl-4 text-white/50">
-            Muchos profesionales ofrecen atención 24/7. Usa el filtro &quot;disponible ahora&quot;
-            para ver solo quienes atienden en este momento.
+            Sí, muchas escorts ofrecen disponibilidad 24/7. Filtra por &quot;disponible ahora&quot;
+            para ver solo las que atienden en este momento.
           </p>
         </details>
         <details className="mb-3 group">

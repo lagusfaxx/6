@@ -103,7 +103,7 @@ export default function Footer() {
 
       <div className="w-full border-t border-white/5 mt-10 py-6 text-center">
         <p className="text-[10px] text-gray-700 tracking-widest uppercase leading-relaxed px-4 max-w-6xl mx-auto">
-          UZEED es la plataforma líder de servicios para adultos en Chile. Escorts, masajistas y acompañantes verificadas en Santiago, Viña del Mar, Valparaíso, Concepción y las principales ciudades del país. Perfiles con fotos reales y contacto directo. Solo mayores de 18 años.
+          UZEED es la plataforma líder de escorts, putas y acompañantes verificadas en Chile. Perfiles con fotos reales y contacto directo en Santiago, Viña del Mar, Concepción y todo el país. Masajistas eróticas, moteles y sex shops. Solo mayores de 18 años.
         </p>
       </div>
     </footer>
