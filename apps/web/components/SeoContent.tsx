@@ -15,9 +15,9 @@ const SEO_DATA: Record<SeoContentProps["variant"], {
   faq: { question: string; answer: string }[];
 }> = {
   escorts: {
-    heading: "Escorts y Putas en Chile — Perfiles Verificados",
+    heading: "Escorts y Acompañantes en Chile — Perfiles Verificados",
     intro:
-      "UZEED es el directorio de escorts, putas y acompañantes verificadas en Chile. Cada perfil cuenta con fotos reales, verificación de identidad y contacto directo por WhatsApp. Explora perfiles disponibles hoy en Santiago, Viña del Mar, Concepción y más de 20 ciudades del país.",
+      "UZEED es el directorio de escorts y acompañantes verificadas en Chile. Cada perfil cuenta con fotos reales, verificación de identidad y contacto directo por WhatsApp. Explora perfiles disponibles hoy en Santiago, Viña del Mar, Concepción y más de 20 ciudades del país.",
     sections: [
       {
         title: "Escorts en Santiago y Regiones",
@@ -25,7 +25,7 @@ const SEO_DATA: Record<SeoContentProps["variant"], {
       },
       {
         title: "Perfiles verificados con fotos reales",
-        text: "Todas las putas y escorts en UZEED pasan por un proceso de verificación de identidad. Solo publicamos perfiles auténticos con fotos reales. Puedes buscar por nacionalidad (colombianas, venezolanas, chilenas), características físicas o tipo de servicio.",
+        text: "Todas las escorts y acompañantes en UZEED pasan por un proceso de verificación de identidad. Solo publicamos perfiles auténticos con fotos reales. Puedes buscar por nacionalidad (colombianas, venezolanas, chilenas), características físicas o tipo de servicio.",
       },
       {
         title: "Servicios disponibles",

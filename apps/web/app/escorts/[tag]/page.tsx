@@ -78,10 +78,10 @@ export default async function EscortsTagPage({ params }: Props) {
       {/* Server-rendered SEO text for long-tail indexing */}
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
         <h1 className="text-xl font-bold text-white/80 mb-3">
-          Escorts y Putas {label} en Chile
+          Escorts y Acompañantes {label} en Chile
         </h1>
         <p className="mb-4">
-          Directorio de escorts y putas {readableTag} verificadas en Chile. Encuentra
+          Directorio de escorts y acompañantes {readableTag} verificadas en Chile. Encuentra
           perfiles con fotos reales en Santiago, Las Condes, Providencia, Viña del Mar
           y más de 20 ciudades. Contacto directo por WhatsApp y disponibilidad hoy.
         </p>

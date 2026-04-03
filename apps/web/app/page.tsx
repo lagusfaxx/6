@@ -74,7 +74,7 @@ const homeFaqJsonLd = {
   mainEntity: [
     {
       "@type": "Question",
-      name: "¿Cómo encuentro escorts o putas cerca de mí?",
+      name: "¿Cómo encuentro escorts y acompañantes cerca de mí?",
       acceptedAnswer: {
         "@type": "Answer",
         text: "Activa tu ubicación en UZEED para ver perfiles cercanos ordenados por distancia. También puedes buscar por ciudad o comuna específica.",
@@ -132,10 +132,10 @@ export default async function HomePage() {
       />
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
         <h1 className="text-xl font-bold text-white/80 mb-3">
-          Escorts, Putas y Acompañantes en Chile — UZEED
+          Escorts y Acompañantes Verificadas en Chile — UZEED
         </h1>
         <p className="mb-4">
-          UZEED es la plataforma líder para encontrar escorts, putas y acompañantes verificadas
+          UZEED es la plataforma líder para encontrar escorts y acompañantes verificadas
           en Chile. Cada perfil cuenta con fotos reales, verificación de identidad y contacto
           directo por WhatsApp. Explora perfiles disponibles hoy en Santiago, Viña del Mar,
           Concepción y más de 20 ciudades del país.
@@ -162,7 +162,7 @@ export default async function HomePage() {
         <h3 className="text-base font-semibold text-white/70 mb-3">Preguntas Frecuentes</h3>
         <details className="mb-3 group">
           <summary className="cursor-pointer font-medium text-white/70 group-open:text-fuchsia-300">
-            ¿Cómo encuentro escorts o putas cerca de mí?
+            ¿Cómo encuentro escorts y acompañantes cerca de mí?
           </summary>
           <p className="mt-1 pl-4 text-white/50">
             Activa tu ubicación en UZEED para ver perfiles cercanos ordenados por distancia.
