@@ -150,7 +150,7 @@ profileRouter.get(
     });
 
     const enriched = profiles
-      .filter((p) => isBusinessPlanActive(p))
+      // DEV: subscription filter removed during development (aligned with /directory/search)
       .map((p) => {
         const distanceKm =
           lat !== null &&
