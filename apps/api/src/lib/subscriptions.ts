@@ -1,4 +1,5 @@
 import { addDays } from "@uzeed/shared";
+import { config } from "../config";
 
 type PlanUser = {
   profileType: string;
@@ -30,10 +31,10 @@ export function isBusinessPlanActive(user: PlanUser): boolean {
     return true;
   }
 
-  // Legacy fallback: profiles created before shopTrialEndsAt existed
-  // get a 90-day grace period from their creation date
-  if (!user.shopTrialEndsAt && !user.membershipExpiresAt && user.createdAt) {
-    const gracePeriodMs = 90 * 24 * 60 * 60 * 1000;
+  // Grace period: all profiles get FREE_TRIAL_DAYS from their creation date,
+  // regardless of whether shopTrialEndsAt or membershipExpiresAt are set.
+  if (user.createdAt) {
+    const gracePeriodMs = config.freeTrialDays * 24 * 60 * 60 * 1000;
     if (user.createdAt.getTime() + gracePeriodMs > now) {
       return true;
     }
@@ -64,5 +65,5 @@ export function shouldPromptPayment(user: PlanUser): boolean {
 }
 
 export function nextSubscriptionExpiry(): Date {
-  return addDays(new Date(), 30);
+  return addDays(new Date(), config.membershipDays);
 }
