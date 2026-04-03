@@ -967,3 +967,218 @@ adminRouter.delete(
     return res.json({ ok: true, galleryUrls });
   }),
 );
+
+/* ══════════════════════════════════════════════════════════════
+   QUICK PROFESSIONALS
+   Admin can create professional profiles (escorts, masajistas, etc.)
+   without the user registering. They appear on the map and directory
+   just like regular professionals.
+   ══════════════════════════════════════════════════════════════ */
+
+adminRouter.get(
+  "/quick-professionals",
+  asyncHandler(async (req, res) => {
+    const { q, limit, offset } = req.query as Record<string, string | undefined>;
+    const take = Math.min(parseInt(limit || "50", 10) || 50, 200);
+    const skip = parseInt(offset || "0", 10) || 0;
+
+    const where: any = { adminManaged: true, profileType: "PROFESSIONAL" };
+    if (q) {
+      where.OR = [
+        { displayName: { contains: q, mode: "insensitive" } },
+        { username: { contains: q, mode: "insensitive" } },
+        { city: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    const [professionals, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true, username: true, displayName: true, avatarUrl: true,
+          city: true, phone: true, bio: true, birthdate: true, gender: true,
+          latitude: true, longitude: true, primaryCategory: true,
+          serviceCategory: true, profileTags: true, serviceTags: true,
+          isActive: true, isVerified: true, tier: true,
+          profileMedia: { select: { id: true, url: true, type: true }, orderBy: { createdAt: "asc" } },
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take,
+        skip,
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    return res.json({ professionals, total });
+  }),
+);
+
+adminRouter.post(
+  "/quick-professionals",
+  asyncHandler(async (req, res) => {
+    const {
+      displayName, phone, city, address, bio, gender, birthdate,
+      latitude, longitude, primaryCategory, serviceCategory,
+      profileTags, serviceTags, tier,
+    } = req.body ?? {};
+
+    if (!displayName || !city) {
+      return res.status(400).json({ error: "VALIDATION", message: "displayName and city are required" });
+    }
+
+    // Generate a unique username and placeholder email for the admin-managed user
+    const slug = String(displayName)
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 20);
+    const suffix = Date.now().toString(36);
+    const username = `${slug}-${suffix}`;
+    const email = `admin-managed-${username}@placeholder.uzeed.cl`;
+
+    const professional = await prisma.user.create({
+      data: {
+        email,
+        username,
+        passwordHash: "ADMIN_MANAGED_NO_LOGIN",
+        displayName: String(displayName),
+        phone: phone ? String(phone) : null,
+        city: String(city),
+        address: address ? String(address) : null,
+        bio: bio ? String(bio) : null,
+        gender: gender || null,
+        birthdate: birthdate ? new Date(birthdate) : null,
+        latitude: latitude != null ? Number(latitude) : null,
+        longitude: longitude != null ? Number(longitude) : null,
+        primaryCategory: primaryCategory ? String(primaryCategory) : "Escort",
+        serviceCategory: serviceCategory ? String(serviceCategory) : "Escort",
+        profileType: "PROFESSIONAL",
+        isActive: true,
+        isVerified: true,
+        adminManaged: true,
+        tier: tier || null,
+        profileTags: Array.isArray(profileTags) ? profileTags.map(String) : [],
+        serviceTags: Array.isArray(serviceTags) ? serviceTags.map(String) : [],
+      },
+      include: {
+        profileMedia: { select: { id: true, url: true, type: true } },
+      },
+    });
+
+    return res.json({ professional });
+  }),
+);
+
+adminRouter.put(
+  "/quick-professionals/:id",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const {
+      displayName, phone, city, address, bio, gender, birthdate,
+      latitude, longitude, primaryCategory, serviceCategory,
+      profileTags, serviceTags, tier,
+    } = req.body ?? {};
+
+    const data: any = {};
+    if (displayName !== undefined) data.displayName = String(displayName);
+    if (phone !== undefined) data.phone = phone ? String(phone) : null;
+    if (city !== undefined) data.city = String(city);
+    if (address !== undefined) data.address = address ? String(address) : null;
+    if (bio !== undefined) data.bio = bio ? String(bio) : null;
+    if (gender !== undefined) data.gender = gender || null;
+    if (birthdate !== undefined) data.birthdate = birthdate ? new Date(birthdate) : null;
+    if (latitude !== undefined) data.latitude = latitude != null ? Number(latitude) : null;
+    if (longitude !== undefined) data.longitude = longitude != null ? Number(longitude) : null;
+    if (primaryCategory !== undefined) data.primaryCategory = primaryCategory ? String(primaryCategory) : null;
+    if (serviceCategory !== undefined) data.serviceCategory = serviceCategory ? String(serviceCategory) : null;
+    if (profileTags !== undefined) data.profileTags = Array.isArray(profileTags) ? profileTags.map(String) : [];
+    if (serviceTags !== undefined) data.serviceTags = Array.isArray(serviceTags) ? serviceTags.map(String) : [];
+    if (tier !== undefined) data.tier = tier || null;
+
+    const professional = await prisma.user.update({
+      where: { id },
+      data,
+      include: {
+        profileMedia: { select: { id: true, url: true, type: true } },
+      },
+    });
+    return res.json({ professional });
+  }),
+);
+
+adminRouter.delete(
+  "/quick-professionals/:id",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const user = await prisma.user.findUnique({ where: { id }, select: { adminManaged: true } });
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+    if (!user.adminManaged) return res.status(403).json({ error: "FORBIDDEN", message: "Only admin-managed profiles can be deleted here" });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.profileMedia.deleteMany({ where: { ownerId: id } });
+      await tx.serviceItem.deleteMany({ where: { ownerId: id } });
+      await tx.favorite.deleteMany({ where: { OR: [{ userId: id }, { professionalId: id }] } });
+      await tx.notification.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
+
+    return res.json({ ok: true });
+  }),
+);
+
+adminRouter.post(
+  "/quick-professionals/:id/upload",
+  upload.single("file"),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (!req.file) return res.status(400).json({ error: "NO_FILE" });
+
+    const user = await prisma.user.findUnique({ where: { id }, select: { id: true, avatarUrl: true } });
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const url = storageProvider.publicUrl(req.file.filename);
+
+    // Create a ProfileMedia entry
+    const media = await prisma.profileMedia.create({
+      data: { ownerId: id, type: "IMAGE", url },
+    });
+
+    // Set as avatar if the user doesn't have one yet
+    if (!user.avatarUrl) {
+      await prisma.user.update({ where: { id }, data: { avatarUrl: url } });
+    }
+
+    return res.json({ media, url });
+  }),
+);
+
+adminRouter.delete(
+  "/quick-professionals/:id/media/:mediaId",
+  asyncHandler(async (req, res) => {
+    const { id, mediaId } = req.params;
+
+    const media = await prisma.profileMedia.findFirst({
+      where: { id: mediaId, ownerId: id },
+    });
+    if (!media) return res.status(404).json({ error: "NOT_FOUND" });
+
+    await prisma.profileMedia.delete({ where: { id: mediaId } });
+
+    // If deleted media was the avatar, set the next available one
+    const user = await prisma.user.findUnique({ where: { id }, select: { avatarUrl: true } });
+    if (user?.avatarUrl === media.url) {
+      const next = await prisma.profileMedia.findFirst({
+        where: { ownerId: id, type: "IMAGE" },
+        orderBy: { createdAt: "asc" },
+      });
+      await prisma.user.update({
+        where: { id },
+        data: { avatarUrl: next?.url || null },
+      });
+    }
+
+    return res.json({ ok: true });
+  }),
+);
