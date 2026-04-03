@@ -24,13 +24,6 @@ const nextConfig = {
     ],
   },
 
-  // Modular imports — reduces bundle size by only including used modules
-  modularizeImports: {
-    "lucide-react": {
-      transform: "lucide-react/dist/esm/icons/{{ kebabCase member }}",
-    },
-  },
-
   images: {
     remotePatterns: [
       {
@@ -85,12 +78,12 @@ const nextConfig = {
         ],
       },
       {
-        // HTML pages — allow edge caching with stale-while-revalidate for faster TTFB
+        // HTML pages — no cache for dynamic content (auth state, real-time data)
         source: '/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, s-maxage=60, stale-while-revalidate=300',
+            value: 'no-cache, no-store, must-revalidate',
           },
           {
             key: 'X-Content-Type-Options',
