@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Mail, RefreshCw, CheckCircle2, ArrowLeft, ShieldCheck } from "lucide-react";
+import { Mail, RefreshCw, CheckCircle2, ArrowLeft } from "lucide-react";
 import { apiFetch } from "../lib/api";
 
 interface EmailVerificationProps {
@@ -100,6 +100,7 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
       });
       setSuccess(true);
       setCreatingAccount(true);
+      // Call onVerified (which now creates the account) and wait for it
       await onVerified();
     } catch (err: any) {
       setSuccess(false);
@@ -158,189 +159,134 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  // Mask email for display
-  const maskedEmail = (() => {
-    const [local, domain] = email.split("@");
-    if (!domain) return email;
-    const visible = local.slice(0, 2);
-    return `${visible}${"*".repeat(Math.max(local.length - 2, 2))}@${domain}`;
-  })();
-
   return (
-    <div className="w-full max-w-md mx-auto">
-      {/* Header */}
-      <div className="flex flex-col items-center mb-8">
-        <div className="relative">
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/30 to-violet-500/30 blur-2xl scale-150" />
-          <div
-            className={`relative w-20 h-20 rounded-2xl border border-white/10 flex items-center justify-center transition-all duration-500 ${
-              success
-                ? "bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border-emerald-400/20"
-                : "bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20"
-            }`}
-          >
+    <div className="min-h-[80vh] flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/30 to-violet-500/30 blur-2xl scale-150" />
+            <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 border border-white/10 flex items-center justify-center">
+              {success ? (
+                <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+              ) : (
+                <Mail className="h-10 w-10 text-fuchsia-300" />
+              )}
+            </div>
+          </div>
+          <h1 className="mt-5 text-2xl font-bold text-white">
+            {success
+              ? creatingAccount
+                ? "Creando tu cuenta..."
+                : "Verificado"
+              : "Verifica tu email"}
+          </h1>
+          <p className="mt-2 text-sm text-white/50 text-center max-w-xs">
             {success ? (
-              <CheckCircle2 className="h-10 w-10 text-emerald-400 animate-[scaleIn_0.3s_ease-out]" />
+              creatingAccount
+                ? "Email verificado. Estamos creando tu cuenta..."
+                : "Tu cuenta ha sido creada correctamente."
             ) : (
-              <Mail className="h-10 w-10 text-fuchsia-300" />
+              <>
+                Enviamos un código de 6 dígitos a{" "}
+                <span className="text-fuchsia-300 font-medium">{email}</span>
+              </>
             )}
-          </div>
+          </p>
         </div>
-        <h1 className="mt-5 text-2xl font-bold text-white">
-          {success
-            ? creatingAccount
-              ? "Creando tu cuenta..."
-              : "Verificado"
-            : "Verifica tu email"}
-        </h1>
-        <p className="mt-2 text-sm text-white/50 text-center max-w-xs">
-          {success ? (
-            creatingAccount
-              ? "Email verificado. Estamos creando tu cuenta..."
-              : "Tu cuenta ha sido creada correctamente."
-          ) : (
-            <>
-              Enviamos un código de 6 dígitos a{" "}
-              <span className="text-fuchsia-300/80 font-medium">{maskedEmail}</span>
-            </>
-          )}
-        </p>
-      </div>
 
-      {!success && (
-        <div className="relative rounded-3xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
+        {!success && (
+          <div className="relative rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
 
-          <div className="p-6 sm:p-8">
-            {/* Security badge */}
-            <div className="flex justify-center mb-6">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.04] border border-white/[0.08] px-3 py-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-fuchsia-300/70" />
-                <span className="text-[11px] text-white/40 font-medium">Verificación segura</span>
-              </div>
-            </div>
-
-            {/* Code inputs */}
-            <div className="flex justify-center gap-2.5 sm:gap-3" onPaste={handlePaste}>
-              {code.map((digit, i) => (
-                <input
-                  key={i}
-                  ref={(el) => {
-                    inputRefs.current[i] = el;
-                  }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleChange(i, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(i, e)}
-                  disabled={loading}
-                  className={`w-11 h-14 sm:w-12 sm:h-15 text-center text-xl font-bold rounded-xl border transition-all duration-200 outline-none bg-white/[0.04] ${
-                    digit
-                      ? "border-fuchsia-400/40 text-white shadow-[0_0_20px_rgba(232,121,249,0.12)]"
-                      : "border-white/[0.08] text-white/80"
-                  } focus:border-fuchsia-400/50 focus:ring-2 focus:ring-fuchsia-500/20 focus:bg-white/[0.06] disabled:opacity-50`}
-                />
-              ))}
-            </div>
-
-            {/* Timer bar */}
-            <div className="mt-5 flex flex-col items-center gap-2">
-              <div className="w-full max-w-[200px] h-1 rounded-full bg-white/[0.06] overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-1000 ${
-                    expiresIn < 60
-                      ? "bg-gradient-to-r from-red-500 to-red-400"
-                      : "bg-gradient-to-r from-fuchsia-500 to-violet-500"
-                  }`}
-                  style={{ width: `${(expiresIn / 600) * 100}%` }}
-                />
-              </div>
-              <span
-                className={`text-xs font-mono ${
-                  expiresIn < 60 ? "text-red-400" : "text-white/35"
-                }`}
-              >
-                {expiresIn === 0 ? "Código expirado" : `Expira en ${formatTime(expiresIn)}`}
-              </span>
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200 text-center flex items-center justify-center gap-2">
-                <svg
-                  className="h-4 w-4 shrink-0 text-red-300"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            <div className="p-8">
+              {/* Code inputs */}
+              <div className="flex justify-center gap-3" onPaste={handlePaste}>
+                {code.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => { inputRefs.current[i] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleChange(i, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(i, e)}
+                    disabled={loading}
+                    className={`w-12 h-14 text-center text-xl font-bold rounded-xl border transition-all duration-200 outline-none bg-white/5 ${
+                      digit
+                        ? "border-fuchsia-400/50 text-white shadow-[0_0_15px_rgba(232,121,249,0.15)]"
+                        : "border-white/10 text-white/80"
+                    } focus:border-fuchsia-400/60 focus:ring-2 focus:ring-fuchsia-500/20`}
                   />
-                </svg>
-                <span>{error}</span>
+                ))}
+              </div>
+
+              {/* Timer */}
+              <div className="mt-4 flex justify-center">
+                <span className={`text-xs font-mono ${expiresIn < 60 ? "text-red-400" : "text-white/40"}`}>
+                  Expira en {formatTime(expiresIn)}
+                </span>
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200 text-center">
+                  {error}
+                </div>
+              )}
+
+              {/* Loading */}
+              {loading && (
+                <div className="mt-4 flex justify-center">
+                  <div className="w-6 h-6 border-2 border-fuchsia-400/30 border-t-fuchsia-400 rounded-full animate-spin" />
+                </div>
+              )}
+
+              {/* Resend */}
+              <div className="mt-6 flex flex-col items-center gap-3">
+                <button
+                  onClick={sendCode}
+                  disabled={cooldown > 0 || resending}
+                  className="flex items-center gap-2 text-sm text-fuchsia-300/70 hover:text-fuchsia-300 disabled:text-white/30 disabled:cursor-not-allowed transition"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${resending ? "animate-spin" : ""}`} />
+                  {cooldown > 0
+                    ? `Reenviar en ${formatTime(cooldown)}`
+                    : resending
+                      ? "Enviando..."
+                      : "Reenviar código"}
+                </button>
+              </div>
+            </div>
+
+            {/* Footer */}
+            {onBack && (
+              <div className="px-8 pb-6">
+                <button
+                  onClick={onBack}
+                  className="flex items-center gap-2 text-xs text-white/40 hover:text-white/60 transition"
+                >
+                  <ArrowLeft className="h-3 w-3" />
+                  Volver al registro
+                </button>
               </div>
             )}
+          </div>
+        )}
 
-            {/* Loading */}
-            {loading && (
-              <div className="mt-5 flex justify-center">
-                <div className="w-6 h-6 border-2 border-fuchsia-400/30 border-t-fuchsia-400 rounded-full animate-spin" />
-              </div>
-            )}
-
-            {/* Resend */}
-            <div className="mt-6 flex flex-col items-center gap-3">
-              <div className="h-px w-full bg-white/[0.06]" />
-              <p className="text-[11px] text-white/30">¿No recibiste el código?</p>
-              <button
-                onClick={sendCode}
-                disabled={cooldown > 0 || resending}
-                className={`flex items-center gap-2 text-sm font-medium transition-all ${
-                  cooldown > 0 || resending
-                    ? "text-white/25 cursor-not-allowed"
-                    : "text-fuchsia-300/70 hover:text-fuchsia-300"
-                }`}
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${resending ? "animate-spin" : ""}`} />
-                {cooldown > 0
-                  ? `Reenviar en ${formatTime(cooldown)}`
-                  : resending
-                    ? "Enviando..."
-                    : "Reenviar código"}
-              </button>
+        {success && (
+          <div className="flex justify-center">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+              {creatingAccount ? (
+                <div className="w-8 h-8 border-2 border-fuchsia-400/30 border-t-fuchsia-400 rounded-full animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+              )}
             </div>
           </div>
-
-          {/* Back button */}
-          {onBack && (
-            <div className="border-t border-white/[0.05] px-6 py-4 sm:px-8">
-              <button
-                onClick={onBack}
-                className="flex items-center gap-2 text-xs text-white/35 hover:text-white/55 transition"
-              >
-                <ArrowLeft className="h-3 w-3" />
-                Volver al formulario
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {success && (
-        <div className="flex justify-center animate-[scaleIn_0.3s_ease-out]">
-          <div className="w-20 h-20 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center shadow-[0_0_40px_rgba(52,211,153,0.15)]">
-            {creatingAccount ? (
-              <div className="w-8 h-8 border-2 border-fuchsia-400/30 border-t-fuchsia-400 rounded-full animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-9 w-9 text-emerald-400" />
-            )}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
