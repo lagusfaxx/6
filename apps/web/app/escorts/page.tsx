@@ -33,21 +33,14 @@ async function fetchTopProfiles(): Promise<ProfileSummary[]> {
 }
 
 export const metadata: Metadata = {
-  title: "Escorts y Putas en Chile - Perfiles Verificados Hoy | UZEED",
+  title: "Escorts y Putas en Chile - Verificadas Hoy | UZEED",
   description:
-    "Directorio N°1 de escorts y putas en Chile. Miles de perfiles verificados en Santiago, Las Condes, Providencia y Viña del Mar. Fotos reales, disponibilidad inmediata y contacto directo por WhatsApp en UZEED.",
-  keywords: [
-    "escorts chile", "putas chile", "escorts santiago", "putas santiago",
-    "acompañantes santiago", "escorts verificadas", "escorts las condes",
-    "escorts providencia", "escorts viña del mar", "escorts disponibles hoy",
-    "putas las condes", "escorts colombianas chile", "escorts venezolanas chile",
-    "putas verificadas santiago", "escorts cerca de mi",
-  ],
+    "Escorts y putas verificadas en Santiago, Las Condes, Viña del Mar y todo Chile. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy.",
   alternates: { canonical: "/escorts" },
   openGraph: {
-    title: "Escorts y Putas en Chile - Perfiles Verificados | UZEED",
+    title: "Escorts y Putas en Chile - Verificadas Hoy | UZEED",
     description:
-      "Miles de escorts y putas verificadas en Santiago y todo Chile. Fotos reales y contacto directo por WhatsApp.",
+      "Escorts y acompañantes verificadas en Santiago y todo Chile. Fotos reales y contacto directo.",
     url: "https://uzeed.cl/escorts",
     type: "website",
     images: [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Escorts Chile" }],
@@ -55,7 +48,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Escorts y Putas en Chile | UZEED",
-    description: "Miles de escorts verificadas con fotos reales en Santiago y todo Chile.",
+    description: "Escorts verificadas con fotos reales en Santiago y todo Chile.",
     images: ["https://uzeed.cl/brand/isotipo-new.png"],
   },
 };

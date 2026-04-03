@@ -5,7 +5,7 @@ import AppShell from '../components/AppShell';
 
 export const metadata: Metadata = {
   title: {
-    default: 'UZEED: Escorts, Acompañantes y Profesionales en Chile',
+    default: 'UZEED: Escorts y Putas Verificadas en Chile',
     template: '%s | UZEED',
   },
   description: 'Encuentra escorts, acompañantes y profesionales verificados en Santiago, Las Condes, Providencia y Viña del Mar. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy en UZEED Chile.',

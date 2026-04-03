@@ -103,7 +103,7 @@ export default function Footer() {
 
       <div className="w-full border-t border-white/5 mt-10 py-6 text-center">
         <p className="text-[10px] text-gray-700 tracking-widest uppercase leading-relaxed px-4 max-w-6xl mx-auto">
-          UZEED Chile: Las mejores putas, escorts y maracas en Santiago • Servicios en Las Condes, Providencia y Vitacura • Prostitutas verificadas en Viña del Mar y Valparaíso • Escorts en Calama, Antofagasta e Iquique • Masajistas eróticas y Sexcall • Maracas baratas y perfiles con exámenes al día • Putas en Santiago, Maipú y La Florida • Sexo incógnito disponible hoy.
+          UZEED es la plataforma líder de escorts y acompañantes verificadas en Chile. Perfiles con fotos reales y contacto directo en Santiago, Viña del Mar, Concepción y todo el país. Masajistas eróticas, moteles y sex shops. Solo mayores de 18 años.
         </p>
       </div>
     </footer>

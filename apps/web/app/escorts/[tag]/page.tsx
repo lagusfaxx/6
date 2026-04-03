@@ -7,16 +7,11 @@ type Props = { params: Promise<{ tag: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { tag } = await params;
   const label = tag.charAt(0).toUpperCase() + tag.slice(1).replace(/-/g, " ");
-  const title = `Escorts ${label} en Chile - Perfiles Verificados`;
-  const description = `Encuentra escorts ${label.toLowerCase()} en Santiago, Las Condes, Providencia y todo Chile. Perfiles verificados con fotos reales y disponibilidad hoy en UZEED.`;
+  const title = `Escorts ${label} en Chile - Verificadas Hoy`;
+  const description = `Escorts y putas ${label.toLowerCase()} verificadas en Santiago, Viña del Mar y todo Chile. Fotos reales, contacto directo y disponibilidad hoy en UZEED.`;
   return {
     title,
     description,
-    keywords: [
-      `escorts ${label.toLowerCase()}`, `escorts ${label.toLowerCase()} chile`,
-      `putas ${label.toLowerCase()} santiago`, `${label.toLowerCase()} escorts`,
-      `escorts ${label.toLowerCase()} santiago`, `putas ${label.toLowerCase()} chile`,
-    ],
     alternates: { canonical: `/escorts/${tag}` },
     openGraph: {
       title: `${title} | UZEED`,
@@ -83,32 +78,16 @@ export default async function EscortsTagPage({ params }: Props) {
       {/* Server-rendered SEO text for long-tail indexing */}
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
         <h1 className="text-xl font-bold text-white/80 mb-3">
-          Escorts {label} en Chile — Perfiles Verificados
+          Escorts y Acompañantes {label} en Chile
         </h1>
         <p className="mb-4">
-          Directorio de escorts {readableTag} en Chile. Encuentra acompañantes {readableTag} verificadas
-          en Santiago, Las Condes, Providencia, Viña del Mar y todo el país. Perfiles con fotos reales,
-          servicios detallados y contacto directo por WhatsApp en UZEED.
+          Directorio de escorts y acompañantes {readableTag} verificadas en Chile. Encuentra
+          perfiles con fotos reales en Santiago, Las Condes, Providencia, Viña del Mar
+          y más de 20 ciudades. Contacto directo por WhatsApp y disponibilidad hoy.
         </p>
-        <p className="mb-4">
-          Busca escorts {readableTag} disponibles hoy. Filtra por ubicación, edad, servicios y
-          disponibilidad inmediata. Todos los perfiles son verificados para garantizar una experiencia
-          segura y confiable.
-        </p>
-        <h2 className="text-base font-semibold text-white/70 mb-1">
-          Escorts {label} en Santiago
-        </h2>
-        <p className="mb-4">
-          Las mejores escorts {readableTag} de Santiago Centro, Las Condes, Providencia, Ñuñoa, Maipú
-          y todas las comunas de la Región Metropolitana. Escorts colombianas, venezolanas y chilenas
-          {readableTag} con disponibilidad inmediata y contacto directo.
-        </p>
-        <h2 className="text-base font-semibold text-white/70 mb-1">
-          Escorts {label} en Regiones
-        </h2>
         <p>
-          Encuentra escorts {readableTag} en Viña del Mar, Valparaíso, Concepción, Antofagasta, Temuco,
-          La Serena, Arica, Iquique, Puerto Montt y más ciudades de Chile.
+          Usa los filtros de ubicación, servicios y disponibilidad inmediata para encontrar
+          exactamente lo que buscas. Todos los perfiles son verificados con fotos reales.
         </p>
       </section>
     </>
