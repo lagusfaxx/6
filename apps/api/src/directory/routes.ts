@@ -433,7 +433,8 @@ directoryRouter.get(
     const users = await prisma.user.findMany({
       where: {
         profileType: "PROFESSIONAL",
-        // DEV: avatarUrl, isVerified, subscription filters removed during development
+        isVerified: true,
+        // DEV: avatarUrl, subscription filters removed during development
       },
       take: 120,
       select: {
