@@ -3,26 +3,24 @@ import type { NextRequest } from "next/server";
 
 const protectedPrefixes = ["/chat", "/chats", "/calificar", "/umate/account", "/umate/onboarding", "/admin", "/dashboard", "/cuenta", "/favoritos", "/wallet"];
 
-/** Routes where payment gateways (Flow.cl) may POST-redirect users back. */
-const paymentReturnPaths = ["/pago/exitoso", "/pago/tarjeta-registrada", "/wallet", "/umate/checkout"];
-
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Flow.cl redirects users back via POST after payment/card enrollment.
-  // Next.js 14 misinterprets POST to page routes as Server Action calls,
-  // causing "Failed to find Server Action" crashes. Convert to GET (303).
-  // Preserve Flow's token from POST body by adding it as a query param.
-  if (req.method === "POST" && paymentReturnPaths.includes(pathname)) {
+  // This app has no Server Actions. Any POST to a page route is either a
+  // payment-gateway callback (Flow.cl POST-redirects after payment/card
+  // enrollment) or a stale/misdirected request. Next.js 14 misinterprets
+  // such POSTs as Server Action calls, crashing with "Failed to find Server
+  // Action". Convert every non-API POST to a GET (303 See Other) and
+  // preserve URL-encoded body params as query strings so pages can read them.
+  if (req.method === "POST") {
     const url = req.nextUrl.clone();
-    // Flow sends token in POST body for card registration callbacks.
-    // Try to extract it from the URL-encoded body and add to query params.
     try {
       const body = await req.text();
       const params = new URLSearchParams(body);
-      const token = params.get("token");
-      if (token && !url.searchParams.has("token")) {
-        url.searchParams.set("token", token);
+      for (const [key, value] of params) {
+        if (!url.searchParams.has(key)) {
+          url.searchParams.set(key, value);
+        }
       }
     } catch {
       // Body not readable — continue with redirect anyway
@@ -43,5 +41,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/chat/:path*", "/chats/:path*", "/calificar/:path*", "/pago/exitoso", "/pago/tarjeta-registrada", "/wallet/:path*", "/umate/account/:path*", "/umate/onboarding", "/umate/checkout", "/admin/:path*", "/dashboard/:path*", "/cuenta/:path*", "/favoritos/:path*"]
+  // Run on all page routes. Exclude Next.js internals, static assets, and
+  // /api (which rewrites to the Express backend and needs POST intact).
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|brand/|api/).*)"],
 };

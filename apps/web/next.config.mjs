@@ -7,9 +7,6 @@ const nextConfig = {
   // Enable gzip/brotli compression for all responses
   compress: true,
   experimental: {
-    serverActions: {
-      allowedOrigins: ["flow.cl", "www.flow.cl"],
-    },
     // Tree-shake heavy packages — only imports actually used end up in the bundle
     optimizePackageImports: [
       "framer-motion",
