@@ -433,7 +433,9 @@ directoryRouter.get(
     const users = await prisma.user.findMany({
       where: {
         profileType: "PROFESSIONAL",
-        // DEV: avatarUrl, isVerified, subscription filters removed during development
+        avatarUrl: { not: null },
+        isVerified: true,
+        // DEV: subscription filter removed during development
       },
       take: 120,
       select: {
@@ -491,8 +493,7 @@ directoryRouter.get(
           lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
         };
       })
-      // DEV: tier filter removed during development — show all levels
-
+      .filter((u) => ["GOLD", "DIAMOND"].includes(u.userLevel))
       .sort((a, b) => {
         // Distance first — closest profiles always on top
         const distCmp = (a.distance ?? 1e9) - (b.distance ?? 1e9);
