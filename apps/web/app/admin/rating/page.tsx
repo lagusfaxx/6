@@ -443,7 +443,7 @@ export default function AdminRatingPage() {
               {/* Profile info */}
               <div className="px-5 py-4">
                 <div className="flex items-start gap-3">
-                  <Avatar url={currentProfile.avatarUrl} name={currentProfile.displayName || currentProfile.username} size="lg" />
+                  <Avatar src={currentProfile.avatarUrl} alt={currentProfile.displayName || currentProfile.username} size={56} />
                   <div className="flex-1 min-w-0">
                     <h2 className="font-bold text-lg truncate">{currentProfile.displayName || currentProfile.username}</h2>
                     <p className="text-xs text-white/40">@{currentProfile.username}</p>

@@ -770,11 +770,15 @@ adminRouter.post(
     const { profileId } = req.params;
     const { ratingPhotoQuality, ratingCompleteness, ratingPresentation, ratingAuthenticity, ratingValue, notes } = req.body;
 
-    // Validate scores 1-10
+    // Validate profile exists
+    const targetUser = await prisma.user.findUnique({ where: { id: profileId }, select: { id: true } });
+    if (!targetUser) return res.status(404).json({ error: "Perfil no encontrado" });
+
+    // Validate scores are integers 1-10
     const scores = [ratingPhotoQuality, ratingCompleteness, ratingPresentation, ratingAuthenticity, ratingValue];
     for (const s of scores) {
-      if (typeof s !== "number" || s < 1 || s > 10) {
-        return res.status(400).json({ error: "Cada puntuacion debe ser un numero entre 1 y 10" });
+      if (typeof s !== "number" || !Number.isInteger(s) || s < 1 || s > 10) {
+        return res.status(400).json({ error: "Cada puntuacion debe ser un entero entre 1 y 10" });
       }
     }
 
