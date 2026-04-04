@@ -1357,6 +1357,97 @@ adminRouter.post(
   }),
 );
 
+/* Upload photo from external URL — downloads and re-hosts locally */
+adminRouter.post(
+  "/quick-professionals/:id/upload-url",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { imageUrl } = req.body;
+
+    if (!imageUrl || typeof imageUrl !== "string") {
+      return res.status(400).json({ error: "Se requiere imageUrl" });
+    }
+
+    // Validate it looks like a URL
+    let parsed: URL;
+    try {
+      parsed = new URL(imageUrl);
+    } catch {
+      return res.status(400).json({ error: "URL invalida" });
+    }
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return res.status(400).json({ error: "Solo URLs http/https" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id }, select: { id: true, avatarUrl: true } });
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+    // Download the image
+    let buffer: Buffer;
+    let contentType: string;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const response = await fetch(imageUrl, {
+        signal: controller.signal,
+        headers: { "User-Agent": "UZEED-Admin/1.0" },
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        return res.status(400).json({ error: `No se pudo descargar la imagen (HTTP ${response.status})` });
+      }
+
+      contentType = (response.headers.get("content-type") || "").toLowerCase();
+      if (!contentType.startsWith("image/")) {
+        return res.status(400).json({ error: "La URL no apunta a una imagen" });
+      }
+
+      const arrayBuf = await response.arrayBuffer();
+      buffer = Buffer.from(arrayBuf);
+
+      // Limit to 20MB
+      if (buffer.length > 20 * 1024 * 1024) {
+        return res.status(400).json({ error: "Imagen demasiado grande (max 20MB)" });
+      }
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        return res.status(400).json({ error: "Timeout al descargar la imagen" });
+      }
+      return res.status(400).json({ error: "No se pudo descargar la imagen" });
+    }
+
+    // Determine extension from content-type
+    const extMap: Record<string, string> = {
+      "image/jpeg": ".jpg",
+      "image/jpg": ".jpg",
+      "image/png": ".png",
+      "image/webp": ".webp",
+      "image/gif": ".gif",
+      "image/avif": ".avif",
+    };
+    const ext = extMap[contentType] || ".jpg";
+    const filename = `${Date.now()}-url-import${ext}`;
+
+    // Save to disk
+    const fs = await import("fs/promises");
+    await storageProvider.ensureBaseDir();
+    await fs.writeFile(path.join(config.storageDir, filename), buffer);
+
+    const url = storageProvider.publicUrl(filename);
+
+    const media = await prisma.profileMedia.create({
+      data: { ownerId: id, type: "IMAGE", url },
+    });
+
+    if (!user.avatarUrl) {
+      await prisma.user.update({ where: { id }, data: { avatarUrl: url } });
+    }
+
+    return res.json({ media, url });
+  }),
+);
+
 adminRouter.delete(
   "/quick-professionals/:id/media/:mediaId",
   asyncHandler(async (req, res) => {
