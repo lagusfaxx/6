@@ -41,6 +41,7 @@ export type DirectoryResult = {
   avgResponseMinutes?: number | null;
   websiteUrl?: string | null;
   externalOnly?: boolean;
+  adminQualityScore?: number | null;
 };
 
 /* Catalog constants (also used by TopHeader chips/mega menu) */
@@ -182,6 +183,7 @@ function ProfileCard({
             <span className="truncate">{p.displayName}</span>
             {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
             {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
+            {p.adminQualityScore != null && p.adminQualityScore > 0 && <StatusBadgeIcon type="quality" size="h-3.5 w-3.5" />}
             {p.age ? <span className="text-white/50 font-normal text-[11px] tabular-nums">{p.age}</span> : null}
           </div>
 

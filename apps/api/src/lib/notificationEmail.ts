@@ -188,3 +188,72 @@ export async function sendServiceRequestConfirmation(
   );
   await send(email, `Nueva solicitud de encuentro de ${data.clientName} — UZEED`, html);
 }
+
+/* ─── Quality review email (admin "catador") ─── */
+
+function ratingBar(score: number): string {
+  const pct = Math.round((score / 10) * 100);
+  const color = score >= 7 ? "#10b981" : score >= 5 ? "#f59e0b" : "#ef4444";
+  return `<div style="display:flex;align-items:center;gap:8px;">
+    <div style="flex:1;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;">
+      <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;"></div>
+    </div>
+    <span style="font-size:13px;font-weight:700;color:${color};min-width:28px;text-align:right;">${score}/10</span>
+  </div>`;
+}
+
+function ratingRow(label: string, score: number): string {
+  return `<tr><td style="padding:4px 30px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="font-size:13px;color:rgba(255,255,255,0.5);padding:6px 0;width:45%;">${label}</td>
+        <td style="padding:6px 0;">${ratingBar(score)}</td>
+      </tr>
+    </table>
+  </td></tr>`;
+}
+
+export async function sendQualityReviewEmail(
+  email: string,
+  data: {
+    professionalName: string;
+    ratingPhotoQuality: number;
+    ratingCompleteness: number;
+    ratingPresentation: number;
+    ratingAuthenticity: number;
+    ratingValue: number;
+    overallScore: number;
+  },
+) {
+  const name = data.professionalName || "profesional";
+  const scoreColor = data.overallScore >= 7 ? "rgba(16,185,129,0.8)"
+    : data.overallScore >= 5 ? "rgba(245,158,11,0.8)"
+    : "rgba(239,68,68,0.8)";
+
+  const suggestions: string[] = [];
+  if (data.ratingPhotoQuality < 6) suggestions.push("Sube fotos de mejor calidad y buena iluminacion");
+  if (data.ratingCompleteness < 6) suggestions.push("Completa tu biografia, servicios y tarifas");
+  if (data.ratingPresentation < 6) suggestions.push("Mejora la presentacion general de tu anuncio");
+  if (data.ratingAuthenticity < 6) suggestions.push("Agrega fotos mas naturales y verificaciones");
+  if (data.ratingValue < 6) suggestions.push("Destaca lo que te hace unica y tus servicios especiales");
+
+  const suggestionsHtml = suggestions.length > 0
+    ? paragraph(`<strong>Sugerencias de mejora:</strong><br/>` + suggestions.map(s => `• ${s}`).join("<br/>"))
+    : paragraph("¡Tu perfil se ve excelente! Sigue asi.");
+
+  const html = wrapEmail(
+    "Evaluacion de calidad de tu perfil",
+    [
+      paragraph(`Hola ${name}, nuestro equipo ha evaluado la calidad de tu perfil en UZEED.`),
+      statusBadge(`Puntuacion: ${data.overallScore.toFixed(1)}/10`, scoreColor),
+      ratingRow("Calidad de fotos", data.ratingPhotoQuality),
+      ratingRow("Completitud del perfil", data.ratingCompleteness),
+      ratingRow("Presentacion", data.ratingPresentation),
+      ratingRow("Autenticidad", data.ratingAuthenticity),
+      ratingRow("Propuesta de valor", data.ratingValue),
+      suggestionsHtml,
+      ctaButton("Mejorar mi perfil", `${config.appUrl}/dashboard/services`),
+    ].join(""),
+  );
+  await send(email, `Evaluacion de calidad de tu perfil — UZEED`, html);
+}

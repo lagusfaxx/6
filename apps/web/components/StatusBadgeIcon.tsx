@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Crown, ShieldCheck } from "lucide-react";
+import { Crown, ShieldCheck, Star } from "lucide-react";
 
-type BadgeType = "premium" | "verificada";
+type BadgeType = "premium" | "verificada" | "quality";
 
 const CONFIG: Record<
   BadgeType,
@@ -24,6 +24,14 @@ const CONFIG: Record<
     color: "text-emerald-300",
     glow: "shadow-emerald-400/40",
     idle: "uzeed-badge-shimmer-emerald",
+  },
+  quality: {
+    label: "Calidad",
+    tooltip: "Perfil evaluado por calidad",
+    icon: Star,
+    color: "text-fuchsia-300",
+    glow: "shadow-fuchsia-400/40",
+    idle: "uzeed-badge-shimmer-fuchsia",
   },
 };
 
