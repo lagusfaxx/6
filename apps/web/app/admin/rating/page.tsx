@@ -384,7 +384,7 @@ export default function AdminRatingPage() {
                 {currentProfile.profileMedia.length > 0 ? (
                   <div className="relative h-72 sm:h-80 overflow-hidden bg-black/30">
                     <img
-                      src={resolveMediaUrl(currentProfile.profileMedia[activePhotoIndex]?.url || currentProfile.coverUrl || "")}
+                      src={resolveMediaUrl(currentProfile.profileMedia[activePhotoIndex]?.url || currentProfile.coverUrl || "") ?? undefined}
                       alt=""
                       className="w-full h-full object-cover"
                     />
@@ -423,7 +423,7 @@ export default function AdminRatingPage() {
                   </div>
                 ) : currentProfile.coverUrl ? (
                   <div className="h-48 overflow-hidden bg-black/30">
-                    <img src={resolveMediaUrl(currentProfile.coverUrl)} alt="" className="w-full h-full object-cover" />
+                    <img src={resolveMediaUrl(currentProfile.coverUrl) ?? undefined} alt="" className="w-full h-full object-cover" />
                   </div>
                 ) : (
                   <div className="h-36 bg-gradient-to-br from-fuchsia-900/30 to-purple-900/30 flex items-center justify-center">
