@@ -1744,8 +1744,8 @@ export default function HomeClient() {
               <Link href="/register?type=CLIENT" className="uzeed-cta-btn uzeed-hero-cta group inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-7 py-3.5 text-sm font-bold shadow-[0_12px_40px_rgba(168,85,247,0.2)] sm:w-auto">
                 Registro Cliente <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
-              <Link href="/register?type=PROFESSIONAL" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/[0.06] px-7 py-3.5 text-sm font-bold text-fuchsia-200/80 transition-all duration-200 hover:bg-fuchsia-500/[0.12] hover:text-fuchsia-200 sm:w-auto">
-                Registro Profesional
+              <Link href="/register?type=PROFESSIONAL" className="uzeed-cta-btn group inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-pink-600 to-fuchsia-600 px-7 py-3.5 text-sm font-bold shadow-[0_12px_40px_rgba(236,72,153,0.2)] sm:w-auto">
+                Registro Profesional — 3 meses gratis <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
               <Link href="/register?type=ESTABLISHMENT" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-7 py-3.5 text-sm font-semibold text-white/60 transition-all duration-200 hover:bg-white/[0.08] hover:text-white/80 sm:w-auto">
                 Registro Comercio

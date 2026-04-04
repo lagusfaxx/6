@@ -276,6 +276,24 @@ export default function RegisterClient() {
                 </div>
               </div>
 
+              {/* Promo banner visible on type selection */}
+              {profileType === "PROFESSIONAL" && (
+                <div className="mt-5 relative overflow-hidden rounded-2xl border border-fuchsia-500/30 bg-gradient-to-r from-fuchsia-600/20 via-violet-600/20 to-pink-600/20 p-4">
+                  <div className="relative flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/30 to-violet-500/30 border border-fuchsia-400/20">
+                      <Gift className="h-5 w-5 text-fuchsia-300" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                        <span className="text-sm font-bold text-white">3 meses gratis</span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-white/60">Sin tarjeta de crédito. Empieza a recibir clientes hoy.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Continue button */}
               <button
                 type="button"

@@ -179,6 +179,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   add("/foro", "hourly", 0.85);
   // /hot redirects to /premium — excluded from sitemap
 
+  // ── Registro (indexable para captar profesionales) ──
+  add("/register", "weekly", 0.7);
+  add("/register?type=PROFESSIONAL", "weekly", 0.75);
+
   // ── Páginas informativas ──
   add("/contacto", "monthly", 0.5);
   add("/terminos", "yearly", 0.3);

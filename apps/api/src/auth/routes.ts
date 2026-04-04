@@ -227,7 +227,7 @@ authRouter.post(
 
     const passwordHash = await argon2.hash(password);
 
-    // Determine trial period: 7 days for business profiles, 30 days for others
+    // Determine trial period: 90 days (3 months free) for business profiles
     const requiresPayment = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(
       profileType,
     );
