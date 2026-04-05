@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useRef } from "react";
 import AuthForm, { type RegisterFormData } from "../../components/AuthForm";
+import ProfessionalRegisterForm from "../../components/ProfessionalRegisterForm";
 import TermsModal from "../../components/TermsModal";
 import EmailVerification from "../../components/EmailVerification";
 import Link from "next/link";
@@ -323,30 +324,49 @@ export default function RegisterClient() {
                   {registerError}
                 </div>
               )}
-              <AuthForm
-                mode="register"
-                initialProfileType={profileType}
-                lockProfileType
-                termsAccepted={termsAccepted}
-                onOpenTerms={() => setTermsOpen(true)}
-                onCollectData={(data) => {
-                  setPendingFormData(data);
-                  setRegisteredEmail(data.email);
-                  setRegisterError(null);
-                  setStep("verify");
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("choose");
-                  setTermsAccepted(false);
-                }}
-                className="mt-4 flex items-center gap-2 text-sm text-white/50 hover:text-white/70 transition"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Cambiar tipo de registro
-              </button>
+              {isProfessional ? (
+                <ProfessionalRegisterForm
+                  termsAccepted={termsAccepted}
+                  onOpenTerms={() => setTermsOpen(true)}
+                  onCollectData={(data) => {
+                    setPendingFormData(data);
+                    setRegisteredEmail(data.email);
+                    setRegisterError(null);
+                    setStep("verify");
+                  }}
+                  onBack={() => {
+                    setStep("choose");
+                    setTermsAccepted(false);
+                  }}
+                />
+              ) : (
+                <>
+                  <AuthForm
+                    mode="register"
+                    initialProfileType={profileType}
+                    lockProfileType
+                    termsAccepted={termsAccepted}
+                    onOpenTerms={() => setTermsOpen(true)}
+                    onCollectData={(data) => {
+                      setPendingFormData(data);
+                      setRegisteredEmail(data.email);
+                      setRegisterError(null);
+                      setStep("verify");
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep("choose");
+                      setTermsAccepted(false);
+                    }}
+                    className="mt-4 flex items-center gap-2 text-sm text-white/50 hover:text-white/70 transition"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Cambiar tipo de registro
+                  </button>
+                </>
+              )}
             </div>
           ) : step === "avatar" ? (
             <div className="p-8">
