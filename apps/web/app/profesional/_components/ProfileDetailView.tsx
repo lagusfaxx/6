@@ -84,6 +84,8 @@ type Professional = {
   profileViews?: number;
   userLevel?: string | null;
   reviewTagsSummary?: Record<string, number> | null;
+  umateActive?: boolean;
+  umateName?: string | null;
   avgResponseMinutes?: number | null;
   forumThread?: {
     id: string;
@@ -652,6 +654,11 @@ export default function ProfileDetailView({
                 {professional.age ? <span className="text-white/60 font-normal">, {professional.age}</span> : ""}
                 {hasPremiumBadge(professional?.profileTags) && <StatusBadgeIcon type="premium" size="h-5 w-5" />}
                 {hasVerifiedBadge(professional?.profileTags) && <StatusBadgeIcon type="verificada" size="h-5 w-5" />}
+                {professional.umateActive && (
+                  <Link href={`/umate/profile/${professional.id}`} className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-fuchsia-600/30 to-violet-600/30 border border-fuchsia-400/30 px-2.5 py-0.5 text-xs font-bold text-fuchsia-200 hover:from-fuchsia-600/50 hover:to-violet-600/50 transition" title="Contenido exclusivo en UMate">
+                    <Sparkles className="h-3 w-3" /> UMate
+                  </Link>
+                )}
               </h1>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/70 md:text-base">
                 <span className="flex items-center gap-1.5">

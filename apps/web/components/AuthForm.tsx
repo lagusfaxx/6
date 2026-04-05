@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch, friendlyErrorMessage, safeRedirect } from "../lib/api";
-import { Eye, EyeOff, FileText } from "lucide-react";
+import { Eye, EyeOff, FileText, ShieldCheck } from "lucide-react";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
 
 type Mode = "login" | "register";
@@ -39,8 +39,8 @@ function flattenValidation(details: any): string | null {
       if (low.includes("invalid email")) return "El email no es válido.";
       if (low.includes("too small")) return `${f} es demasiado corto.`;
       if (low.includes("too big")) return `${f} es demasiado largo.`;
-      if (low.includes("chileno") || low.includes("+56 9"))
-        return "Por seguridad, solo aceptamos números chilenos válidos (+56 9...).";
+      if (low.includes("código de país") || low.includes("+56"))
+        return "Ingresa un número válido con código de país (+56, +57, +58 o +51).";
       return `${f}: ${msg}`;
     }),
   );
@@ -112,7 +112,7 @@ export default function AuthForm({
     profileType === "PROFESSIONAL" ||
     profileType === "ESTABLISHMENT" ||
     profileType === "SHOP";
-  const phoneRegex = /^\+56\s?9(?:[\s-]?\d){8}$/;
+  const phoneRegex = /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
 
   const finalTermsAccepted = externalTermsAccepted ?? acceptTerms;
 
@@ -130,7 +130,7 @@ export default function AuthForm({
         }
         if (!phoneRegex.test(phone.trim())) {
           setError(
-            "Por seguridad, solo aceptamos números chilenos válidos (+56 9...)",
+            "Ingresa un número válido con código de país (+56, +57, +58 o +51).",
           );
           setLoading(false);
           return;
@@ -251,7 +251,7 @@ export default function AuthForm({
             className="input"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="+56 9 1234 5678"
+            placeholder="+56 9 1234 5678 / +57 3..."
             required
           />
         </div>
@@ -371,10 +371,9 @@ export default function AuthForm({
             onChange={(e) => setBio(e.target.value)}
             placeholder={
               profileType === "PROFESSIONAL"
-                ? "Describe tu experiencia en pocas líneas."
+                ? "Describe tu experiencia en pocas líneas (puedes completar después)."
                 : "Describe tu negocio (opcional)."
             }
-            required={profileType === "PROFESSIONAL"}
           />
         </div>
       ) : null}
@@ -398,10 +397,18 @@ export default function AuthForm({
             placeholder="Busca tu dirección"
             required
           />
-          <p className="text-xs text-white/40">
-            Para publicar perfiles comerciales debes validar la dirección con
-            Mapbox.
-          </p>
+          {profileType === "PROFESSIONAL" ? (
+            <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-emerald-300/80 leading-relaxed">
+                Tu dirección exacta <span className="font-semibold">nunca se muestra</span>. Los clientes solo ven una zona aproximada (~600 m) en el mapa.
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-white/40">
+              Para publicar perfiles comerciales debes validar la dirección con Mapbox.
+            </p>
+          )}
         </>
       ) : null}
 

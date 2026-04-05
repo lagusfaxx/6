@@ -8,6 +8,15 @@ import Link from "next/link";
 import { apiFetch, getApiBase, friendlyErrorMessage } from "../../lib/api";
 import { Briefcase, Building2, ShoppingBag, User, Clock, Phone, CheckCircle2, ArrowLeft, ArrowRight, Camera, Upload, Sparkles, Gift } from "lucide-react";
 
+function trialLabel(days: number): string {
+  if (days >= 365) return `${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? "s" : ""}`;
+  if (days >= 30) return `${Math.floor(days / 30)} mes${Math.floor(days / 30) > 1 ? "es" : ""}`;
+  return `${days} días`;
+}
+
+const FREE_TRIAL_DAYS = Number(process.env.NEXT_PUBLIC_FREE_TRIAL_DAYS || 90);
+const TRIAL_TEXT = `${trialLabel(FREE_TRIAL_DAYS)} gratis`;
+
 type ProfileType = "CLIENT" | "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
 
 const consumerOption = {
@@ -203,10 +212,10 @@ export default function RegisterClient() {
                 <div>
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-amber-400" />
-                    <span className="text-sm font-bold text-white">Promo: 3 meses gratis</span>
+                    <span className="text-sm font-bold text-white">Promo: {TRIAL_TEXT}</span>
                   </div>
                   <p className="mt-0.5 text-xs text-white/60 leading-relaxed">
-                    Regístrate ahora y disfruta 3 meses de membresía sin costo.
+                    Regístrate ahora y disfruta {trialLabel(FREE_TRIAL_DAYS)} de membresía sin costo.
                   </p>
                 </div>
               </div>
@@ -275,6 +284,24 @@ export default function RegisterClient() {
                   })}
                 </div>
               </div>
+
+              {/* Promo banner visible on type selection */}
+              {profileType === "PROFESSIONAL" && (
+                <div className="mt-5 relative overflow-hidden rounded-2xl border border-fuchsia-500/30 bg-gradient-to-r from-fuchsia-600/20 via-violet-600/20 to-pink-600/20 p-4">
+                  <div className="relative flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/30 to-violet-500/30 border border-fuchsia-400/20">
+                      <Gift className="h-5 w-5 text-fuchsia-300" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                        <span className="text-sm font-bold text-white">{TRIAL_TEXT}</span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-white/60">Sin tarjeta de crédito. Empieza a recibir clientes hoy.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Continue button */}
               <button

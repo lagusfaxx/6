@@ -22,19 +22,19 @@ const TIER_META: Record<string, { icon: typeof Sparkles; color: string; features
     icon: Sparkles,
     color: "#94a3b8",
     subtitle: "Entrada premium",
-    features: ["1 cupo mensual de creadora premium", "Acceso a contenido exclusivo", "Soporte estándar", "Renovación automática"],
+    features: ["Sigue a 1 creadora premium", "Acceso a fotos y videos exclusivos", "Soporte estándar", "Renovación automática"],
   },
   GOLD: {
     icon: Crown,
     color: "#f59e0b",
     subtitle: "El más elegido",
-    features: ["3 cupos mensuales de creadoras premium", "Mayor flexibilidad de discovery", "Soporte prioritario", "Insignia de fan Gold"],
+    features: ["Sigue hasta 3 creadoras premium", "Contenido exclusivo sin límites", "Soporte prioritario", "Insignia de fan Gold"],
   },
   DIAMOND: {
     icon: Diamond,
     color: "#8b5cf6",
     subtitle: "Máximo alcance",
-    features: ["5 cupos mensuales de creadoras premium", "Máxima conversión y acceso", "Beneficios VIP exclusivos", "Acceso anticipado a novedades"],
+    features: ["Sigue hasta 5 creadoras premium", "Acceso completo a todo el contenido", "Beneficios VIP exclusivos", "Acceso anticipado a novedades"],
   },
 };
 
@@ -98,13 +98,28 @@ export default function PlansPage() {
           <h1 className="text-3xl font-extrabold tracking-tight text-white md:text-4xl">
             Elige tu plan
           </h1>
-          <p className="mt-3 text-[15px] text-white/35">
-            Cada plan incluye cupos mensuales para suscribirte a creadoras premium. Contenido exclusivo, sin límites.
+          <p className="mt-3 text-[15px] text-white/35 leading-relaxed">
+            Suscríbete a creadoras y accede a su contenido exclusivo. Cada plan define a cuántas creadoras puedes seguir simultáneamente.
           </p>
         </div>
       </div>
 
       <div className="mx-auto max-w-[900px] px-4 py-10 lg:py-14">
+        {/* How it works */}
+        <div className="mb-10 grid gap-4 text-center sm:grid-cols-3">
+          {[
+            { step: "1", title: "Elige un plan", desc: "Selecciona según cuántas creadoras quieras seguir." },
+            { step: "2", title: "Sigue creadoras", desc: "Suscríbete a las creadoras que más te gusten." },
+            { step: "3", title: "Disfruta el contenido", desc: "Accede a fotos, videos y publicaciones exclusivas." },
+          ].map((s) => (
+            <div key={s.step} className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
+              <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-[#00aff0]/10 text-sm font-bold text-[#00aff0]">{s.step}</div>
+              <p className="mt-3 text-sm font-bold text-white/80">{s.title}</p>
+              <p className="mt-1 text-xs text-white/40">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+
         {isCreator && (
           <div className="mx-auto mb-6 max-w-md rounded-xl border border-amber-500/20 bg-amber-500/[0.05] p-4 text-center text-sm text-amber-400/80">
             <Shield className="mx-auto mb-1 h-5 w-5" /> Las cuentas creadora no pueden activar planes de cliente.
@@ -146,7 +161,7 @@ export default function PlansPage() {
                   <span className="text-3xl font-extrabold text-white">${plan.priceCLP.toLocaleString("es-CL")}</span>
                   <span className="text-sm text-white/40">/mes</span>
                 </div>
-                <p className="mt-1 text-xs text-white/40">{plan.maxSlots} cupo{plan.maxSlots > 1 ? "s" : ""} por ciclo mensual</p>
+                <p className="mt-1 text-xs text-white/40">Sigue a {plan.maxSlots} creadora{plan.maxSlots > 1 ? "s" : ""} al mes</p>
 
                 <ul className="mt-5 flex-1 space-y-2.5">
                   {meta.features.map((f) => (
@@ -190,7 +205,7 @@ export default function PlansPage() {
               </thead>
               <tbody>
                 {[
-                  { label: "Cupos mensuales", values: plans.map((p) => String(p.maxSlots)) },
+                  { label: "Creadoras simultáneas", values: plans.map((p) => String(p.maxSlots)) },
                   { label: "Contenido premium", values: plans.map(() => "check") },
                   { label: "Soporte prioritario", values: plans.map((p) => p.tier !== "SILVER" ? "check" : "dash") },
                   { label: "Beneficios VIP", values: plans.map((p) => p.tier === "DIAMOND" ? "check" : "dash") },
@@ -221,7 +236,7 @@ export default function PlansPage() {
           <h3 className="text-center text-xl font-bold tracking-tight text-white">Preguntas frecuentes</h3>
           <div className="mx-auto mt-8 max-w-2xl space-y-2">
             {[
-              { q: "¿Qué es un cupo mensual?", a: "Cada cupo te permite suscribirte a una creadora premium. La cantidad de cupos depende de tu plan." },
+              { q: "¿Cómo funcionan los planes?", a: "Cada plan te permite seguir a un número determinado de creadoras premium al mismo tiempo. Por ejemplo, con Gold puedes acceder al contenido exclusivo de hasta 3 creadoras." },
               { q: "¿Puedo cambiar de plan?", a: "Sí, puedes subir o bajar tu plan en cualquier momento. El cambio aplica en tu próximo ciclo de facturación." },
               { q: "¿Cómo funciona la renovación?", a: "Todos los planes se renuevan automáticamente cada mes. Puedes cancelar cuando quieras sin penalización." },
               { q: "¿Los pagos son seguros?", a: "Todos los pagos se procesan a través de pasarelas de pago seguras con encriptación de nivel bancario." },
@@ -235,6 +250,20 @@ export default function PlansPage() {
               </details>
             ))}
           </div>
+        </div>
+        {/* Creator CTA */}
+        <div className="mt-16 rounded-2xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-500/[0.04] via-violet-500/[0.02] to-transparent p-8 text-center">
+          <Sparkles className="mx-auto h-6 w-6 text-fuchsia-400/70" />
+          <h3 className="mt-3 text-lg font-bold text-white">¿Quieres ganar dinero como creadora?</h3>
+          <p className="mt-2 text-sm text-white/40 leading-relaxed max-w-md mx-auto">
+            Publica contenido exclusivo, recibe pagos de tus fans y retira tus ganancias. Tú decides el precio.
+          </p>
+          <Link
+            href="/umate/onboarding"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(168,85,247,0.3)] transition hover:shadow-[0_6px_28px_rgba(168,85,247,0.4)]"
+          >
+            <Sparkles className="h-4 w-4" /> Comenzar como creadora
+          </Link>
         </div>
       </div>
     </div>

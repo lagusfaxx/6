@@ -228,7 +228,7 @@ export default function CreatorProfilePage() {
   const handleSubscribe = async () => {
     if (!creator || isCreatorUser) return;
     if (!me?.user) {
-      window.location.href = `/login?next=/umate/profile/${username}`;
+      window.location.href = `/login?next=/umate/profile/${encodeURIComponent(username)}`;
       return;
     }
     setSubscribing(true);
@@ -242,7 +242,7 @@ export default function CreatorProfilePage() {
       if (err?.status === 403 && err?.body?.error === "NO_PLAN") {
         window.location.href = "/umate/plans";
       } else if (err?.status === 401) {
-        window.location.href = `/login?next=/umate/profile/${username}`;
+        window.location.href = `/login?next=/umate/profile/${encodeURIComponent(username)}`;
       } else {
         window.location.href = "/umate/plans";
       }
@@ -541,12 +541,14 @@ export default function CreatorProfilePage() {
                           </p>
                           <p className="mt-0.5 text-[10px] text-white/45">{new Date(c.createdAt).toLocaleDateString("es-CL")}</p>
                         </div>
-                        <button
-                          onClick={() => deleteComment(c.id, post.id)}
-                          className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/40 hover:text-red-400"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
+                        {me?.user?.id === c.user.id && (
+                          <button
+                            onClick={() => deleteComment(c.id, post.id)}
+                            className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/40 hover:text-red-400"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>

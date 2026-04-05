@@ -68,7 +68,7 @@ export default function StatsPage() {
         ))}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-5 md:grid-cols-[1.4fr_1fr]">
         {/* Performance bars */}
         <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
           <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Rendimiento</h2>

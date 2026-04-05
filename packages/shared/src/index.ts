@@ -25,8 +25,8 @@ export const registerInputSchema = z
     phone: z
       .string()
       .regex(
-        /^\+56\s?9(?:[\s-]?\d){8}$/,
-        "Por seguridad, solo aceptamos números chilenos válidos (+56 9...)",
+        /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/,
+        "Ingresa un número válido con código de país (+56, +57, +58 o +51).",
       ),
     email: z.string().email(),
     password: z.string().min(8).max(128),
@@ -65,15 +65,10 @@ export const registerInputSchema = z
           message: "required",
         });
       }
-      if (!data.bio || data.bio.trim().length < 20) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["bio"],
-          message: "required",
-        });
-      }
+      // Bio is optional at registration; professionals complete it later
     }
 
+    // Address/geolocation required for all business profiles (used for distance search)
     if (isBusiness) {
       if (!data.address || data.address.trim().length < 6) {
         ctx.addIssue({

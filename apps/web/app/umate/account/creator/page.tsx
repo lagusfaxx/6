@@ -125,7 +125,7 @@ export default function CreatorDashboardPage() {
       </div>
 
       {/* Two columns */}
-      <div className="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
+      <div className="grid gap-5 md:grid-cols-[1.3fr_1fr]">
         {/* Performance */}
         <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
           <div className="flex items-center justify-between">

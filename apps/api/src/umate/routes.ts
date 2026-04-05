@@ -576,7 +576,7 @@ umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, asyncHandl
   }
 
   // Activate slot — calculate economics from plan price
-  const platformCommPct = await getUmateConfig("umate_platform_commission_pct", 0);
+  const platformCommPct = await getUmateConfig("umate_platform_commission_pct", 15);
   const ivaPct = await getUmateConfig("umate_iva_pct", 19);
 
   // Plan price includes IVA; split per slot
@@ -686,8 +686,13 @@ umateRouter.post("/umate/creator/onboard", requireAuth, asyncHandler(async (req,
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { displayName: true, bio: true, avatarUrl: true },
+    select: { displayName: true, bio: true, avatarUrl: true, coverUrl: true, profileType: true, isVerified: true },
   });
+
+  // Express onboarding: verified professionals with complete profiles skip DRAFT
+  const hasCompleteProfile = user?.displayName && user?.bio && user?.avatarUrl;
+  const isProfessional = user?.profileType === "PROFESSIONAL" && user?.isVerified;
+  const initialStatus = (isProfessional && hasCompleteProfile) ? "PENDING_BANK" : "DRAFT";
 
   const creator = await prisma.umateCreator.create({
     data: {
@@ -695,7 +700,8 @@ umateRouter.post("/umate/creator/onboard", requireAuth, asyncHandler(async (req,
       displayName: user?.displayName || "Creadora",
       bio: user?.bio,
       avatarUrl: user?.avatarUrl,
-      status: "DRAFT",
+      coverUrl: user?.coverUrl,
+      status: initialStatus,
     },
   });
 
@@ -1547,7 +1553,7 @@ umateRouter.get("/admin/umate/dashboard", requireAdmin, asyncHandler(async (_req
   ]);
 
   const payoutPerSlot = await getUmateConfig("umate_payout_per_slot", 5000);
-  const platformCommPct = await getUmateConfig("umate_platform_commission_pct", 0);
+  const platformCommPct = await getUmateConfig("umate_platform_commission_pct", 15);
   const ivaPct = await getUmateConfig("umate_iva_pct", 19);
 
   // Platform earnings: sum of platformFee and ivaAmount from all slot activations

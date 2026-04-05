@@ -9,6 +9,7 @@ import {
   Home,
   Plus,
   User,
+  Users,
   Wallet,
 } from "lucide-react";
 import useMe from "../../../hooks/useMe";
@@ -24,12 +25,14 @@ type NavItem = {
 
 const clientItems: NavItem[] = [
   { href: "/umate/explore", label: "Inicio", icon: Home, exact: true },
+  { href: "/umate/creators", label: "Creadoras", icon: Users, exact: true },
   { href: "/umate/plans", label: "Planes", icon: Crown },
-  { href: "/umate/account", label: "Mi cuenta", icon: User, exact: true },
+  { href: "/umate/account", label: "Cuenta", icon: User, exact: true },
 ];
 
 const creatorItems: NavItem[] = [
   { href: "/umate/explore", label: "Inicio", icon: Home, exact: true },
+  { href: "/umate/creators", label: "Creadoras", icon: Users, exact: true },
   { href: "/umate/account/content", label: "Publicar", icon: Plus, isAction: true },
   { href: "/umate/account/wallet", label: "Ingresos", icon: Wallet },
   { href: "/umate/account", label: "Studio", icon: User, exact: true },
