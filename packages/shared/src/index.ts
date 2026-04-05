@@ -44,6 +44,7 @@ export const registerInputSchema = z
     birthdate: z.string().optional(),
     bio: z.string().max(1000).optional(),
     primaryCategory: z.string().max(120).optional(),
+    referralCode: z.string().max(20).optional(),
   })
   .superRefine((data, ctx) => {
     const isBusiness = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(

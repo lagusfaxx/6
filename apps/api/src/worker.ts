@@ -8,8 +8,22 @@ import {
   sendNoPhotoReminder,
   sendInactiveProfileReminder,
   sendVideocallConfigReminder,
+  sendReferralCampaignEmail,
 } from "./lib/notificationEmail";
 import { sendInAppAndPush } from "./lib/sendReminder";
+import { randomBytes } from "crypto";
+import { calculateReferralPayout } from "./referral/payout";
+import { validatePendingRedemptions } from "./referral/redeem";
+
+function cryptoSuffix(len: number): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = randomBytes(len);
+  let result = "";
+  for (let i = 0; i < len; i++) {
+    result += chars[bytes[i] % chars.length];
+  }
+  return result;
+}
 
 /* ─── Mutex: prevent concurrent ticks ─── */
 
@@ -304,6 +318,174 @@ async function tickSyncPacSubscriptions() {
   }
 }
 
+/* ─── 6. Auto-send referral campaign email 2h after creator registration ─── */
+
+async function tickReferralWelcomeEmail() {
+  const now = new Date();
+  const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+
+  // Fetch creators/professionals registered 2h+ ago who haven't received the email.
+  // No date floor: covers both new and existing users. The ReminderLog
+  // ("referral_welcome_2h") persists in DB so redeploys never re-send.
+  // Processes 50 per tick to spread the load across hours.
+  const creators = await prisma.user.findMany({
+    where: {
+      profileType: { in: ["CREATOR", "PROFESSIONAL"] },
+      isActive: true,
+      email: { not: "" },
+      createdAt: { lte: twoHoursAgo },
+    },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      displayName: true,
+      creatorReferralCode: { select: { code: true } },
+    },
+    take: 50,
+  });
+
+  for (const user of creators) {
+    if (await wasReminderSent(user.id, "referral_welcome_2h")) continue;
+
+    // Auto-generate referral code if needed
+    let code = user.creatorReferralCode?.code;
+    if (!code) {
+      const clean = (user.username || "REF")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .slice(0, 4);
+      code = `${clean}${cryptoSuffix(4)}`;
+
+      // Ensure uniqueness
+      let attempts = 0;
+      while (attempts < 10) {
+        const existing = await prisma.creatorReferralCode.findUnique({ where: { code } });
+        if (!existing) break;
+        code = `${clean}${cryptoSuffix(5)}`;
+        attempts++;
+      }
+
+      const refCode = await prisma.creatorReferralCode.create({
+        data: { creatorId: user.id, code },
+      });
+
+      // Create initial cycle
+      await prisma.referralCycle.create({
+        data: {
+          referralCodeId: refCode.id,
+          cycleStart: now,
+          cycleEnd: new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000),
+          status: "ACTIVE",
+        },
+      });
+    }
+
+    await safeSend(
+      user.id,
+      "referral_welcome_2h",
+      `referral welcome to ${user.email}`,
+      () => sendReferralCampaignEmail(user.email, {
+        displayName: user.displayName,
+        referralCode: code!,
+      }),
+      {
+        type: "REFERRAL_WELCOME" as any,
+        title: "Gana dinero invitando creadoras",
+        body: `Tu codigo de referido es ${code}. Gana hasta $650.000 por ciclo.`,
+        url: "/dashboard/referidos",
+      },
+    );
+  }
+}
+
+/* ─── 7. Validate pending referral redemptions ─── */
+
+async function tickReferralValidation() {
+  const count = await validatePendingRedemptions();
+  if (count > 0) {
+    console.log(`[worker/referral] validated ${count} pending redemptions`);
+  }
+}
+
+/* ─── 7. Referral cycle expiry (20-day cycles) ─── */
+
+async function tickReferralCycles() {
+  const now = new Date();
+
+  // Find ACTIVE cycles whose cycleEnd has passed
+  const expiredCycles = await prisma.referralCycle.findMany({
+    where: {
+      status: "ACTIVE",
+      cycleEnd: { lt: now },
+    },
+    include: {
+      referralCode: {
+        select: { id: true, creatorId: true },
+      },
+    },
+    take: 100,
+  });
+
+  for (const cycle of expiredCycles) {
+    // Count only VALIDATED redemptions for this cycle
+    const referralCount = await prisma.referralRedemption.count({
+      where: { cycleId: cycle.id, status: "VALIDATED" },
+    });
+
+    const payout = calculateReferralPayout(referralCount);
+
+    if (payout.qualifies) {
+      // Mark as PENDING_PAYMENT with calculated amounts
+      await prisma.referralCycle.update({
+        where: { id: cycle.id },
+        data: {
+          status: "PENDING_PAYMENT",
+          totalReferrals: referralCount,
+          baseAmount: payout.baseAmount,
+          bonusAmount: payout.bonusAmount,
+          totalAmount: payout.totalAmount,
+        },
+      });
+
+      console.log(
+        `[worker/referral] cycle ${cycle.id} → PENDING_PAYMENT: ${referralCount} referrals, $${payout.totalAmount} CLP`,
+      );
+    } else {
+      // Did not meet minimum — mark as EXPIRED
+      await prisma.referralCycle.update({
+        where: { id: cycle.id },
+        data: {
+          status: "EXPIRED",
+          totalReferrals: referralCount,
+          baseAmount: 0,
+          bonusAmount: 0,
+          totalAmount: 0,
+        },
+      });
+
+      console.log(
+        `[worker/referral] cycle ${cycle.id} → EXPIRED: only ${referralCount} referrals (min 10)`,
+      );
+    }
+
+    // Create a new ACTIVE cycle for the creator (day 21 = fresh start)
+    const newCycleEnd = new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000);
+    await prisma.referralCycle.create({
+      data: {
+        referralCodeId: cycle.referralCode.id,
+        cycleStart: now,
+        cycleEnd: newCycleEnd,
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  if (expiredCycles.length > 0) {
+    console.log(`[worker/referral] processed ${expiredCycles.length} expired cycles`);
+  }
+}
+
 /* ─── Main tick: runs all checks independently ─── */
 
 async function tick() {
@@ -322,6 +504,9 @@ async function tick() {
     { name: "videocallConfig", fn: tickVideocallConfigReminder },
     { name: "expireStalePendingIntents", fn: tickExpireStalePendingIntents },
     { name: "syncPacSubscriptions", fn: tickSyncPacSubscriptions },
+    { name: "referralWelcomeEmail", fn: tickReferralWelcomeEmail },
+    { name: "referralValidation", fn: tickReferralValidation },
+    { name: "referralCycles", fn: tickReferralCycles },
   ];
 
   for (const task of tasks) {
