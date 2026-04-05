@@ -30,7 +30,7 @@ type Post = {
   media: { id: string; type: string; url: string; pos: number }[];
 };
 
-type FilterKey = "ALL" | "FREE" | "PREMIUM" | "DRAFT";
+type FilterKey = "ALL" | "FREE" | "PREMIUM";
 
 type CreatorStatus = {
   bankConfigured: boolean;
@@ -76,8 +76,7 @@ export default function ContentPage() {
 
   const filteredPosts = useMemo(() => {
     return posts.filter((post) => {
-      if (filter !== "ALL" && filter !== "DRAFT" && post.visibility !== filter) return false;
-      if (filter === "DRAFT") return false;
+      if (filter !== "ALL" && post.visibility !== filter) return false;
       if (!query.trim()) return true;
       return (post.caption || "").toLowerCase().includes(query.toLowerCase());
     });

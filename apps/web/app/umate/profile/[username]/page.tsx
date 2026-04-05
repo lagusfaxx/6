@@ -228,7 +228,7 @@ export default function CreatorProfilePage() {
   const handleSubscribe = async () => {
     if (!creator || isCreatorUser) return;
     if (!me?.user) {
-      window.location.href = `/login?next=/umate/profile/${username}`;
+      window.location.href = `/login?next=/umate/profile/${encodeURIComponent(username)}`;
       return;
     }
     setSubscribing(true);
@@ -242,7 +242,7 @@ export default function CreatorProfilePage() {
       if (err?.status === 403 && err?.body?.error === "NO_PLAN") {
         window.location.href = "/umate/plans";
       } else if (err?.status === 401) {
-        window.location.href = `/login?next=/umate/profile/${username}`;
+        window.location.href = `/login?next=/umate/profile/${encodeURIComponent(username)}`;
       } else {
         window.location.href = "/umate/plans";
       }
