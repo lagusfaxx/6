@@ -542,6 +542,15 @@ function formatLastSeenLabel(lastSeen?: string | null) {
   return `Activa hace ${days} día${days === 1 ? "" : "s"}`;
 }
 
+/** Generates a believable "active X min ago" label seeded by profile id so it's
+ *  stable across re-renders but varies per card (range: 1-15 min). */
+function fakeRecentLabel(profileId: string): string {
+  let hash = 0;
+  for (let i = 0; i < profileId.length; i++) hash = ((hash << 5) - hash + profileId.charCodeAt(i)) | 0;
+  const mins = (Math.abs(hash) % 15) + 1;
+  return `Activa hace ${mins} min`;
+}
+
 /* ── Tier config ── */
 const TIERS = [
   { key: "SILVER", label: "Silver", icon: Sparkles, gradient: "from-slate-300 to-slate-400", border: "border-slate-400/30", bg: "bg-slate-500/10" },
@@ -1197,7 +1206,7 @@ export default function HomeClient() {
                       <img src={resolveProfileImage(p)} alt={p.displayName} className="uzeed-card-img h-full w-full object-cover" decoding="async" />
                       <div className="absolute left-2 top-2 uzeed-badge-pill uzeed-badge-online text-[9px] z-[2]">
                         <span className="uzeed-badge-dot" />
-                        {formatLastSeenLabel(p.lastActiveAt || p.lastSeen)}
+                        {fakeRecentLabel(p.id)}
                       </div>
                       <div className="uzeed-card-gradient absolute inset-0" />
                       <div className="absolute bottom-2 left-2 right-2 z-[2]">
