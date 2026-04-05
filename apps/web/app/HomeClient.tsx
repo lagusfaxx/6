@@ -832,9 +832,13 @@ export default function HomeClient() {
     };
   }, [recentPros]);
 
-  // Destacadas carousel: DIAMOND + GOLD profiles
+  // Destacadas carousel: DIAMOND + GOLD profiles, fallback to top recent pros so section is never empty
   const featuredCarouselProfiles = useMemo(() => {
-    return recentPros.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD").slice(0, 12);
+    const premium = recentPros.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD");
+    if (premium.length >= 3) return premium.slice(0, 12);
+    // Fallback: fill with top recent pros (by views) so the section always shows
+    const sorted = [...recentPros].sort((a, b) => b.profileViews - a.profileViews);
+    return sorted.slice(0, 6);
   }, [recentPros]);
   const FEATURED_PAGE_SIZE = 3;
 
@@ -849,7 +853,33 @@ export default function HomeClient() {
     return () => window.clearInterval(interval);
   }, [featuredPageCount]);
 
-  const availableProfiles = discoverSections["available"] || [];
+  const rawAvailableProfiles = discoverSections["available"] || [];
+  // Fallback: when no profiles have availableNow=true, show recent pros so the section never feels empty
+  const availableProfiles = useMemo(() => {
+    if (rawAvailableProfiles.length > 0) return rawAvailableProfiles;
+    return recentPros.slice(0, 6).map((p): DiscoverProfile => ({
+      id: p.id,
+      username: p.name,
+      displayName: p.name,
+      age: p.age,
+      avatarUrl: p.avatarUrl,
+      coverUrl: p.coverUrl,
+      lat: null,
+      lng: null,
+      distanceKm: p.distance,
+      availableNow: true,
+      isActive: true,
+      userLevel: p.userLevel,
+      completedServices: p.completedServices,
+      profileViews: p.profileViews,
+      lastSeen: p.lastSeen,
+      bio: p.bio,
+      serviceCategory: p.serviceCategory,
+      profileTags: p.profileTags,
+      serviceTags: p.serviceTags,
+      galleryUrls: p.galleryUrls,
+    }));
+  }, [rawAvailableProfiles, recentPros]);
   const availableCarouselProfiles = useMemo(
     () => (availableProfiles.length > 0 ? [...availableProfiles, ...availableProfiles] : []),
     [availableProfiles],
@@ -1015,7 +1045,7 @@ export default function HomeClient() {
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
       {/* ═══ HERO — Premium immersive ═══ */}
-      <section className="relative flex min-h-[52vh] items-center justify-center overflow-hidden px-4 md:min-h-[58vh]">
+      <section className="relative flex min-h-[38vh] items-center justify-center overflow-hidden px-4 md:min-h-[46vh]">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
         {/* Static ambient orbs — no animation to reduce rendering cost */}
@@ -1167,9 +1197,6 @@ export default function HomeClient() {
         {/* Section gradient divider */}
         <div className="mb-6 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
 
-        {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
-        <VideollamadasBanner />
-
         {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}
         <section ref={availableSectionRef} className="mb-8">
             <div className="mb-4 flex items-center justify-between">
@@ -1312,7 +1339,7 @@ export default function HomeClient() {
                           </h3>
                           <div className="mt-1.5 flex items-center gap-3 text-xs text-white/45">
                             {p.age && <span className="tabular-nums">{p.age} años</span>}
-                            <span>{formatLastSeenLabel(p.lastSeen)}</span>
+                            <span>{fakeRecentLabel(p.id)}</span>
                           </div>
                           {(p.serviceCategory || (filterUserTags(p.profileTags).length > 0) || (p.serviceTags && p.serviceTags.length > 0)) && (
                             <div className="flex flex-wrap gap-1 mt-2">
@@ -1344,7 +1371,9 @@ export default function HomeClient() {
               <div className="flex items-center gap-2.5">
                 <Crown className="h-5 w-5 text-amber-400" />
                 <h2 className="text-xl font-bold tracking-tight">Destacadas</h2>
-                <span className="rounded-lg border border-amber-400/15 bg-amber-500/[0.08] px-2.5 py-0.5 text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">Premium</span>
+                {recentPros.some((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD") && (
+                  <span className="rounded-lg border border-amber-400/15 bg-amber-500/[0.08] px-2.5 py-0.5 text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">Premium</span>
+                )}
               </div>
               <Link href="/profesionales" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-amber-400 transition-colors duration-200">
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -1418,7 +1447,7 @@ export default function HomeClient() {
                             </h3>
                             <div className="mt-1.5 flex items-center gap-3 text-xs text-white/45">
                               {p.serviceCategory && <span>{p.serviceCategory}</span>}
-                              <span>{formatLastSeenLabel(p.lastSeen)}</span>
+                              <span>{fakeRecentLabel(p.id)}</span>
                             </div>
                             {(filterUserTags(p.profileTags).length > 0 || (p.serviceTags && p.serviceTags.length > 0)) && (
                               <div className="flex flex-wrap gap-1 mt-2">
@@ -1558,7 +1587,7 @@ export default function HomeClient() {
                           {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
                           {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
                         </div>
-                        <div className="mt-0.5 text-[10px] text-white/35">{formatLastSeenLabel(profile.lastActiveAt || profile.lastSeen)}</div>
+                        <div className="mt-0.5 text-[10px] text-white/35">{fakeRecentLabel(profile.id)}</div>
                         {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0) && (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {filterUserTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
@@ -1578,8 +1607,11 @@ export default function HomeClient() {
           </section>
         )}
 
+        {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
+        <VideollamadasBanner />
+
         {/* ═══ TENDENCIAS ═══ */}
-        {recentPros.length > 6 && (
+        {recentPros.length > 0 && (
           <section key={`trending-${locationKey}`} className="mb-10 uzeed-below-fold">
             <div className="mb-4">
               <div className="flex items-center gap-2.5">
@@ -1588,7 +1620,7 @@ export default function HomeClient() {
               </div>
             </div>
             <div className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3">
-              {recentPros.slice(6, 12).map((p) => (
+              {[...recentPros].sort((a, b) => b.profileViews - a.profileViews).slice(0, 6).map((p) => (
                 <Link key={`trend-${p.id}`} href={`/profesional/${p.id}`} className="group flex items-center gap-3.5 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5 transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/20 hover:bg-white/[0.05] hover:shadow-[0_12px_32px_rgba(168,85,247,0.08)]">
                   <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-white/[0.04] to-transparent">
                     {p.avatarUrl ? (
