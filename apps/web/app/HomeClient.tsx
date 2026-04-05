@@ -44,6 +44,15 @@ import {
   Zap,
 } from "lucide-react";
 
+/* ── Trial label ── */
+function trialLabel(days: number): string {
+  if (days >= 365) return `${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? "s" : ""}`;
+  if (days >= 30) return `${Math.floor(days / 30)} mes${Math.floor(days / 30) > 1 ? "es" : ""}`;
+  return `${days} días`;
+}
+const FREE_TRIAL_DAYS = Number(process.env.NEXT_PUBLIC_FREE_TRIAL_DAYS || 90);
+const TRIAL_TEXT = `${trialLabel(FREE_TRIAL_DAYS)} gratis`;
+
 /* ── Types ── */
 
 type Banner = {
@@ -1745,7 +1754,7 @@ export default function HomeClient() {
                 Registro Cliente <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
               <Link href="/register?type=PROFESSIONAL" className="uzeed-cta-btn group inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-pink-600 to-fuchsia-600 px-7 py-3.5 text-sm font-bold shadow-[0_12px_40px_rgba(236,72,153,0.2)] sm:w-auto">
-                Registro Profesional — 3 meses gratis <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                Registro Profesional — {TRIAL_TEXT} <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
               <Link href="/register?type=ESTABLISHMENT" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-7 py-3.5 text-sm font-semibold text-white/60 transition-all duration-200 hover:bg-white/[0.08] hover:text-white/80 sm:w-auto">
                 Registro Comercio

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch, friendlyErrorMessage, safeRedirect } from "../lib/api";
-import { Eye, EyeOff, FileText } from "lucide-react";
+import { Eye, EyeOff, FileText, ShieldCheck } from "lucide-react";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
 
 type Mode = "login" | "register";
@@ -136,7 +136,7 @@ export default function AuthForm({
           return;
         }
         if (
-          (profileType === "ESTABLISHMENT" || profileType === "SHOP") &&
+          isBusinessProfile &&
           (!Number.isFinite(Number(latitude)) ||
             !Number.isFinite(Number(longitude)))
         ) {
@@ -381,7 +381,7 @@ export default function AuthForm({
       {mode === "register" && isBusinessProfile ? (
         <>
           <MapboxAddressAutocomplete
-            label={profileType === "PROFESSIONAL" ? "Dirección (opcional)" : "Dirección"}
+            label="Dirección"
             value={address}
             onChange={(next) => {
               setAddress(next);
@@ -395,13 +395,20 @@ export default function AuthForm({
               setLongitude(String(selection.longitude));
             }}
             placeholder="Busca tu dirección"
-            required={profileType !== "PROFESSIONAL"}
+            required
           />
-          <p className="text-xs text-white/40">
-            {profileType === "PROFESSIONAL"
-              ? "Puedes agregar tu ubicación después en tu perfil."
-              : "Para publicar perfiles comerciales debes validar la dirección con Mapbox."}
-          </p>
+          {profileType === "PROFESSIONAL" ? (
+            <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-emerald-300/80 leading-relaxed">
+                Tu dirección exacta <span className="font-semibold">nunca se muestra</span>. Los clientes solo ven una zona aproximada (~600 m) en el mapa.
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-white/40">
+              Para publicar perfiles comerciales debes validar la dirección con Mapbox.
+            </p>
+          )}
         </>
       ) : null}
 

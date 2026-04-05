@@ -68,8 +68,8 @@ export const registerInputSchema = z
       // Bio is optional at registration; professionals complete it later
     }
 
-    // Address/geolocation required only for ESTABLISHMENT and SHOP
-    if (["ESTABLISHMENT", "SHOP"].includes(data.profileType)) {
+    // Address/geolocation required for all business profiles (used for distance search)
+    if (isBusiness) {
       if (!data.address || data.address.trim().length < 6) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
