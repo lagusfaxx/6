@@ -8,6 +8,7 @@ import {
   sendNoPhotoReminder,
   sendInactiveProfileReminder,
   sendVideocallConfigReminder,
+  sendReferralCampaignEmail,
 } from "./lib/notificationEmail";
 import { sendInAppAndPush } from "./lib/sendReminder";
 import { calculateReferralPayout } from "./referral/payout";
@@ -306,7 +307,86 @@ async function tickSyncPacSubscriptions() {
   }
 }
 
-/* ─── 6. Validate pending referral redemptions ─── */
+/* ─── 6. Auto-send referral campaign email 2h after creator registration ─── */
+
+async function tickReferralWelcomeEmail() {
+  const now = new Date();
+  const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+  // Only look at registrations from the last 7 days (don't spam old accounts)
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const creators = await prisma.user.findMany({
+    where: {
+      profileType: { in: ["CREATOR", "PROFESSIONAL"] },
+      isActive: true,
+      email: { not: "" },
+      createdAt: { gte: sevenDaysAgo, lte: twoHoursAgo },
+    },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      displayName: true,
+      creatorReferralCode: { select: { code: true } },
+    },
+    take: 100,
+  });
+
+  for (const user of creators) {
+    if (await wasReminderSent(user.id, "referral_welcome_2h")) continue;
+
+    // Auto-generate referral code if needed
+    let code = user.creatorReferralCode?.code;
+    if (!code) {
+      const clean = (user.username || "REF")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .slice(0, 5);
+      code = `${clean}${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+
+      // Ensure uniqueness
+      let attempts = 0;
+      while (attempts < 10) {
+        const existing = await prisma.creatorReferralCode.findUnique({ where: { code } });
+        if (!existing) break;
+        code = `${clean}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        attempts++;
+      }
+
+      const refCode = await prisma.creatorReferralCode.create({
+        data: { creatorId: user.id, code },
+      });
+
+      // Create initial cycle
+      await prisma.referralCycle.create({
+        data: {
+          referralCodeId: refCode.id,
+          cycleStart: now,
+          cycleEnd: new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000),
+          status: "ACTIVE",
+        },
+      });
+    }
+
+    await safeSend(
+      user.id,
+      "referral_welcome_2h",
+      `referral welcome to ${user.email}`,
+      () => sendReferralCampaignEmail(user.email, {
+        displayName: user.displayName,
+        referralCode: code!,
+      }),
+      {
+        type: "REFERRAL_WELCOME" as any,
+        title: "Gana dinero invitando creadoras",
+        body: `Tu codigo de referido es ${code}. Gana hasta $650.000 por ciclo.`,
+        url: "/dashboard/referidos",
+      },
+    );
+  }
+}
+
+/* ─── 7. Validate pending referral redemptions ─── */
 
 async function tickReferralValidation() {
   const count = await validatePendingRedemptions();
@@ -411,6 +491,7 @@ async function tick() {
     { name: "videocallConfig", fn: tickVideocallConfigReminder },
     { name: "expireStalePendingIntents", fn: tickExpireStalePendingIntents },
     { name: "syncPacSubscriptions", fn: tickSyncPacSubscriptions },
+    { name: "referralWelcomeEmail", fn: tickReferralWelcomeEmail },
     { name: "referralValidation", fn: tickReferralValidation },
     { name: "referralCycles", fn: tickReferralCycles },
   ];
