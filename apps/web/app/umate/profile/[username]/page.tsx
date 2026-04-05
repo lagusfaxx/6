@@ -541,12 +541,14 @@ export default function CreatorProfilePage() {
                           </p>
                           <p className="mt-0.5 text-[10px] text-white/45">{new Date(c.createdAt).toLocaleDateString("es-CL")}</p>
                         </div>
-                        <button
-                          onClick={() => deleteComment(c.id, post.id)}
-                          className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/40 hover:text-red-400"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
+                        {me?.user?.id === c.user.id && (
+                          <button
+                            onClick={() => deleteComment(c.id, post.id)}
+                            className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/40 hover:text-red-400"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>

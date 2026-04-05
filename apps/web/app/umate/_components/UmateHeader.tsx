@@ -199,13 +199,15 @@ export default function UmateHeader() {
         {/* Left: Logo + Nav */}
         <div className="flex items-center gap-4">
           <Link href="/umate/explore" className="flex shrink-0 items-center gap-2">
-            <img src="/brand/Umate.png" alt="U-Mate" className="h-7 w-auto" />
+            <img src="/brand/Umate.png" alt="U-Mate" className="h-8 w-auto" />
           </Link>
 
           {/* Desktop nav */}
           <nav className="hidden items-center gap-0.5 md:flex">
             {[
               { href: "/umate/explore", icon: Home, label: "Inicio", exact: true },
+              { href: "/umate/creators", icon: Users, label: "Creadoras", exact: true },
+              ...(!isCreator ? [{ href: "/umate/plans", icon: Crown, label: "Planes", exact: true }] : []),
               ...(isCreator ? [{ href: "/umate/account/creator", icon: Crown, label: "Studio", exact: false }] : []),
             ].map((item) => {
               const active = ("exact" in item && item.exact) ? pathname === item.href : pathname.startsWith(item.href);
@@ -345,12 +347,20 @@ export default function UmateHeader() {
               )}
             </Link>
           ) : (
-            <Link
-              href="/login?next=/umate"
-              className="rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-4 py-2 text-sm font-semibold text-white transition hover:shadow-[0_4px_20px_rgba(0,175,240,0.3)]"
-            >
-              Iniciar sesión
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/login?next=/umate"
+                className="rounded-xl border border-white/[0.08] px-3.5 py-2 text-sm font-medium text-white/60 transition hover:border-white/20 hover:text-white/80"
+              >
+                Ingresar
+              </Link>
+              <Link
+                href="/register?type=CLIENT&next=/umate"
+                className="rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-4 py-2 text-sm font-semibold text-white transition hover:shadow-[0_4px_20px_rgba(0,175,240,0.3)]"
+              >
+                Crear cuenta
+              </Link>
+            </div>
           )}
 
           <Link

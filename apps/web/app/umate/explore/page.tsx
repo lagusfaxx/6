@@ -594,12 +594,14 @@ export default function ExplorePage() {
                                 </p>
                                 <p className="mt-0.5 text-[10px] text-white/25">{new Date(c.createdAt).toLocaleDateString("es-CL")}</p>
                               </div>
-                              <button
-                                onClick={() => openComments && deleteComment(c.id, openComments)}
-                                className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/30 hover:text-red-400"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
+                              {me?.user?.id === c.user.id && (
+                                <button
+                                  onClick={() => openComments && deleteComment(c.id, openComments)}
+                                  className="shrink-0 opacity-0 group-hover:opacity-100 transition text-white/30 hover:text-red-400"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -661,7 +663,7 @@ export default function ExplorePage() {
                     href="/umate/plans"
                     className="mt-4 block rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] py-2.5 text-center text-xs font-bold text-white shadow-[0_4px_16px_rgba(0,175,240,0.25)] transition hover:shadow-[0_6px_24px_rgba(0,175,240,0.35)]"
                   >
-                    Ver planes desde $14.990/mes
+                    Ver planes premium
                   </Link>
                 </div>
               </div>
