@@ -66,6 +66,7 @@ export type RegisterFormData = {
   acceptTerms: boolean;
   birthdate?: string;
   bio?: string;
+  referralCode?: string;
 };
 
 export default function AuthForm({
@@ -107,6 +108,10 @@ export default function AuthForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [primaryCategory, setPrimaryCategory] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [referralValid, setReferralValid] = useState<null | boolean>(null);
+  const [referralCreator, setReferralCreator] = useState("");
+  const [referralChecking, setReferralChecking] = useState(false);
 
   const isBusinessProfile =
     profileType === "PROFESSIONAL" ||
@@ -165,6 +170,9 @@ export default function AuthForm({
           acceptTerms: finalTermsAccepted,
           birthdate: birthdate || undefined,
           bio: bio || undefined,
+          referralCode: (profileType === "PROFESSIONAL" && referralCode.trim() && referralValid)
+            ? referralCode.trim().toUpperCase()
+            : undefined,
         };
 
         // If onCollectData is provided, defer registration (verify-first flow)
@@ -410,6 +418,61 @@ export default function AuthForm({
             </p>
           )}
         </>
+      ) : null}
+
+      {mode === "register" && profileType === "PROFESSIONAL" ? (
+        <div className="grid gap-2">
+          <label className="text-sm font-medium text-white/70">
+            Codigo de referido <span className="text-white/30">(opcional)</span>
+          </label>
+          <div className="relative">
+            <input
+              className="input pr-24 uppercase tracking-wider"
+              value={referralCode}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12);
+                setReferralCode(val);
+                setReferralValid(null);
+                setReferralCreator("");
+              }}
+              onBlur={async () => {
+                const code = referralCode.trim();
+                if (!code || code.length < 4) {
+                  setReferralValid(null);
+                  return;
+                }
+                setReferralChecking(true);
+                try {
+                  const res = await apiFetch<any>(`/referrals/validate/${code.toUpperCase()}`);
+                  setReferralValid(res?.valid === true);
+                  setReferralCreator(res?.creatorName || "");
+                } catch {
+                  setReferralValid(false);
+                }
+                setReferralChecking(false);
+              }}
+              placeholder="Ej: LUNA4K8P"
+              maxLength={12}
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              {referralChecking ? (
+                <div className="w-4 h-4 border-2 border-white/20 border-t-fuchsia-400 rounded-full animate-spin" />
+              ) : referralValid === true ? (
+                <span className="text-xs text-emerald-400 font-medium">Valido</span>
+              ) : referralValid === false ? (
+                <span className="text-xs text-red-400 font-medium">Invalido</span>
+              ) : null}
+            </div>
+          </div>
+          {referralValid && referralCreator && (
+            <p className="text-xs text-emerald-400/80">
+              Referida por <span className="font-semibold">{referralCreator}</span>
+            </p>
+          )}
+          <p className="text-xs text-white/30">
+            Si alguien te invito a UZEED, ingresa su codigo aqui.
+          </p>
+        </div>
       ) : null}
 
       <div className="grid gap-2">
