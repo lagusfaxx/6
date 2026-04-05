@@ -1169,7 +1169,7 @@ export default function HomeClient() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-lg bg-emerald-400/30" />
                   <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-400" />
                 </div>
-                <h2 className="text-base font-bold tracking-tight">Disponibles ahora{availableProfiles.length > 0 && <span className="ml-1.5 text-sm font-semibold text-emerald-400/80">({availableProfiles.length})</span>}</h2>
+                <h2 className="text-base font-bold tracking-tight">Disponibles ahora</h2>
               </div>
               <Link href="/servicios?sort=availableNow" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-emerald-400 transition-colors duration-200">
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
