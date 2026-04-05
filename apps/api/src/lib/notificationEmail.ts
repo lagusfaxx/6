@@ -213,6 +213,102 @@ function ratingRow(label: string, score: number): string {
   </td></tr>`;
 }
 
+/* ─── Campaign: referral program invitation for creators ─── */
+
+export async function sendReferralCampaignEmail(
+  email: string,
+  data: {
+    displayName: string | null;
+    referralCode: string;
+  },
+) {
+  const name = data.displayName || "creadora";
+  const code = data.referralCode;
+
+  const html = wrapEmail(
+    "Gana hasta $650.000 invitando creadoras",
+    [
+      paragraph(
+        `Hola <strong>${name}</strong>, tenemos una nueva forma de que ganes dinero en UZEED: ` +
+        `<strong>nuestro Programa de Referidos.</strong>`,
+      ),
+
+      // Highlight code
+      `<tr><td align="center" style="padding:12px 30px 20px;">
+        <div style="background:rgba(168,85,247,0.2);border:2px dashed rgba(168,85,247,0.6);border-radius:16px;padding:20px 24px;text-align:center;">
+          <p style="margin:0 0 6px;font-size:12px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;">Tu codigo de referido</p>
+          <p style="margin:0;font-size:28px;font-weight:800;color:#a855f7;letter-spacing:0.05em;">${code}</p>
+        </div>
+      </td></tr>`,
+
+      paragraph(
+        "Comparte tu codigo con profesionales que quieran registrarse en UZEED. " +
+        "Por cada una que se registre y cumpla las condiciones, <strong>ganas $10.000 CLP.</strong>",
+      ),
+
+      // Earnings table
+      `<tr><td style="padding:8px 30px 16px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;">
+          <tr style="background:rgba(168,85,247,0.15);">
+            <td style="padding:10px 16px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.05em;">Referidas</td>
+            <td align="right" style="padding:10px 16px;font-size:12px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.05em;">Ganas</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 16px;font-size:14px;color:rgba(255,255,255,0.6);border-bottom:1px solid rgba(255,255,255,0.06);">10 profesionales</td>
+            <td align="right" style="padding:8px 16px;font-size:14px;font-weight:700;color:#10b981;border-bottom:1px solid rgba(255,255,255,0.06);">$100.000</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 16px;font-size:14px;color:rgba(255,255,255,0.6);border-bottom:1px solid rgba(255,255,255,0.06);">15 profesionales</td>
+            <td align="right" style="padding:8px 16px;font-size:14px;font-weight:700;color:#10b981;border-bottom:1px solid rgba(255,255,255,0.06);">$200.000</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 16px;font-size:14px;color:rgba(255,255,255,0.6);border-bottom:1px solid rgba(255,255,255,0.06);">20 profesionales</td>
+            <td align="right" style="padding:8px 16px;font-size:14px;font-weight:700;color:#10b981;border-bottom:1px solid rgba(255,255,255,0.06);">$350.000</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 16px;font-size:14px;color:rgba(255,255,255,0.6);">30 profesionales</td>
+            <td align="right" style="padding:8px 16px;font-size:15px;font-weight:800;color:#a855f7;">$650.000</td>
+          </tr>
+        </table>
+      </td></tr>`,
+
+      // Conditions section
+      `<tr><td style="padding:8px 30px 4px;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:rgba(255,255,255,0.8);">Condiciones de la promocion:</p>
+      </td></tr>`,
+      `<tr><td style="padding:4px 30px 16px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="padding:4px 0;font-size:13px;color:rgba(255,255,255,0.5);line-height:1.5;">
+            ✓ La profesional debe registrarse con tu codigo<br/>
+            ✓ Debe verificar su perfil con UZEED<br/>
+            ✓ Debe subir al menos 1 foto a su perfil<br/>
+            ✓ Su cuenta debe estar activa por minimo 48 horas<br/>
+            ✓ Minimo 10 referidas validadas para recibir el pago<br/>
+            ✓ Ciclo de 20 dias — se reinicia automaticamente<br/>
+            ✓ El pago se realiza al finalizar cada ciclo exitoso
+          </td></tr>
+        </table>
+      </td></tr>`,
+
+      paragraph(
+        "<strong>Mientras mas compartas, mas ganas.</strong> Los bonos son acumulables: " +
+        "al llegar a 15 recibes un bonus de $50.000, a 20 recibes otro de $100.000, " +
+        "y a 30 un mega bonus de $200.000.",
+      ),
+
+      ctaButton("Ver mi programa de referidos", `${config.appUrl}/dashboard/referidos`),
+
+      paragraph(
+        `<span style="font-size:12px;color:rgba(255,255,255,0.35);">` +
+        `Promocion vigente por tiempo limitado. UZEED se reserva el derecho de modificar ` +
+        `las condiciones del programa. Solo aplica para profesionales nuevas que no tengan ` +
+        `cuenta previa en la plataforma. No se permiten auto-referidos.</span>`,
+      ),
+    ].join(""),
+  );
+  await send(email, `Gana hasta $650.000 con tu codigo ${code} — UZEED`, html);
+}
+
 export async function sendQualityReviewEmail(
   email: string,
   data: {
