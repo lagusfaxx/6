@@ -66,6 +66,7 @@ export type RegisterFormData = {
   acceptTerms: boolean;
   birthdate?: string;
   bio?: string;
+  referralCode?: string;
 };
 
 export default function AuthForm({
