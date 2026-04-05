@@ -1356,14 +1356,28 @@ model ReferralCycle {
   @@index([status])
 }
 
+enum ReferralRedemptionStatus {
+  PENDING     // registered but conditions not met yet
+  VALIDATED   // all conditions met, counts toward cycle
+  REJECTED    // did not meet conditions in time (account deleted, etc.)
+}
+
 // Each professional registration via referral code
 model ReferralRedemption {
-  id              String   @id @default(uuid()) @db.Uuid
-  referralCodeId  String   @db.Uuid
-  cycleId         String?  @db.Uuid
-  professionalId  String   @unique @db.Uuid // the professional who registered
-  amountCLP       Int      @default(10000)   // CLP credited for this referral
-  createdAt       DateTime @default(now())
+  id              String                    @id @default(uuid()) @db.Uuid
+  referralCodeId  String                    @db.Uuid
+  cycleId         String?                   @db.Uuid
+  professionalId  String                    @unique @db.Uuid // the professional who registered
+  amountCLP       Int                       @default(10000)   // CLP credited for this referral
+  status          ReferralRedemptionStatus  @default(PENDING)
+  validatedAt     DateTime?
+
+  // Condition tracking
+  hasPhoto        Boolean   @default(false)
+  isVerified      Boolean   @default(false)
+  isActive48h     Boolean   @default(false)
+
+  createdAt       DateTime  @default(now())
 
   referralCode CreatorReferralCode @relation(fields: [referralCodeId], references: [id], onDelete: Cascade)
   cycle        ReferralCycle?      @relation(fields: [cycleId], references: [id], onDelete: SetNull)
@@ -1371,6 +1385,7 @@ model ReferralRedemption {
 
   @@index([referralCodeId, createdAt])
   @@index([cycleId])
+  @@index([status])
 }
 
 model AdminProfileRating {

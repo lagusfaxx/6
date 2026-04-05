@@ -84,14 +84,23 @@ referralRouter.get(
 
     const activeCycle = referralCode.cycles[0] || null;
 
-    // Count redemptions in current cycle
-    const currentCycleReferrals = activeCycle
+    // Count VALIDATED redemptions in current cycle (only these count for payout)
+    const validatedReferrals = activeCycle
       ? await prisma.referralRedemption.count({
-          where: { cycleId: activeCycle.id },
+          where: { cycleId: activeCycle.id, status: "VALIDATED" },
         })
       : 0;
 
-    // Calculate potential payout
+    // Count PENDING redemptions (registered but conditions not met yet)
+    const pendingReferrals = activeCycle
+      ? await prisma.referralRedemption.count({
+          where: { cycleId: activeCycle.id, status: "PENDING" },
+        })
+      : 0;
+
+    const currentCycleReferrals = validatedReferrals;
+
+    // Calculate potential payout (only validated count)
     const payout = calculateReferralPayout(currentCycleReferrals);
 
     // Historical stats
@@ -134,7 +143,8 @@ referralRouter.get(
             id: activeCycle.id,
             cycleStart: activeCycle.cycleStart,
             cycleEnd: activeCycle.cycleEnd,
-            referrals: currentCycleReferrals,
+            referrals: currentCycleReferrals, // only validated
+            pendingReferrals,                 // waiting on conditions
             daysRemaining: Math.max(
               0,
               Math.ceil(
@@ -148,6 +158,12 @@ referralRouter.get(
       totalReferrals,
       totalEarned: totalEarned._sum.totalAmount || 0,
       pastCycles,
+      // Conditions that referred professionals must meet
+      validationConditions: [
+        { key: "isVerified", label: "Perfil verificado por UZEED" },
+        { key: "hasPhoto", label: "Al menos 1 foto subida" },
+        { key: "isActive48h", label: "Cuenta activa por 48 horas" },
+      ],
       // Show bonus tiers info
       bonusTiers: [
         { minReferrals: 10, perReferral: 10000, bonus: 0, label: "Base" },
@@ -221,6 +237,11 @@ referralRouter.get(
       select: {
         id: true,
         amountCLP: true,
+        status: true,
+        hasPhoto: true,
+        isVerified: true,
+        isActive48h: true,
+        validatedAt: true,
         createdAt: true,
         professional: {
           select: {

@@ -11,6 +11,7 @@ import {
 } from "./lib/notificationEmail";
 import { sendInAppAndPush } from "./lib/sendReminder";
 import { calculateReferralPayout } from "./referral/payout";
+import { validatePendingRedemptions } from "./referral/redeem";
 
 /* ─── Mutex: prevent concurrent ticks ─── */
 
@@ -305,7 +306,16 @@ async function tickSyncPacSubscriptions() {
   }
 }
 
-/* ─── 6. Referral cycle expiry (20-day cycles) ─── */
+/* ─── 6. Validate pending referral redemptions ─── */
+
+async function tickReferralValidation() {
+  const count = await validatePendingRedemptions();
+  if (count > 0) {
+    console.log(`[worker/referral] validated ${count} pending redemptions`);
+  }
+}
+
+/* ─── 7. Referral cycle expiry (20-day cycles) ─── */
 
 async function tickReferralCycles() {
   const now = new Date();
@@ -325,9 +335,9 @@ async function tickReferralCycles() {
   });
 
   for (const cycle of expiredCycles) {
-    // Count actual redemptions for this cycle
+    // Count only VALIDATED redemptions for this cycle
     const referralCount = await prisma.referralRedemption.count({
-      where: { cycleId: cycle.id },
+      where: { cycleId: cycle.id, status: "VALIDATED" },
     });
 
     const payout = calculateReferralPayout(referralCount);
@@ -401,6 +411,7 @@ async function tick() {
     { name: "videocallConfig", fn: tickVideocallConfigReminder },
     { name: "expireStalePendingIntents", fn: tickExpireStalePendingIntents },
     { name: "syncPacSubscriptions", fn: tickSyncPacSubscriptions },
+    { name: "referralValidation", fn: tickReferralValidation },
     { name: "referralCycles", fn: tickReferralCycles },
   ];
 

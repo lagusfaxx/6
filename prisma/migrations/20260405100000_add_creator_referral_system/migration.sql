@@ -1,6 +1,9 @@
 -- CreateEnum
 CREATE TYPE "ReferralCycleStatus" AS ENUM ('ACTIVE', 'PENDING_PAYMENT', 'PAID', 'EXPIRED');
 
+-- CreateEnum
+CREATE TYPE "ReferralRedemptionStatus" AS ENUM ('PENDING', 'VALIDATED', 'REJECTED');
+
 -- CreateTable
 CREATE TABLE "CreatorReferralCode" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -38,6 +41,11 @@ CREATE TABLE "ReferralRedemption" (
     "cycleId" UUID,
     "professionalId" UUID NOT NULL,
     "amountCLP" INTEGER NOT NULL DEFAULT 10000,
+    "status" "ReferralRedemptionStatus" NOT NULL DEFAULT 'PENDING',
+    "validatedAt" TIMESTAMP(3),
+    "hasPhoto" BOOLEAN NOT NULL DEFAULT false,
+    "isVerified" BOOLEAN NOT NULL DEFAULT false,
+    "isActive48h" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ReferralRedemption_pkey" PRIMARY KEY ("id")
@@ -69,6 +77,9 @@ CREATE INDEX "ReferralRedemption_referralCodeId_createdAt_idx" ON "ReferralRedem
 
 -- CreateIndex
 CREATE INDEX "ReferralRedemption_cycleId_idx" ON "ReferralRedemption"("cycleId");
+
+-- CreateIndex
+CREATE INDEX "ReferralRedemption_status_idx" ON "ReferralRedemption"("status");
 
 -- AddForeignKey
 ALTER TABLE "CreatorReferralCode" ADD CONSTRAINT "CreatorReferralCode_creatorId_fkey" FOREIGN KEY ("creatorId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
