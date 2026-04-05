@@ -90,7 +90,13 @@ export default function OnboardingPage() {
       if (d?.creator) {
         setCreator(d.creator);
         setDisplayName(d.creator.displayName);
-        setStep(1);
+        setBio(d.creator.bio || "");
+        // Express onboarding: verified professionals skip profile step
+        if (d.creator.status === "PENDING_BANK" || (d.creator.avatarUrl && d.creator.displayName && d.creator.bio)) {
+          setStep(2);
+        } else {
+          setStep(1);
+        }
       }
     } catch (err: any) {
       if (err?.body?.error === "SUBSCRIBER_CANNOT_CREATE") {

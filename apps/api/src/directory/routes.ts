@@ -596,7 +596,7 @@ directoryRouter.get(
     }
     if (!u) return res.status(404).json({ error: "not_found" });
 
-    const [reviews, forumThread] = await Promise.all([
+    const [reviews, forumThread, umateCreator] = await Promise.all([
       prisma.professionalReview.findMany({
         where: { serviceRequest: { professionalId: id } },
         select: {
@@ -642,6 +642,10 @@ directoryRouter.get(
             },
           },
         },
+      }),
+      prisma.umateCreator.findUnique({
+        where: { userId: id },
+        select: { status: true, displayName: true },
       }),
     ]);
     const rating = reviews.length
@@ -731,6 +735,8 @@ directoryRouter.get(
               comments: profileForumComments,
             }
           : null,
+        umateActive: umateCreator?.status === "ACTIVE",
+        umateName: umateCreator?.status === "ACTIVE" ? umateCreator.displayName : null,
       },
     });
   }),
