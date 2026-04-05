@@ -10,6 +10,7 @@ import {
   sendVideocallConfigReminder,
 } from "./lib/notificationEmail";
 import { sendInAppAndPush } from "./lib/sendReminder";
+import { calculateReferralPayout } from "./referral/payout";
 
 /* ─── Mutex: prevent concurrent ticks ─── */
 
@@ -304,6 +305,84 @@ async function tickSyncPacSubscriptions() {
   }
 }
 
+/* ─── 6. Referral cycle expiry (20-day cycles) ─── */
+
+async function tickReferralCycles() {
+  const now = new Date();
+
+  // Find ACTIVE cycles whose cycleEnd has passed
+  const expiredCycles = await prisma.referralCycle.findMany({
+    where: {
+      status: "ACTIVE",
+      cycleEnd: { lt: now },
+    },
+    include: {
+      referralCode: {
+        select: { id: true, creatorId: true },
+      },
+    },
+    take: 100,
+  });
+
+  for (const cycle of expiredCycles) {
+    // Count actual redemptions for this cycle
+    const referralCount = await prisma.referralRedemption.count({
+      where: { cycleId: cycle.id },
+    });
+
+    const payout = calculateReferralPayout(referralCount);
+
+    if (payout.qualifies) {
+      // Mark as PENDING_PAYMENT with calculated amounts
+      await prisma.referralCycle.update({
+        where: { id: cycle.id },
+        data: {
+          status: "PENDING_PAYMENT",
+          totalReferrals: referralCount,
+          baseAmount: payout.baseAmount,
+          bonusAmount: payout.bonusAmount,
+          totalAmount: payout.totalAmount,
+        },
+      });
+
+      console.log(
+        `[worker/referral] cycle ${cycle.id} → PENDING_PAYMENT: ${referralCount} referrals, $${payout.totalAmount} CLP`,
+      );
+    } else {
+      // Did not meet minimum — mark as EXPIRED
+      await prisma.referralCycle.update({
+        where: { id: cycle.id },
+        data: {
+          status: "EXPIRED",
+          totalReferrals: referralCount,
+          baseAmount: 0,
+          bonusAmount: 0,
+          totalAmount: 0,
+        },
+      });
+
+      console.log(
+        `[worker/referral] cycle ${cycle.id} → EXPIRED: only ${referralCount} referrals (min 10)`,
+      );
+    }
+
+    // Create a new ACTIVE cycle for the creator (day 21 = fresh start)
+    const newCycleEnd = new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000);
+    await prisma.referralCycle.create({
+      data: {
+        referralCodeId: cycle.referralCode.id,
+        cycleStart: now,
+        cycleEnd: newCycleEnd,
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  if (expiredCycles.length > 0) {
+    console.log(`[worker/referral] processed ${expiredCycles.length} expired cycles`);
+  }
+}
+
 /* ─── Main tick: runs all checks independently ─── */
 
 async function tick() {
@@ -322,6 +401,7 @@ async function tick() {
     { name: "videocallConfig", fn: tickVideocallConfigReminder },
     { name: "expireStalePendingIntents", fn: tickExpireStalePendingIntents },
     { name: "syncPacSubscriptions", fn: tickSyncPacSubscriptions },
+    { name: "referralCycles", fn: tickReferralCycles },
   ];
 
   for (const task of tasks) {

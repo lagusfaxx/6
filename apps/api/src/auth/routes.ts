@@ -7,6 +7,7 @@ import { loginInputSchema, registerInputSchema } from "@uzeed/shared";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 import { emitAdminEvent } from "../lib/adminEvents";
+import { redeemReferralCode } from "../referral/redeem";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -215,6 +216,7 @@ authRouter.post(
       birthdate,
       bio,
       primaryCategory,
+      referralCode,
     } = parsed.data;
     const email = rawEmail.toLowerCase().trim();
     const existing = await prisma.user.findFirst({
@@ -394,6 +396,20 @@ authRouter.post(
         type: "profile_verification_requested",
         user: user.username || null,
       }).catch(() => {});
+    }
+
+    // ── Referral code redemption (only for PROFESSIONAL registrations) ──
+    if (referralCode && profileType === "PROFESSIONAL") {
+      try {
+        await redeemReferralCode(referralCode.toUpperCase(), user.id);
+      } catch (err) {
+        console.error("[auth/register] referral redemption failed", {
+          userId: user.id,
+          referralCode,
+          error: err,
+        });
+        // Non-blocking: registration succeeds even if referral fails
+      }
     }
 
     await persistSession(req);

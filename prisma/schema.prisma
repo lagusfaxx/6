@@ -482,6 +482,10 @@ model User {
   umateCreatorSubs       UmateCreatorSub[]   @relation("UmateSubscriber")
   umateLikes             UmateLike[]
   umateComments          UmateComment[]
+
+  // Referral system
+  creatorReferralCode    CreatorReferralCode? @relation("CreatorReferralCode")
+  referralRedemption     ReferralRedemption?  @relation("ReferralProfessional")
 }
 
 model PushSubscription {
@@ -1300,6 +1304,73 @@ model UmateWithdrawal {
 
   @@index([creatorId])
   @@index([status])
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ██  CREATOR REFERRAL SYSTEM
+// ══════════════════════════════════════════════════════════════════════
+
+enum ReferralCycleStatus {
+  ACTIVE
+  PENDING_PAYMENT
+  PAID
+  EXPIRED
+}
+
+// Each creator gets one referral code; cycles track 20-day windows
+model CreatorReferralCode {
+  id          String   @id @default(uuid()) @db.Uuid
+  creatorId   String   @unique @db.Uuid
+  code        String   @unique // e.g. "LUNA2024", 6-8 char alphanumeric
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator     User                @relation("CreatorReferralCode", fields: [creatorId], references: [id], onDelete: Cascade)
+  redemptions ReferralRedemption[]
+  cycles      ReferralCycle[]
+
+  @@index([code])
+}
+
+// 20-day referral cycle
+model ReferralCycle {
+  id              String              @id @default(uuid()) @db.Uuid
+  referralCodeId  String              @db.Uuid
+  cycleStart      DateTime
+  cycleEnd        DateTime            // cycleStart + 20 days
+  status          ReferralCycleStatus @default(ACTIVE)
+  totalReferrals  Int                 @default(0)
+  baseAmount      Int                 @default(0)  // CLP: referrals * 10,000
+  bonusAmount     Int                 @default(0)  // CLP: tier bonuses
+  totalAmount     Int                 @default(0)  // CLP: base + bonus
+  paidAt          DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  referralCode CreatorReferralCode  @relation(fields: [referralCodeId], references: [id], onDelete: Cascade)
+  redemptions  ReferralRedemption[]
+
+  @@index([referralCodeId, status])
+  @@index([cycleEnd])
+  @@index([status])
+}
+
+// Each professional registration via referral code
+model ReferralRedemption {
+  id              String   @id @default(uuid()) @db.Uuid
+  referralCodeId  String   @db.Uuid
+  cycleId         String?  @db.Uuid
+  professionalId  String   @unique @db.Uuid // the professional who registered
+  amountCLP       Int      @default(10000)   // CLP credited for this referral
+  createdAt       DateTime @default(now())
+
+  referralCode CreatorReferralCode @relation(fields: [referralCodeId], references: [id], onDelete: Cascade)
+  cycle        ReferralCycle?      @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  professional User                @relation("ReferralProfessional", fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([referralCodeId, createdAt])
+  @@index([cycleId])
 }
 
 model AdminProfileRating {
