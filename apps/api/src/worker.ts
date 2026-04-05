@@ -11,8 +11,19 @@ import {
   sendReferralCampaignEmail,
 } from "./lib/notificationEmail";
 import { sendInAppAndPush } from "./lib/sendReminder";
+import { randomBytes } from "crypto";
 import { calculateReferralPayout } from "./referral/payout";
 import { validatePendingRedemptions } from "./referral/redeem";
+
+function cryptoSuffix(len: number): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = randomBytes(len);
+  let result = "";
+  for (let i = 0; i < len; i++) {
+    result += chars[bytes[i] % chars.length];
+  }
+  return result;
+}
 
 /* ─── Mutex: prevent concurrent ticks ─── */
 
@@ -341,15 +352,15 @@ async function tickReferralWelcomeEmail() {
       const clean = (user.username || "REF")
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, "")
-        .slice(0, 5);
-      code = `${clean}${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+        .slice(0, 4);
+      code = `${clean}${cryptoSuffix(4)}`;
 
       // Ensure uniqueness
       let attempts = 0;
       while (attempts < 10) {
         const existing = await prisma.creatorReferralCode.findUnique({ where: { code } });
         if (!existing) break;
-        code = `${clean}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        code = `${clean}${cryptoSuffix(5)}`;
         attempts++;
       }
 

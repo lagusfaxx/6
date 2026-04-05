@@ -20,6 +20,7 @@
 
 const PER_REFERRAL_CLP = 10_000;
 const MIN_REFERRALS = 10;
+const MAX_REFERRALS_PER_CYCLE = 500; // Safety cap: max $5M + bonuses per cycle
 
 const BONUS_TIERS = [
   { min: 30, bonus: 200_000 },
@@ -27,7 +28,10 @@ const BONUS_TIERS = [
   { min: 15, bonus: 50_000 },
 ];
 
-export function calculateReferralPayout(referralCount: number) {
+export function calculateReferralPayout(rawCount: number) {
+  // Clamp to safe range
+  const referralCount = Math.min(Math.max(0, Math.floor(rawCount)), MAX_REFERRALS_PER_CYCLE);
+
   if (referralCount < MIN_REFERRALS) {
     return {
       qualifies: false,

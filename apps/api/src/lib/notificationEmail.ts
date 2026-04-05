@@ -1,6 +1,17 @@
 import { Resend } from "resend";
 import { config } from "../config";
 
+/* ─── HTML escape to prevent XSS in email templates ─── */
+
+function esc(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /* ─── Shared UZEED email template ─── */
 
 function wrapEmail(title: string, contentRows: string): string {
@@ -78,7 +89,7 @@ async function send(to: string, subject: string, html: string) {
 /* ─── Reminder: profile has no photos after 5 hours ─── */
 
 export async function sendNoPhotoReminder(email: string, displayName: string | null) {
-  const name = displayName || "profesional";
+  const name = esc(displayName || "profesional");
   const html = wrapEmail(
     "¡Sube tu primera foto!",
     [
@@ -93,7 +104,7 @@ export async function sendNoPhotoReminder(email: string, displayName: string | n
 /* ─── Reminder: inactive profile (48h without login or photos) ─── */
 
 export async function sendInactiveProfileReminder(email: string, displayName: string | null) {
-  const name = displayName || "profesional";
+  const name = esc(displayName || "profesional");
   const html = wrapEmail(
     "Te extrañamos en UZEED",
     [
@@ -108,7 +119,7 @@ export async function sendInactiveProfileReminder(email: string, displayName: st
 /* ─── Reminder: videocall service added but not configured ─── */
 
 export async function sendVideocallConfigReminder(email: string, displayName: string | null) {
-  const name = displayName || "profesional";
+  const name = esc(displayName || "profesional");
   const html = wrapEmail(
     "Configura tus videollamadas",
     [
@@ -147,8 +158,8 @@ export async function sendVideocallBookingConfirmation(
   const html = wrapEmail(
     "Nueva videollamada agendada",
     [
-      paragraph(`¡Tienes una nueva videollamada agendada con <strong>${data.clientName}</strong>!`),
-      row("Cliente", data.clientName),
+      paragraph(`¡Tienes una nueva videollamada agendada con <strong>${esc(data.clientName)}</strong>!`),
+      row("Cliente", esc(data.clientName)),
       row("Fecha", dateStr),
       row("Hora (Chile)", timeStr),
       row("Duración", `${data.durationMinutes} minutos`),
@@ -176,12 +187,12 @@ export async function sendServiceRequestConfirmation(
   const html = wrapEmail(
     "Nueva solicitud de encuentro",
     [
-      paragraph(`<strong>${data.clientName}</strong> ha solicitado un encuentro contigo.`),
-      row("Cliente", data.clientName),
-      row("Fecha solicitada", data.requestedDate),
-      row("Hora solicitada", data.requestedTime),
-      row("Ubicación", data.location),
-      ...(data.clientComment ? [row("Comentario", data.clientComment)] : []),
+      paragraph(`<strong>${esc(data.clientName)}</strong> ha solicitado un encuentro contigo.`),
+      row("Cliente", esc(data.clientName)),
+      row("Fecha solicitada", esc(data.requestedDate)),
+      row("Hora solicitada", esc(data.requestedTime)),
+      row("Ubicación", esc(data.location)),
+      ...(data.clientComment ? [row("Comentario", esc(data.clientComment))] : []),
       statusBadge("PENDIENTE DE APROBACIÓN", "rgba(245,158,11,0.8)"),
       ctaButton("Ver solicitud", `${config.appUrl}/dashboard/services`),
     ].join(""),
@@ -222,8 +233,8 @@ export async function sendReferralCampaignEmail(
     referralCode: string;
   },
 ) {
-  const name = data.displayName || "creadora";
-  const code = data.referralCode;
+  const name = esc(data.displayName || "creadora");
+  const code = esc(data.referralCode);
 
   const html = wrapEmail(
     "Gana hasta $650.000 invitando creadoras",
@@ -321,7 +332,7 @@ export async function sendQualityReviewEmail(
     overallScore: number;
   },
 ) {
-  const name = data.professionalName || "profesional";
+  const name = esc(data.professionalName || "profesional");
   const scoreColor = data.overallScore >= 7 ? "rgba(16,185,129,0.8)"
     : data.overallScore >= 5 ? "rgba(245,158,11,0.8)"
     : "rgba(239,68,68,0.8)";

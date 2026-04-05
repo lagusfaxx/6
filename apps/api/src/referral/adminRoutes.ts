@@ -1,9 +1,20 @@
 import { Router } from "express";
+import { randomBytes } from "crypto";
 import { prisma } from "../db";
 import { requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { calculateReferralPayout } from "./payout";
 import { sendReferralCampaignEmail } from "../lib/notificationEmail";
+
+function cryptoSuffix(len: number): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = randomBytes(len);
+  let result = "";
+  for (let i = 0; i < len; i++) {
+    result += chars[bytes[i] % chars.length];
+  }
+  return result;
+}
 
 export const adminReferralRouter = Router();
 
@@ -283,8 +294,8 @@ async function generateCodeForUser(
   const clean = (username || "REF")
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 5);
-  let code = `${clean}${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+    .slice(0, 4);
+  let code = `${clean}${cryptoSuffix(4)}`;
 
   let attempts = 0;
   while (attempts < 10) {
@@ -292,7 +303,7 @@ async function generateCodeForUser(
       where: { code },
     });
     if (!existing) break;
-    code = `${clean}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    code = `${clean}${cryptoSuffix(5)}`;
     attempts++;
   }
 

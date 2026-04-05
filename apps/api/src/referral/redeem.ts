@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 
 /**
@@ -53,15 +54,24 @@ export async function redeemReferralCode(
   }
 
   // 5. Create PENDING redemption — does NOT count toward cycle yet
-  await prisma.referralRedemption.create({
-    data: {
-      referralCodeId: referralCode.id,
-      cycleId: activeCycle.id,
-      professionalId,
-      amountCLP: 10_000,
-      status: "PENDING",
-    },
-  });
+  // Wrapped in try/catch to handle race conditions (unique constraint on professionalId)
+  try {
+    await prisma.referralRedemption.create({
+      data: {
+        referralCodeId: referralCode.id,
+        cycleId: activeCycle.id,
+        professionalId,
+        amountCLP: 10_000,
+        status: "PENDING",
+      },
+    });
+  } catch (err) {
+    // P2002 = unique constraint violation (concurrent registration with same professionalId)
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return; // Already redeemed — safe to ignore
+    }
+    throw err;
+  }
 }
 
 /**

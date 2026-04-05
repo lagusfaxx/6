@@ -1,7 +1,17 @@
 import { Router } from "express";
+import { randomBytes } from "crypto";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 import { calculateReferralPayout } from "./payout";
+
+const validateLimiter = rateLimit({
+  windowMs: 60 * 1000,       // 1 minute
+  limit: 10,                  // max 10 attempts per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "TOO_MANY_ATTEMPTS", message: "Demasiados intentos. Espera un momento." },
+});
 
 export const referralRouter = Router();
 
@@ -179,17 +189,21 @@ referralRouter.get(
 
 referralRouter.get(
   "/referrals/validate/:code",
+  validateLimiter,
   asyncHandler(async (req, res) => {
     const { code } = req.params;
-    if (!code || code.length < 4) {
-      return res.status(400).json({ error: "INVALID_CODE" });
+
+    // Strict format: 4-12 alphanumeric chars only
+    if (!code || !/^[A-Za-z0-9]{4,12}$/.test(code)) {
+      return res.json({ valid: false });
     }
 
     const referralCode = await prisma.creatorReferralCode.findUnique({
       where: { code: code.toUpperCase() },
-      include: {
+      select: {
+        isActive: true,
         creator: {
-          select: { displayName: true, username: true, avatarUrl: true },
+          select: { displayName: true },
         },
       },
     });
@@ -198,13 +212,13 @@ referralRouter.get(
       return res.json({ valid: false });
     }
 
+    // Only return first name initial — minimal info leak
+    const name = referralCode.creator.displayName;
+    const safeDisplay = name ? name.split(" ")[0] : "Creadora";
+
     return res.json({
       valid: true,
-      creator: {
-        displayName: referralCode.creator.displayName,
-        username: referralCode.creator.username,
-        avatarUrl: referralCode.creator.avatarUrl,
-      },
+      creatorName: safeDisplay,
     });
   }),
 );
@@ -225,7 +239,16 @@ referralRouter.get(
       return res.json({ referrals: [] });
     }
 
-    const cycleId = (req.query.cycleId as string) || undefined;
+    let cycleId = (req.query.cycleId as string) || undefined;
+
+    // Validate cycleId belongs to this creator's referral code (prevent IDOR)
+    if (cycleId) {
+      const cycle = await prisma.referralCycle.findFirst({
+        where: { id: cycleId, referralCodeId: referralCode.id },
+        select: { id: true },
+      });
+      if (!cycle) cycleId = undefined; // Silently ignore invalid cycleId
+    }
 
     const redemptions = await prisma.referralRedemption.findMany({
       where: {
@@ -261,13 +284,22 @@ referralRouter.get(
 
 // ── Helper: generate unique referral code ──
 
+function cryptoSuffix(len: number): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
+  const bytes = randomBytes(len);
+  let result = "";
+  for (let i = 0; i < len; i++) {
+    result += chars[bytes[i] % chars.length];
+  }
+  return result;
+}
+
 async function generateUniqueCode(base: string): Promise<string> {
   const clean = base
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 5);
-  const suffix = Math.random().toString(36).substring(2, 5).toUpperCase();
-  let code = `${clean}${suffix}`;
+    .slice(0, 4);
+  let code = `${clean}${cryptoSuffix(4)}`; // 4+4 = 8 chars, ~20 bits of entropy
 
   // Ensure uniqueness
   let attempts = 0;
@@ -276,10 +308,10 @@ async function generateUniqueCode(base: string): Promise<string> {
       where: { code },
     });
     if (!existing) return code;
-    code = `${clean}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    code = `${clean}${cryptoSuffix(5)}`;
     attempts++;
   }
 
-  // Fallback: timestamp-based
-  return `REF${Date.now().toString(36).toUpperCase()}`;
+  // Fallback: full random
+  return `R${cryptoSuffix(7)}`;
 }
