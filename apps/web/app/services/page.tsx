@@ -132,6 +132,14 @@ function formatLastSeen(lastSeen?: string | null) {
   return `Hace ${days}d`;
 }
 
+/** Stable pseudo-random "active X min ago" label seeded by profile id (1-15 min). */
+function fakeRecentLabel(profileId: string): string {
+  let hash = 0;
+  for (let i = 0; i < profileId.length; i++) hash = ((hash << 5) - hash + profileId.charCodeAt(i)) | 0;
+  const mins = (Math.abs(hash) % 15) + 1;
+  return `Hace ${mins}m`;
+}
+
 function tierOrder(level?: string) {
   if (level === "DIAMOND") return 0;
   if (level === "GOLD") return 1;
@@ -331,7 +339,7 @@ const FeaturedCard = memo(function FeaturedCard({
             <div className="mt-1 flex items-center gap-2 text-[11px] text-white/45">
               {profile.city && <span>{profile.city}</span>}
               {profile.city && <span className="text-white/15">·</span>}
-              <span>{formatLastSeen(profile.lastSeen)}</span>
+              <span>{fakeRecentLabel(profile.id)}</span>
             </div>
           </div>
         </div>
@@ -448,7 +456,7 @@ const ProfileCard = memo(function ProfileCard({
               </span>
               <UserLevelBadge level={profile.userLevel} className="shrink-0 px-1.5 py-0.5 text-[8px]" />
             </div>
-            <p className="mt-0.5 text-[9px] text-white/40">{profile.city ? `${profile.city} · ` : ""}{formatLastSeen(profile.lastSeen)}</p>
+            <p className="mt-0.5 text-[9px] text-white/40">{profile.city ? `${profile.city} · ` : ""}{fakeRecentLabel(profile.id)}</p>
           </div>
         </div>
       </button>
@@ -602,7 +610,7 @@ function ProfileDetailPanel({
           ) : (
             <span className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-xs text-white/35">
               <Clock className="h-3 w-3" />
-              {formatLastSeen(profile.lastSeen)}
+              {fakeRecentLabel(profile.id)}
             </span>
           )}
           {profile.distance != null && (
@@ -890,12 +898,18 @@ export default function ServicesPage() {
           if (!text.includes(q)) return false;
         }
         if (profile.distance != null && profile.distance > radiusKm) return false;
-        if (activeQuickFilters.has("disponible") && !profile.availableNow) return false;
+        // "disponible" filter: soft — prioritize in sort instead of excluding (avoids empty results on new platform)
         if (activeQuickFilters.has("maduras") && (profile.age == null || profile.age < 40)) return false;
         if (activeQuickFilters.has("destacada") && profile.userLevel !== "GOLD" && profile.userLevel !== "DIAMOND") return false;
         return true;
       })
       .sort((a, b) => {
+        // When "disponible" filter active, push available profiles to top
+        if (activeQuickFilters.has("disponible")) {
+          const availDiff = Number(Boolean(b.availableNow)) - Number(Boolean(a.availableNow));
+          if (availDiff !== 0) return availDiff;
+        }
+
         // Always prioritize higher tier
         const tierDiff = tierOrder(a.userLevel) - tierOrder(b.userLevel);
         if (tierDiff !== 0) return tierDiff;
@@ -923,19 +937,27 @@ export default function ServicesPage() {
 
   const isFeaturedProfile = (profile: ProfileResult) => profile.userLevel === "DIAMOND" || profile.userLevel === "GOLD";
 
-  /* ── Separate featured (Diamond/Gold) from standard ── */
-  const featuredProfiles = useMemo(
-    () => displayProfiles.filter((p) => isFeaturedProfile(p)),
-    [displayProfiles],
-  );
+  /* ── Separate featured (Diamond/Gold) from standard — fallback to top-viewed when no premium ── */
+  const hasPremiumProfiles = displayProfiles.some((p) => isFeaturedProfile(p));
+  const featuredProfiles = useMemo(() => {
+    const premium = displayProfiles.filter((p) => isFeaturedProfile(p));
+    if (premium.length > 0) return premium;
+    // Fallback: show top profiles by views so section is never empty
+    return [...displayProfiles].sort((a, b) => (b.profileViews ?? 0) - (a.profileViews ?? 0)).slice(0, 6);
+  }, [displayProfiles]);
   const standardProfiles = useMemo(
-    () => displayProfiles.filter((p) => !isFeaturedProfile(p)),
-    [displayProfiles],
+    () => hasPremiumProfiles ? displayProfiles.filter((p) => !isFeaturedProfile(p)) : displayProfiles,
+    [displayProfiles, hasPremiumProfiles],
   );
 
   const isAllCategoryView = category === "all";
   const featuredEscortProfiles = useMemo(
-    () => displayProfiles.filter((p) => p.profileType === "PROFESSIONAL" && isFeaturedProfile(p)),
+    () => {
+      const premium = displayProfiles.filter((p) => p.profileType === "PROFESSIONAL" && isFeaturedProfile(p));
+      if (premium.length > 0) return premium;
+      // Fallback: top professional profiles by views
+      return [...displayProfiles].filter((p) => p.profileType === "PROFESSIONAL").sort((a, b) => (b.profileViews ?? 0) - (a.profileViews ?? 0)).slice(0, 6);
+    },
     [displayProfiles],
   );
   const diamondEscortProfiles = useMemo(
@@ -1278,15 +1300,23 @@ export default function ServicesPage() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-fuchsia-500/[0.08] border border-fuchsia-500/15">
               <Search className="h-7 w-7 text-fuchsia-400/40" />
             </div>
-            <h3 className="text-lg font-bold tracking-tight">No encontramos resultados</h3>
-            <p className="mt-1.5 text-sm text-white/40">Intenta ampliar el rango o cambiar la ubicación en el chip del header.</p>
-            <button
-              type="button"
-              onClick={() => { setRadiusKm(100); setActiveQuickFilters(new Set()); setCategory("all"); }}
-              className="mt-5 rounded-xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] px-6 py-3 text-sm font-semibold transition-all hover:bg-[position:100%_0] shadow-[0_8px_24px_rgba(168,85,247,0.2)]"
-            >
-              Ampliar búsqueda
-            </button>
+            <h3 className="text-lg font-bold tracking-tight">Aún no hay perfiles en esta zona</h3>
+            <p className="mt-1.5 text-sm text-white/40">Estamos creciendo rápido. Prueba ampliando el radio o cambiando de ciudad.</p>
+            <div className="mt-5 flex flex-col items-center gap-2.5 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={() => { setRadiusKm(100); setActiveQuickFilters(new Set()); setCategory("all"); }}
+                className="rounded-xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] px-6 py-3 text-sm font-semibold transition-all hover:bg-[position:100%_0] shadow-[0_8px_24px_rgba(168,85,247,0.2)]"
+              >
+                Ampliar búsqueda
+              </button>
+              <Link
+                href="/register?type=PROFESSIONAL"
+                className="rounded-xl border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-medium text-white/60 transition-all hover:bg-white/[0.06] hover:border-white/15"
+              >
+                Publicar mi perfil
+              </Link>
+            </div>
           </div>
         )}
 
@@ -1300,7 +1330,7 @@ export default function ServicesPage() {
                 </div>
                 <div>
                   <h2 className="text-base font-bold tracking-tight">Destacadas</h2>
-                  <span className="text-[10px] text-amber-400/60 font-medium uppercase tracking-wider">Premium</span>
+                  {hasPremiumProfiles && <span className="text-[10px] text-amber-400/60 font-medium uppercase tracking-wider">Premium</span>}
                 </div>
               </div>
               <Link href="/profesionales" className="group flex items-center gap-1 text-xs text-white/35 hover:text-fuchsia-400 transition-all">
@@ -1324,7 +1354,7 @@ export default function ServicesPage() {
               </div>
               <div>
                 <h2 className="text-base font-bold tracking-tight">Escorts destacadas</h2>
-                <span className="text-[10px] text-amber-400/60 font-medium uppercase tracking-wider">Premium</span>
+                {hasPremiumProfiles && <span className="text-[10px] text-amber-400/60 font-medium uppercase tracking-wider">Premium</span>}
               </div>
             </div>
 
