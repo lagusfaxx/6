@@ -488,8 +488,8 @@ function ReferralSection() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await apiFetch("/referrals/stats");
-      if (res.ok) setData(await res.json());
+      const res = await apiFetch<any>("/referrals/stats");
+      if (res && typeof res === "object") setData(res);
     } catch {}
     setLoading(false);
   }, []);
@@ -499,8 +499,8 @@ function ReferralSection() {
   const generateCode = async () => {
     setGenerating(true);
     try {
-      const res = await apiFetch("/referrals/code", { method: "POST" });
-      if (res.ok) await fetchStats();
+      await apiFetch<any>("/referrals/code", { method: "POST" });
+      await fetchStats();
     } catch {}
     setGenerating(false);
   };
