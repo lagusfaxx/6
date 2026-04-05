@@ -23,7 +23,6 @@ import {
 import {
   ArrowRight,
   ChevronRight,
-  Clock3,
   Crown,
   Download,
   Flame,
@@ -1166,10 +1165,11 @@ export default function HomeClient() {
         <section ref={availableSectionRef} className="mb-8">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/[0.12]">
-                  <Clock3 className="h-3.5 w-3.5 text-emerald-400" />
+                <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/[0.12]">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-lg bg-emerald-400/30" />
+                  <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-400" />
                 </div>
-                <h2 className="text-base font-bold tracking-tight">Disponibles ahora</h2>
+                <h2 className="text-base font-bold tracking-tight">Disponibles ahora{availableProfiles.length > 0 && <span className="ml-1.5 text-sm font-semibold text-emerald-400/80">({availableProfiles.length})</span>}</h2>
               </div>
               <Link href="/servicios?sort=availableNow" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-emerald-400 transition-colors duration-200">
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -1197,7 +1197,7 @@ export default function HomeClient() {
                       <img src={resolveProfileImage(p)} alt={p.displayName} className="uzeed-card-img h-full w-full object-cover" decoding="async" />
                       <div className="absolute left-2 top-2 uzeed-badge-pill uzeed-badge-online text-[9px] z-[2]">
                         <span className="uzeed-badge-dot" />
-                        Disponible
+                        {formatLastSeenLabel(p.lastActiveAt || p.lastSeen)}
                       </div>
                       <div className="uzeed-card-gradient absolute inset-0" />
                       <div className="absolute bottom-2 left-2 right-2 z-[2]">
