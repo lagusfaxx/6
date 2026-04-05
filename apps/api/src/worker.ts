@@ -323,15 +323,17 @@ async function tickSyncPacSubscriptions() {
 async function tickReferralWelcomeEmail() {
   const now = new Date();
   const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-  // Only look at registrations from the last 7 days (don't spam old accounts)
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+  // Fetch creators/professionals registered 2h+ ago who haven't received the email.
+  // No date floor: covers both new and existing users. The ReminderLog
+  // ("referral_welcome_2h") persists in DB so redeploys never re-send.
+  // Processes 50 per tick to spread the load across hours.
   const creators = await prisma.user.findMany({
     where: {
       profileType: { in: ["CREATOR", "PROFESSIONAL"] },
       isActive: true,
       email: { not: "" },
-      createdAt: { gte: sevenDaysAgo, lte: twoHoursAgo },
+      createdAt: { lte: twoHoursAgo },
     },
     select: {
       id: true,
@@ -340,7 +342,7 @@ async function tickReferralWelcomeEmail() {
       displayName: true,
       creatorReferralCode: { select: { code: true } },
     },
-    take: 100,
+    take: 50,
   });
 
   for (const user of creators) {
