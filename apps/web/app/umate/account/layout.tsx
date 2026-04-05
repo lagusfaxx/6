@@ -54,8 +54,40 @@ export default function UmateAccountLayout({ children }: { children: React.React
 
   return (
     <div className="mx-auto max-w-[1170px] px-4 py-6">
+      {/* Mobile horizontal tabs — visible below lg */}
+      <div className="mb-4 lg:hidden">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide rounded-xl border border-white/[0.04] bg-white/[0.015] p-1.5">
+          {tabs.map((tab) => {
+            const active = ("exact" in tab && tab.exact) ? pathname === tab.href : pathname.startsWith(tab.href);
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all duration-200 ${
+                  active
+                    ? "bg-[#00aff0]/[0.12] text-white font-semibold"
+                    : "text-white/35 hover:text-white/55"
+                }`}
+              >
+                <tab.icon className={`h-3.5 w-3.5 ${active ? "text-[#00aff0]" : ""}`} />
+                {tab.label}
+              </Link>
+            );
+          })}
+          {!isCreator && loaded && (
+            <Link
+              href="/umate/onboarding"
+              className="flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[#00aff0]/70 transition hover:text-[#00aff0]"
+            >
+              <Crown className="h-3.5 w-3.5" />
+              Ser creadora
+            </Link>
+          )}
+        </div>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-        {/* Sidebar */}
+        {/* Sidebar — desktop only */}
         <aside className="hidden lg:block">
           <div className="sticky top-20 space-y-0.5 rounded-2xl border border-white/[0.04] bg-white/[0.015] p-2">
             <div className="px-3 py-2.5">

@@ -117,7 +117,7 @@ export default function WalletPage() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
+      <div className="grid gap-5 md:grid-cols-[1fr_300px]">
         {/* Ledger */}
         <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
           <div className="flex items-center justify-between">

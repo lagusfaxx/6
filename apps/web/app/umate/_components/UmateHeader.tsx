@@ -162,7 +162,7 @@ export default function UmateHeader() {
           No se encontraron creadoras
         </div>
       ) : (
-        <div className="max-h-[360px] overflow-y-auto p-2">
+        <div className="max-h-[min(360px,60vh)] overflow-y-auto p-2">
           {searchResults.map((c) => (
             <button
               key={c.id}
@@ -375,7 +375,7 @@ export default function UmateHeader() {
       {/* Mobile search overlay with real-time results */}
       {mobileSearch && (
         <div className="border-t border-white/[0.04] bg-[#0a0a12] px-4 py-3 md:hidden">
-          <div className="relative" ref={!searchRef.current ? searchRef : undefined}>
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
             <input
               value={searchQuery}
@@ -397,7 +397,7 @@ export default function UmateHeader() {
 
           {/* Mobile search results */}
           {searchQuery.trim() && (
-            <div className="mt-3 max-h-[50vh] overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.02]">
+            <div className="mt-3 max-h-[40vh] overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.02]">
               {searchLoading ? (
                 <div className="flex items-center justify-center gap-2 px-4 py-6">
                   <Loader2 className="h-4 w-4 animate-spin text-[#00aff0]/60" />

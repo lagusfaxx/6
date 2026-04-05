@@ -118,7 +118,7 @@ export default function SubscribersPage() {
         </div>
 
         {/* Tier filter */}
-        <div className="flex gap-1.5 mb-4">
+        <div className="flex flex-wrap gap-1.5 mb-4">
           {[
             { key: "", label: "Todos" },
             { key: "DIAMOND", label: "Diamond" },

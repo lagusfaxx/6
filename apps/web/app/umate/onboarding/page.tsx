@@ -407,7 +407,7 @@ export default function OnboardingPage() {
       {step === 3 && (
         <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6 space-y-5">
           <div>
-            <h2 className="text-base font-bold tracking-tight text-white">Terminos y condiciones</h2>
+            <h2 className="text-base font-bold tracking-tight text-white">Términos y condiciones</h2>
             <p className="mt-1 text-xs text-white/40">Lee y acepta para continuar</p>
           </div>
           <div className="max-h-52 overflow-y-auto rounded-lg bg-white/[0.02] p-4 text-xs text-white/40 space-y-2.5 leading-relaxed border border-white/[0.04]">

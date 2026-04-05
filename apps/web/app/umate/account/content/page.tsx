@@ -397,8 +397,8 @@ export default function ContentPage() {
 
       {/* Edit Modal */}
       {editingPost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-lg p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/[0.06] bg-[#0c0c14] p-6 space-y-4 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-lg p-0 sm:p-4">
+          <div className="w-full max-w-md rounded-t-2xl sm:rounded-2xl border border-white/[0.06] bg-[#0c0c14] p-6 space-y-4 shadow-[0_24px_80px_rgba(0,0,0,0.5)] max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-white">Editar publicación</h3>
               <button onClick={() => setEditingPost(null)} className="text-white/40 hover:text-white/60"><X className="h-4 w-4" /></button>
