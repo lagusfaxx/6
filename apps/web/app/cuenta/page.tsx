@@ -9,11 +9,13 @@ import useSubscriptionStatus from "../../hooks/useSubscriptionStatus";
 import { apiFetch } from "../../lib/api";
 import Avatar from "../../components/Avatar";
 import { Badge } from "../../components/ui/badge";
+import { useState, useEffect, useCallback } from "react";
 import {
   User, Settings, Image, MapPin, MessageSquare, Heart,
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
   TrendingUp, Zap, Shield, Wallet, Video, RefreshCw,
+  Gift, Copy, Check, Users,
 } from "lucide-react";
 
 const fadeUp = {
@@ -380,6 +382,13 @@ export default function AccountPage() {
             </motion.div>
           )}
 
+          {/* Referral program */}
+          {(isProfessional || profileType === "CREATOR") && (
+            <motion.div custom={3.5} variants={fadeUp}>
+              <ReferralSection />
+            </motion.div>
+          )}
+
           {/* Management links */}
           {links.length > 0 && (
             <motion.div custom={4} variants={fadeUp} className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.2)] p-5">
@@ -464,6 +473,190 @@ export default function AccountPage() {
             <Link href="/register" className="btn-secondary px-6">Crear cuenta</Link>
           </div>
         </motion.div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Referral Program Section ─── */
+
+function ReferralSection() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await apiFetch("/referrals/stats");
+      if (res.ok) setData(await res.json());
+    } catch {}
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  const generateCode = async () => {
+    setGenerating(true);
+    try {
+      const res = await apiFetch("/referrals/code", { method: "POST" });
+      if (res.ok) await fetchStats();
+    } catch {}
+    setGenerating(false);
+  };
+
+  const copyCode = () => {
+    if (!data?.code) return;
+    navigator.clipboard.writeText(data.code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (loading) {
+    return <div className="h-40 rounded-3xl bg-white/5 animate-pulse" />;
+  }
+
+  // No code yet — show CTA to generate
+  if (!data?.hasCode) {
+    return (
+      <div className="relative rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-600/[0.08] to-fuchsia-600/[0.04] p-5 overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent" />
+        <div className="flex items-start gap-3">
+          <Gift className="h-5 w-5 text-violet-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="text-sm font-semibold">Programa de Referidos</div>
+            <p className="mt-1 text-xs text-white/50">
+              Gana hasta <span className="text-violet-300 font-semibold">$650.000 CLP</span> por ciclo invitando profesionales a UZEED.
+              $10.000 por cada referida validada.
+            </p>
+            <button
+              onClick={generateCode}
+              disabled={generating}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2 text-xs font-medium text-white transition hover:shadow-[0_0_16px_rgba(139,92,246,0.4)] disabled:opacity-50"
+            >
+              <Gift className="h-3.5 w-3.5" />
+              {generating ? "Generando..." : "Obtener mi codigo"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const cycle = data.currentCycle;
+  const validatedCount = cycle?.referrals || 0;
+  const pendingCount = cycle?.pendingReferrals || 0;
+  const daysRemaining = cycle?.daysRemaining || 0;
+  const qualifies = cycle?.qualifies || false;
+  const totalAmount = cycle?.totalAmount || 0;
+  const referralsNeeded = cycle?.referralsNeeded || 0;
+
+  return (
+    <div className="relative rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-600/[0.08] to-fuchsia-600/[0.04] p-5 overflow-hidden">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent" />
+
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-white/50">
+          <Gift className="h-4 w-4 text-violet-400" />
+          Programa de Referidos
+        </h2>
+        {cycle && (
+          <span className="text-[11px] text-white/40">
+            {daysRemaining}d restantes
+          </span>
+        )}
+      </div>
+
+      {/* Referral code box */}
+      <div className="rounded-2xl bg-white/[0.04] border border-white/10 p-4 mb-4">
+        <p className="text-[11px] text-white/40 uppercase tracking-widest mb-1">Tu codigo</p>
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold tracking-wider text-violet-300">{data.code}</span>
+          <button
+            onClick={copyCode}
+            className="ml-auto flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:bg-white/10 transition"
+          >
+            {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+            {copied ? "Copiado" : "Copiar"}
+          </button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      {cycle && (
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-3 text-center">
+            <div className="text-lg font-bold text-emerald-400">{validatedCount}</div>
+            <div className="text-[10px] text-white/40">Validadas</div>
+          </div>
+          <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-3 text-center">
+            <div className="text-lg font-bold text-amber-400">{pendingCount}</div>
+            <div className="text-[10px] text-white/40">Pendientes</div>
+          </div>
+          <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-3 text-center">
+            <div className="text-lg font-bold text-violet-300">
+              ${totalAmount > 0 ? (totalAmount / 1000).toFixed(0) + "k" : "0"}
+            </div>
+            <div className="text-[10px] text-white/40">Ganancia</div>
+          </div>
+        </div>
+      )}
+
+      {/* Progress toward minimum */}
+      {!qualifies && referralsNeeded > 0 && (
+        <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2.5 mb-4">
+          <p className="text-xs text-amber-300">
+            Te faltan <span className="font-bold">{referralsNeeded}</span> referidas validadas para cobrar.
+            Minimo 10 por ciclo.
+          </p>
+        </div>
+      )}
+
+      {qualifies && (
+        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-2.5 mb-4">
+          <p className="text-xs text-emerald-300">
+            Calificas para el pago de <span className="font-bold">${totalAmount.toLocaleString("es-CL")} CLP</span> al
+            finalizar el ciclo.
+          </p>
+        </div>
+      )}
+
+      {/* Bonus tiers */}
+      <div className="space-y-1.5 mb-3">
+        <p className="text-[11px] text-white/40 uppercase tracking-wider">Tabla de ganancias</p>
+        {[
+          { n: 10, amount: "$100.000" },
+          { n: 15, amount: "$200.000", badge: "Plata" },
+          { n: 20, amount: "$350.000", badge: "Oro" },
+          { n: 30, amount: "$650.000", badge: "Diamante" },
+        ].map((tier) => (
+          <div
+            key={tier.n}
+            className={`flex items-center justify-between rounded-lg px-3 py-1.5 text-xs ${
+              validatedCount >= tier.n
+                ? "bg-emerald-500/10 border border-emerald-500/20"
+                : "bg-white/[0.02] border border-white/[0.04]"
+            }`}
+          >
+            <span className="text-white/60">
+              {tier.n} referidas
+              {tier.badge && (
+                <span className="ml-1.5 text-[10px] text-violet-400 font-medium">{tier.badge}</span>
+              )}
+            </span>
+            <span className={`font-semibold ${validatedCount >= tier.n ? "text-emerald-400" : "text-white/50"}`}>
+              {tier.amount}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Historical stats */}
+      {(data.totalReferrals > 0 || data.totalEarned > 0) && (
+        <div className="flex items-center gap-4 pt-3 border-t border-white/[0.06] text-xs text-white/40">
+          <span><Users className="inline h-3 w-3 mr-1" />{data.totalReferrals} total referidas</span>
+          <span>${(data.totalEarned || 0).toLocaleString("es-CL")} ganado</span>
+        </div>
       )}
     </div>
   );
