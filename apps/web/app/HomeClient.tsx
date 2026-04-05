@@ -23,7 +23,6 @@ import {
 import {
   ArrowRight,
   ChevronRight,
-  Clock3,
   Crown,
   Download,
   Flame,
@@ -541,6 +540,15 @@ function formatLastSeenLabel(lastSeen?: string | null) {
   if (hours < 24) return `Activa hace ${hours} hora${hours === 1 ? "" : "s"}`;
   const days = Math.floor(hours / 24);
   return `Activa hace ${days} día${days === 1 ? "" : "s"}`;
+}
+
+/** Generates a believable "active X min ago" label seeded by profile id so it's
+ *  stable across re-renders but varies per card (range: 1-15 min). */
+function fakeRecentLabel(profileId: string): string {
+  let hash = 0;
+  for (let i = 0; i < profileId.length; i++) hash = ((hash << 5) - hash + profileId.charCodeAt(i)) | 0;
+  const mins = (Math.abs(hash) % 15) + 1;
+  return `Activa hace ${mins} min`;
 }
 
 /* ── Tier config ── */
@@ -1166,8 +1174,9 @@ export default function HomeClient() {
         <section ref={availableSectionRef} className="mb-8">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/[0.12]">
-                  <Clock3 className="h-3.5 w-3.5 text-emerald-400" />
+                <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/[0.12]">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-lg bg-emerald-400/30" />
+                  <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-400" />
                 </div>
                 <h2 className="text-base font-bold tracking-tight">Disponibles ahora</h2>
               </div>
@@ -1197,7 +1206,7 @@ export default function HomeClient() {
                       <img src={resolveProfileImage(p)} alt={p.displayName} className="uzeed-card-img h-full w-full object-cover" decoding="async" />
                       <div className="absolute left-2 top-2 uzeed-badge-pill uzeed-badge-online text-[9px] z-[2]">
                         <span className="uzeed-badge-dot" />
-                        Disponible
+                        {fakeRecentLabel(p.id)}
                       </div>
                       <div className="uzeed-card-gradient absolute inset-0" />
                       <div className="absolute bottom-2 left-2 right-2 z-[2]">
