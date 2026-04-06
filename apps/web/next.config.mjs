@@ -75,7 +75,44 @@ const nextConfig = {
         ],
       },
       {
-        // HTML pages — no cache for dynamic content (auth state, real-time data)
+        // Public directory pages — allow Google to cache for better crawl efficiency
+        source: '/escorts/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, s-maxage=600, stale-while-revalidate=300',
+          },
+        ],
+      },
+      {
+        source: '/services',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, s-maxage=600, stale-while-revalidate=300',
+          },
+        ],
+      },
+      {
+        source: '/masajistas',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, s-maxage=600, stale-while-revalidate=300',
+          },
+        ],
+      },
+      {
+        source: '/foro/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, s-maxage=300, stale-while-revalidate=300',
+          },
+        ],
+      },
+      {
+        // HTML pages — no cache for dynamic/auth content
         source: '/:path*',
         headers: [
           {

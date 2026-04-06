@@ -159,20 +159,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // ── Landing pages por ciudad (geo-targeting SEO) ──
+  // Solo escorts por ciudad (las más buscadas). Masajistas/moteles por ciudad
+  // generaban URLs de bajo valor que Google no indexaba.
   for (const city of CITIES) {
     add(`/escorts?city=${encodeURIComponent(city)}`, "daily", 0.8);
-    add(`/masajistas?city=${encodeURIComponent(city)}`, "daily", 0.75);
-    add(`/moteles?city=${encodeURIComponent(city)}`, "daily", 0.75);
   }
 
-  // ── Combinaciones tag + ciudad top (máximo impacto long-tail) ──
-  const topTags = ["tetona", "culona", "rubia", "morena", "maduras", "anal", "trios", "colombiana", "venezolana", "jovenes", "disponible-hoy"];
-  const topCities = ["santiago", "vina-del-mar", "valparaiso", "concepcion", "antofagasta", "las-condes", "providencia"];
-  for (const tag of topTags) {
-    for (const city of topCities) {
-      add(`/escorts/${encodeURIComponent(tag)}?city=${encodeURIComponent(city)}`, "daily", 0.75);
-    }
-  }
+  // ── Combinaciones tag + ciudad top eliminadas ──
+  // Las combinaciones tag+ciudad generaban ~77 URLs de contenido delgado
+  // que Google marcaba como "Descubiertas, no indexadas".
+  // Se mantienen solo las landing pages por tag y por ciudad por separado.
 
   // ── Contenido dinámico ──
   add("/live", "always", 0.85);
