@@ -136,7 +136,7 @@ export default function AccountPage() {
   const links = canManageProfile ? managementLinks : [];
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-3 pb-10">
+    <div className="mx-auto w-full max-w-2xl lg:max-w-4xl space-y-3 pb-10">
       {loading ? (
         <div className="space-y-4">
           <div className="h-48 rounded-2xl bg-white/5 animate-pulse" />
@@ -152,51 +152,54 @@ export default function AccountPage() {
             </div>
 
             <div className="relative px-5 pb-5">
-              <div className="-mt-12 mb-3 flex justify-center">
-                <div className="rounded-full p-[3px] bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-[0_0_24px_rgba(139,92,246,0.35)]">
-                  <Avatar
-                    src={user.avatarUrl}
-                    alt={user.displayName || user.username}
-                    size={80}
-                    className="border-[3px] border-[#0e0e12]"
-                  />
+              {/* Mobile: stacked layout / Desktop: horizontal layout */}
+              <div className="flex flex-col items-center lg:flex-row lg:items-end lg:gap-5">
+                <div className="-mt-12 mb-3 flex justify-center lg:mb-0 lg:shrink-0">
+                  <div className="rounded-full p-[3px] bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-[0_0_24px_rgba(139,92,246,0.35)]">
+                    <Avatar
+                      src={user.avatarUrl}
+                      alt={user.displayName || user.username}
+                      size={80}
+                      className="border-[3px] border-[#0e0e12]"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex flex-col items-center text-center">
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <h1 className="text-lg font-semibold leading-tight">{user.displayName || user.username}</h1>
-                  <Badge className="flex items-center gap-1">
-                    {profileIcon}
-                    {profileLabel}
-                  </Badge>
+                <div className="flex flex-col items-center text-center lg:items-start lg:text-left lg:flex-1 lg:min-w-0">
+                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2">
+                    <h1 className="text-lg font-semibold leading-tight">{user.displayName || user.username}</h1>
+                    <Badge className="flex items-center gap-1">
+                      {profileIcon}
+                      {profileLabel}
+                    </Badge>
+                  </div>
+                  <p className="mt-0.5 text-xs text-white/40">@{user.username}</p>
                 </div>
-                <p className="mt-0.5 text-xs text-white/40">@{user.username}</p>
-              </div>
 
-              <div className="mt-4 flex justify-center gap-2">
-                {canManageProfile && (
-                  <Link href={publicProfileUrl} className="btn-secondary flex items-center gap-1.5 text-xs px-4 py-2">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Ver perfil
-                  </Link>
-                )}
-                {canManageProfile && !isMotelProfile ? (
-                  <Link href="/dashboard/services" className="btn-primary flex items-center gap-1.5 text-xs px-4 py-2">
-                    <Palette className="h-3.5 w-3.5" />
-                    Creator Studio
-                  </Link>
-                ) : !canManageProfile ? (
-                  <>
-                    <Link href="/cuenta/perfil" className="btn-secondary flex items-center gap-1.5 text-xs px-4 py-2">
-                      <Edit3 className="h-3.5 w-3.5" />
-                      Editar perfil
+                <div className="mt-4 flex justify-center gap-2 lg:mt-0 lg:shrink-0">
+                  {canManageProfile && (
+                    <Link href={publicProfileUrl} className="btn-secondary flex items-center gap-1.5 text-xs px-4 py-2">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Ver perfil
                     </Link>
-                    <Link href="/servicios" className="btn-primary text-xs px-4 py-2">
-                      Explorar servicios
+                  )}
+                  {canManageProfile && !isMotelProfile ? (
+                    <Link href="/dashboard/services" className="btn-primary flex items-center gap-1.5 text-xs px-4 py-2">
+                      <Palette className="h-3.5 w-3.5" />
+                      Creator Studio
                     </Link>
-                  </>
-                ) : null}
+                  ) : !canManageProfile ? (
+                    <>
+                      <Link href="/cuenta/perfil" className="btn-secondary flex items-center gap-1.5 text-xs px-4 py-2">
+                        <Edit3 className="h-3.5 w-3.5" />
+                        Editar perfil
+                      </Link>
+                      <Link href="/servicios" className="btn-primary text-xs px-4 py-2">
+                        Explorar servicios
+                      </Link>
+                    </>
+                  ) : null}
+                </div>
               </div>
             </div>
           </motion.div>
@@ -208,7 +211,7 @@ export default function AccountPage() {
                 <Zap className="h-4 w-4 text-fuchsia-400" />
                 Acciones rápidas
               </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 {quickActions.map((action) => {
                   const Icon = action.icon;
                   return (
@@ -350,7 +353,7 @@ export default function AccountPage() {
           {/* Management links — horizontal grid */}
           {links.length > 0 && (
             <motion.div custom={4} variants={fadeUp}>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
                 {links.map((link) => (
                   <Link
                     key={link.href}
