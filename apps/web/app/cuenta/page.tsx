@@ -321,9 +321,9 @@ export default function AccountPage() {
 
           {/* Visibility tip + Referral — side by side */}
           {(isProfessional || profileType === "CREATOR") && (
-            <motion.div custom={3} variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <motion.div custom={3} variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-5 gap-3">
               {isProfessional && (
-                <div className="rounded-2xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-600/[0.06] to-transparent p-4">
+                <div className="lg:col-span-3 rounded-2xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-600/[0.06] to-transparent p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className="h-4 w-4 text-fuchsia-400" />
                     <span className="text-sm font-semibold">Aumenta tu visibilidad</span>
@@ -344,7 +344,7 @@ export default function AccountPage() {
                   </div>
                 </div>
               )}
-              <div className={isProfessional ? "" : "sm:col-span-2"}>
+              <div className={isProfessional ? "lg:col-span-2" : "lg:col-span-5"}>
                 <ReferralSection />
               </div>
             </motion.div>
@@ -353,7 +353,7 @@ export default function AccountPage() {
           {/* Management links — horizontal grid */}
           {links.length > 0 && (
             <motion.div custom={4} variants={fadeUp}>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {links.map((link) => (
                   <Link
                     key={link.href}
@@ -482,15 +482,13 @@ function ReferralSection() {
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-violet-500/20 bg-violet-600/[0.06] px-4 py-3">
-      <Gift className="h-4 w-4 text-violet-400 shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] text-white/40 uppercase tracking-widest">Código de amigo</p>
-        <span className="text-base font-bold tracking-wider text-violet-300">{data.code}</span>
-      </div>
+    <div className="flex h-full flex-col items-center justify-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-600/[0.06] px-4 py-4">
+      <Gift className="h-5 w-5 text-violet-400" />
+      <p className="text-[10px] text-white/40 uppercase tracking-widest">Código de amigo</p>
+      <span className="text-lg font-bold tracking-wider text-violet-300">{data.code}</span>
       <button
         onClick={copyCode}
-        className="shrink-0 flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:bg-white/10 transition"
+        className="flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:bg-white/10 transition"
       >
         {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
         {copied ? "Copiado" : "Copiar"}
