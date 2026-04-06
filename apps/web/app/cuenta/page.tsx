@@ -11,7 +11,7 @@ import Avatar from "../../components/Avatar";
 import { Badge } from "../../components/ui/badge";
 import { useState, useEffect, useCallback } from "react";
 import {
-  User, Settings, Image, MapPin, MessageSquare, Heart,
+  User, MessageSquare, Heart,
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
   TrendingUp, Zap, Shield, Wallet, Video, RefreshCw,
@@ -24,13 +24,6 @@ type QuickAction = {
   href: string;
   icon: typeof Edit3;
   color: string;
-};
-
-type QuickLink = {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-  description?: string;
 };
 
 export default function AccountPage() {
@@ -103,22 +96,6 @@ export default function AccountPage() {
     { label: "Billetera", description: "Tokens y saldo", href: "/wallet", icon: Wallet, color: "text-amber-400" },
   );
 
-  const managementLinks: QuickLink[] = isMotelProfile
-    ? [
-        { href: "/dashboard/motel", label: "Dashboard Motel", icon: <Building className="h-4 w-4" />, description: "Panel principal" },
-        { href: "/dashboard/motel?tab=rooms", label: "Habitaciones", icon: <Settings className="h-4 w-4" />, description: "Gestionar habitaciones" },
-        { href: "/dashboard/motel?tab=promos", label: "Promociones", icon: <Palette className="h-4 w-4" />, description: "Ofertas activas" },
-        { href: "/dashboard/motel?tab=location", label: "Ubicación", icon: <MapPin className="h-4 w-4" />, description: "Mapa y dirección" },
-      ]
-    : [
-        { href: "/dashboard/services?tab=perfil", label: "Editar perfil", icon: <User className="h-4 w-4" />, description: "Info, bio y detalles" },
-        { href: "/dashboard/services?tab=servicios", label: "Servicios", icon: <Settings className="h-4 w-4" />, description: "Gestionar publicaciones" },
-        ...(isShop ? [{ href: "/dashboard/services?tab=productos", label: "Productos", icon: <ShoppingBag className="h-4 w-4" />, description: "Inventario y precios" }] : []),
-        { href: "/dashboard/services?tab=galeria", label: "Galería", icon: <Image className="h-4 w-4" />, description: "Fotos y media" },
-        { href: "/dashboard/services?tab=ubicacion", label: "Ubicación", icon: <MapPin className="h-4 w-4" />, description: "Mapa y dirección" },
-      ];
-
-  const links = canManageProfile ? managementLinks : [];
   const showVisibility = isProfessional || profileType === "CREATOR";
 
   return (
@@ -337,30 +314,7 @@ export default function AccountPage() {
             </div>
           )}
 
-          {/* ── Management Links ── */}
-          {links.length > 0 && (
-            <div className="border-t border-white/[0.06] px-6 py-5">
-              <div className={`grid grid-cols-2 gap-2 sm:grid-cols-4 ${links.length === 5 ? "lg:grid-cols-5" : ""}`}>
-                {links.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="group flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3 transition-all hover:border-white/[0.12] hover:bg-white/[0.05]"
-                  >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-white/50 transition-colors group-hover:text-fuchsia-400/80">
-                      {link.icon}
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-[13px] font-medium text-white/80 block truncate">{link.label}</span>
-                      {link.description && (
-                        <span className="text-[10px] text-white/30 block truncate">{link.description}</span>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
+
 
           {/* ── Admin ── */}
           {isAdmin && (
