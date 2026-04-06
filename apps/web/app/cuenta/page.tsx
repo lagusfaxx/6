@@ -18,13 +18,12 @@ import {
   Gift, Copy, Check,
 } from "lucide-react";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 14 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.08, duration: 0.35, ease: [0.16, 1, 0.3, 1] },
-  }),
+type QuickAction = {
+  label: string;
+  description: string;
+  href: string;
+  icon: typeof Edit3;
+  color: string;
 };
 
 type QuickLink = {
@@ -32,14 +31,6 @@ type QuickLink = {
   label: string;
   icon: React.ReactNode;
   description?: string;
-};
-
-type QuickAction = {
-  label: string;
-  description: string;
-  href: string;
-  icon: typeof Edit3;
-  color: string;
 };
 
 export default function AccountPage() {
@@ -86,7 +77,6 @@ export default function AccountPage() {
     : "/"
     : "/";
 
-  // Quick actions grid (from dashboard)
   const quickActions: QuickAction[] = [];
   if (isProfessional || isShop) {
     quickActions.push(
@@ -98,10 +88,6 @@ export default function AccountPage() {
     quickActions.push(
       { label: "Subir story", description: "Foto o video de 24h", href: "/dashboard/stories", icon: Camera, color: "text-pink-400" },
       { label: "Ver mi perfil", description: "Como lo ven los clientes", href: publicProfileUrl, icon: Eye, color: "text-violet-400" },
-    );
-  }
-  if (isProfessional) {
-    quickActions.push(
       { label: "Videollamadas", description: "Config y reservas", href: "/videocall", icon: Video, color: "text-emerald-400" },
     );
   }
@@ -113,7 +99,6 @@ export default function AccountPage() {
       { label: "Favoritos", description: "Perfiles guardados", href: "/favoritos", icon: Heart, color: "text-rose-400" },
     );
   }
-  // Wallet for all authenticated users
   quickActions.push(
     { label: "Billetera", description: "Tokens y saldo", href: "/wallet", icon: Wallet, color: "text-amber-400" },
   );
@@ -134,25 +119,31 @@ export default function AccountPage() {
       ];
 
   const links = canManageProfile ? managementLinks : [];
+  const showVisibility = isProfessional || profileType === "CREATOR";
 
   return (
-    <div className="mx-auto w-full max-w-2xl lg:max-w-4xl space-y-3 pb-10">
+    <div className="mx-auto w-full max-w-2xl lg:max-w-4xl pb-10">
       {loading ? (
         <div className="space-y-4">
           <div className="h-48 rounded-2xl bg-white/5 animate-pulse" />
           <div className="h-32 rounded-2xl bg-white/5 animate-pulse" />
         </div>
       ) : user ? (
-        <motion.div initial="hidden" animate="visible" className="space-y-3">
-          {/* Profile hero */}
-          <motion.div custom={0} variants={fadeUp} className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
-            <div className="relative h-28 bg-gradient-to-br from-violet-600/30 via-fuchsia-500/20 to-transparent">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl shadow-[0_20px_80px_rgba(0,0,0,0.4)]"
+        >
+          {/* Top accent line */}
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
+
+          {/* ── Profile Hero ── */}
+          <div className="relative">
+            <div className="h-28 bg-gradient-to-br from-violet-600/30 via-fuchsia-500/20 to-transparent">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(168,85,247,0.3),transparent_70%)]" />
             </div>
-
-            <div className="relative px-5 pb-5">
-              {/* Mobile: stacked layout / Desktop: horizontal layout */}
+            <div className="relative px-6 pb-6">
               <div className="flex flex-col items-center lg:flex-row lg:items-end lg:gap-5">
                 <div className="-mt-12 mb-3 flex justify-center lg:mb-0 lg:shrink-0">
                   <div className="rounded-full p-[3px] bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-[0_0_24px_rgba(139,92,246,0.35)]">
@@ -164,7 +155,6 @@ export default function AccountPage() {
                     />
                   </div>
                 </div>
-
                 <div className="flex flex-col items-center text-center lg:items-start lg:text-left lg:flex-1 lg:min-w-0">
                   <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2">
                     <h1 className="text-lg font-semibold leading-tight">{user.displayName || user.username}</h1>
@@ -175,7 +165,6 @@ export default function AccountPage() {
                   </div>
                   <p className="mt-0.5 text-xs text-white/40">@{user.username}</p>
                 </div>
-
                 <div className="mt-4 flex justify-center gap-2 lg:mt-0 lg:shrink-0">
                   {canManageProfile && (
                     <Link href={publicProfileUrl} className="btn-secondary flex items-center gap-1.5 text-xs px-4 py-2">
@@ -202,43 +191,40 @@ export default function AccountPage() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
 
-          {/* Quick actions grid */}
+          {/* ── Quick Actions ── */}
           {quickActions.length > 0 && (
-            <motion.div custom={1} variants={fadeUp}>
-              <h2 className="mb-3 text-sm font-semibold text-white/50 flex items-center gap-2">
-                <Zap className="h-4 w-4 text-fuchsia-400" />
+            <div className="border-t border-white/[0.06] px-6 py-5">
+              <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-white/30 flex items-center gap-2">
+                <Zap className="h-3.5 w-3.5 text-fuchsia-400/60" />
                 Acciones rápidas
               </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                 {quickActions.map((action) => {
                   const Icon = action.icon;
                   return (
                     <Link
                       key={action.href}
                       href={action.href}
-                      className="group rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-fuchsia-500/20 hover:bg-white/[0.06] hover:-translate-y-0.5"
+                      className="group flex flex-col rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition-all hover:border-fuchsia-500/20 hover:bg-white/[0.05] hover:-translate-y-0.5"
                     >
-                      <Icon className={`h-5 w-5 mb-2 ${action.color}`} />
-                      <div className="text-sm font-semibold">{action.label}</div>
-                      <div className="mt-0.5 text-[11px] text-white/40">{action.description}</div>
+                      <Icon className={`h-5 w-5 mb-1.5 ${action.color} transition-transform group-hover:scale-110`} />
+                      <span className="text-[13px] font-medium leading-tight">{action.label}</span>
+                      <span className="mt-0.5 text-[10px] text-white/35 leading-tight">{action.description}</span>
                     </Link>
                   );
                 })}
               </div>
-            </motion.div>
+            </div>
           )}
 
-          {/* Subscription — compact inline */}
+          {/* ── Subscription ── */}
           {requiresPayment && !statusLoading && subscriptionStatus && (
-            <motion.div custom={2} variants={fadeUp} className="relative rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl p-4 overflow-hidden">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent" />
-
-              {/* Header row: title + badge + action */}
+            <div className="border-t border-white/[0.06] px-6 py-5">
               <div className="flex items-center gap-3">
-                <CreditCard className="h-4 w-4 text-white/40 shrink-0" />
-                <span className="text-sm font-semibold text-white/70 uppercase tracking-wider">Suscripción</span>
+                <CreditCard className="h-4 w-4 text-white/30 shrink-0" />
+                <span className="text-[11px] font-semibold text-white/30 uppercase tracking-wider">Suscripción</span>
                 {subscriptionStatus.isActive ? (
                   <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]">
                     {subscriptionStatus.membershipActive ? "Activa" : "Prueba"}
@@ -246,14 +232,13 @@ export default function AccountPage() {
                 ) : (
                   <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px]">Expirada</Badge>
                 )}
-                <span className="ml-auto text-xs text-white/50">
+                <span className="ml-auto text-xs text-white/40">
                   {subscriptionStatus.isActive
                     ? `${subscriptionStatus.daysRemaining || 0} días restantes`
                     : null}
                 </span>
               </div>
 
-              {/* Status details */}
               <div className="mt-3 space-y-2">
                 {isTrialPeriod && (
                   <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
@@ -299,11 +284,11 @@ export default function AccountPage() {
                 ) : null}
 
                 {subscriptionStatus.recentPayments && subscriptionStatus.recentPayments.length > 0 && (
-                  <div className="flex items-center gap-2 pt-1 border-t border-white/[0.06] mt-2">
-                    <span className="text-[10px] text-white/30 uppercase tracking-wider shrink-0">Pagos:</span>
+                  <div className="flex items-center gap-2 pt-2 border-t border-white/[0.04] mt-2">
+                    <span className="text-[10px] text-white/25 uppercase tracking-wider shrink-0">Pagos:</span>
                     <div className="flex gap-3 overflow-x-auto">
                       {subscriptionStatus.recentPayments.slice(0, 3).map((payment) => (
-                        <span key={payment.id} className="flex items-center gap-1.5 text-[11px] text-white/50 whitespace-nowrap">
+                        <span key={payment.id} className="flex items-center gap-1.5 text-[11px] text-white/45 whitespace-nowrap">
                           <span className={`h-1.5 w-1.5 rounded-full ${
                             payment.status === "PAID" ? "bg-green-500" :
                             payment.status === "PENDING" ? "bg-yellow-500" :
@@ -316,84 +301,91 @@ export default function AccountPage() {
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
           )}
 
-          {/* Visibility tip + Referral — side by side */}
-          {(isProfessional || profileType === "CREATOR") && (
-            <motion.div custom={3} variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-5 gap-3">
-              {isProfessional && (
-                <div className="lg:col-span-3 rounded-2xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-600/[0.06] to-transparent p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="h-4 w-4 text-fuchsia-400" />
-                    <span className="text-sm font-semibold">Aumenta tu visibilidad</span>
+          {/* ── Visibility + Referral ── */}
+          {showVisibility && (
+            <div className="border-t border-white/[0.06] px-6 py-5">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+                {isProfessional && (
+                  <div className="lg:col-span-3 rounded-xl border border-fuchsia-500/10 bg-gradient-to-br from-fuchsia-600/[0.05] to-transparent p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4 text-fuchsia-400" />
+                      <span className="text-sm font-semibold">Aumenta tu visibilidad</span>
+                    </div>
+                    <p className="text-xs text-white/45 mb-3">
+                      Sube stories, completa tu perfil y activa UMate.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Link href="/dashboard/stories" className="inline-flex items-center gap-1 rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/20 px-2.5 py-1 text-[11px] text-fuchsia-300 hover:bg-fuchsia-500/20 transition">
+                        <Camera className="h-3 w-3" /> Story
+                      </Link>
+                      <Link href="/dashboard/services" className="inline-flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:bg-white/10 transition">
+                        <Edit3 className="h-3 w-3" /> Perfil
+                      </Link>
+                      <Link href="/umate/account" className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-500/15 to-violet-500/15 border border-violet-500/20 px-2.5 py-1 text-[11px] text-violet-300 transition">
+                        <Sparkles className="h-3 w-3" /> UMate
+                      </Link>
+                    </div>
                   </div>
-                  <p className="text-xs text-white/50 mb-3">
-                    Sube stories, completa tu perfil y activa UMate.
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Link href="/dashboard/stories" className="inline-flex items-center gap-1 rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/20 px-2.5 py-1 text-[11px] text-fuchsia-300 hover:bg-fuchsia-500/20 transition">
-                      <Camera className="h-3 w-3" /> Story
-                    </Link>
-                    <Link href="/dashboard/services" className="inline-flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:bg-white/10 transition">
-                      <Edit3 className="h-3 w-3" /> Perfil
-                    </Link>
-                    <Link href="/umate/account" className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-500/15 to-violet-500/15 border border-violet-500/20 px-2.5 py-1 text-[11px] text-violet-300 transition">
-                      <Sparkles className="h-3 w-3" /> UMate
-                    </Link>
-                  </div>
+                )}
+                <div className={isProfessional ? "lg:col-span-2" : "lg:col-span-5"}>
+                  <ReferralSection />
                 </div>
-              )}
-              <div className={isProfessional ? "lg:col-span-2" : "lg:col-span-5"}>
-                <ReferralSection />
               </div>
-            </motion.div>
+            </div>
           )}
 
-          {/* Management links — horizontal grid */}
+          {/* ── Management Links ── */}
           {links.length > 0 && (
-            <motion.div custom={4} variants={fadeUp}>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="border-t border-white/[0.06] px-6 py-5">
+              <div className={`grid grid-cols-2 gap-2 sm:grid-cols-4 ${links.length === 5 ? "lg:grid-cols-5" : ""}`}>
                 {links.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="flex flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-white/20 hover:bg-white/[0.06]"
+                    className="group flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3 transition-all hover:border-white/[0.12] hover:bg-white/[0.05]"
                   >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white/60">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-white/50 transition-colors group-hover:text-fuchsia-400/80">
                       {link.icon}
                     </div>
-                    <span className="text-xs font-medium text-white/80 text-center">{link.label}</span>
+                    <div className="min-w-0">
+                      <span className="text-[13px] font-medium text-white/80 block truncate">{link.label}</span>
+                      {link.description && (
+                        <span className="text-[10px] text-white/30 block truncate">{link.description}</span>
+                      )}
+                    </div>
                   </Link>
                 ))}
               </div>
-            </motion.div>
+            </div>
           )}
 
-          {/* Admin link */}
+          {/* ── Admin ── */}
           {isAdmin && (
-            <motion.div custom={5} variants={fadeUp}>
+            <div className="border-t border-white/[0.06]">
               <Link
                 href="/admin"
-                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 hover:bg-white/[0.06] transition"
+                className="flex items-center gap-3 px-6 py-4 hover:bg-white/[0.03] transition"
               >
                 <Shield className="h-4 w-4 text-amber-400" />
                 <span className="text-sm font-medium">Panel de administración</span>
-                <ChevronRight className="ml-auto h-4 w-4 text-white/30" />
+                <ChevronRight className="ml-auto h-4 w-4 text-white/20" />
               </Link>
-            </motion.div>
+            </div>
           )}
 
-          {/* Logout */}
-          <motion.div custom={6} variants={fadeUp}>
+          {/* ── Logout ── */}
+          <div className="border-t border-white/[0.06]">
             <button
               onClick={handleLogout}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-5 py-2.5 text-sm text-white/40 transition-all hover:border-red-500/20 hover:bg-red-500/[0.04] hover:text-red-400"
+              className="flex w-full items-center justify-center gap-2 px-6 py-4 text-sm text-white/35 transition-all hover:bg-red-500/[0.04] hover:text-red-400"
             >
               <LogOut className="h-4 w-4" />
               Cerrar sesión
             </button>
-          </motion.div>
+          </div>
         </motion.div>
       ) : (
         <motion.div
@@ -462,12 +454,12 @@ function ReferralSection() {
   };
 
   if (loading) {
-    return <div className="h-16 rounded-2xl bg-white/5 animate-pulse" />;
+    return <div className="h-16 rounded-xl bg-white/5 animate-pulse" />;
   }
 
   if (!data?.hasCode) {
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-violet-500/20 bg-violet-600/[0.06] px-4 py-3">
+      <div className="flex h-full items-center gap-3 rounded-xl border border-violet-500/15 bg-violet-600/[0.05] px-4 py-3">
         <Gift className="h-4 w-4 text-violet-400 shrink-0" />
         <span className="text-sm text-white/60 flex-1">Invita amigas y gana por cada referida.</span>
         <button
@@ -482,13 +474,13 @@ function ReferralSection() {
   }
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-600/[0.06] px-4 py-4">
+    <div className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-violet-500/15 bg-violet-600/[0.05] px-4 py-4">
       <Gift className="h-5 w-5 text-violet-400" />
-      <p className="text-[10px] text-white/40 uppercase tracking-widest">Código de amigo</p>
+      <p className="text-[10px] text-white/35 uppercase tracking-widest">Código de amigo</p>
       <span className="text-lg font-bold tracking-wider text-violet-300">{data.code}</span>
       <button
         onClick={copyCode}
-        className="flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:bg-white/10 transition"
+        className="flex items-center gap-1 rounded-lg bg-white/5 border border-white/[0.08] px-3 py-1.5 text-xs text-white/50 hover:bg-white/10 transition"
       >
         {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
         {copied ? "Copiado" : "Copiar"}
