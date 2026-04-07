@@ -161,7 +161,7 @@ export default function PublicateClient() {
 
   /* ── Validation per step ── */
   const isStep1Valid = data.displayName.trim().length >= 2 && data.primaryCategory.length > 0;
-  const isStep2Valid = true; // gallery is optional
+  const isStep2Valid = data.galleryFiles.length >= 3;
   const isStep3Valid =
     data.profileTags.length >= 1 &&
     data.serviceTags.length >= 1 &&
@@ -351,8 +351,8 @@ export default function PublicateClient() {
       {/* ═══ STEP 2: Tus fotos ═══ */}
       {step === 2 && (
         <div className="space-y-5">
-          <h2 className="text-base font-semibold text-white">Tus fotos</h2>
-          <p className="text-xs text-white/40">Sube hasta {MAX_GALLERY} fotos para tu galería. Mientras más fotos, más visitas.</p>
+          <h2 className="text-base font-semibold text-white">Tus fotos *</h2>
+          <p className="text-xs text-white/40">Mínimo 3 fotos, hasta {MAX_GALLERY}. Mientras más fotos, más visitas.</p>
 
           <div className="grid grid-cols-3 gap-2.5">
             {Array.from({ length: MAX_GALLERY }).map((_, idx) => {
