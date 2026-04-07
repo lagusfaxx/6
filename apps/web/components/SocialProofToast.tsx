@@ -187,50 +187,82 @@ export default function SocialProofToast() {
   if (isSuppressed) return null;
 
   return (
-    <div
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[55] flex justify-center px-4 md:inset-x-auto md:bottom-6 md:right-6 md:left-auto md:justify-end"
-    >
-      <AnimatePresence mode="wait">
-        {active && (
-          <motion.div
-            key={active.id}
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.97 }}
-            transition={{ type: "spring", damping: 26, stiffness: 350 }}
-            onClick={handleClick}
-            className="pointer-events-auto flex w-full max-w-sm cursor-pointer items-center gap-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0e0e1a]/85 px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors hover:border-fuchsia-500/20"
-          >
-            {/* Icon */}
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-600/20 to-violet-600/20">
-              {active.kind === "whatsapp" ? (
-                <Phone className="h-4 w-4 text-emerald-400" />
-              ) : (
-                <MessageCircle className="h-4 w-4 text-fuchsia-400" />
-              )}
-            </div>
+    <>
+      {/* Mobile: notification style from top */}
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[55] flex justify-center px-3 pt-[calc(env(safe-area-inset-top)+8px)] md:hidden">
+        <AnimatePresence mode="wait">
+          {active && (
+            <motion.div
+              key={`m-${active.id}`}
+              initial={{ opacity: 0, y: -60 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -40, transition: { duration: 0.2 } }}
+              transition={{ type: "spring", damping: 24, stiffness: 300 }}
+              onClick={handleClick}
+              className="pointer-events-auto flex w-full max-w-sm cursor-pointer items-center gap-3 overflow-hidden rounded-2xl border border-white/10 bg-[#1a1a2e]/95 px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.05)] backdrop-blur-2xl"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-600/25 to-violet-600/25 shadow-[0_0_12px_rgba(217,70,239,0.15)]">
+                {active.kind === "whatsapp" ? (
+                  <Phone className="h-[18px] w-[18px] text-emerald-400" />
+                ) : (
+                  <MessageCircle className="h-[18px] w-[18px] text-fuchsia-400" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium text-white/40 leading-none mb-0.5">Uzeed</p>
+                <p className="text-[13px] leading-snug text-white/80">
+                  {active.kind === "whatsapp" ? (
+                    <>Alguien contactó a <span className="font-semibold text-fuchsia-300">{active.displayName}</span></>
+                  ) : (
+                    <>Alguien envió un mensaje a <span className="font-semibold text-fuchsia-300">{active.displayName}</span></>
+                  )}
+                </p>
+              </div>
+              <span className="shrink-0 text-[10px] text-white/25">ahora</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-            {/* Text */}
-            <p className="min-w-0 flex-1 text-[12.5px] leading-snug text-white/70">
-              {active.kind === "whatsapp" ? (
-                <>Alguien contactó a <span className="font-semibold text-fuchsia-300">{active.displayName}</span> por WhatsApp</>
-              ) : (
-                <>Alguien envió un mensaje a <span className="font-semibold text-fuchsia-300">{active.displayName}</span></>
-              )}
-            </p>
-
-            {/* Progress bar */}
-            <div className="absolute inset-x-0 bottom-0 h-[2px] bg-white/[0.04]">
-              <motion.div
-                className="h-full bg-gradient-to-r from-fuchsia-500/40 to-violet-500/40"
-                initial={{ width: "100%" }}
-                animate={{ width: "0%" }}
-                transition={{ duration: DISMISS_MS / 1000, ease: "linear" }}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+      {/* Desktop: bottom-right */}
+      <div className="pointer-events-none fixed inset-x-auto bottom-6 right-6 z-[55] hidden md:flex md:justify-end">
+        <AnimatePresence mode="wait">
+          {active && (
+            <motion.div
+              key={`d-${active.id}`}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.97 }}
+              transition={{ type: "spring", damping: 26, stiffness: 350 }}
+              onClick={handleClick}
+              className="pointer-events-auto flex w-full max-w-sm cursor-pointer items-center gap-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0e0e1a]/85 px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors hover:border-fuchsia-500/20"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-600/20 to-violet-600/20">
+                {active.kind === "whatsapp" ? (
+                  <Phone className="h-4 w-4 text-emerald-400" />
+                ) : (
+                  <MessageCircle className="h-4 w-4 text-fuchsia-400" />
+                )}
+              </div>
+              <p className="min-w-0 flex-1 text-[12.5px] leading-snug text-white/70">
+                {active.kind === "whatsapp" ? (
+                  <>Alguien contactó a <span className="font-semibold text-fuchsia-300">{active.displayName}</span> por WhatsApp</>
+                ) : (
+                  <>Alguien envió un mensaje a <span className="font-semibold text-fuchsia-300">{active.displayName}</span></>
+                )}
+              </p>
+              <div className="absolute inset-x-0 bottom-0 h-[2px] bg-white/[0.04]">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-fuchsia-500/40 to-violet-500/40"
+                  initial={{ width: "100%" }}
+                  animate={{ width: "0%" }}
+                  transition={{ duration: DISMISS_MS / 1000, ease: "linear" }}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </>
   );
 }
