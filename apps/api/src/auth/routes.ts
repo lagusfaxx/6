@@ -15,6 +15,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { sendSetPasswordEmail } from "./verification";
+import { createFlowPayment } from "../khipu/client";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -488,6 +489,7 @@ authRouter.post(
       minDurationMinutes: b.minDurationMinutes ? Number(b.minDurationMinutes) : undefined,
       acceptsIncalls: b.acceptsIncalls === "true",
       acceptsOutcalls: b.acceptsOutcalls === "true",
+      selectedPlan: b.selectedPlan || "free",
     };
 
     const parsed = quickRegisterSchema.safeParse(body);
@@ -512,6 +514,7 @@ authRouter.post(
       minDurationMinutes,
       acceptsIncalls,
       acceptsOutcalls,
+      selectedPlan,
     } = parsed.data;
 
     const email = rawEmail.toLowerCase().trim();
@@ -582,8 +585,11 @@ authRouter.post(
       safeBirthdate = new Date(parseInt(birthYear, 10), month, 15);
     }
 
-    // Trial period
-    const shopTrialEndsAt = addDays(new Date(), config.freeTrialDays);
+    // Plan configuration
+    const isGold = selectedPlan === "gold";
+    const now = new Date();
+    const shopTrialEndsAt = isGold ? null : addDays(now, config.freeTrialDays); // Free: 90d trial; Gold: no trial
+    const membershipExpiresAt = null; // Free: uses shopTrialEndsAt; Gold: set by webhook after payment
 
     // Generate password set token (72h TTL)
     const passwordSetToken = crypto.randomBytes(32).toString("hex");
@@ -613,9 +619,11 @@ authRouter.post(
         minDurationMinutes: minDurationMinutes ?? null,
         acceptsIncalls: acceptsIncalls ?? null,
         acceptsOutcalls: acceptsOutcalls ?? null,
-        termsAcceptedAt: new Date(),
+        termsAcceptedAt: now,
         shopTrialEndsAt,
         subscriptionPrice: 2500,
+        tier: isGold ? null : "SILVER",
+        membershipExpiresAt,
         isOnline: false,
         isActive: false,
         isVerified: false,
@@ -662,6 +670,48 @@ authRouter.post(
     await sendSetPasswordEmail(email, passwordSetToken).catch((err) => {
       console.error("[auth/quick-register] failed to send set-password email", { email, error: err });
     });
+
+    // Gold plan: create Flow payment
+    if (isGold) {
+      try {
+        const GOLD_PRICE = 14990;
+        const intent = await prisma.paymentIntent.create({
+          data: {
+            subscriberId: user.id,
+            purpose: "PUBLICATE_GOLD",
+            method: "FLOW",
+            status: "PENDING",
+            amount: GOLD_PRICE,
+          },
+        });
+
+        const appUrl = config.appUrl.replace(/\/$/, "");
+        const apiUrl = config.apiUrl.replace(/\/$/, "");
+
+        const payment = await createFlowPayment({
+          commerceOrder: intent.id,
+          subject: "Plan Gold — Publícate en UZEED (7 días)",
+          currency: "CLP",
+          amount: GOLD_PRICE,
+          email,
+          urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
+          urlReturn: `${appUrl}/pago/exitoso?ref=${intent.id}`,
+        });
+
+        await prisma.paymentIntent.update({
+          where: { id: intent.id },
+          data: { paymentUrl: payment.url, providerPaymentId: payment.token },
+        });
+
+        const redirectUrl = `${payment.url}?token=${payment.token}`;
+        console.log("[auth/quick-register] Gold plan payment created", { userId: user.id, intentId: intent.id });
+        return res.json({ ok: true, paymentUrl: redirectUrl });
+      } catch (err) {
+        console.error("[auth/quick-register] Flow payment creation failed", { userId: user.id, error: err });
+        // Profile was created but payment failed — still return success so they can pay later
+        return res.json({ ok: true, message: "Perfil creado. El pago no pudo procesarse, podrás pagar desde tu perfil." });
+      }
+    }
 
     return res.json({ ok: true, message: "Perfil creado exitosamente." });
   }),

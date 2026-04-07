@@ -5,13 +5,15 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
-  Camera,
   CheckCircle2,
+  Crown,
   ImagePlus,
   Loader2,
   MapPin,
   Sparkles,
+  Star,
   X,
+  Zap,
 } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 import MapboxAddressAutocomplete from "../../components/MapboxAddressAutocomplete";
@@ -37,40 +39,26 @@ const SERVICE_TAGS = [
   "bdsm","sexo oral","lluvia dorada","rol",
 ];
 
-const MONTHS = [
-  "Enero","Febrero","Marzo","Abril","Mayo","Junio",
-  "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
-];
-
-const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: 50 }, (_, i) => currentYear - 18 - i);
-
 type WizardData = {
-  // Step 1 — Perfil
+  // Step 1 — Perfil + Fotos
   displayName: string;
   primaryCategory: string;
-  avatarFile: File | null;
-  avatarPreview: string | null;
   bio: string;
-  gender: string;
-  birthMonth: string;
-  birthYear: string;
-  // Step 2 — Fotos
   galleryFiles: File[];
   galleryPreviews: string[];
-  // Step 3 — Sobre ti
+  // Step 2 — Servicio
   profileTags: string[];
   serviceTags: string[];
   baseRate: string;
   minDurationMinutes: string;
   acceptsIncalls: boolean;
   acceptsOutcalls: boolean;
-  // Step 4 — Servicio
   address: string;
   latitude: number | null;
   longitude: number | null;
   serviceDescription: string;
-  // Step 5 — Datos
+  // Step 3 — Plan + Datos
+  selectedPlan: "free" | "gold";
   email: string;
   phone: string;
   acceptTerms: boolean;
@@ -79,12 +67,7 @@ type WizardData = {
 const INITIAL_DATA: WizardData = {
   displayName: "",
   primaryCategory: "",
-  avatarFile: null,
-  avatarPreview: null,
   bio: "",
-  gender: "",
-  birthMonth: "",
-  birthYear: "",
   galleryFiles: [],
   galleryPreviews: [],
   profileTags: [],
@@ -97,12 +80,13 @@ const INITIAL_DATA: WizardData = {
   latitude: null,
   longitude: null,
   serviceDescription: "",
+  selectedPlan: "free",
   email: "",
   phone: "",
   acceptTerms: false,
 };
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 3;
 const PHONE_PREFIXES = ["+56", "+57", "+58", "+51"];
 const MAX_GALLERY = 6;
 
@@ -114,7 +98,6 @@ export default function PublicateClient() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -125,12 +108,6 @@ export default function PublicateClient() {
     (patch: Partial<WizardData>) => setData((d) => ({ ...d, ...patch })),
     [],
   );
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    update({ avatarFile: file, avatarPreview: URL.createObjectURL(file) });
-  };
 
   const handleGalleryAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -160,28 +137,29 @@ export default function PublicateClient() {
   };
 
   /* ── Validation per step ── */
-  const isStep1Valid = data.displayName.trim().length >= 2 && data.primaryCategory.length > 0;
-  const isStep2Valid = data.galleryFiles.length >= 3;
-  const isStep3Valid =
+  const isStep1Valid =
+    data.displayName.trim().length >= 2 &&
+    data.primaryCategory.length > 0 &&
+    data.galleryFiles.length >= 3;
+  const isStep2Valid =
     data.profileTags.length >= 1 &&
     data.serviceTags.length >= 1 &&
-    Number(data.baseRate) > 0;
-  const isStep4Valid =
+    Number(data.baseRate) > 0 &&
     data.address.trim().length >= 6 &&
     data.latitude !== null &&
     data.longitude !== null &&
     data.serviceDescription.trim().length >= 3;
-  const isStep5Valid =
+  const isStep3Valid =
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) &&
     /^\+\d{8,15}$/.test(data.phone) &&
     data.acceptTerms;
 
-  const validByStep = [false, isStep1Valid, isStep2Valid, isStep3Valid, isStep4Valid, isStep5Valid];
+  const validByStep = [false, isStep1Valid, isStep2Valid, isStep3Valid];
   const canAdvance = validByStep[step] ?? false;
 
   /* ── Submit ── */
   const handleSubmit = async () => {
-    if (!isStep5Valid || submitting) return;
+    if (!isStep3Valid || submitting) return;
     setSubmitting(true);
     setError(null);
 
@@ -196,14 +174,11 @@ export default function PublicateClient() {
       fd.append("email", data.email.trim().toLowerCase());
       fd.append("phone", data.phone);
       fd.append("acceptTerms", "true");
+      fd.append("selectedPlan", data.selectedPlan);
 
-      if (data.avatarFile) fd.append("avatar", data.avatarFile);
       for (const file of data.galleryFiles) fd.append("gallery", file);
 
       if (data.bio.trim()) fd.append("bio", data.bio.trim());
-      if (data.gender) fd.append("gender", data.gender);
-      if (data.birthMonth) fd.append("birthMonth", data.birthMonth);
-      if (data.birthYear) fd.append("birthYear", data.birthYear);
       if (data.profileTags.length) fd.append("profileTags", JSON.stringify(data.profileTags));
       if (data.serviceTags.length) fd.append("serviceTags", JSON.stringify(data.serviceTags));
       if (data.baseRate) fd.append("baseRate", data.baseRate);
@@ -211,7 +186,13 @@ export default function PublicateClient() {
       fd.append("acceptsIncalls", String(data.acceptsIncalls));
       fd.append("acceptsOutcalls", String(data.acceptsOutcalls));
 
-      await apiFetch("/auth/quick-register", { method: "POST", body: fd });
+      const res = await apiFetch<{ ok: boolean; paymentUrl?: string }>("/auth/quick-register", { method: "POST", body: fd });
+
+      if (res.paymentUrl) {
+        window.location.href = res.paymentUrl;
+        return;
+      }
+
       setDone(true);
     } catch (err: any) {
       const msg = err?.body?.message || err?.message || "Ocurrió un error. Intenta nuevamente.";
@@ -257,7 +238,7 @@ export default function PublicateClient() {
           <Sparkles className="h-6 w-6 text-fuchsia-400" />
         </div>
         <h1 className="text-xl font-bold text-white sm:text-2xl">Publícate en UZEED</h1>
-        <p className="mt-1 text-xs text-white/40">Crea tu perfil completo — sin registro previo</p>
+        <p className="mt-1 text-xs text-white/40">Crea tu perfil en minutos — sin registro previo</p>
       </div>
 
       {/* Progress bar */}
@@ -270,30 +251,10 @@ export default function PublicateClient() {
         ))}
       </div>
 
-      {/* ═══ STEP 1: Tu perfil ═══ */}
+      {/* ═══ STEP 1: Perfil + Fotos ═══ */}
       {step === 1 && (
         <div className="space-y-5">
           <h2 className="text-base font-semibold text-white">Tu perfil</h2>
-
-          {/* Avatar */}
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              className="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-white/15 bg-white/[0.04] transition-colors hover:border-fuchsia-500/30"
-            >
-              {data.avatarPreview ? (
-                <img src={data.avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
-              ) : (
-                <Camera className="h-6 w-6 text-white/30 group-hover:text-fuchsia-400" />
-              )}
-            </button>
-            <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-            <div className="text-xs text-white/40">
-              <p className="font-medium text-white/60">Foto de perfil</p>
-              <p>Opcional — puedes agregarla después</p>
-            </div>
-          </div>
 
           {/* Display name */}
           <div>
@@ -324,87 +285,61 @@ export default function PublicateClient() {
             />
           </div>
 
-          {/* Gender + Age row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Género</label>
-              <select className={selectClass} value={data.gender} onChange={(e) => update({ gender: e.target.value })}>
-                <option value="">—</option>
-                <option value="FEMALE">Mujer</option>
-                <option value="MALE">Hombre</option>
-                <option value="OTHER">Otro</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Año nacimiento</label>
-              <select className={selectClass} value={data.birthYear} onChange={(e) => update({ birthYear: e.target.value })}>
-                <option value="">—</option>
-                {YEARS.map((y) => (
-                  <option key={y} value={String(y)}>{y}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ STEP 2: Tus fotos ═══ */}
-      {step === 2 && (
-        <div className="space-y-5">
-          <h2 className="text-base font-semibold text-white">Tus fotos *</h2>
-          <p className="text-xs text-white/40">Mínimo 3 fotos, hasta {MAX_GALLERY}. Mientras más fotos, más visitas.</p>
-
-          <div className="grid grid-cols-3 gap-2.5">
-            {Array.from({ length: MAX_GALLERY }).map((_, idx) => {
-              const hasPhoto = idx < data.galleryPreviews.length;
-              return (
-                <div key={idx} className="relative aspect-[3/4] overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
-                  {hasPhoto ? (
-                    <>
-                      <img src={data.galleryPreviews[idx]} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
+          {/* Gallery */}
+          <div>
+            <label className={labelClass}>Tus fotos * <span className="font-normal text-white/30">— mínimo 3, hasta {MAX_GALLERY}</span></label>
+            <div className="grid grid-cols-3 gap-2.5">
+              {Array.from({ length: MAX_GALLERY }).map((_, idx) => {
+                const hasPhoto = idx < data.galleryPreviews.length;
+                return (
+                  <div key={idx} className="relative aspect-[3/4] overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+                    {hasPhoto ? (
+                      <>
+                        <img src={data.galleryPreviews[idx]} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeGalleryItem(idx)}
+                          className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/80 hover:bg-red-500/80"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => removeGalleryItem(idx)}
-                        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/80 hover:bg-red-500/80"
+                        onClick={() => galleryInputRef.current?.click()}
+                        className="flex h-full w-full flex-col items-center justify-center gap-1 text-white/20 transition-colors hover:text-fuchsia-400/60"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <ImagePlus className="h-6 w-6" />
+                        <span className="text-[10px]">Agregar</span>
                       </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => galleryInputRef.current?.click()}
-                      className="flex h-full w-full flex-col items-center justify-center gap-1 text-white/20 transition-colors hover:text-fuchsia-400/60"
-                    >
-                      <ImagePlus className="h-6 w-6" />
-                      <span className="text-[10px]">Agregar</span>
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleGalleryAdd}
+            />
+            {data.galleryFiles.length > 0 && (
+              <p className="mt-2 text-xs text-white/30">{data.galleryFiles.length} de {MAX_GALLERY} fotos</p>
+            )}
           </div>
-          <input
-            ref={galleryInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleGalleryAdd}
-          />
-          {data.galleryFiles.length > 0 && (
-            <p className="text-xs text-white/30">{data.galleryFiles.length} de {MAX_GALLERY} fotos</p>
-          )}
         </div>
       )}
 
-      {/* ═══ STEP 3: Sobre ti ═══ */}
-      {step === 3 && (
+      {/* ═══ STEP 2: Tu servicio ═══ */}
+      {step === 2 && (
         <div className="space-y-6">
           {/* Profile tags */}
           <div>
             <h2 className="text-base font-semibold text-white">¿Cómo te defines? *</h2>
-            <p className="mb-3 text-xs text-white/40">Toca las que mejor te describen — aparecen en tu perfil</p>
+            <p className="mb-3 text-xs text-white/40">Toca las que mejor te describen</p>
             <div className="flex flex-wrap gap-2">
               {PROFILE_TAGS.map((tag) => {
                 const active = data.profileTags.includes(tag);
@@ -424,9 +359,6 @@ export default function PublicateClient() {
                 );
               })}
             </div>
-            {data.profileTags.length > 0 && (
-              <p className="mt-2 text-[11px] text-white/30">{data.profileTags.length} seleccionada(s)</p>
-            )}
           </div>
 
           {/* Service tags */}
@@ -452,14 +384,11 @@ export default function PublicateClient() {
                 );
               })}
             </div>
-            {data.serviceTags.length > 0 && (
-              <p className="mt-2 text-[11px] text-white/30">{data.serviceTags.length} seleccionado(s)</p>
-            )}
           </div>
 
           {/* Rates */}
           <div>
-            <h2 className="text-base font-semibold text-white">Tarifas y disponibilidad</h2>
+            <h2 className="text-base font-semibold text-white">Tarifas</h2>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Tarifa base (CLP) *</label>
@@ -481,30 +410,25 @@ export default function PublicateClient() {
               </label>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ═══ STEP 4: Tu servicio ═══ */}
-      {step === 4 && (
-        <div className="space-y-5">
-          <h2 className="text-base font-semibold text-white">Tu servicio</h2>
 
           {/* Location */}
           <div>
-            <label className={labelClass}>Ubicación *</label>
-            <MapboxAddressAutocomplete
-              label=""
-              value={data.address}
-              placeholder="Ej: Providencia, Santiago"
-              required
-              onChange={(v) => update({ address: v })}
-              onSelect={(s) => update({ address: s.placeName, latitude: s.latitude, longitude: s.longitude })}
-            />
-            {data.latitude && (
-              <p className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400/70">
-                <MapPin className="h-3 w-3" /> Ubicación verificada
-              </p>
-            )}
+            <h2 className="text-base font-semibold text-white">Ubicación *</h2>
+            <div className="mt-3">
+              <MapboxAddressAutocomplete
+                label=""
+                value={data.address}
+                placeholder="Ej: Providencia, Santiago"
+                required
+                onChange={(v) => update({ address: v })}
+                onSelect={(s) => update({ address: s.placeName, latitude: s.latitude, longitude: s.longitude })}
+              />
+              {data.latitude && (
+                <p className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400/70">
+                  <MapPin className="h-3 w-3" /> Ubicación verificada
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Service description */}
@@ -521,62 +445,135 @@ export default function PublicateClient() {
         </div>
       )}
 
-      {/* ═══ STEP 5: Tus datos ═══ */}
-      {step === 5 && (
-        <div className="space-y-5">
-          <h2 className="text-base font-semibold text-white">Tus datos</h2>
-
-          {/* Email */}
+      {/* ═══ STEP 3: Plan + Datos ═══ */}
+      {step === 3 && (
+        <div className="space-y-6">
+          {/* Plan selection */}
           <div>
-            <label className={labelClass}>Correo electrónico *</label>
-            <input type="email" className={inputClass} placeholder="tu@correo.com" value={data.email} onChange={(e) => update({ email: e.target.value })} />
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label className={labelClass}>Teléfono *</label>
-            <div className="flex gap-2">
-              <select
-                className="w-20 shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-2 py-3 text-sm text-white outline-none transition-colors focus:border-fuchsia-500/40 [color-scheme:dark]"
-                value={data.phone.match(/^\+\d{2}/)?.[0] || "+56"}
-                onChange={(e) => {
-                  const digits = data.phone.replace(/^\+\d{2}/, "");
-                  update({ phone: e.target.value + digits });
-                }}
+            <h2 className="text-base font-semibold text-white">Elige tu plan</h2>
+            <div className="mt-3 grid gap-3">
+              {/* Free plan */}
+              <button
+                type="button"
+                onClick={() => update({ selectedPlan: "free" })}
+                className={`relative rounded-2xl border p-5 text-left transition-all ${
+                  data.selectedPlan === "free"
+                    ? "border-white/20 bg-white/[0.06]"
+                    : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"
+                }`}
               >
-                {PHONE_PREFIXES.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-              <input
-                type="tel"
-                className={inputClass}
-                placeholder="912345678"
-                value={data.phone.replace(/^\+\d{2}/, "")}
-                onChange={(e) => {
-                  const digits = e.target.value.replace(/\D/g, "");
-                  const prefix = data.phone.match(/^\+\d{2}/)?.[0] || "+56";
-                  update({ phone: prefix + digits });
-                }}
-              />
+                {data.selectedPlan === "free" && (
+                  <div className="absolute right-4 top-4">
+                    <CheckCircle2 className="h-5 w-5 text-white/60" />
+                  </div>
+                )}
+                <div className="mb-3 flex items-center gap-2">
+                  <Star className="h-4 w-4 text-white/40" />
+                  <span className="text-sm font-bold text-white">Gratis</span>
+                  <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/50">SILVER</span>
+                </div>
+                <ul className="space-y-1.5 text-xs text-white/45">
+                  <li>• 90 días gratis</li>
+                  <li>• Visibilidad básica</li>
+                  <li>• Apareces debajo de perfiles Gold</li>
+                </ul>
+              </button>
+
+              {/* Gold plan */}
+              <button
+                type="button"
+                onClick={() => update({ selectedPlan: "gold" })}
+                className={`relative rounded-2xl border p-5 text-left transition-all ${
+                  data.selectedPlan === "gold"
+                    ? "border-amber-500/40 bg-amber-500/[0.08] shadow-[0_0_30px_rgba(245,158,11,0.06)]"
+                    : "border-amber-500/15 bg-amber-500/[0.03] hover:bg-amber-500/[0.06]"
+                }`}
+              >
+                {data.selectedPlan === "gold" && (
+                  <div className="absolute right-4 top-4">
+                    <CheckCircle2 className="h-5 w-5 text-amber-400" />
+                  </div>
+                )}
+                <div className="mb-1 flex items-center gap-2">
+                  <Crown className="h-4 w-4 text-amber-400" />
+                  <span className="text-sm font-bold text-white">Gold</span>
+                  <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">RECOMENDADO</span>
+                </div>
+                <p className="mb-3 text-lg font-bold text-amber-400">$14.990 <span className="text-xs font-normal text-white/40">/ 7 días</span></p>
+                <ul className="space-y-1.5 text-xs text-white/60">
+                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más visibilidad</li>
+                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más contactos</li>
+                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Badge Gold en tu perfil</li>
+                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Apareces primero en búsquedas</li>
+                </ul>
+              </button>
             </div>
           </div>
 
-          {/* Terms */}
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/5 accent-fuchsia-500"
-              checked={data.acceptTerms}
-              onChange={(e) => update({ acceptTerms: e.target.checked })}
-            />
-            <span className="text-xs text-white/50 leading-relaxed">
-              Acepto los{" "}
-              <button type="button" className="text-fuchsia-400 underline" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>
-                términos y condiciones
-              </button>
-            </span>
-          </label>
+          {/* Divider */}
+          <div className="h-px bg-white/[0.06]" />
+
+          {/* Contact data */}
+          <div className="space-y-4">
+            <h2 className="text-base font-semibold text-white">Tus datos</h2>
+            {data.selectedPlan === "gold" && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-xs text-amber-300/80">
+                Tu correo se usará para procesar el pago de <strong>$14.990</strong> con Flow.
+              </div>
+            )}
+
+            {/* Email */}
+            <div>
+              <label className={labelClass}>Correo electrónico *</label>
+              <input type="email" className={inputClass} placeholder="tu@correo.com" value={data.email} onChange={(e) => update({ email: e.target.value })} />
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className={labelClass}>Teléfono *</label>
+              <div className="flex gap-2">
+                <select
+                  className="w-20 shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-2 py-3 text-sm text-white outline-none transition-colors focus:border-fuchsia-500/40 [color-scheme:dark]"
+                  value={data.phone.match(/^\+\d{2}/)?.[0] || "+56"}
+                  onChange={(e) => {
+                    const digits = data.phone.replace(/^\+\d{2}/, "");
+                    update({ phone: e.target.value + digits });
+                  }}
+                >
+                  {PHONE_PREFIXES.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  className={inputClass}
+                  placeholder="912345678"
+                  value={data.phone.replace(/^\+\d{2}/, "")}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "");
+                    const prefix = data.phone.match(/^\+\d{2}/)?.[0] || "+56";
+                    update({ phone: prefix + digits });
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Terms */}
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/5 accent-fuchsia-500"
+                checked={data.acceptTerms}
+                onChange={(e) => update({ acceptTerms: e.target.checked })}
+              />
+              <span className="text-xs text-white/50 leading-relaxed">
+                Acepto los{" "}
+                <button type="button" className="text-fuchsia-400 underline" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>
+                  términos y condiciones
+                </button>
+              </span>
+            </label>
+          </div>
         </div>
       )}
 
@@ -616,7 +613,9 @@ export default function PublicateClient() {
             className="ml-auto flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
           >
             {submitting ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Creando perfil...</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> {data.selectedPlan === "gold" ? "Procesando..." : "Creando perfil..."}</>
+            ) : data.selectedPlan === "gold" ? (
+              <><Crown className="h-4 w-4" /> Pagar y publicar — $14.990</>
             ) : (
               <><Sparkles className="h-4 w-4" /> Crear mi perfil</>
             )}

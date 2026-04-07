@@ -364,3 +364,20 @@ export async function sendQualityReviewEmail(
   );
   await send(email, `Evaluacion de calidad de tu perfil — UZEED`, html);
 }
+
+/* ─── Gold plan renewal reminder ─── */
+
+export async function sendGoldRenewalEmail(email: string, displayName: string | null) {
+  const name = esc(displayName || "profesional");
+  const html = wrapEmail(
+    "Tu plan Gold expira pronto",
+    [
+      paragraph(`Hola ${name}, tu plan <strong>Gold</strong> en UZEED está por vencer.`),
+      paragraph("Si no renuevas, tu perfil bajará a visibilidad básica (Silver) y perderás el badge Gold, la prioridad en búsquedas y los contactos x5."),
+      row("Plan", "Gold — 7 días"),
+      row("Precio", "$14.990 CLP"),
+      ctaButton("Renovar plan Gold", `${config.appUrl}/publicate`),
+    ].join(""),
+  );
+  await send(email, "Tu plan Gold expira pronto — Renueva por $14.990", html);
+}
