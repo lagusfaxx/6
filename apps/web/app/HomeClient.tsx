@@ -1012,27 +1012,20 @@ export default function HomeClient() {
 
         {/* ═══ CTA PUBLÍCATE ═══ */}
         {!isAuthed && (
-          <div className="mb-6 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.06] px-5 py-4">
-            <span className="text-sm font-semibold text-white">
-              ¿Ofreces servicios? <span className="text-fuchsia-400">Publícate aquí</span>
-            </span>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <Link
-                href="/register"
-                className="group flex flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-center transition-all hover:bg-white/[0.08] hover:border-white/15"
-              >
-                <span className="text-xs font-semibold text-white/70 group-hover:text-white/90">Registro normal</span>
-                <span className="text-[10px] text-white/40">Perfil más completo y mejor presentación</span>
-              </Link>
-              <Link
-                href="/publicate"
-                className="group flex flex-col items-center gap-1.5 rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/10 px-3 py-3 text-center transition-all hover:bg-fuchsia-500/20 hover:border-fuchsia-500/30"
-              >
-                <span className="text-xs font-semibold text-fuchsia-300 group-hover:text-fuchsia-200">Registro rápido</span>
-                <span className="text-[10px] text-white/40">Publica en minutos y completa después</span>
-              </Link>
+          <Link
+            href="/empezar"
+            className="group mb-6 flex items-center justify-between rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.06] px-5 py-4 transition-all hover:bg-fuchsia-500/[0.10] hover:border-fuchsia-500/30"
+          >
+            <div>
+              <span className="text-sm font-semibold text-white">
+                ¿Ofreces servicios? <span className="text-fuchsia-400">Publícate aquí</span>
+              </span>
+              <p className="mt-0.5 text-[11px] text-white/40">Crea tu perfil en minutos, sin registro</p>
             </div>
-          </div>
+            <span className="shrink-0 rounded-lg bg-fuchsia-500/20 px-3 py-1.5 text-xs font-semibold text-fuchsia-300 transition-colors group-hover:bg-fuchsia-500/30">
+              Empezar
+            </span>
+          </Link>
         )}
 
         {/* Section gradient divider */}
