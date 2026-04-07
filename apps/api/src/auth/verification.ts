@@ -449,3 +449,146 @@ verificationRouter.post(
     return res.json({ ok: true });
   })
 );
+
+/* ── Set password (for quick-register flow) ── */
+
+function buildSetPasswordEmailHtml(link: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#070816;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#070816;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:460px;background:linear-gradient(135deg,rgba(168,85,247,0.15),rgba(236,72,153,0.1),rgba(59,130,246,0.08));border:1px solid rgba(255,255,255,0.1);border-radius:24px;overflow:hidden;">
+          <tr>
+            <td align="center" style="padding:40px 30px 20px;">
+              <img src="https://uzeed.cl/brand/isotipo-new.png" alt="UZEED" width="80" height="80" style="display:block;border-radius:20px;" />
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 30px 8px;">
+              <h1 style="margin:0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.02em;">Tu perfil fue creado</h1>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 30px 30px;">
+              <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.6);line-height:1.5;">Un administrador revisará tu perfil pronto. Mientras tanto, crea tu contraseña para acceder a tu cuenta y completar tu perfil.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 30px 12px;">
+              <a href="${link}" style="display:inline-block;background:linear-gradient(135deg,#d946ef,#8b5cf6);color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:12px;">Crear contraseña</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:8px 30px 40px;">
+              <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.4);">Este enlace expira en 72 horas.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:20px 30px;border-top:1px solid rgba(255,255,255,0.06);">
+              <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.3);line-height:1.5;">
+                Si no creaste este perfil, puedes ignorar este email.<br/>
+                &copy; UZEED — uzeed.cl
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendSetPasswordEmail(email: string, token: string) {
+  const appUrl = config.appUrl.replace(/\/$/, "");
+  const link = `${appUrl}/crear-contrasena?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+
+  if (!config.resendApiKey) {
+    console.log("[verification] set-password email (no API key):", link);
+    return;
+  }
+
+  const resend = new Resend(config.resendApiKey);
+  await resend.emails.send({
+    from: "UZEED <no-reply@uzeed.cl>",
+    to: email,
+    subject: "Crea tu contraseña — UZEED",
+    html: buildSetPasswordEmailHtml(link),
+  });
+}
+
+verificationRouter.post(
+  "/set-password",
+  asyncHandler(async (req, res) => {
+    const { email, token, newPassword } = req.body;
+    if (!email || !token || !newPassword) {
+      return res.status(400).json({ error: "MISSING_FIELDS" });
+    }
+
+    if (typeof newPassword !== "string" || newPassword.length < 8) {
+      return res.status(400).json({
+        error: "PASSWORD_TOO_SHORT",
+        message: "La contraseña debe tener al menos 8 caracteres.",
+      });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+
+    if (!user) {
+      return res.status(404).json({ error: "USER_NOT_FOUND" });
+    }
+
+    if (!user.passwordSetToken || user.passwordSetToken !== String(token)) {
+      return res.status(400).json({
+        error: "INVALID_TOKEN",
+        message: "El enlace no es válido. Solicita uno nuevo.",
+      });
+    }
+
+    if (user.passwordSetTokenExpiresAt && Date.now() > user.passwordSetTokenExpiresAt.getTime()) {
+      return res.status(400).json({
+        error: "TOKEN_EXPIRED",
+        message: "El enlace ha expirado. Solicita uno nuevo.",
+      });
+    }
+
+    const passwordHash = await argon2.hash(newPassword);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        passwordSetToken: null,
+        passwordSetTokenExpiresAt: null,
+      },
+    });
+
+    // Auto-login: create session
+    req.session.userId = user.id;
+    req.session.role = user.role;
+    await new Promise<void>((resolve, reject) => {
+      req.session.save((err: unknown) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    return res.json({
+      ok: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        displayName: user.displayName,
+        profileType: user.profileType,
+      },
+    });
+  })
+);
