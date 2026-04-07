@@ -7,9 +7,11 @@ import {
   ArrowRight,
   Camera,
   CheckCircle2,
+  ImagePlus,
   Loader2,
   MapPin,
   Sparkles,
+  X,
 } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 import MapboxAddressAutocomplete from "../../components/MapboxAddressAutocomplete";
@@ -22,19 +24,53 @@ type Category = {
   displayName: string;
 };
 
+const PROFILE_TAGS = [
+  "tetona","culona","delgada","fitness","gordita",
+  "rubia","morena","pelirroja","trigueña",
+  "sumisa","dominante","caliente","cariñosa","natural",
+  "tatuada","piercing",
+];
+
+const SERVICE_TAGS = [
+  "anal","trios","packs","videollamada",
+  "masaje erotico","despedidas","discapacitados","fetiches",
+  "bdsm","sexo oral","lluvia dorada","rol",
+];
+
+const MONTHS = [
+  "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+  "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
+];
+
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: 50 }, (_, i) => currentYear - 18 - i);
+
 type WizardData = {
-  // Step 1
+  // Step 1 — Perfil
   displayName: string;
   primaryCategory: string;
   avatarFile: File | null;
   avatarPreview: string | null;
-  // Step 2
+  bio: string;
+  gender: string;
+  birthMonth: string;
+  birthYear: string;
+  // Step 2 — Fotos
+  galleryFiles: File[];
+  galleryPreviews: string[];
+  // Step 3 — Sobre ti
+  profileTags: string[];
+  serviceTags: string[];
+  baseRate: string;
+  minDurationMinutes: string;
+  acceptsIncalls: boolean;
+  acceptsOutcalls: boolean;
+  // Step 4 — Servicio
   address: string;
   latitude: number | null;
   longitude: number | null;
   serviceDescription: string;
-  servicePrice: string;
-  // Step 3
+  // Step 5 — Datos
   email: string;
   phone: string;
   acceptTerms: boolean;
@@ -45,17 +81,30 @@ const INITIAL_DATA: WizardData = {
   primaryCategory: "",
   avatarFile: null,
   avatarPreview: null,
+  bio: "",
+  gender: "",
+  birthMonth: "",
+  birthYear: "",
+  galleryFiles: [],
+  galleryPreviews: [],
+  profileTags: [],
+  serviceTags: [],
+  baseRate: "",
+  minDurationMinutes: "",
+  acceptsIncalls: false,
+  acceptsOutcalls: false,
   address: "",
   latitude: null,
   longitude: null,
   serviceDescription: "",
-  servicePrice: "",
   email: "",
   phone: "",
   acceptTerms: false,
 };
 
+const TOTAL_STEPS = 5;
 const PHONE_PREFIXES = ["+56", "+57", "+58", "+51"];
+const MAX_GALLERY = 6;
 
 export default function PublicateClient() {
   const [step, setStep] = useState(1);
@@ -65,7 +114,8 @@ export default function PublicateClient() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     apiFetch<Category[]>("/categories").then(setCategories).catch(() => {});
@@ -82,29 +132,53 @@ export default function PublicateClient() {
     update({ avatarFile: file, avatarPreview: URL.createObjectURL(file) });
   };
 
+  const handleGalleryAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const remaining = MAX_GALLERY - data.galleryFiles.length;
+    const toAdd = files.slice(0, remaining);
+    update({
+      galleryFiles: [...data.galleryFiles, ...toAdd],
+      galleryPreviews: [...data.galleryPreviews, ...toAdd.map((f) => URL.createObjectURL(f))],
+    });
+    e.target.value = "";
+  };
+
+  const removeGalleryItem = (idx: number) => {
+    update({
+      galleryFiles: data.galleryFiles.filter((_, i) => i !== idx),
+      galleryPreviews: data.galleryPreviews.filter((_, i) => i !== idx),
+    });
+  };
+
+  const toggleTag = (field: "profileTags" | "serviceTags", tag: string) => {
+    const current = data[field];
+    const next = current.includes(tag)
+      ? current.filter((t) => t !== tag)
+      : [...current, tag];
+    update({ [field]: next } as any);
+  };
+
   /* ── Validation per step ── */
-
-  const isStep1Valid =
-    data.displayName.trim().length >= 2 && data.primaryCategory.length > 0;
-
-  const isStep2Valid =
+  const isStep1Valid = data.displayName.trim().length >= 2 && data.primaryCategory.length > 0;
+  const isStep2Valid = true; // gallery is optional
+  const isStep3Valid = true; // tags & rates are optional
+  const isStep4Valid =
     data.address.trim().length >= 6 &&
     data.latitude !== null &&
     data.longitude !== null &&
-    data.serviceDescription.trim().length >= 3 &&
-    Number(data.servicePrice) > 0;
-
-  const isStep3Valid =
+    data.serviceDescription.trim().length >= 3;
+  const isStep5Valid =
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) &&
     /^\+\d{8,15}$/.test(data.phone) &&
     data.acceptTerms;
 
-  const canAdvance = step === 1 ? isStep1Valid : step === 2 ? isStep2Valid : isStep3Valid;
+  const validByStep = [false, isStep1Valid, isStep2Valid, isStep3Valid, isStep4Valid, isStep5Valid];
+  const canAdvance = validByStep[step] ?? false;
 
   /* ── Submit ── */
-
   const handleSubmit = async () => {
-    if (!isStep3Valid || submitting) return;
+    if (!isStep5Valid || submitting) return;
     setSubmitting(true);
     setError(null);
 
@@ -116,19 +190,28 @@ export default function PublicateClient() {
       fd.append("latitude", String(data.latitude));
       fd.append("longitude", String(data.longitude));
       fd.append("serviceDescription", data.serviceDescription.trim());
-      fd.append("servicePrice", data.servicePrice);
       fd.append("email", data.email.trim().toLowerCase());
       fd.append("phone", data.phone);
       fd.append("acceptTerms", "true");
+
       if (data.avatarFile) fd.append("avatar", data.avatarFile);
+      for (const file of data.galleryFiles) fd.append("gallery", file);
+
+      if (data.bio.trim()) fd.append("bio", data.bio.trim());
+      if (data.gender) fd.append("gender", data.gender);
+      if (data.birthMonth) fd.append("birthMonth", data.birthMonth);
+      if (data.birthYear) fd.append("birthYear", data.birthYear);
+      if (data.profileTags.length) fd.append("profileTags", JSON.stringify(data.profileTags));
+      if (data.serviceTags.length) fd.append("serviceTags", JSON.stringify(data.serviceTags));
+      if (data.baseRate) fd.append("baseRate", data.baseRate);
+      if (data.minDurationMinutes) fd.append("minDurationMinutes", data.minDurationMinutes);
+      fd.append("acceptsIncalls", String(data.acceptsIncalls));
+      fd.append("acceptsOutcalls", String(data.acceptsOutcalls));
 
       await apiFetch("/auth/quick-register", { method: "POST", body: fd });
       setDone(true);
     } catch (err: any) {
-      const msg =
-        err?.body?.message ||
-        err?.message ||
-        "Ocurrió un error. Intenta nuevamente.";
+      const msg = err?.body?.message || err?.message || "Ocurrió un error. Intenta nuevamente.";
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -136,16 +219,13 @@ export default function PublicateClient() {
   };
 
   /* ── Success screen ── */
-
   if (done) {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center px-4 text-center">
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
           <CheckCircle2 className="h-8 w-8 text-emerald-400" />
         </div>
-        <h1 className="text-2xl font-bold text-white">
-          Tu perfil fue creado exitosamente
-        </h1>
+        <h1 className="text-2xl font-bold text-white">Tu perfil fue creado exitosamente</h1>
         <p className="mt-3 text-sm text-white/50 leading-relaxed">
           Un administrador lo revisará pronto. Revisa tu correo electrónico para
           crear tu contraseña y completar tu perfil.
@@ -160,14 +240,10 @@ export default function PublicateClient() {
     );
   }
 
-  /* ── Wizard ── */
-
+  /* ── Shared styles ── */
   const inputClass =
     "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition-colors focus:border-fuchsia-500/40 focus:bg-white/[0.06]";
-
-  const selectClass =
-    inputClass + " [color-scheme:dark]";
-
+  const selectClass = inputClass + " [color-scheme:dark]";
   const labelClass = "mb-1.5 block text-xs font-medium text-white/60";
 
   return (
@@ -177,27 +253,21 @@ export default function PublicateClient() {
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20">
           <Sparkles className="h-6 w-6 text-fuchsia-400" />
         </div>
-        <h1 className="text-xl font-bold text-white sm:text-2xl">
-          Publícate en UZEED
-        </h1>
-        <p className="mt-1 text-xs text-white/40">
-          Crea tu perfil en 2 minutos — sin registro previo
-        </p>
+        <h1 className="text-xl font-bold text-white sm:text-2xl">Publícate en UZEED</h1>
+        <p className="mt-1 text-xs text-white/40">Crea tu perfil completo — sin registro previo</p>
       </div>
 
       {/* Progress bar */}
-      <div className="mb-8 flex items-center gap-2">
-        {[1, 2, 3].map((s) => (
+      <div className="mb-8 flex items-center gap-1.5">
+        {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((s) => (
           <div
             key={s}
-            className={`h-1 flex-1 rounded-full transition-colors ${
-              s <= step ? "bg-fuchsia-500" : "bg-white/10"
-            }`}
+            className={`h-1 flex-1 rounded-full transition-colors ${s <= step ? "bg-fuchsia-500" : "bg-white/10"}`}
           />
         ))}
       </div>
 
-      {/* Step 1: Profile */}
+      {/* ═══ STEP 1: Tu perfil ═══ */}
       {step === 1 && (
         <div className="space-y-5">
           <h2 className="text-base font-semibold text-white">Tu perfil</h2>
@@ -206,26 +276,16 @@ export default function PublicateClient() {
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => avatarInputRef.current?.click()}
               className="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-white/15 bg-white/[0.04] transition-colors hover:border-fuchsia-500/30"
             >
               {data.avatarPreview ? (
-                <img
-                  src={data.avatarPreview}
-                  alt="Avatar"
-                  className="h-full w-full object-cover"
-                />
+                <img src={data.avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
               ) : (
                 <Camera className="h-6 w-6 text-white/30 group-hover:text-fuchsia-400" />
               )}
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleAvatarChange}
-            />
+            <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             <div className="text-xs text-white/40">
               <p className="font-medium text-white/60">Foto de perfil</p>
               <p>Opcional — puedes agregarla después</p>
@@ -235,37 +295,194 @@ export default function PublicateClient() {
           {/* Display name */}
           <div>
             <label className={labelClass}>Nombre artístico *</label>
-            <input
-              type="text"
-              className={inputClass}
-              placeholder="Ej: Valentina"
-              maxLength={50}
-              value={data.displayName}
-              onChange={(e) => update({ displayName: e.target.value })}
-            />
+            <input type="text" className={inputClass} placeholder="Ej: Valentina" maxLength={50} value={data.displayName} onChange={(e) => update({ displayName: e.target.value })} />
           </div>
 
           {/* Category */}
           <div>
             <label className={labelClass}>Categoría *</label>
-            <select
-              className={selectClass}
-              value={data.primaryCategory}
-              onChange={(e) => update({ primaryCategory: e.target.value })}
-            >
+            <select className={selectClass} value={data.primaryCategory} onChange={(e) => update({ primaryCategory: e.target.value })}>
               <option value="">Selecciona una categoría</option>
               {categories.map((c) => (
-                <option key={c.id} value={c.slug || c.name}>
-                  {c.displayName}
-                </option>
+                <option key={c.id} value={c.slug || c.name}>{c.displayName}</option>
               ))}
             </select>
+          </div>
+
+          {/* Bio */}
+          <div>
+            <label className={labelClass}>Descripción / Bio</label>
+            <textarea
+              className={inputClass + " min-h-[70px] resize-none"}
+              placeholder="Cuéntale a tus clientes sobre ti..."
+              maxLength={500}
+              value={data.bio}
+              onChange={(e) => update({ bio: e.target.value })}
+            />
+          </div>
+
+          {/* Gender + Age row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Género</label>
+              <select className={selectClass} value={data.gender} onChange={(e) => update({ gender: e.target.value })}>
+                <option value="">—</option>
+                <option value="FEMALE">Mujer</option>
+                <option value="MALE">Hombre</option>
+                <option value="OTHER">Otro</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Año nacimiento</label>
+              <select className={selectClass} value={data.birthYear} onChange={(e) => update({ birthYear: e.target.value })}>
+                <option value="">—</option>
+                {YEARS.map((y) => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Step 2: Service */}
+      {/* ═══ STEP 2: Tus fotos ═══ */}
       {step === 2 && (
+        <div className="space-y-5">
+          <h2 className="text-base font-semibold text-white">Tus fotos</h2>
+          <p className="text-xs text-white/40">Sube hasta {MAX_GALLERY} fotos para tu galería. Mientras más fotos, más visitas.</p>
+
+          <div className="grid grid-cols-3 gap-2.5">
+            {Array.from({ length: MAX_GALLERY }).map((_, idx) => {
+              const hasPhoto = idx < data.galleryPreviews.length;
+              return (
+                <div key={idx} className="relative aspect-[3/4] overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+                  {hasPhoto ? (
+                    <>
+                      <img src={data.galleryPreviews[idx]} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeGalleryItem(idx)}
+                        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/80 hover:bg-red-500/80"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => galleryInputRef.current?.click()}
+                      className="flex h-full w-full flex-col items-center justify-center gap-1 text-white/20 transition-colors hover:text-fuchsia-400/60"
+                    >
+                      <ImagePlus className="h-6 w-6" />
+                      <span className="text-[10px]">Agregar</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleGalleryAdd}
+          />
+          {data.galleryFiles.length > 0 && (
+            <p className="text-xs text-white/30">{data.galleryFiles.length} de {MAX_GALLERY} fotos</p>
+          )}
+        </div>
+      )}
+
+      {/* ═══ STEP 3: Sobre ti ═══ */}
+      {step === 3 && (
+        <div className="space-y-6">
+          {/* Profile tags */}
+          <div>
+            <h2 className="text-base font-semibold text-white">¿Cómo te defines?</h2>
+            <p className="mb-3 text-xs text-white/40">Toca las que mejor te describen — aparecen en tu perfil</p>
+            <div className="flex flex-wrap gap-2">
+              {PROFILE_TAGS.map((tag) => {
+                const active = data.profileTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTag("profileTags", tag)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-all ${
+                      active
+                        ? "border-fuchsia-500/50 bg-fuchsia-500/20 text-fuchsia-300 shadow-[0_0_12px_rgba(217,70,239,0.15)]"
+                        : "border-white/10 text-white/45 hover:border-white/20 hover:text-white/60"
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+            {data.profileTags.length > 0 && (
+              <p className="mt-2 text-[11px] text-white/30">{data.profileTags.length} seleccionada(s)</p>
+            )}
+          </div>
+
+          {/* Service tags */}
+          <div>
+            <h2 className="text-base font-semibold text-white">Servicios que ofrezco</h2>
+            <p className="mb-3 text-xs text-white/40">Selecciona todos los que apliquen</p>
+            <div className="flex flex-wrap gap-2">
+              {SERVICE_TAGS.map((tag) => {
+                const active = data.serviceTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTag("serviceTags", tag)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-all ${
+                      active
+                        ? "border-violet-500/50 bg-violet-500/20 text-violet-300 shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+                        : "border-white/10 text-white/45 hover:border-white/20 hover:text-white/60"
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+            {data.serviceTags.length > 0 && (
+              <p className="mt-2 text-[11px] text-white/30">{data.serviceTags.length} seleccionado(s)</p>
+            )}
+          </div>
+
+          {/* Rates */}
+          <div>
+            <h2 className="text-base font-semibold text-white">Tarifas y disponibilidad</h2>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Tarifa base (CLP)</label>
+                <input type="number" className={inputClass} placeholder="Ej: 50000" min={0} value={data.baseRate} onChange={(e) => update({ baseRate: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelClass}>Duración mín. (min)</label>
+                <input type="number" className={inputClass} placeholder="Ej: 60" min={0} value={data.minDurationMinutes} onChange={(e) => update({ minDurationMinutes: e.target.value })} />
+              </div>
+            </div>
+            <div className="mt-3 flex gap-3">
+              <label className={`flex flex-1 cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 text-xs transition-colors ${data.acceptsIncalls ? "border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300" : "border-white/10 text-white/45"}`}>
+                <input type="checkbox" className="accent-fuchsia-500" checked={data.acceptsIncalls} onChange={(e) => update({ acceptsIncalls: e.target.checked })} />
+                Recibe en su lugar
+              </label>
+              <label className={`flex flex-1 cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 text-xs transition-colors ${data.acceptsOutcalls ? "border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300" : "border-white/10 text-white/45"}`}>
+                <input type="checkbox" className="accent-fuchsia-500" checked={data.acceptsOutcalls} onChange={(e) => update({ acceptsOutcalls: e.target.checked })} />
+                Se desplaza
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ STEP 4: Tu servicio ═══ */}
+      {step === 4 && (
         <div className="space-y-5">
           <h2 className="text-base font-semibold text-white">Tu servicio</h2>
 
@@ -278,13 +495,7 @@ export default function PublicateClient() {
               placeholder="Ej: Providencia, Santiago"
               required
               onChange={(v) => update({ address: v })}
-              onSelect={(s) =>
-                update({
-                  address: s.placeName,
-                  latitude: s.latitude,
-                  longitude: s.longitude,
-                })
-              }
+              onSelect={(s) => update({ address: s.placeName, latitude: s.latitude, longitude: s.longitude })}
             />
             {data.latitude && (
               <p className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400/70">
@@ -304,37 +515,18 @@ export default function PublicateClient() {
               onChange={(e) => update({ serviceDescription: e.target.value })}
             />
           </div>
-
-          {/* Price */}
-          <div>
-            <label className={labelClass}>Precio (CLP) *</label>
-            <input
-              type="number"
-              className={inputClass}
-              placeholder="Ej: 50000"
-              min={1}
-              value={data.servicePrice}
-              onChange={(e) => update({ servicePrice: e.target.value })}
-            />
-          </div>
         </div>
       )}
 
-      {/* Step 3: Contact */}
-      {step === 3 && (
+      {/* ═══ STEP 5: Tus datos ═══ */}
+      {step === 5 && (
         <div className="space-y-5">
           <h2 className="text-base font-semibold text-white">Tus datos</h2>
 
           {/* Email */}
           <div>
             <label className={labelClass}>Correo electrónico *</label>
-            <input
-              type="email"
-              className={inputClass}
-              placeholder="tu@correo.com"
-              value={data.email}
-              onChange={(e) => update({ email: e.target.value })}
-            />
+            <input type="email" className={inputClass} placeholder="tu@correo.com" value={data.email} onChange={(e) => update({ email: e.target.value })} />
           </div>
 
           {/* Phone */}
@@ -350,9 +542,7 @@ export default function PublicateClient() {
                 }}
               >
                 {PHONE_PREFIXES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
+                  <option key={p} value={p}>{p}</option>
                 ))}
               </select>
               <input
@@ -379,14 +569,7 @@ export default function PublicateClient() {
             />
             <span className="text-xs text-white/50 leading-relaxed">
               Acepto los{" "}
-              <button
-                type="button"
-                className="text-fuchsia-400 underline"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowTerms(true);
-                }}
-              >
+              <button type="button" className="text-fuchsia-400 underline" onClick={(e) => { e.preventDefault(); setShowTerms(true); }}>
                 términos y condiciones
               </button>
             </span>
@@ -406,24 +589,18 @@ export default function PublicateClient() {
         {step > 1 && (
           <button
             type="button"
-            onClick={() => {
-              setStep((s) => s - 1);
-              setError(null);
-            }}
+            onClick={() => { setStep((s) => s - 1); setError(null); }}
             className="flex items-center gap-1.5 rounded-xl border border-white/10 px-5 py-3 text-sm font-medium text-white/60 transition-colors hover:bg-white/5"
           >
             <ArrowLeft className="h-4 w-4" /> Atrás
           </button>
         )}
 
-        {step < 3 ? (
+        {step < TOTAL_STEPS ? (
           <button
             type="button"
             disabled={!canAdvance}
-            onClick={() => {
-              setStep((s) => s + 1);
-              setError(null);
-            }}
+            onClick={() => { setStep((s) => s + 1); setError(null); }}
             className="ml-auto flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
           >
             Siguiente <ArrowRight className="h-4 w-4" />
@@ -436,13 +613,9 @@ export default function PublicateClient() {
             className="ml-auto flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
           >
             {submitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Creando perfil...
-              </>
+              <><Loader2 className="h-4 w-4 animate-spin" /> Creando perfil...</>
             ) : (
-              <>
-                <Sparkles className="h-4 w-4" /> Crear mi perfil
-              </>
+              <><Sparkles className="h-4 w-4" /> Crear mi perfil</>
             )}
           </button>
         )}
@@ -452,10 +625,7 @@ export default function PublicateClient() {
       <TermsModal
         isOpen={showTerms}
         onClose={() => setShowTerms(false)}
-        onAccept={() => {
-          update({ acceptTerms: true });
-          setShowTerms(false);
-        }}
+        onAccept={() => { update({ acceptTerms: true }); setShowTerms(false); }}
         type="business"
       />
     </div>

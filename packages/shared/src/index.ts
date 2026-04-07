@@ -102,10 +102,20 @@ export const quickRegisterSchema = z.object({
   latitude: z.number().finite(),
   longitude: z.number().finite(),
   serviceDescription: z.string().min(3).max(500),
-  servicePrice: z.number().positive(),
   email: z.string().email(),
   phone: z.string().regex(/^\+\d{8,15}$/),
   acceptTerms: z.literal(true),
+  // Optional extended fields
+  bio: z.string().max(500).optional(),
+  gender: z.enum(["FEMALE", "MALE", "OTHER"]).optional(),
+  birthMonth: z.string().optional(),
+  birthYear: z.string().optional(),
+  profileTags: z.string().optional(),
+  serviceTags: z.string().optional(),
+  baseRate: z.number().int().min(0).optional(),
+  minDurationMinutes: z.number().int().min(0).optional(),
+  acceptsIncalls: z.boolean().optional(),
+  acceptsOutcalls: z.boolean().optional(),
 });
 export type QuickRegisterInput = z.infer<typeof quickRegisterSchema>;
 
