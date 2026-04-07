@@ -36,10 +36,12 @@ export const metadata: Metadata = {
   keywords: [
     "escorts chile", "acompañantes chile", "escorts santiago", "acompañantes santiago",
     "escorts las condes", "escorts providencia", "escorts viña del mar",
+    "putas santiago", "putas chile", "putas verificadas",
     "acompañantes verificadas", "escorts verificadas",
     "escorts colombianas santiago", "escorts venezolanas santiago",
     "masajistas chile", "moteles chile", "sexshop chile",
     "escorts cerca de mi", "acompañantes cerca de mi",
+    "escorts disponibles hoy", "servicios para adultos chile",
   ],
   alternates: { canonical: "/" },
   openGraph: {
@@ -141,25 +143,25 @@ export default async function HomePage() {
           Concepción y más de 20 ciudades del país.
         </p>
 
-        <h3 className="text-base font-semibold text-white/70 mb-1">
+        <h2 className="text-base font-semibold text-white/70 mb-1">
           Escorts en Santiago y Regiones
-        </h3>
+        </h2>
         <p className="mb-4">
           Encuentra escorts disponibles hoy en Santiago Centro, Las Condes, Providencia y toda
           la Región Metropolitana. También hay perfiles activos en Viña del Mar, Valparaíso,
           Concepción, Antofagasta y Temuco. Filtra por ubicación, servicios y disponibilidad.
         </p>
 
-        <h3 className="text-base font-semibold text-white/70 mb-1">
+        <h2 className="text-base font-semibold text-white/70 mb-1">
           Más servicios en UZEED
-        </h3>
+        </h2>
         <p className="mb-4">
           Además de escorts y acompañantes, puedes encontrar masajistas eróticas con
           especialidad en masajes tántricos y nuru, moteles con precios actualizados,
           hospedajes discretos y sex shops con envío a todo Chile.
         </p>
 
-        <h3 className="text-base font-semibold text-white/70 mb-3">Preguntas Frecuentes</h3>
+        <h2 className="text-base font-semibold text-white/70 mb-3">Preguntas Frecuentes</h2>
         <details className="mb-3 group">
           <summary className="cursor-pointer font-medium text-white/70 group-open:text-fuchsia-300">
             ¿Cómo encuentro escorts y acompañantes cerca de mí?
@@ -201,7 +203,7 @@ export default async function HomePage() {
       {/* Server-rendered profile links for Google crawlability */}
       {profiles.length > 0 && (
         <nav className="max-w-4xl mx-auto px-4 pb-12" aria-label="Escorts destacadas">
-          <h3 className="text-base font-semibold text-white/70 mb-2">Escorts Destacadas</h3>
+          <h2 className="text-base font-semibold text-white/70 mb-2">Escorts Destacadas</h2>
           <ul className="flex flex-wrap gap-2">
             {profiles.map((p) => (
               <li key={p.id}>

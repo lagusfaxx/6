@@ -71,7 +71,7 @@ export default async function EscortsPage() {
       {/* Server-rendered profile links for Google crawlability */}
       {profiles.length > 0 && (
         <nav className="max-w-5xl mx-auto px-4 pb-8" aria-label="Perfiles de escorts">
-          <h2 className="text-lg font-bold text-white/70 mb-3">Escorts Destacadas en Chile</h2>
+          <h2 className="text-lg font-bold text-white/70 mb-3" id="escorts-destacadas">Escorts Destacadas en Chile</h2>
           <ul className="flex flex-wrap gap-2">
             {profiles.map((p) => (
               <li key={p.id}>

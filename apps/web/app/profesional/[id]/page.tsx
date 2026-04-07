@@ -127,14 +127,17 @@ export default async function ProfessionalDetailPage({ params }: Props) {
         />
       )}
       {p && (
-        <section className="sr-only">
-          <h1>{name} — {category} en {city}</h1>
-          {p.bio && <p>{p.bio}</p>}
-          {p.serviceDescription && <p>{p.serviceDescription}</p>}
-          {p.heightCm && <p>Altura: {p.heightCm} cm</p>}
-          {p.hairColor && <p>Cabello: {p.hairColor}</p>}
+        <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
+          <h1 className="text-xl font-bold text-white/80 mb-3">{name} — {category} en {city}</h1>
+          {p.bio && <p className="mb-3">{p.bio}</p>}
+          {p.serviceDescription && <p className="mb-3">{p.serviceDescription}</p>}
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-white/50 mb-3">
+            {p.heightCm && <span>Altura: {p.heightCm} cm</span>}
+            {p.age && <span>Edad: {p.age} años</span>}
+            {p.hairColor && <span>Cabello: {p.hairColor}</span>}
+          </div>
           {p.serviceTags && p.serviceTags.length > 0 && (
-            <p>Servicios: {p.serviceTags.join(", ")}</p>
+            <p className="text-white/50">Servicios: {p.serviceTags.join(", ")}</p>
           )}
         </section>
       )}

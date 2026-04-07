@@ -119,7 +119,10 @@ const jsonLd = {
         url: 'https://uzeed.cl/contacto',
         availableLanguage: 'Spanish',
       },
-      sameAs: [],
+      sameAs: [
+        'https://www.instagram.com/uzeed.cl',
+        'https://x.com/uzeedcl',
+      ],
     },
   ],
 };

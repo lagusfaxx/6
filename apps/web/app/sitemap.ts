@@ -159,10 +159,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // ── Landing pages por ciudad (geo-targeting SEO) ──
-  // Solo escorts por ciudad (las más buscadas). Masajistas/moteles por ciudad
-  // generaban URLs de bajo valor que Google no indexaba.
+  // URLs limpias /escorts/{city} para mejor indexación (antes usaban query params).
   for (const city of CITIES) {
-    add(`/escorts?city=${encodeURIComponent(city)}`, "daily", 0.8);
+    add(`/escorts/${encodeURIComponent(city)}`, "daily", 0.8);
   }
 
   // ── Combinaciones tag + ciudad top eliminadas ──
