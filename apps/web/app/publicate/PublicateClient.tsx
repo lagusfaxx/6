@@ -165,6 +165,9 @@ export default function PublicateClient() {
   const inputClass =
     "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition-colors focus:border-fuchsia-500/40 focus:bg-white/[0.06]";
 
+  const selectClass =
+    inputClass + " [color-scheme:dark]";
+
   const labelClass = "mb-1.5 block text-xs font-medium text-white/60";
 
   return (
@@ -246,7 +249,7 @@ export default function PublicateClient() {
           <div>
             <label className={labelClass}>Categoría *</label>
             <select
-              className={inputClass}
+              className={selectClass}
               value={data.primaryCategory}
               onChange={(e) => update({ primaryCategory: e.target.value })}
             >
@@ -339,7 +342,7 @@ export default function PublicateClient() {
             <label className={labelClass}>Teléfono *</label>
             <div className="flex gap-2">
               <select
-                className={inputClass + " w-24 shrink-0"}
+                className="w-20 shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-2 py-3 text-sm text-white outline-none transition-colors focus:border-fuchsia-500/40 [color-scheme:dark]"
                 value={data.phone.match(/^\+\d{2}/)?.[0] || "+56"}
                 onChange={(e) => {
                   const digits = data.phone.replace(/^\+\d{2}/, "");
@@ -354,7 +357,7 @@ export default function PublicateClient() {
               </select>
               <input
                 type="tel"
-                className={inputClass + " flex-1"}
+                className={inputClass}
                 placeholder="912345678"
                 value={data.phone.replace(/^\+\d{2}/, "")}
                 onChange={(e) => {
