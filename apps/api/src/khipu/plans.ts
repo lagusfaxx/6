@@ -482,6 +482,16 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
             data: { status: "FAILED", providerPaymentId: token },
           });
           console.log("[flow webhook] payment marked as FAILED", { intentId: failedIntent.id, flowStatus });
+
+          // PUBLICATE_GOLD: delete the user that was created during registration (never paid)
+          if (failedIntent.purpose === "PUBLICATE_GOLD") {
+            try {
+              await prisma.user.delete({ where: { id: failedIntent.subscriberId } });
+              console.log("[flow webhook] deleted unpaid Gold registration", { userId: failedIntent.subscriberId });
+            } catch (err) {
+              console.error("[flow webhook] failed to delete unpaid Gold user", { userId: failedIntent.subscriberId, err });
+            }
+          }
         }
       }
 
