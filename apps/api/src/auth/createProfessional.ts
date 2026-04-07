@@ -98,6 +98,9 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
   const passwordSetToken = crypto.randomBytes(32).toString("hex");
   const passwordSetTokenExpiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
 
+  // Use first gallery photo as avatar if no dedicated avatar
+  const avatarUrl = (input.galleryUrls && input.galleryUrls.length > 0) ? input.galleryUrls[0] : null;
+
   const user = await prisma.user.create({
     data: {
       email,
@@ -105,6 +108,7 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
       phone: input.phone,
       profileType: "PROFESSIONAL",
       displayName: input.displayName,
+      avatarUrl,
       address: input.address,
       latitude: input.latitude,
       longitude: input.longitude,
