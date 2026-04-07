@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import CrearContrasenaClient from "./CrearContrasenaClient";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Crear contraseña — UZEED",
 };
