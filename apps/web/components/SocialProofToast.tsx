@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { MessageCircle, Phone } from "lucide-react";
+import { MessageCircle, Phone, X } from "lucide-react";
 import { connectRealtime } from "../lib/realtime";
 import { apiFetch } from "../lib/api";
 import useMe from "../hooks/useMe";
@@ -196,7 +196,7 @@ export default function SocialProofToast() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[55] flex justify-center px-4 md:inset-x-auto md:bottom-6 md:right-6 md:left-auto md:justify-end"
+      className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[55] flex justify-center px-4 md:inset-x-auto md:bottom-6 md:right-6 md:left-auto md:justify-end"
     >
       <AnimatePresence mode="wait">
         {active && (
@@ -226,6 +226,15 @@ export default function SocialProofToast() {
                 <>Alguien envió un mensaje a <span className="font-semibold text-fuchsia-300">{active.displayName}</span></>
               )}
             </p>
+
+            {/* Close button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); dismiss(); }}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/10 hover:text-white/70"
+              aria-label="Cerrar"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
 
             {/* Progress bar */}
             <div className="absolute inset-x-0 bottom-0 h-[2px] bg-white/[0.04]">
