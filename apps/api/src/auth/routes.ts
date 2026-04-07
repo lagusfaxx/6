@@ -473,14 +473,21 @@ function slugify(text: string): string {
 authRouter.post(
   "/quick-register",
   authLimiter,
-  quickRegisterUpload.single("avatar"),
+  quickRegisterUpload.fields([
+    { name: "avatar", maxCount: 1 },
+    { name: "gallery", maxCount: 6 },
+  ]),
   asyncHandler(async (req, res) => {
+    const b = req.body;
     const body = {
-      ...req.body,
-      latitude: Number(req.body.latitude),
-      longitude: Number(req.body.longitude),
-      servicePrice: Number(req.body.servicePrice),
-      acceptTerms: req.body.acceptTerms === "true" || req.body.acceptTerms === true,
+      ...b,
+      latitude: Number(b.latitude),
+      longitude: Number(b.longitude),
+      acceptTerms: b.acceptTerms === "true" || b.acceptTerms === true,
+      baseRate: b.baseRate ? Number(b.baseRate) : undefined,
+      minDurationMinutes: b.minDurationMinutes ? Number(b.minDurationMinutes) : undefined,
+      acceptsIncalls: b.acceptsIncalls === "true",
+      acceptsOutcalls: b.acceptsOutcalls === "true",
     };
 
     const parsed = quickRegisterSchema.safeParse(body);
@@ -495,12 +502,25 @@ authRouter.post(
       latitude,
       longitude,
       serviceDescription,
-      servicePrice,
       email: rawEmail,
       phone,
+      bio,
+      gender,
+      birthMonth,
+      birthYear,
+      baseRate,
+      minDurationMinutes,
+      acceptsIncalls,
+      acceptsOutcalls,
     } = parsed.data;
 
     const email = rawEmail.toLowerCase().trim();
+
+    // Parse tags from JSON strings
+    let profileTags: string[] = [];
+    let serviceTags: string[] = [];
+    try { if (b.profileTags) profileTags = JSON.parse(b.profileTags); } catch {}
+    try { if (b.serviceTags) serviceTags = JSON.parse(b.serviceTags); } catch {}
 
     // Check for existing users
     const existingEmail = await prisma.user.findUnique({ where: { email } });
@@ -516,19 +536,20 @@ authRouter.post(
     // Generate unique username from displayName
     const baseSlug = slugify(displayName) || "user";
     let username = baseSlug;
-    let attempts = 0;
-    while (attempts < 10) {
+    let usernameAttempts = 0;
+    while (usernameAttempts < 10) {
       const exists = await prisma.user.findUnique({ where: { username } });
       if (!exists) break;
       username = `${baseSlug}-${crypto.randomInt(1000, 9999)}`;
-      attempts++;
+      usernameAttempts++;
     }
 
     // Upload avatar if provided
+    const files = req.files as { avatar?: Express.Multer.File[]; gallery?: Express.Multer.File[] } | undefined;
     let avatarUrl: string | null = null;
-    if (req.file) {
-      await validateUploadedFile(req.file, "image");
-      const optimizedFilename = await optimizeUploadedImage(req.file, "avatar");
+    if (files?.avatar?.[0]) {
+      await validateUploadedFile(files.avatar[0], "image");
+      const optimizedFilename = await optimizeUploadedImage(files.avatar[0], "avatar");
       avatarUrl = quickRegisterStorage.publicUrl(optimizedFilename);
     }
 
@@ -554,6 +575,13 @@ authRouter.post(
       }
     }
 
+    // Build birthdate from month + year
+    let safeBirthdate: Date | null = null;
+    if (birthYear) {
+      const month = birthMonth ? parseInt(birthMonth, 10) - 1 : 0;
+      safeBirthdate = new Date(parseInt(birthYear, 10), month, 15);
+    }
+
     // Trial period
     const shopTrialEndsAt = addDays(new Date(), config.freeTrialDays);
 
@@ -576,7 +604,15 @@ authRouter.post(
         serviceCategory: resolvedCategoryName,
         categoryId: resolvedCategoryId,
         serviceDescription,
-        baseRate: servicePrice,
+        bio: bio || null,
+        gender: (gender as any) || null,
+        birthdate: safeBirthdate,
+        profileTags: profileTags,
+        serviceTags: serviceTags,
+        baseRate: baseRate ?? null,
+        minDurationMinutes: minDurationMinutes ?? null,
+        acceptsIncalls: acceptsIncalls ?? null,
+        acceptsOutcalls: acceptsOutcalls ?? null,
         termsAcceptedAt: new Date(),
         shopTrialEndsAt,
         subscriptionPrice: 2500,
@@ -589,6 +625,21 @@ authRouter.post(
       },
       select: { id: true, email: true, username: true, displayName: true },
     });
+
+    // Upload gallery photos → ProfileMedia
+    const galleryFiles = files?.gallery || [];
+    for (const gFile of galleryFiles) {
+      try {
+        await validateUploadedFile(gFile, "image");
+        const optimized = await optimizeUploadedImage(gFile, "gallery");
+        const url = quickRegisterStorage.publicUrl(optimized);
+        await prisma.profileMedia.create({
+          data: { ownerId: user.id, type: "IMAGE", url },
+        });
+      } catch (err) {
+        console.error("[auth/quick-register] gallery upload failed", { userId: user.id, error: err });
+      }
+    }
 
     // Create forum thread
     await createProfessionalForumThread({
