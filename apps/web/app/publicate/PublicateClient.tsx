@@ -1,17 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
-  CheckCircle2,
   Crown,
   ImagePlus,
   Loader2,
   MapPin,
-  Sparkles,
-  Star,
   X,
   Zap,
 } from "lucide-react";
@@ -58,8 +54,7 @@ type WizardData = {
   latitude: number | null;
   longitude: number | null;
   serviceDescription: string;
-  // Step 3 — Plan + Datos
-  selectedPlan: "free" | "gold";
+  // Step 3 — Datos
   email: string;
   phone: string;
   acceptTerms: boolean;
@@ -81,7 +76,6 @@ const INITIAL_DATA: WizardData = {
   latitude: null,
   longitude: null,
   serviceDescription: "",
-  selectedPlan: "free",
   email: "",
   phone: "",
   acceptTerms: false,
@@ -97,7 +91,6 @@ export default function PublicateClient() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -175,7 +168,7 @@ export default function PublicateClient() {
       fd.append("email", data.email.trim().toLowerCase());
       fd.append("phone", data.phone);
       fd.append("acceptTerms", "true");
-      fd.append("selectedPlan", data.selectedPlan);
+      fd.append("selectedPlan", "gold");
 
       for (const file of data.galleryFiles) fd.append("gallery", file);
 
@@ -191,10 +184,7 @@ export default function PublicateClient() {
 
       if (res.paymentUrl) {
         window.location.href = res.paymentUrl;
-        return;
       }
-
-      setDone(true);
     } catch (err: any) {
       const msg = err?.body?.message || err?.message || "Ocurrió un error. Intenta nuevamente.";
       setError(msg);
@@ -202,28 +192,6 @@ export default function PublicateClient() {
       setSubmitting(false);
     }
   };
-
-  /* ── Success screen ── */
-  if (done) {
-    return (
-      <div className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center px-4 text-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
-          <CheckCircle2 className="h-8 w-8 text-emerald-400" />
-        </div>
-        <h1 className="text-2xl font-bold text-white">Tu perfil fue creado exitosamente</h1>
-        <p className="mt-3 text-sm text-white/50 leading-relaxed">
-          Un administrador lo revisará pronto. Revisa tu correo electrónico para
-          crear tu contraseña y completar tu perfil.
-        </p>
-        <Link
-          href="/"
-          className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white/10 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-white/15"
-        >
-          Volver al inicio
-        </Link>
-      </div>
-    );
-  }
 
   /* ── Shared styles ── */
   const inputClass =
@@ -235,11 +203,11 @@ export default function PublicateClient() {
     <div className="mx-auto max-w-lg px-4 py-8 sm:py-12">
       {/* Header */}
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20">
-          <Sparkles className="h-6 w-6 text-fuchsia-400" />
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/20 to-fuchsia-500/20">
+          <Crown className="h-6 w-6 text-amber-400" />
         </div>
-        <h1 className="text-xl font-bold text-white sm:text-2xl">Publícate en UZEED</h1>
-        <p className="mt-1 text-xs text-white/40">Crea tu perfil en minutos — sin registro previo</p>
+        <h1 className="text-xl font-bold text-white sm:text-2xl">Publícate con <span className="text-amber-400">Gold</span></h1>
+        <p className="mt-1 text-xs text-white/40">Crea tu perfil y destaca con x5 más visibilidad · $14.990 / 7 días</p>
       </div>
 
       {/* Progress bar */}
@@ -446,82 +414,30 @@ export default function PublicateClient() {
         </div>
       )}
 
-      {/* ═══ STEP 3: Plan + Datos ═══ */}
+      {/* ═══ STEP 3: Datos + Pago ═══ */}
       {step === 3 && (
         <div className="space-y-6">
-          {/* Plan selection */}
-          <div>
-            <h2 className="text-base font-semibold text-white">Elige tu plan</h2>
-            <div className="mt-3 grid gap-3">
-              {/* Free plan */}
-              <button
-                type="button"
-                onClick={() => update({ selectedPlan: "free" })}
-                className={`relative rounded-2xl border p-5 text-left transition-all ${
-                  data.selectedPlan === "free"
-                    ? "border-white/20 bg-white/[0.06]"
-                    : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"
-                }`}
-              >
-                {data.selectedPlan === "free" && (
-                  <div className="absolute right-4 top-4">
-                    <CheckCircle2 className="h-5 w-5 text-white/60" />
-                  </div>
-                )}
-                <div className="mb-3 flex items-center gap-2">
-                  <Star className="h-4 w-4 text-white/40" />
-                  <span className="text-sm font-bold text-white">Gratis</span>
-                  <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/50">SILVER</span>
-                </div>
-                <ul className="space-y-1.5 text-xs text-white/45">
-                  <li>• 90 días gratis</li>
-                  <li>• Visibilidad básica</li>
-                  <li>• Apareces debajo de perfiles Gold</li>
-                </ul>
-              </button>
-
-              {/* Gold plan */}
-              <button
-                type="button"
-                onClick={() => update({ selectedPlan: "gold" })}
-                className={`relative rounded-2xl border p-5 text-left transition-all ${
-                  data.selectedPlan === "gold"
-                    ? "border-amber-500/40 bg-amber-500/[0.08] shadow-[0_0_30px_rgba(245,158,11,0.06)]"
-                    : "border-amber-500/15 bg-amber-500/[0.03] hover:bg-amber-500/[0.06]"
-                }`}
-              >
-                {data.selectedPlan === "gold" && (
-                  <div className="absolute right-4 top-4">
-                    <CheckCircle2 className="h-5 w-5 text-amber-400" />
-                  </div>
-                )}
-                <div className="mb-1 flex items-center gap-2">
-                  <Crown className="h-4 w-4 text-amber-400" />
-                  <span className="text-sm font-bold text-white">Gold</span>
-                  <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">RECOMENDADO</span>
-                </div>
-                <p className="mb-3 text-lg font-bold text-amber-400">$14.990 <span className="text-xs font-normal text-white/40">/ 7 días</span></p>
-                <ul className="space-y-1.5 text-xs text-white/60">
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más visibilidad</li>
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más contactos</li>
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Badge Gold en tu perfil</li>
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Apareces primero en búsquedas</li>
-                </ul>
-              </button>
+          {/* Gold plan summary */}
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-5">
+            <div className="mb-2 flex items-center gap-2">
+              <Crown className="h-4 w-4 text-amber-400" />
+              <span className="text-sm font-bold text-white">Plan Gold</span>
             </div>
+            <p className="text-lg font-bold text-amber-400">$14.990 <span className="text-xs font-normal text-white/40">/ 7 días</span></p>
+            <ul className="mt-3 space-y-1.5 text-xs text-white/60">
+              <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más visibilidad</li>
+              <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más contactos</li>
+              <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Badge Gold en tu perfil</li>
+              <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Apareces primero en búsquedas</li>
+            </ul>
           </div>
-
-          {/* Divider */}
-          <div className="h-px bg-white/[0.06]" />
 
           {/* Contact data */}
           <div className="space-y-4">
             <h2 className="text-base font-semibold text-white">Tus datos</h2>
-            {data.selectedPlan === "gold" && (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-xs text-amber-300/80">
-                Tu correo se usará para procesar el pago de <strong>$14.990</strong> con Flow.
-              </div>
-            )}
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-xs text-amber-300/80">
+              Tu correo se usará para procesar el pago de <strong>$14.990</strong> con Flow.
+            </div>
 
             {/* Email */}
             <div>
@@ -611,14 +527,12 @@ export default function PublicateClient() {
             type="button"
             disabled={!canAdvance || submitting}
             onClick={handleSubmit}
-            className="ml-auto flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
+            className="ml-auto flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-fuchsia-600 px-6 py-3 text-sm font-bold text-white shadow-[0_8px_30px_rgba(245,158,11,0.2)] transition-opacity disabled:opacity-40"
           >
             {submitting ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> {data.selectedPlan === "gold" ? "Procesando..." : "Creando perfil..."}</>
-            ) : data.selectedPlan === "gold" ? (
-              <><Crown className="h-4 w-4" /> Pagar y publicar — $14.990</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> Procesando...</>
             ) : (
-              <><Sparkles className="h-4 w-4" /> Crear mi perfil</>
+              <><Crown className="h-4 w-4" /> Pagar y publicar — $14.990</>
             )}
           </button>
         )}
