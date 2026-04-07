@@ -9,6 +9,7 @@ import {
   sendInactiveProfileReminder,
   sendVideocallConfigReminder,
   sendReferralCampaignEmail,
+  sendGoldRenewalEmail,
 } from "./lib/notificationEmail";
 import { sendInAppAndPush } from "./lib/sendReminder";
 import { randomBytes } from "crypto";
@@ -318,7 +319,40 @@ async function tickSyncPacSubscriptions() {
   }
 }
 
-/* ─── 6. Auto-send referral campaign email 2h after creator registration ─── */
+/* ─── 6. Gold plan renewal reminder (24h before expiry) ─── */
+
+async function tickGoldRenewalReminder() {
+  const now = new Date();
+  const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+  // Find Gold users whose membership expires within the next 24 hours
+  const expiring = await prisma.user.findMany({
+    where: {
+      tier: "GOLD",
+      membershipExpiresAt: {
+        gte: now,
+        lte: in24h,
+      },
+    },
+    select: { id: true, email: true, displayName: true, membershipExpiresAt: true },
+    take: 200,
+  });
+
+  for (const u of expiring) {
+    const reminderKey = `gold_renewal_${u.membershipExpiresAt!.toISOString().slice(0, 10)}`;
+    if (await wasReminderSent(u.id, reminderKey)) continue;
+
+    await markReminderSent(u.id, reminderKey);
+    try {
+      await sendGoldRenewalEmail(u.email, u.displayName);
+      console.log(`[worker] Gold renewal reminder sent to ${u.email}`);
+    } catch (err) {
+      console.error(`[worker] Gold renewal reminder failed for ${u.email}`, err);
+    }
+  }
+}
+
+/* ─── 7. Auto-send referral campaign email 2h after creator registration ─── */
 
 async function tickReferralWelcomeEmail() {
   const now = new Date();
@@ -504,6 +538,7 @@ async function tick() {
     { name: "videocallConfig", fn: tickVideocallConfigReminder },
     { name: "expireStalePendingIntents", fn: tickExpireStalePendingIntents },
     { name: "syncPacSubscriptions", fn: tickSyncPacSubscriptions },
+    { name: "goldRenewalReminder", fn: tickGoldRenewalReminder },
     { name: "referralWelcomeEmail", fn: tickReferralWelcomeEmail },
     { name: "referralValidation", fn: tickReferralValidation },
     { name: "referralCycles", fn: tickReferralCycles },

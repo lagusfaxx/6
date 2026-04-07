@@ -116,6 +116,7 @@ export const quickRegisterSchema = z.object({
   minDurationMinutes: z.number().int().min(0).optional(),
   acceptsIncalls: z.boolean().optional(),
   acceptsOutcalls: z.boolean().optional(),
+  selectedPlan: z.enum(["free", "gold"]).default("free"),
 });
 export type QuickRegisterInput = z.infer<typeof quickRegisterSchema>;
 

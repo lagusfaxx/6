@@ -97,6 +97,7 @@ enum PaymentIntentPurpose {
   MEMBERSHIP_PLAN
   TOKEN_PURCHASE
   UMATE_PLAN
+  PUBLICATE_GOLD
 }
 
 enum PaymentIntentStatus {

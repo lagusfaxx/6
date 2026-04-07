@@ -631,6 +631,35 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
       });
 
       console.log("[flow webhook] UMATE_PLAN activated", { userId: intent.subscriberId, intentId: intent.id, planId, tier: plan.tier });
+    } else if (intent.purpose === "PUBLICATE_GOLD") {
+      // ── Gold plan activation from /publicate ──
+      await prisma.$transaction(async (tx) => {
+        await tx.paymentIntent.update({
+          where: { id: intent.id },
+          data: { status: "PAID", paidAt: new Date(), providerPaymentId: token }
+        });
+
+        const now = new Date();
+        const expiresAt = addDays(now, 7);
+
+        await tx.user.update({
+          where: { id: intent.subscriberId },
+          data: {
+            tier: "GOLD",
+            membershipExpiresAt: expiresAt,
+          }
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: intent.subscriberId,
+            type: "SUBSCRIPTION_RENEWED",
+            data: { intentId: intent.id, source: "publicate_gold", plan: "GOLD", days: 7, flowOrder: payment.flowOrder, commerceOrder }
+          }
+        });
+      });
+
+      console.log("[flow webhook] PUBLICATE_GOLD activated", { userId: intent.subscriberId, intentId: intent.id, token });
     } else {
       // ── Membership payment (existing behavior) ──
       await prisma.$transaction(async (tx) => {

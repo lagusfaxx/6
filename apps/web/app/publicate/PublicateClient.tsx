@@ -7,11 +7,14 @@ import {
   ArrowRight,
   Camera,
   CheckCircle2,
+  Crown,
   ImagePlus,
   Loader2,
   MapPin,
   Sparkles,
+  Star,
   X,
+  Zap,
 } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 import MapboxAddressAutocomplete from "../../components/MapboxAddressAutocomplete";
@@ -70,7 +73,9 @@ type WizardData = {
   latitude: number | null;
   longitude: number | null;
   serviceDescription: string;
-  // Step 5 — Datos
+  // Step 5 — Plan
+  selectedPlan: "free" | "gold";
+  // Step 6 — Datos
   email: string;
   phone: string;
   acceptTerms: boolean;
@@ -97,12 +102,13 @@ const INITIAL_DATA: WizardData = {
   latitude: null,
   longitude: null,
   serviceDescription: "",
+  selectedPlan: "free",
   email: "",
   phone: "",
   acceptTerms: false,
 };
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 const PHONE_PREFIXES = ["+56", "+57", "+58", "+51"];
 const MAX_GALLERY = 6;
 
@@ -171,17 +177,18 @@ export default function PublicateClient() {
     data.latitude !== null &&
     data.longitude !== null &&
     data.serviceDescription.trim().length >= 3;
-  const isStep5Valid =
+  const isStep5Valid = true; // plan always has a default selection
+  const isStep6Valid =
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) &&
     /^\+\d{8,15}$/.test(data.phone) &&
     data.acceptTerms;
 
-  const validByStep = [false, isStep1Valid, isStep2Valid, isStep3Valid, isStep4Valid, isStep5Valid];
+  const validByStep = [false, isStep1Valid, isStep2Valid, isStep3Valid, isStep4Valid, isStep5Valid, isStep6Valid];
   const canAdvance = validByStep[step] ?? false;
 
   /* ── Submit ── */
   const handleSubmit = async () => {
-    if (!isStep5Valid || submitting) return;
+    if (!isStep6Valid || submitting) return;
     setSubmitting(true);
     setError(null);
 
@@ -196,6 +203,7 @@ export default function PublicateClient() {
       fd.append("email", data.email.trim().toLowerCase());
       fd.append("phone", data.phone);
       fd.append("acceptTerms", "true");
+      fd.append("selectedPlan", data.selectedPlan);
 
       if (data.avatarFile) fd.append("avatar", data.avatarFile);
       for (const file of data.galleryFiles) fd.append("gallery", file);
@@ -211,7 +219,14 @@ export default function PublicateClient() {
       fd.append("acceptsIncalls", String(data.acceptsIncalls));
       fd.append("acceptsOutcalls", String(data.acceptsOutcalls));
 
-      await apiFetch("/auth/quick-register", { method: "POST", body: fd });
+      const res = await apiFetch<{ ok: boolean; paymentUrl?: string }>("/auth/quick-register", { method: "POST", body: fd });
+
+      if (res.paymentUrl) {
+        // Gold plan — redirect to Flow payment
+        window.location.href = res.paymentUrl;
+        return;
+      }
+
       setDone(true);
     } catch (err: any) {
       const msg = err?.body?.message || err?.message || "Ocurrió un error. Intenta nuevamente.";
@@ -521,10 +536,81 @@ export default function PublicateClient() {
         </div>
       )}
 
-      {/* ═══ STEP 5: Tus datos ═══ */}
+      {/* ═══ STEP 5: Elige tu plan ═══ */}
       {step === 5 && (
         <div className="space-y-5">
+          <h2 className="text-base font-semibold text-white">Elige tu plan</h2>
+          <p className="text-xs text-white/40">Ambos planes duran 7 días. Puedes renovar en cualquier momento.</p>
+
+          <div className="grid gap-3">
+            {/* Free plan */}
+            <button
+              type="button"
+              onClick={() => update({ selectedPlan: "free" })}
+              className={`relative rounded-2xl border p-5 text-left transition-all ${
+                data.selectedPlan === "free"
+                  ? "border-white/20 bg-white/[0.06]"
+                  : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"
+              }`}
+            >
+              {data.selectedPlan === "free" && (
+                <div className="absolute right-4 top-4">
+                  <CheckCircle2 className="h-5 w-5 text-white/60" />
+                </div>
+              )}
+              <div className="mb-3 flex items-center gap-2">
+                <Star className="h-4 w-4 text-white/40" />
+                <span className="text-sm font-bold text-white">Gratis</span>
+                <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/50">SILVER</span>
+              </div>
+              <ul className="space-y-1.5 text-xs text-white/45">
+                <li>• Visibilidad básica — 7 días</li>
+                <li>• Contactos limitados</li>
+                <li>• Apareces debajo de perfiles Gold</li>
+              </ul>
+            </button>
+
+            {/* Gold plan */}
+            <button
+              type="button"
+              onClick={() => update({ selectedPlan: "gold" })}
+              className={`relative rounded-2xl border p-5 text-left transition-all ${
+                data.selectedPlan === "gold"
+                  ? "border-amber-500/40 bg-amber-500/[0.08] shadow-[0_0_30px_rgba(245,158,11,0.06)]"
+                  : "border-amber-500/15 bg-amber-500/[0.03] hover:bg-amber-500/[0.06]"
+              }`}
+            >
+              {data.selectedPlan === "gold" && (
+                <div className="absolute right-4 top-4">
+                  <CheckCircle2 className="h-5 w-5 text-amber-400" />
+                </div>
+              )}
+              <div className="mb-1 flex items-center gap-2">
+                <Crown className="h-4 w-4 text-amber-400" />
+                <span className="text-sm font-bold text-white">Gold</span>
+                <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">RECOMENDADO</span>
+              </div>
+              <p className="mb-3 text-lg font-bold text-amber-400">$14.990 <span className="text-xs font-normal text-white/40">/ 7 días</span></p>
+              <ul className="space-y-1.5 text-xs text-white/60">
+                <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más visibilidad que el plan gratis</li>
+                <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más contactos</li>
+                <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Badge Gold en tu perfil</li>
+                <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Apareces primero en búsquedas</li>
+              </ul>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ STEP 6: Tus datos ═══ */}
+      {step === 6 && (
+        <div className="space-y-5">
           <h2 className="text-base font-semibold text-white">Tus datos</h2>
+          {data.selectedPlan === "gold" && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-xs text-amber-300/80">
+              Tu correo se usará para procesar el pago de <strong>$14.990</strong> con Flow.
+            </div>
+          )}
 
           {/* Email */}
           <div>
@@ -616,7 +702,9 @@ export default function PublicateClient() {
             className="ml-auto flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
           >
             {submitting ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Creando perfil...</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> {data.selectedPlan === "gold" ? "Procesando..." : "Creando perfil..."}</>
+            ) : data.selectedPlan === "gold" ? (
+              <><Crown className="h-4 w-4" /> Pagar y publicar — $14.990</>
             ) : (
               <><Sparkles className="h-4 w-4" /> Crear mi perfil</>
             )}
