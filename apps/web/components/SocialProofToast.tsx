@@ -11,10 +11,10 @@ import useMe from "../hooks/useMe";
 /* ─── Constants ─── */
 
 const DISMISS_MS = 5000;
-const MIN_FAKE_INTERVAL = 15_000;
-const MAX_FAKE_INTERVAL = 25_000;
-const COOLDOWN_MS = 4_000;
-const INITIAL_DELAY_MS = 12_000;
+const MIN_FAKE_INTERVAL = 8_000;
+const MAX_FAKE_INTERVAL = 12_000;
+const COOLDOWN_MS = 3_000;
+const INITIAL_DELAY_MS = 10_000;
 const MAX_QUEUE = 5;
 
 const SUPPRESSED_ROUTES = ["/chat", "/chats", "/login", "/register", "/forgot-password", "/dashboard"];
@@ -71,12 +71,6 @@ export default function SocialProofToast() {
     return () => { cancelled = true; };
   }, []);
 
-  const enqueue = useCallback((evt: SocialProofEvent) => {
-    if (queueRef.current.length < MAX_QUEUE) {
-      queueRef.current.push(evt);
-    }
-  }, []);
-
   const showNext = useCallback(() => {
     if (!mountedRef.current || busyRef.current) return;
     const next = queueRef.current.shift();
@@ -95,10 +89,18 @@ export default function SocialProofToast() {
     }, DISMISS_MS);
   }, []);
 
+  const enqueue = useCallback((evt: SocialProofEvent) => {
+    if (queueRef.current.length >= MAX_QUEUE) return;
+    queueRef.current.push(evt);
+    // Trigger display if idle and ready
+    if (readyRef.current && !busyRef.current) showNext();
+  }, [showNext]);
+
   const handleClick = useCallback(() => {
     if (!active) return;
+    const url = active.profileUrl;
     setActive(null);
-    router.push(active.profileUrl);
+    router.push(url);
     setTimeout(() => {
       if (!mountedRef.current) return;
       busyRef.current = false;
@@ -113,16 +115,6 @@ export default function SocialProofToast() {
       busyRef.current = false;
       showNext();
     }, COOLDOWN_MS);
-  }, [showNext]);
-
-  // Periodically check queue
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (readyRef.current && !busyRef.current && queueRef.current.length > 0) {
-        showNext();
-      }
-    }, 2000);
-    return () => clearInterval(interval);
   }, [showNext]);
 
   // Initial delay
