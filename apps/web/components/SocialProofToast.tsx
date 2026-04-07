@@ -14,7 +14,7 @@ const DISMISS_MS = 5000;
 const MIN_FAKE_INTERVAL = 15_000;
 const MAX_FAKE_INTERVAL = 25_000;
 const COOLDOWN_MS = 4_000;
-const INITIAL_DELAY_MS = 12_000;
+const INITIAL_DELAY_MS = 5_000;
 const MAX_QUEUE = 5;
 
 const SUPPRESSED_ROUTES = ["/chat", "/chats", "/login", "/register", "/forgot-password", "/dashboard"];
