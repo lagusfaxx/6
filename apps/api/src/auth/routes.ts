@@ -588,8 +588,8 @@ authRouter.post(
     // Plan configuration
     const isGold = selectedPlan === "gold";
     const now = new Date();
-    const shopTrialEndsAt = addDays(now, config.freeTrialDays);
-    const membershipExpiresAt = isGold ? null : addDays(now, 7); // Free: 7 days active; Gold: set after payment
+    const shopTrialEndsAt = isGold ? null : addDays(now, config.freeTrialDays); // Free: 90d trial; Gold: no trial
+    const membershipExpiresAt = null; // Free: uses shopTrialEndsAt; Gold: set by webhook after payment
 
     // Generate password set token (72h TTL)
     const passwordSetToken = crypto.randomBytes(32).toString("hex");
