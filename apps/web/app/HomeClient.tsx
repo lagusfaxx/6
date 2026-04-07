@@ -25,9 +25,7 @@ import {
   ChevronRight,
   Crown,
   Download,
-  Flame,
   Hand,
-  Heart,
   Hotel,
   MapPin,
   Navigation,
@@ -35,8 +33,6 @@ import {
   ShieldCheck,
   ShoppingBag,
   Sparkles,
-  Star,
-  TrendingUp,
   Users,
   Video,
   X,
@@ -1208,7 +1204,6 @@ export default function HomeClient() {
           <section key={`featured-${locationKey}`} className="mb-10">
             <div className="mb-4 flex items-end justify-between">
               <div className="flex items-center gap-2.5">
-                <Crown className="h-5 w-5 text-amber-400" />
                 <h2 className="text-xl font-bold tracking-tight">Destacadas</h2>
                 {recentPros.some((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD") && (
                   <span className="rounded-lg border border-amber-400/15 bg-amber-500/[0.08] px-2.5 py-0.5 text-[10px] text-amber-300/80 font-bold uppercase tracking-wider">Premium</span>
@@ -1327,7 +1322,6 @@ export default function HomeClient() {
           <section key={`near-${locationKey}`} className="mb-10 uzeed-below-fold">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Navigation className="h-4 w-4 text-fuchsia-300" />
                 <h2 className="text-xl font-bold tracking-tight">Cerca de ti</h2>
               </div>
               <Link href="/servicios?sort=near" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
@@ -1393,7 +1387,6 @@ export default function HomeClient() {
           <section key={`new-${locationKey}`} className="mb-10 uzeed-below-fold">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Sparkles className="h-4 w-4 text-violet-400" />
                 <h2 className="text-xl font-bold tracking-tight">Nuevas</h2>
               </div>
               <Link href="/servicios?sort=new" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-violet-400 transition-colors duration-200">
@@ -1454,7 +1447,6 @@ export default function HomeClient() {
           <section key={`trending-${locationKey}`} className="mb-10 uzeed-below-fold">
             <div className="mb-4">
               <div className="flex items-center gap-2.5">
-                <TrendingUp className="h-4 w-4 text-violet-400" />
                 <h2 className="text-xl font-bold tracking-tight">Las más buscadas</h2>
               </div>
             </div>
@@ -1532,7 +1524,6 @@ export default function HomeClient() {
           <section key={`moteles-${locationKey}`} className="mb-10 uzeed-below-fold">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Hotel className="h-4 w-4 text-amber-400" />
                 <h2 className="text-xl font-bold tracking-tight">Hoteles y Moteles</h2>
               </div>
               <Link href="/moteles" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-amber-400 transition-colors duration-200">
@@ -1579,7 +1570,6 @@ export default function HomeClient() {
           <section key={`sexshop-${locationKey}`} className="mb-10 uzeed-below-fold">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <ShoppingBag className="h-4 w-4 text-pink-400" />
                 <h2 className="text-xl font-bold tracking-tight">Sex Shop</h2>
               </div>
               <Link href="/sexshop" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-pink-400 transition-colors duration-200">
