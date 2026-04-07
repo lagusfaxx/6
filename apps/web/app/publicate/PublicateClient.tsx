@@ -162,7 +162,10 @@ export default function PublicateClient() {
   /* ── Validation per step ── */
   const isStep1Valid = data.displayName.trim().length >= 2 && data.primaryCategory.length > 0;
   const isStep2Valid = true; // gallery is optional
-  const isStep3Valid = true; // tags & rates are optional
+  const isStep3Valid =
+    data.profileTags.length >= 1 &&
+    data.serviceTags.length >= 1 &&
+    Number(data.baseRate) > 0;
   const isStep4Valid =
     data.address.trim().length >= 6 &&
     data.latitude !== null &&
@@ -243,7 +246,7 @@ export default function PublicateClient() {
   /* ── Shared styles ── */
   const inputClass =
     "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition-colors focus:border-fuchsia-500/40 focus:bg-white/[0.06]";
-  const selectClass = inputClass + " [color-scheme:dark]";
+  const selectClass = inputClass + " [color-scheme:dark] [&>option]:bg-[#0c0a14] [&>option]:text-white";
   const labelClass = "mb-1.5 block text-xs font-medium text-white/60";
 
   return (
@@ -400,7 +403,7 @@ export default function PublicateClient() {
         <div className="space-y-6">
           {/* Profile tags */}
           <div>
-            <h2 className="text-base font-semibold text-white">¿Cómo te defines?</h2>
+            <h2 className="text-base font-semibold text-white">¿Cómo te defines? *</h2>
             <p className="mb-3 text-xs text-white/40">Toca las que mejor te describen — aparecen en tu perfil</p>
             <div className="flex flex-wrap gap-2">
               {PROFILE_TAGS.map((tag) => {
@@ -428,7 +431,7 @@ export default function PublicateClient() {
 
           {/* Service tags */}
           <div>
-            <h2 className="text-base font-semibold text-white">Servicios que ofrezco</h2>
+            <h2 className="text-base font-semibold text-white">Servicios que ofrezco *</h2>
             <p className="mb-3 text-xs text-white/40">Selecciona todos los que apliquen</p>
             <div className="flex flex-wrap gap-2">
               {SERVICE_TAGS.map((tag) => {
@@ -459,7 +462,7 @@ export default function PublicateClient() {
             <h2 className="text-base font-semibold text-white">Tarifas y disponibilidad</h2>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass}>Tarifa base (CLP)</label>
+                <label className={labelClass}>Tarifa base (CLP) *</label>
                 <input type="number" className={inputClass} placeholder="Ej: 50000" min={0} value={data.baseRate} onChange={(e) => update({ baseRate: e.target.value })} />
               </div>
               <div>
