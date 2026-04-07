@@ -11,7 +11,8 @@ import {
   getFlowSubscription,
   listFlowSubscriptions,
   cancelFlowSubscription,
-  createFlowPayment
+  createFlowPayment,
+  getFlowPaymentStatus,
 } from "../khipu/client";
 
 export const billingRouter = Router();
@@ -25,7 +26,7 @@ billingRouter.get("/billing/status", asyncHandler(async (req, res) => {
 
   const intent = await prisma.paymentIntent.findUnique({
     where: { id: ref },
-    select: { id: true, status: true, paidAt: true, amount: true, createdAt: true }
+    select: { id: true, status: true, paidAt: true, amount: true, createdAt: true, providerPaymentId: true, purpose: true, subscriberId: true }
   });
 
   if (!intent) {
@@ -34,6 +35,34 @@ billingRouter.get("/billing/status", asyncHandler(async (req, res) => {
 
   if (intent.status === "PAID") {
     return res.json({ status: "paid", paid: true, intent });
+  }
+
+  if (intent.status === "FAILED" || intent.status === "EXPIRED") {
+    return res.json({ status: "failed", paid: false, intent });
+  }
+
+  // PENDING: actively check Flow for real-time status
+  if (intent.status === "PENDING" && intent.providerPaymentId) {
+    try {
+      const flowPayment = await getFlowPaymentStatus(intent.providerPaymentId);
+      // status 3 = rejected, 4 = canceled
+      if (flowPayment.status === 3 || flowPayment.status === 4) {
+        await prisma.paymentIntent.update({
+          where: { id: intent.id },
+          data: { status: "FAILED", providerPaymentId: intent.providerPaymentId },
+        });
+
+        // PUBLICATE_GOLD: delete the user (never paid)
+        if (intent.purpose === "PUBLICATE_GOLD") {
+          await prisma.user.delete({ where: { id: intent.subscriberId } }).catch(() => {});
+          console.log("[billing/status] deleted unpaid Gold registration", { userId: intent.subscriberId });
+        }
+
+        return res.json({ status: "failed", paid: false });
+      }
+    } catch {
+      // Flow check failed — fall through to pending
+    }
   }
 
   return res.json({ status: "pending", paid: false, intent });
