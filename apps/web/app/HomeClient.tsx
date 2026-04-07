@@ -1088,8 +1088,6 @@ export default function HomeClient() {
             <ChevronRight className="h-4 w-4 shrink-0 text-white/25 transition-transform group-hover:translate-x-0.5 group-hover:text-fuchsia-400/60" />
           </Link>
         )}
-          </Link>
-        )}
 
         {/* ═══ TIER SECTIONS: Platino / Gold / Silver ═══ */}
         {TIERS.map((tier) => {
