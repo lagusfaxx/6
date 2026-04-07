@@ -10,7 +10,6 @@ import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import StatusBadgeIcon from "../components/StatusBadgeIcon";
-import HomeCreAccordion from "../components/HomeCreAccordion";
 
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
@@ -1081,23 +1080,14 @@ export default function HomeClient() {
         {!isAuthed && (
           <Link
             href="/publicate"
-            className="group mb-6 flex items-center gap-4 rounded-2xl border border-white/[0.06] bg-gradient-to-r from-fuchsia-600/[0.08] via-violet-600/[0.06] to-indigo-600/[0.04] p-5 transition-all hover:border-fuchsia-500/20 hover:shadow-[0_8px_32px_rgba(168,85,247,0.12)] sm:p-6"
+            className="group mb-6 flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-5 py-4 transition-colors hover:bg-white/[0.04]"
           >
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 sm:h-14 sm:w-14">
-              <Sparkles className="h-6 w-6 text-fuchsia-400 sm:h-7 sm:w-7" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-bold text-white sm:text-base">
-                ¿Ofreces servicios? Publícate en 2 minutos
-              </h3>
-              <p className="mt-0.5 text-[12px] text-white/40 sm:text-[13px]">
-                Sin registro previo — crea tu perfil rápido y sencillo
-              </p>
-            </div>
-            <div className="hidden shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-xs font-bold text-white transition-transform group-hover:scale-105 sm:inline-flex">
-              Publícate ahora <ArrowRight className="h-3.5 w-3.5" />
-            </div>
-            <ChevronRight className="h-5 w-5 shrink-0 text-white/30 transition-transform group-hover:translate-x-0.5 sm:hidden" />
+            <span className="text-sm font-medium text-white/70 group-hover:text-white/90">
+              ¿Ofreces servicios? <span className="text-fuchsia-400">Publícate aquí</span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-white/25 transition-transform group-hover:translate-x-0.5 group-hover:text-fuchsia-400/60" />
+          </Link>
+        )}
           </Link>
         )}
 
@@ -1632,8 +1622,6 @@ export default function HomeClient() {
             </div>
           </section>
         )}
-
-        <HomeCreAccordion />
       </div>
 
       {/* Profile Preview Modal */}
