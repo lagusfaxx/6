@@ -31,7 +31,7 @@ authRouter.post("/login", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "BAD_REQUEST", details: parsed.error.flatten() });
   const { email, password } = parsed.data;
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+  if (!user || !user.passwordHash) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
   req.session.userId = user.id;

@@ -10,7 +10,6 @@ import {
   Loader2,
   MapPin,
   Sparkles,
-  User,
 } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 import MapboxAddressAutocomplete from "../../components/MapboxAddressAutocomplete";
