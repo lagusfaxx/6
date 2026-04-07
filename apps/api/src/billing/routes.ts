@@ -24,48 +24,59 @@ billingRouter.get("/billing/status", asyncHandler(async (req, res) => {
     return res.json({ status: "error", paid: false, reason: "MISSING_REF" });
   }
 
+  // Check PaymentIntent first (regular payments)
   const intent = await prisma.paymentIntent.findUnique({
     where: { id: ref },
-    select: { id: true, status: true, paidAt: true, amount: true, createdAt: true, providerPaymentId: true, purpose: true, subscriberId: true }
+    select: { id: true, status: true, paidAt: true, amount: true, createdAt: true, providerPaymentId: true }
   });
 
-  if (!intent) {
-    return res.json({ status: "error", paid: false, reason: "INTENT_NOT_FOUND" });
-  }
+  if (intent) {
+    if (intent.status === "PAID") return res.json({ status: "paid", paid: true, intent });
+    if (intent.status === "FAILED" || intent.status === "EXPIRED") return res.json({ status: "failed", paid: false, intent });
 
-  if (intent.status === "PAID") {
-    return res.json({ status: "paid", paid: true, intent });
-  }
-
-  if (intent.status === "FAILED" || intent.status === "EXPIRED") {
-    return res.json({ status: "failed", paid: false, intent });
-  }
-
-  // PENDING: actively check Flow for real-time status
-  if (intent.status === "PENDING" && intent.providerPaymentId) {
-    try {
-      const flowPayment = await getFlowPaymentStatus(intent.providerPaymentId);
-      // status 3 = rejected, 4 = canceled
-      if (flowPayment.status === 3 || flowPayment.status === 4) {
-        await prisma.paymentIntent.update({
-          where: { id: intent.id },
-          data: { status: "FAILED", providerPaymentId: intent.providerPaymentId },
-        });
-
-        // PUBLICATE_GOLD: delete the user (never paid)
-        if (intent.purpose === "PUBLICATE_GOLD") {
-          await prisma.user.delete({ where: { id: intent.subscriberId } }).catch(() => {});
-          console.log("[billing/status] deleted unpaid Gold registration", { userId: intent.subscriberId });
+    // PENDING: actively check Flow
+    if (intent.status === "PENDING" && intent.providerPaymentId) {
+      try {
+        const flowPayment = await getFlowPaymentStatus(intent.providerPaymentId);
+        if (flowPayment.status === 3 || flowPayment.status === 4) {
+          await prisma.paymentIntent.update({
+            where: { id: intent.id },
+            data: { status: "FAILED", providerPaymentId: intent.providerPaymentId },
+          });
+          return res.json({ status: "failed", paid: false });
         }
-
-        return res.json({ status: "failed", paid: false });
+      } catch {
+        // Flow check failed — fall through to pending
       }
-    } catch {
-      // Flow check failed — fall through to pending
     }
+    return res.json({ status: "pending", paid: false, intent });
   }
 
-  return res.json({ status: "pending", paid: false, intent });
+  // Check PendingGoldRegistration (Gold plan — ref is pending ID)
+  const pending = await prisma.pendingGoldRegistration.findUnique({ where: { id: ref } });
+  if (pending) {
+    if (pending.status === "PAID") return res.json({ status: "paid", paid: true });
+    if (pending.status === "FAILED") return res.json({ status: "failed", paid: false });
+
+    // PENDING: actively check Flow
+    if (pending.status === "PENDING" && pending.flowToken) {
+      try {
+        const flowPayment = await getFlowPaymentStatus(pending.flowToken);
+        if (flowPayment.status === 3 || flowPayment.status === 4) {
+          await prisma.pendingGoldRegistration.update({
+            where: { id: pending.id },
+            data: { status: "FAILED" },
+          });
+          return res.json({ status: "failed", paid: false });
+        }
+      } catch {
+        // Flow check failed
+      }
+    }
+    return res.json({ status: "pending", paid: false });
+  }
+
+  return res.json({ status: "error", paid: false, reason: "INTENT_NOT_FOUND" });
 }));
 
 // ── Flow one-time payment ──────────────────────────────────────────────────────

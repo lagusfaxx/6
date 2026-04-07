@@ -255,17 +255,6 @@ async function tickExpireStalePendingIntents() {
   // Expire PENDING Flow payment intents older than 2 hours
   const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
-  // Find PUBLICATE_GOLD stale intents BEFORE marking them expired (need subscriberId)
-  const staleGoldIntents = await prisma.paymentIntent.findMany({
-    where: {
-      status: "PENDING",
-      method: "FLOW",
-      purpose: "PUBLICATE_GOLD",
-      createdAt: { lt: twoHoursAgo },
-    },
-    select: { id: true, subscriberId: true },
-  });
-
   const expired = await prisma.paymentIntent.updateMany({
     where: {
       status: "PENDING",
@@ -279,14 +268,17 @@ async function tickExpireStalePendingIntents() {
     console.log(`[worker] expired ${expired.count} stale PENDING payment intents`);
   }
 
-  // Delete users from stale PUBLICATE_GOLD registrations (never completed payment)
-  for (const intent of staleGoldIntents) {
-    try {
-      await prisma.user.delete({ where: { id: intent.subscriberId } });
-      console.log(`[worker] deleted unpaid Gold registration`, { userId: intent.subscriberId });
-    } catch {
-      // User may already be deleted
-    }
+  // Clean up stale PendingGoldRegistration records (never completed payment)
+  const staleGold = await prisma.pendingGoldRegistration.updateMany({
+    where: {
+      status: "PENDING",
+      createdAt: { lt: twoHoursAgo },
+    },
+    data: { status: "EXPIRED" },
+  });
+
+  if (staleGold.count > 0) {
+    console.log(`[worker] expired ${staleGold.count} stale PendingGoldRegistration records`);
   }
 }
 

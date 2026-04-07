@@ -663,6 +663,15 @@ model PaymentIntent {
   profile    User? @relation("ProfilePaymentIntents", fields: [profileId], references: [id], onDelete: SetNull)
 }
 
+model PendingGoldRegistration {
+  id        String   @id @default(uuid()) @db.Uuid
+  formData  String
+  fileUrls  String   @default("[]")
+  flowToken String?
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+}
+
 model Message {
   id        String    @id @default(uuid()) @db.Uuid
   fromId    String    @db.Uuid

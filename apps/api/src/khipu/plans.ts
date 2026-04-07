@@ -4,6 +4,7 @@ import { requireAuth, requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 import { prisma } from "../db";
+import { createProfessionalUser } from "../auth/createProfessional";
 import {
   createFlowPlan,
   getFlowPlan,
@@ -482,15 +483,19 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
             data: { status: "FAILED", providerPaymentId: token },
           });
           console.log("[flow webhook] payment marked as FAILED", { intentId: failedIntent.id, flowStatus });
+        }
 
-          // PUBLICATE_GOLD: delete the user that was created during registration (never paid)
-          if (failedIntent.purpose === "PUBLICATE_GOLD") {
-            try {
-              await prisma.user.delete({ where: { id: failedIntent.subscriberId } });
-              console.log("[flow webhook] deleted unpaid Gold registration", { userId: failedIntent.subscriberId });
-            } catch (err) {
-              console.error("[flow webhook] failed to delete unpaid Gold user", { userId: failedIntent.subscriberId, err });
-            }
+        // Check if this is a PendingGoldRegistration that failed
+        if (candidates.length) {
+          const failedPending = await prisma.pendingGoldRegistration.findFirst({
+            where: { id: { in: candidates }, status: "PENDING" },
+          });
+          if (failedPending) {
+            await prisma.pendingGoldRegistration.update({
+              where: { id: failedPending.id },
+              data: { status: "FAILED" },
+            });
+            console.log("[flow webhook] PendingGoldRegistration marked FAILED", { pendingId: failedPending.id });
           }
         }
       }
@@ -514,6 +519,59 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
     });
 
     if (!intent) {
+      // Check if this is a PendingGoldRegistration payment (no PaymentIntent exists yet)
+      const pendingReg = candidates.length
+        ? await prisma.pendingGoldRegistration.findFirst({
+            where: { id: { in: candidates }, status: "PENDING" },
+          })
+        : null;
+
+      if (pendingReg) {
+        try {
+          const formData = JSON.parse(pendingReg.formData);
+          const fileUrls: string[] = JSON.parse(pendingReg.fileUrls || "[]");
+
+          // Create the professional user now that payment is confirmed
+          const { user } = await createProfessionalUser({
+            ...formData,
+            galleryUrls: fileUrls,
+            tier: "GOLD",
+          });
+
+          // Create PaymentIntent for audit trail
+          await prisma.paymentIntent.create({
+            data: {
+              subscriberId: user.id,
+              purpose: "PUBLICATE_GOLD",
+              method: "FLOW",
+              status: "PAID",
+              amount: payment.amount || 14990,
+              providerPaymentId: token,
+              paidAt: new Date(),
+            },
+          });
+
+          await prisma.notification.create({
+            data: {
+              userId: user.id,
+              type: "SUBSCRIPTION_RENEWED",
+              data: { source: "publicate_gold", plan: "GOLD", days: 7, flowOrder: payment.flowOrder, commerceOrder },
+            },
+          });
+
+          // Mark pending as completed
+          await prisma.pendingGoldRegistration.update({
+            where: { id: pendingReg.id },
+            data: { status: "PAID" },
+          });
+
+          console.log("[flow webhook] PUBLICATE_GOLD: user created after payment", { userId: user.id, pendingId: pendingReg.id });
+        } catch (err) {
+          console.error("[flow webhook] PUBLICATE_GOLD: failed to create user", { pendingId: pendingReg.id, error: err });
+        }
+        return res.status(200).send("OK");
+      }
+
       console.error("[flow] payment webhook: intent not found", { commerceOrder, intentIdFromQuery, refFromQuery, token });
       return res.status(200).send("OK");
     }
@@ -641,35 +699,6 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
       });
 
       console.log("[flow webhook] UMATE_PLAN activated", { userId: intent.subscriberId, intentId: intent.id, planId, tier: plan.tier });
-    } else if (intent.purpose === "PUBLICATE_GOLD") {
-      // ── Gold plan activation from /publicate ──
-      await prisma.$transaction(async (tx) => {
-        await tx.paymentIntent.update({
-          where: { id: intent.id },
-          data: { status: "PAID", paidAt: new Date(), providerPaymentId: token }
-        });
-
-        const now = new Date();
-        const expiresAt = addDays(now, 7);
-
-        await tx.user.update({
-          where: { id: intent.subscriberId },
-          data: {
-            tier: "GOLD",
-            membershipExpiresAt: expiresAt,
-          }
-        });
-
-        await tx.notification.create({
-          data: {
-            userId: intent.subscriberId,
-            type: "SUBSCRIPTION_RENEWED",
-            data: { intentId: intent.id, source: "publicate_gold", plan: "GOLD", days: 7, flowOrder: payment.flowOrder, commerceOrder }
-          }
-        });
-      });
-
-      console.log("[flow webhook] PUBLICATE_GOLD activated", { userId: intent.subscriberId, intentId: intent.id, token });
     } else {
       // ── Membership payment (existing behavior) ──
       await prisma.$transaction(async (tx) => {
