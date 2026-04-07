@@ -886,13 +886,23 @@ export default function HomeClient() {
           </h2>
 
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center animate-float-up" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
-            <Link
-              href="/servicios"
-              className="uzeed-hero-cta group relative inline-flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)] sm:w-auto"
-            >
-              Explorar ahora
-              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-            </Link>
+            {isAuthed ? (
+              <Link
+                href="/servicios"
+                className="uzeed-hero-cta group relative inline-flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)] sm:w-auto"
+              >
+                Explorar ahora
+                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
+            ) : (
+              <Link
+                href="/register"
+                className="uzeed-hero-cta group relative inline-flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)] sm:w-auto"
+              >
+                Regístrate gratis
+                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
+            )}
             <InstallAppButton />
           </div>
 
@@ -1009,6 +1019,24 @@ export default function HomeClient() {
             ))}
           </div>
         </section>
+
+        {/* ═══ CTA PUBLÍCATE ═══ */}
+        {!isAuthed && (
+          <Link
+            href="/publicate"
+            className="group mb-6 flex items-center justify-between rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.06] px-5 py-4 transition-all hover:bg-fuchsia-500/[0.10] hover:border-fuchsia-500/30"
+          >
+            <div>
+              <span className="text-sm font-semibold text-white">
+                ¿Ofreces servicios? <span className="text-fuchsia-400">Publícate aquí</span>
+              </span>
+              <p className="mt-0.5 text-[11px] text-white/40">Crea tu perfil en minutos, sin registro</p>
+            </div>
+            <span className="shrink-0 rounded-lg bg-fuchsia-500/20 px-3 py-1.5 text-xs font-semibold text-fuchsia-300 transition-colors group-hover:bg-fuchsia-500/30">
+              Empezar
+            </span>
+          </Link>
+        )}
 
         {/* Section gradient divider */}
         <div className="mb-6 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
@@ -1584,25 +1612,6 @@ export default function HomeClient() {
               ))}
             </div>
           </section>
-        )}
-
-        {/* ═══ CTA PUBLÍCATE GOLD ═══ */}
-        {!isAuthed && (
-          <Link
-            href="/publicate"
-            className="group mb-6 flex items-center justify-between rounded-xl border border-amber-500/20 bg-gradient-to-r from-amber-500/[0.06] to-fuchsia-500/[0.04] px-5 py-4 transition-all hover:border-amber-500/30 hover:from-amber-500/[0.10] hover:to-fuchsia-500/[0.06]"
-          >
-            <div>
-              <span className="text-sm font-semibold text-white">
-                <Crown className="mr-1.5 inline h-4 w-4 text-amber-400" />
-                Destaca con <span className="text-amber-400">Gold</span> — x5 más visibilidad
-              </span>
-              <p className="mt-0.5 text-[11px] text-white/40">Publica tu perfil profesional y aparece primero · $14.990 / 7 días</p>
-            </div>
-            <span className="shrink-0 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-300 transition-colors group-hover:bg-amber-500/30">
-              Publicar
-            </span>
-          </Link>
         )}
 
         {/* ═══ CTA — Registration (guests only) ═══ */}
