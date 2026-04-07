@@ -2,6 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
+import { broadcast } from "../realtime/sse";
 
 export const analyticsRouter = Router();
 
@@ -72,6 +73,15 @@ analyticsRouter.post(
         metadata: metadata || null,
       },
     });
+
+    // Social proof broadcast on WhatsApp click
+    if (action === "whatsapp_click" && metadata?.displayName) {
+      broadcast("social_proof", {
+        kind: "whatsapp",
+        displayName: String(metadata.displayName),
+        t: Date.now(),
+      });
+    }
 
     res.json({ ok: true });
   }),

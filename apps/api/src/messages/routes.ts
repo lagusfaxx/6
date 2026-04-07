@@ -10,7 +10,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { config } from "../config";
 import { validateUploadedFile } from "../lib/uploads";
 import { isUUID } from "../lib/validators";
-import { sendToUser } from "../realtime/sse";
+import { sendToUser, broadcast } from "../realtime/sse";
 
 export const messagesRouter = Router();
 
@@ -205,6 +205,20 @@ messagesRouter.post("/messages/:userId", requireAuth, messageLimiter, asyncHandl
     select: { id: true, displayName: true, username: true, avatarUrl: true, profileType: true, city: true }
   });
   sendToUser(other, "message", { message, from: sender ?? undefined });
+
+  // Social proof broadcast — notify all connected users
+  const recipient = await prisma.user.findUnique({
+    where: { id: other },
+    select: { displayName: true, username: true, profileType: true },
+  });
+  if (recipient?.profileType === "PROFESSIONAL") {
+    broadcast("social_proof", {
+      kind: "message",
+      displayName: recipient.displayName || recipient.username,
+      t: Date.now(),
+    });
+  }
+
   return res.json({ message });
 }));
 
@@ -243,5 +257,19 @@ messagesRouter.post("/messages/:userId/attachment", requireAuth, messageLimiter,
     select: { id: true, displayName: true, username: true, avatarUrl: true, profileType: true, city: true }
   });
   sendToUser(other, "message", { message, from: sender ?? undefined });
+
+  // Social proof broadcast
+  const attachRecipient = await prisma.user.findUnique({
+    where: { id: other },
+    select: { displayName: true, username: true, profileType: true },
+  });
+  if (attachRecipient?.profileType === "PROFESSIONAL") {
+    broadcast("social_proof", {
+      kind: "message",
+      displayName: attachRecipient.displayName || attachRecipient.username,
+      t: Date.now(),
+    });
+  }
+
   return res.json({ message });
 }));
