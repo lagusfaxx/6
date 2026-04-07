@@ -79,6 +79,7 @@ analyticsRouter.post(
       broadcast("social_proof", {
         kind: "whatsapp",
         displayName: String(metadata.displayName),
+        profileId: targetId || null,
         t: Date.now(),
       });
     }

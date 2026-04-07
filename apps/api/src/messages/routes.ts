@@ -215,6 +215,7 @@ messagesRouter.post("/messages/:userId", requireAuth, messageLimiter, asyncHandl
     broadcast("social_proof", {
       kind: "message",
       displayName: recipient.displayName || recipient.username,
+      profileId: other,
       t: Date.now(),
     });
   }
@@ -267,6 +268,7 @@ messagesRouter.post("/messages/:userId/attachment", requireAuth, messageLimiter,
     broadcast("social_proof", {
       kind: "message",
       displayName: attachRecipient.displayName || attachRecipient.username,
+      profileId: other,
       t: Date.now(),
     });
   }

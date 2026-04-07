@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle, Phone } from "lucide-react";
 import { connectRealtime } from "../lib/realtime";
+import { apiFetch } from "../lib/api";
 import useMe from "../hooks/useMe";
 
 /* ─── Constants ─── */
@@ -16,52 +17,66 @@ const COOLDOWN_MS = 4_000;
 const INITIAL_DELAY_MS = 12_000;
 const MAX_QUEUE = 5;
 
-const NAMES = [
-  "Valentina", "Catalina", "Isidora", "Martina", "Sofía",
-  "Florencia", "Agustina", "Antonella", "Fernanda", "Constanza",
-  "Javiera", "Camila", "Daniela", "Francisca", "Macarena",
-  "Alejandra", "Gabriela", "Natalia", "Carolina", "Andrea",
-  "Belén", "Ignacia", "Monserrat", "Renata", "Amanda",
-  "Ximena", "Paula", "Bárbara", "Rocío", "Tamara",
-  "Josefina", "Pilar", "Victoria", "Emilia", "Antonia",
-  "Luciana", "Millaray", "Anaís", "Paloma", "Carla",
-];
-
 const SUPPRESSED_ROUTES = ["/chat", "/chats", "/login", "/register", "/forgot-password", "/dashboard"];
 
 /* ─── Types ─── */
+
+type Professional = {
+  id: string;
+  displayName: string;
+  username: string;
+};
 
 type SocialProofEvent = {
   id: string;
   kind: "message" | "whatsapp";
   displayName: string;
+  profileUrl: string;
 };
 
 /* ─── Component ─── */
 
 export default function SocialProofToast() {
   const pathname = usePathname() || "/";
+  const router = useRouter();
   const { me } = useMe();
   const isAuthed = Boolean(me?.user?.id);
 
   const queueRef = useRef<SocialProofEvent[]>([]);
   const [active, setActive] = useState<SocialProofEvent | null>(null);
-  const lastNameRef = useRef("");
+  const lastIdRef = useRef("");
   const readyRef = useRef(false);
   const busyRef = useRef(false);
   const mountedRef = useRef(true);
+  const professionalsRef = useRef<Professional[]>([]);
 
-  // Check if current route should suppress toasts
   const isSuppressed = SUPPRESSED_ROUTES.some((r) => pathname.startsWith(r));
 
-  // Push event to queue
+  // Fetch real professionals on mount
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ profiles: any[] }>("/profiles/discover?sort=featured&limit=40")
+      .then((data) => {
+        if (cancelled) return;
+        const list = (data?.profiles || data || []) as any[];
+        professionalsRef.current = list
+          .filter((p: any) => p.displayName || p.username)
+          .map((p: any) => ({
+            id: p.id,
+            displayName: p.displayName || p.username,
+            username: p.username,
+          }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const enqueue = useCallback((evt: SocialProofEvent) => {
     if (queueRef.current.length < MAX_QUEUE) {
       queueRef.current.push(evt);
     }
   }, []);
 
-  // Show next toast from queue
   const showNext = useCallback(() => {
     if (!mountedRef.current || busyRef.current) return;
     const next = queueRef.current.shift();
@@ -69,11 +84,9 @@ export default function SocialProofToast() {
     busyRef.current = true;
     setActive(next);
 
-    // Auto-dismiss
     setTimeout(() => {
       if (!mountedRef.current) return;
       setActive(null);
-      // Cooldown before next
       setTimeout(() => {
         if (!mountedRef.current) return;
         busyRef.current = false;
@@ -82,7 +95,17 @@ export default function SocialProofToast() {
     }, DISMISS_MS);
   }, []);
 
-  // Dismiss on click
+  const handleClick = useCallback(() => {
+    if (!active) return;
+    setActive(null);
+    router.push(active.profileUrl);
+    setTimeout(() => {
+      if (!mountedRef.current) return;
+      busyRef.current = false;
+      showNext();
+    }, COOLDOWN_MS);
+  }, [active, router, showNext]);
+
   const dismiss = useCallback(() => {
     setActive(null);
     setTimeout(() => {
@@ -92,7 +115,7 @@ export default function SocialProofToast() {
     }, COOLDOWN_MS);
   }, [showNext]);
 
-  // Periodically check queue (in case events were enqueued while idle)
+  // Periodically check queue
   useEffect(() => {
     const interval = setInterval(() => {
       if (readyRef.current && !busyRef.current && queueRef.current.length > 0) {
@@ -114,7 +137,7 @@ export default function SocialProofToast() {
     };
   }, []);
 
-  // Listen for real SSE events (only if authenticated)
+  // Listen for real SSE events
   useEffect(() => {
     if (!isAuthed) return;
     const cleanup = connectRealtime(({ type, data }) => {
@@ -123,13 +146,14 @@ export default function SocialProofToast() {
           id: `real-${Date.now()}-${Math.random()}`,
           kind: data.kind === "whatsapp" ? "whatsapp" : "message",
           displayName: data.displayName,
+          profileUrl: data.profileId ? `/profesional/${data.profileId}` : "/",
         });
       }
     });
     return cleanup;
   }, [isAuthed, enqueue]);
 
-  // Generate fake events
+  // Generate fake events using real professionals
   useEffect(() => {
     if (isSuppressed) return;
 
@@ -139,29 +163,25 @@ export default function SocialProofToast() {
       const delay = MIN_FAKE_INTERVAL + Math.random() * (MAX_FAKE_INTERVAL - MIN_FAKE_INTERVAL);
       timer = setTimeout(() => {
         if (!mountedRef.current) return;
-        // Skip if queue is already full
-        if (queueRef.current.length >= 3) {
-          scheduleFake();
-          return;
-        }
-        // Skip if tab is hidden
-        if (document.visibilityState === "hidden") {
-          scheduleFake();
-          return;
-        }
+        if (queueRef.current.length >= 3) { scheduleFake(); return; }
+        if (document.visibilityState === "hidden") { scheduleFake(); return; }
 
-        // Pick random name (avoid repeating last)
-        let name: string;
+        const pool = professionalsRef.current;
+        if (pool.length === 0) { scheduleFake(); return; }
+
+        // Pick random professional (avoid repeating last)
+        let prof: Professional;
         do {
-          name = NAMES[Math.floor(Math.random() * NAMES.length)];
-        } while (name === lastNameRef.current && NAMES.length > 1);
-        lastNameRef.current = name;
+          prof = pool[Math.floor(Math.random() * pool.length)];
+        } while (prof.id === lastIdRef.current && pool.length > 1);
+        lastIdRef.current = prof.id;
 
         const kind = Math.random() < 0.6 ? "message" : "whatsapp";
         enqueue({
           id: `fake-${Date.now()}-${Math.random()}`,
           kind: kind as "message" | "whatsapp",
-          displayName: name,
+          displayName: prof.displayName,
+          profileUrl: `/profesional/${prof.id}`,
         });
 
         scheduleFake();
@@ -172,7 +192,6 @@ export default function SocialProofToast() {
     return () => clearTimeout(timer);
   }, [isSuppressed, enqueue]);
 
-  // Don't render anything on suppressed routes
   if (isSuppressed) return null;
 
   return (
@@ -187,8 +206,8 @@ export default function SocialProofToast() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.97 }}
             transition={{ type: "spring", damping: 26, stiffness: 350 }}
-            onClick={dismiss}
-            className="pointer-events-auto flex w-full max-w-sm cursor-pointer items-center gap-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0e0e1a]/85 px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+            onClick={handleClick}
+            className="pointer-events-auto flex w-full max-w-sm cursor-pointer items-center gap-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0e0e1a]/85 px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-colors hover:border-fuchsia-500/20"
           >
             {/* Icon */}
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-600/20 to-violet-600/20">
