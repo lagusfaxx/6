@@ -10,7 +10,6 @@ import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import StatusBadgeIcon from "../components/StatusBadgeIcon";
-import HomeCreAccordion from "../components/HomeCreAccordion";
 
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
@@ -1632,8 +1631,6 @@ export default function HomeClient() {
             </div>
           </section>
         )}
-
-        <HomeCreAccordion />
       </div>
 
       {/* Profile Preview Modal */}
