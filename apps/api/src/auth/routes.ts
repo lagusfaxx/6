@@ -16,6 +16,7 @@ import { validateUploadedFile } from "../lib/uploads";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { sendSetPasswordEmail } from "./verification";
 import { createFlowPayment } from "../khipu/client";
+import { createProfessionalUser } from "./createProfessional";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -536,125 +537,83 @@ authRouter.post(
       return res.status(409).json({ error: "PHONE_IN_USE", message: "Este teléfono ya está registrado." });
     }
 
-    // Generate unique username from displayName
-    const baseSlug = slugify(displayName) || "user";
-    let username = baseSlug;
-    let usernameAttempts = 0;
-    while (usernameAttempts < 10) {
-      const exists = await prisma.user.findUnique({ where: { username } });
-      if (!exists) break;
-      username = `${baseSlug}-${crypto.randomInt(1000, 9999)}`;
-      usernameAttempts++;
-    }
-
-    // Upload avatar if provided
+    // Upload gallery photos to disk and collect URLs
     const files = req.files as { avatar?: Express.Multer.File[]; gallery?: Express.Multer.File[] } | undefined;
-    let avatarUrl: string | null = null;
-    if (files?.avatar?.[0]) {
-      await validateUploadedFile(files.avatar[0], "image");
-      const optimizedFilename = await optimizeUploadedImage(files.avatar[0], "avatar");
-      avatarUrl = quickRegisterStorage.publicUrl(optimizedFilename);
-    }
-
-    // Resolve category
-    let resolvedCategoryId: string | null = null;
-    let resolvedCategoryName: string | null = null;
-    if (primaryCategory) {
-      const cat = await prisma.category.findFirst({
-        where: {
-          OR: [
-            { slug: primaryCategory },
-            { name: { equals: primaryCategory, mode: "insensitive" } },
-            { displayName: { equals: primaryCategory, mode: "insensitive" } },
-          ],
-        },
-        select: { id: true, displayName: true, name: true },
-      });
-      if (cat) {
-        resolvedCategoryId = cat.id;
-        resolvedCategoryName = cat.displayName || cat.name;
-      } else {
-        resolvedCategoryName = primaryCategory;
-      }
-    }
-
-    // Build birthdate from month + year
-    let safeBirthdate: Date | null = null;
-    if (birthYear) {
-      const month = birthMonth ? parseInt(birthMonth, 10) - 1 : 0;
-      safeBirthdate = new Date(parseInt(birthYear, 10), month, 15);
-    }
-
-    // Plan configuration
-    const isGold = selectedPlan === "gold";
-    const now = new Date();
-    const shopTrialEndsAt = isGold ? null : addDays(now, config.freeTrialDays); // Free: 90d trial; Gold: no trial
-    const membershipExpiresAt = null; // Free: uses shopTrialEndsAt; Gold: set by webhook after payment
-
-    // Generate password set token (72h TTL)
-    const passwordSetToken = crypto.randomBytes(32).toString("hex");
-    const passwordSetTokenExpiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        username,
-        phone,
-        profileType: "PROFESSIONAL",
-        displayName,
-        avatarUrl,
-        address,
-        latitude,
-        longitude,
-        primaryCategory,
-        serviceCategory: resolvedCategoryName,
-        categoryId: resolvedCategoryId,
-        serviceDescription,
-        bio: bio || null,
-        gender: (gender as any) || null,
-        birthdate: safeBirthdate,
-        profileTags: profileTags,
-        serviceTags: serviceTags,
-        baseRate: baseRate ?? null,
-        minDurationMinutes: minDurationMinutes ?? null,
-        acceptsIncalls: acceptsIncalls ?? null,
-        acceptsOutcalls: acceptsOutcalls ?? null,
-        termsAcceptedAt: now,
-        shopTrialEndsAt,
-        subscriptionPrice: 2500,
-        tier: isGold ? null : "SILVER",
-        membershipExpiresAt,
-        isOnline: false,
-        isActive: false,
-        isVerified: false,
-        role: "USER",
-        passwordSetToken,
-        passwordSetTokenExpiresAt,
-      },
-      select: { id: true, email: true, username: true, displayName: true },
-    });
-
-    // Upload gallery photos → ProfileMedia
-    const galleryFiles = files?.gallery || [];
-    for (const gFile of galleryFiles) {
+    const galleryUrls: string[] = [];
+    for (const gFile of files?.gallery || []) {
       try {
         await validateUploadedFile(gFile, "image");
         const optimized = await optimizeUploadedImage(gFile, "gallery");
-        const url = quickRegisterStorage.publicUrl(optimized);
-        await prisma.profileMedia.create({
-          data: { ownerId: user.id, type: "IMAGE", url },
-        });
+        galleryUrls.push(quickRegisterStorage.publicUrl(optimized));
       } catch (err) {
-        console.error("[auth/quick-register] gallery upload failed", { userId: user.id, error: err });
+        console.error("[auth/quick-register] gallery upload failed", { error: err });
       }
     }
+
+    const isGold = selectedPlan === "gold";
+
+    // ── GOLD PLAN: save to PendingGoldRegistration, redirect to Flow ──
+    if (isGold) {
+      const GOLD_PRICE = 14990;
+
+      const pending = await prisma.pendingGoldRegistration.create({
+        data: {
+          formData: JSON.stringify({
+            displayName, primaryCategory, address, latitude, longitude,
+            serviceDescription, email, phone, bio, gender,
+            birthMonth, birthYear, profileTags, serviceTags,
+            baseRate, minDurationMinutes, acceptsIncalls, acceptsOutcalls,
+          }),
+          fileUrls: JSON.stringify(galleryUrls),
+        },
+      });
+
+      try {
+        const appUrl = config.appUrl.replace(/\/$/, "");
+        const apiUrl = config.apiUrl.replace(/\/$/, "");
+
+        const payment = await createFlowPayment({
+          commerceOrder: pending.id,
+          subject: "Plan Gold — Publícate en UZEED (7 días)",
+          currency: "CLP",
+          amount: GOLD_PRICE,
+          email,
+          urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
+          urlReturn: `${appUrl}/pago/exitoso?ref=${pending.id}`,
+        });
+
+        await prisma.pendingGoldRegistration.update({
+          where: { id: pending.id },
+          data: { flowToken: payment.token },
+        });
+
+        const redirectUrl = `${payment.url}?token=${payment.token}`;
+        console.log("[auth/quick-register] Gold pending created", { pendingId: pending.id });
+        return res.json({ ok: true, paymentUrl: redirectUrl });
+      } catch (err) {
+        // Flow failed — clean up pending record
+        await prisma.pendingGoldRegistration.delete({ where: { id: pending.id } }).catch(() => {});
+        console.error("[auth/quick-register] Flow payment creation failed", { error: err });
+        return res.status(502).json({ error: "PAYMENT_UNAVAILABLE", message: "No se pudo procesar el pago. Intenta de nuevo." });
+      }
+    }
+
+    // ── FREE PLAN: create user immediately ──
+    const { user } = await createProfessionalUser({
+      displayName, primaryCategory, address, latitude, longitude,
+      serviceDescription, email, phone, bio, gender,
+      birthMonth, birthYear, profileTags, serviceTags,
+      baseRate, minDurationMinutes, acceptsIncalls, acceptsOutcalls,
+      galleryUrls,
+      tier: "SILVER",
+    });
 
     // Create forum thread
     await createProfessionalForumThread({
       userId: user.id,
       username: user.username,
       displayName: user.displayName || null,
-      avatarUrl,
+      avatarUrl: null,
       primaryCategory,
     }).catch((err) => {
       console.error("[auth/quick-register] forum thread failed", { userId: user.id, error: err });
@@ -665,53 +624,6 @@ authRouter.post(
       type: "profile_verification_requested",
       user: user.username || null,
     }).catch(() => {});
-
-    // Send "create password" email
-    await sendSetPasswordEmail(email, passwordSetToken).catch((err) => {
-      console.error("[auth/quick-register] failed to send set-password email", { email, error: err });
-    });
-
-    // Gold plan: create Flow payment
-    if (isGold) {
-      try {
-        const GOLD_PRICE = 14990;
-        const intent = await prisma.paymentIntent.create({
-          data: {
-            subscriberId: user.id,
-            purpose: "PUBLICATE_GOLD",
-            method: "FLOW",
-            status: "PENDING",
-            amount: GOLD_PRICE,
-          },
-        });
-
-        const appUrl = config.appUrl.replace(/\/$/, "");
-        const apiUrl = config.apiUrl.replace(/\/$/, "");
-
-        const payment = await createFlowPayment({
-          commerceOrder: intent.id,
-          subject: "Plan Gold — Publícate en UZEED (7 días)",
-          currency: "CLP",
-          amount: GOLD_PRICE,
-          email,
-          urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
-          urlReturn: `${appUrl}/pago/exitoso?ref=${intent.id}`,
-        });
-
-        await prisma.paymentIntent.update({
-          where: { id: intent.id },
-          data: { paymentUrl: payment.url, providerPaymentId: payment.token },
-        });
-
-        const redirectUrl = `${payment.url}?token=${payment.token}`;
-        console.log("[auth/quick-register] Gold plan payment created", { userId: user.id, intentId: intent.id });
-        return res.json({ ok: true, paymentUrl: redirectUrl });
-      } catch (err) {
-        console.error("[auth/quick-register] Flow payment creation failed", { userId: user.id, error: err });
-        // Profile was created but payment failed — still return success so they can pay later
-        return res.json({ ok: true, message: "Perfil creado. El pago no pudo procesarse, podrás pagar desde tu perfil." });
-      }
-    }
 
     return res.json({ ok: true, message: "Perfil creado exitosamente." });
   }),

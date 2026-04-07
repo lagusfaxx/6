@@ -12,7 +12,7 @@ function ExitosoContent() {
   const params = useSearchParams();
   const ref = params.get("ref");
 
-  const [status, setStatus] = useState<"loading" | "paid" | "pending" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "paid" | "pending" | "failed" | "error">("loading");
   const elapsed = useRef(0);
 
   useEffect(() => {
@@ -26,9 +26,13 @@ function ExitosoContent() {
         .then(async (response) => {
           if (!alive) return;
           if (!response.ok) throw new Error(`HTTP_${response.status}`);
-          const data = await response.json() as { status?: "paid" | "pending" | "error" };
+          const data = await response.json() as { status?: "paid" | "pending" | "failed" | "error" };
           if (data?.status === "paid") {
             setStatus("paid");
+            return;
+          }
+          if (data?.status === "failed") {
+            setStatus("failed");
             return;
           }
           // Still pending — keep polling if within time limit
@@ -96,6 +100,23 @@ function ExitosoContent() {
           </div>
           <Link href="/cuenta" className="inline-flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-6 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/[0.06] transition">
             Volver a mi cuenta
+          </Link>
+        </div>
+      )}
+
+      {status === "failed" && (
+        <div className="rounded-3xl border border-red-500/25 bg-red-500/[0.05] p-8 space-y-4">
+          <div className="flex justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/15 border border-red-500/25">
+              <XCircle className="h-8 w-8 text-red-400" />
+            </div>
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-red-300">Pago cancelado</h1>
+            <p className="mt-2 text-sm text-white/50">El pago fue cancelado o rechazado. Tu perfil no fue creado. Puedes intentarlo de nuevo.</p>
+          </div>
+          <Link href="/publicate" className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white transition">
+            Intentar de nuevo
           </Link>
         </div>
       )}
