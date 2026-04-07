@@ -95,6 +95,20 @@ export const loginInputSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginInputSchema>;
 
+export const quickRegisterSchema = z.object({
+  displayName: z.string().min(2).max(50),
+  primaryCategory: z.string().min(1),
+  address: z.string().min(6),
+  latitude: z.number().finite(),
+  longitude: z.number().finite(),
+  serviceDescription: z.string().min(3).max(500),
+  servicePrice: z.number().positive(),
+  email: z.string().email(),
+  phone: z.string().regex(/^\+\d{8,15}$/),
+  acceptTerms: z.literal(true),
+});
+export type QuickRegisterInput = z.infer<typeof quickRegisterSchema>;
+
 export const PostMediaType = z.enum(["IMAGE", "VIDEO"]);
 export type MediaType = z.infer<typeof PostMediaType>;
 

@@ -65,160 +65,6 @@ type Banner = {
   imageZoom?: number;
 };
 
-type PopupPromotion = {
-  id: string;
-  sortOrder: number;
-  promoImageUrl: string;
-  adTier?: "STANDARD" | "GOLD";
-  professional: {
-    id: string;
-    name: string;
-    username?: string | null;
-    isOnline?: boolean;
-    rating: number | null;
-    reviewsCount: number;
-    profileUrl: string;
-  };
-};
-
-function PromoShowcaseSection({ promotions }: { promotions: PopupPromotion[] }) {
-  const showcasePromotions = promotions;
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-
-  useEffect(() => {
-    if (!showcasePromotions.length) return;
-    setActiveIndex((prev) => prev % showcasePromotions.length);
-  }, [showcasePromotions.length]);
-
-  // Dynamic duration: GOLD = 10s, STANDARD = 5s
-  useEffect(() => {
-    if (showcasePromotions.length <= 1 || isPaused) return;
-    const currentPromo = showcasePromotions[activeIndex];
-    const duration = currentPromo?.adTier === "GOLD" ? 10000 : 5000;
-    const timeout = window.setTimeout(() => {
-      setActiveIndex((prev) => (prev + 1) % showcasePromotions.length);
-    }, duration);
-    return () => window.clearTimeout(timeout);
-  }, [isPaused, showcasePromotions.length, activeIndex, showcasePromotions]);
-
-  if (!showcasePromotions.length) return null;
-
-  const activePromo = showcasePromotions[activeIndex];
-  const imageSrc = resolveMediaUrl(activePromo.promoImageUrl) || activePromo.promoImageUrl;
-  const isGold = activePromo.adTier === "GOLD";
-  const rating = Math.max(0, Math.min(5, Math.round(Number(activePromo.professional.rating || 0))));
-
-  return (
-    <section className="mb-6">
-      {/* Label */}
-      <div className="mb-1.5 flex items-center gap-2">
-        <span className="text-[9px] font-semibold uppercase tracking-wider text-white/30">
-          Promocionado
-        </span>
-      </div>
-      <div
-        className="relative mx-auto w-full max-w-[742px]"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        onPointerDown={() => setIsPaused(true)}
-        onPointerUp={() => setIsPaused(false)}
-      >
-        <Link
-          href={activePromo.professional.profileUrl}
-          className={`group promo-showcase-card relative block aspect-[742/158] md:aspect-[742/200] w-full overflow-hidden rounded-xl border bg-[#0c0a14] shadow-lg ${isGold ? "promo-showcase-card--gold border-transparent" : "border-white/10"}`}
-        >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activePromo.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-              className="absolute inset-0"
-            >
-              <img src={imageSrc} alt={activePromo.professional.name} className="h-full w-full object-cover" decoding="async" />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/20" />
-
-              {/* Content — horizontal layout */}
-              <div className="absolute inset-0 flex items-center p-4 sm:p-5">
-                <div className="min-w-0 flex-1">
-                  <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest ${isGold ? "bg-[#FFD700]/20 text-[#FFE8A3]" : "bg-white/10 text-white/50"}`}>
-                    <Zap className="h-2.5 w-2.5" /> Promocionado
-                  </span>
-                  <h3 className="mt-1 truncate text-sm font-bold text-white sm:text-base">{activePromo.professional.name}</h3>
-                  <div className="mt-0.5 flex items-center gap-1.5 text-[10px]">
-                    <div className="flex items-center gap-0.5 text-amber-300">
-                      {Array.from({ length: 5 }).map((_, idx) => (
-                        <Star key={`promo-star-${idx}`} className={`h-3 w-3 ${idx < rating ? "fill-current" : "text-white/20"}`} />
-                      ))}
-                    </div>
-                    <span className="text-white/50">({activePromo.professional.reviewsCount})</span>
-                    {activePromo.professional.isOnline && (
-                      <span className="flex items-center gap-1 text-emerald-300">
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Online
-                      </span>
-                    )}
-                  </div>
-                  <div className={`mt-2 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-bold transition-all group-hover:scale-105 ${isGold ? "bg-gradient-to-r from-[#FFD700] to-[#FDB931] text-[#2b1a00]" : "bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white"}`}>
-                    Ver perfil <ArrowRight className="h-3 w-3" />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-
-          {isGold ? (
-            <>
-              <div className="promo-showcase-gold-border pointer-events-none absolute inset-0 rounded-xl" />
-              <div className="promo-showcase-gold-shimmer pointer-events-none absolute inset-0 rounded-xl" />
-              <div className="promo-showcase-gold-glow pointer-events-none absolute -inset-1 -z-10 rounded-xl" />
-            </>
-          ) : null}
-        </Link>
-
-        {/* Progress bars */}
-        {showcasePromotions.length > 1 ? (
-          <div className="mt-2 flex items-center justify-center gap-1">
-            {showcasePromotions.map((promo, idx) => {
-              const isCurrent = idx === activeIndex;
-              const dotIsGold = promo.adTier === "GOLD";
-              const duration = dotIsGold ? 10 : 5;
-              return (
-                <button
-                  key={`promo-bar-${promo.id}`}
-                  type="button"
-                  aria-label={`Ir al banner ${idx + 1}`}
-                  onClick={() => {
-                    setIsPaused(true);
-                    setActiveIndex(idx);
-                  }}
-                  className={`relative overflow-hidden rounded-full transition-all duration-300 ${dotIsGold ? "h-1.5 flex-[2]" : "h-1 flex-1"} ${isCurrent ? "" : "opacity-40 hover:opacity-70"}`}
-                  style={{ maxWidth: dotIsGold ? 60 : 40 }}
-                >
-                  <div className={`absolute inset-0 ${dotIsGold ? "bg-amber-400/30" : "bg-white/15"}`} />
-                  {isCurrent && !isPaused && (
-                    <div
-                      className={`absolute inset-y-0 left-0 rounded-full ${dotIsGold ? "bg-amber-400" : "bg-fuchsia-400"}`}
-                      style={{ animation: `promo-progress ${duration}s linear forwards` }}
-                    />
-                  )}
-                  {isCurrent && isPaused && (
-                    <div className={`absolute inset-y-0 left-0 rounded-full ${dotIsGold ? "bg-amber-400" : "bg-fuchsia-400"}`} style={{ width: "50%" }} />
-                  )}
-                  {!isCurrent && idx < activeIndex && (
-                    <div className={`absolute inset-0 rounded-full ${dotIsGold ? "bg-amber-400/60" : "bg-white/30"}`} />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
 type UserLevel = "SILVER" | "GOLD" | "DIAMOND";
 
 type FeaturedBannerProfile = {
@@ -564,8 +410,6 @@ export default function HomeClient() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [bannersLoaded, setBannersLoaded] = useState(false);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
-  const [promoShowcase, setPromoShowcase] = useState<PopupPromotion[]>([]);
-  const [promoLoaded, setPromoLoaded] = useState(false);
   const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
   const [discoverSections, setDiscoverSections] = useState<
     Record<string, DiscoverProfile[]>
@@ -607,29 +451,6 @@ export default function HomeClient() {
     })();
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const loadPromotions = async () => {
-      try {
-        const res = await apiFetch<{ promotions: PopupPromotion[] }>("/popup-promotions");
-        if (mounted) setPromoShowcase(res?.promotions ?? []);
-      } catch {
-        if (mounted) setPromoShowcase([]);
-      } finally {
-        if (mounted) setPromoLoaded(true);
-      }
-    };
-
-    loadPromotions();
-    // Poll every 5 minutes (not 30s) to reduce bandwidth usage
-    const id = window.setInterval(loadPromotions, 5 * 60_000);
-
-    return () => {
-      mounted = false;
-      window.clearInterval(id);
-    };
-  }, []);
 
   useEffect(() => {
     const profileBannerIds = banners
@@ -1260,11 +1081,29 @@ export default function HomeClient() {
         {/* Section gradient divider */}
         <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.08] to-transparent" />
 
-        {/* ═══ PUBLICIDAD / PROMOCIONADO ═══ */}
-        {/* min-h reserves space only during the first fetch to prevent CLS; once promoLoaded=true it collapses */}
-        <div className={!promoLoaded ? "mb-6 min-h-[170px]" : ""}>
-          <PromoShowcaseSection promotions={promoShowcase} />
-        </div>
+        {/* ═══ CTA PUBLÍCATE ═══ */}
+        {!isAuthed && (
+          <Link
+            href="/publicate"
+            className="group mb-6 flex items-center gap-4 rounded-2xl border border-white/[0.06] bg-gradient-to-r from-fuchsia-600/[0.08] via-violet-600/[0.06] to-indigo-600/[0.04] p-5 transition-all hover:border-fuchsia-500/20 hover:shadow-[0_8px_32px_rgba(168,85,247,0.12)] sm:p-6"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 sm:h-14 sm:w-14">
+              <Sparkles className="h-6 w-6 text-fuchsia-400 sm:h-7 sm:w-7" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-bold text-white sm:text-base">
+                ¿Ofreces servicios? Publícate en 2 minutos
+              </h3>
+              <p className="mt-0.5 text-[12px] text-white/40 sm:text-[13px]">
+                Sin registro previo — crea tu perfil rápido y sencillo
+              </p>
+            </div>
+            <div className="hidden shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-xs font-bold text-white transition-transform group-hover:scale-105 sm:inline-flex">
+              Publícate ahora <ArrowRight className="h-3.5 w-3.5" />
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-white/30 transition-transform group-hover:translate-x-0.5 sm:hidden" />
+          </Link>
+        )}
 
         {/* ═══ TIER SECTIONS: Platino / Gold / Silver ═══ */}
         {TIERS.map((tier) => {

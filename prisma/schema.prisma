@@ -376,7 +376,7 @@ model User {
   id                  String            @id @default(uuid()) @db.Uuid
   email               String            @unique
   username            String            @unique
-  passwordHash        String
+  passwordHash        String?
   displayName         String?
   phone               String?
   gender              Gender?
@@ -433,6 +433,8 @@ model User {
   reviewTagsSummary   Json?
   adminManaged        Boolean           @default(false)
   adminQualityScore   Float?
+  passwordSetToken          String?
+  passwordSetTokenExpiresAt DateTime?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 

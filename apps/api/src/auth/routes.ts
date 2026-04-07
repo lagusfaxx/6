@@ -1,13 +1,20 @@
 import { Router } from "express";
 import argon2 from "argon2";
+import crypto from "crypto";
+import multer from "multer";
+import path from "path";
 import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { Prisma } from "@prisma/client";
-import { loginInputSchema, registerInputSchema } from "@uzeed/shared";
+import { loginInputSchema, registerInputSchema, quickRegisterSchema } from "@uzeed/shared";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 import { emitAdminEvent } from "../lib/adminEvents";
 import { redeemReferralCode } from "../referral/redeem";
+import { LocalStorageProvider } from "../storage/localStorageProvider";
+import { validateUploadedFile } from "../lib/uploads";
+import { optimizeUploadedImage } from "../lib/imageOptimizer";
+import { sendSetPasswordEmail } from "./verification";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -422,6 +429,193 @@ authRouter.post(
   }),
 );
 
+/* ── Quick Register (publícate flow — no password required) ── */
+
+const quickRegisterStorage = new LocalStorageProvider({
+  baseDir: config.storageDir,
+  publicPathPrefix: `${config.apiUrl.replace(/\/$/, "")}/uploads`,
+});
+
+const quickRegisterDisk = multer.diskStorage({
+  destination: async (_req, _file, cb) => {
+    await quickRegisterStorage.ensureBaseDir();
+    cb(null, config.storageDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || "";
+    const safeBase = path
+      .basename(file.originalname, ext)
+      .replace(/[^a-zA-Z0-9_-]/g, "");
+    cb(null, `${Date.now()}-${safeBase}${ext}`);
+  },
+});
+
+const quickRegisterUpload = multer({
+  storage: quickRegisterDisk,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = (file.mimetype || "").toLowerCase().startsWith("image/");
+    if (!ok) return cb(new Error("INVALID_FILE_TYPE"));
+    return cb(null, true);
+  },
+});
+
+function slugify(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 20);
+}
+
+authRouter.post(
+  "/quick-register",
+  authLimiter,
+  quickRegisterUpload.single("avatar"),
+  asyncHandler(async (req, res) => {
+    const body = {
+      ...req.body,
+      latitude: Number(req.body.latitude),
+      longitude: Number(req.body.longitude),
+      servicePrice: Number(req.body.servicePrice),
+      acceptTerms: req.body.acceptTerms === "true" || req.body.acceptTerms === true,
+    };
+
+    const parsed = quickRegisterSchema.safeParse(body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "VALIDATION", details: parsed.error.flatten() });
+    }
+
+    const {
+      displayName,
+      primaryCategory,
+      address,
+      latitude,
+      longitude,
+      serviceDescription,
+      servicePrice,
+      email: rawEmail,
+      phone,
+    } = parsed.data;
+
+    const email = rawEmail.toLowerCase().trim();
+
+    // Check for existing users
+    const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingEmail) {
+      return res.status(409).json({ error: "EMAIL_IN_USE", message: "Este correo ya está registrado." });
+    }
+
+    const existingPhone = await prisma.user.findFirst({ where: { phone } });
+    if (existingPhone) {
+      return res.status(409).json({ error: "PHONE_IN_USE", message: "Este teléfono ya está registrado." });
+    }
+
+    // Generate unique username from displayName
+    const baseSlug = slugify(displayName) || "user";
+    let username = baseSlug;
+    let attempts = 0;
+    while (attempts < 10) {
+      const exists = await prisma.user.findUnique({ where: { username } });
+      if (!exists) break;
+      username = `${baseSlug}-${crypto.randomInt(1000, 9999)}`;
+      attempts++;
+    }
+
+    // Upload avatar if provided
+    let avatarUrl: string | null = null;
+    if (req.file) {
+      await validateUploadedFile(req.file, "image");
+      const optimizedFilename = await optimizeUploadedImage(req.file, "avatar");
+      avatarUrl = quickRegisterStorage.publicUrl(optimizedFilename);
+    }
+
+    // Resolve category
+    let resolvedCategoryId: string | null = null;
+    let resolvedCategoryName: string | null = null;
+    if (primaryCategory) {
+      const cat = await prisma.category.findFirst({
+        where: {
+          OR: [
+            { slug: primaryCategory },
+            { name: { equals: primaryCategory, mode: "insensitive" } },
+            { displayName: { equals: primaryCategory, mode: "insensitive" } },
+          ],
+        },
+        select: { id: true, displayName: true, name: true },
+      });
+      if (cat) {
+        resolvedCategoryId = cat.id;
+        resolvedCategoryName = cat.displayName || cat.name;
+      } else {
+        resolvedCategoryName = primaryCategory;
+      }
+    }
+
+    // Trial period
+    const shopTrialEndsAt = addDays(new Date(), config.freeTrialDays);
+
+    // Generate password set token (72h TTL)
+    const passwordSetToken = crypto.randomBytes(32).toString("hex");
+    const passwordSetTokenExpiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        username,
+        phone,
+        profileType: "PROFESSIONAL",
+        displayName,
+        avatarUrl,
+        address,
+        latitude,
+        longitude,
+        primaryCategory,
+        serviceCategory: resolvedCategoryName,
+        categoryId: resolvedCategoryId,
+        serviceDescription,
+        baseRate: servicePrice,
+        termsAcceptedAt: new Date(),
+        shopTrialEndsAt,
+        subscriptionPrice: 2500,
+        isOnline: false,
+        isActive: false,
+        isVerified: false,
+        role: "USER",
+        passwordSetToken,
+        passwordSetTokenExpiresAt,
+      },
+      select: { id: true, email: true, username: true, displayName: true },
+    });
+
+    // Create forum thread
+    await createProfessionalForumThread({
+      userId: user.id,
+      username: user.username,
+      displayName: user.displayName || null,
+      avatarUrl,
+      primaryCategory,
+    }).catch((err) => {
+      console.error("[auth/quick-register] forum thread failed", { userId: user.id, error: err });
+    });
+
+    // Notify admin
+    await emitAdminEvent({
+      type: "profile_verification_requested",
+      user: user.username || null,
+    }).catch(() => {});
+
+    // Send "create password" email
+    await sendSetPasswordEmail(email, passwordSetToken).catch((err) => {
+      console.error("[auth/quick-register] failed to send set-password email", { email, error: err });
+    });
+
+    return res.json({ ok: true, message: "Perfil creado exitosamente." });
+  }),
+);
+
 authRouter.post(
   "/login",
   authLimiter,
@@ -435,7 +629,7 @@ authRouter.post(
     const { email: rawEmail, password } = parsed.data;
     const email = rawEmail.toLowerCase().trim();
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+    if (!user || !user.passwordHash) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
 
     const ok = await argon2.verify(user.passwordHash, password);
     if (!ok) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
