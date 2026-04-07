@@ -24,6 +24,7 @@ type Category = {
   name: string;
   slug: string;
   displayName: string;
+  kind: string;
 };
 
 const PROFILE_TAGS = [
@@ -267,7 +268,7 @@ export default function PublicateClient() {
             <label className={labelClass}>Categoría *</label>
             <select className={selectClass} value={data.primaryCategory} onChange={(e) => update({ primaryCategory: e.target.value })}>
               <option value="">Selecciona una categoría</option>
-              {categories.map((c) => (
+              {categories.filter((c) => c.kind === "PROFESSIONAL").map((c) => (
                 <option key={c.id} value={c.slug || c.name}>{c.displayName}</option>
               ))}
             </select>
