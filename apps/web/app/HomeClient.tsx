@@ -1018,12 +1018,12 @@ export default function HomeClient() {
           >
             <div>
               <span className="text-sm font-semibold text-white">
-                ¿Ofreces servicios? <span className="text-fuchsia-400">Publícate aquí</span>
+                ¿Eres profesional? <span className="text-fuchsia-400">Publica tu perfil</span>
               </span>
-              <p className="mt-0.5 text-[11px] text-white/40">Crea tu perfil en minutos, sin registro</p>
+              <p className="mt-0.5 text-[11px] text-white/40">Gratis o con visibilidad Gold — elige tu camino</p>
             </div>
             <span className="shrink-0 rounded-lg bg-fuchsia-500/20 px-3 py-1.5 text-xs font-semibold text-fuchsia-300 transition-colors group-hover:bg-fuchsia-500/30">
-              Empezar
+              Ver opciones
             </span>
           </Link>
         )}

@@ -58,8 +58,7 @@ type WizardData = {
   latitude: number | null;
   longitude: number | null;
   serviceDescription: string;
-  // Step 3 — Plan + Datos
-  selectedPlan: "free" | "gold";
+  // Step 3 — Datos
   email: string;
   phone: string;
   acceptTerms: boolean;
@@ -81,23 +80,22 @@ const INITIAL_DATA: WizardData = {
   latitude: null,
   longitude: null,
   serviceDescription: "",
-  selectedPlan: "free",
   email: "",
   phone: "",
   acceptTerms: false,
 };
 
-const TOTAL_STEPS = 3;
+const WIZARD_STEPS = 3;
 const PHONE_PREFIXES = ["+56", "+57", "+58", "+51"];
 const MAX_GALLERY = 6;
 
 export default function PublicateClient() {
-  const [step, setStep] = useState(1);
+  // step 0 = choice screen, 1-3 = Gold wizard
+  const [step, setStep] = useState(0);
   const [data, setData] = useState<WizardData>(INITIAL_DATA);
   const [categories, setCategories] = useState<Category[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -155,10 +153,10 @@ export default function PublicateClient() {
     /^\+\d{8,15}$/.test(data.phone) &&
     data.acceptTerms;
 
-  const validByStep = [false, isStep1Valid, isStep2Valid, isStep3Valid];
+  const validByStep = [true, isStep1Valid, isStep2Valid, isStep3Valid];
   const canAdvance = validByStep[step] ?? false;
 
-  /* ── Submit ── */
+  /* ── Submit (Gold only) ── */
   const handleSubmit = async () => {
     if (!isStep3Valid || submitting) return;
     setSubmitting(true);
@@ -175,7 +173,7 @@ export default function PublicateClient() {
       fd.append("email", data.email.trim().toLowerCase());
       fd.append("phone", data.phone);
       fd.append("acceptTerms", "true");
-      fd.append("selectedPlan", data.selectedPlan);
+      fd.append("selectedPlan", "gold");
 
       for (const file of data.galleryFiles) fd.append("gallery", file);
 
@@ -191,10 +189,7 @@ export default function PublicateClient() {
 
       if (res.paymentUrl) {
         window.location.href = res.paymentUrl;
-        return;
       }
-
-      setDone(true);
     } catch (err: any) {
       const msg = err?.body?.message || err?.message || "Ocurrió un error. Intenta nuevamente.";
       setError(msg);
@@ -203,51 +198,114 @@ export default function PublicateClient() {
     }
   };
 
-  /* ── Success screen ── */
-  if (done) {
-    return (
-      <div className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center px-4 text-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
-          <CheckCircle2 className="h-8 w-8 text-emerald-400" />
-        </div>
-        <h1 className="text-2xl font-bold text-white">Tu perfil fue creado exitosamente</h1>
-        <p className="mt-3 text-sm text-white/50 leading-relaxed">
-          Un administrador lo revisará pronto. Revisa tu correo electrónico para
-          crear tu contraseña y completar tu perfil.
-        </p>
-        <Link
-          href="/"
-          className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white/10 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-white/15"
-        >
-          Volver al inicio
-        </Link>
-      </div>
-    );
-  }
-
   /* ── Shared styles ── */
   const inputClass =
     "w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition-colors focus:border-fuchsia-500/40 focus:bg-white/[0.06]";
   const selectClass = inputClass + " [color-scheme:dark] [&>option]:bg-[#0c0a14] [&>option]:text-white";
   const labelClass = "mb-1.5 block text-xs font-medium text-white/60";
 
+  /* ═══════════════════════════════════════════════════════════════
+     STEP 0 — Choice screen: Free vs Gold
+     ═══════════════════════════════════════════════════════════════ */
+  if (step === 0) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-8 sm:py-12">
+        <div className="mb-10 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20">
+            <Sparkles className="h-6 w-6 text-fuchsia-400" />
+          </div>
+          <h1 className="text-xl font-bold text-white sm:text-2xl">Publica tu perfil profesional</h1>
+          <p className="mt-2 text-sm text-white/40">Elige cómo quieres empezar</p>
+        </div>
+
+        <div className="grid gap-4">
+          {/* Free path → normal registration */}
+          <Link
+            href="/register?type=PROFESSIONAL"
+            className="group relative rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 text-left transition-all hover:border-white/15 hover:bg-white/[0.06]"
+          >
+            <div className="mb-3 flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.06]">
+                <Star className="h-4.5 w-4.5 text-white/50" />
+              </div>
+              <div>
+                <span className="text-sm font-bold text-white">Gratis</span>
+                <span className="ml-2 rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/50">SILVER</span>
+              </div>
+            </div>
+            <ul className="space-y-2 text-xs text-white/50">
+              <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-white/30 shrink-0" /> 90 días de publicación gratis</li>
+              <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-white/30 shrink-0" /> Visibilidad básica en búsquedas</li>
+              <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-white/30 shrink-0" /> Perfil completo con fotos y ubicación</li>
+            </ul>
+            <div className="mt-5 flex items-center justify-between">
+              <span className="text-lg font-bold text-white/60">$0</span>
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-white/40 transition-colors group-hover:text-fuchsia-400">
+                Registrarme gratis <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </div>
+          </Link>
+
+          {/* Gold path → wizard */}
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className="group relative rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/[0.06] to-fuchsia-500/[0.03] p-6 text-left transition-all hover:border-amber-500/40 hover:from-amber-500/[0.10] hover:to-fuchsia-500/[0.05]"
+          >
+            <div className="absolute right-5 top-5">
+              <span className="rounded-md bg-amber-500/20 px-2.5 py-1 text-[10px] font-bold text-amber-300">RECOMENDADO</span>
+            </div>
+            <div className="mb-3 flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15">
+                <Crown className="h-4.5 w-4.5 text-amber-400" />
+              </div>
+              <div>
+                <span className="text-sm font-bold text-white">Gold</span>
+                <span className="ml-2 rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300">PREMIUM</span>
+              </div>
+            </div>
+            <ul className="space-y-2 text-xs text-white/60">
+              <li className="flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-amber-400 shrink-0" /> x5 más visibilidad y contactos</li>
+              <li className="flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-amber-400 shrink-0" /> Apareces primero en búsquedas</li>
+              <li className="flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-amber-400 shrink-0" /> Badge Gold exclusivo en tu perfil</li>
+              <li className="flex items-center gap-2"><Zap className="h-3.5 w-3.5 text-amber-400 shrink-0" /> Publicación inmediata tras el pago</li>
+            </ul>
+            <div className="mt-5 flex items-center justify-between">
+              <span className="text-lg font-bold text-amber-400">$14.990 <span className="text-xs font-normal text-white/40">/ 7 días</span></span>
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-300 transition-colors group-hover:text-amber-200">
+                Empezar <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </div>
+          </button>
+        </div>
+
+        <p className="mt-6 text-center text-[11px] text-white/25">
+          El plan Gold se paga a través de Flow (WebPay, tarjetas, etc.)
+        </p>
+      </div>
+    );
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     STEPS 1-3 — Gold wizard
+     ═══════════════════════════════════════════════════════════════ */
   return (
     <div className="mx-auto max-w-lg px-4 py-8 sm:py-12">
       {/* Header */}
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20">
-          <Sparkles className="h-6 w-6 text-fuchsia-400" />
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/20 to-fuchsia-500/20">
+          <Crown className="h-6 w-6 text-amber-400" />
         </div>
-        <h1 className="text-xl font-bold text-white sm:text-2xl">Publícate en UZEED</h1>
-        <p className="mt-1 text-xs text-white/40">Crea tu perfil en minutos — sin registro previo</p>
+        <h1 className="text-xl font-bold text-white sm:text-2xl">Publícate con <span className="text-amber-400">Gold</span></h1>
+        <p className="mt-1 text-xs text-white/40">Completa tu perfil y paga para publicar</p>
       </div>
 
       {/* Progress bar */}
       <div className="mb-8 flex items-center gap-1.5">
-        {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((s) => (
+        {Array.from({ length: WIZARD_STEPS }, (_, i) => i + 1).map((s) => (
           <div
             key={s}
-            className={`h-1 flex-1 rounded-full transition-colors ${s <= step ? "bg-fuchsia-500" : "bg-white/10"}`}
+            className={`h-1 flex-1 rounded-full transition-colors ${s <= step ? "bg-amber-500" : "bg-white/10"}`}
           />
         ))}
       </div>
@@ -446,82 +504,29 @@ export default function PublicateClient() {
         </div>
       )}
 
-      {/* ═══ STEP 3: Plan + Datos ═══ */}
+      {/* ═══ STEP 3: Datos + Pago ═══ */}
       {step === 3 && (
         <div className="space-y-6">
-          {/* Plan selection */}
-          <div>
-            <h2 className="text-base font-semibold text-white">Elige tu plan</h2>
-            <div className="mt-3 grid gap-3">
-              {/* Free plan */}
-              <button
-                type="button"
-                onClick={() => update({ selectedPlan: "free" })}
-                className={`relative rounded-2xl border p-5 text-left transition-all ${
-                  data.selectedPlan === "free"
-                    ? "border-white/20 bg-white/[0.06]"
-                    : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"
-                }`}
-              >
-                {data.selectedPlan === "free" && (
-                  <div className="absolute right-4 top-4">
-                    <CheckCircle2 className="h-5 w-5 text-white/60" />
-                  </div>
-                )}
-                <div className="mb-3 flex items-center gap-2">
-                  <Star className="h-4 w-4 text-white/40" />
-                  <span className="text-sm font-bold text-white">Gratis</span>
-                  <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/50">SILVER</span>
-                </div>
-                <ul className="space-y-1.5 text-xs text-white/45">
-                  <li>• 90 días gratis</li>
-                  <li>• Visibilidad básica</li>
-                  <li>• Apareces debajo de perfiles Gold</li>
-                </ul>
-              </button>
-
-              {/* Gold plan */}
-              <button
-                type="button"
-                onClick={() => update({ selectedPlan: "gold" })}
-                className={`relative rounded-2xl border p-5 text-left transition-all ${
-                  data.selectedPlan === "gold"
-                    ? "border-amber-500/40 bg-amber-500/[0.08] shadow-[0_0_30px_rgba(245,158,11,0.06)]"
-                    : "border-amber-500/15 bg-amber-500/[0.03] hover:bg-amber-500/[0.06]"
-                }`}
-              >
-                {data.selectedPlan === "gold" && (
-                  <div className="absolute right-4 top-4">
-                    <CheckCircle2 className="h-5 w-5 text-amber-400" />
-                  </div>
-                )}
-                <div className="mb-1 flex items-center gap-2">
-                  <Crown className="h-4 w-4 text-amber-400" />
-                  <span className="text-sm font-bold text-white">Gold</span>
-                  <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">RECOMENDADO</span>
-                </div>
-                <p className="mb-3 text-lg font-bold text-amber-400">$14.990 <span className="text-xs font-normal text-white/40">/ 7 días</span></p>
-                <ul className="space-y-1.5 text-xs text-white/60">
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más visibilidad</li>
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más contactos</li>
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Badge Gold en tu perfil</li>
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Apareces primero en búsquedas</li>
-                </ul>
-              </button>
+          {/* Gold plan summary */}
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-5">
+            <div className="mb-2 flex items-center gap-2">
+              <Crown className="h-4 w-4 text-amber-400" />
+              <span className="text-sm font-bold text-white">Plan Gold</span>
             </div>
+            <p className="text-lg font-bold text-amber-400">$14.990 <span className="text-xs font-normal text-white/40">/ 7 días</span></p>
+            <ul className="mt-3 space-y-1.5 text-xs text-white/60">
+              <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más visibilidad y contactos</li>
+              <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Badge Gold en tu perfil</li>
+              <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Apareces primero en búsquedas</li>
+            </ul>
           </div>
-
-          {/* Divider */}
-          <div className="h-px bg-white/[0.06]" />
 
           {/* Contact data */}
           <div className="space-y-4">
             <h2 className="text-base font-semibold text-white">Tus datos</h2>
-            {data.selectedPlan === "gold" && (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-xs text-amber-300/80">
-                Tu correo se usará para procesar el pago de <strong>$14.990</strong> con Flow.
-              </div>
-            )}
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-xs text-amber-300/80">
+              Tu correo se usará para procesar el pago de <strong>$14.990</strong> con Flow.
+            </div>
 
             {/* Email */}
             <div>
@@ -587,17 +592,15 @@ export default function PublicateClient() {
 
       {/* Navigation */}
       <div className="mt-8 flex items-center gap-3">
-        {step > 1 && (
-          <button
-            type="button"
-            onClick={() => { setStep((s) => s - 1); setError(null); }}
-            className="flex items-center gap-1.5 rounded-xl border border-white/10 px-5 py-3 text-sm font-medium text-white/60 transition-colors hover:bg-white/5"
-          >
-            <ArrowLeft className="h-4 w-4" /> Atrás
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => { setStep((s) => s - 1); setError(null); }}
+          className="flex items-center gap-1.5 rounded-xl border border-white/10 px-5 py-3 text-sm font-medium text-white/60 transition-colors hover:bg-white/5"
+        >
+          <ArrowLeft className="h-4 w-4" /> {step === 1 ? "Cambiar plan" : "Atrás"}
+        </button>
 
-        {step < TOTAL_STEPS ? (
+        {step < WIZARD_STEPS ? (
           <button
             type="button"
             disabled={!canAdvance}
@@ -611,14 +614,12 @@ export default function PublicateClient() {
             type="button"
             disabled={!canAdvance || submitting}
             onClick={handleSubmit}
-            className="ml-auto flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
+            className="ml-auto flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-fuchsia-600 px-6 py-3 text-sm font-bold text-white shadow-[0_8px_30px_rgba(245,158,11,0.2)] transition-opacity disabled:opacity-40"
           >
             {submitting ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> {data.selectedPlan === "gold" ? "Procesando..." : "Creando perfil..."}</>
-            ) : data.selectedPlan === "gold" ? (
-              <><Crown className="h-4 w-4" /> Pagar y publicar — $14.990</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> Procesando...</>
             ) : (
-              <><Sparkles className="h-4 w-4" /> Crear mi perfil</>
+              <><Crown className="h-4 w-4" /> Pagar y publicar — $14.990</>
             )}
           </button>
         )}
