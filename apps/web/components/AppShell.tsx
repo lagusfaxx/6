@@ -22,6 +22,10 @@ const PresenceHeartbeat = dynamic(
   () => import("./PresenceHeartbeat"),
   { ssr: false },
 );
+const SocialProofToast = dynamic(
+  () => import("./SocialProofToast"),
+  { ssr: false },
+);
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
@@ -120,6 +124,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <TopHeader />
             {deferredReady && <PushNotificationsManager />}
             {deferredReady && <PresenceHeartbeat />}
+            {deferredReady && <SocialProofToast />}
             {!isHome && <BackButton />}
             {/* Reduced pt since we removed the category chips row from mobile header */}
             <main className="flex-1 px-4 pt-[76px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[90px] md:pb-6">

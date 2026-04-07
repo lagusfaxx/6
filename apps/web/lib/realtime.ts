@@ -29,6 +29,7 @@ export function connectRealtime(handler: Handler) {
         "live:tip_option_added", "live:tip_option_removed", "live:config_updated",
         "signal:offer", "signal:answer", "signal:ice",
         "admin_event", "booking:new", "booking:update",
+        "social_proof",
       ] as const;
 
       const eventHandler = (e: MessageEvent) => {
