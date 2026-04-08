@@ -872,7 +872,7 @@ export default function HomeClient() {
           </p>
 
           <h1 className="text-[2.1rem] font-bold leading-[1.1] tracking-tight text-white sm:text-4xl md:text-[3.2rem] animate-float-up" style={{ animationDelay: "80ms", animationFillMode: "both" }}>
-            Encuentra lo que buscas,<br />
+            Encontrá lo que buscás,<br />
             <span className="text-white/50">sin vueltas.</span>
           </h1>
 
