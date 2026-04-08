@@ -82,20 +82,20 @@ type ProfileResult = {
 const INITIAL_RADIUS_KM = 50;
 
 const CATEGORY_TABS = [
-  { key: "all", label: "Todas", emoji: "🔥", icon: Users, gradient: "from-fuchsia-500/20 to-purple-500/20", activeGradient: "from-fuchsia-500 to-purple-600", border: "border-fuchsia-500/40", glow: "shadow-fuchsia-500/25" },
-  { key: "mujeres", label: "Mujeres", emoji: "👩", icon: Heart, gradient: "from-pink-500/20 to-rose-500/20", activeGradient: "from-pink-500 to-rose-600", border: "border-pink-500/40", glow: "shadow-pink-500/25" },
-  { key: "hombres", label: "Hombres", emoji: "👨", icon: CircleUser, gradient: "from-blue-500/20 to-cyan-500/20", activeGradient: "from-blue-500 to-cyan-600", border: "border-blue-500/40", glow: "shadow-blue-500/25" },
-  { key: "trans", label: "Trans", emoji: "🌈", icon: Sparkles, gradient: "from-violet-500/20 to-fuchsia-500/20", activeGradient: "from-violet-500 to-fuchsia-600", border: "border-violet-500/40", glow: "shadow-violet-500/25" },
-  { key: "escort", label: "Escorts", emoji: "💎", icon: Sparkles, gradient: "from-rose-500/20 to-pink-500/20", activeGradient: "from-rose-500 to-pink-600", border: "border-rose-500/40", glow: "shadow-rose-500/25" },
-  { key: "masajes", label: "Masajes", emoji: "💆", icon: Users, gradient: "from-violet-500/20 to-indigo-500/20", activeGradient: "from-violet-500 to-indigo-600", border: "border-violet-500/40", glow: "shadow-violet-500/25" },
-  { key: "moteles", label: "Moteles", emoji: "🏩", icon: Building2, gradient: "from-amber-500/20 to-orange-500/20", activeGradient: "from-amber-500 to-orange-600", border: "border-amber-500/40", glow: "shadow-amber-500/25" },
-  { key: "sexshop", label: "Sex Shop", emoji: "🛍️", icon: ShoppingBag, gradient: "from-emerald-500/20 to-teal-500/20", activeGradient: "from-emerald-500 to-teal-600", border: "border-emerald-500/40", glow: "shadow-emerald-500/25" },
+  { key: "all", label: "Todas", icon: Users, activeGradient: "from-fuchsia-500 to-purple-600", glow: "shadow-fuchsia-500/25" },
+  { key: "mujeres", label: "Mujeres", icon: Heart, activeGradient: "from-pink-500 to-rose-600", glow: "shadow-pink-500/25" },
+  { key: "hombres", label: "Hombres", icon: CircleUser, activeGradient: "from-blue-500 to-cyan-600", glow: "shadow-blue-500/25" },
+  { key: "trans", label: "Trans", icon: Sparkles, activeGradient: "from-violet-500 to-fuchsia-600", glow: "shadow-violet-500/25" },
+  { key: "escort", label: "Escorts", icon: Sparkles, activeGradient: "from-rose-500 to-pink-600", glow: "shadow-rose-500/25" },
+  { key: "masajes", label: "Masajes", icon: Users, activeGradient: "from-violet-500 to-indigo-600", glow: "shadow-violet-500/25" },
+  { key: "moteles", label: "Moteles", icon: Building2, activeGradient: "from-amber-500 to-orange-600", glow: "shadow-amber-500/25" },
+  { key: "sexshop", label: "Sex Shop", icon: ShoppingBag, activeGradient: "from-emerald-500 to-teal-600", glow: "shadow-emerald-500/25" },
 ] as const;
 
 const QUICK_FILTERS = [
-  { key: "disponible", label: "Disponible ahora", emoji: "🟢", icon: Clock, activeColor: "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 shadow-sm shadow-emerald-500/10" },
-  { key: "destacada", label: "Destacadas", emoji: "⭐", icon: Star, activeColor: "border-amber-500/50 bg-amber-500/15 text-amber-300 shadow-sm shadow-amber-500/10" },
-  { key: "maduras", label: "Maduras (40+)", emoji: "🔥", icon: Flame, activeColor: "border-fuchsia-500/50 bg-fuchsia-500/15 text-fuchsia-300 shadow-sm shadow-fuchsia-500/10" },
+  { key: "disponible", label: "Disponible ahora", icon: Clock, activeColor: "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 shadow-sm shadow-emerald-500/10" },
+  { key: "destacada", label: "Destacadas", icon: Star, activeColor: "border-amber-500/50 bg-amber-500/15 text-amber-300 shadow-sm shadow-amber-500/10" },
+  { key: "maduras", label: "Maduras (40+)", icon: Flame, activeColor: "border-fuchsia-500/50 bg-fuchsia-500/15 text-fuchsia-300 shadow-sm shadow-fuchsia-500/10" },
 ] as const;
 
 const SORT_OPTIONS = [
@@ -822,6 +822,7 @@ export default function ServicesPage() {
           {/* ── Categories (premium scrollable pills) ── */}
           <div className="mt-3 -mx-4 px-4 flex gap-2 overflow-x-auto scrollbar-none pb-1.5">
             {CATEGORY_TABS.map((tab) => {
+              const Icon = tab.icon;
               const isActive = category === tab.key;
               return (
                 <button
@@ -837,7 +838,7 @@ export default function ServicesPage() {
                   {isActive && (
                     <span className="absolute inset-0 rounded-full bg-gradient-to-r from-white/10 to-transparent pointer-events-none" />
                   )}
-                  <span className="text-sm leading-none">{tab.emoji}</span>
+                  <Icon className="h-3.5 w-3.5 relative" />
                   <span className="relative">{tab.label}</span>
                 </button>
               );
@@ -847,6 +848,7 @@ export default function ServicesPage() {
           {/* ── Quick filters (small chips) ── */}
           <div className="mt-2.5 -mx-4 px-4 flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5">
             {QUICK_FILTERS.map((f) => {
+              const Icon = f.icon;
               const isActive = activeQuickFilters.has(f.key);
               return (
                 <button
@@ -857,7 +859,7 @@ export default function ServicesPage() {
                     isActive ? f.activeColor : "text-white/35 border border-white/[0.07] hover:text-white/55 hover:border-white/[0.14] hover:bg-white/[0.04]"
                   }`}
                 >
-                  <span className="text-xs leading-none">{f.emoji}</span>
+                  <Icon className="h-3 w-3" />
                   {f.label}
                 </button>
               );
