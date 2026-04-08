@@ -34,10 +34,6 @@ import {
   Flame,
   Clock,
   Eye,
-  Ruler,
-  Weight,
-  Scissors,
-  CheckCircle,
   ShieldCheck,
   Video,
   Phone,
@@ -507,275 +503,6 @@ const ProfileCard = memo(function ProfileCard({
   );
 });
 
-/* ── Profile Detail Panel (shown outside the map) ── */
-function ProfileDetailPanel({
-  profile,
-  galleryUrls,
-  onClose,
-  isAuthed,
-}: {
-  profile: ProfileResult;
-  galleryUrls: string[];
-  onClose: () => void;
-  isAuthed: boolean;
-}) {
-  const coverImg = resolveMediaUrl(profile.coverUrl) ?? resolveMediaUrl(profile.avatarUrl);
-  const avatarImg = resolveMediaUrl(profile.avatarUrl);
-  const chatHref = isAuthed
-    ? `/chat/${profile.userId || profile.id}`
-    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
-
-  const tierAccent =
-    profile.userLevel === "DIAMOND"
-      ? "from-cyan-500/[0.06] to-transparent"
-      : profile.userLevel === "GOLD"
-      ? "from-amber-500/[0.06] to-transparent"
-      : "from-fuchsia-500/[0.04] to-transparent";
-
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto">
-        {/* Cover photo with premium overlay */}
-        <div className="relative aspect-[16/9] overflow-hidden bg-[#0a0a10]">
-          {coverImg ? (
-            <img src={coverImg} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center bg-gradient-to-br from-fuchsia-900/25 to-violet-900/25">
-              <Users className="h-12 w-12 text-white/10" />
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0d0e17] via-[#0d0e17]/30 to-black/20" />
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 backdrop-blur-xl transition-all hover:bg-white/10 hover:text-white hover:border-white/20 hover:scale-105"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          {/* Level badge on cover */}
-          {profile.userLevel && (
-            <div className="absolute top-3 left-3">
-              <UserLevelBadge level={profile.userLevel} className="px-2.5 py-1 text-[10px] shadow-lg" />
-            </div>
-          )}
-        </div>
-
-        {/* Avatar + Name section with ambient glow */}
-        <div className="relative">
-          <div className={`absolute inset-x-0 top-0 h-20 bg-gradient-to-b ${tierAccent}`} />
-          <div className="relative px-4 -mt-10">
-            <div className="flex items-end gap-3">
-              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-[3px] border-[#0d0e17] bg-[#0d0e17] shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
-                {avatarImg ? (
-                  <img src={avatarImg} alt={profile.displayName || profile.username} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-fuchsia-900/20 to-violet-900/20">
-                    <Users className="h-8 w-8 text-white/20" />
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 pb-1">
-                <h3 className="flex items-center gap-1 truncate text-lg font-bold leading-tight tracking-tight">
-                  {profile.displayName || profile.username}
-                  {hasPremiumBadge(profile.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
-                  {hasVerifiedBadge(profile.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
-                  {profile.age ? <span className="font-normal text-white/45 text-base">, {profile.age}</span> : ""}
-                </h3>
-                {profile.city && (
-                  <p className="mt-0.5 flex items-center gap-1 text-xs text-white/35">
-                    <MapPin className="h-3 w-3 shrink-0 text-fuchsia-400/50" />
-                    <span className="truncate">{profile.city}</span>
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Status + quick info pills */}
-        <div className="mt-3.5 flex flex-wrap gap-1.5 px-4">
-          {profile.availableNow ? (
-            <span className="flex items-center gap-1.5 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
-              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" /></span>
-              Online
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-xs text-white/35">
-              <Clock className="h-3 w-3" />
-              {formatLastSeen(profile.lastSeen)}
-            </span>
-          )}
-          {profile.distance != null && (
-            <span className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-xs text-white/45 tabular-nums">
-              <MapPin className="h-3 w-3 text-fuchsia-400/50" />
-              {profile.distance < 1 ? `${Math.round(profile.distance * 1000)}m` : `${profile.distance.toFixed(1)} km`}
-            </span>
-          )}
-          {profile.baseRate != null && (
-            <span className="flex items-center gap-1 rounded-xl border border-fuchsia-500/15 bg-fuchsia-500/[0.08] px-2.5 py-1 text-xs font-semibold text-fuchsia-300">
-              ${profile.baseRate.toLocaleString("es-CL")}
-            </span>
-          )}
-          {profile.serviceCategory && (
-            <span className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-xs text-white/45">
-              {profile.serviceCategory}
-            </span>
-          )}
-          {profile.profileType === "PROFESSIONAL" && hasExamsBadge(profile) && (
-            <span className="inline-flex items-center gap-1 rounded-xl border border-sky-300/25 bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-200">
-              <ShieldCheck className="h-3 w-3" /> Con exámenes
-            </span>
-          )}
-        </div>
-
-        {/* Stats grid */}
-        <div className="mt-3.5 grid grid-cols-2 gap-2 px-4">
-          {profile.heightCm != null && (
-            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-3">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/25">
-                <Ruler className="h-3 w-3" /> Estatura
-              </div>
-              <div className="mt-1 text-sm font-bold text-white/75 tracking-tight">{Math.round(profile.heightCm)} cm</div>
-            </div>
-          )}
-          {profile.weightKg != null && (
-            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-3">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/25">
-                <Weight className="h-3 w-3" /> Peso
-              </div>
-              <div className="mt-1 text-sm font-bold text-white/75 tracking-tight">{Math.round(profile.weightKg)} kg</div>
-            </div>
-          )}
-          {profile.hairColor && (
-            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-3">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/25">
-                <Scissors className="h-3 w-3" /> Cabello
-              </div>
-              <div className="mt-1 text-sm font-bold text-white/75 tracking-tight">{profile.hairColor}</div>
-            </div>
-          )}
-          {profile.completedServices != null && profile.completedServices > 0 && (
-            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-3">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/25">
-                <CheckCircle className="h-3 w-3" /> Servicios
-              </div>
-              <div className="mt-1 text-sm font-bold text-white/75 tracking-tight">{profile.completedServices}</div>
-            </div>
-          )}
-        </div>
-
-        {/* Description */}
-        {(profile.bio || profile.serviceDescription) && (
-          <div className="mt-4 px-4">
-            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/25">Descripción</h4>
-            <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-3.5">
-              <p className="whitespace-pre-line text-[13px] leading-relaxed text-white/50">
-                {profile.bio || profile.serviceDescription}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Profile tags (user-defined only) */}
-        {filterUserTags(profile.profileTags).length > 0 && (
-          <div className="mt-4 px-4">
-            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/25">Etiquetas</h4>
-            <div className="flex flex-wrap gap-1.5">
-              {filterUserTags(profile.profileTags).map((tag) => (
-                <span key={tag} className="rounded-xl border border-fuchsia-500/15 bg-fuchsia-500/[0.08] px-3 py-1.5 text-[11px] font-medium text-fuchsia-300/80 transition-colors hover:bg-fuchsia-500/15">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Service tags */}
-        {profile.serviceTags && profile.serviceTags.length > 0 && (
-          <div className="mt-4 px-4">
-            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/25">Servicios</h4>
-            <div className="flex flex-wrap gap-1.5">
-              {profile.serviceTags.map((tag) => (
-                <span key={tag} className="rounded-xl border border-violet-500/15 bg-violet-500/[0.08] px-3 py-1.5 text-[11px] font-medium text-violet-300/80 transition-colors hover:bg-violet-500/15">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Gallery */}
-        {galleryUrls.length > 0 && (
-          <div className="mt-4 px-4 pb-4">
-            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/25">Galería</h4>
-            <div className="grid grid-cols-3 gap-2">
-              {galleryUrls.map((url, idx) => (
-                <div key={idx} className="aspect-square overflow-hidden rounded-xl bg-[#0a0a10] transition-transform duration-300 hover:scale-[1.03]">
-                  <img src={resolveMediaUrl(url) ?? undefined} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Action buttons - premium style */}
-      <div className="relative shrink-0 border-t border-white/[0.06] bg-[#0d0e17]/90 backdrop-blur-xl p-3 flex gap-2">
-        <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent" />
-        {profile.externalOnly && profile.websiteUrl ? (
-          <a
-            href={profile.websiteUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold transition-all hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.2)]"
-          >
-            <ExternalLink className="h-4 w-4" /> Visitar web
-          </a>
-        ) : profile.profileType === "ESTABLISHMENT" ? (
-          <Link
-            href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold transition-all hover:brightness-110 shadow-[0_4px_16px_rgba(245,158,11,0.2)]"
-          >
-            <Building2 className="h-4 w-4" /> Reservar
-          </Link>
-        ) : profile.profileType === "SHOP" ? (
-          <Link
-            href={ownerHref(profile)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 py-3 text-sm font-semibold transition-all hover:brightness-110 shadow-[0_4px_16px_rgba(244,63,94,0.2)]"
-          >
-            <ShoppingBag className="h-4 w-4" /> Visitar Tienda
-          </Link>
-        ) : (
-          <Link
-            href={chatHref}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] py-3 text-sm font-semibold transition-all hover:bg-[position:100%_0] shadow-[0_4px_16px_rgba(168,85,247,0.2)]"
-          >
-            <MessageCircle className="h-4 w-4" /> Chat
-          </Link>
-        )}
-        {profile.profileType === "PROFESSIONAL" && profile.phone && (
-          <a
-            href={formatWhatsAppUrl(profile.phone)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => trackAction("whatsapp_click", profile.id, { source: "services_detail", displayName: profile.displayName })}
-            className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.08] px-4 py-3 text-sm font-medium text-emerald-300 transition-all hover:bg-emerald-500/15 hover:border-emerald-500/30"
-            title="WhatsApp"
-          >
-            <Phone className="h-4 w-4" />
-          </a>
-        )}
-        <Link
-          href={ownerHref(profile)}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-medium text-white/60 transition-all hover:bg-white/[0.08] hover:text-white/80 hover:border-white/15"
-        >
-          <Eye className="h-4 w-4" /> Ver Perfil
-        </Link>
-      </div>
-    </div>
-  );
-}
-
 /* ═══ PAGE ═══ */
 export default function ServicesPage() {
   const locationCtx = useContext(LocationFilterContext);
@@ -794,9 +521,6 @@ export default function ServicesPage() {
   const [previewProfile, setPreviewProfile] = useState<ProfileResult | null>(null);
   const [activeQuickFilters, setActiveQuickFilters] = useState<Set<string>>(new Set());
   const [showMap, setShowMap] = useState(true);
-  const [selectedProfile, setSelectedProfile] = useState<ProfileResult | null>(null);
-  const [detailGallery, setDetailGallery] = useState<string[]>([]);
-  const [isMobileView, setIsMobileView] = useState(false);
   const fetchRef = useRef(0);
 
   const toggleQuickFilter = (key: string) => {
@@ -807,14 +531,6 @@ export default function ServicesPage() {
       return next;
     });
   };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const check = () => setIsMobileView(window.innerWidth < 1024);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   const effectiveLocWithFallback = useMemo<[number, number]>(
     () => effectiveLoc ?? [-33.45, -70.66],
@@ -962,47 +678,10 @@ export default function ServicesPage() {
   const handleMarkerSelect = useCallback(
     (marker: MapMarker) => {
       const profile = displayProfiles.find((p) => p.id === marker.id);
-      if (profile) setSelectedProfile(profile);
+      if (profile) setPreviewProfile(profile);
     },
     [displayProfiles],
   );
-
-  const handleMarkerDeselect = useCallback(() => {
-    // Don't close on map click - only close via the X button
-  }, []);
-
-  /* Gallery fetch for selected profile */
-  useEffect(() => {
-    if (!selectedProfile) {
-      setDetailGallery([]);
-      return;
-    }
-    if (selectedProfile.galleryUrls && selectedProfile.galleryUrls.length > 0) {
-      setDetailGallery(selectedProfile.galleryUrls);
-      return;
-    }
-    let cancelled = false;
-    apiFetch<{ gallery?: Array<{ url?: string | null }>; profile?: { coverUrl?: string | null; avatarUrl?: string | null } }>(
-      `/profiles/${selectedProfile.username}`,
-    )
-      .then((res) => {
-        if (cancelled) return;
-        const urls = (res.gallery || []).map((g) => g?.url).filter((u): u is string => Boolean(u));
-        const fallback = [res.profile?.coverUrl, res.profile?.avatarUrl].filter((u): u is string => Boolean(u));
-        setDetailGallery(urls.length > 0 ? urls : fallback);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [selectedProfile?.id, selectedProfile?.username]);
-
-  /* Lock body scroll on mobile when profile panel is open */
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    if (!(isMobileView && selectedProfile)) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, [isMobileView, selectedProfile]);
 
   const markers = useMemo(
     () =>
@@ -1210,55 +889,19 @@ export default function ServicesPage() {
           <Stories />
         </div>
 
-        {/* ── Map + Desktop Profile Panel ── */}
+        {/* ── Map ── */}
         {showMap && (
-          <div className={`mb-7 ${selectedProfile && !isMobileView ? "flex gap-4" : ""}`}>
-            <div className={`overflow-hidden rounded-2xl border border-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.3)] ${selectedProfile && !isMobileView ? "min-w-0 flex-1" : ""}`}>
+          <div className="mb-7">
+            <div className="overflow-hidden rounded-2xl border border-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
               <MapboxMap
                 userLocation={mapCenter}
                 markers={markers}
-                height={selectedProfile && !isMobileView ? 520 : 280}
+                height={280}
                 autoCenterOnDataChange
                 showMarkersForArea
                 renderHtmlMarkers
                 onMarkerSelect={handleMarkerSelect}
-                onMarkerDeselect={handleMarkerDeselect}
               />
-            </div>
-            {/* Desktop side panel */}
-            {selectedProfile && !isMobileView && (
-              <div className="w-[420px] shrink-0 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0d0e17] shadow-[0_8px_32px_rgba(0,0,0,0.4)]" style={{ height: 520 }}>
-                <ProfileDetailPanel
-                  profile={selectedProfile}
-                  galleryUrls={detailGallery}
-                  onClose={() => setSelectedProfile(null)}
-                  isAuthed={isAuthed}
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Mobile Bottom Sheet ── */}
-        {selectedProfile && isMobileView && (
-          <div className="fixed inset-0 z-[100] flex flex-col justify-end" role="dialog" aria-modal>
-            <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-xl uzeed-animate-fade-in"
-              onClick={() => setSelectedProfile(null)}
-            />
-            <div className="relative flex flex-col rounded-t-[24px] border-t border-white/[0.06] bg-[#0d0e17] uzeed-animate-slide-up shadow-[0_-16px_48px_rgba(0,0,0,0.5)]" style={{ maxHeight: "85vh" }}>
-              {/* Drag handle */}
-              <div className="flex justify-center py-3">
-                <div className="h-1 w-10 rounded-full bg-white/15" />
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <ProfileDetailPanel
-                  profile={selectedProfile}
-                  galleryUrls={detailGallery}
-                  onClose={() => setSelectedProfile(null)}
-                  isAuthed={isAuthed}
-                />
-              </div>
             </div>
           </div>
         )}
