@@ -72,7 +72,7 @@ export default function ProfessionalRegisterForm({
   galleryPreviews: string[];
   onGalleryAdd: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onGalleryRemove: (idx: number) => void;
-  galleryInputRef: React.RefObject<HTMLInputElement | null>;
+  galleryInputRef: React.RefObject<HTMLInputElement>;
   minPhotos: number;
   maxPhotos: number;
 }) {
