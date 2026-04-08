@@ -287,15 +287,15 @@ export default function Stories() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-        <div className="mb-3 flex items-center gap-2">
+      <div>
+        <div className="mb-2 flex items-center gap-2">
           <div className="h-4 w-4 rounded bg-white/5 animate-pulse" />
           <div className="h-3 w-20 rounded bg-white/5 animate-pulse" />
         </div>
         <div className="flex gap-4 overflow-x-auto scrollbar-hide">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex-shrink-0 flex flex-col items-center gap-2">
-              <div className="h-20 w-20 rounded-full bg-white/5 animate-pulse" />
+              <div className="h-16 w-16 rounded-full bg-white/5 animate-pulse" />
               <div className="h-2 w-12 rounded bg-white/5 animate-pulse" />
             </div>
           ))}
@@ -309,140 +309,137 @@ export default function Stories() {
 
   return (
     <>
-      <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-r from-fuchsia-500/[0.04] via-violet-500/[0.03] to-transparent p-4">
-        {/* Section header */}
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-white/90">Historias</span>
-            {totalActive > 0 && (
-              <span className="rounded-full bg-fuchsia-500/15 border border-fuchsia-500/20 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
-                {totalActive} activas
-              </span>
-            )}
-            {liveStreams.length > 0 && (
-              <span className="rounded-full bg-red-500/15 border border-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-300 flex items-center gap-1">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />
-                {liveStreams.length} en vivo
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {isProfessional && (
-              <button
-                onClick={handleGoLive}
-                className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 transition font-medium"
-              >
-                <Radio className="h-3 w-3" />
-                Ir en vivo
-              </button>
-            )}
-            {isProfessional && (
-              <Link
-                href="/dashboard/stories"
-                className="text-[11px] text-fuchsia-400 hover:text-fuchsia-300 transition font-medium"
-              >
-                + Subir story
-              </Link>
-            )}
-          </div>
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-white/90">Historias</span>
+          {totalActive > 0 && (
+            <span className="rounded-full bg-fuchsia-500/15 border border-fuchsia-500/20 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
+              {totalActive} activas
+            </span>
+          )}
+          {liveStreams.length > 0 && (
+            <span className="rounded-full bg-red-500/15 border border-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-300 flex items-center gap-1">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />
+              {liveStreams.length} en vivo
+            </span>
+          )}
         </div>
-
-        <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
-          {/* Go Live button for professionals — navigates to live panel */}
+        <div className="flex items-center gap-3">
           {isProfessional && (
-            <div className="flex-shrink-0 flex flex-col items-center gap-2">
-              <button
-                onClick={handleGoLive}
-                className="relative h-20 w-20 rounded-full border-2 border-dashed border-red-500/50 bg-red-500/5 flex items-center justify-center text-red-400 hover:border-red-400 hover:bg-red-500/10 transition hover:shadow-[0_0_20px_rgba(239,68,68,0.25)]"
-              >
-                <Radio className="h-7 w-7" />
-              </button>
-              <span className="text-[11px] text-red-300/60 font-medium">En vivo</span>
-            </div>
-          )}
-
-          {/* Upload story button for professionals */}
-          {canUpload && (
-            <div className="flex-shrink-0 flex flex-col items-center gap-2">
-              <Link
-                href="/dashboard/stories"
-                className="relative h-20 w-20 rounded-full border-2 border-dashed border-fuchsia-500/50 bg-fuchsia-500/5 flex items-center justify-center text-fuchsia-400 hover:border-fuchsia-400 hover:bg-fuchsia-500/10 transition hover:shadow-[0_0_20px_rgba(168,85,247,0.25)]"
-              >
-                <Plus className="h-7 w-7" />
-              </Link>
-              <span className="text-[11px] text-fuchsia-300/60 font-medium">Tu story</span>
-            </div>
-          )}
-
-          {/* Active live streams — shown first with red ring */}
-          {liveStreams.map((s) => (
-            <Link
-              key={`live-${s.id}`}
-              href={`/live/${s.id}`}
-              className="flex-shrink-0 flex flex-col items-center gap-2 group"
-            >
-              <div className="relative h-20 w-20 rounded-full p-[3px] bg-gradient-to-tr from-red-600 via-red-500 to-orange-500 group-hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-shadow">
-                <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
-                  {s.host.avatarUrl ? (
-                    <img
-                      src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
-                      alt={s.host.displayName}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-red-700/50 to-orange-700/50">
-                      {s.host.displayName[0]?.toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <span className="absolute bottom-0 right-0 flex items-center gap-0.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[8px] font-bold text-white shadow-lg border border-[#08090f]">
-                  <span className="h-1 w-1 animate-pulse rounded-full bg-white" />
-                  LIVE
-                </span>
-              </div>
-              <span className="max-w-[72px] truncate text-[11px] text-white/60 font-medium group-hover:text-white/80 transition">
-                {s.host.displayName.split(" ")[0]}
-              </span>
-            </Link>
-          ))}
-
-          {/* Stories */}
-          {groups.map((g, i) => (
             <button
-              key={g.userId}
-              onClick={() => setViewerGroupIdx(i)}
-              className="flex-shrink-0 flex flex-col items-center gap-2 group"
+              onClick={handleGoLive}
+              className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 transition font-medium"
             >
-              <div className="relative h-20 w-20 rounded-full p-[3px] bg-gradient-to-tr from-fuchsia-600 via-violet-500 to-pink-500 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.5)] transition-shadow">
-                <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
-                  {g.avatarUrl ? (
-                    <img
-                      src={resolveMediaUrl(g.avatarUrl) ?? undefined}
-                      alt={g.displayName}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-fuchsia-700/50 to-violet-700/50">
-                      {g.displayName[0]?.toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                {g.stories.some((s) => s.mediaType === "VIDEO") && (
-                  <span className="absolute bottom-0 right-0 h-5 w-5 rounded-full bg-fuchsia-500 flex items-center justify-center text-[9px] text-white font-bold shadow-lg border border-[#08090f]">
-                    ▶
-                  </span>
+              <Radio className="h-3 w-3" />
+              Ir en vivo
+            </button>
+          )}
+          {isProfessional && (
+            <Link
+              href="/dashboard/stories"
+              className="text-[11px] text-fuchsia-400 hover:text-fuchsia-300 transition font-medium"
+            >
+              + Subir story
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
+        {/* Go Live button for professionals — navigates to live panel */}
+        {isProfessional && (
+          <div className="flex-shrink-0 flex flex-col items-center gap-2">
+            <button
+              onClick={handleGoLive}
+              className="relative h-16 w-16 rounded-full border-2 border-dashed border-red-500/50 bg-red-500/5 flex items-center justify-center text-red-400 hover:border-red-400 hover:bg-red-500/10 transition hover:shadow-[0_0_20px_rgba(239,68,68,0.25)]"
+            >
+              <Radio className="h-6 w-6" />
+            </button>
+            <span className="text-[11px] text-red-300/60 font-medium">En vivo</span>
+          </div>
+        )}
+
+        {/* Upload story button for professionals */}
+        {canUpload && (
+          <div className="flex-shrink-0 flex flex-col items-center gap-2">
+            <Link
+              href="/dashboard/stories"
+              className="relative h-16 w-16 rounded-full border-2 border-dashed border-fuchsia-500/50 bg-fuchsia-500/5 flex items-center justify-center text-fuchsia-400 hover:border-fuchsia-400 hover:bg-fuchsia-500/10 transition hover:shadow-[0_0_20px_rgba(168,85,247,0.25)]"
+            >
+              <Plus className="h-6 w-6" />
+            </Link>
+            <span className="text-[11px] text-fuchsia-300/60 font-medium">Tu story</span>
+          </div>
+        )}
+
+        {/* Active live streams — shown first with red ring */}
+        {liveStreams.map((s) => (
+          <Link
+            key={`live-${s.id}`}
+            href={`/live/${s.id}`}
+            className="flex-shrink-0 flex flex-col items-center gap-2 group"
+          >
+            <div className="relative h-16 w-16 rounded-full p-[3px] bg-gradient-to-tr from-red-600 via-red-500 to-orange-500 group-hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-shadow">
+              <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
+                {s.host.avatarUrl ? (
+                  <img
+                    src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
+                    alt={s.host.displayName}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-red-700/50 to-orange-700/50">
+                    {s.host.displayName[0]?.toUpperCase()}
+                  </div>
                 )}
               </div>
-              <span className="max-w-[72px] truncate text-[11px] text-white/60 font-medium group-hover:text-white/80 transition">
-                {g.displayName.split(" ")[0]}
+              <span className="absolute bottom-0 right-0 flex items-center gap-0.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[8px] font-bold text-white shadow-lg border border-[#08090f]">
+                <span className="h-1 w-1 animate-pulse rounded-full bg-white" />
+                LIVE
               </span>
-            </button>
-          ))}
-        </div>
+            </div>
+            <span className="max-w-[72px] truncate text-[11px] text-white/60 font-medium group-hover:text-white/80 transition">
+              {s.host.displayName.split(" ")[0]}
+            </span>
+          </Link>
+        ))}
+
+        {/* Stories */}
+        {groups.map((g, i) => (
+          <button
+            key={g.userId}
+            onClick={() => setViewerGroupIdx(i)}
+            className="flex-shrink-0 flex flex-col items-center gap-2 group"
+          >
+            <div className="relative h-16 w-16 rounded-full p-[3px] bg-gradient-to-tr from-fuchsia-600 via-violet-500 to-pink-500 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.5)] transition-shadow">
+              <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
+                {g.avatarUrl ? (
+                  <img
+                    src={resolveMediaUrl(g.avatarUrl) ?? undefined}
+                    alt={g.displayName}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-fuchsia-700/50 to-violet-700/50">
+                    {g.displayName[0]?.toUpperCase()}
+                  </div>
+                )}
+              </div>
+              {g.stories.some((s) => s.mediaType === "VIDEO") && (
+                <span className="absolute bottom-0 right-0 h-5 w-5 rounded-full bg-fuchsia-500 flex items-center justify-center text-[9px] text-white font-bold shadow-lg border border-[#08090f]">
+                  ▶
+                </span>
+              )}
+            </div>
+            <span className="max-w-[72px] truncate text-[11px] text-white/60 font-medium group-hover:text-white/80 transition">
+              {g.displayName.split(" ")[0]}
+            </span>
+          </button>
+        ))}
       </div>
 
       {viewerGroupIdx !== null && (
