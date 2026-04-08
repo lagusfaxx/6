@@ -137,7 +137,8 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
   });
 
   // Create ProfileMedia from gallery URLs
-  for (const url of input.galleryUrls || []) {
+  const galleryUrls = input.galleryUrls || [];
+  for (const url of galleryUrls) {
     try {
       await prisma.profileMedia.create({
         data: { ownerId: user.id, type: "IMAGE", url },
@@ -145,6 +146,14 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
     } catch (err) {
       console.error("[createProfessional] gallery media failed", { userId: user.id, url, error: err });
     }
+  }
+
+  // Set first gallery photo as avatar so profile cards show an image
+  if (galleryUrls.length > 0) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { avatarUrl: galleryUrls[0] },
+    });
   }
 
   // Send password-set email
