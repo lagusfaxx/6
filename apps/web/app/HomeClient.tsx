@@ -713,29 +713,23 @@ export default function HomeClient() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
-      {/* ═══ MINI-HERO — Compact but present ═══ */}
-      <section className="relative overflow-hidden px-4 pt-6 pb-5 sm:pt-8 sm:pb-6">
-        {/* Subtle ambient glow */}
-        <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[300px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.07] blur-[100px]" />
-        <div className="pointer-events-none absolute right-[10%] top-0 -z-10 h-[200px] w-[200px] rounded-full bg-fuchsia-500/[0.04] blur-[80px]" />
-
-        <div className="mx-auto max-w-6xl text-center">
-          <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl md:text-3xl">
-            <span className="text-white/90">Escorts y experiencias reales</span>{" "}
-            <span className="bg-gradient-to-r from-fuchsia-400 to-violet-400 bg-clip-text text-transparent">cerca de ti</span>
-          </h1>
-          <p className="mx-auto mt-2 max-w-lg text-xs text-white/40 sm:text-sm">
-            Perfiles verificados · Contacto directo · Disponibles ahora
-          </p>
-          <div className="mt-4 flex items-center justify-center gap-3">
-            <Link
-              href="/servicios"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-xs font-bold text-white transition-all duration-200 hover:shadow-[0_8px_24px_rgba(168,85,247,0.25)] sm:px-6 sm:py-3 sm:text-sm"
-            >
-              Explorar ahora
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+      {/* ═══ COMPACT MARKETPLACE HEADER ═══ */}
+      <section className="relative px-4 pt-3 pb-2 sm:pt-4 sm:pb-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-base font-bold tracking-tight sm:text-lg">
+              <span className="text-white/90">Escorts y experiencias</span>{" "}
+              <span className="text-fuchsia-400/80">cerca de ti</span>
+            </h1>
+            <p className="mt-0.5 hidden text-xs text-white/35 sm:block">Perfiles verificados · Contacto directo · Disponibles ahora</p>
           </div>
+          <Link
+            href="/servicios"
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-xs font-bold text-white transition-all duration-200 hover:shadow-[0_8px_24px_rgba(168,85,247,0.25)] sm:px-5 sm:py-2.5 sm:text-sm"
+          >
+            Explorar
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
       </section>
 
@@ -765,29 +759,27 @@ export default function HomeClient() {
           <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>
         )}
 
-        {/* ═══ CATEGORÍAS ═══ */}
+        {/* ═══ CATEGORÍAS — Compact scrollable navigation ═══ */}
         <section className="mb-4">
-          {/* Mobile: grid 4 columns × 2 rows */}
-          <div className="grid grid-cols-4 gap-2.5 sm:hidden">
+          {/* Mobile: horizontal scroll pills (compact, app-like) */}
+          <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:hidden">
             {[
-              { label: "Escorts", href: "/escorts", icon: Sparkles, gradient: "from-fuchsia-600/15 to-pink-600/10", borderColor: "border-fuchsia-500/20", iconColor: "text-fuchsia-400" },
-              { label: "Masajistas", href: "/masajistas", icon: Hand, gradient: "from-violet-600/15 to-purple-600/10", borderColor: "border-violet-500/20", iconColor: "text-violet-400" },
-              { label: "Moteles", href: "/moteles", icon: Hotel, gradient: "from-amber-600/15 to-orange-600/10", borderColor: "border-amber-500/20", iconColor: "text-amber-400" },
-              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, gradient: "from-rose-600/15 to-red-600/10", borderColor: "border-rose-500/20", iconColor: "text-rose-400" },
-              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, gradient: "from-cyan-600/15 to-teal-600/10", borderColor: "border-cyan-500/20", iconColor: "text-cyan-400" },
-              { label: "Videollamadas", href: "/videocall", icon: Video, gradient: "from-blue-600/15 to-indigo-600/10", borderColor: "border-blue-500/20", iconColor: "text-blue-400" },
-              { label: "Cerca tuyo", href: "/servicios", icon: Navigation, gradient: "from-emerald-600/15 to-green-600/10", borderColor: "border-emerald-500/20", iconColor: "text-emerald-400" },
-              { label: "Premium", href: "/premium", icon: Crown, gradient: "from-amber-600/15 to-yellow-600/10", borderColor: "border-amber-500/20", iconColor: "text-amber-400" },
+              { label: "Escorts", href: "/escorts", icon: Sparkles, iconColor: "text-fuchsia-400", borderColor: "border-fuchsia-500/20" },
+              { label: "Masajistas", href: "/masajistas", icon: Hand, iconColor: "text-violet-400", borderColor: "border-violet-500/20" },
+              { label: "Moteles", href: "/moteles", icon: Hotel, iconColor: "text-amber-400", borderColor: "border-amber-500/20" },
+              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, iconColor: "text-rose-400", borderColor: "border-rose-500/20" },
+              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, iconColor: "text-cyan-400", borderColor: "border-cyan-500/20" },
+              { label: "Video", href: "/videocall", icon: Video, iconColor: "text-blue-400", borderColor: "border-blue-500/20" },
+              { label: "Cerca", href: "/servicios", icon: Navigation, iconColor: "text-emerald-400", borderColor: "border-emerald-500/20" },
+              { label: "Premium", href: "/premium", icon: Crown, iconColor: "text-amber-400", borderColor: "border-amber-500/20" },
             ].map((cat) => (
               <Link
                 key={cat.href}
                 href={cat.href}
-                className={`uzeed-category-card group flex flex-col items-center gap-2 rounded-2xl border ${cat.borderColor} bg-gradient-to-br ${cat.gradient} px-2 py-3.5 backdrop-blur-sm`}
+                className={`uzeed-category-card group flex shrink-0 items-center gap-1.5 rounded-xl border ${cat.borderColor} bg-white/[0.03] px-3 py-2 backdrop-blur-sm`}
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
-                  <cat.icon className={`h-[18px] w-[18px] ${cat.iconColor} transition-transform duration-300 group-hover:scale-110`} />
-                </div>
-                <span className="text-[10px] font-semibold text-white/70 text-center leading-tight">{cat.label}</span>
+                <cat.icon className={`h-3.5 w-3.5 ${cat.iconColor}`} />
+                <span className="text-[11px] font-semibold text-white/65 whitespace-nowrap">{cat.label}</span>
               </Link>
             ))}
           </div>
