@@ -23,6 +23,7 @@ import {
   ArrowRight,
   ChevronRight,
   Crown,
+  Download,
   Hand,
   Hotel,
   MapPin,
@@ -31,7 +32,10 @@ import {
   ShieldCheck,
   ShoppingBag,
   Sparkles,
+  Users,
   Video,
+  X,
+  Zap,
 } from "lucide-react";
 
 /* ── Trial label ── */
@@ -130,6 +134,101 @@ function hasVideoCallBadge(p: { serviceTags?: string[]; profileTags?: string[] }
   });
 }
 
+/* ── Install App Button ── */
+function InstallAppButton() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    setIsIOS(ios);
+    setIsStandalone(window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true);
+    const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  if (isStandalone) return null;
+
+  async function handleClick() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      setDeferredPrompt(null);
+    } else {
+      setShowInstructions(true);
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={handleClick}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-8 py-4 text-sm font-medium text-white/80 backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.08] sm:w-auto"
+      >
+        <Download className="h-4 w-4" />
+        Descargar App
+      </button>
+
+      {showInstructions && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md" onClick={() => setShowInstructions(false)}>
+          <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-white/10 bg-[#0e0e12] p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold">Instalar Uzeed</h3>
+              <button onClick={() => setShowInstructions(false)} className="rounded-full border border-white/10 bg-white/5 p-2 text-white/50 hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {isIOS ? (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Para instalar la app en tu iPhone o iPad:</p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">1</div>
+                    <p className="text-sm text-white/70 pt-1">Toca el botón <strong className="text-white">Compartir</strong> <span className="inline-block align-middle text-blue-400">(cuadrado con flecha)</span> en Safari</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">2</div>
+                    <p className="text-sm text-white/70 pt-1">Desliza y toca <strong className="text-white">&ldquo;Agregar a pantalla de inicio&rdquo;</strong></p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">3</div>
+                    <p className="text-sm text-white/70 pt-1">Confirma tocando <strong className="text-white">&ldquo;Agregar&rdquo;</strong></p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Para instalar la app en tu dispositivo:</p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">1</div>
+                    <p className="text-sm text-white/70 pt-1">Toca el menú <strong className="text-white">&#8942;</strong> (tres puntos) en tu navegador</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">2</div>
+                    <p className="text-sm text-white/70 pt-1">Selecciona <strong className="text-white">&ldquo;Instalar aplicación&rdquo;</strong> o <strong className="text-white">&ldquo;Agregar a pantalla de inicio&rdquo;</strong></p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-fuchsia-300 text-sm font-bold">3</div>
+                    <p className="text-sm text-white/70 pt-1">Confirma la instalación</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-3 text-center text-xs text-fuchsia-200/80">
+              La app se abrirá como una aplicación nativa sin barra del navegador
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 /* ── Animated Hero Counters ── */
 
@@ -166,6 +265,54 @@ function getPlatformStats() {
   return _platformStatsPromise;
 }
 
+function HeroCounters() {
+  const [stats, setStats] = useState<{ professionals: number; services: number } | null>(null);
+  const [animate, setAnimate] = useState(false);
+
+  useEffect(() => {
+    getPlatformStats()
+      .then((res) => setStats(res))
+      .catch((err) => console.warn("[HeroCounters] failed to load platform stats", err));
+  }, []);
+
+  useEffect(() => {
+    // Small delay so the counter animation is visible after page paint
+    const timer = setTimeout(() => setAnimate(true), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Apply 50% margin above real values, rounded to nearest 10
+  const prosTarget = stats ? Math.ceil((stats.professionals * 1.5) / 10) * 10 : 0;
+  const servicesTarget = stats ? Math.ceil((stats.services * 1.5) / 10) * 10 : 0;
+  const comunasFixed = 300;
+
+  const prosCount = useAnimatedCounter(prosTarget, 2000, animate && prosTarget > 0);
+  const servicesCount = useAnimatedCounter(servicesTarget, 2000, animate && servicesTarget > 0);
+  const comunasCount = useAnimatedCounter(comunasFixed, 2000, animate);
+
+  const counters = [
+    { value: prosCount, suffix: "+", label: "profesionales", icon: Users },
+    { value: servicesCount, suffix: "+", label: "servicios completados", icon: Sparkles },
+    { value: comunasCount, suffix: "+", label: "comunas", icon: MapPin },
+  ];
+
+  return (
+    <div
+      className={`mt-8 flex items-center justify-center gap-6 sm:gap-10 ${animate ? "animate-float-up" : "opacity-0"}`}
+      style={{ animationDelay: "320ms", animationFillMode: "both" }}
+    >
+      {counters.map((c, i) => (
+        <div key={i} className="group/stat flex cursor-default flex-col items-center gap-1">
+          <c.icon className="mb-1 h-4 w-4 text-fuchsia-400/70 transition-colors duration-150 group-hover/stat:text-fuchsia-400" />
+          <span className="text-xl font-bold tabular-nums tracking-tight text-white/90 sm:text-2xl">
+            {c.value}{c.suffix}
+          </span>
+          <span className="text-[11px] text-white/40 sm:text-xs">{c.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ── Videollamadas CTA Banner ── */
 
@@ -713,28 +860,53 @@ export default function HomeClient() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
-      {/* ═══ COMPACT MARKETPLACE HEADER ═══ */}
-      <section className="relative px-4 pt-3 pb-2 sm:pt-4 sm:pb-3">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-bold tracking-tight sm:text-lg">
-              <span className="text-white/90">Escorts y experiencias</span>{" "}
-              <span className="text-fuchsia-400/80">cerca de ti</span>
-            </h1>
-            <p className="mt-0.5 hidden text-xs text-white/35 sm:block">Perfiles verificados · Contacto directo · Disponibles ahora</p>
+      {/* ═══ HERO — Premium immersive ═══ */}
+      <section className="relative flex min-h-[38vh] items-center justify-center overflow-hidden px-4 md:min-h-[46vh]">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
+        {/* Static ambient orbs — no animation to reduce rendering cost */}
+        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[140px]" />
+        <div className="pointer-events-none absolute right-[8%] top-[18%] -z-10 h-[450px] w-[450px] rounded-full bg-fuchsia-500/[0.06] blur-[120px]" />
+        <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 h-[350px] w-[350px] rounded-full bg-indigo-500/[0.05] blur-[100px]" />
+        {/* Noise texture overlay for premium texture */}
+        <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
+
+        <div className="relative mx-auto max-w-3xl text-center">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/15 bg-gradient-to-r from-fuchsia-500/[0.06] to-violet-500/[0.04] px-5 py-2 text-xs font-medium text-white/60 backdrop-blur-2xl shadow-[0_0_30px_rgba(168,85,247,0.08)] animate-float-up">
+            <Zap className="h-3.5 w-3.5 text-fuchsia-400" />
+            Plataforma #1 de experiencias en Chile
           </div>
-          <Link
-            href="/servicios"
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-xs font-bold text-white transition-all duration-200 hover:shadow-[0_8px_24px_rgba(168,85,247,0.25)] sm:px-5 sm:py-2.5 sm:text-sm"
-          >
-            Explorar
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+
+          <h1 className="text-[2rem] font-extrabold leading-[1.08] tracking-tight sm:text-4xl md:text-5xl animate-float-up" style={{ animationDelay: "80ms", animationFillMode: "both" }}>
+            <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
+          </h1>
+
+          <h2 className="mx-auto mt-5 max-w-2xl text-[13px] font-medium leading-relaxed text-white/45 sm:text-sm md:text-base animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
+            Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Todo lo que buscas en un entorno discreto, verificado y premium.
+          </h2>
+
+          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center animate-float-up" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
+            <Link
+              href="/servicios"
+              className="uzeed-hero-cta group relative inline-flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)] sm:w-auto"
+            >
+              Explorar ahora
+              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </Link>
+            <InstallAppButton />
+          </div>
+
+          <HeroCounters />
         </div>
       </section>
 
+      {/* Section divider - premium gradient */}
+      <div className="relative mx-auto max-w-5xl px-4">
+        <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/20 to-transparent" />
+      </div>
+
       {/* Main content */}
-      <div className="relative mx-auto max-w-6xl overflow-visible px-4 pb-16">
+      <div className="relative mx-auto max-w-6xl overflow-visible px-4 pb-16 mt-6">
         {/* Side ad banners (desktop) */}
         {leftSideBanners.length > 0 && (
           <div className="absolute left-0 top-0 hidden w-[160px] space-y-3 2xl:block" style={{ marginLeft: "-180px" }}>
@@ -759,31 +931,63 @@ export default function HomeClient() {
           <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>
         )}
 
-        {/* ═══ CATEGORÍAS — Compact scrollable navigation ═══ */}
-        <section className="mb-4">
-          {/* Mobile: horizontal scroll pills (compact, app-like) */}
-          <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:hidden">
+        {/* ═══ STORIES ═══ */}
+        <section className="mb-6">
+          <Stories />
+        </section>
+
+        {/* ═══ BANNERS PUBLICITARIOS ═══ */}
+        {/* Stable wrapper prevents CLS: reserves space until we know if banners exist */}
+        {!bannersLoaded ? (
+          <div className="mb-8 2xl:hidden min-h-[60px]" />
+        ) : horizontalBanners.length > 0 && (
+          <section className="mb-8 2xl:hidden">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+                <Zap className="h-3 w-3" /> Promocionado
+              </span>
+            </div>
+            <div className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x">
+              {horizontalBanners.map((b) => (
+                <a
+                  key={b.id}
+                  href={bannerHref(b)}
+                  className="relative block h-[240px] w-[150px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0a14] shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/20 hover:shadow-lg"
+                >
+                  {renderProfileBanner(b)}
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ═══ CATEGORÍAS — Premium quick navigation ═══ */}
+        <section className="mb-8">
+          {/* Mobile: premium grid with glassmorphism */}
+          <div className="grid grid-cols-4 gap-2.5 sm:hidden">
             {[
-              { label: "Escorts", href: "/escorts", icon: Sparkles, iconColor: "text-fuchsia-400", borderColor: "border-fuchsia-500/20" },
-              { label: "Masajistas", href: "/masajistas", icon: Hand, iconColor: "text-violet-400", borderColor: "border-violet-500/20" },
-              { label: "Moteles", href: "/moteles", icon: Hotel, iconColor: "text-amber-400", borderColor: "border-amber-500/20" },
-              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, iconColor: "text-rose-400", borderColor: "border-rose-500/20" },
-              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, iconColor: "text-cyan-400", borderColor: "border-cyan-500/20" },
-              { label: "Video", href: "/videocall", icon: Video, iconColor: "text-blue-400", borderColor: "border-blue-500/20" },
-              { label: "Cerca", href: "/servicios", icon: Navigation, iconColor: "text-emerald-400", borderColor: "border-emerald-500/20" },
-              { label: "Premium", href: "/premium", icon: Crown, iconColor: "text-amber-400", borderColor: "border-amber-500/20" },
+              { label: "Escorts", href: "/escorts", icon: Sparkles, gradient: "from-fuchsia-600/15 to-pink-600/10", borderColor: "border-fuchsia-500/20", iconColor: "text-fuchsia-400" },
+              { label: "Masajistas", href: "/masajistas", icon: Hand, gradient: "from-violet-600/15 to-purple-600/10", borderColor: "border-violet-500/20", iconColor: "text-violet-400" },
+              { label: "Moteles", href: "/moteles", icon: Hotel, gradient: "from-amber-600/15 to-orange-600/10", borderColor: "border-amber-500/20", iconColor: "text-amber-400" },
+              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, gradient: "from-rose-600/15 to-red-600/10", borderColor: "border-rose-500/20", iconColor: "text-rose-400" },
+              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, gradient: "from-cyan-600/15 to-teal-600/10", borderColor: "border-cyan-500/20", iconColor: "text-cyan-400" },
+              { label: "Videollamadas", href: "/videocall", icon: Video, gradient: "from-blue-600/15 to-indigo-600/10", borderColor: "border-blue-500/20", iconColor: "text-blue-400" },
+              { label: "Cerca tuyo", href: "/servicios", icon: Navigation, gradient: "from-emerald-600/15 to-green-600/10", borderColor: "border-emerald-500/20", iconColor: "text-emerald-400" },
+              { label: "Premium", href: "/premium", icon: Crown, gradient: "from-amber-600/15 to-yellow-600/10", borderColor: "border-amber-500/20", iconColor: "text-amber-400" },
             ].map((cat) => (
               <Link
                 key={cat.href}
                 href={cat.href}
-                className={`uzeed-category-card group flex shrink-0 items-center gap-1.5 rounded-xl border ${cat.borderColor} bg-white/[0.03] px-3 py-2 backdrop-blur-sm`}
+                className={`uzeed-category-card group flex flex-col items-center gap-2 rounded-2xl border ${cat.borderColor} bg-gradient-to-br ${cat.gradient} px-2 py-3.5 backdrop-blur-sm`}
               >
-                <cat.icon className={`h-3.5 w-3.5 ${cat.iconColor}`} />
-                <span className="text-[11px] font-semibold text-white/65 whitespace-nowrap">{cat.label}</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
+                  <cat.icon className={`h-[18px] w-[18px] ${cat.iconColor} transition-transform duration-300 group-hover:scale-110`} />
+                </div>
+                <span className="text-[10px] font-semibold text-white/70 text-center leading-tight">{cat.label}</span>
               </Link>
             ))}
           </div>
-          {/* Desktop: horizontal pills */}
+          {/* Desktop: premium horizontal pills */}
           <div className="hidden sm:flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
             {[
               { label: "Escorts", href: "/escorts", icon: Sparkles, iconColor: "text-fuchsia-400" },
@@ -797,7 +1001,7 @@ export default function HomeClient() {
               <Link
                 key={cat.href}
                 href={cat.href}
-                className="uzeed-category-card group flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-5 py-2.5 backdrop-blur-sm"
+                className="uzeed-category-card group flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-5 py-3 backdrop-blur-sm"
               >
                 <cat.icon className={`h-4 w-4 ${cat.iconColor} transition-transform duration-300 group-hover:scale-110`} />
                 <span className="text-sm font-medium text-white/65 group-hover:text-white/85 transition-colors duration-200">{cat.label}</span>
@@ -806,39 +1010,36 @@ export default function HomeClient() {
           </div>
         </section>
 
-        {/* ═══ STORIES ═══ */}
-        <section className="mb-4">
-          <Stories />
-        </section>
-
-        {/* ═══ BANNERS PUBLICITARIOS (mobile only, compact) ═══ */}
-        {!bannersLoaded ? (
-          <div className="mb-4 2xl:hidden min-h-[48px]" />
-        ) : horizontalBanners.length > 0 && (
-          <section className="mb-4 2xl:hidden">
-            <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 snap-x">
-              {horizontalBanners.map((b) => (
-                <a
-                  key={b.id}
-                  href={bannerHref(b)}
-                  className="relative block h-[200px] w-[130px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0a14] shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/20 hover:shadow-lg"
-                >
-                  {renderProfileBanner(b)}
-                </a>
-              ))}
+        {/* ═══ CTA PUBLÍCATE ═══ */}
+        {!isAuthed && (
+          <Link
+            href="/empezar"
+            className="group mb-6 flex items-center justify-between rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.06] px-5 py-4 transition-all hover:bg-fuchsia-500/[0.10] hover:border-fuchsia-500/30"
+          >
+            <div>
+              <span className="text-sm font-semibold text-white">
+                ¿Ofreces servicios? <span className="text-fuchsia-400">Publícate aquí</span>
+              </span>
+              <p className="mt-0.5 text-[11px] text-white/40">Crea tu perfil en minutos, sin registro</p>
             </div>
-          </section>
+            <span className="shrink-0 rounded-lg bg-fuchsia-500/20 px-3 py-1.5 text-xs font-semibold text-fuchsia-300 transition-colors group-hover:bg-fuchsia-500/30">
+              Empezar
+            </span>
+          </Link>
         )}
 
-        {/* ═══ DISPONIBLE AHORA — Primary content section ═══ */}
-        <section ref={availableSectionRef} className="mb-6">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="relative flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/[0.12]">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-md bg-emerald-400/30" />
-                  <span className="relative h-2 w-2 rounded-full bg-emerald-400" />
+        {/* Section gradient divider */}
+        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
+
+        {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}
+        <section ref={availableSectionRef} className="mb-8">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/[0.12]">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-lg bg-emerald-400/30" />
+                  <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-400" />
                 </div>
-                <h2 className="text-sm font-bold tracking-tight sm:text-base">Disponibles ahora</h2>
+                <h2 className="text-base font-bold tracking-tight">Disponibles ahora</h2>
               </div>
               <Link href="/servicios?sort=availableNow" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-emerald-400 transition-colors duration-200">
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -890,18 +1091,8 @@ export default function HomeClient() {
             )}
           </section>
 
-        {/* ═══ CTA PUBLÍCATE (compact, non-intrusive) ═══ */}
-        {!isAuthed && (
-          <Link
-            href="/empezar"
-            className="group mb-5 flex items-center justify-between rounded-xl border border-fuchsia-500/15 bg-fuchsia-500/[0.04] px-4 py-3 transition-all hover:bg-fuchsia-500/[0.08]"
-          >
-            <span className="text-xs font-semibold text-white/70">
-              ¿Ofreces servicios? <span className="text-fuchsia-400">Publícate gratis</span>
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-fuchsia-400/50" />
-          </Link>
-        )}
+        {/* Section gradient divider */}
+        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.08] to-transparent" />
 
         {/* ═══ TIER SECTIONS: Platino / Gold / Silver ═══ */}
         {TIERS.map((tier) => {
