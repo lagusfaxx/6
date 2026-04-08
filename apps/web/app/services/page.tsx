@@ -83,13 +83,16 @@ const INITIAL_RADIUS_KM = 50;
 
 const CATEGORY_TABS = [
   { key: "all", label: "Todas", icon: Users, activeGradient: "from-fuchsia-500 to-purple-600", glow: "shadow-fuchsia-500/25" },
-  { key: "mujeres", label: "Mujeres", icon: Heart, activeGradient: "from-pink-500 to-rose-600", glow: "shadow-pink-500/25" },
-  { key: "hombres", label: "Hombres", icon: CircleUser, activeGradient: "from-blue-500 to-cyan-600", glow: "shadow-blue-500/25" },
-  { key: "trans", label: "Trans", icon: Sparkles, activeGradient: "from-violet-500 to-fuchsia-600", glow: "shadow-violet-500/25" },
   { key: "escort", label: "Escorts", icon: Sparkles, activeGradient: "from-rose-500 to-pink-600", glow: "shadow-rose-500/25" },
   { key: "masajes", label: "Masajes", icon: Users, activeGradient: "from-violet-500 to-indigo-600", glow: "shadow-violet-500/25" },
   { key: "moteles", label: "Moteles", icon: Building2, activeGradient: "from-amber-500 to-orange-600", glow: "shadow-amber-500/25" },
   { key: "sexshop", label: "Sex Shop", icon: ShoppingBag, activeGradient: "from-emerald-500 to-teal-600", glow: "shadow-emerald-500/25" },
+] as const;
+
+const GENDER_FILTERS = [
+  { key: "mujeres", label: "Mujeres", value: "FEMALE" as const, icon: Heart, activeColor: "border-pink-500/50 bg-pink-500/15 text-pink-300 shadow-sm shadow-pink-500/10" },
+  { key: "hombres", label: "Hombres", value: "MALE" as const, icon: CircleUser, activeColor: "border-blue-500/50 bg-blue-500/15 text-blue-300 shadow-sm shadow-blue-500/10" },
+  { key: "trans", label: "Trans", value: "OTHER" as const, icon: Sparkles, activeColor: "border-violet-500/50 bg-violet-500/15 text-violet-300 shadow-sm shadow-violet-500/10" },
 ] as const;
 
 const QUICK_FILTERS = [
@@ -171,19 +174,8 @@ function isEscortLikeProfile(profile: ProfileResult) {
   ]);
 }
 
-function matchesGenderCategory(profile: ProfileResult, category: string) {
-  if (profile.profileType !== "PROFESSIONAL") return false;
-  if (category === "mujeres") return profile.gender === "FEMALE";
-  if (category === "hombres") return profile.gender === "MALE";
-  if (category === "trans") return profile.gender === "OTHER";
-  return false;
-}
-
 function matchesProfessionalCategory(profile: ProfileResult, category: string) {
   if (profile.profileType !== "PROFESSIONAL") return false;
-  if (category === "mujeres" || category === "hombres" || category === "trans") {
-    return matchesGenderCategory(profile, category);
-  }
   if (category === "escort") return isEscortLikeProfile(profile);
   if (category === "videollamada" || category === "videollamadas") {
     return hasServiceOrProfileTag(profile, ["videollamada", "videollamadas"]);
@@ -537,6 +529,7 @@ export default function ServicesPage() {
   const [sortBy, setSortBy] = useState<string>("relevance");
   const [previewProfile, setPreviewProfile] = useState<ProfileResult | null>(null);
   const [activeQuickFilters, setActiveQuickFilters] = useState<Set<string>>(new Set());
+  const [genderFilter, setGenderFilter] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(true);
   const fetchRef = useRef(0);
 
@@ -547,6 +540,10 @@ export default function ServicesPage() {
       else next.add(key);
       return next;
     });
+  };
+
+  const toggleGenderFilter = (key: string) => {
+    setGenderFilter((prev) => (prev === key ? null : key));
   };
 
   const effectiveLocWithFallback = useMemo<[number, number]>(
@@ -579,7 +576,7 @@ export default function ServicesPage() {
         qp.set("types", "SHOP");
       } else {
         qp.set("types", "PROFESSIONAL");
-        const categoryHandledClientSide = new Set(["escort", "videollamada", "videollamadas", "despedida", "despedidas", "masajes", "masajistas", "mujeres", "hombres", "trans"]);
+        const categoryHandledClientSide = new Set(["escort", "videollamada", "videollamadas", "despedida", "despedidas", "masajes", "masajistas"]);
         if (!categoryHandledClientSide.has(category)) {
           qp.set("categorySlug", category);
         }
@@ -608,6 +605,11 @@ export default function ServicesPage() {
       });
   }, [effectiveLocWithFallback, category]);
 
+  /* ── Resolve active gender value ── */
+  const activeGenderValue = genderFilter
+    ? GENDER_FILTERS.find((g) => g.key === genderFilter)?.value ?? null
+    : null;
+
   /* ── Filter + Sort (tier-prioritized) ── */
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -618,6 +620,7 @@ export default function ServicesPage() {
           if (category === "sexshop" && profile.profileType !== "SHOP") return false;
           if (category !== "moteles" && category !== "sexshop" && !matchesProfessionalCategory(profile, category)) return false;
         }
+        if (activeGenderValue && profile.gender !== activeGenderValue) return false;
         if (q) {
           const text = `${profile.displayName || ""} ${profile.username || ""} ${profile.serviceCategory || ""} ${profile.city || ""}`.toLowerCase();
           if (!text.includes(q)) return false;
@@ -641,7 +644,7 @@ export default function ServicesPage() {
           return Number(Boolean(b.availableNow)) - Number(Boolean(a.availableNow));
         return (a.distance ?? 1e9) - (b.distance ?? 1e9);
       });
-  }, [profiles, radiusKm, search, activeQuickFilters, sortBy, category]);
+  }, [profiles, radiusKm, search, activeQuickFilters, sortBy, category, activeGenderValue]);
 
   const displayProfiles = useMemo(() => {
     if (filtered.length > 0) return filtered;
@@ -730,7 +733,7 @@ export default function ServicesPage() {
     [displayProfiles],
   );
 
-  const activeFilterCount = activeQuickFilters.size + (search ? 1 : 0);
+  const activeFilterCount = activeQuickFilters.size + (search ? 1 : 0) + (genderFilter ? 1 : 0);
 
   return (
     <div className="pb-24">
@@ -845,8 +848,26 @@ export default function ServicesPage() {
             })}
           </div>
 
-          {/* ── Quick filters (small chips) ── */}
+          {/* ── Gender + Quick filters (combinable chips) ── */}
           <div className="mt-2.5 -mx-4 px-4 flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5">
+            {GENDER_FILTERS.map((g) => {
+              const Icon = g.icon;
+              const isActive = genderFilter === g.key;
+              return (
+                <button
+                  key={g.key}
+                  type="button"
+                  onClick={() => toggleGenderFilter(g.key)}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full h-8 px-3 text-[11px] font-medium transition-all duration-200 ${
+                    isActive ? g.activeColor : "text-white/35 border border-white/[0.07] hover:text-white/55 hover:border-white/[0.14] hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <Icon className="h-3 w-3" />
+                  {g.label}
+                </button>
+              );
+            })}
+            <span className="w-px h-4 bg-white/[0.08] shrink-0" />
             {QUICK_FILTERS.map((f) => {
               const Icon = f.icon;
               const isActive = activeQuickFilters.has(f.key);
@@ -867,7 +888,7 @@ export default function ServicesPage() {
             {activeFilterCount > 0 && (
               <button
                 type="button"
-                onClick={() => { setActiveQuickFilters(new Set()); setSearch(""); }}
+                onClick={() => { setActiveQuickFilters(new Set()); setGenderFilter(null); setSearch(""); }}
                 className="flex shrink-0 items-center gap-1 rounded-full h-8 px-3 text-[11px] text-white/25 hover:text-white/55 border border-transparent hover:border-white/[0.08] transition-all"
               >
                 <X className="h-3 w-3" /> Limpiar
@@ -953,7 +974,7 @@ export default function ServicesPage() {
             <p className="mt-1.5 text-sm text-white/40">Intenta ampliar el rango o cambiar la ubicación en el chip del header.</p>
             <button
               type="button"
-              onClick={() => { setRadiusKm(100); setActiveQuickFilters(new Set()); setCategory("all"); }}
+              onClick={() => { setRadiusKm(100); setActiveQuickFilters(new Set()); setGenderFilter(null); setCategory("all"); }}
               className="mt-5 rounded-xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] px-6 py-3 text-sm font-semibold transition-all hover:bg-[position:100%_0] shadow-[0_8px_24px_rgba(168,85,247,0.2)]"
             >
               Ampliar búsqueda
