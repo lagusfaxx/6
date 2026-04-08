@@ -12,6 +12,8 @@ import {
   FileText,
   ShieldCheck,
   Gift,
+  ImagePlus,
+  X,
 } from "lucide-react";
 
 const phoneRegex =
@@ -54,11 +56,25 @@ export default function ProfessionalRegisterForm({
   onOpenTerms,
   onCollectData,
   onBack,
+  galleryFiles,
+  galleryPreviews,
+  onGalleryAdd,
+  onGalleryRemove,
+  galleryInputRef,
+  minPhotos,
+  maxPhotos,
 }: {
   termsAccepted: boolean;
   onOpenTerms: () => void;
   onCollectData: (data: RegisterFormData) => void;
   onBack: () => void;
+  galleryFiles: File[];
+  galleryPreviews: string[];
+  onGalleryAdd: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onGalleryRemove: (idx: number) => void;
+  galleryInputRef: React.RefObject<HTMLInputElement | null>;
+  minPhotos: number;
+  maxPhotos: number;
 }) {
   const [subStep, setSubStep] = useState(1);
 
@@ -112,6 +128,8 @@ export default function ProfessionalRegisterForm({
       if (mDiff < 0) age -= 1;
       if (age < 18) return "Debes ser mayor de 18 años.";
       if (!primaryCategory) return "Selecciona una categoría.";
+      if (galleryFiles.length < minPhotos)
+        return `Debes subir al menos ${minPhotos} fotos para continuar.`;
     }
     if (step === 3) {
       if (
@@ -392,6 +410,77 @@ export default function ProfessionalRegisterForm({
               <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">
                 ▾
               </span>
+            </div>
+          </div>
+
+          {/* Gallery photos */}
+          <div className="grid gap-2">
+            <label className="text-sm font-medium text-white/70">
+              Tus fotos *{" "}
+              <span className="font-normal text-white/30">
+                — mínimo {minPhotos}, hasta {maxPhotos}
+              </span>
+            </label>
+            <p className="text-xs text-white/40 -mt-1">
+              La primera será tu foto principal de perfil.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {Array.from({ length: maxPhotos }).map((_, idx) => {
+                const hasPhoto = idx < galleryPreviews.length;
+                return (
+                  <div
+                    key={idx}
+                    className="relative aspect-[3/4] overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]"
+                  >
+                    {hasPhoto ? (
+                      <>
+                        <img
+                          src={galleryPreviews[idx]}
+                          alt={`Foto ${idx + 1}`}
+                          className="h-full w-full object-cover"
+                        />
+                        {idx === 0 && (
+                          <span className="absolute left-1 top-1 rounded-md bg-fuchsia-500/80 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                            Principal
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => onGalleryRemove(idx)}
+                          className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white/80 hover:bg-red-500/80 transition"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => galleryInputRef.current?.click()}
+                        className="flex h-full w-full flex-col items-center justify-center gap-1 text-white/20 transition-colors hover:text-fuchsia-400/60"
+                      >
+                        <ImagePlus className="h-5 w-5" />
+                        <span className="text-[9px]">Agregar</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={onGalleryAdd}
+              className="hidden"
+            />
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] text-white/30">
+                JPG, PNG o WebP. Máx 10 MB.
+              </p>
+              <p className="text-[10px] text-white/40">
+                {galleryFiles.length} de {maxPhotos}
+              </p>
             </div>
           </div>
         </>
