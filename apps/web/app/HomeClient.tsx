@@ -256,7 +256,7 @@ function useAnimatedCounter(target: number, duration: number, start: boolean) {
 let _platformStatsPromise: Promise<any> | null = null;
 function getPlatformStats() {
   if (!_platformStatsPromise) {
-    _platformStatsPromise = apiFetch<{ professionals: number; services: number; videocallProfessionals: number }>("/stats/platform")
+    _platformStatsPromise = apiFetch<{ professionals: number; services: number; videocallProfessionals: number; whatsappClicks: number }>("/stats/platform")
       .catch((err) => {
         _platformStatsPromise = null;
         throw err;
@@ -266,7 +266,7 @@ function getPlatformStats() {
 }
 
 function HeroCounters() {
-  const [stats, setStats] = useState<{ professionals: number; services: number } | null>(null);
+  const [stats, setStats] = useState<{ professionals: number; whatsappClicks: number } | null>(null);
   const [animate, setAnimate] = useState(false);
 
   useEffect(() => {
@@ -283,16 +283,16 @@ function HeroCounters() {
 
   // Apply 50% margin above real values, rounded to nearest 10
   const prosTarget = stats ? Math.ceil((stats.professionals * 1.5) / 10) * 10 : 0;
-  const servicesTarget = stats ? Math.ceil((stats.services * 1.5) / 10) * 10 : 0;
+  const contactsTarget = stats ? Math.ceil((stats.whatsappClicks * 1.5) / 10) * 10 : 0;
   const comunasFixed = 300;
 
   const prosCount = useAnimatedCounter(prosTarget, 2000, animate && prosTarget > 0);
-  const servicesCount = useAnimatedCounter(servicesTarget, 2000, animate && servicesTarget > 0);
+  const contactsCount = useAnimatedCounter(contactsTarget, 2000, animate && contactsTarget > 0);
   const comunasCount = useAnimatedCounter(comunasFixed, 2000, animate);
 
   const counters = [
     { value: prosCount, suffix: "+", label: "profesionales", icon: Users },
-    { value: servicesCount, suffix: "+", label: "servicios completados", icon: Sparkles },
+    { value: contactsCount, suffix: "+", label: "contactos exitosos", icon: Sparkles },
     { value: comunasCount, suffix: "+", label: "comunas", icon: MapPin },
   ];
 
@@ -872,12 +872,7 @@ export default function HomeClient() {
         <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
 
         <div className="relative mx-auto max-w-3xl text-center">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/15 bg-gradient-to-r from-fuchsia-500/[0.06] to-violet-500/[0.04] px-4 py-1.5 text-[11px] font-medium text-white/60 backdrop-blur-2xl shadow-[0_0_30px_rgba(168,85,247,0.08)] animate-float-up">
-            <Zap className="h-3 w-3 text-fuchsia-400" />
-            Plataforma #1 de experiencias en Chile
-          </div>
-
-          <h1 className="text-[1.6rem] font-extrabold leading-[1.1] tracking-tight sm:text-3xl md:text-4xl animate-float-up" style={{ animationDelay: "80ms", animationFillMode: "both" }}>
+          <h1 className="text-[1.6rem] font-extrabold leading-[1.1] tracking-tight sm:text-3xl md:text-4xl animate-float-up" style={{ animationFillMode: "both" }}>
             <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
           </h1>
 
