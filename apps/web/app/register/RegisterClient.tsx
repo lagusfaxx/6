@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import AuthForm, { type RegisterFormData } from "../../components/AuthForm";
 import ProfessionalRegisterForm from "../../components/ProfessionalRegisterForm";
 import TermsModal from "../../components/TermsModal";
@@ -81,6 +81,13 @@ export default function RegisterClient() {
   const MIN_PHOTOS = 3;
   const MAX_PHOTOS = 6;
 
+  // Revoke blob URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      galleryPreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
   const isBusinessProfile = profileType === "PROFESSIONAL" || profileType === "ESTABLISHMENT" || profileType === "SHOP";
   const isProfessional = profileType === "PROFESSIONAL";
 
@@ -123,28 +130,33 @@ export default function RegisterClient() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     const valid: File[] = [];
+    let errorMsg: string | null = null;
     for (const file of files) {
       if (!file.type.startsWith("image/")) {
-        setPhotosError("Solo se permiten imágenes (JPG, PNG, WebP).");
+        errorMsg = "Solo se permiten imágenes (JPG, PNG, WebP).";
         continue;
       }
       if (file.size > 10 * 1024 * 1024) {
-        setPhotosError("Cada imagen no puede superar 10 MB.");
+        errorMsg = "Cada imagen no puede superar 10 MB.";
         continue;
       }
       valid.push(file);
     }
     const remaining = MAX_PHOTOS - galleryFiles.length;
     const toAdd = valid.slice(0, remaining);
+    if (valid.length > remaining) {
+      errorMsg = `Solo puedes agregar ${remaining} foto(s) más.`;
+    }
     if (toAdd.length > 0) {
-      setPhotosError(null);
       setGalleryFiles((prev) => [...prev, ...toAdd]);
       setGalleryPreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))]);
     }
+    setPhotosError(errorMsg);
     e.target.value = "";
   }
 
   function removeGalleryItem(idx: number) {
+    URL.revokeObjectURL(galleryPreviews[idx]);
     setGalleryFiles((prev) => prev.filter((_, i) => i !== idx));
     setGalleryPreviews((prev) => prev.filter((_, i) => i !== idx));
   }
