@@ -578,7 +578,7 @@ export default function ProfileDetailView({
     <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-hidden pb-40 md:pb-10">
       {/* Hero cover */}
       <section className="relative w-full overflow-hidden">
-        <div className="relative aspect-[9/6] w-full overflow-hidden md:aspect-[16/7]">
+        <div className="relative aspect-[9/6] w-full overflow-hidden md:aspect-auto md:h-[340px]">
           {coverSrc ? (
             <img
               src={coverSrc}
