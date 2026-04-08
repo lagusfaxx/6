@@ -64,7 +64,7 @@ const businessOptions: Array<{
 ];
 
 export default function RegisterClient() {
-  const [step, setStep] = useState<"choose" | "form" | "verify" | "avatar" | "pending">("choose");
+  const [step, setStep] = useState<"choose" | "photos" | "form" | "verify" | "pending">("choose");
   const [profileType, setProfileType] = useState<ProfileType>("CLIENT");
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -74,7 +74,6 @@ export default function RegisterClient() {
   const [registering, setRegistering] = useState(false);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [photosError, setPhotosError] = useState<string | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,7 +97,7 @@ export default function RegisterClient() {
 
   const termsType = isBusinessProfile ? "business" : "client";
 
-  // After email verified, create the account
+  // After email verified, create the account (and upload photos for professionals)
   async function createAccountAfterVerification() {
     if (!pendingFormData) return;
     setRegistering(true);
@@ -109,10 +108,33 @@ export default function RegisterClient() {
         body: JSON.stringify(pendingFormData),
       });
       // Register auto-creates the session, no separate login needed
-      if (isProfessional) {
-        // Professionals MUST upload a profile photo before continuing
-        setStep("avatar");
-      } else if (isBusinessProfile) {
+
+      // For professionals, upload the photos collected in the "photos" step
+      if (isProfessional && galleryFiles.length > 0) {
+        const base = getApiBase();
+
+        // Upload first photo as avatar
+        const avatarForm = new FormData();
+        avatarForm.append("file", galleryFiles[0]);
+        await fetch(`${base}/profile/avatar`, {
+          method: "POST",
+          body: avatarForm,
+          credentials: "include",
+        });
+
+        // Upload all photos as gallery media
+        const mediaForm = new FormData();
+        for (const file of galleryFiles) {
+          mediaForm.append("files", file);
+        }
+        await fetch(`${base}/profile/media`, {
+          method: "POST",
+          body: mediaForm,
+          credentials: "include",
+        });
+      }
+
+      if (isBusinessProfile) {
         setStep("pending");
       } else {
         window.location.replace("/");
@@ -161,50 +183,6 @@ export default function RegisterClient() {
     setGalleryPreviews((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  async function uploadPhotosAndContinue() {
-    if (galleryFiles.length < MIN_PHOTOS) {
-      setPhotosError(`Debes subir al menos ${MIN_PHOTOS} fotos para continuar.`);
-      return;
-    }
-    setUploadingPhotos(true);
-    setPhotosError(null);
-    try {
-      const base = getApiBase();
-
-      // Upload first photo as avatar
-      const avatarForm = new FormData();
-      avatarForm.append("file", galleryFiles[0]);
-      const avatarResp = await fetch(`${base}/profile/avatar`, {
-        method: "POST",
-        body: avatarForm,
-        credentials: "include",
-      });
-      if (!avatarResp.ok) {
-        throw new Error("Error al subir la foto de perfil.");
-      }
-
-      // Upload all photos as gallery media
-      const mediaForm = new FormData();
-      for (const file of galleryFiles) {
-        mediaForm.append("files", file);
-      }
-      const mediaResp = await fetch(`${base}/profile/media`, {
-        method: "POST",
-        body: mediaForm,
-        credentials: "include",
-      });
-      if (!mediaResp.ok) {
-        throw new Error("Error al subir las fotos de galería.");
-      }
-
-      setStep("pending");
-    } catch (err: any) {
-      setPhotosError(err?.message || "Error al subir las fotos. Intenta nuevamente.");
-    } finally {
-      setUploadingPhotos(false);
-    }
-  }
-
   // Email verification screen
   if (step === "verify") {
     return (
@@ -237,8 +215,8 @@ export default function RegisterClient() {
               ? "Elige el tipo de cuenta que mejor se ajuste a ti"
               : step === "pending"
                 ? "Tu registro ha sido recibido"
-                : step === "avatar"
-                  ? "Un último paso antes de completar tu registro"
+                : step === "photos"
+                  ? "Paso 1: Sube tus fotos de perfil"
                   : `Registrándote como: ${selected?.title ?? profileType}`}
           </p>
         </div>
@@ -355,7 +333,7 @@ export default function RegisterClient() {
                 type="button"
                 onClick={() => {
                   setTermsAccepted(false);
-                  setStep("form");
+                  setStep(isProfessional ? "photos" : "form");
                 }}
                 className="mt-6 w-full btn-primary py-3.5 text-base flex items-center justify-center gap-2"
               >
@@ -381,7 +359,7 @@ export default function RegisterClient() {
                     setStep("verify");
                   }}
                   onBack={() => {
-                    setStep("choose");
+                    setStep("photos");
                     setTermsAccepted(false);
                   }}
                 />
@@ -414,7 +392,7 @@ export default function RegisterClient() {
                 </>
               )}
             </div>
-          ) : step === "avatar" ? (
+          ) : step === "photos" ? (
             <div className="p-8">
               <div className="text-center mb-6">
                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 border border-fuchsia-400/20">
@@ -485,21 +463,32 @@ export default function RegisterClient() {
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={uploadPhotosAndContinue}
-                disabled={galleryFiles.length < MIN_PHOTOS || uploadingPhotos}
-                className="mt-6 w-full btn-primary py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {uploadingPhotos ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    Continuar
-                  </>
-                )}
-              </button>
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep("choose")}
+                  className="flex items-center gap-2 text-sm text-white/50 hover:text-white/70 transition"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Volver
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (galleryFiles.length < MIN_PHOTOS) {
+                      setPhotosError(`Debes subir al menos ${MIN_PHOTOS} fotos para continuar.`);
+                      return;
+                    }
+                    setPhotosError(null);
+                    setStep("form");
+                  }}
+                  disabled={galleryFiles.length < MIN_PHOTOS}
+                  className="flex-1 btn-primary py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Continuar
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ) : step === "pending" ? (
             <div className="p-8">
