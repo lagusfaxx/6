@@ -21,7 +21,7 @@ statsRouter.get("/stats/me", requireAuth, asyncHandler(async (req, res) => {
 
 // ✅ Public platform stats for homepage counters
 statsRouter.get("/stats/platform", asyncHandler(async (_req, res) => {
-  const [professionals, services, videocallProfessionals] = await Promise.all([
+  const [professionals, services, videocallProfessionals, whatsappClicks] = await Promise.all([
     prisma.user.count({ where: { profileType: "PROFESSIONAL" } }),
     prisma.serviceRequest.count({ where: { status: "FINALIZADO" } }),
     prisma.user.count({
@@ -33,8 +33,9 @@ statsRouter.get("/stats/platform", asyncHandler(async (_req, res) => {
         ],
       },
     }),
+    prisma.userAction.count({ where: { action: "whatsapp_click" } }),
   ]);
 
   res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600");
-  return res.json({ professionals, services, videocallProfessionals });
+  return res.json({ professionals, services, videocallProfessionals, whatsappClicks });
 }));

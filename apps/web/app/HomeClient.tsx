@@ -256,7 +256,7 @@ function useAnimatedCounter(target: number, duration: number, start: boolean) {
 let _platformStatsPromise: Promise<any> | null = null;
 function getPlatformStats() {
   if (!_platformStatsPromise) {
-    _platformStatsPromise = apiFetch<{ professionals: number; services: number; videocallProfessionals: number }>("/stats/platform")
+    _platformStatsPromise = apiFetch<{ professionals: number; services: number; videocallProfessionals: number; whatsappClicks: number }>("/stats/platform")
       .catch((err) => {
         _platformStatsPromise = null;
         throw err;
@@ -266,7 +266,7 @@ function getPlatformStats() {
 }
 
 function HeroCounters() {
-  const [stats, setStats] = useState<{ professionals: number; services: number } | null>(null);
+  const [stats, setStats] = useState<{ professionals: number; whatsappClicks: number } | null>(null);
   const [animate, setAnimate] = useState(false);
 
   useEffect(() => {
@@ -283,16 +283,16 @@ function HeroCounters() {
 
   // Apply 50% margin above real values, rounded to nearest 10
   const prosTarget = stats ? Math.ceil((stats.professionals * 1.5) / 10) * 10 : 0;
-  const servicesTarget = stats ? Math.ceil((stats.services * 1.5) / 10) * 10 : 0;
+  const contactsTarget = stats ? Math.ceil((stats.whatsappClicks * 1.5) / 10) * 10 : 0;
   const comunasFixed = 300;
 
   const prosCount = useAnimatedCounter(prosTarget, 2000, animate && prosTarget > 0);
-  const servicesCount = useAnimatedCounter(servicesTarget, 2000, animate && servicesTarget > 0);
+  const contactsCount = useAnimatedCounter(contactsTarget, 2000, animate && contactsTarget > 0);
   const comunasCount = useAnimatedCounter(comunasFixed, 2000, animate);
 
   const counters = [
     { value: prosCount, suffix: "+", label: "profesionales", icon: Users },
-    { value: servicesCount, suffix: "+", label: "servicios completados", icon: Sparkles },
+    { value: contactsCount, suffix: "+", label: "contactos exitosos", icon: Sparkles },
     { value: comunasCount, suffix: "+", label: "comunas", icon: MapPin },
   ];
 
