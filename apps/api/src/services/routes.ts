@@ -182,6 +182,7 @@ servicesRouter.get(
         profileTags: true,
         serviceTags: true,
         tier: true,
+        gender: true,
       },
     });
 
