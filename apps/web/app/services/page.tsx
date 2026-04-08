@@ -646,8 +646,11 @@ export default function ServicesPage() {
       });
   }, [profiles, radiusKm, search, activeQuickFilters, sortBy, category, activeGenderValue]);
 
+  const hasActiveFilters = category !== "all" || activeQuickFilters.size > 0 || genderFilter !== null || search.trim() !== "";
+
   const displayProfiles = useMemo(() => {
     if (filtered.length > 0) return filtered;
+    if (hasActiveFilters) return [];
     return [...profiles].sort((a, b) => {
       const tierDiff = tierOrder(a.userLevel) - tierOrder(b.userLevel);
       if (tierDiff !== 0) return tierDiff;
@@ -655,7 +658,7 @@ export default function ServicesPage() {
         return Number(Boolean(b.availableNow)) - Number(Boolean(a.availableNow));
       return (a.distance ?? 1e9) - (b.distance ?? 1e9);
     });
-  }, [filtered, profiles]);
+  }, [filtered, profiles, hasActiveFilters]);
 
   const isFeaturedProfile = (profile: ProfileResult) => profile.userLevel === "DIAMOND" || profile.userLevel === "GOLD";
 
@@ -971,13 +974,17 @@ export default function ServicesPage() {
               <Search className="h-7 w-7 text-fuchsia-400/40" />
             </div>
             <h3 className="text-lg font-bold tracking-tight">No encontramos resultados</h3>
-            <p className="mt-1.5 text-sm text-white/40">Intenta ampliar el rango o cambiar la ubicación en el chip del header.</p>
+            <p className="mt-1.5 text-sm text-white/40">
+              {hasActiveFilters
+                ? "No hay perfiles que coincidan con los filtros seleccionados. Intenta quitar algun filtro o ampliar la busqueda."
+                : "Intenta ampliar el rango o cambiar la ubicacion."}
+            </p>
             <button
               type="button"
-              onClick={() => { setRadiusKm(100); setActiveQuickFilters(new Set()); setGenderFilter(null); setCategory("all"); }}
+              onClick={() => { setRadiusKm(100); setActiveQuickFilters(new Set()); setGenderFilter(null); setCategory("all"); setSearch(""); }}
               className="mt-5 rounded-xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] px-6 py-3 text-sm font-semibold transition-all hover:bg-[position:100%_0] shadow-[0_8px_24px_rgba(168,85,247,0.2)]"
             >
-              Ampliar búsqueda
+              Limpiar filtros
             </button>
           </div>
         )}
