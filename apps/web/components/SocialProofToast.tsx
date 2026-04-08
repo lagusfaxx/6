@@ -17,7 +17,7 @@ const COOLDOWN_MS = 4_000;
 const INITIAL_DELAY_MS = 5_000;
 const MAX_QUEUE = 5;
 
-const SUPPRESSED_ROUTES = ["/chat", "/chats", "/login", "/register", "/forgot-password", "/dashboard"];
+const SUPPRESSED_ROUTES = ["/chat", "/chats", "/login", "/register", "/publicate", "/forgot-password", "/dashboard"];
 
 /* ─── Types ─── */
 
