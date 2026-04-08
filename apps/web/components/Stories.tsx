@@ -287,15 +287,15 @@ export default function Stories() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-        <div className="mb-3 flex items-center gap-2">
+      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3">
+        <div className="mb-2 flex items-center gap-2">
           <div className="h-4 w-4 rounded bg-white/5 animate-pulse" />
           <div className="h-3 w-20 rounded bg-white/5 animate-pulse" />
         </div>
         <div className="flex gap-4 overflow-x-auto scrollbar-hide">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex-shrink-0 flex flex-col items-center gap-2">
-              <div className="h-20 w-20 rounded-full bg-white/5 animate-pulse" />
+              <div className="h-16 w-16 rounded-full bg-white/5 animate-pulse" />
               <div className="h-2 w-12 rounded bg-white/5 animate-pulse" />
             </div>
           ))}
@@ -309,9 +309,9 @@ export default function Stories() {
 
   return (
     <>
-      <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-r from-fuchsia-500/[0.04] via-violet-500/[0.03] to-transparent p-4">
+      <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-r from-fuchsia-500/[0.04] via-violet-500/[0.03] to-transparent p-3">
         {/* Section header */}
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-white/90">Historias</span>
             {totalActive > 0 && (
@@ -353,9 +353,9 @@ export default function Stories() {
             <div className="flex-shrink-0 flex flex-col items-center gap-2">
               <button
                 onClick={handleGoLive}
-                className="relative h-20 w-20 rounded-full border-2 border-dashed border-red-500/50 bg-red-500/5 flex items-center justify-center text-red-400 hover:border-red-400 hover:bg-red-500/10 transition hover:shadow-[0_0_20px_rgba(239,68,68,0.25)]"
+                className="relative h-16 w-16 rounded-full border-2 border-dashed border-red-500/50 bg-red-500/5 flex items-center justify-center text-red-400 hover:border-red-400 hover:bg-red-500/10 transition hover:shadow-[0_0_20px_rgba(239,68,68,0.25)]"
               >
-                <Radio className="h-7 w-7" />
+                <Radio className="h-6 w-6" />
               </button>
               <span className="text-[11px] text-red-300/60 font-medium">En vivo</span>
             </div>
@@ -366,9 +366,9 @@ export default function Stories() {
             <div className="flex-shrink-0 flex flex-col items-center gap-2">
               <Link
                 href="/dashboard/stories"
-                className="relative h-20 w-20 rounded-full border-2 border-dashed border-fuchsia-500/50 bg-fuchsia-500/5 flex items-center justify-center text-fuchsia-400 hover:border-fuchsia-400 hover:bg-fuchsia-500/10 transition hover:shadow-[0_0_20px_rgba(168,85,247,0.25)]"
+                className="relative h-16 w-16 rounded-full border-2 border-dashed border-fuchsia-500/50 bg-fuchsia-500/5 flex items-center justify-center text-fuchsia-400 hover:border-fuchsia-400 hover:bg-fuchsia-500/10 transition hover:shadow-[0_0_20px_rgba(168,85,247,0.25)]"
               >
-                <Plus className="h-7 w-7" />
+                <Plus className="h-6 w-6" />
               </Link>
               <span className="text-[11px] text-fuchsia-300/60 font-medium">Tu story</span>
             </div>
@@ -381,7 +381,7 @@ export default function Stories() {
               href={`/live/${s.id}`}
               className="flex-shrink-0 flex flex-col items-center gap-2 group"
             >
-              <div className="relative h-20 w-20 rounded-full p-[3px] bg-gradient-to-tr from-red-600 via-red-500 to-orange-500 group-hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-shadow">
+              <div className="relative h-16 w-16 rounded-full p-[3px] bg-gradient-to-tr from-red-600 via-red-500 to-orange-500 group-hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-shadow">
                 <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
                   {s.host.avatarUrl ? (
                     <img
@@ -415,7 +415,7 @@ export default function Stories() {
               onClick={() => setViewerGroupIdx(i)}
               className="flex-shrink-0 flex flex-col items-center gap-2 group"
             >
-              <div className="relative h-20 w-20 rounded-full p-[3px] bg-gradient-to-tr from-fuchsia-600 via-violet-500 to-pink-500 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.5)] transition-shadow">
+              <div className="relative h-16 w-16 rounded-full p-[3px] bg-gradient-to-tr from-fuchsia-600 via-violet-500 to-pink-500 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.5)] transition-shadow">
                 <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
                   {g.avatarUrl ? (
                     <img
