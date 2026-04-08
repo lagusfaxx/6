@@ -7,7 +7,7 @@ import TermsModal from "../../components/TermsModal";
 import EmailVerification from "../../components/EmailVerification";
 import Link from "next/link";
 import { apiFetch, getApiBase, friendlyErrorMessage } from "../../lib/api";
-import { Briefcase, Building2, ShoppingBag, User, Clock, Phone, CheckCircle2, ArrowLeft, ArrowRight, Camera, Upload, Sparkles, Gift } from "lucide-react";
+import { Briefcase, Building2, ShoppingBag, User, Clock, Phone, CheckCircle2, ArrowLeft, ArrowRight, Camera, Sparkles, Gift, ImagePlus, X } from "lucide-react";
 
 function trialLabel(days: number): string {
   if (days >= 365) return `${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? "s" : ""}`;
@@ -72,11 +72,14 @@ export default function RegisterClient() {
   const [pendingFormData, setPendingFormData] = useState<RegisterFormData | null>(null);
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [avatarError, setAvatarError] = useState<string | null>(null);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [photosError, setPhotosError] = useState<string | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const MIN_PHOTOS = 3;
+  const MAX_PHOTOS = 6;
 
   const isBusinessProfile = profileType === "PROFESSIONAL" || profileType === "ESTABLISHMENT" || profileType === "SHOP";
   const isProfessional = profileType === "PROFESSIONAL";
@@ -116,46 +119,77 @@ export default function RegisterClient() {
     }
   }
 
-  function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setAvatarError("Solo se permiten imágenes (JPG, PNG, WebP).");
-      return;
+  function handleGalleryAdd(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const valid: File[] = [];
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) {
+        setPhotosError("Solo se permiten imágenes (JPG, PNG, WebP).");
+        continue;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setPhotosError("Cada imagen no puede superar 10 MB.");
+        continue;
+      }
+      valid.push(file);
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setAvatarError("La imagen no puede superar 10 MB.");
-      return;
+    const remaining = MAX_PHOTOS - galleryFiles.length;
+    const toAdd = valid.slice(0, remaining);
+    if (toAdd.length > 0) {
+      setPhotosError(null);
+      setGalleryFiles((prev) => [...prev, ...toAdd]);
+      setGalleryPreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))]);
     }
-    setAvatarError(null);
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
+    e.target.value = "";
   }
 
-  async function uploadAvatarAndContinue() {
-    if (!avatarFile) {
-      setAvatarError("Debes subir una foto de perfil para continuar.");
+  function removeGalleryItem(idx: number) {
+    setGalleryFiles((prev) => prev.filter((_, i) => i !== idx));
+    setGalleryPreviews((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function uploadPhotosAndContinue() {
+    if (galleryFiles.length < MIN_PHOTOS) {
+      setPhotosError(`Debes subir al menos ${MIN_PHOTOS} fotos para continuar.`);
       return;
     }
-    setUploadingAvatar(true);
-    setAvatarError(null);
+    setUploadingPhotos(true);
+    setPhotosError(null);
     try {
-      const formData = new FormData();
-      formData.append("file", avatarFile);
       const base = getApiBase();
-      const resp = await fetch(`${base}/profile/avatar`, {
+
+      // Upload first photo as avatar
+      const avatarForm = new FormData();
+      avatarForm.append("file", galleryFiles[0]);
+      const avatarResp = await fetch(`${base}/profile/avatar`, {
         method: "POST",
-        body: formData,
+        body: avatarForm,
         credentials: "include",
       });
-      if (!resp.ok) {
-        throw new Error("Error al subir la imagen.");
+      if (!avatarResp.ok) {
+        throw new Error("Error al subir la foto de perfil.");
       }
+
+      // Upload all photos as gallery media
+      const mediaForm = new FormData();
+      for (const file of galleryFiles) {
+        mediaForm.append("files", file);
+      }
+      const mediaResp = await fetch(`${base}/profile/media`, {
+        method: "POST",
+        body: mediaForm,
+        credentials: "include",
+      });
+      if (!mediaResp.ok) {
+        throw new Error("Error al subir las fotos de galería.");
+      }
+
       setStep("pending");
     } catch (err: any) {
-      setAvatarError(err?.message || "Error al subir la imagen. Intenta nuevamente.");
+      setPhotosError(err?.message || "Error al subir las fotos. Intenta nuevamente.");
     } finally {
-      setUploadingAvatar(false);
+      setUploadingPhotos(false);
     }
   }
 
@@ -374,60 +408,78 @@ export default function RegisterClient() {
                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 border border-fuchsia-400/20">
                   <Camera className="h-7 w-7 text-fuchsia-300" />
                 </div>
-                <h2 className="text-xl font-bold text-white">Sube tu foto de perfil</h2>
+                <h2 className="text-xl font-bold text-white">Sube tus fotos de perfil</h2>
                 <p className="mt-1.5 text-sm text-white/50 leading-relaxed">
-                  Una foto de perfil es <span className="text-fuchsia-300 font-semibold">obligatoria</span> para profesionales. Los perfiles con foto reciben muchas más visitas.
+                  Subir fotos es <span className="text-fuchsia-300 font-semibold">obligatorio</span> para profesionales.
+                  Necesitas <span className="text-fuchsia-300 font-semibold">mínimo {MIN_PHOTOS} fotos</span> para completar tu perfil.
+                  La primera será tu foto principal.
                 </p>
               </div>
 
-              {/* Avatar preview / upload area */}
-              <div className="flex flex-col items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => avatarInputRef.current?.click()}
-                  className={`relative group w-40 h-40 rounded-full border-2 border-dashed transition-all duration-200 overflow-hidden ${
-                    avatarPreview
-                      ? "border-fuchsia-400/50 shadow-[0_0_30px_rgba(232,121,249,0.15)]"
-                      : "border-white/20 hover:border-fuchsia-400/40 hover:bg-white/[0.03]"
-                  }`}
-                >
-                  {avatarPreview ? (
-                    <>
-                      <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition">
-                        <Camera className="h-6 w-6 text-white" />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full gap-2">
-                      <Upload className="h-8 w-8 text-white/30" />
-                      <span className="text-xs text-white/40">Toca para subir</span>
+              {/* Gallery grid */}
+              <div className="grid grid-cols-3 gap-2.5">
+                {Array.from({ length: MAX_PHOTOS }).map((_, idx) => {
+                  const hasPhoto = idx < galleryPreviews.length;
+                  return (
+                    <div key={idx} className="relative aspect-[3/4] overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+                      {hasPhoto ? (
+                        <>
+                          <img src={galleryPreviews[idx]} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
+                          {idx === 0 && (
+                            <span className="absolute left-1.5 top-1.5 rounded-md bg-fuchsia-500/80 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                              Principal
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeGalleryItem(idx)}
+                            className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/80 hover:bg-red-500/80 transition"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => galleryInputRef.current?.click()}
+                          className="flex h-full w-full flex-col items-center justify-center gap-1 text-white/20 transition-colors hover:text-fuchsia-400/60"
+                        >
+                          <ImagePlus className="h-6 w-6" />
+                          <span className="text-[10px]">Agregar</span>
+                        </button>
+                      )}
                     </div>
-                  )}
-                </button>
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleAvatarSelect}
-                  className="hidden"
-                />
-                <p className="text-xs text-white/30">JPG, PNG o WebP. Máximo 10 MB.</p>
+                  );
+                })}
+              </div>
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={handleGalleryAdd}
+                className="hidden"
+              />
+              <div className="mt-3 flex items-center justify-between">
+                <p className="text-xs text-white/30">JPG, PNG o WebP. Máximo 10 MB cada una.</p>
+                <p className="text-xs text-white/40">
+                  {galleryFiles.length} de {MAX_PHOTOS} fotos
+                </p>
               </div>
 
-              {avatarError && (
+              {photosError && (
                 <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200 text-center">
-                  {avatarError}
+                  {photosError}
                 </div>
               )}
 
               <button
                 type="button"
-                onClick={uploadAvatarAndContinue}
-                disabled={!avatarFile || uploadingAvatar}
+                onClick={uploadPhotosAndContinue}
+                disabled={galleryFiles.length < MIN_PHOTOS || uploadingPhotos}
                 className="mt-6 w-full btn-primary py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {uploadingAvatar ? (
+                {uploadingPhotos ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>
