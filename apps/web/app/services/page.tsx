@@ -38,6 +38,8 @@ import {
   Video,
   Phone,
   ExternalLink,
+  Heart,
+  CircleUser,
 } from "lucide-react";
 
 type ProfileResult = {
@@ -74,12 +76,16 @@ type ProfileResult = {
   userId?: string | null;
   websiteUrl?: string | null;
   externalOnly?: boolean;
+  gender?: "MALE" | "FEMALE" | "OTHER" | null;
 };
 
 const INITIAL_RADIUS_KM = 50;
 
 const CATEGORY_TABS = [
   { key: "all", label: "Todas", desc: "Ver todo", icon: Users, gradient: "from-fuchsia-500/20 to-purple-500/20", border: "border-fuchsia-500/40" },
+  { key: "mujeres", label: "Mujeres", desc: "Escorts mujer", icon: Heart, gradient: "from-pink-500/20 to-rose-500/20", border: "border-pink-500/40" },
+  { key: "hombres", label: "Hombres", desc: "Escorts hombre", icon: CircleUser, gradient: "from-blue-500/20 to-sky-500/20", border: "border-blue-500/40" },
+  { key: "trans", label: "Trans", desc: "Escorts trans", icon: Sparkles, gradient: "from-violet-500/20 to-fuchsia-500/20", border: "border-violet-500/40" },
   { key: "escort", label: "Escorts", desc: "Compañía VIP", icon: Sparkles, gradient: "from-pink-500/20 to-rose-500/20", border: "border-pink-500/40" },
   { key: "masajes", label: "Masajes", desc: "Relax total", icon: Users, gradient: "from-violet-500/20 to-indigo-500/20", border: "border-violet-500/40" },
   { key: "moteles", label: "Moteles", desc: "Hospedaje", icon: Building2, gradient: "from-amber-500/20 to-orange-500/20", border: "border-amber-500/40" },
@@ -165,8 +171,19 @@ function isEscortLikeProfile(profile: ProfileResult) {
   ]);
 }
 
+function matchesGenderCategory(profile: ProfileResult, category: string) {
+  if (profile.profileType !== "PROFESSIONAL") return false;
+  if (category === "mujeres") return profile.gender === "FEMALE";
+  if (category === "hombres") return profile.gender === "MALE";
+  if (category === "trans") return profile.gender === "OTHER";
+  return false;
+}
+
 function matchesProfessionalCategory(profile: ProfileResult, category: string) {
   if (profile.profileType !== "PROFESSIONAL") return false;
+  if (category === "mujeres" || category === "hombres" || category === "trans") {
+    return matchesGenderCategory(profile, category);
+  }
   if (category === "escort") return isEscortLikeProfile(profile);
   if (category === "videollamada" || category === "videollamadas") {
     return hasServiceOrProfileTag(profile, ["videollamada", "videollamadas"]);
@@ -562,7 +579,7 @@ export default function ServicesPage() {
         qp.set("types", "SHOP");
       } else {
         qp.set("types", "PROFESSIONAL");
-        const categoryHandledClientSide = new Set(["escort", "videollamada", "videollamadas", "despedida", "despedidas", "masajes", "masajistas"]);
+        const categoryHandledClientSide = new Set(["escort", "videollamada", "videollamadas", "despedida", "despedidas", "masajes", "masajistas", "mujeres", "hombres", "trans"]);
         if (!categoryHandledClientSide.has(category)) {
           qp.set("categorySlug", category);
         }
@@ -624,7 +641,7 @@ export default function ServicesPage() {
           return Number(Boolean(b.availableNow)) - Number(Boolean(a.availableNow));
         return (a.distance ?? 1e9) - (b.distance ?? 1e9);
       });
-  }, [profiles, radiusKm, search, activeQuickFilters, sortBy]);
+  }, [profiles, radiusKm, search, activeQuickFilters, sortBy, category]);
 
   const displayProfiles = useMemo(() => {
     if (filtered.length > 0) return filtered;
@@ -793,8 +810,8 @@ export default function ServicesPage() {
             </button>
           </div>
 
-          {/* ── Categories (prominent cards, grid) ── */}
-          <div className="mt-3 grid grid-cols-5 gap-1.5 sm:gap-2">
+          {/* ── Categories (scrollable chips) ── */}
+          <div className="mt-3 -mx-4 px-4 flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none pb-1">
             {CATEGORY_TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = category === tab.key;
@@ -803,7 +820,7 @@ export default function ServicesPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setCategory(tab.key)}
-                  className={`group flex flex-col items-center justify-center rounded-xl sm:rounded-2xl py-2.5 sm:py-3.5 transition-all duration-200 ${
+                  className={`group flex shrink-0 flex-col items-center justify-center rounded-xl sm:rounded-2xl w-[72px] sm:w-[90px] py-2.5 sm:py-3.5 transition-all duration-200 ${
                     isActive
                       ? `border ${tab.border} bg-gradient-to-br ${tab.gradient} shadow-lg shadow-fuchsia-500/10`
                       : "border border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.05]"
