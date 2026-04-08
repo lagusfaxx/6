@@ -7,7 +7,7 @@ import TermsModal from "../../components/TermsModal";
 import EmailVerification from "../../components/EmailVerification";
 import Link from "next/link";
 import { apiFetch, getApiBase, friendlyErrorMessage } from "../../lib/api";
-import { Briefcase, Building2, ShoppingBag, User, Clock, Phone, CheckCircle2, ArrowLeft, ArrowRight, Camera, Sparkles, Gift, ImagePlus, X } from "lucide-react";
+import { Briefcase, Building2, ShoppingBag, User, Clock, Phone, CheckCircle2, ArrowLeft, ArrowRight, Sparkles, Gift } from "lucide-react";
 
 function trialLabel(days: number): string {
   if (days >= 365) return `${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? "s" : ""}`;
@@ -64,7 +64,7 @@ const businessOptions: Array<{
 ];
 
 export default function RegisterClient() {
-  const [step, setStep] = useState<"choose" | "form" | "verify" | "avatar" | "pending">("choose");
+  const [step, setStep] = useState<"choose" | "form" | "verify" | "pending">("choose");
   const [profileType, setProfileType] = useState<ProfileType>("CLIENT");
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -74,8 +74,6 @@ export default function RegisterClient() {
   const [registering, setRegistering] = useState(false);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const [photosError, setPhotosError] = useState<string | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const MIN_PHOTOS = 3;
@@ -98,7 +96,7 @@ export default function RegisterClient() {
 
   const termsType = isBusinessProfile ? "business" : "client";
 
-  // After email verified, create the account
+  // After email verified, create the account (and upload photos for professionals)
   async function createAccountAfterVerification() {
     if (!pendingFormData) return;
     setRegistering(true);
@@ -109,10 +107,33 @@ export default function RegisterClient() {
         body: JSON.stringify(pendingFormData),
       });
       // Register auto-creates the session, no separate login needed
-      if (isProfessional) {
-        // Professionals MUST upload a profile photo before continuing
-        setStep("avatar");
-      } else if (isBusinessProfile) {
+
+      // For professionals, upload the photos collected in the "photos" step
+      if (isProfessional && galleryFiles.length > 0) {
+        const base = getApiBase();
+
+        // Upload first photo as avatar
+        const avatarForm = new FormData();
+        avatarForm.append("file", galleryFiles[0]);
+        await fetch(`${base}/profile/avatar`, {
+          method: "POST",
+          body: avatarForm,
+          credentials: "include",
+        });
+
+        // Upload all photos as gallery media
+        const mediaForm = new FormData();
+        for (const file of galleryFiles) {
+          mediaForm.append("files", file);
+        }
+        await fetch(`${base}/profile/media`, {
+          method: "POST",
+          body: mediaForm,
+          credentials: "include",
+        });
+      }
+
+      if (isBusinessProfile) {
         setStep("pending");
       } else {
         window.location.replace("/");
@@ -130,28 +151,17 @@ export default function RegisterClient() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     const valid: File[] = [];
-    let errorMsg: string | null = null;
     for (const file of files) {
-      if (!file.type.startsWith("image/")) {
-        errorMsg = "Solo se permiten imágenes (JPG, PNG, WebP).";
-        continue;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        errorMsg = "Cada imagen no puede superar 10 MB.";
-        continue;
-      }
+      if (!file.type.startsWith("image/")) continue;
+      if (file.size > 10 * 1024 * 1024) continue;
       valid.push(file);
     }
     const remaining = MAX_PHOTOS - galleryFiles.length;
     const toAdd = valid.slice(0, remaining);
-    if (valid.length > remaining) {
-      errorMsg = `Solo puedes agregar ${remaining} foto(s) más.`;
-    }
     if (toAdd.length > 0) {
       setGalleryFiles((prev) => [...prev, ...toAdd]);
       setGalleryPreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))]);
     }
-    setPhotosError(errorMsg);
     e.target.value = "";
   }
 
@@ -159,50 +169,6 @@ export default function RegisterClient() {
     URL.revokeObjectURL(galleryPreviews[idx]);
     setGalleryFiles((prev) => prev.filter((_, i) => i !== idx));
     setGalleryPreviews((prev) => prev.filter((_, i) => i !== idx));
-  }
-
-  async function uploadPhotosAndContinue() {
-    if (galleryFiles.length < MIN_PHOTOS) {
-      setPhotosError(`Debes subir al menos ${MIN_PHOTOS} fotos para continuar.`);
-      return;
-    }
-    setUploadingPhotos(true);
-    setPhotosError(null);
-    try {
-      const base = getApiBase();
-
-      // Upload first photo as avatar
-      const avatarForm = new FormData();
-      avatarForm.append("file", galleryFiles[0]);
-      const avatarResp = await fetch(`${base}/profile/avatar`, {
-        method: "POST",
-        body: avatarForm,
-        credentials: "include",
-      });
-      if (!avatarResp.ok) {
-        throw new Error("Error al subir la foto de perfil.");
-      }
-
-      // Upload all photos as gallery media
-      const mediaForm = new FormData();
-      for (const file of galleryFiles) {
-        mediaForm.append("files", file);
-      }
-      const mediaResp = await fetch(`${base}/profile/media`, {
-        method: "POST",
-        body: mediaForm,
-        credentials: "include",
-      });
-      if (!mediaResp.ok) {
-        throw new Error("Error al subir las fotos de galería.");
-      }
-
-      setStep("pending");
-    } catch (err: any) {
-      setPhotosError(err?.message || "Error al subir las fotos. Intenta nuevamente.");
-    } finally {
-      setUploadingPhotos(false);
-    }
   }
 
   // Email verification screen
@@ -237,9 +203,7 @@ export default function RegisterClient() {
               ? "Elige el tipo de cuenta que mejor se ajuste a ti"
               : step === "pending"
                 ? "Tu registro ha sido recibido"
-                : step === "avatar"
-                  ? "Un último paso antes de completar tu registro"
-                  : `Registrándote como: ${selected?.title ?? profileType}`}
+                : `Registrándote como: ${selected?.title ?? profileType}`}
           </p>
         </div>
 
@@ -384,6 +348,13 @@ export default function RegisterClient() {
                     setStep("choose");
                     setTermsAccepted(false);
                   }}
+                  galleryFiles={galleryFiles}
+                  galleryPreviews={galleryPreviews}
+                  onGalleryAdd={handleGalleryAdd}
+                  onGalleryRemove={removeGalleryItem}
+                  galleryInputRef={galleryInputRef}
+                  minPhotos={MIN_PHOTOS}
+                  maxPhotos={MAX_PHOTOS}
                 />
               ) : (
                 <>
@@ -413,93 +384,6 @@ export default function RegisterClient() {
                   </button>
                 </>
               )}
-            </div>
-          ) : step === "avatar" ? (
-            <div className="p-8">
-              <div className="text-center mb-6">
-                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 border border-fuchsia-400/20">
-                  <Camera className="h-7 w-7 text-fuchsia-300" />
-                </div>
-                <h2 className="text-xl font-bold text-white">Sube tus fotos de perfil</h2>
-                <p className="mt-1.5 text-sm text-white/50 leading-relaxed">
-                  Subir fotos es <span className="text-fuchsia-300 font-semibold">obligatorio</span> para profesionales.
-                  Necesitas <span className="text-fuchsia-300 font-semibold">mínimo {MIN_PHOTOS} fotos</span> para completar tu perfil.
-                  La primera será tu foto principal.
-                </p>
-              </div>
-
-              {/* Gallery grid */}
-              <div className="grid grid-cols-3 gap-2.5">
-                {Array.from({ length: MAX_PHOTOS }).map((_, idx) => {
-                  const hasPhoto = idx < galleryPreviews.length;
-                  return (
-                    <div key={idx} className="relative aspect-[3/4] overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
-                      {hasPhoto ? (
-                        <>
-                          <img src={galleryPreviews[idx]} alt={`Foto ${idx + 1}`} className="h-full w-full object-cover" />
-                          {idx === 0 && (
-                            <span className="absolute left-1.5 top-1.5 rounded-md bg-fuchsia-500/80 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                              Principal
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => removeGalleryItem(idx)}
-                            className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/80 hover:bg-red-500/80 transition"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => galleryInputRef.current?.click()}
-                          className="flex h-full w-full flex-col items-center justify-center gap-1 text-white/20 transition-colors hover:text-fuchsia-400/60"
-                        >
-                          <ImagePlus className="h-6 w-6" />
-                          <span className="text-[10px]">Agregar</span>
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <input
-                ref={galleryInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                onChange={handleGalleryAdd}
-                className="hidden"
-              />
-              <div className="mt-3 flex items-center justify-between">
-                <p className="text-xs text-white/30">JPG, PNG o WebP. Máximo 10 MB cada una.</p>
-                <p className="text-xs text-white/40">
-                  {galleryFiles.length} de {MAX_PHOTOS} fotos
-                </p>
-              </div>
-
-              {photosError && (
-                <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200 text-center">
-                  {photosError}
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={uploadPhotosAndContinue}
-                disabled={galleryFiles.length < MIN_PHOTOS || uploadingPhotos}
-                className="mt-6 w-full btn-primary py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {uploadingPhotos ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    Continuar
-                  </>
-                )}
-              </button>
             </div>
           ) : step === "pending" ? (
             <div className="p-8">
