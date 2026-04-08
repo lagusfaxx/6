@@ -1207,11 +1207,15 @@ directoryRouter.get(
         );
     }
 
-    const allResults = [...sorted.slice(0, limit).map(({ createdAt, isMadura, ...r }) => r), ...quickResults];
+    const merged = [...sorted.map(({ createdAt, isMadura, ...r }) => r), ...quickResults];
+    if (sort === "near") {
+      merged.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+    }
+    const allResults = merged.slice(0, limit);
 
     return res.json({
       results: allResults,
-      total: sorted.length + quickResults.length,
+      total: merged.length,
     });
   }),
 );
