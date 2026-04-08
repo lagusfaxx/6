@@ -860,33 +860,38 @@ export default function HomeClient() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
-      {/* ═══ HERO ═══ */}
+      {/* ═══ HERO — Premium immersive ═══ */}
       <section className="relative flex min-h-[38vh] items-center justify-center overflow-hidden px-4 md:min-h-[46vh]">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-700/[0.12] blur-[160px]" />
+        {/* Static ambient orbs — no animation to reduce rendering cost */}
+        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[140px]" />
+        <div className="pointer-events-none absolute right-[8%] top-[18%] -z-10 h-[450px] w-[450px] rounded-full bg-fuchsia-500/[0.06] blur-[120px]" />
+        <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 h-[350px] w-[350px] rounded-full bg-indigo-500/[0.05] blur-[100px]" />
+        {/* Noise texture overlay for premium texture */}
+        <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
 
-        <div className="relative mx-auto max-w-2xl text-center">
-          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-400/70 animate-float-up">
-            Chile · Verificado · Discreto
-          </p>
+        <div className="relative mx-auto max-w-3xl text-center">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-fuchsia-500/15 bg-gradient-to-r from-fuchsia-500/[0.06] to-violet-500/[0.04] px-5 py-2 text-xs font-medium text-white/60 backdrop-blur-2xl shadow-[0_0_30px_rgba(168,85,247,0.08)] animate-float-up">
+            <Zap className="h-3.5 w-3.5 text-fuchsia-400" />
+            Plataforma #1 de experiencias en Chile
+          </div>
 
-          <h1 className="text-[2.1rem] font-bold leading-[1.1] tracking-tight text-white sm:text-4xl md:text-[3.2rem] animate-float-up" style={{ animationDelay: "80ms", animationFillMode: "both" }}>
-            Encuentra lo que buscas,<br />
-            <span className="text-white/50">sin vueltas.</span>
+          <h1 className="text-[2rem] font-extrabold leading-[1.08] tracking-tight sm:text-4xl md:text-5xl animate-float-up" style={{ animationDelay: "80ms", animationFillMode: "both" }}>
+            <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
           </h1>
 
-          <p className="mx-auto mt-5 max-w-lg text-[13px] leading-relaxed text-white/40 sm:text-sm animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
-            Escorts y acompañantes verificadas en Santiago y todo Chile. Perfiles reales, sin intermediarios.
-          </p>
+          <h2 className="mx-auto mt-5 max-w-2xl text-[13px] font-medium leading-relaxed text-white/45 sm:text-sm md:text-base animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
+            Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Todo lo que buscas en un entorno discreto, verificado y premium.
+          </h2>
 
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center animate-float-up" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
             <Link
               href="/servicios"
-              className="uzeed-hero-cta group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-fuchsia-600 px-7 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-fuchsia-500 sm:w-auto"
+              className="uzeed-hero-cta group relative inline-flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-8 py-4 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)] sm:w-auto"
             >
-              Ver perfiles
-              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              Explorar ahora
+              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
             <InstallAppButton />
           </div>
