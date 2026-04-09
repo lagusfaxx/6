@@ -246,26 +246,26 @@ export default function TopHeader() {
             <div className="flex items-center justify-between">
 
               {/* Left: Hamburger (mobile) + Logo */}
-              <div className="flex items-center gap-2.5">
+              <div className="flex min-w-0 items-center gap-2 md:gap-2.5">
                 <button
                   type="button"
                   onClick={() => setHamburgerOpen(true)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-600/20 to-violet-600/20 border border-fuchsia-500/20 text-white transition hover:from-fuchsia-600/30 hover:to-violet-600/30 md:hidden"
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-600/20 to-violet-600/20 border border-fuchsia-500/20 text-white transition hover:from-fuchsia-600/30 hover:to-violet-600/30 md:hidden"
                   aria-label="Abrir menú"
                 >
                   <Menu className="h-5 w-5" />
                 </button>
 
-                <Link href="/" className="flex items-center gap-2.5">
+                <Link href="/" className="flex items-center gap-1.5 md:gap-2.5">
                   <Image
                     src="/brand/isotipo-new.png"
                     alt="UZEED - Escorts y Acompañantes en Chile"
                     width={48}
                     height={48}
                     priority
-                    className="h-10 w-10 object-contain drop-shadow-[0_4px_12px_rgba(168,85,247,0.4)] md:h-12 md:w-12"
+                    className="h-8 w-8 shrink-0 object-contain drop-shadow-[0_4px_12px_rgba(168,85,247,0.4)] md:h-12 md:w-12"
                   />
-                  <span className="text-2xl font-bold leading-none tracking-tight text-white drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)] md:text-3xl">
+                  <span className="text-xl font-bold leading-none tracking-tight text-white drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)] md:text-3xl">
                     Uzeed
                   </span>
                 </Link>
@@ -308,16 +308,16 @@ export default function TopHeader() {
               </nav>
 
               {/* Right: Location + Notifications + Avatar */}
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 items-center gap-1.5 md:gap-2">
                 {/* Location chip */}
-                <div className="relative" ref={locationRef}>
+                <div className="relative min-w-0" ref={locationRef}>
                   <button
                     type="button"
                     onClick={() => setLocationOpen((prev) => !prev)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-fuchsia-600/20 to-violet-600/15 border border-fuchsia-500/30 px-3 py-2 text-xs font-semibold text-white transition hover:from-fuchsia-600/30 hover:to-violet-600/25 shadow-[0_0_12px_rgba(168,85,247,0.15)]"
+                    className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-fuchsia-600/20 to-violet-600/15 border border-fuchsia-500/30 px-2 py-1.5 text-[11px] font-semibold text-white transition hover:from-fuchsia-600/30 hover:to-violet-600/25 shadow-[0_0_12px_rgba(168,85,247,0.15)] md:gap-1.5 md:px-3 md:py-2 md:text-xs"
                   >
-                    <MapPin className="h-3.5 w-3.5 text-fuchsia-400" />
-                    <span className="max-w-[100px] truncate">{locationLabel}</span>
+                    <MapPin className="h-3 w-3 shrink-0 text-fuchsia-400 md:h-3.5 md:w-3.5" />
+                    <span className="max-w-[72px] truncate md:max-w-[100px]">{locationLabel}</span>
                   </button>
 
                   {locationOpen && (
@@ -364,7 +364,7 @@ export default function TopHeader() {
                     <button
                       type="button"
                       onClick={() => setPanelOpen((prev) => !prev)}
-                      className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.06] border border-white/10 text-white transition hover:bg-white/10"
+                      className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] border border-white/10 text-white transition hover:bg-white/10 md:h-10 md:w-10"
                       aria-label="Abrir notificaciones"
                     >
                       <Bell className={`h-5 w-5 ${unreadCount > 0 ? "animate-[bellRing_2s_ease-in-out_infinite]" : ""}`} />
@@ -444,9 +444,9 @@ export default function TopHeader() {
                 {/* Avatar */}
                 <Link
                   href={isAuthed ? "/cuenta" : "/login?next=%2Fcuenta"}
-                  className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.06] p-1 transition hover:bg-white/10"
+                  className="inline-flex shrink-0 items-center rounded-xl border border-white/10 bg-white/[0.06] p-0.5 transition hover:bg-white/10 md:p-1"
                 >
-                  <Avatar src={me?.user?.avatarUrl} alt="Cuenta" size={34} className="border-white/20" />
+                  <Avatar src={me?.user?.avatarUrl} alt="Cuenta" size={30} className="border-white/20 md:!h-[34px] md:!w-[34px]" />
                 </Link>
               </div>
             </div>
