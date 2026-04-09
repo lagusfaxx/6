@@ -1220,6 +1220,102 @@ directoryRouter.get(
   }),
 );
 
+/* ── Creator directory (content creators / creadoras) ──── */
+directoryRouter.get(
+  "/creators",
+  asyncHandler(async (req, res) => {
+    const q = ((req.query.q as string) || "").trim().toLowerCase();
+    const sort = (req.query.sort as string) || "popular";
+    const limit = Math.min(Number(req.query.limit) || 60, 120);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+
+    const where: Prisma.UmateCreatorWhereInput = { status: "ACTIVE" };
+    if (q) {
+      where.OR = [
+        { displayName: { contains: q, mode: "insensitive" } },
+        { bio: { contains: q, mode: "insensitive" } },
+        { user: { username: { contains: q, mode: "insensitive" } } },
+        { user: { city: { contains: q, mode: "insensitive" } } },
+      ];
+    }
+
+    let orderBy: Prisma.UmateCreatorOrderByWithRelationInput;
+    switch (sort) {
+      case "new":
+        orderBy = { createdAt: "desc" };
+        break;
+      case "engagement":
+        orderBy = { totalLikes: "desc" };
+        break;
+      default: // popular
+        orderBy = { subscriberCount: "desc" };
+        break;
+    }
+
+    const [creators, total] = await Promise.all([
+      prisma.umateCreator.findMany({
+        where,
+        orderBy,
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          displayName: true,
+          bio: true,
+          avatarUrl: true,
+          coverUrl: true,
+          subscriberCount: true,
+          totalPosts: true,
+          totalLikes: true,
+          createdAt: true,
+          user: {
+            select: {
+              id: true,
+              username: true,
+              isVerified: true,
+              city: true,
+              profileType: true,
+            },
+          },
+          posts: {
+            where: { visibility: "FREE" },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: {
+              media: {
+                take: 3,
+                orderBy: { pos: "asc" },
+                select: { url: true, type: true, thumbnailUrl: true },
+              },
+            },
+          },
+        },
+      }),
+      prisma.umateCreator.count({ where }),
+    ]);
+
+    const results = creators.map((c) => ({
+      id: c.id,
+      userId: c.user.id,
+      username: c.user.username,
+      displayName: c.displayName,
+      bio: c.bio,
+      avatarUrl: c.avatarUrl,
+      coverUrl: c.coverUrl,
+      subscriberCount: c.subscriberCount,
+      totalPosts: c.totalPosts,
+      totalLikes: c.totalLikes,
+      isVerified: c.user.isVerified,
+      city: c.user.city,
+      isProfessional: c.user.profileType === "PROFESSIONAL",
+      previewMedia: c.posts[0]?.media ?? [],
+      createdAt: c.createdAt.toISOString(),
+    }));
+
+    return res.json({ results, total });
+  }),
+);
+
 directoryRouter.get(
   "/establishments/:id",
   asyncHandler(async (req, res) => {

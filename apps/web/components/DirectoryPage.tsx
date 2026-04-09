@@ -2,8 +2,9 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, Sparkles, Flame, Video, Crown, ShieldCheck } from "lucide-react";
+import { MapPin, SlidersHorizontal, X, ChevronDown, ChevronRight, Search, Map as MapIcon, Sparkles, Flame, Video, Crown, ShieldCheck, Camera } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
@@ -48,6 +49,7 @@ export type DirectoryResult = {
 export const PRIMARY_CATEGORIES = [
   { key: "escort",     label: "Escort",        route: "/escorts" },
   { key: "masajes",    label: "Masajes",        route: "/masajistas" },
+  { key: "creadoras",  label: "Creadoras",      route: "/creadoras" },
   { key: "moteles",    label: "Moteles",        route: "/moteles" },
   { key: "sexshop",   label: "Sex Shop",       route: "/sexshop" },
   { key: "trans",     label: "Trans",          route: "/escorts?profileTags=trans" },
@@ -603,6 +605,23 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
           </div>
         )}
       </div>
+
+      {/* ── Cross-promotion: Creadoras de Contenido ── */}
+      {(categorySlug === "escort" || entityType === "professional") && !loading && displayed.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 pb-6">
+          <Link
+            href="/creadoras"
+            className="flex items-center gap-3 rounded-xl border border-sky-500/15 bg-gradient-to-r from-sky-600/[0.06] to-violet-600/[0.06] p-4 hover:border-sky-500/25 transition-all"
+          >
+            <Camera className="h-5 w-5 text-sky-400/70 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white/70">Descubre Creadoras de Contenido</p>
+              <p className="text-[11px] text-white/35">Contenido exclusivo, lives y videollamadas privadas</p>
+            </div>
+            <ChevronRight className="ml-auto h-5 w-5 text-white/20 shrink-0" />
+          </Link>
+        </div>
+      )}
 
       {/* Profile Preview Modal (from map marker click) */}
       {previewProfile && (

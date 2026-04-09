@@ -103,6 +103,7 @@ function notificationTime(iso: string): string {
 const MEGA_MENU = [
   { label: "Escorts", route: "/escorts", icon: Sparkles },
   { label: "Masajistas", route: "/masajistas", icon: HandMetal },
+  { label: "Creadoras", route: "/creadoras", icon: Camera },
   { label: "Moteles", route: "/moteles", icon: Building2 },
   { label: "Sex Shop", route: "/sexshop", icon: ShoppingBag },
   { label: "Despedidas", route: "/escorts?serviceTags=despedidas", icon: PartyPopper },
