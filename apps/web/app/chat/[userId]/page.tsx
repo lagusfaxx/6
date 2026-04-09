@@ -422,7 +422,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-160px)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-[0_10px_30px_rgba(0,0,0,0.35)] md:h-[calc(100vh-160px)]">
+    <div className="mx-auto flex h-[calc(100svh-160px)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-[0_10px_30px_rgba(0,0,0,0.35)] md:h-[calc(100vh-160px)]">
       {/* ── Header ── */}
       <div className="relative flex shrink-0 items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-3">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/15 to-transparent" />

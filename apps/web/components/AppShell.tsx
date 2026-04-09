@@ -53,6 +53,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const isHome = pathname === "/";
 
+  // Chat conversation pages have their own back button in the header
+  const isChatConversation = /^\/chat\/[^/]+/.test(pathname);
+
   // Dashboard routes: hide main header/nav so the Creator Studio has its own layout
   const isDashboardRoute = pathname.startsWith("/dashboard");
 
@@ -125,7 +128,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             {deferredReady && <PushNotificationsManager />}
             {deferredReady && <PresenceHeartbeat />}
             {deferredReady && <SocialProofToast />}
-            {!isHome && <BackButton />}
+            {!isHome && !isChatConversation && <BackButton />}
             {/* Reduced pt since we removed the category chips row from mobile header */}
             <main className="flex-1 px-4 pt-[76px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[90px] md:pb-6">
               {children}
