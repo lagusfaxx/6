@@ -328,32 +328,32 @@ verificationRouter.post(
     const code = generateCode();
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
-    // Only store and send if user exists, but always return the same response
-    if (user) {
-      pendingResetCodes.set(normalizedEmail, {
-        code,
-        expiresAt: Date.now() + CODE_TTL_MS,
-        lastSentAt: Date.now(),
-        email: normalizedEmail,
-        attempts: 0,
-      });
+    // Always store a cooldown entry (even for non-existing users) so the
+    // cooldown behavior is identical and doesn't leak user existence.
+    pendingResetCodes.set(normalizedEmail, {
+      code,
+      expiresAt: Date.now() + CODE_TTL_MS,
+      lastSentAt: Date.now(),
+      email: normalizedEmail,
+      attempts: 0,
+    });
 
-      if (config.resendApiKey) {
-        try {
-          const resend = new Resend(config.resendApiKey);
-          await resend.emails.send({
-            from: "UZEED <no-reply@uzeed.cl>",
-            to: normalizedEmail,
-            subject: "Restablecer contraseña — UZEED",
-            html: buildResetEmailHtml(code),
-          });
-        } catch (err) {
-          console.error("[verification] reset code send failed", err);
-          // Don't reveal email send failure to prevent enumeration
-        }
-      } else {
-        console.warn("[verification] RESEND_API_KEY not set — cannot send reset email");
+    // Only send the email if the user actually exists
+    if (user && config.resendApiKey) {
+      try {
+        const resend = new Resend(config.resendApiKey);
+        await resend.emails.send({
+          from: "UZEED <no-reply@uzeed.cl>",
+          to: normalizedEmail,
+          subject: "Restablecer contraseña — UZEED",
+          html: buildResetEmailHtml(code),
+        });
+      } catch (err) {
+        console.error("[verification] reset code send failed", err);
+        // Don't reveal email send failure to prevent enumeration
       }
+    } else if (user && !config.resendApiKey) {
+      console.warn("[verification] RESEND_API_KEY not set — cannot send reset email");
     }
 
     // Always return identical response regardless of user existence
