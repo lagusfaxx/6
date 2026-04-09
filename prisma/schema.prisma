@@ -90,6 +90,7 @@ enum NotificationType {
   UMATE_PLAN_ACTIVATED
   UMATE_NEW_SUBSCRIBER
   ADMIN_EVENT
+  TRANSFER_REJECTED
 }
 
 enum PaymentIntentPurpose {
