@@ -11,7 +11,7 @@ import {
   Clock3, Search, X, Play, Plus, Trash2, Save, Settings,
   ToggleLeft, ToggleRight, Lock, Wallet, Star, ArrowRight,
   CalendarDays, Timer, PhoneCall, CheckCircle, Ban,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, LogIn,
 } from "lucide-react";
 
 /* ── Types ── */
@@ -884,10 +884,7 @@ function ClientDashboard({ me }: { me: any }) {
                     {/* Cover — clickable to book */}
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!myId) { router.push(`/login?next=${encodeURIComponent(`/videocall?professional=${pro.id}`)}`); return; }
-                        openBookingModal(pro);
-                      }}
+                      onClick={() => openBookingModal(pro)}
                       className="w-full text-left"
                     >
                       <div className="relative h-24 overflow-hidden bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10">
@@ -924,10 +921,7 @@ function ClientDashboard({ me }: { me: any }) {
                     {/* Action buttons */}
                     <div className="flex gap-2 px-4 pb-4">
                       <button
-                        onClick={() => {
-                          if (!myId) { router.push(`/login?next=${encodeURIComponent(`/videocall?professional=${pro.id}`)}`); return; }
-                          openBookingModal(pro);
-                        }}
+                        onClick={() => openBookingModal(pro)}
                         className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2 text-[11px] font-semibold transition hover:opacity-90"
                       >
                         <Video className="h-3 w-3" /> Videollamada
@@ -1049,10 +1043,20 @@ function ClientDashboard({ me }: { me: any }) {
                     La sala se abre 5 min antes. Los tokens se retienen hasta que finalice la llamada.
                   </div>
 
-                  <button onClick={handleBook} disabled={bookLoading || !scheduledAt || walletBalance < totalCost} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40">
-                    {bookLoading ? <Clock3 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                    {bookLoading ? "Reservando..." : "Confirmar Reserva"}
-                  </button>
+                  {myId ? (
+                    <button onClick={handleBook} disabled={bookLoading || !scheduledAt || walletBalance < totalCost} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-40">
+                      {bookLoading ? <Clock3 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                      {bookLoading ? "Reservando..." : "Confirmar Reserva"}
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/login?next=${encodeURIComponent(`/videocall?professional=${selectedPro?.id || ""}`)}`}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 py-3.5 text-sm font-semibold text-fuchsia-300 transition hover:bg-fuchsia-500/20"
+                    >
+                      <LogIn className="h-4 w-4" />
+                      Inicia sesión para reservar
+                    </Link>
+                  )}
                 </>
               )}
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch, resolveMediaUrl, getApiBase } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
@@ -12,7 +13,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import {
   Radio, Users, Send, X, ShieldAlert, Mic, MicOff, VideoIcon, VideoOff,
   Camera, Coins, Lock, Eye, EyeOff, Sparkles, Gift, Settings, Plus, Trash2,
-  Clock, DollarSign, Maximize2, Minimize2, ChevronDown, ChevronUp, MessageCircle,
+  Clock, DollarSign, Maximize2, Minimize2, ChevronDown, ChevronUp, MessageCircle, LogIn,
 } from "lucide-react";
 
 /* ── Types ── */
@@ -1477,12 +1478,21 @@ export default function LiveStreamPage() {
                         <p className="text-xs font-bold text-amber-300">Show Privado en curso</p>
                         <p className="text-[10px] text-amber-200/50">Desbloquea el contenido exclusivo</p>
                       </div>
-                      <button
-                        onClick={() => setShowPrivateModal(true)}
-                        className="shrink-0 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2.5 text-[11px] font-bold text-white transition-all hover:scale-[1.03] hover:shadow-[0_4px_16px_rgba(245,158,11,0.3)] active:scale-[0.97]"
-                      >
-                        {stream.privateShowPrice} tk
-                      </button>
+                      {myId ? (
+                        <button
+                          onClick={() => setShowPrivateModal(true)}
+                          className="shrink-0 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2.5 text-[11px] font-bold text-white transition-all hover:scale-[1.03] hover:shadow-[0_4px_16px_rgba(245,158,11,0.3)] active:scale-[0.97]"
+                        >
+                          {stream.privateShowPrice} tk
+                        </button>
+                      ) : (
+                        <Link
+                          href={`/login?next=${encodeURIComponent(`/live/${id}`)}`}
+                          className="shrink-0 flex items-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-[11px] font-medium text-amber-300/80 transition-all hover:bg-amber-500/20"
+                        >
+                          <LogIn className="h-3 w-3" /> Ingresa para acceder
+                        </Link>
+                      )}
                     </div>
                   </motion.div>
                 ) : hasJoinedPrivateShow ? (
@@ -1519,30 +1529,36 @@ export default function LiveStreamPage() {
                     <Gift className="h-3 w-3 text-fuchsia-400/60" />
                     <span className="text-[10px] font-semibold text-white/40">Propinas</span>
                   </div>
-                  {myBalance !== null && (
+                  {myId && myBalance !== null && (
                     <div className="flex items-center gap-1 text-[10px] text-amber-300/60">
                       <Coins className="h-2.5 w-2.5" /> {myBalance} tk
                     </div>
                   )}
                 </div>
-                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-                  {tipOptions.map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => sendTip(opt.price, opt.id)}
-                      disabled={sendingTip}
-                      className="group flex shrink-0 flex-col items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 transition-all hover:border-fuchsia-500/25 hover:bg-fuchsia-500/[0.06] active:scale-95 disabled:opacity-40"
-                    >
-                      <span className="text-[10px] font-medium text-white/60 group-hover:text-white/80 max-w-[72px] truncate">{opt.label}</span>
-                      <span className="text-[10px] font-bold text-amber-300">{opt.price} tk</span>
-                    </button>
-                  ))}
-                </div>
+                {myId ? (
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    {tipOptions.map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => sendTip(opt.price, opt.id)}
+                        disabled={sendingTip}
+                        className="group flex shrink-0 flex-col items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 transition-all hover:border-fuchsia-500/25 hover:bg-fuchsia-500/[0.06] active:scale-95 disabled:opacity-40"
+                      >
+                        <span className="text-[10px] font-medium text-white/60 group-hover:text-white/80 max-w-[72px] truncate">{opt.label}</span>
+                        <span className="text-[10px] font-bold text-amber-300">{opt.price} tk</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <Link href={`/login?next=${encodeURIComponent(`/live/${id}`)}`} className="flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] py-2.5 text-[10px] text-white/35 transition hover:bg-white/[0.04] hover:text-amber-300/70">
+                    <LogIn className="h-3 w-3" /> Inicia sesión para enviar propinas
+                  </Link>
+                )}
               </div>
             )}
 
             {/* ── Quick Tip Buttons ── */}
-            {stream.isActive && !isHost && (
+            {stream.isActive && !isHost && myId && (
               <div className="border-b border-white/[0.06] px-2.5 py-2.5">
                 <div className="flex gap-1.5">
                   {[10, 25, 50, 100, 200].map((amt) => (
@@ -1611,19 +1627,30 @@ export default function LiveStreamPage() {
             </div>
 
             {/* ── Chat Input ── */}
-            <div className="flex gap-1.5 border-t border-white/[0.06] p-2 sm:p-2.5" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
-              <input
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                placeholder="Escribe..."
-                maxLength={300}
-                className="flex-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 sm:py-2.5 text-xs outline-none placeholder:text-white/20 focus:border-fuchsia-500/20 transition-all"
-              />
-              <button onClick={sendChat} disabled={!chatInput.trim()} className="flex h-[34px] w-[34px] sm:h-[38px] sm:w-[38px] shrink-0 items-center justify-center rounded-xl bg-fuchsia-600 transition-all hover:bg-fuchsia-500 disabled:opacity-25">
-                <Send className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            {myId ? (
+              <div className="flex gap-1.5 border-t border-white/[0.06] p-2 sm:p-2.5" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
+                <input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendChat()}
+                  placeholder="Escribe..."
+                  maxLength={300}
+                  className="flex-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 sm:py-2.5 text-xs outline-none placeholder:text-white/20 focus:border-fuchsia-500/20 transition-all"
+                />
+                <button onClick={sendChat} disabled={!chatInput.trim()} className="flex h-[34px] w-[34px] sm:h-[38px] sm:w-[38px] shrink-0 items-center justify-center rounded-xl bg-fuchsia-600 transition-all hover:bg-fuchsia-500 disabled:opacity-25">
+                  <Send className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <Link
+                href={`/login?next=${encodeURIComponent(`/live/${id}`)}`}
+                className="flex items-center justify-center gap-2 border-t border-white/[0.06] px-4 py-3 text-[11px] text-white/40 transition-colors hover:bg-white/[0.03] hover:text-fuchsia-300"
+                style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                Inicia sesión para comentar
+              </Link>
+            )}
           </div>
         )}
       </div>
