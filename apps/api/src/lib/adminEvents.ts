@@ -86,7 +86,7 @@ export async function emitAdminEvent(input: AdminEventInput) {
   await prisma.notification.createMany({
     data: adminIds.map((adminId) => ({
       userId: adminId,
-      type: "ADMIN_EVENT" as any,
+      type: "ADMIN_EVENT",
       data: payload,
     })),
   }).catch((err) => {

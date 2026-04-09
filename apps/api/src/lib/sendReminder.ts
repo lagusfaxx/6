@@ -23,7 +23,7 @@ export async function sendInAppAndPush(
   await prisma.notification.create({
     data: {
       userId,
-      type: opts.type as any,
+      type: opts.type as import("@prisma/client").NotificationType,
       data: {
         title: opts.title,
         body: opts.body,
