@@ -119,6 +119,8 @@ profileRouter.get(
       where: {
         profileType: "PROFESSIONAL",
         isActive: true,
+        // Exclude VIDEO_CHAT-only profiles from general discovery
+        NOT: { category: { kind: "VIDEO_CHAT" } },
       },
       orderBy: { createdAt: "desc" },
       take: Math.max(limit * 3, 48),

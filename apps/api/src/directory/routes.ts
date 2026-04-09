@@ -144,6 +144,8 @@ directoryRouter.get(
       profileType: "PROFESSIONAL",
       isActive: true,
       isVerified: true,
+      // Exclude VIDEO_CHAT-only profiles from the general professional directory
+      NOT: { category: { kind: "VIDEO_CHAT" } },
       // DEV: subscription filter removed during development
     };
 
@@ -974,6 +976,7 @@ directoryRouter.get(
       sexshop:    ["sexshop", "sex shop", "lenceria", "juguetes"],
       trans:      ["trans"],
       despedidas: ["despedidas"],
+      videochat:  ["videochat", "video chat"],
     };
     const categoryVariantsList = categorySlug
       ? (SLUG_TO_PRIMARY[normTag(categorySlug)] || [normTag(categorySlug)])
@@ -989,6 +992,11 @@ directoryRouter.get(
       profileType: { in: profileTypeFilter },
       // DEV: isActive, isVerified, subscription filters removed during development
     };
+
+    // Exclude VIDEO_CHAT profiles unless explicitly searching for videochat
+    if (profileTypeFilter[0] === "PROFESSIONAL" && normTag(categorySlug) !== "videochat") {
+      where.NOT = { category: { kind: "VIDEO_CHAT" } };
+    }
 
     if (genderFilter) where.gender = genderFilter;
     if (tierFilter) where.tier = tierFilter;
@@ -1458,5 +1466,100 @@ directoryRouter.get(
         avgOverall: Number(avgOverall.toFixed(1)),
       },
     });
+  }),
+);
+
+/* ──────────────────────────────────────────────────────────────
+   GET /directory/videochat — Video Chat profiles
+   Returns PROFESSIONAL profiles whose category kind is VIDEO_CHAT.
+   These profiles are video-chat-only (no in-person services).
+   ────────────────────────────────────────────────────────────── */
+directoryRouter.get(
+  "/directory/videochat",
+  asyncHandler(async (req, res) => {
+    const lat = req.query.lat ? Number(req.query.lat) : null;
+    const lng = req.query.lng ? Number(req.query.lng) : null;
+    const limit = Math.min(Number(req.query.limit) || 48, 120);
+
+    const users = await prisma.user.findMany({
+      where: {
+        profileType: "PROFESSIONAL",
+        isActive: true,
+        category: { kind: "VIDEO_CHAT" },
+      },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        coverUrl: true,
+        lastSeen: true,
+        isActive: true,
+        isOnline: true,
+        bio: true,
+        birthdate: true,
+        city: true,
+        profileTags: true,
+        serviceTags: true,
+        profileViews: true,
+        completedServices: true,
+        tier: true,
+        baseRate: true,
+        videocallConfig: {
+          select: {
+            pricePerMinute: true,
+            isActive: true,
+          },
+        },
+        liveStreams: {
+          where: { isActive: true },
+          select: { id: true, viewerCount: true },
+          take: 1,
+        },
+      },
+      take: limit,
+      orderBy: { lastSeen: "desc" },
+    });
+
+    const profiles = users.map((u) => {
+      const age = calculateAge(u.birthdate);
+      const online = isOnline(u.lastSeen);
+      const activeLive = u.liveStreams[0] || null;
+      return {
+        id: u.id,
+        username: u.username,
+        displayName: u.displayName || u.username,
+        avatarUrl: u.avatarUrl,
+        coverUrl: u.coverUrl,
+        age,
+        city: u.city,
+        bio: u.bio,
+        isOnline: online,
+        profileTags: u.profileTags,
+        serviceTags: u.serviceTags,
+        profileViews: u.profileViews,
+        videocallActive: u.videocallConfig?.isActive ?? false,
+        videocallPrice: u.videocallConfig?.pricePerMinute ?? null,
+        isLive: !!activeLive,
+        liveStreamId: activeLive?.id ?? null,
+        liveViewers: activeLive?.viewerCount ?? 0,
+        userLevel: resolveProfessionalLevel({
+          baseRate: u.baseRate,
+          profileViews: u.profileViews,
+          lastSeen: u.lastSeen,
+          completedServices: u.completedServices,
+          adminTier: u.tier,
+        }),
+      };
+    });
+
+    // Sort: live first, then online, then by views
+    profiles.sort((a, b) => {
+      if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
+      if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+      return b.profileViews - a.profileViews;
+    });
+
+    return res.json({ profiles });
   }),
 );

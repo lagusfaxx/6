@@ -25,6 +25,7 @@ enum CategoryKind {
   PROFESSIONAL
   ESTABLISHMENT
   SHOP
+  VIDEO_CHAT
 }
 
 enum ProfessionalTier {

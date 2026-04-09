@@ -132,13 +132,16 @@ export default function ProfessionalRegisterForm({
         return `Debes subir al menos ${minPhotos} fotos para continuar.`;
     }
     if (step === 3) {
-      if (
-        !Number.isFinite(Number(latitude)) ||
-        !Number.isFinite(Number(longitude)) ||
-        !latitude ||
-        !longitude
-      )
-        return "Debes seleccionar una dirección válida desde el buscador de Mapbox.";
+      // Video Chat profiles don't require a physical location
+      if (primaryCategory !== "videochat") {
+        if (
+          !Number.isFinite(Number(latitude)) ||
+          !Number.isFinite(Number(longitude)) ||
+          !latitude ||
+          !longitude
+        )
+          return "Debes seleccionar una dirección válida desde el buscador de Mapbox.";
+      }
       if (!finalTermsAccepted)
         return "Debes aceptar los términos y condiciones para continuar.";
     }
@@ -406,6 +409,7 @@ export default function ProfessionalRegisterForm({
                 <option value="trans">Trans</option>
                 <option value="despedidas">Despedidas de soltero</option>
                 <option value="videollamadas">Videollamadas</option>
+                <option value="videochat">Video Chat (solo virtual)</option>
               </select>
               <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-white/40">
                 ▾

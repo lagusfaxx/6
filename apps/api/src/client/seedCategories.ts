@@ -26,7 +26,10 @@ export async function seedCategories(): Promise<void> {
       { name: "Sex shop", slug: "sex-shop", displayName: "Sex shop", kind: CategoryKind.SHOP },
       { name: "Lencería", slug: "lenceria", displayName: "Lencería", kind: CategoryKind.SHOP },
       { name: "Juguetes íntimos", slug: "juguetes-intimos", displayName: "Juguetes íntimos", kind: CategoryKind.SHOP },
-      { name: "Productos premium", slug: "productos-premium", displayName: "Productos premium", kind: CategoryKind.SHOP }
+      { name: "Productos premium", slug: "productos-premium", displayName: "Productos premium", kind: CategoryKind.SHOP },
+
+      // Video Chat
+      { name: "Video Chat", slug: "videochat", displayName: "Video Chat", kind: CategoryKind.VIDEO_CHAT }
     ],
     skipDuplicates: true
   });

@@ -278,7 +278,9 @@ authRouter.post(
       }
       safeBirthdate = parsedBirthdate;
     }
-    if (isBusinessProfile) {
+    // Video Chat profiles are virtual-only — no physical location required
+    const isVideoChatProfile = primaryCategory === "videochat";
+    if (isBusinessProfile && !isVideoChatProfile) {
       const hasCoordsFromClient =
         Number.isFinite(latitude) && Number.isFinite(longitude);
       const hasCoordsFromGeocode =

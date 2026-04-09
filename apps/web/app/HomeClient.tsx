@@ -433,6 +433,9 @@ export default function HomeClient() {
   /* ── Live Streams ── */
   const [liveStreams, setLiveStreams] = useState<any[]>([]);
 
+  /* ── Video Chat Profiles ── */
+  const [videochatProfiles, setVideochatProfiles] = useState<any[]>([]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -610,6 +613,9 @@ export default function HomeClient() {
       fetchDirectory("shop", "sexshop").then(setSexshops).catch(() => {});
       apiFetch<{ streams: any[] }>("/live/active", { signal: controller.signal })
         .then((r) => setLiveStreams(r?.streams ?? []))
+        .catch(() => {});
+      apiFetch<{ profiles: any[] }>("/directory/videochat?limit=12", { signal: controller.signal })
+        .then((r) => setVideochatProfiles(r?.profiles ?? []))
         .catch(() => {});
     }, 2000);
 
@@ -1502,6 +1508,72 @@ export default function HomeClient() {
                     </div>
                   </div>
                 </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ═══ VIDEO CHAT ═══ */}
+        {videochatProfiles.length > 0 && (
+          <section key={`videochat-${locationKey}`} className="mb-10 uzeed-below-fold">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xl font-bold tracking-tight">Video Chat</h2>
+                <span className="rounded-full bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-violet-300 border border-violet-500/20">Nuevo</span>
+              </div>
+              <Link href="/videochat" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-violet-400 transition-colors duration-200">
+                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+            <p className="mb-4 text-xs text-white/35">Conecta por videollamada o live — sin encuentros presenciales</p>
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
+              {videochatProfiles.slice(0, 8).map((p: any) => (
+                <article key={`vc-${p.id}`} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto" style={{ borderColor: "rgba(139,92,246,0.15)" }}>
+                  <Link href={`/profesional/${p.id}`} className="block">
+                    <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
+                      {(p.coverUrl || p.avatarUrl) ? (
+                        <img
+                          src={resolveMediaUrl(p.coverUrl || p.avatarUrl) ?? undefined}
+                          alt={p.displayName}
+                          className="uzeed-card-img h-full w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center"><Video className="h-10 w-10 text-white/[0.06]" /></div>
+                      )}
+                      {p.isOnline && (
+                        <div className="absolute top-2 left-2 z-[3] flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-bold text-white">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Online
+                        </div>
+                      )}
+                      {p.isLive && (
+                        <div className="absolute top-2 right-2 z-[3] flex items-center gap-1 rounded-full bg-red-600/90 px-2 py-0.5 text-[10px] font-bold text-white">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> LIVE
+                        </div>
+                      )}
+                      <div className="uzeed-card-gradient absolute inset-0" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
+                        <div className="flex items-center gap-1 truncate text-sm font-bold">
+                          {p.displayName}{p.age ? `, ${p.age}` : ""}
+                        </div>
+                        {p.videocallActive && p.videocallPrice && (
+                          <div className="mt-1 flex items-center gap-1 text-[10px] text-violet-300/80">
+                            <Video className="h-3 w-3" /> {p.videocallPrice} tokens/min
+                          </div>
+                        )}
+                        {(p.profileTags?.length > 0 || p.serviceTags?.length > 0) && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {(p.profileTags || []).slice(0, 2).map((tag: string) => (
+                              <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia text-[8px]">{tag}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                </article>
               ))}
             </div>
           </section>

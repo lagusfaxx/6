@@ -54,7 +54,8 @@ async function main() {
     { name: "Sex shop", slug: "sex-shop", displayName: "Sex shop", kind: "SHOP" },
     { name: "Lencería", slug: "lenceria", displayName: "Lencería", kind: "SHOP" },
     { name: "Juguetes íntimos", slug: "juguetes-intimos", displayName: "Juguetes íntimos", kind: "SHOP" },
-    { name: "Productos premium", slug: "productos-premium", displayName: "Productos premium", kind: "SHOP" }
+    { name: "Productos premium", slug: "productos-premium", displayName: "Productos premium", kind: "SHOP" },
+    { name: "Video Chat", slug: "videochat", displayName: "Video Chat", kind: "VIDEO_CHAT" }
   ];
 
   await prisma.category.createMany({ data: categorySeeds, skipDuplicates: true });

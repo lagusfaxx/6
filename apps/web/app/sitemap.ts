@@ -150,6 +150,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   add("/establecimientos", "daily", 0.85);
   add("/profesionales", "daily", 0.85);
   add("/sexshop", "daily", 0.8);
+  add("/videochat", "daily", 0.85);
   add("/services", "daily", 0.85);
   add("/premium", "daily", 0.8);
 
