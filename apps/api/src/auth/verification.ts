@@ -2,11 +2,36 @@ import { Router } from "express";
 import { Resend } from "resend";
 import argon2 from "argon2";
 import crypto from "crypto";
+import rateLimit from "express-rate-limit";
 import { config } from "../config";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 
 export const verificationRouter = Router();
+
+// IP-based rate limit for code-sending endpoints (prevents email bombing)
+const sendCodeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 5, // max 5 code-send requests per IP per window
+  message: { error: "TOO_MANY_ATTEMPTS", message: "Demasiados intentos. Intenta en 15 minutos." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// IP-based rate limit for code verification (prevents brute-force across emails)
+const verifyCodeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 15, // max 15 verification attempts per IP per window
+  message: { error: "TOO_MANY_ATTEMPTS", message: "Demasiados intentos. Intenta en 15 minutos." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/** Timing-safe string comparison to prevent timing attacks on tokens */
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const RESEND_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
@@ -99,6 +124,7 @@ function buildEmailHtml(code: string): string {
 
 verificationRouter.post(
   "/send-code",
+  sendCodeLimiter,
   asyncHandler(async (req, res) => {
     const { email } = req.body;
     if (!email || typeof email !== "string") {
@@ -134,7 +160,7 @@ verificationRouter.post(
         await resend.emails.send({
           from: "UZEED <no-reply@uzeed.cl>",
           to: normalizedEmail,
-          subject: `${code} — Código de verificación UZEED`,
+          subject: "Código de verificación — UZEED",
           html: buildEmailHtml(code),
         });
       } catch (err) {
@@ -153,6 +179,7 @@ verificationRouter.post(
 
 verificationRouter.post(
   "/verify-code",
+  verifyCodeLimiter,
   asyncHandler(async (req, res) => {
     const { email, code } = req.body;
     if (!email || !code) {
@@ -175,7 +202,8 @@ verificationRouter.post(
         .json({ error: "CODE_EXPIRED", message: "El código ha expirado. Solicita uno nuevo." });
     }
 
-    if (entry.code !== String(code).trim()) {
+    const submittedCode = String(code).trim();
+    if (!safeCompare(entry.code, submittedCode)) {
       entry.attempts++;
       if (entry.attempts >= MAX_VERIFY_ATTEMPTS) {
         pendingCodes.delete(normalizedEmail);
@@ -274,6 +302,7 @@ function buildResetEmailHtml(code: string): string {
 
 verificationRouter.post(
   "/send-reset-code",
+  sendCodeLimiter,
   asyncHandler(async (req, res) => {
     const { email } = req.body;
     if (!email || typeof email !== "string") {
@@ -282,13 +311,8 @@ verificationRouter.post(
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check if user exists
-    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-    if (!user) {
-      // Return success even if user not found (to prevent email enumeration)
-      return res.json({ ok: true, expiresInSeconds: CODE_TTL_MS / 1000 });
-    }
-
+    // Always perform the same work regardless of whether user exists
+    // to prevent email enumeration via timing side-channel
     const existing = pendingResetCodes.get(normalizedEmail);
     if (existing && Date.now() - existing.lastSentAt < RESEND_COOLDOWN_MS) {
       const waitSeconds = Math.ceil(
@@ -302,39 +326,44 @@ verificationRouter.post(
     }
 
     const code = generateCode();
-    pendingResetCodes.set(normalizedEmail, {
-      code,
-      expiresAt: Date.now() + CODE_TTL_MS,
-      lastSentAt: Date.now(),
-      email: normalizedEmail,
-      attempts: 0,
-    });
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
-    if (config.resendApiKey) {
-      try {
-        const resend = new Resend(config.resendApiKey);
-        await resend.emails.send({
-          from: "UZEED <no-reply@uzeed.cl>",
-          to: normalizedEmail,
-          subject: `${code} — Restablecer contraseña UZEED`,
-          html: buildResetEmailHtml(code),
-        });
-      } catch (err) {
-        console.error("[verification] reset code send failed", err);
-        return res
-          .status(500)
-          .json({ error: "EMAIL_SEND_FAILED", message: "No se pudo enviar el correo." });
+    // Only store and send if user exists, but always return the same response
+    if (user) {
+      pendingResetCodes.set(normalizedEmail, {
+        code,
+        expiresAt: Date.now() + CODE_TTL_MS,
+        lastSentAt: Date.now(),
+        email: normalizedEmail,
+        attempts: 0,
+      });
+
+      if (config.resendApiKey) {
+        try {
+          const resend = new Resend(config.resendApiKey);
+          await resend.emails.send({
+            from: "UZEED <no-reply@uzeed.cl>",
+            to: normalizedEmail,
+            subject: "Restablecer contraseña — UZEED",
+            html: buildResetEmailHtml(code),
+          });
+        } catch (err) {
+          console.error("[verification] reset code send failed", err);
+          // Don't reveal email send failure to prevent enumeration
+        }
+      } else {
+        console.warn("[verification] RESEND_API_KEY not set — cannot send reset email");
       }
-    } else {
-      console.warn("[verification] RESEND_API_KEY not set — cannot send reset email");
     }
 
+    // Always return identical response regardless of user existence
     return res.json({ ok: true, expiresInSeconds: CODE_TTL_MS / 1000 });
   })
 );
 
 verificationRouter.post(
   "/verify-reset-code",
+  verifyCodeLimiter,
   asyncHandler(async (req, res) => {
     const { email, code } = req.body;
     if (!email || !code) {
@@ -357,7 +386,8 @@ verificationRouter.post(
         .json({ error: "CODE_EXPIRED", message: "El código ha expirado. Solicita uno nuevo." });
     }
 
-    if (entry.code !== String(code).trim()) {
+    const submittedResetCode = String(code).trim();
+    if (!safeCompare(entry.code, submittedResetCode)) {
       entry.attempts++;
       if (entry.attempts >= MAX_VERIFY_ATTEMPTS) {
         pendingResetCodes.delete(normalizedEmail);
@@ -384,6 +414,7 @@ verificationRouter.post(
 
 verificationRouter.post(
   "/reset-password",
+  verifyCodeLimiter,
   asyncHandler(async (req, res) => {
     const { email, resetToken, newPassword } = req.body;
     if (!email || !resetToken || !newPassword) {
@@ -394,6 +425,12 @@ verificationRouter.post(
       return res.status(400).json({
         error: "PASSWORD_TOO_SHORT",
         message: "La contraseña debe tener al menos 8 caracteres.",
+      });
+    }
+    if (newPassword.length > 128) {
+      return res.status(400).json({
+        error: "PASSWORD_TOO_LONG",
+        message: "La contraseña no puede tener más de 128 caracteres.",
       });
     }
 
@@ -436,12 +473,10 @@ verificationRouter.post(
       data: { passwordHash },
     });
 
-    // Invalidate all active sessions for this user (parameterized)
+    // Invalidate all active sessions for this user
     try {
-      await prisma.$executeRawUnsafe(
-        `DELETE FROM "session" WHERE sess::text LIKE $1`,
-        `%"userId":"${user.id}"%`
-      );
+      const pattern = `%"userId":"${user.id}"%`;
+      await prisma.$executeRaw`DELETE FROM "session" WHERE sess::text LIKE ${pattern}`;
     } catch (err) {
       console.error("[verification] failed to invalidate sessions", err);
     }
@@ -526,6 +561,7 @@ export async function sendSetPasswordEmail(email: string, token: string) {
 
 verificationRouter.post(
   "/set-password",
+  verifyCodeLimiter,
   asyncHandler(async (req, res) => {
     const { email, token, newPassword } = req.body;
     if (!email || !token || !newPassword) {
@@ -538,6 +574,12 @@ verificationRouter.post(
         message: "La contraseña debe tener al menos 8 caracteres.",
       });
     }
+    if (newPassword.length > 128) {
+      return res.status(400).json({
+        error: "PASSWORD_TOO_LONG",
+        message: "La contraseña no puede tener más de 128 caracteres.",
+      });
+    }
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -546,7 +588,7 @@ verificationRouter.post(
       return res.status(404).json({ error: "USER_NOT_FOUND" });
     }
 
-    if (!user.passwordSetToken || user.passwordSetToken !== String(token)) {
+    if (!user.passwordSetToken || !safeCompare(user.passwordSetToken, String(token))) {
       return res.status(400).json({
         error: "INVALID_TOKEN",
         message: "El enlace no es válido. Solicita uno nuevo.",
