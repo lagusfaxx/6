@@ -100,7 +100,9 @@ export default function StoriesPage() {
   const timeLeft = (expiresAt: string) => {
     const diff = new Date(expiresAt).getTime() - Date.now();
     if (diff <= 0) return "Expirado";
-    const h = Math.floor(diff / (1000 * 60 * 60));
+    const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    if (d > 0) return `${d}d ${h}h`;
     const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     return `${h}h ${m}m`;
   };
@@ -111,7 +113,7 @@ export default function StoriesPage() {
       <div>
         <h1 className="text-lg font-bold">Mis Stories</h1>
         <p className="text-xs text-white/40 mt-0.5">
-          Sube fotos o videos que duran 24 horas y aparecen en el carrusel.
+          Sube fotos o videos que duran 7 días y aparecen en el carrusel.
         </p>
       </div>
 
@@ -184,7 +186,7 @@ export default function StoriesPage() {
           {error && <p className="text-xs text-red-400 px-1">{error}</p>}
           {success && (
             <p className="text-xs text-emerald-400 px-1">
-              Story publicado. Dura 24 horas.
+              Story publicado. Dura 7 días.
             </p>
           )}
 
