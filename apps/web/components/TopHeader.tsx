@@ -29,6 +29,7 @@ import {
   Search,
   Crown,
   Wallet,
+  HelpCircle,
 } from "lucide-react";
 import Avatar from "./Avatar";
 import useMe from "../hooks/useMe";
@@ -599,6 +600,16 @@ export default function TopHeader() {
                     </button>
                   </>
                 )}
+              </div>
+
+              <div className="mx-4 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+
+              {/* Ayuda / Soporte */}
+              <div className="px-3 pt-3 pb-1 space-y-0.5">
+                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-white/25">Soporte</p>
+                <button onClick={() => handleNavLink("/ayuda")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                  <HelpCircle className="h-4 w-4 text-fuchsia-400/70" /> Centro de Ayuda
+                </button>
               </div>
               {/* Hamburger footer */}
               <div className="relative mt-4 border-t border-white/[0.05] px-5 py-4">
