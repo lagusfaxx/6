@@ -46,6 +46,7 @@ type Creator = {
   displayName: string;
   avatarUrl: string | null;
   subscriberCount: number;
+  monthlyPriceCLP?: number;
   user: { username: string };
 };
 
@@ -96,9 +97,10 @@ function VideoPreview({ src, poster, className }: { src: string; poster?: string
 }
 
 /* ── Media carousel within a single post ── */
-function MediaCarousel({ media, viewerUsername }: {
+function MediaCarousel({ media, viewerUsername, unlockHref }: {
   media: FeedItem["media"];
   viewerUsername?: string;
+  unlockHref?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState(0);
@@ -165,7 +167,7 @@ function MediaCarousel({ media, viewerUsername }: {
                         <p className="mt-4 text-sm font-bold text-white drop-shadow-lg">Contenido exclusivo</p>
                         <p className="mt-1 text-xs text-white/60 drop-shadow-lg">Suscríbete para desbloquear</p>
                         <Link
-                          href="/umate/plans"
+                          href={unlockHref || "/umate/explore"}
                           className="mt-4 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-7 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.35)] transition hover:shadow-[0_6px_28px_rgba(0,175,240,0.45)]"
                         >
                           Desbloquear
@@ -236,13 +238,14 @@ function MediaCarousel({ media, viewerUsername }: {
 }
 
 /* ── Post list for a creator's group ── */
-function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsername, activeFilter }: {
+function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsername, activeFilter, unlockHref }: {
   posts: FeedItem[];
   onLike: (id: string) => void;
   onOpenComments: (id: string) => void;
   isBlurredAll: boolean;
   viewerUsername?: string;
   activeFilter?: string;
+  unlockHref?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState(0);
@@ -284,7 +287,7 @@ function PostCarousel({ posts, onLike, onOpenComments, isBlurredAll, viewerUsern
                     ? post.media.find((m) => m.visibility === "FREE")
                     : undefined
                 ) || post.media[0]
-              ]} viewerUsername={viewerUsername} />
+              ]} viewerUsername={viewerUsername} unlockHref={unlockHref} />
 
               {/* Multi-media indicator */}
               {post.media.length > 1 && (
@@ -444,7 +447,7 @@ export default function ExplorePage() {
   return (
     <div className="min-h-screen">
       {/* Filter bar */}
-      <div className="sticky top-14 z-30 border-b border-white/[0.03] bg-[#0a0a12]/85 py-3 backdrop-blur-2xl backdrop-saturate-[1.8]">
+      <div className="sticky top-14 z-30 border-b border-white/[0.03] bg-uzeed-900/85 py-3 backdrop-blur-2xl backdrop-saturate-[1.8]">
         <div className="mx-auto flex max-w-[700px] items-center gap-2 px-4">
           <div className="flex flex-wrap items-center gap-0.5 rounded-xl bg-white/[0.04] p-1">
             {[
@@ -486,12 +489,12 @@ export default function ExplorePage() {
                   <Sparkles className="h-7 w-7 text-[#00aff0]/60" />
                 </div>
                 <p className="text-sm font-semibold text-white/50">No hay contenido disponible</p>
-                <p className="mt-1.5 text-xs text-white/30">Suscríbete a creadoras para ver su contenido aquí.</p>
+                <p className="mt-1.5 text-xs text-white/30">Explora creadoras y suscríbete directamente a sus perfiles.</p>
                 <Link
-                  href="/umate/plans"
+                  href="/umate/creators"
                   className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.3)]"
                 >
-                  <Crown className="h-4 w-4" /> Ver planes
+                  <Users className="h-4 w-4" /> Descubrir creadoras
                 </Link>
               </div>
             )}
@@ -525,7 +528,7 @@ export default function ExplorePage() {
                       </Link>
                       {group.posts.some((p) => p.isBlurred) ? (
                         <Link
-                          href="/umate/plans"
+                          href={`/umate/profile/${group.creator.user?.username || group.creator.id}`}
                           className="shrink-0 flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-4 py-2 text-xs font-bold text-white shadow-[0_2px_10px_rgba(0,175,240,0.25)] transition hover:shadow-[0_4px_16px_rgba(0,175,240,0.35)]"
                         >
                           <Crown className="h-3.5 w-3.5" />
@@ -551,6 +554,7 @@ export default function ExplorePage() {
                       isBlurredAll={group.posts.every((p) => p.isBlurred)}
                       viewerUsername={me?.user?.username}
                       activeFilter={filter}
+                      unlockHref={`/umate/profile/${group.creator.user?.username || group.creator.id}`}
                     />
 
                     {/* Comments section (shows for whichever post is open) */}
@@ -640,6 +644,9 @@ export default function ExplorePage() {
                         <p className="truncate text-sm font-semibold text-white/80">{c.displayName}</p>
                         <p className="text-[11px] text-white/30 flex items-center gap-1">
                           <Users className="h-2.5 w-2.5" /> {c.subscriberCount}
+                          {c.monthlyPriceCLP ? (
+                            <span className="ml-1 text-[#00aff0]/80">· ${c.monthlyPriceCLP.toLocaleString("es-CL")}/mes</span>
+                          ) : null}
                         </p>
                       </div>
                       <span className="shrink-0 rounded-lg bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-3 py-1 text-[10px] font-bold text-white shadow-[0_2px_8px_rgba(0,175,240,0.2)]">
@@ -650,20 +657,20 @@ export default function ExplorePage() {
                 </div>
               </div>
 
-              {/* Premium CTA */}
+              {/* How it works CTA */}
               <div className="relative overflow-hidden rounded-2xl border border-[#00aff0]/10 bg-gradient-to-br from-[#00aff0]/[0.06] via-purple-500/[0.03] to-transparent p-5">
                 <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-[#00aff0]/[0.06] blur-3xl" />
                 <div className="relative">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00aff0]/10">
                     <Crown className="h-5 w-5 text-[#00aff0]" />
                   </div>
-                  <p className="mt-3 text-sm font-bold text-white/90">Desbloquea todo el contenido</p>
-                  <p className="mt-1 text-xs text-white/35 leading-relaxed">Accede a publicaciones exclusivas con un plan premium.</p>
+                  <p className="mt-3 text-sm font-bold text-white/90">Contenido exclusivo</p>
+                  <p className="mt-1 text-xs text-white/35 leading-relaxed">Cada creadora pone su propia tarifa mensual. Suscríbete solo a quien quieras.</p>
                   <Link
-                    href="/umate/plans"
+                    href="/umate/creators"
                     className="mt-4 block rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] py-2.5 text-center text-xs font-bold text-white shadow-[0_4px_16px_rgba(0,175,240,0.25)] transition hover:shadow-[0_6px_24px_rgba(0,175,240,0.35)]"
                   >
-                    Ver planes premium
+                    Explorar creadoras
                   </Link>
                 </div>
               </div>

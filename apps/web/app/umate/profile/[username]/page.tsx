@@ -27,6 +27,7 @@ import {
 import { apiFetch, resolveMediaUrl } from "../../../../lib/api";
 import useMe from "../../../../hooks/useMe";
 import ProtectedMedia from "../../_components/ProtectedMedia";
+import SubscribeModal from "../../_components/SubscribeModal";
 
 type Creator = {
   id: string;
@@ -37,6 +38,7 @@ type Creator = {
   subscriberCount: number;
   totalPosts: number;
   totalLikes: number;
+  monthlyPriceCLP: number;
   status: string;
   user: { username: string; isVerified: boolean };
 };
@@ -60,7 +62,7 @@ type Comment = {
   user: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
 };
 
-function MediaCarousel({ media }: { media: { id: string; type: string; url: string | null; thumbnailUrl?: string | null; pos: number; visibility?: string; isBlurred?: boolean }[] }) {
+function MediaCarousel({ media, onUnlock }: { media: { id: string; type: string; url: string | null; thumbnailUrl?: string | null; pos: number; visibility?: string; isBlurred?: boolean }[]; onUnlock?: () => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState(0);
   const sorted = [...media].sort((a, b) => a.pos - b.pos);
@@ -122,12 +124,13 @@ function MediaCarousel({ media }: { media: { id: string; type: string; url: stri
                     <Lock className="h-8 w-8 text-white/80" />
                   </div>
                   <p className="mt-3 text-sm font-bold text-white drop-shadow-lg">Premium</p>
-                  <Link
-                    href="/umate/plans"
+                  <button
+                    type="button"
+                    onClick={onUnlock}
                     className="mt-3 rounded-full bg-[#00aff0] px-6 py-2 text-sm font-bold text-white transition hover:bg-[#00aff0]/90"
                   >
                     Desbloquear
-                  </Link>
+                  </button>
                 </div>
               </div>
             ) : m.url ? (
@@ -197,8 +200,7 @@ export default function CreatorProfilePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [subscribing, setSubscribing] = useState(false);
-  const [unsubscribing, setUnsubscribing] = useState(false);
+  const [subscribeModalOpen, setSubscribeModalOpen] = useState(false);
   const [tab, setTab] = useState<"all" | "free" | "premium" | "photos" | "videos">("all");
   const [isCreatorUser, setIsCreatorUser] = useState(false);
   const [openComments, setOpenComments] = useState<string | null>(null);
@@ -225,29 +227,26 @@ export default function CreatorProfilePage() {
       .catch(() => {});
   }, [me]);
 
-  const handleSubscribe = async () => {
+  const handleSubscribeClick = () => {
     if (!creator || isCreatorUser) return;
     if (!me?.user) {
       window.location.href = `/login?next=/umate/profile/${encodeURIComponent(username)}`;
       return;
     }
-    setSubscribing(true);
-    try {
-      const res = await apiFetch<{ subscribed?: boolean }>(`/umate/creators/${creator.id}/subscribe`, { method: "POST" });
-      if (res?.subscribed) {
-        setIsSubscribed(true);
-        setCreator((prev) => prev ? { ...prev, subscriberCount: prev.subscriberCount + 1 } : prev);
-      }
-    } catch (err: any) {
-      if (err?.status === 403 && err?.body?.error === "NO_PLAN") {
-        window.location.href = "/umate/plans";
-      } else if (err?.status === 401) {
-        window.location.href = `/login?next=/umate/profile/${encodeURIComponent(username)}`;
-      } else {
-        window.location.href = "/umate/plans";
-      }
-    } finally {
-      setSubscribing(false);
+    setSubscribeModalOpen(true);
+  };
+
+  const handleSubscribeSuccess = async () => {
+    // Refresh profile to reload with premium content unlocked
+    setSubscribeModalOpen(false);
+    setIsSubscribed(true);
+    setCreator((prev) => prev ? { ...prev, subscriberCount: prev.subscriberCount + 1 } : prev);
+    // Reload posts so blur is removed
+    const data = await apiFetch<{ creator: Creator; isSubscribed: boolean; posts: Post[] }>(`/umate/profile/${username}`).catch(() => null);
+    if (data) {
+      setCreator(data.creator);
+      setPosts(data.posts);
+      setIsSubscribed(data.isSubscribed);
     }
   };
 
@@ -257,15 +256,8 @@ export default function CreatorProfilePage() {
     setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, isLiked: res.liked, likeCount: p.likeCount + (res.liked ? 1 : -1) } : p)));
   };
 
-  const handleUnsubscribe = async () => {
-    if (!creator) return;
-    setUnsubscribing(true);
-    const res = await apiFetch<{ unsubscribed: boolean }>(`/umate/creators/${creator.id}/unsubscribe`, { method: "POST" }).catch(() => null);
-    if (res?.unsubscribed) {
-      setIsSubscribed(false);
-      setCreator((prev) => prev ? { ...prev, subscriberCount: Math.max(0, prev.subscriberCount - 1) } : prev);
-    }
-    setUnsubscribing(false);
+  const handleUnsubscribe = () => {
+    window.location.href = "/umate/account/subscriptions";
   };
 
   const loadComments = useCallback(async (postId: string) => {
@@ -364,19 +356,12 @@ export default function CreatorProfilePage() {
                 {isSubscribed ? (
                   <button
                     onClick={handleUnsubscribe}
-                    disabled={unsubscribing}
-                    className="group inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-400 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                    className="group inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-400 transition hover:bg-red-500/10 hover:text-red-400"
                   >
-                    {unsubscribing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4 group-hover:hidden" />
-                        <UserMinus className="hidden h-4 w-4 group-hover:block" />
-                      </>
-                    )}
+                    <CheckCircle className="h-4 w-4 group-hover:hidden" />
+                    <UserMinus className="hidden h-4 w-4 group-hover:block" />
                     <span className="group-hover:hidden">Suscrito</span>
-                    <span className="hidden group-hover:inline">Cancelar</span>
+                    <span className="hidden group-hover:inline">Gestionar</span>
                   </button>
                 ) : isCreatorUser ? (
                   <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.04] px-5 py-2.5 text-sm font-medium text-white/35">
@@ -384,11 +369,13 @@ export default function CreatorProfilePage() {
                   </span>
                 ) : (
                   <button
-                    onClick={handleSubscribe}
-                    disabled={subscribing}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.3)] transition-all duration-200 hover:shadow-[0_6px_28px_rgba(0,175,240,0.4)] hover:-translate-y-px disabled:opacity-50"
+                    onClick={handleSubscribeClick}
+                    className="inline-flex flex-col items-center gap-0 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-5 py-2 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.3)] transition-all duration-200 hover:shadow-[0_6px_28px_rgba(0,175,240,0.4)] hover:-translate-y-px"
                   >
-                    {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Suscribirme"}
+                    <span>Suscribirme</span>
+                    <span className="text-[10px] font-semibold opacity-90">
+                      ${creator.monthlyPriceCLP.toLocaleString("es-CL")} /mes
+                    </span>
                   </button>
                 )}
                 <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] text-white/35 transition hover:border-white/15 hover:text-white/50">
@@ -468,7 +455,7 @@ export default function CreatorProfilePage() {
                   viewerUsername={me?.user?.username}
                 >
                   <div className="relative">
-                    <MediaCarousel media={post.media} />
+                    <MediaCarousel media={post.media} onUnlock={handleSubscribeClick} />
                     {post.visibility === "PREMIUM" && !post.isBlurred && (
                       <span className="absolute right-3 top-3 z-10 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 backdrop-blur-sm">
                         Premium
@@ -569,6 +556,21 @@ export default function CreatorProfilePage() {
         </div>
       </div>
       </div>
+
+      {creator && (
+        <SubscribeModal
+          creator={{
+            id: creator.id,
+            displayName: creator.displayName,
+            avatarUrl: creator.avatarUrl,
+            monthlyPriceCLP: creator.monthlyPriceCLP,
+            user: { username: creator.user.username },
+          }}
+          open={subscribeModalOpen}
+          onClose={() => setSubscribeModalOpen(false)}
+          onSuccess={handleSubscribeSuccess}
+        />
+      )}
     </div>
   );
 }

@@ -191,7 +191,7 @@ export default function UmateHeader() {
   );
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/[0.04] bg-[#0a0a12]/85 backdrop-blur-2xl backdrop-saturate-[1.8]">
+    <header className="sticky top-0 z-50 border-b border-white/[0.04] bg-uzeed-900/85 backdrop-blur-2xl backdrop-saturate-[1.8]">
       {/* Subtle top accent line */}
       <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-[#00aff0]/20 to-transparent" />
 
@@ -199,7 +199,7 @@ export default function UmateHeader() {
         {/* Left: Logo + Nav */}
         <div className="flex items-center gap-4">
           <Link href="/umate/explore" className="flex shrink-0 items-center gap-2">
-            <img src="/brand/Umate.png" alt="U-Mate" className="h-8 w-auto" />
+            <img src="/brand/umate-logo.svg" alt="U-Mate" className="h-8 w-auto" />
           </Link>
 
           {/* Desktop nav */}
@@ -207,7 +207,6 @@ export default function UmateHeader() {
             {[
               { href: "/umate/explore", icon: Home, label: "Inicio", exact: true },
               { href: "/umate/creators", icon: Users, label: "Creadoras", exact: true },
-              ...(!isCreator ? [{ href: "/umate/plans", icon: Crown, label: "Planes", exact: true }] : []),
               ...(isCreator ? [{ href: "/umate/account/creator", icon: Crown, label: "Studio", exact: false }] : []),
             ].map((item) => {
               const active = ("exact" in item && item.exact) ? pathname === item.href : pathname.startsWith(item.href);

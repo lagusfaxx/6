@@ -124,7 +124,7 @@ function CheckoutContent() {
           <p className="text-sm text-white/45">Tu pago fue rechazado por la pasarela de pago. No se realizó ningún cargo.</p>
           <p className="text-xs text-white/30">Esto puede ocurrir por fondos insuficientes, tarjeta bloqueada o datos incorrectos.</p>
           <div className="flex flex-col gap-3 pt-2">
-            <Link href="/umate/plans" className="rounded-full bg-[#00aff0] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90">
+            <Link href="/umate/creators" className="rounded-full bg-[#00aff0] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90">
               Intentar de nuevo
             </Link>
             <Link href="/umate/account" className="rounded-full border border-white/[0.08] px-6 py-2.5 text-sm text-white/40 transition hover:text-white/60">
@@ -144,8 +144,8 @@ function CheckoutContent() {
           <h1 className="text-xl font-extrabold text-white/60">Pago expirado</h1>
           <p className="text-sm text-white/45">El tiempo para completar el pago ha expirado. No se realizó ningún cargo.</p>
           <div className="flex flex-col gap-3 pt-2">
-            <Link href="/umate/plans" className="rounded-full bg-[#00aff0] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90">
-              Volver a planes
+            <Link href="/umate/creators" className="rounded-full bg-[#00aff0] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90">
+              Explorar creadoras
             </Link>
           </div>
         </div>
@@ -163,8 +163,8 @@ function CheckoutContent() {
             >
               <RefreshCw className="h-4 w-4" /> Verificar de nuevo
             </button>
-            <Link href="/umate/plans" className="rounded-full bg-[#00aff0] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90">
-              Volver a planes
+            <Link href="/umate/creators" className="rounded-full bg-[#00aff0] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#00aff0]/90">
+              Explorar creadoras
             </Link>
           </div>
         </div>
