@@ -409,16 +409,21 @@ export default function ProfileDetailView({
   const coverSrc =
     resolveMediaUrl(professional?.coverUrl) ??
     resolveMediaUrl(professional?.avatarUrl);
-  const gallery = useMemo(
-    () =>
-      (professional?.gallery || [])
-        .map((g) => resolveMediaUrl(g.url))
-        .filter(
-          (url): url is string =>
-            typeof url === "string" && url.trim().length > 0,
-        ),
-    [professional?.gallery],
-  );
+  const gallery = useMemo(() => {
+    const realGallery = (professional?.gallery || [])
+      .map((g) => resolveMediaUrl(g.url))
+      .filter(
+        (url): url is string =>
+          typeof url === "string" && url.trim().length > 0,
+      );
+    const cover = resolveMediaUrl(professional?.coverUrl);
+    const avatar = resolveMediaUrl(professional?.avatarUrl);
+    const combined = [cover, avatar, ...realGallery].filter(
+      (url): url is string =>
+        typeof url === "string" && url.trim().length > 0,
+    );
+    return Array.from(new Set(combined));
+  }, [professional?.gallery, professional?.coverUrl, professional?.avatarUrl]);
   const selectedGalleryImage = gallery[galleryIndex] ?? gallery[0] ?? null;
   const lightboxIndex = lightbox
     ? gallery.findIndex((img) => img === lightbox)
