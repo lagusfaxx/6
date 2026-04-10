@@ -1120,6 +1120,9 @@ model UmateCreator {
   // Per-creator monthly subscription price (CLP, pesos). Default 9990.
   monthlyPriceCLP Int   @default(9990)
 
+  // Flow PAC plan tied to this creator's tariff (lazy-created on first subscriber)
+  flowPlanId      String? @unique
+
   // CLP balances (integer = pesos, not cents)
   pendingBalance  Int   @default(0)
   availableBalance Int  @default(0)
@@ -1212,12 +1215,16 @@ model UmateDirectSubscription {
   // Pricing snapshot (creator's price at subscription time)
   priceCLP           Int
 
-  // PAC / card info
+  // PAC / card info (snapshot at subscription time)
   cardBrand          String?              // visa, mastercard, amex
   cardLast4          String?              // last 4 digits
   cardHolderName     String?
-  pacMandateId       String?              // external recurring mandate id
+  pacMandateId       String?              // legacy/simulated recurring mandate id
   paymentIntentId    String?              @db.Uuid
+
+  // Flow PAC IDs (real production integration)
+  flowCustomerId     String?              // Flow customer id used for this sub
+  flowSubscriptionId String?   @unique    // Flow recurring subscription id
 
   status             UmateDirectSubStatus @default(ACTIVE)
   cancelAtPeriodEnd  Boolean              @default(false)

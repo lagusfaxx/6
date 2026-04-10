@@ -244,6 +244,89 @@ plansRouter.get("/subscription/get", requireAuth, asyncHandler(async (req, res) 
 
 // ── Flow Webhook ────────────────────────────────────────────────────
 
+/** Extend a U-Mate direct subscription by 30 days and credit the creator.
+ *  Called from both branches of /webhooks/flow/subscription when Flow reports a
+ *  successful recurring charge for an `UmateDirectSubscription`.
+ *  Returns true if the subscription was found + processed. */
+async function extendUmateDirectSubFromWebhook(flowSubscriptionId: string, source: string): Promise<boolean> {
+  const umateSub = await prisma.umateDirectSubscription.findUnique({
+    where: { flowSubscriptionId },
+  });
+  if (!umateSub) return false;
+
+  const now = new Date();
+  const base = umateSub.currentPeriodEnd && umateSub.currentPeriodEnd.getTime() > now.getTime()
+    ? umateSub.currentPeriodEnd
+    : now;
+  const newPeriodStart = now;
+  const newPeriodEnd = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  // Platform economics (same logic as initial subscription)
+  const platformCfg = await prisma.platformConfig.findMany({
+    where: { key: { in: ["umate_platform_commission_pct", "umate_iva_pct"] } },
+  });
+  const platformCommPct = Number(platformCfg.find((c) => c.key === "umate_platform_commission_pct")?.value ?? "15");
+  const ivaPct = Number(platformCfg.find((c) => c.key === "umate_iva_pct")?.value ?? "19");
+
+  const gross = umateSub.priceCLP;
+  const ivaAmount = Math.round(gross * ivaPct / (100 + ivaPct));
+  const netAfterIva = gross - ivaAmount;
+  const platformFee = Math.round(netAfterIva * platformCommPct / 100);
+  const creatorPayout = netAfterIva - platformFee;
+
+  await prisma.$transaction(async (tx) => {
+    // If the sub was cancelled but flow still charged (race), leave it cancelled — only
+    // update the period so the user still has access until it ends.
+    const isRenewal = umateSub.status === "ACTIVE";
+
+    await tx.umateDirectSubscription.update({
+      where: { id: umateSub.id },
+      data: {
+        currentPeriodStart: newPeriodStart,
+        currentPeriodEnd: newPeriodEnd,
+      },
+    });
+
+    if (isRenewal) {
+      await tx.umateCreator.update({
+        where: { id: umateSub.creatorId },
+        data: {
+          pendingBalance: { increment: creatorPayout },
+          totalEarned: { increment: creatorPayout },
+        },
+      });
+
+      await tx.umateLedgerEntry.create({
+        data: {
+          creatorId: umateSub.creatorId,
+          type: "SLOT_ACTIVATION",
+          grossAmount: gross,
+          platformFee,
+          ivaAmount,
+          creatorPayout,
+          netAmount: creatorPayout,
+          description: `Renovación PAC — $${gross.toLocaleString("es-CL")} CLP`,
+          referenceId: umateSub.id,
+          referenceType: "direct_subscription",
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: umateSub.userId,
+          type: "SUBSCRIPTION_RENEWED",
+          data: { umateDirectSubscriptionId: umateSub.id, source },
+        },
+      });
+    }
+  });
+
+  console.log("[umate] direct-sub period extended via webhook", {
+    umateSubId: umateSub.id, flowSubscriptionId, newPeriodEnd: newPeriodEnd.toISOString(), source,
+  });
+  return true;
+}
+
 function addDays(base: Date, days: number): Date {
   const d = new Date(base.getTime());
   d.setUTCDate(d.getUTCDate() + days);
@@ -305,7 +388,11 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
     });
 
     if (!user) {
-      console.error("[flow] subscription webhook (token): user not found for subscription", { subId });
+      // Not a Uzeed Pro user — try to resolve as a U-Mate direct subscription
+      const handledByUmate = await extendUmateDirectSubFromWebhook(subId, "flow_subscription_token");
+      if (handledByUmate) return res.status(200).send("OK");
+
+      console.error("[flow] subscription webhook (token): subscription not found in User nor UmateDirectSubscription", { subId });
       return res.status(200).send("OK");
     }
 
@@ -357,18 +444,25 @@ plansRouter.post("/webhooks/flow/subscription", asyncHandler(async (req, res) =>
     return res.status(400).json({ error: "MISSING_SUBSCRIPTION_ID" });
   }
 
+  const flowStatus = Number(status);
+  const isActive = flowStatus === 1;
+
   const user = await prisma.user.findFirst({
     where: { flowSubscriptionId: subscriptionId },
     select: { id: true, membershipExpiresAt: true, flowSubscriptionId: true }
   });
 
   if (!user) {
-    console.error("[flow] webhook: subscriptionId not found in database", { subscriptionId });
+    // Not a Uzeed Pro user — try U-Mate direct subscription
+    if (isActive) {
+      const handledByUmate = await extendUmateDirectSubFromWebhook(subscriptionId, "flow_subscription");
+      if (handledByUmate) {
+        return res.json({ ok: true, subscriptionId, status: flowStatus, activated: true, scope: "umate" });
+      }
+    }
+    console.error("[flow] webhook: subscriptionId not found in User nor UmateDirectSubscription", { subscriptionId });
     return res.status(404).json({ error: "SUBSCRIPTION_NOT_FOUND" });
   }
-
-  const flowStatus = Number(status);
-  const isActive = flowStatus === 1;
 
   if (!isActive) {
     console.log("[flow] webhook: subscription not active", { subscriptionId, status: flowStatus });
