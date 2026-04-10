@@ -21,7 +21,6 @@ export type PreferenceGender = z.infer<typeof PreferenceGenders>;
 
 export const registerInputSchema = z
   .object({
-    username: z.string().min(3).max(30),
     phone: z
       .string()
       .regex(
@@ -30,7 +29,7 @@ export const registerInputSchema = z
       ),
     email: z.string().email(),
     password: z.string().min(8).max(128),
-    displayName: z.string().min(2).max(50).optional(),
+    displayName: z.string().min(2).max(50),
     gender: Genders.optional(),
     profileType: ProfileTypes,
     preferenceGender: PreferenceGenders.optional(),
