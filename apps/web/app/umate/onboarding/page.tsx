@@ -197,7 +197,7 @@ export default function OnboardingPage() {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center space-y-6">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#00aff0]/10 border border-[#00aff0]/20">
-          <img src="/brand/Umate.png" alt="U-Mate" className="h-10 w-auto" />
+          <img src="/brand/umate-icon.svg" alt="U-Mate" className="h-10 w-auto" />
         </div>
         <h1 className="text-2xl font-extrabold tracking-tight text-white">Bienvenida a U-Mate</h1>
         <p className="text-sm text-white/45 leading-relaxed">

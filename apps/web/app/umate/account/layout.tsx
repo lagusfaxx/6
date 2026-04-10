@@ -29,8 +29,8 @@ const creatorTabs = [
 
 const clientTabs = [
   { href: "/umate/account", label: "Mi cuenta", icon: Settings, exact: true },
+  { href: "/umate/account/subscriptions", label: "Mis suscripciones", icon: Heart, exact: true },
   { href: "/umate/explore", label: "Explorar creadoras", icon: Compass },
-  { href: "/umate/plans", label: "Planes premium", icon: Crown },
 ];
 
 export default function UmateAccountLayout({ children }: { children: React.ReactNode }) {

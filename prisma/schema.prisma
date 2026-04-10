@@ -485,6 +485,7 @@ model User {
   umateCreator           UmateCreator?
   umateSubscriptions     UmateSubscription[]
   umateCreatorSubs       UmateCreatorSub[]   @relation("UmateSubscriber")
+  umateDirectSubs        UmateDirectSubscription[] @relation("UmateDirectSubUser")
   umateLikes             UmateLike[]
   umateComments          UmateComment[]
 
@@ -1116,6 +1117,9 @@ model UmateCreator {
   totalPosts      Int   @default(0)
   totalLikes      Int   @default(0)
 
+  // Per-creator monthly subscription price (CLP, pesos). Default 9990.
+  monthlyPriceCLP Int   @default(9990)
+
   // CLP balances (integer = pesos, not cents)
   pendingBalance  Int   @default(0)
   availableBalance Int  @default(0)
@@ -1124,10 +1128,11 @@ model UmateCreator {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  posts           UmatePost[]
-  creatorSubs     UmateCreatorSub[]
-  ledgerEntries   UmateLedgerEntry[] @relation("CreatorLedger")
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts             UmatePost[]
+  creatorSubs       UmateCreatorSub[]
+  directSubscriptions UmateDirectSubscription[] @relation("CreatorDirectSubs")
+  ledgerEntries     UmateLedgerEntry[]         @relation("CreatorLedger")
 
   @@index([status])
 }
@@ -1188,6 +1193,50 @@ model UmateCreatorSub {
   @@unique([subscriptionId, creatorId])
   @@index([subscriberId, expiresAt])
   @@index([creatorId])
+}
+
+// ── Direct per-creator subscription (OnlyFans-style, PAC recurring billing) ──
+
+enum UmateDirectSubStatus {
+  ACTIVE
+  CANCELLED   // User cancelled but still has access until currentPeriodEnd
+  EXPIRED     // Period ended after cancellation, access revoked
+  PAST_DUE    // PAC charge failed
+}
+
+model UmateDirectSubscription {
+  id                 String               @id @default(uuid()) @db.Uuid
+  userId             String               @db.Uuid
+  creatorId          String               @db.Uuid
+
+  // Pricing snapshot (creator's price at subscription time)
+  priceCLP           Int
+
+  // PAC / card info
+  cardBrand          String?              // visa, mastercard, amex
+  cardLast4          String?              // last 4 digits
+  cardHolderName     String?
+  pacMandateId       String?              // external recurring mandate id
+  paymentIntentId    String?              @db.Uuid
+
+  status             UmateDirectSubStatus @default(ACTIVE)
+  cancelAtPeriodEnd  Boolean              @default(false)
+
+  startedAt          DateTime             @default(now())
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelledAt        DateTime?
+
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  user    User         @relation("UmateDirectSubUser", fields: [userId], references: [id], onDelete: Cascade)
+  creator UmateCreator @relation("CreatorDirectSubs", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, creatorId])
+  @@index([userId, status])
+  @@index([creatorId, status])
+  @@index([currentPeriodEnd])
 }
 
 // ── Content posts ──

@@ -12,17 +12,12 @@ import {
   Crown,
   Edit3,
   ExternalLink,
-  Heart,
   ImageIcon,
   Loader2,
   Save,
-  Settings,
   ShieldCheck,
   Sparkles,
-  Star,
   UserCircle2,
-  Users,
-  XCircle,
 } from "lucide-react";
 import { apiFetch, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
@@ -34,14 +29,15 @@ type CreatorStats = {
   contractAccepted: boolean;
   bankConfigured: boolean;
 };
-type SubscriptionInfo = {
-  active: boolean;
-  plan?: { name: string; tier: string };
-  slotsTotal?: number;
-  slotsUsed?: number;
-  slotsAvailable?: number;
-  cycleEnd?: string;
-  subscribedCreators?: { displayName: string; username: string }[];
+type DirectSubscription = {
+  id: string;
+  status: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PAST_DUE";
+  priceCLP: number;
+  cardBrand: string | null;
+  cardLast4: string | null;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  creator: { id: string; displayName: string; avatarUrl: string | null; username: string };
 };
 
 type CreatorFull = {
@@ -51,6 +47,7 @@ type CreatorFull = {
   bio: string | null;
   avatarUrl: string | null;
   coverUrl: string | null;
+  monthlyPriceCLP?: number;
 };
 
 export default function UmateAccountPage() {
@@ -58,14 +55,16 @@ export default function UmateAccountPage() {
   const [creator, setCreator] = useState<CreatorInfo>(null);
   const [creatorFull, setCreatorFull] = useState<CreatorFull | null>(null);
   const [creatorStats, setCreatorStats] = useState<CreatorStats | null>(null);
-  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
-  const [cancelling, setCancelling] = useState(false);
+  const [directSubs, setDirectSubs] = useState<DirectSubscription[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Profile editing state
   const [editingProfile, setEditingProfile] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState("");
   const [editBio, setEditBio] = useState("");
+  const [editPrice, setEditPrice] = useState<string>("");
+  const [savingPrice, setSavingPrice] = useState(false);
+  const [priceMsg, setPriceMsg] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -78,7 +77,7 @@ export default function UmateAccountPage() {
     Promise.all([
       apiFetch<{ creator: CreatorFull }>("/umate/creator/me").catch(() => null),
       apiFetch<CreatorStats>("/umate/creator/stats").catch(() => null),
-      apiFetch<SubscriptionInfo>("/umate/subscription/status").catch(() => null),
+      apiFetch<{ subscriptions: DirectSubscription[] }>("/umate/my-subscriptions").catch(() => null),
     ]).then(([c, st, sub]) => {
       const cr = c?.creator || null;
       setCreator(cr ? { id: cr.id, status: cr.status } : null);
@@ -86,9 +85,10 @@ export default function UmateAccountPage() {
       if (cr) {
         setEditDisplayName(cr.displayName || "");
         setEditBio(cr.bio || "");
+        setEditPrice(String(cr.monthlyPriceCLP ?? 9990));
       }
       setCreatorStats(st);
-      setSubscription(sub);
+      setDirectSubs(sub?.subscriptions || []);
       setLoading(false);
     });
   }, []);
@@ -142,22 +142,36 @@ export default function UmateAccountPage() {
       body: JSON.stringify({ displayName: editDisplayName, bio: editBio }),
     }).catch(() => null);
     if (res?.creator) {
-      setCreatorFull(res.creator);
+      setCreatorFull((prev) => prev ? { ...prev, ...res.creator } : res.creator);
       setCreator({ id: res.creator.id, status: res.creator.status });
       setEditingProfile(false);
     }
     setSavingProfile(false);
   };
 
-  const handleCancelSubscription = async () => {
-    if (!confirm("¿Estás seguro de cancelar tu plan? Mantendrás acceso hasta el fin del ciclo.")) return;
-    setCancelling(true);
-    const res = await apiFetch<{ cancelled: boolean }>("/umate/subscription/cancel", { method: "POST" }).catch(() => null);
-    if (res?.cancelled) {
-      setSubscription((prev) => prev ? { ...prev, active: false } : prev);
+  const handleSavePrice = async () => {
+    const priceInt = parseInt(editPrice, 10);
+    if (!Number.isFinite(priceInt) || priceInt < 1000 || priceInt > 200000) {
+      setPriceMsg("El precio debe estar entre $1.000 y $200.000 CLP.");
+      return;
     }
-    setCancelling(false);
+    setSavingPrice(true);
+    setPriceMsg(null);
+    const res = await apiFetch<{ creator: { id: string; monthlyPriceCLP: number } }>("/umate/creator/price", {
+      method: "PUT",
+      body: JSON.stringify({ monthlyPriceCLP: priceInt }),
+    }).catch((err: any) => {
+      setPriceMsg(err?.body?.message || "No se pudo actualizar el precio.");
+      return null;
+    });
+    if (res?.creator) {
+      setCreatorFull((prev) => prev ? { ...prev, monthlyPriceCLP: res.creator.monthlyPriceCLP } : prev);
+      setPriceMsg("Precio actualizado correctamente.");
+    }
+    setSavingPrice(false);
   };
+
+  const activeSubCount = directSubs.length;
 
   if (loading) {
     return (
@@ -197,90 +211,73 @@ export default function UmateAccountPage() {
           </div>
         </section>
 
-        {/* Subscription */}
+        {/* Subscriptions summary */}
         <section className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
-          <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/30">
-            <CreditCard className="h-4 w-4" /> Tu suscripción
-          </h2>
-          {subscription?.active ? (
-            <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-base font-bold text-white">{subscription.plan?.name || "Plan activo"}</p>
-                    <span className="rounded-lg bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">Activo</span>
-                  </div>
-                  <p className="mt-1 text-xs text-white/30">
-                    {subscription.slotsUsed}/{subscription.slotsTotal} cupos usados · Vence {subscription.cycleEnd ? new Date(subscription.cycleEnd).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" }) : "—"}
-                  </p>
-                </div>
+          <div className="flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/30">
+              <CreditCard className="h-4 w-4" /> Mis suscripciones
+            </h2>
+            <Link
+              href="/umate/account/subscriptions"
+              className="text-[11px] font-semibold text-[#00aff0]/80 hover:text-[#00aff0] transition"
+            >
+              Ver todas
+            </Link>
+          </div>
+
+          {activeSubCount > 0 ? (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-white/40">
+                Tienes <strong className="text-white/80">{activeSubCount}</strong> suscripción{activeSubCount === 1 ? "" : "es"} activa{activeSubCount === 1 ? "" : "s"} con renovación automática (PAC).
+              </p>
+              <div className="space-y-1.5">
+                {directSubs.slice(0, 4).map((s) => (
+                  <Link
+                    key={s.id}
+                    href="/umate/account/subscriptions"
+                    className="flex items-center gap-3 rounded-xl border border-white/[0.04] p-2.5 transition hover:bg-white/[0.03] hover:border-white/[0.08]"
+                  >
+                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.04]">
+                      {s.creator.avatarUrl ? (
+                        <img src={resolveMediaUrl(s.creator.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-xs font-bold text-white/40">{(s.creator.displayName || "?")[0]}</div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-white/80">{s.creator.displayName}</p>
+                      <p className="text-[11px] text-white/35">
+                        ${s.priceCLP.toLocaleString("es-CL")}/mes ·
+                        {s.cancelAtPeriodEnd ? " Termina " : " Renueva "}
+                        {new Date(s.currentPeriodEnd).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                      </p>
+                    </div>
+                    {s.cardLast4 && (
+                      <span className="shrink-0 rounded-lg bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-white/50">•• {s.cardLast4}</span>
+                    )}
+                  </Link>
+                ))}
               </div>
-
-              {/* Slots visual */}
-              {subscription.slotsTotal && (
-                <div className="space-y-2">
-                  <div className="flex gap-1.5">
-                    {Array.from({ length: subscription.slotsTotal }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={`h-2 flex-1 rounded-full transition ${
-                          i < (subscription.slotsUsed || 0) ? "bg-[#00aff0]" : "bg-white/[0.06]"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-white/25">
-                    {(subscription.slotsAvailable || 0) > 0
-                      ? `${subscription.slotsAvailable} cupos disponibles para suscribirte a creadoras`
-                      : "Todos los cupos utilizados"}
-                  </p>
-                </div>
-              )}
-
-              {/* Subscribed creators */}
-              {subscription.subscribedCreators && subscription.subscribedCreators.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-semibold text-white/25 uppercase tracking-wider mb-2">Suscripciones activas</p>
-                  <div className="space-y-1">
-                    {subscription.subscribedCreators.map((c) => (
-                      <Link
-                        key={c.username}
-                        href={`/umate/profile/${c.username}`}
-                        className="flex items-center gap-2 rounded-lg p-2 text-sm text-white/50 transition hover:bg-white/[0.03] hover:text-white/70"
-                      >
-                        <Star className="h-3.5 w-3.5 text-[#00aff0]/60" />
-                        <span className="font-medium">{c.displayName}</span>
-                        <span className="text-xs text-white/25">@{c.username}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={handleCancelSubscription}
-                disabled={cancelling}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/15 px-4 py-2 text-xs font-medium text-red-400/50 transition hover:bg-red-500/[0.06] hover:text-red-400 disabled:opacity-50"
+              <Link
+                href="/umate/account/subscriptions"
+                className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#00aff0]/80 hover:text-[#00aff0] transition"
               >
-                {cancelling ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
-                Cancelar suscripción
-              </button>
+                Gestionar y cancelar <ArrowRight className="h-3 w-3" />
+              </Link>
             </div>
           ) : (
-            <div className="mt-4">
-              <div className="rounded-xl border border-[#00aff0]/10 bg-gradient-to-br from-[#00aff0]/[0.04] to-transparent p-5 text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#00aff0]/10">
-                  <Crown className="h-5 w-5 text-[#00aff0]" />
-                </div>
-                <p className="text-sm font-bold text-white/80">No tienes un plan activo</p>
-                <p className="mt-1 text-xs text-white/30">Activa un plan para suscribirte a creadoras y acceder a contenido exclusivo.</p>
-                <Link
-                  href="/umate/plans"
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.3)] transition hover:shadow-[0_6px_28px_rgba(0,175,240,0.4)]"
-                >
-                  Ver planes <ArrowRight className="h-4 w-4" />
-                </Link>
+            <div className="mt-4 rounded-xl border border-[#00aff0]/10 bg-gradient-to-br from-[#00aff0]/[0.04] to-transparent p-5 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#00aff0]/10">
+                <Crown className="h-5 w-5 text-[#00aff0]" />
               </div>
+              <p className="text-sm font-bold text-white/80">No tienes suscripciones</p>
+              <p className="mt-1 text-xs text-white/30">Explora creadoras y suscríbete directamente a sus perfiles para desbloquear su contenido.</p>
+              <Link
+                href="/umate/explore"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.3)] transition hover:shadow-[0_6px_28px_rgba(0,175,240,0.4)]"
+              >
+                Explorar creadoras <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
           )}
         </section>
@@ -291,7 +288,7 @@ export default function UmateAccountPage() {
           <div className="grid gap-2 sm:grid-cols-2">
             {[
               { href: "/umate/explore", label: "Explorar contenido", desc: "Descubre nuevas creadoras", icon: Compass, color: "text-[#00aff0]" },
-              { href: "/umate/plans", label: "Ver planes", desc: "Elige tu plan premium", icon: Crown, color: "text-amber-400" },
+              { href: "/umate/account/subscriptions", label: "Mis suscripciones", desc: "Gestiona tus pagos y cancelaciones", icon: CreditCard, color: "text-amber-400" },
               { href: "/umate/onboarding", label: "Ser creadora", desc: "Crea tu perfil de creadora", icon: Sparkles, color: "text-purple-400" },
               { href: "/", label: "Volver a UZEED", desc: "Ir a la plataforma principal", icon: ExternalLink, color: "text-white/40" },
             ].map((a) => (
@@ -450,6 +447,49 @@ export default function UmateAccountPage() {
             </div>
           )}
         </div>
+      </section>
+
+      {/* Monthly subscription price (per-creator tariff) */}
+      <section className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
+        <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/30">
+          <CreditCard className="h-4 w-4" /> Tarifa mensual de suscripción
+        </h2>
+        <p className="mt-1 text-xs text-white/30">
+          Define el precio mensual que tus fans deben pagar con PAC para desbloquear tu contenido premium.
+        </p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="text-[11px] font-semibold text-white/30 uppercase tracking-wider">Precio (CLP)</label>
+            <div className="mt-1 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3.5 py-2.5 transition focus-within:border-[#00aff0]/30">
+              <span className="text-white/40">$</span>
+              <input
+                type="number"
+                min={1000}
+                max={200000}
+                step={500}
+                value={editPrice}
+                onChange={(e) => { setEditPrice(e.target.value); setPriceMsg(null); }}
+                placeholder="9990"
+                className="flex-1 bg-transparent text-sm text-white placeholder-white/20 outline-none"
+              />
+              <span className="text-xs text-white/25">/ mes</span>
+            </div>
+            <p className="mt-1 text-[10px] text-white/25">Mínimo $1.000 · Máximo $200.000 · Se cobra automáticamente con PAC cada 30 días.</p>
+          </div>
+          <button
+            onClick={handleSavePrice}
+            disabled={savingPrice || String(creatorFull?.monthlyPriceCLP ?? "") === String(parseInt(editPrice, 10))}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.25)] transition disabled:opacity-40"
+          >
+            {savingPrice ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Guardar precio
+          </button>
+        </div>
+        {priceMsg && (
+          <p className="mt-3 rounded-xl border border-[#00aff0]/15 bg-[#00aff0]/[0.04] px-3 py-2 text-[11px] text-[#00aff0]/80">
+            {priceMsg}
+          </p>
+        )}
       </section>
 
       {/* Account info */}

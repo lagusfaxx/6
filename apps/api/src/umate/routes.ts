@@ -97,6 +97,17 @@ async function getUmateConfig(key: string, fallback: number): Promise<number> {
   return cfg ? parseInt(cfg.value, 10) : fallback;
 }
 
+/** Detect card brand from card number prefix (for display only) */
+function detectCardBrand(cardNumber: string): string {
+  const n = cardNumber.replace(/\D/g, "");
+  if (/^4/.test(n)) return "visa";
+  if (/^(5[1-5]|2[2-7])/.test(n)) return "mastercard";
+  if (/^3[47]/.test(n)) return "amex";
+  if (/^(6011|65|64[4-9])/.test(n)) return "discover";
+  if (/^35/.test(n)) return "jcb";
+  return "card";
+}
+
 /** Check if user has an active U-Mate subscription with available slots */
 async function getActiveSubscription(userId: string) {
   return prisma.umateSubscription.findFirst({
@@ -149,12 +160,43 @@ async function maturePendingBalances() {
   }
 }
 
-/** Check if user is subscribed to a specific creator */
+/** Check if user is subscribed to a specific creator (via plan slot OR direct per-creator sub) */
 async function isSubscribedToCreator(userId: string, creatorId: string): Promise<boolean> {
+  // Legacy plan-slot subscription
   const sub = await prisma.umateCreatorSub.findFirst({
     where: { subscriberId: userId, creatorId, expiresAt: { gt: new Date() } },
   });
-  return Boolean(sub);
+  if (sub) return true;
+
+  // Direct per-creator subscription (OnlyFans-style)
+  const direct = await prisma.umateDirectSubscription.findFirst({
+    where: {
+      userId,
+      creatorId,
+      status: { in: ["ACTIVE", "CANCELLED"] }, // CANCELLED still has access until period end
+      currentPeriodEnd: { gt: new Date() },
+    },
+  });
+  return Boolean(direct);
+}
+
+/** Get all creatorIds the user is subscribed to (via either model) */
+async function getSubscribedCreatorIds(userId: string): Promise<Set<string>> {
+  const [slotSubs, directSubs] = await Promise.all([
+    prisma.umateCreatorSub.findMany({
+      where: { subscriberId: userId, expiresAt: { gt: new Date() } },
+      select: { creatorId: true },
+    }),
+    prisma.umateDirectSubscription.findMany({
+      where: {
+        userId,
+        status: { in: ["ACTIVE", "CANCELLED"] },
+        currentPeriodEnd: { gt: new Date() },
+      },
+      select: { creatorId: true },
+    }),
+  ]);
+  return new Set([...slotSubs.map((s) => s.creatorId), ...directSubs.map((s) => s.creatorId)]);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -211,15 +253,11 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
     }).catch(() => {});
   }
 
-  // Determine which creators the user is subscribed to
+  // Determine which creators the user is subscribed to (plan slot OR direct)
   let subscribedCreatorIds = new Set<string>();
   let likedPostIds = new Set<string>();
   if (userId) {
-    const subs = await prisma.umateCreatorSub.findMany({
-      where: { subscriberId: userId, expiresAt: { gt: new Date() } },
-      select: { creatorId: true },
-    });
-    subscribedCreatorIds = new Set(subs.map((s) => s.creatorId));
+    subscribedCreatorIds = await getSubscribedCreatorIds(userId);
 
     const likes = await prisma.umateLike.findMany({
       where: { userId, postId: { in: posts.map((p) => p.id) } },
@@ -282,6 +320,7 @@ umateRouter.get("/umate/creators", asyncHandler(async (req, res) => {
       subscriberCount: true,
       totalPosts: true,
       totalLikes: true,
+      monthlyPriceCLP: true,
       user: { select: { username: true, isVerified: true } },
     },
     orderBy: [{ subscriberCount: "desc" }, { totalLikes: "desc" }, { createdAt: "desc" }],
@@ -317,6 +356,7 @@ umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
       subscriberCount: true,
       totalPosts: true,
       totalLikes: true,
+      monthlyPriceCLP: true,
       status: true,
       user: { select: { username: true, isVerified: true } },
     },
@@ -1376,14 +1416,11 @@ umateRouter.get("/umate/suggested", asyncHandler(async (req, res) => {
   const userId = (req as any).user?.id;
   const limit = Math.min(parseInt(String(req.query.limit || "5"), 10) || 5, 20);
 
-  // Get creators the user is NOT subscribed to
+  // Get creators the user is NOT subscribed to (legacy slot OR direct)
   let excludeCreatorIds: string[] = [];
   if (userId) {
-    const subs = await prisma.umateCreatorSub.findMany({
-      where: { subscriberId: userId, expiresAt: { gt: new Date() } },
-      select: { creatorId: true },
-    });
-    excludeCreatorIds = subs.map((s) => s.creatorId);
+    const subscribed = await getSubscribedCreatorIds(userId);
+    excludeCreatorIds = Array.from(subscribed);
   }
 
   const creators = await prisma.umateCreator.findMany({
@@ -1400,6 +1437,7 @@ umateRouter.get("/umate/suggested", asyncHandler(async (req, res) => {
       totalPosts: true,
       totalLikes: true,
       bio: true,
+      monthlyPriceCLP: true,
       user: { select: { username: true, isVerified: true } },
     },
     orderBy: [{ subscriberCount: "desc" }, { totalLikes: "desc" }],
@@ -1407,6 +1445,312 @@ umateRouter.get("/umate/suggested", asyncHandler(async (req, res) => {
   });
 
   res.json({ creators });
+}));
+
+// ══════════════════════════════════════════════════════════════════════
+// DIRECT SUBSCRIPTIONS (OnlyFans-style, per-creator, PAC recurring)
+// ══════════════════════════════════════════════════════════════════════
+
+/** Creator sets her own monthly subscription price */
+umateRouter.put("/umate/creator/price", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as any).user.id;
+  const { monthlyPriceCLP } = req.body as { monthlyPriceCLP: number };
+
+  const priceInt = Math.round(Number(monthlyPriceCLP));
+  if (!Number.isFinite(priceInt) || priceInt < 1000 || priceInt > 200000) {
+    return res.status(400).json({ error: "INVALID_PRICE", message: "El precio debe estar entre $1.000 y $200.000 CLP." });
+  }
+
+  const creator = await prisma.umateCreator.findUnique({ where: { userId } });
+  if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
+
+  const updated = await prisma.umateCreator.update({
+    where: { id: creator.id },
+    data: { monthlyPriceCLP: priceInt },
+    select: { id: true, monthlyPriceCLP: true },
+  });
+
+  res.json({ creator: updated });
+}));
+
+/** Subscribe directly to a specific creator using PAC (recurring card charge).
+ *  Body: { cardNumber, cardHolderName, cardExp, cardCvv }  (sandbox — last4 stored only) */
+umateRouter.post("/umate/creators/:creatorId/subscribe-direct", requireAuth, paymentLimiter, asyncHandler(async (req, res) => {
+  const userId = (req as any).user.id;
+  const { creatorId } = req.params;
+  const { cardNumber, cardHolderName, cardExp, cardCvv } = req.body as {
+    cardNumber?: string;
+    cardHolderName?: string;
+    cardExp?: string;
+    cardCvv?: string;
+  };
+
+  const creator = await prisma.umateCreator.findUnique({ where: { id: creatorId } });
+  if (!creator || creator.status !== "ACTIVE") {
+    return res.status(404).json({ error: "CREATOR_NOT_FOUND" });
+  }
+
+  if (creator.userId === userId) {
+    return res.status(400).json({ error: "CANNOT_SUBSCRIBE_SELF" });
+  }
+
+  // Creators cannot subscribe to other creators
+  const userIsCreator = await prisma.umateCreator.findUnique({ where: { userId } });
+  if (userIsCreator && userIsCreator.status !== "SUSPENDED") {
+    return res.status(403).json({ error: "CREATOR_CANNOT_SUBSCRIBE", message: "Las creadoras no pueden suscribirse a perfiles. Usa una cuenta de cliente." });
+  }
+
+  // Validate card input
+  const digitsOnly = (cardNumber || "").replace(/\s+/g, "");
+  if (!/^\d{13,19}$/.test(digitsOnly)) {
+    return res.status(400).json({ error: "INVALID_CARD", message: "Número de tarjeta inválido." });
+  }
+  if (!cardHolderName || cardHolderName.trim().length < 2) {
+    return res.status(400).json({ error: "INVALID_HOLDER", message: "Nombre del titular requerido." });
+  }
+  if (!/^\d{2}\/\d{2}$/.test(cardExp || "")) {
+    return res.status(400).json({ error: "INVALID_EXP", message: "Fecha de expiración inválida (MM/AA)." });
+  }
+  if (!/^\d{3,4}$/.test(cardCvv || "")) {
+    return res.status(400).json({ error: "INVALID_CVV", message: "CVV inválido." });
+  }
+
+  const last4 = digitsOnly.slice(-4);
+  const brand = detectCardBrand(digitsOnly);
+
+  // Check if already subscribed (active or cancelled-but-period-remaining)
+  const existing = await prisma.umateDirectSubscription.findUnique({
+    where: { userId_creatorId: { userId, creatorId } },
+  });
+
+  const now = new Date();
+  const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  if (existing && existing.status === "ACTIVE" && existing.currentPeriodEnd > now) {
+    return res.status(400).json({ error: "ALREADY_SUBSCRIBED", message: "Ya estás suscrito a esta creadora." });
+  }
+
+  // Economics (snapshot)
+  const platformCommPct = await getUmateConfig("umate_platform_commission_pct", 15);
+  const ivaPct = await getUmateConfig("umate_iva_pct", 19);
+  const gross = creator.monthlyPriceCLP;
+  const ivaAmount = Math.round(gross * ivaPct / (100 + ivaPct));
+  const netAfterIva = gross - ivaAmount;
+  const platformFee = Math.round(netAfterIva * platformCommPct / 100);
+  const creatorPayout = netAfterIva - platformFee;
+
+  // Create payment intent (PAC mandate simulated)
+  const intent = await prisma.paymentIntent.create({
+    data: {
+      subscriberId: userId,
+      purpose: "UMATE_PLAN",
+      method: "FLOW",
+      status: "PAID", // Sandbox: immediate confirmation
+      amount: gross,
+      paidAt: now,
+      notes: JSON.stringify({ kind: "umate_direct_subscription", creatorId, last4, brand }),
+    },
+  });
+
+  // Simulated PAC mandate id (in production this comes from Flow/Khipu)
+  const pacMandateId = `pac_${intent.id.replace(/-/g, "").slice(0, 20)}`;
+
+  const sub = await prisma.$transaction(async (tx) => {
+    let record;
+    if (existing) {
+      record = await tx.umateDirectSubscription.update({
+        where: { id: existing.id },
+        data: {
+          priceCLP: gross,
+          cardBrand: brand,
+          cardLast4: last4,
+          cardHolderName: cardHolderName.trim(),
+          pacMandateId,
+          paymentIntentId: intent.id,
+          status: "ACTIVE",
+          cancelAtPeriodEnd: false,
+          cancelledAt: null,
+          startedAt: now,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+        },
+      });
+    } else {
+      record = await tx.umateDirectSubscription.create({
+        data: {
+          userId,
+          creatorId,
+          priceCLP: gross,
+          cardBrand: brand,
+          cardLast4: last4,
+          cardHolderName: cardHolderName.trim(),
+          pacMandateId,
+          paymentIntentId: intent.id,
+          status: "ACTIVE",
+          startedAt: now,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+        },
+      });
+    }
+
+    await tx.umateCreator.update({
+      where: { id: creatorId },
+      data: {
+        subscriberCount: { increment: existing ? 0 : 1 },
+        pendingBalance: { increment: creatorPayout },
+        totalEarned: { increment: creatorPayout },
+      },
+    });
+
+    await tx.umateLedgerEntry.create({
+      data: {
+        creatorId,
+        type: "SLOT_ACTIVATION",
+        grossAmount: gross,
+        platformFee,
+        ivaAmount,
+        creatorPayout,
+        netAmount: creatorPayout,
+        description: `Suscripción directa (PAC) — $${gross.toLocaleString("es-CL")} CLP`,
+        referenceId: record.id,
+        referenceType: "direct_subscription",
+      },
+    });
+
+    return record;
+  });
+
+  // Notify creator
+  prisma.notification.create({
+    data: {
+      userId: creator.userId,
+      type: "UMATE_NEW_SUBSCRIBER",
+      data: { subscriberId: userId, creatorId, direct: true },
+    },
+  }).then(() => {
+    sendToUser(creator.userId, "umate:new_subscriber", { creatorId });
+  }).catch(() => {});
+
+  res.json({
+    subscribed: true,
+    subscription: {
+      id: sub.id,
+      status: sub.status,
+      priceCLP: sub.priceCLP,
+      cardBrand: sub.cardBrand,
+      cardLast4: sub.cardLast4,
+      currentPeriodEnd: sub.currentPeriodEnd,
+    },
+  });
+}));
+
+/** List my direct subscriptions (for "Mis suscripciones" page) */
+umateRouter.get("/umate/my-subscriptions", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as any).user.id;
+
+  const subs = await prisma.umateDirectSubscription.findMany({
+    where: {
+      userId,
+      OR: [
+        { status: "ACTIVE" },
+        { status: "CANCELLED", currentPeriodEnd: { gt: new Date() } },
+      ],
+    },
+    include: {
+      creator: {
+        select: {
+          id: true,
+          displayName: true,
+          avatarUrl: true,
+          monthlyPriceCLP: true,
+          user: { select: { username: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.json({
+    subscriptions: subs.map((s) => ({
+      id: s.id,
+      status: s.status,
+      priceCLP: s.priceCLP,
+      cardBrand: s.cardBrand,
+      cardLast4: s.cardLast4,
+      cardHolderName: s.cardHolderName,
+      cancelAtPeriodEnd: s.cancelAtPeriodEnd,
+      startedAt: s.startedAt,
+      currentPeriodStart: s.currentPeriodStart,
+      currentPeriodEnd: s.currentPeriodEnd,
+      cancelledAt: s.cancelledAt,
+      creator: {
+        id: s.creator.id,
+        displayName: s.creator.displayName,
+        avatarUrl: s.creator.avatarUrl,
+        username: s.creator.user?.username,
+      },
+    })),
+  });
+}));
+
+/** Cancel a direct subscription at period end (access continues until currentPeriodEnd) */
+umateRouter.post("/umate/direct-subscriptions/:id/cancel", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as any).user.id;
+  const { id } = req.params;
+
+  const sub = await prisma.umateDirectSubscription.findUnique({ where: { id } });
+  if (!sub || sub.userId !== userId) {
+    return res.status(404).json({ error: "NOT_FOUND" });
+  }
+
+  if (sub.status !== "ACTIVE") {
+    return res.status(400).json({ error: "NOT_ACTIVE", message: "Esta suscripción ya fue cancelada." });
+  }
+
+  const updated = await prisma.umateDirectSubscription.update({
+    where: { id },
+    data: {
+      status: "CANCELLED",
+      cancelAtPeriodEnd: true,
+      cancelledAt: new Date(),
+    },
+  });
+
+  res.json({
+    cancelled: true,
+    subscription: {
+      id: updated.id,
+      status: updated.status,
+      currentPeriodEnd: updated.currentPeriodEnd,
+    },
+  });
+}));
+
+/** Reactivate a subscription that was cancelled but still in period */
+umateRouter.post("/umate/direct-subscriptions/:id/reactivate", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as any).user.id;
+  const { id } = req.params;
+
+  const sub = await prisma.umateDirectSubscription.findUnique({ where: { id } });
+  if (!sub || sub.userId !== userId) {
+    return res.status(404).json({ error: "NOT_FOUND" });
+  }
+
+  if (sub.status !== "CANCELLED" || sub.currentPeriodEnd <= new Date()) {
+    return res.status(400).json({ error: "CANNOT_REACTIVATE" });
+  }
+
+  const updated = await prisma.umateDirectSubscription.update({
+    where: { id },
+    data: {
+      status: "ACTIVE",
+      cancelAtPeriodEnd: false,
+      cancelledAt: null,
+    },
+  });
+
+  res.json({ reactivated: true, subscription: { id: updated.id, status: updated.status } });
 }));
 
 // ══════════════════════════════════════════════════════════════════════

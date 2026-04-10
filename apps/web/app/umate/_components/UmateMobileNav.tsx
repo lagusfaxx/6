@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Crown,
   Heart,
   Home,
   Plus,
@@ -26,7 +25,7 @@ type NavItem = {
 const clientItems: NavItem[] = [
   { href: "/umate/explore", label: "Inicio", icon: Home, exact: true },
   { href: "/umate/creators", label: "Creadoras", icon: Users, exact: true },
-  { href: "/umate/plans", label: "Planes", icon: Crown },
+  { href: "/umate/account/subscriptions", label: "Suscripciones", icon: Heart, exact: true },
   { href: "/umate/account", label: "Cuenta", icon: User, exact: true },
 ];
 
@@ -53,7 +52,7 @@ export default function UmateMobileNav() {
   const items = isCreator ? creatorItems : clientItems;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/[0.04] bg-[#0a0a12]/90 backdrop-blur-2xl backdrop-saturate-[1.8] lg:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/[0.04] bg-uzeed-900/90 backdrop-blur-2xl backdrop-saturate-[1.8] lg:hidden">
       {/* Top glow accent */}
       <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-[#00aff0]/15 to-transparent" />
 
