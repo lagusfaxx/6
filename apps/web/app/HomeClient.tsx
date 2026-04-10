@@ -21,6 +21,7 @@ import {
 } from "../lib/chat";
 import {
   ArrowRight,
+  BadgeCheck,
   ChevronRight,
   Crown,
   Download,
@@ -115,6 +116,17 @@ type DiscoverProfile = {
   profileTags?: string[];
   serviceTags?: string[];
   galleryUrls?: string[];
+};
+
+type UmateCreatorCard = {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  coverUrl: string | null;
+  subscriberCount: number;
+  totalPosts: number;
+  monthlyPriceCLP: number;
+  user: { username: string; isVerified: boolean };
 };
 
 /* ── Badge helpers (mirrors /servicios logic) ── */
@@ -426,9 +438,8 @@ export default function HomeClient() {
   const dragScrollLeftRef = useRef(0);
   const isAuthed = Boolean(me?.user?.id);
 
-  /* ── Hoteles & Sexshop ── */
-  const [moteles, setMoteles] = useState<any[]>([]);
-  const [sexshops, setSexshops] = useState<any[]>([]);
+  /* ── U-Mate creators (home showcase) ── */
+  const [umateCreators, setUmateCreators] = useState<UmateCreatorCard[]>([]);
 
   /* ── Live Streams ── */
   const [liveStreams, setLiveStreams] = useState<any[]>([]);
@@ -586,28 +597,16 @@ export default function HomeClient() {
     return () => { controller.abort(); };
   }, [location]);
 
-  // ── Fetch moteles, sexshops & lives (deferred — below the fold) ──
+  // ── Fetch U-Mate creators & live streams (deferred — below the fold) ──
   useEffect(() => {
     const controller = new AbortController();
-    const fetchDirectory = async (entityType: string, categorySlug: string) => {
-      const params = new URLSearchParams({ entityType, categorySlug, sort: "near", limit: "8" });
-      if (location) {
-        params.set("lat", String(location[0]));
-        params.set("lng", String(location[1]));
-        params.set("radiusKm", "100");
-      }
-      const res = await apiFetch<{ results: any[]; total: number }>(
-        `/directory/search?${params.toString()}`,
-        { signal: controller.signal },
-      );
-      return res?.results ?? [];
-    };
 
     // Defer 2s so above-the-fold images load first
     const timer = setTimeout(() => {
       if (controller.signal.aborted) return;
-      fetchDirectory("establishment", "motel").then(setMoteles).catch(() => {});
-      fetchDirectory("shop", "sexshop").then(setSexshops).catch(() => {});
+      apiFetch<{ creators: UmateCreatorCard[] }>("/umate/creators?limit=12", { signal: controller.signal })
+        .then((r) => setUmateCreators(r?.creators ?? []))
+        .catch(() => {});
       apiFetch<{ streams: any[] }>("/live/active", { signal: controller.signal })
         .then((r) => setLiveStreams(r?.streams ?? []))
         .catch(() => {});
@@ -1507,89 +1506,61 @@ export default function HomeClient() {
           </section>
         )}
 
-        {/* ═══ HOTELES / MOTELES ═══ */}
-        {moteles.length > 0 && (
-          <section key={`moteles-${locationKey}`} className="mb-10 uzeed-below-fold">
+        {/* ═══ CREADORAS U-MATE ═══ */}
+        {umateCreators.length > 0 && (
+          <section key={`umate-${locationKey}`} className="mb-10 uzeed-below-fold">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <h2 className="text-xl font-bold tracking-tight">Hoteles y Moteles</h2>
+                <h2 className="text-xl font-bold tracking-tight">Creadoras U-Mate</h2>
+                <span className="rounded-full border border-[#00aff0]/20 bg-[#00aff0]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#00aff0]">
+                  Exclusivo
+                </span>
               </div>
-              <Link href="/moteles" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-amber-400 transition-colors duration-200">
-                Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+              <Link
+                href="/umate/creators"
+                className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-[#00aff0] transition-colors duration-200"
+              >
+                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </div>
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
-              {moteles.map((item) => (
-                <article key={item.id} className="uzeed-premium-card uzeed-tier-gold group w-[68vw] shrink-0 snap-start sm:w-auto">
-                  <Link href={`/hospedaje/${item.id}`} className="block">
-                    <div className="uzeed-card-shimmer relative aspect-[4/3] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
-                      {(item.coverUrl || item.avatarUrl) ? (
+              {umateCreators.map((c) => (
+                <article
+                  key={c.id}
+                  className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto"
+                  style={{ borderColor: "rgba(0,175,240,0.12)" }}
+                >
+                  <Link href={`/umate/profile/${c.user.username}`} className="block">
+                    <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
+                      {(c.coverUrl || c.avatarUrl) ? (
                         <img
-                          src={resolveMediaUrl(item.coverUrl || item.avatarUrl) ?? undefined}
-                          alt={item.displayName}
+                          src={resolveMediaUrl(c.coverUrl || c.avatarUrl) ?? undefined}
+                          alt={c.displayName}
                           className="uzeed-card-img h-full w-full object-cover"
                           loading="lazy"
                           decoding="async"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center"><Hotel className="h-10 w-10 text-white/[0.06]" /></div>
-                      )}
-                      {item.distance != null && (
-                        <div className="absolute right-2 top-2 z-[3] flex items-center gap-1 rounded-lg border border-white/[0.08] bg-black/40 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur-xl tabular-nums">
-                          <MapPin className="h-3 w-3 text-amber-400/60" /> {item.distance.toFixed(1)} km
+                        <div className="flex h-full items-center justify-center">
+                          <Users className="h-10 w-10 text-white/[0.06]" />
                         </div>
                       )}
-                      <div className="uzeed-card-gradient-subtle absolute inset-0" />
-                      <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
-                        <h3 className="truncate text-sm font-bold">{item.displayName || item.username}</h3>
-                        {item.city && <p className="mt-0.5 text-[10px] text-white/40 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 text-amber-400/50" />{item.city}</p>}
+                      {/* Badge tarifa mensual */}
+                      <div className="absolute right-2 top-2 z-[3] flex items-center gap-1 rounded-lg border border-[#00aff0]/25 bg-black/50 px-2 py-0.5 text-[10px] font-bold text-[#00aff0] backdrop-blur-xl tabular-nums">
+                        ${c.monthlyPriceCLP.toLocaleString("es-CL")}/mes
                       </div>
-                    </div>
-                  </Link>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ═══ SEXSHOP ═══ */}
-        {sexshops.length > 0 && (
-          <section key={`sexshop-${locationKey}`} className="mb-10 uzeed-below-fold">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-xl font-bold tracking-tight">Sex Shop</h2>
-              </div>
-              <Link href="/sexshop" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-pink-400 transition-colors duration-200">
-                Ver todos <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-              </Link>
-            </div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
-              {sexshops.map((item) => (
-                <article key={item.id} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto" style={{ borderColor: "rgba(236,72,153,0.1)" }}>
-                  <Link href={`/sexshop/${item.username || item.id}`} className="block">
-                    <div className="uzeed-card-shimmer relative aspect-[4/3] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
-                      {(item.coverUrl || item.avatarUrl) ? (
-                        <img
-                          src={resolveMediaUrl(item.coverUrl || item.avatarUrl) ?? undefined}
-                          alt={item.displayName}
-                          className="uzeed-card-img h-full w-full object-cover"
-                          loading="lazy"
-                          decoding="async"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/brand/isotipo-new.png"; }}
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center"><ShoppingBag className="h-10 w-10 text-white/[0.06]" /></div>
-                      )}
-                      {item.distance != null && (
-                        <div className="absolute right-2 top-2 z-[3] flex items-center gap-1 rounded-lg border border-white/[0.08] bg-black/40 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur-xl tabular-nums">
-                          <MapPin className="h-3 w-3 text-pink-400/60" /> {item.distance.toFixed(1)} km
-                        </div>
-                      )}
                       <div className="uzeed-card-gradient-subtle absolute inset-0" />
+                      {/* Nombre + suscriptores */}
                       <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
-                        <h3 className="truncate text-sm font-bold">{item.displayName || item.username}</h3>
-                        {item.city && <p className="mt-0.5 text-[10px] text-white/40 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 text-pink-400/50" />{item.city}</p>}
+                        <h3 className="truncate text-sm font-bold flex items-center gap-1">
+                          <span className="truncate">{c.displayName}</span>
+                          {c.user.isVerified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-[#00aff0]" />}
+                        </h3>
+                        <p className="mt-0.5 text-[10px] text-white/40 flex items-center gap-1">
+                          <Users className="h-2.5 w-2.5 text-[#00aff0]/60" />
+                          {c.subscriberCount} suscriptores
+                        </p>
                       </div>
                     </div>
                   </Link>
