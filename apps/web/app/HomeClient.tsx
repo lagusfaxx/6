@@ -1220,7 +1220,7 @@ export default function HomeClient() {
                         onClick={() => setPreviewProfile({ ...p, displayName: p.name, username: p.name, distanceKm: p.distance })}
                         className={`uzeed-premium-card group relative block w-[75vw] shrink-0 snap-start sm:w-auto sm:shrink text-left ${p.userLevel === "DIAMOND" ? "uzeed-tier-diamond" : "uzeed-tier-gold"}`}
                       >
-                        <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-white/[0.04] to-transparent rounded-[inherit]">
+                        <div className="uzeed-card-shimmer relative aspect-[15/16] overflow-hidden bg-gradient-to-br from-white/[0.04] to-transparent rounded-[inherit]">
                           {p.avatarUrl || p.coverUrl ? (
                             <img
                               src={resolveProfileImage(p)}
