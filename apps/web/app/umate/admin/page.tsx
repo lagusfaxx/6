@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import {
-  Users, TrendingUp, FileText, DollarSign, Settings, Loader2, Check, X,
-  CreditCard, ArrowDown, Clock, CheckCircle, XCircle, Eye, Search,
-  Edit3, ToggleLeft, ToggleRight, Wallet, AlertTriangle, RefreshCw
+  Users, TrendingUp, DollarSign, Settings, Loader2, Check, X,
+  ArrowDown, CheckCircle, XCircle,
+  Wallet, AlertTriangle, RefreshCw
 } from "lucide-react";
 import { apiFetch } from "../../../lib/api";
 
@@ -20,7 +20,7 @@ type Dashboard = {
   totalRevenue: number;
   totalCommissions: number;
   totalIva: number;
-  config: { payoutPerSlot: number; platformCommPct: number; ivaPct: number };
+  config: { platformCommPct: number; ivaPct: number };
 };
 
 type Creator = {
@@ -36,8 +36,6 @@ type Creator = {
   createdAt: string;
   user: { username: string; email: string; isVerified: boolean };
 };
-
-type Plan = { id: string; tier: string; name: string; priceCLP: number; maxSlots: number; isActive: boolean };
 
 type Withdrawal = {
   id: string;
@@ -87,10 +85,9 @@ const STATUS_COLORS: Record<string, string> = {
 const inputClass = "w-full rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-[#00aff0]/25 focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,175,240,0.05)] transition-all duration-200";
 
 export default function UmateAdminPage() {
-  const [tab, setTab] = useState<"dashboard" | "creators" | "plans" | "withdrawals" | "ledger" | "config">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "creators" | "withdrawals" | "ledger" | "config">("dashboard");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [creators, setCreators] = useState<Creator[]>([]);
-  const [plans, setPlans] = useState<Plan[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [ledgerTotal, setLedgerTotal] = useState(0);
@@ -101,17 +98,10 @@ export default function UmateAdminPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Config state
-  const [payoutPerSlot, setPayoutPerSlot] = useState(5000);
   const [platformCommPct, setPlatformCommPct] = useState(0);
   const [ivaPct, setIvaPct] = useState(19);
   const [saving, setSaving] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
-
-  // Plan editing
-  const [editingPlan, setEditingPlan] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editPrice, setEditPrice] = useState(0);
-  const [editSlots, setEditSlots] = useState(0);
 
   // Rejection reason
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -127,7 +117,6 @@ export default function UmateAdminPage() {
       apiFetch<Dashboard>("/admin/umate/dashboard").then((d) => {
         setDashboard(d);
         if (d?.config) {
-          setPayoutPerSlot(d.config.payoutPerSlot);
           setPlatformCommPct(d.config.platformCommPct);
           setIvaPct(d.config.ivaPct);
         }
@@ -136,10 +125,6 @@ export default function UmateAdminPage() {
       const params = statusFilter ? `?status=${statusFilter}` : "";
       apiFetch<{ creators: Creator[]; total: number }>(`/admin/umate/creators${params}`).then((d) => {
         setCreators(d?.creators || []);
-      }).catch(() => {}).finally(() => setLoading(false));
-    } else if (tab === "plans") {
-      apiFetch<{ plans: Plan[] }>("/admin/umate/plans").then((d) => {
-        setPlans(d?.plans || []);
       }).catch(() => {}).finally(() => setLoading(false));
     } else if (tab === "withdrawals") {
       const params = wdFilter ? `?status=${wdFilter}` : "";
@@ -167,24 +152,6 @@ export default function UmateAdminPage() {
     setActionLoading(null);
   };
 
-  const togglePlanActive = async (plan: Plan) => {
-    setActionLoading(plan.id);
-    await apiFetch(`/admin/umate/plans/${plan.id}`, { method: "PUT", body: JSON.stringify({ isActive: !plan.isActive }) });
-    setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, isActive: !plan.isActive } : p)));
-    setActionLoading(null);
-  };
-
-  const savePlanEdit = async (plan: Plan) => {
-    setActionLoading(plan.id);
-    await apiFetch(`/admin/umate/plans/${plan.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ name: editName, priceCLP: editPrice, maxSlots: editSlots }),
-    });
-    setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, name: editName, priceCLP: editPrice, maxSlots: editSlots } : p)));
-    setEditingPlan(null);
-    setActionLoading(null);
-  };
-
   const approveWithdrawal = async (id: string) => {
     setActionLoading(id);
     await apiFetch(`/admin/umate/withdrawals/${id}/approve`, { method: "PUT" });
@@ -204,7 +171,7 @@ export default function UmateAdminPage() {
   const saveConfig = async () => {
     setSaving(true);
     setConfigSaved(false);
-    await apiFetch("/admin/umate/config", { method: "PUT", body: JSON.stringify({ payoutPerSlot, platformCommPct, ivaPct }) });
+    await apiFetch("/admin/umate/config", { method: "PUT", body: JSON.stringify({ platformCommPct, ivaPct }) });
     setSaving(false);
     setConfigSaved(true);
     setTimeout(() => setConfigSaved(false), 3000);
@@ -213,7 +180,6 @@ export default function UmateAdminPage() {
   const tabs = [
     { key: "dashboard", label: "Dashboard", icon: TrendingUp },
     { key: "creators", label: "Creadoras", icon: Users },
-    { key: "plans", label: "Planes", icon: CreditCard },
     { key: "withdrawals", label: "Retiros", icon: ArrowDown },
     { key: "ledger", label: "Movimientos", icon: DollarSign },
     { key: "config", label: "Configuración", icon: Settings },
@@ -427,97 +393,6 @@ export default function UmateAdminPage() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════════
-           PLANS (with full CRUD)
-         ═══════════════════════════════════════════════════════════════ */}
-      {!loading && tab === "plans" && (
-        <div className="space-y-4">
-          {plans.map((plan) => (
-            <div key={plan.id} className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5">
-              {editingPlan === plan.id ? (
-                /* Edit mode */
-                <div className="space-y-3">
-                  <h3 className="text-xs font-bold text-white/50">Editando: {plan.tier}</h3>
-                  <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
-                    <div>
-                      <label className="block text-[10px] font-medium text-white/40 mb-1">Nombre</label>
-                      <input value={editName} onChange={(e) => setEditName(e.target.value)} className={inputClass} />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-medium text-white/40 mb-1">Precio CLP</label>
-                      <input type="number" value={editPrice} onChange={(e) => setEditPrice(parseInt(e.target.value) || 0)} className={inputClass} />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-medium text-white/40 mb-1">Cupos</label>
-                      <input type="number" value={editSlots} onChange={(e) => setEditSlots(parseInt(e.target.value) || 0)} className={inputClass} />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => savePlanEdit(plan)}
-                      disabled={actionLoading === plan.id}
-                      className="rounded-lg bg-emerald-500/15 px-4 py-2 text-xs font-medium text-emerald-300 hover:bg-emerald-500/25 transition disabled:opacity-50"
-                    >
-                      {actionLoading === plan.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Guardar"}
-                    </button>
-                    <button
-                      onClick={() => setEditingPlan(null)}
-                      className="rounded-lg bg-white/[0.04] px-4 py-2 text-xs text-white/40 hover:text-white/60 transition"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* View mode */
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold">{plan.name}</h3>
-                      <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[9px] font-bold text-white/40">{plan.tier}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${plan.isActive ? "bg-emerald-500/15 text-emerald-300" : "bg-red-500/15 text-red-300"}`}>
-                        {plan.isActive ? "Activo" : "Inactivo"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-white/45">
-                      ${plan.priceCLP.toLocaleString("es-CL")} /mes — {plan.maxSlots} {plan.maxSlots === 1 ? "cupo" : "cupos"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingPlan(plan.id);
-                        setEditName(plan.name);
-                        setEditPrice(plan.priceCLP);
-                        setEditSlots(plan.maxSlots);
-                      }}
-                      className="flex items-center gap-1 rounded-lg bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/45 hover:text-white/60 transition"
-                    >
-                      <Edit3 className="h-3 w-3" /> Editar
-                    </button>
-                    <button
-                      onClick={() => togglePlanActive(plan)}
-                      disabled={actionLoading === plan.id}
-                      className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
-                        plan.isActive
-                          ? "bg-red-500/10 text-red-300/60 hover:text-red-300"
-                          : "bg-emerald-500/10 text-emerald-300/60 hover:text-emerald-300"
-                      }`}
-                    >
-                      {actionLoading === plan.id ? <Loader2 className="h-3 w-3 animate-spin" /> : plan.isActive ? (
-                        <><ToggleRight className="h-3 w-3" /> Desactivar</>
-                      ) : (
-                        <><ToggleLeft className="h-3 w-3" /> Activar</>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════════
            WITHDRAWALS (full management)
          ═══════════════════════════════════════════════════════════════ */}
       {!loading && tab === "withdrawals" && (
@@ -625,7 +500,7 @@ export default function UmateAdminPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex gap-1.5 flex-wrap">
-              {["", "PLAN_PURCHASE", "SLOT_ACTIVATION", "WITHDRAWAL"].map((t) => (
+              {["", "SLOT_ACTIVATION", "WITHDRAWAL"].map((t) => (
                 <button
                   key={t}
                   onClick={() => setLedgerType(t)}
@@ -633,7 +508,7 @@ export default function UmateAdminPage() {
                     ledgerType === t ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25" : "text-white/40 hover:text-white/50"
                   }`}
                 >
-                  {t === "" ? "Todos" : t === "PLAN_PURCHASE" ? "Compras" : t === "SLOT_ACTIVATION" ? "Activaciones" : "Retiros"}
+                  {t === "" ? "Todos" : t === "SLOT_ACTIVATION" ? "Suscripciones" : "Retiros"}
                 </button>
               ))}
             </div>
@@ -716,21 +591,20 @@ export default function UmateAdminPage() {
                 onChange={(e) => setIvaPct(Math.min(100, parseInt(e.target.value) || 0))}
                 className={inputClass}
               />
-              <p className="mt-1 text-[10px] text-white/45">IVA incluido en el precio del plan (19% en Chile)</p>
+              <p className="mt-1 text-[10px] text-white/45">IVA incluido en la tarifa que cobra cada creadora (19% en Chile)</p>
             </div>
 
-            {/* Preview calculation — example with Silver plan $14.990 / 1 slot */}
+            {/* Preview calculation — example with creator tariff $9.990 */}
             {(() => {
-              const examplePrice = 14990;
-              const exampleSlots = 1;
-              const grossPerSlot = Math.round(examplePrice / exampleSlots);
+              const examplePrice = 9990;
+              const grossPerSlot = examplePrice;
               const iva = Math.round(grossPerSlot * ivaPct / (100 + ivaPct));
               const netAfterIva = grossPerSlot - iva;
               const commission = Math.round(netAfterIva * platformCommPct / 100);
               const creatorReceives = netAfterIva - commission;
               return (
                 <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] p-4 space-y-3">
-                  <p className="text-[10px] font-bold text-white/40">Ejemplo: Plan Silver ($14.990 / 1 cupo)</p>
+                  <p className="text-[10px] font-bold text-white/40">Ejemplo: Tarifa de creadora $9.990 CLP / mes</p>
                   <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between">
                       <span className="text-white/50">Cliente paga</span>

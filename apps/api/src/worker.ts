@@ -283,6 +283,127 @@ async function tickExpireStalePendingIntents() {
 }
 
 /**
+ * Catch missed PAC webhooks for U-Mate direct subscriptions: if the period is
+ * about to end (or already ended), query Flow to see whether the recurring
+ * charge succeeded. If it did, extend `currentPeriodEnd` by 30 days and credit
+ * the creator. If the Flow subscription was cancelled/completed, mark it EXPIRED.
+ */
+async function tickSyncUmatePacSubscriptions() {
+  const now = new Date();
+  const twoDaysFromNow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const subs = await prisma.umateDirectSubscription.findMany({
+    where: {
+      flowSubscriptionId: { not: null },
+      status: { in: ["ACTIVE", "CANCELLED", "PAST_DUE"] },
+      currentPeriodEnd: { gte: sevenDaysAgo, lte: twoDaysFromNow },
+    },
+    select: {
+      id: true, creatorId: true, userId: true, priceCLP: true,
+      status: true, cancelAtPeriodEnd: true,
+      flowSubscriptionId: true, currentPeriodEnd: true,
+    },
+    take: 100,
+  });
+
+  if (subs.length === 0) return;
+
+  // Load economics config once
+  const platformCfg = await prisma.platformConfig.findMany({
+    where: { key: { in: ["umate_platform_commission_pct", "umate_iva_pct"] } },
+  });
+  const platformCommPct = Number(platformCfg.find((c) => c.key === "umate_platform_commission_pct")?.value ?? "15");
+  const ivaPct = Number(platformCfg.find((c) => c.key === "umate_iva_pct")?.value ?? "19");
+
+  for (const sub of subs) {
+    try {
+      const flowSub = await getFlowSubscription(sub.flowSubscriptionId!);
+      const statusNum = Number(flowSub.status);
+      // 0=trial, 1=active, 2=past_due, 3=cancelled, 4=completed
+
+      if (statusNum === 3 || statusNum === 4) {
+        // Flow says the subscription is over — expire the U-Mate row if its period already ended
+        if (sub.currentPeriodEnd && sub.currentPeriodEnd.getTime() < now.getTime() && sub.status !== "EXPIRED") {
+          await prisma.umateDirectSubscription.update({
+            where: { id: sub.id },
+            data: { status: "EXPIRED" },
+          });
+          await prisma.umateCreator.update({
+            where: { id: sub.creatorId },
+            data: { subscriberCount: { decrement: 1 } },
+          }).catch(() => {});
+          console.log("[worker] umate direct sub expired", { subId: sub.id });
+        }
+        continue;
+      }
+
+      if (statusNum === 2 && sub.status !== "PAST_DUE") {
+        await prisma.umateDirectSubscription.update({
+          where: { id: sub.id },
+          data: { status: "PAST_DUE" },
+        });
+        console.log("[worker] umate direct sub past_due", { subId: sub.id });
+        continue;
+      }
+
+      // Status 1: Flow reports active charge. If the local period already ended or is about to,
+      // the webhook may have been missed — extend now.
+      if (statusNum === 1 && sub.currentPeriodEnd && sub.currentPeriodEnd.getTime() < now.getTime()) {
+        const gross = sub.priceCLP;
+        const ivaAmount = Math.round(gross * ivaPct / (100 + ivaPct));
+        const netAfterIva = gross - ivaAmount;
+        const platformFee = Math.round(netAfterIva * platformCommPct / 100);
+        const creatorPayout = netAfterIva - platformFee;
+        const newPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        await prisma.$transaction(async (tx) => {
+          await tx.umateDirectSubscription.update({
+            where: { id: sub.id },
+            data: {
+              currentPeriodStart: now,
+              currentPeriodEnd: newPeriodEnd,
+              status: "ACTIVE",
+            },
+          });
+          await tx.umateCreator.update({
+            where: { id: sub.creatorId },
+            data: {
+              pendingBalance: { increment: creatorPayout },
+              totalEarned: { increment: creatorPayout },
+            },
+          });
+          await tx.umateLedgerEntry.create({
+            data: {
+              creatorId: sub.creatorId,
+              type: "SLOT_ACTIVATION",
+              grossAmount: gross,
+              platformFee,
+              ivaAmount,
+              creatorPayout,
+              netAmount: creatorPayout,
+              description: `Renovación PAC (sync worker) — $${gross.toLocaleString("es-CL")} CLP`,
+              referenceId: sub.id,
+              referenceType: "direct_subscription",
+            },
+          });
+          await tx.notification.create({
+            data: {
+              userId: sub.userId,
+              type: "SUBSCRIPTION_RENEWED",
+              data: { umateDirectSubscriptionId: sub.id, source: "umate_pac_sync_worker" },
+            },
+          });
+        });
+        console.log("[worker] umate direct sub renewed (missed webhook)", { subId: sub.id, newPeriodEnd: newPeriodEnd.toISOString() });
+      }
+    } catch (err: any) {
+      console.error("[worker] umate PAC sync failed for sub", { subId: sub.id, err: err?.message });
+    }
+  }
+}
+
+/**
  * Catch missed PAC webhooks: for users with active Flow subscriptions
  * whose membership is about to expire or already expired, verify with
  * Flow and extend if the subscription is still alive.
@@ -551,6 +672,7 @@ async function tick() {
     { name: "videocallConfig", fn: tickVideocallConfigReminder },
     { name: "expireStalePendingIntents", fn: tickExpireStalePendingIntents },
     { name: "syncPacSubscriptions", fn: tickSyncPacSubscriptions },
+    { name: "syncUmatePacSubscriptions", fn: tickSyncUmatePacSubscriptions },
     { name: "goldRenewalReminder", fn: tickGoldRenewalReminder },
     { name: "referralWelcomeEmail", fn: tickReferralWelcomeEmail },
     { name: "referralValidation", fn: tickReferralValidation },
