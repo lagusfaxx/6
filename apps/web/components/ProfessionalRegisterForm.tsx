@@ -249,9 +249,6 @@ export default function ProfessionalRegisterForm({
               required
               minLength={2}
             />
-            <p className="text-xs text-white/40">
-              Este será el nombre que verán otros usuarios. Tu @ de usuario se generará automáticamente.
-            </p>
           </div>
 
           <div className="grid gap-2">
