@@ -47,6 +47,7 @@ COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
 COPY apps/api/scripts/convert-uploads-webp.js /app/apps/api/scripts/convert-uploads-webp.js
+COPY apps/api/scripts/backfill-watermarks.js /app/apps/api/scripts/backfill-watermarks.js
 RUN chmod +x /docker-entrypoint.sh
 EXPOSE 3001
 ENTRYPOINT ["/docker-entrypoint.sh"]

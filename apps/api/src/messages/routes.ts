@@ -9,6 +9,7 @@ import { canMessage } from "./canMessage";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { config } from "../config";
 import { validateUploadedFile } from "../lib/uploads";
+import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { isUUID } from "../lib/validators";
 import { sendToUser, broadcast } from "../realtime/sse";
 
@@ -235,7 +236,10 @@ messagesRouter.post("/messages/:userId/attachment", requireAuth, messageLimiter,
   if (!file) return res.status(400).json({ error: "NO_FILE" });
   const { type } = await validateUploadedFile(file, "image");
   if (type !== "IMAGE") return res.status(400).json({ error: "INVALID_FILE_TYPE" });
-  const url = storageProvider.publicUrl(file.filename);
+  // Resize, watermark and re-encode as WebP. Returns the `wm_` prefixed
+  // filename so the stored URL matches the on-disk file.
+  const finalFilename = await optimizeUploadedImage(file, "gallery");
+  const url = storageProvider.publicUrl(finalFilename);
   const message = await prisma.message.create({
     data: {
       fromId: me,

@@ -11,7 +11,7 @@ import { prisma } from "../db";
 import { config } from "../config";
 import { requireAuth, requireAdmin } from "../auth/middleware";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
-import { optimizeImage } from "../lib/imageOptimizer";
+import { optimizeImage, optimizeImageBuffer } from "../lib/imageOptimizer";
 import { validateUploadedFile } from "../lib/uploads";
 import { sendToUser } from "../realtime/sse";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -821,10 +821,16 @@ umateRouter.post("/umate/creator/cover", requireAuth, upload.single("file"), asy
     return res.status(400).json({ error: "INVALID_FILE_TYPE", message: "Solo se permiten imagenes (JPG, PNG, WebP, GIF)." });
   }
 
+  const processed = await optimizeImageBuffer(
+    file.buffer,
+    file.originalname,
+    file.mimetype,
+    "cover",
+  );
   const saved = await storage.save({
-    buffer: file.buffer,
-    filename: file.originalname,
-    mimeType: file.mimetype,
+    buffer: processed.buffer,
+    filename: processed.filename,
+    mimeType: processed.mimeType,
     folder: "umate-covers",
   });
 
@@ -872,10 +878,18 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
 
   const mediaItems: { type: "IMAGE" | "VIDEO"; url: string; thumbnailUrl?: string; pos: number; visibility: "FREE" | "PREMIUM" }[] = [];
   for (let i = 0; i < files.length; i++) {
+    // For still images, resize + watermark + re-encode before saving.
+    // Videos pass through untouched (optimizeImageBuffer returns the input).
+    const processed = await optimizeImageBuffer(
+      files[i].buffer,
+      files[i].originalname,
+      files[i].mimetype,
+      "gallery",
+    );
     const saved = await storage.save({
-      buffer: files[i].buffer,
-      filename: files[i].originalname,
-      mimeType: files[i].mimetype,
+      buffer: processed.buffer,
+      filename: processed.filename,
+      mimeType: processed.mimeType,
       folder: "umate-posts",
     });
     const mediaVis = mediaVisibilities[i] === "PREMIUM" ? "PREMIUM" : "FREE";
