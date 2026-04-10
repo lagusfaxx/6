@@ -108,15 +108,6 @@ function detectCardBrand(cardNumber: string): string {
   return "card";
 }
 
-/** Check if user has an active U-Mate subscription with available slots */
-async function getActiveSubscription(userId: string) {
-  return prisma.umateSubscription.findFirst({
-    where: { userId, status: "ACTIVE", cycleEnd: { gt: new Date() } },
-    include: { plan: true },
-    orderBy: { cycleEnd: "desc" },
-  });
-}
-
 /** Move matured pendingBalance to availableBalance for all eligible creators.
  *  Called opportunistically on creator stats/wallet reads. */
 async function maturePendingBalances() {
@@ -198,18 +189,6 @@ async function getSubscribedCreatorIds(userId: string): Promise<Set<string>> {
   ]);
   return new Set([...slotSubs.map((s) => s.creatorId), ...directSubs.map((s) => s.creatorId)]);
 }
-
-// ══════════════════════════════════════════════════════════════════════
-// PUBLIC — Plans
-// ══════════════════════════════════════════════════════════════════════
-
-umateRouter.get("/umate/plans", asyncHandler(async (_req, res) => {
-  const plans = await prisma.umatePlan.findMany({
-    where: { isActive: true },
-    orderBy: { priceCLP: "asc" },
-  });
-  res.json({ plans });
-}));
 
 // ══════════════════════════════════════════════════════════════════════
 // PUBLIC — Feed / Explore
@@ -458,248 +437,6 @@ umateRouter.post("/umate/posts/:postId/like", requireAuth, asyncHandler(async (r
 }));
 
 // ══════════════════════════════════════════════════════════════════════
-// AUTH — Subscribe to plan (checkout)
-// ══════════════════════════════════════════════════════════════════════
-
-umateRouter.post("/umate/subscribe", requireAuth, paymentLimiter, asyncHandler(async (req, res) => {
-  const userId = (req as any).user.id;
-  const { tier } = req.body as { tier: string };
-
-  if (!["SILVER", "GOLD", "DIAMOND"].includes(tier)) {
-    return res.status(400).json({ error: "INVALID_TIER" });
-  }
-
-  // Creators cannot subscribe to plans — role restriction
-  const isCreator = await prisma.umateCreator.findUnique({ where: { userId } });
-  if (isCreator && isCreator.status !== "SUSPENDED") {
-    return res.status(403).json({ error: "CREATOR_CANNOT_SUBSCRIBE", message: "Las creadoras no pueden suscribirse a planes. Usa una cuenta diferente." });
-  }
-
-  // Check for existing active subscription
-  const existing = await getActiveSubscription(userId);
-  if (existing) {
-    return res.status(400).json({ error: "ALREADY_SUBSCRIBED", message: "Ya tienes un plan U-Mate activo." });
-  }
-
-  const plan = await prisma.umatePlan.findUnique({ where: { tier: tier as any } });
-  if (!plan || !plan.isActive) return res.status(404).json({ error: "PLAN_NOT_FOUND" });
-
-  // Validate user email for Flow
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-  let email = (user?.email || "").trim().toLowerCase().replace(/\+[^@]*@/, "@");
-  if (!email || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
-    return res.status(400).json({ error: "EMAIL_INVALID" });
-  }
-
-  if (!config.flowApiKey) {
-    return res.status(503).json({ error: "PAYMENT_UNAVAILABLE" });
-  }
-
-  // Create PaymentIntent
-  const intent = await prisma.paymentIntent.create({
-    data: {
-      subscriberId: userId,
-      purpose: "UMATE_PLAN",
-      method: "FLOW",
-      status: "PENDING",
-      amount: plan.priceCLP,
-      notes: JSON.stringify({ tier: plan.tier, planId: plan.id }),
-    },
-  });
-
-  // Create Flow payment
-  const { createFlowPayment } = await import("../khipu/client");
-  const apiUrl = config.apiUrl;
-  const appUrl = config.appUrl;
-
-  try {
-    const payment = await createFlowPayment({
-      commerceOrder: intent.id,
-      subject: `U-Mate ${plan.name} — Suscripción mensual`,
-      currency: "CLP",
-      amount: plan.priceCLP,
-      email,
-      urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
-      urlReturn: `${appUrl}/umate/checkout?ref=${intent.id}`,
-    });
-
-    await prisma.paymentIntent.update({
-      where: { id: intent.id },
-      data: { paymentUrl: payment.url, providerPaymentId: payment.token },
-    });
-
-    return res.json({ url: `${payment.url}?token=${payment.token}`, intentId: intent.id });
-  } catch (err) {
-    await prisma.paymentIntent.update({ where: { id: intent.id }, data: { status: "FAILED" } });
-    console.error("[umate] Flow payment error:", err);
-    return res.status(502).json({ error: "FLOW_ERROR" });
-  }
-}));
-
-// ══════════════════════════════════════════════════════════════════════
-// AUTH — Activate plan after payment confirmation
-// ══════════════════════════════════════════════════════════════════════
-
-umateRouter.get("/umate/subscription/status", requireAuth, asyncHandler(async (req, res) => {
-  const userId = (req as any).user.id;
-  const sub = await getActiveSubscription(userId);
-
-  if (!sub) return res.json({ active: false });
-
-  const creatorSubs = await prisma.umateCreatorSub.findMany({
-    where: { subscriptionId: sub.id, expiresAt: { gt: new Date() } },
-    include: {
-      creator: {
-        select: { id: true, displayName: true, avatarUrl: true, user: { select: { username: true } } },
-      },
-    },
-  });
-
-  res.json({
-    active: true,
-    plan: sub.plan,
-    slotsTotal: sub.slotsTotal,
-    slotsUsed: sub.slotsUsed,
-    slotsAvailable: sub.slotsTotal - sub.slotsUsed,
-    cycleStart: sub.cycleStart,
-    cycleEnd: sub.cycleEnd,
-    subscribedCreators: creatorSubs.map((cs) => ({
-      id: cs.creator.id,
-      displayName: cs.creator.displayName,
-      avatarUrl: cs.creator.avatarUrl,
-      username: cs.creator.user?.username,
-      activatedAt: cs.activatedAt,
-      expiresAt: cs.expiresAt,
-    })),
-  });
-}));
-
-// ══════════════════════════════════════════════════════════════════════
-// AUTH — Use a slot to subscribe to a creator
-// ══════════════════════════════════════════════════════════════════════
-
-umateRouter.post("/umate/creators/:creatorId/subscribe", requireAuth, asyncHandler(async (req, res) => {
-  const userId = (req as any).user.id;
-  const { creatorId } = req.params;
-
-  const creator = await prisma.umateCreator.findUnique({ where: { id: creatorId } });
-  if (!creator || creator.status !== "ACTIVE") {
-    return res.status(404).json({ error: "CREATOR_NOT_FOUND" });
-  }
-
-  // Can't subscribe to yourself
-  if (creator.userId === userId) {
-    return res.status(400).json({ error: "CANNOT_SUBSCRIBE_SELF" });
-  }
-
-  // Creators cannot subscribe to other creators — role restriction
-  const userIsCreator = await prisma.umateCreator.findUnique({ where: { userId } });
-  if (userIsCreator && userIsCreator.status !== "SUSPENDED") {
-    return res.status(403).json({ error: "CREATOR_CANNOT_SUBSCRIBE", message: "Las creadoras no pueden suscribirse a perfiles. Usa una cuenta de cliente." });
-  }
-
-  // Check active subscription
-  const sub = await getActiveSubscription(userId);
-  if (!sub) {
-    return res.status(403).json({ error: "NO_PLAN", message: "Necesitas un plan U-Mate para suscribirte a creadoras." });
-  }
-
-  // Pre-check slots (actual check inside transaction to prevent races)
-  if (sub.slotsUsed >= sub.slotsTotal) {
-    return res.status(400).json({ error: "NO_SLOTS", message: "No tienes cupos disponibles este ciclo." });
-  }
-
-  // Check if already subscribed
-  const already = await isSubscribedToCreator(userId, creatorId);
-  if (already) {
-    return res.status(400).json({ error: "ALREADY_SUBSCRIBED" });
-  }
-
-  // Activate slot — calculate economics from plan price
-  const platformCommPct = await getUmateConfig("umate_platform_commission_pct", 15);
-  const ivaPct = await getUmateConfig("umate_iva_pct", 19);
-
-  // Plan price includes IVA; split per slot
-  const grossPerSlot = Math.round(sub.plan.priceCLP / sub.plan.maxSlots);
-  const ivaAmount = Math.round(grossPerSlot * ivaPct / (100 + ivaPct));
-  const netAfterIva = grossPerSlot - ivaAmount;
-  const platformFee = Math.round(netAfterIva * platformCommPct / 100);
-  const creatorPayout = netAfterIva - platformFee;
-
-  try {
-    const result = await prisma.$transaction(async (tx) => {
-      // Re-check slots inside transaction to prevent race conditions
-      const freshSub = await tx.umateSubscription.findUnique({ where: { id: sub.id } });
-      if (!freshSub || freshSub.slotsUsed >= freshSub.slotsTotal) {
-        throw new Error("NO_SLOTS");
-      }
-
-      // Create creator subscription
-      await tx.umateCreatorSub.create({
-        data: {
-          subscriptionId: sub.id,
-          subscriberId: userId,
-          creatorId,
-          expiresAt: sub.cycleEnd,
-        },
-      });
-
-      // Increment slot usage
-      await tx.umateSubscription.update({
-        where: { id: sub.id },
-        data: { slotsUsed: { increment: 1 } },
-      });
-
-      // Increment creator subscriber count
-      await tx.umateCreator.update({
-        where: { id: creatorId },
-        data: {
-          subscriberCount: { increment: 1 },
-          pendingBalance: { increment: creatorPayout },
-          totalEarned: { increment: creatorPayout },
-        },
-      });
-
-      // Ledger: slot activation
-      await tx.umateLedgerEntry.create({
-        data: {
-          creatorId,
-          type: "SLOT_ACTIVATION",
-          grossAmount: grossPerSlot,
-          platformFee,
-          ivaAmount,
-          creatorPayout,
-          netAmount: creatorPayout,
-          description: `Suscripción de usuario (${sub.plan.name})`,
-          referenceId: sub.id,
-          referenceType: "subscription",
-        },
-      });
-
-      return { slotsUsed: freshSub.slotsUsed + 1, slotsTotal: freshSub.slotsTotal };
-    });
-
-    // Notify creator of new subscriber
-    prisma.notification.create({
-      data: {
-        userId: creator.userId,
-        type: "UMATE_NEW_SUBSCRIBER",
-        data: { subscriberId: userId, creatorId },
-      },
-    }).then(() => {
-      sendToUser(creator.userId, "umate:new_subscriber", { creatorId });
-    }).catch(() => {});
-
-    res.json({ subscribed: true, slotsUsed: result.slotsUsed, slotsTotal: result.slotsTotal });
-  } catch (err: any) {
-    if (err?.message === "NO_SLOTS") {
-      return res.status(400).json({ error: "NO_SLOTS", message: "No tienes cupos disponibles este ciclo." });
-    }
-    throw err;
-  }
-}));
-
-// ══════════════════════════════════════════════════════════════════════
 // AUTH — Creator onboarding
 // ══════════════════════════════════════════════════════════════════════
 
@@ -718,10 +455,12 @@ umateRouter.post("/umate/creator/onboard", requireAuth, asyncHandler(async (req,
   const existing = await prisma.umateCreator.findUnique({ where: { userId } });
   if (existing) return res.json({ creator: existing });
 
-  // Subscribers (clients with active plan) cannot become creators — role restriction
-  const activeSub = await getActiveSubscription(userId);
-  if (activeSub) {
-    return res.status(403).json({ error: "SUBSCRIBER_CANNOT_CREATE", message: "Los suscriptores no pueden crear cuenta de creadora. Usa una cuenta diferente." });
+  // Active subscribers cannot become creators — role restriction
+  const activeDirectSub = await prisma.umateDirectSubscription.findFirst({
+    where: { userId, status: "ACTIVE", currentPeriodEnd: { gt: new Date() } },
+  });
+  if (activeDirectSub) {
+    return res.status(403).json({ error: "SUBSCRIBER_CANNOT_CREATE", message: "Los suscriptores activos no pueden crear cuenta de creadora. Cancela tus suscripciones primero." });
   }
 
   const user = await prisma.user.findUnique({
@@ -1079,22 +818,30 @@ umateRouter.get("/umate/creator/subscribers", requireAuth, asyncHandler(async (r
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
 
   const now = new Date();
-  const subs = await prisma.umateCreatorSub.findMany({
-    where: { creatorId: creator.id, expiresAt: { gt: now } },
-    include: {
-      subscriber: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
-      subscription: { include: { plan: { select: { tier: true, name: true } } } },
+
+  // Direct (per-creator) subscriptions — ACTIVE or CANCELLED still in period
+  const directSubs = await prisma.umateDirectSubscription.findMany({
+    where: {
+      creatorId: creator.id,
+      currentPeriodEnd: { gt: now },
+      status: { in: ["ACTIVE", "CANCELLED"] },
     },
-    orderBy: { activatedAt: "desc" },
+    include: {
+      user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+    },
+    orderBy: { startedAt: "desc" },
   });
 
-  const subscribers = subs.map((s) => ({
+  const subscribers = directSubs.map((s) => ({
     id: s.id,
-    activatedAt: s.activatedAt,
-    expiresAt: s.expiresAt,
-    tier: s.subscription.plan.tier,
-    planName: s.subscription.plan.name,
-    user: s.subscriber,
+    activatedAt: s.startedAt,
+    expiresAt: s.currentPeriodEnd,
+    priceCLP: s.priceCLP,
+    status: s.status,
+    cancelAtPeriodEnd: s.cancelAtPeriodEnd,
+    cardBrand: s.cardBrand,
+    cardLast4: s.cardLast4,
+    user: s.user,
   }));
 
   res.json({ subscribers });
@@ -1198,61 +945,6 @@ umateRouter.put("/umate/posts/:postId", requireAuth, contentLimiter, asyncHandle
 }));
 
 // ══════════════════════════════════════════════════════════════════════
-// AUTH — Cancel subscription (plan)
-// ══════════════════════════════════════════════════════════════════════
-
-umateRouter.post("/umate/subscription/cancel", requireAuth, asyncHandler(async (req, res) => {
-  const userId = (req as any).user.id;
-  const sub = await getActiveSubscription(userId);
-  if (!sub) return res.status(400).json({ error: "NO_ACTIVE_SUBSCRIPTION" });
-
-  // Mark as cancelled — access remains until cycleEnd
-  await prisma.umateSubscription.update({
-    where: { id: sub.id },
-    data: { status: "CANCELLED" },
-  });
-
-  res.json({ cancelled: true, accessUntil: sub.cycleEnd });
-}));
-
-// ══════════════════════════════════════════════════════════════════════
-// AUTH — Unsubscribe from a specific creator
-// ══════════════════════════════════════════════════════════════════════
-
-umateRouter.post("/umate/creators/:creatorId/unsubscribe", requireAuth, asyncHandler(async (req, res) => {
-  const userId = (req as any).user.id;
-  const { creatorId } = req.params;
-
-  const creatorSub = await prisma.umateCreatorSub.findFirst({
-    where: { subscriberId: userId, creatorId, expiresAt: { gt: new Date() } },
-    include: { subscription: true },
-  });
-
-  if (!creatorSub) return res.status(400).json({ error: "NOT_SUBSCRIBED" });
-
-  await prisma.$transaction(async (tx) => {
-    // Delete the creator subscription
-    await tx.umateCreatorSub.delete({ where: { id: creatorSub.id } });
-
-    // Free up the slot
-    await tx.umateSubscription.update({
-      where: { id: creatorSub.subscriptionId },
-      data: { slotsUsed: { decrement: 1 } },
-    });
-
-    // Decrement creator subscriber count
-    const freshCreator = await tx.umateCreator.findUnique({ where: { id: creatorId }, select: { subscriberCount: true } });
-    if (freshCreator && freshCreator.subscriberCount > 0) {
-      await tx.umateCreator.update({
-        where: { id: creatorId },
-        data: { subscriberCount: { decrement: 1 } },
-      });
-    }
-  });
-
-  res.json({ unsubscribed: true });
-}));
-
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — Comments
 // ══════════════════════════════════════════════════════════════════════
@@ -1889,18 +1581,17 @@ umateRouter.get("/admin/umate/dashboard", requireAdmin, asyncHandler(async (_req
     prisma.umateCreator.count(),
     prisma.umateCreator.count({ where: { status: "ACTIVE" } }),
     prisma.umateCreator.count({ where: { status: "PENDING_REVIEW" } }),
-    prisma.umateSubscription.count(),
-    prisma.umateSubscription.count({ where: { status: "ACTIVE", cycleEnd: { gt: now } } }),
-    prisma.umateSubscription.count({ where: { createdAt: { gte: cycleStart } } }),
+    prisma.umateDirectSubscription.count(),
+    prisma.umateDirectSubscription.count({ where: { status: "ACTIVE", currentPeriodEnd: { gt: now } } }),
+    prisma.umateDirectSubscription.count({ where: { createdAt: { gte: cycleStart } } }),
     prisma.umatePost.count(),
-    prisma.umateLedgerEntry.aggregate({ _sum: { grossAmount: true }, where: { type: "PLAN_PURCHASE" } }),
+    prisma.umateLedgerEntry.aggregate({ _sum: { grossAmount: true }, where: { type: "SLOT_ACTIVATION" } }),
   ]);
 
-  const payoutPerSlot = await getUmateConfig("umate_payout_per_slot", 5000);
   const platformCommPct = await getUmateConfig("umate_platform_commission_pct", 15);
   const ivaPct = await getUmateConfig("umate_iva_pct", 19);
 
-  // Platform earnings: sum of platformFee and ivaAmount from all slot activations
+  // Platform earnings: sum of platformFee and ivaAmount from all direct subscription activations
   const platformEarnings = await prisma.umateLedgerEntry.aggregate({
     _sum: { platformFee: true, ivaAmount: true },
     where: { type: "SLOT_ACTIVATION" },
@@ -1917,7 +1608,7 @@ umateRouter.get("/admin/umate/dashboard", requireAdmin, asyncHandler(async (_req
     totalRevenue: totalRevenue._sum.grossAmount || 0,
     totalCommissions: platformEarnings._sum.platformFee || 0,
     totalIva: platformEarnings._sum.ivaAmount || 0,
-    config: { payoutPerSlot, platformCommPct, ivaPct },
+    config: { platformCommPct, ivaPct },
   });
 }));
 
@@ -1957,50 +1648,9 @@ umateRouter.put("/admin/umate/creators/:id/status", requireAdmin, asyncHandler(a
   res.json({ creator: updated });
 }));
 
-umateRouter.get("/admin/umate/plans", requireAdmin, asyncHandler(async (_req, res) => {
-  const plans = await prisma.umatePlan.findMany({ orderBy: { priceCLP: "asc" } });
-  res.json({ plans });
-}));
-
-umateRouter.put("/admin/umate/plans/:id", requireAdmin, asyncHandler(async (req, res) => {
-  const { priceCLP, maxSlots, isActive, name } = req.body;
-  const data: any = {};
-  if (priceCLP !== undefined) {
-    const price = parseInt(String(priceCLP), 10);
-    if (isNaN(price) || price < 0) return res.status(400).json({ error: "INVALID_PRICE" });
-    data.priceCLP = price;
-  }
-  if (maxSlots !== undefined) {
-    const slots = parseInt(String(maxSlots), 10);
-    if (isNaN(slots) || slots < 1) return res.status(400).json({ error: "INVALID_SLOTS" });
-    data.maxSlots = slots;
-  }
-  if (isActive !== undefined) data.isActive = Boolean(isActive);
-  if (name !== undefined) {
-    const trimmed = String(name).trim();
-    if (!trimmed) return res.status(400).json({ error: "INVALID_NAME" });
-    data.name = trimmed;
-  }
-
-  const plan = await prisma.umatePlan.findUnique({ where: { id: req.params.id } });
-  if (!plan) return res.status(404).json({ error: "NOT_FOUND" });
-
-  const updated = await prisma.umatePlan.update({ where: { id: req.params.id }, data });
-  res.json({ plan: updated });
-}));
-
 umateRouter.put("/admin/umate/config", requireAdmin, asyncHandler(async (req, res) => {
-  const { payoutPerSlot, platformCommPct, ivaPct } = req.body;
+  const { platformCommPct, ivaPct } = req.body;
 
-  if (payoutPerSlot !== undefined) {
-    const val = parseInt(String(payoutPerSlot), 10);
-    if (isNaN(val) || val < 0) return res.status(400).json({ error: "INVALID_PAYOUT" });
-    await prisma.platformConfig.upsert({
-      where: { key: "umate_payout_per_slot" },
-      update: { value: String(val) },
-      create: { key: "umate_payout_per_slot", value: String(val) },
-    });
-  }
   if (platformCommPct !== undefined) {
     const val = parseInt(String(platformCommPct), 10);
     if (isNaN(val) || val < 0 || val > 100) return res.status(400).json({ error: "INVALID_COMMISSION" });

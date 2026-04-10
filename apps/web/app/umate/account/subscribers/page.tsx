@@ -3,16 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
-  Crown,
-  Gem,
+  CheckCircle2,
+  CreditCard,
   Heart,
   Loader2,
-  Medal,
   RefreshCcw,
   TrendingUp,
   UserMinus,
   UserPlus,
   Users,
+  XCircle,
 } from "lucide-react";
 import { apiFetch, resolveMediaUrl } from "../../../../lib/api";
 
@@ -22,22 +22,19 @@ type Subscriber = {
   id: string;
   activatedAt: string;
   expiresAt: string;
-  tier: "SILVER" | "GOLD" | "DIAMOND";
-  planName: string;
+  priceCLP: number;
+  status: "ACTIVE" | "CANCELLED" | "EXPIRED" | "PAST_DUE";
+  cancelAtPeriodEnd: boolean;
+  cardBrand: string | null;
+  cardLast4: string | null;
   user: { id: string; username: string; displayName: string | null; avatarUrl: string | null };
-};
-
-const TIER_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; icon: typeof Crown }> = {
-  DIAMOND: { label: "Diamond", color: "text-purple-300", bg: "bg-purple-500/15", border: "border-purple-500/25", icon: Gem },
-  GOLD: { label: "Gold", color: "text-amber-300", bg: "bg-amber-500/15", border: "border-amber-500/25", icon: Crown },
-  SILVER: { label: "Silver", color: "text-white/60", bg: "bg-white/10", border: "border-white/15", icon: Medal },
 };
 
 export default function SubscribersPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tierFilter, setTierFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
 
   useEffect(() => {
     Promise.all([
@@ -50,22 +47,26 @@ export default function SubscribersPage() {
     });
   }, []);
 
-  const churn = useMemo(() => Math.max(Math.round((stats?.newSubsThisCycle || 0) * 0.28), 0), [stats?.newSubsThisCycle]);
+  const churn = useMemo(
+    () => subscribers.filter((s) => s.status === "CANCELLED" || s.cancelAtPeriodEnd).length,
+    [subscribers],
+  );
   const retentionRate = useMemo(() => {
     if (!stats?.subscriberCount) return 0;
     return Math.round(((stats.subscriberCount - churn) / stats.subscriberCount) * 100);
   }, [stats, churn]);
 
-  const tierCounts = useMemo(() => {
-    const counts = { SILVER: 0, GOLD: 0, DIAMOND: 0 };
-    for (const s of subscribers) counts[s.tier] = (counts[s.tier] || 0) + 1;
-    return counts;
-  }, [subscribers]);
+  const mrr = useMemo(
+    () => subscribers.filter((s) => s.status === "ACTIVE").reduce((sum, s) => sum + s.priceCLP, 0),
+    [subscribers],
+  );
 
   const filtered = useMemo(() => {
-    if (!tierFilter) return subscribers;
-    return subscribers.filter((s) => s.tier === tierFilter);
-  }, [subscribers, tierFilter]);
+    if (!statusFilter) return subscribers;
+    if (statusFilter === "ACTIVE") return subscribers.filter((s) => s.status === "ACTIVE" && !s.cancelAtPeriodEnd);
+    if (statusFilter === "CANCELLED") return subscribers.filter((s) => s.status === "CANCELLED" || s.cancelAtPeriodEnd);
+    return subscribers;
+  }, [subscribers, statusFilter]);
 
   if (loading) return <div className="flex flex-col items-center justify-center py-24 gap-3"><Loader2 className="h-8 w-8 animate-spin text-[#00aff0]/60" /></div>;
   if (!stats) return <div className="py-24 text-center text-white/40">No hay datos disponibles.</div>;
@@ -74,15 +75,15 @@ export default function SubscribersPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-white">Suscriptores</h1>
-        <p className="mt-1 text-sm text-white/30">Comunidad, planes y fans.</p>
+        <p className="mt-1 text-sm text-white/30">Comunidad y fans con suscripción directa (PAC).</p>
       </div>
 
       {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           { label: "Activos", value: stats.subscriberCount.toLocaleString(), icon: Users, color: "text-[#00aff0]", border: "border-[#00aff0]/20" },
-          { label: "Altas del ciclo", value: `+${stats.newSubsThisCycle}`, icon: UserPlus, color: "text-emerald-400", border: "border-emerald-500/20" },
-          { label: "Bajas estimadas", value: `-${churn}`, icon: UserMinus, color: "text-rose-400", border: "border-rose-500/20" },
+          { label: "Nuevos (mes)", value: `+${stats.newSubsThisCycle}`, icon: UserPlus, color: "text-emerald-400", border: "border-emerald-500/20" },
+          { label: "Cancelando", value: `${churn}`, icon: UserMinus, color: "text-rose-400", border: "border-rose-500/20" },
           { label: "Retención", value: `${retentionRate}%`, icon: RefreshCcw, color: "text-amber-400", border: "border-amber-500/20" },
         ].map((m) => (
           <div key={m.label} className={`rounded-xl border ${m.border} bg-white/[0.015] p-4`}>
@@ -93,43 +94,39 @@ export default function SubscribersPage() {
         ))}
       </div>
 
-      {/* Tier distribution */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        {(["DIAMOND", "GOLD", "SILVER"] as const).map((tier) => {
-          const cfg = TIER_CONFIG[tier];
-          const Icon = cfg.icon;
-          return (
-            <div key={tier} className={`rounded-xl border ${cfg.border} ${cfg.bg} p-4 flex items-center gap-3`}>
-              <Icon className={`h-5 w-5 ${cfg.color}`} />
-              <div>
-                <p className="text-xl font-extrabold text-white">{tierCounts[tier]}</p>
-                <p className={`text-xs ${cfg.color}`}>{cfg.label}</p>
-              </div>
-            </div>
-          );
-        })}
+      {/* MRR card */}
+      <div className="rounded-2xl border border-[#00aff0]/15 bg-gradient-to-br from-[#00aff0]/[0.06] via-[#00aff0]/[0.02] to-transparent p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">Ingresos recurrentes mensuales (MRR)</p>
+            <p className="mt-1 text-3xl font-extrabold text-white">${mrr.toLocaleString("es-CL")} <span className="text-sm font-semibold text-white/40">CLP</span></p>
+            <p className="mt-1 text-xs text-white/40">Suma de las tarifas de tus suscriptores activos con PAC.</p>
+          </div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#00aff0]/15">
+            <CreditCard className="h-6 w-6 text-[#00aff0]" />
+          </div>
+        </div>
       </div>
 
       {/* Subscriber list */}
       <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Suscriptores activos</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Suscriptores</h2>
           <span className="text-[11px] text-white/40">{filtered.length} de {subscribers.length}</span>
         </div>
 
-        {/* Tier filter */}
+        {/* Status filter */}
         <div className="flex flex-wrap gap-1.5 mb-4">
           {[
             { key: "", label: "Todos" },
-            { key: "DIAMOND", label: "Diamond" },
-            { key: "GOLD", label: "Gold" },
-            { key: "SILVER", label: "Silver" },
+            { key: "ACTIVE", label: "Activos" },
+            { key: "CANCELLED", label: "Cancelando" },
           ].map((f) => (
             <button
               key={f.key}
-              onClick={() => setTierFilter(f.key)}
+              onClick={() => setStatusFilter(f.key)}
               className={`rounded-full px-3 py-1.5 text-[11px] font-medium transition ${
-                tierFilter === f.key
+                statusFilter === f.key
                   ? "bg-[#00aff0]/15 text-[#00aff0] border border-[#00aff0]/25"
                   : "text-white/40 hover:text-white/50"
               }`}
@@ -145,12 +142,11 @@ export default function SubscribersPage() {
 
         <div className="space-y-1.5">
           {filtered.map((sub) => {
-            const cfg = TIER_CONFIG[sub.tier];
-            const Icon = cfg.icon;
             const isNew = new Date(sub.activatedAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const isCancelling = sub.status === "CANCELLED" || sub.cancelAtPeriodEnd;
             return (
-              <div key={sub.id} className="flex items-center justify-between rounded-lg border border-white/[0.03] p-3 transition hover:bg-white/[0.015]">
-                <div className="flex items-center gap-2 sm:gap-3">
+              <div key={sub.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/[0.03] p-3 transition hover:bg-white/[0.015]">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                   <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/[0.06]">
                     {sub.user.avatarUrl ? (
                       <img src={resolveMediaUrl(sub.user.avatarUrl) || ""} alt="" className="h-full w-full object-cover" />
@@ -167,16 +163,27 @@ export default function SubscribersPage() {
                       </p>
                       {isNew && (
                         <span className="shrink-0 text-[11px] font-medium text-emerald-400 flex items-center gap-0.5">
-                          <ArrowUpRight className="h-2.5 w-2.5" /> Nueva
+                          <ArrowUpRight className="h-2.5 w-2.5" /> Nuevo
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-white/40">@{sub.user.username} · desde {new Date(sub.activatedAt).toLocaleDateString("es-CL")}</p>
+                    <p className="text-[11px] text-white/40 truncate">
+                      @{sub.user.username} · desde {new Date(sub.activatedAt).toLocaleDateString("es-CL")}
+                      {sub.cardLast4 ? ` · •• ${sub.cardLast4}` : ""}
+                    </p>
                   </div>
                 </div>
-                <div className={`shrink-0 flex items-center gap-1.5 rounded-full ${cfg.bg} border ${cfg.border} px-2.5 py-1`}>
-                  <Icon className={`h-3 w-3 ${cfg.color}`} />
-                  <span className={`text-[11px] font-semibold ${cfg.color}`}>{cfg.label}</span>
+                <div className="shrink-0 flex flex-col items-end gap-1">
+                  <span className="text-sm font-extrabold text-white">${sub.priceCLP.toLocaleString("es-CL")}</span>
+                  {isCancelling ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                      <XCircle className="h-2.5 w-2.5" /> Cancelando
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                      <CheckCircle2 className="h-2.5 w-2.5" /> Activo
+                    </span>
+                  )}
                 </div>
               </div>
             );
