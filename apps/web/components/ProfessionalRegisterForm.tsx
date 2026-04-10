@@ -80,7 +80,6 @@ export default function ProfessionalRegisterForm({
 
   // Step 1
   const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -109,8 +108,6 @@ export default function ProfessionalRegisterForm({
     if (step === 1) {
       if (displayName.trim().length < 2)
         return "El nombre público debe tener al menos 2 caracteres.";
-      if (username.trim().length < 3)
-        return "El nombre de usuario debe tener al menos 3 caracteres.";
       if (!email.trim()) return "Ingresa tu email.";
       if (!phoneRegex.test(phone.trim()))
         return "Ingresa un número válido con código de país (+56, +57, +58 o +51).";
@@ -180,7 +177,6 @@ export default function ProfessionalRegisterForm({
       email,
       password,
       displayName,
-      username,
       phone,
       gender,
       primaryCategory: primaryCategory || undefined,
@@ -253,20 +249,9 @@ export default function ProfessionalRegisterForm({
               required
               minLength={2}
             />
-          </div>
-
-          <div className="grid gap-2">
-            <label className="text-sm font-medium text-white/70">
-              Nombre de usuario
-            </label>
-            <input
-              className="input"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="tuusuario"
-              required
-              minLength={3}
-            />
+            <p className="text-xs text-white/40">
+              Este será el nombre que verán otros usuarios. Tu @ de usuario se generará automáticamente.
+            </p>
           </div>
 
           <div className="grid gap-2">

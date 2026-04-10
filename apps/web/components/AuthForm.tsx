@@ -15,7 +15,6 @@ function flattenValidation(details: any): string | null {
   if (!fieldErrors) return null;
 
   const labels: Record<string, string> = {
-    username: "nombre de usuario",
     phone: "teléfono",
     email: "email",
     password: "contraseña",
@@ -53,7 +52,6 @@ export type RegisterFormData = {
   email: string;
   password: string;
   displayName: string;
-  username: string;
   phone: string;
   gender?: string;
   primaryCategory?: string;
@@ -89,7 +87,6 @@ export default function AuthForm({
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState("FEMALE");
   const [birthdate, setBirthdate] = useState("");
@@ -152,7 +149,6 @@ export default function AuthForm({
           email,
           password,
           displayName,
-          username,
           phone,
           gender: profileType === "PROFESSIONAL" ? gender : undefined,
           primaryCategory: profileType === "PROFESSIONAL" ? (primaryCategory || undefined) : undefined,
@@ -216,20 +212,9 @@ export default function AuthForm({
             required
             minLength={2}
           />
-        </div>
-      ) : null}
-
-      {mode === "register" ? (
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-white/70">Nombre de usuario</label>
-          <input
-            className="input"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="tuusuario"
-            required
-            minLength={3}
-          />
+          <p className="text-xs text-white/40">
+            Este será el nombre que verán otros usuarios. Tu @ de usuario se generará automáticamente.
+          </p>
         </div>
       ) : null}
 

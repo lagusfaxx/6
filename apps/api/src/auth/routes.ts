@@ -213,7 +213,6 @@ authRouter.post(
       email: rawEmail,
       password,
       displayName,
-      username,
       phone,
       gender,
       profileType,
@@ -228,13 +227,19 @@ authRouter.post(
       referralCode,
     } = parsed.data;
     const email = rawEmail.toLowerCase().trim();
-    const existing = await prisma.user.findFirst({
-      where: { OR: [{ email }, { username }] },
-    });
-    if (existing?.email === email)
-      return res.status(409).json({ error: "EMAIL_IN_USE" });
-    if (existing?.username === username)
-      return res.status(409).json({ error: "USERNAME_IN_USE" });
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) return res.status(409).json({ error: "EMAIL_IN_USE" });
+
+    // Auto-generate unique username from displayName
+    const baseSlug = slugify(displayName) || "user";
+    let username = baseSlug;
+    let usernameAttempts = 0;
+    while (usernameAttempts < 10) {
+      const taken = await prisma.user.findUnique({ where: { username } });
+      if (!taken) break;
+      username = `${baseSlug}-${crypto.randomInt(1000, 9999)}`;
+      usernameAttempts++;
+    }
 
     const passwordHash = await argon2.hash(password);
 
