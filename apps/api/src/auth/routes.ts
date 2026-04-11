@@ -14,7 +14,7 @@ import { redeemReferralCode } from "../referral/redeem";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
-import { sendSetPasswordEmail } from "./verification";
+import { sendSetPasswordEmail, consumeVerifiedEmail } from "./verification";
 import { createFlowPayment } from "../khipu/client";
 import { createProfessionalUser } from "./createProfessional";
 
@@ -228,7 +228,23 @@ authRouter.post(
     } = parsed.data;
     const email = rawEmail.toLowerCase().trim();
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return res.status(409).json({ error: "EMAIL_IN_USE" });
+    if (existing)
+      return res.status(409).json({
+        error: "EMAIL_IN_USE",
+        message: "Este correo ya está registrado.",
+      });
+
+    // Enforce email verification on the backend. The /verify-code endpoint
+    // stores a short-lived verified marker which we consume here exactly
+    // once. Without it, anyone could POST /register directly bypassing the
+    // email verification UI.
+    if (!consumeVerifiedEmail(email)) {
+      return res.status(403).json({
+        error: "EMAIL_NOT_VERIFIED",
+        message:
+          "Debes verificar tu correo antes de crear la cuenta. Solicita un nuevo código.",
+      });
+    }
 
     // Auto-generate unique username from displayName
     const baseSlug = slugify(displayName) || "user";
@@ -371,6 +387,29 @@ authRouter.post(
         },
       });
     } catch (err) {
+      // Handle the race where two concurrent requests both pass the
+      // findUnique check above — Prisma then throws a P2002 on the unique
+      // constraint. Convert it into a friendly 409 instead of a 500.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        const target = Array.isArray((err.meta as any)?.target)
+          ? ((err.meta as any).target as string[])
+          : [];
+        if (target.includes("email")) {
+          return res.status(409).json({
+            error: "EMAIL_IN_USE",
+            message: "Este correo ya está registrado.",
+          });
+        }
+        if (target.includes("username")) {
+          return res.status(409).json({
+            error: "USERNAME_IN_USE",
+            message: "Nombre de usuario no disponible. Intenta de nuevo.",
+          });
+        }
+      }
       console.error("[auth/register] create failed", {
         email,
         username,
@@ -542,6 +581,38 @@ authRouter.post(
       return res.status(409).json({ error: "PHONE_IN_USE", message: "Este teléfono ya está registrado." });
     }
 
+    // Block quick-register if there is already a PENDING Gold registration
+    // with this email. Otherwise the later Gold webhook would try to create
+    // a user with an email that now belongs to someone else, leaving the
+    // paid Gold registration orphaned.
+    //
+    // We parse each pending row's formData JSON in memory instead of using a
+    // Prisma `contains` substring match, because user-supplied fields like
+    // `bio` and `serviceDescription` end up serialized into formData too and
+    // a naive substring match could be fooled into blocking arbitrary emails.
+    const pendingGoldRows = await prisma.pendingGoldRegistration.findMany({
+      where: { status: "PENDING" },
+      select: { id: true, formData: true },
+    });
+    const hasPendingGoldConflict = pendingGoldRows.some((row) => {
+      try {
+        const parsedData = JSON.parse(row.formData);
+        const candidate = typeof parsedData?.email === "string"
+          ? parsedData.email.toLowerCase().trim()
+          : null;
+        return candidate === email;
+      } catch {
+        return false;
+      }
+    });
+    if (hasPendingGoldConflict) {
+      return res.status(409).json({
+        error: "EMAIL_IN_USE",
+        message:
+          "Este correo ya tiene un registro Gold pendiente de pago. Completa el pago o usa otro correo.",
+      });
+    }
+
     // Upload gallery photos to disk and collect URLs
     const files = req.files as { avatar?: Express.Multer.File[]; gallery?: Express.Multer.File[] } | undefined;
     const galleryUrls: string[] = [];
@@ -604,14 +675,27 @@ authRouter.post(
     }
 
     // ── FREE PLAN: create user immediately ──
-    const { user } = await createProfessionalUser({
-      displayName, primaryCategory, address, latitude, longitude,
-      serviceDescription, email, phone, bio, gender,
-      birthMonth, birthYear, profileTags, serviceTags,
-      baseRate, minDurationMinutes, acceptsIncalls, acceptsOutcalls,
-      galleryUrls,
-      tier: "SILVER",
-    });
+    let user;
+    try {
+      const created = await createProfessionalUser({
+        displayName, primaryCategory, address, latitude, longitude,
+        serviceDescription, email, phone, bio, gender,
+        birthMonth, birthYear, profileTags, serviceTags,
+        baseRate, minDurationMinutes, acceptsIncalls, acceptsOutcalls,
+        galleryUrls,
+        tier: "SILVER",
+      });
+      user = created.user;
+    } catch (err: any) {
+      // Handle the race where two concurrent quick-register calls pass the
+      // uniqueness checks simultaneously, or createProfessionalUser itself
+      // rejects a duplicate email.
+      if (err?.code === "EMAIL_IN_USE" || (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002")) {
+        return res.status(409).json({ error: "EMAIL_IN_USE", message: "Este correo ya está registrado." });
+      }
+      console.error("[auth/quick-register] createProfessionalUser failed", { email, error: err });
+      throw err;
+    }
 
     // Create forum thread
     await createProfessionalForumThread({
