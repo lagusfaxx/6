@@ -585,14 +585,27 @@ authRouter.post(
     // with this email. Otherwise the later Gold webhook would try to create
     // a user with an email that now belongs to someone else, leaving the
     // paid Gold registration orphaned.
-    const pendingGoldForEmail = await prisma.pendingGoldRegistration.findFirst({
-      where: {
-        status: "PENDING",
-        formData: { contains: `"email":"${email}"` },
-      },
-      select: { id: true },
+    //
+    // We parse each pending row's formData JSON in memory instead of using a
+    // Prisma `contains` substring match, because user-supplied fields like
+    // `bio` and `serviceDescription` end up serialized into formData too and
+    // a naive substring match could be fooled into blocking arbitrary emails.
+    const pendingGoldRows = await prisma.pendingGoldRegistration.findMany({
+      where: { status: "PENDING" },
+      select: { id: true, formData: true },
     });
-    if (pendingGoldForEmail) {
+    const hasPendingGoldConflict = pendingGoldRows.some((row) => {
+      try {
+        const parsedData = JSON.parse(row.formData);
+        const candidate = typeof parsedData?.email === "string"
+          ? parsedData.email.toLowerCase().trim()
+          : null;
+        return candidate === email;
+      } catch {
+        return false;
+      }
+    });
+    if (hasPendingGoldConflict) {
       return res.status(409).json({
         error: "EMAIL_IN_USE",
         message:
