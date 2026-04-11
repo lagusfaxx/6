@@ -610,6 +610,87 @@ export async function sendSetPasswordEmail(email: string, token: string) {
   });
 }
 
+/**
+ * Resend the "create your password" email for a professional that registered
+ * via /publicate but lost the original email. This only regenerates a fresh
+ * passwordSetToken if the user has NOT yet set a password (passwordHash is
+ * null); users that already have a password must use the normal password
+ * reset flow (/forgot-password).
+ *
+ * To prevent email enumeration the response is uniform regardless of whether
+ * the email exists or whether the user has a password already set.
+ */
+const SET_PASSWORD_TOKEN_TTL_MS = 72 * 60 * 60 * 1000; // 72 hours
+const resendSetPasswordCooldown = new Map<string, number>(); // email -> lastSentAt
+
+verificationRouter.post(
+  "/resend-set-password",
+  sendCodeLimiter,
+  asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ error: "EMAIL_REQUIRED" });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: "EMAIL_INVALID", message: "Correo inválido." });
+    }
+
+    // Per-email cooldown (2 min) — same UX as send-reset-code.
+    const lastSentAt = resendSetPasswordCooldown.get(normalizedEmail);
+    if (lastSentAt && Date.now() - lastSentAt < RESEND_COOLDOWN_MS) {
+      const waitSeconds = Math.ceil(
+        (RESEND_COOLDOWN_MS - (Date.now() - lastSentAt)) / 1000
+      );
+      return res.status(429).json({
+        error: "COOLDOWN",
+        message: `Debes esperar ${waitSeconds} segundos antes de reenviar.`,
+        waitSeconds,
+      });
+    }
+
+    // Always mark cooldown to keep timing uniform regardless of user state.
+    resendSetPasswordCooldown.set(normalizedEmail, Date.now());
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, passwordHash: true },
+    });
+
+    // Only regenerate + send when the user exists AND has not yet set a
+    // password. Otherwise stay silent (no enumeration leak). Users with an
+    // existing password should use /forgot-password.
+    if (user && !user.passwordHash) {
+      const newToken = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + SET_PASSWORD_TOKEN_TTL_MS);
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            passwordSetToken: newToken,
+            passwordSetTokenExpiresAt: expiresAt,
+          },
+        });
+        await sendSetPasswordEmail(normalizedEmail, newToken);
+      } catch (err) {
+        console.error("[verification] resend set-password failed", err);
+        // Don't leak failure; uniform response below.
+      }
+    }
+
+    return res.json({ ok: true });
+  })
+);
+
+// Cleanup stale resend-set-password cooldown entries every 15 minutes.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, sentAt] of resendSetPasswordCooldown) {
+    if (now - sentAt > RESEND_COOLDOWN_MS) resendSetPasswordCooldown.delete(key);
+  }
+}, 15 * 60 * 1000);
+
 verificationRouter.post(
   "/set-password",
   verifyCodeLimiter,

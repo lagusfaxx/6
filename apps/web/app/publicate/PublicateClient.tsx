@@ -215,6 +215,16 @@ export default function PublicateClient() {
           Un administrador lo revisará pronto. Revisa tu correo electrónico para
           crear tu contraseña y completar tu perfil.
         </p>
+        <p className="mt-3 text-xs text-white/40 leading-relaxed">
+          ¿No recibiste el correo? Revisa tu carpeta de spam o{" "}
+          <Link
+            href={`/reenviar-contrasena?email=${encodeURIComponent(data.email.trim().toLowerCase())}`}
+            className="text-fuchsia-300 underline-offset-4 hover:text-fuchsia-200 hover:underline"
+          >
+            reenvíalo aquí
+          </Link>
+          .
+        </p>
         <Link
           href="/"
           className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white/10 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-white/15"
