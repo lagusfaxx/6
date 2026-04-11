@@ -103,6 +103,11 @@ export default function UmateAdminPage() {
   const [saving, setSaving] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
 
+  // Demo seed state (visualization of U-Mate home sections)
+  const [demoSeed, setDemoSeed] = useState<{ seeded: boolean; count?: number; alive?: number; createdAt?: string } | null>(null);
+  const [demoSeedLoading, setDemoSeedLoading] = useState(false);
+  const [demoSeedMsg, setDemoSeedMsg] = useState<string | null>(null);
+
   // Rejection reason
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -175,6 +180,56 @@ export default function UmateAdminPage() {
     setSaving(false);
     setConfigSaved(true);
     setTimeout(() => setConfigSaved(false), 3000);
+  };
+
+  // Demo seed handlers
+  const loadDemoSeedStatus = async () => {
+    const res = await apiFetch<{ seeded: boolean; count?: number; alive?: number; createdAt?: string }>(
+      "/admin/umate/demo-seed/status",
+    ).catch(() => null);
+    setDemoSeed(res || { seeded: false });
+  };
+
+  useEffect(() => {
+    if (tab === "config") loadDemoSeedStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const runDemoSeed = async () => {
+    if (demoSeed?.seeded) return;
+    setDemoSeedLoading(true);
+    setDemoSeedMsg(null);
+    try {
+      const res = await apiFetch<{ seeded: boolean; count: number }>("/admin/umate/demo-seed", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      setDemoSeedMsg(`✅ ${res.count} creadora(s) demo creada(s). Revisa el home de Uzeed.`);
+      await loadDemoSeedStatus();
+    } catch (err: any) {
+      setDemoSeedMsg(err?.body?.message || err?.body?.error || "No se pudo seedear.");
+    } finally {
+      setDemoSeedLoading(false);
+    }
+  };
+
+  const revertDemoSeed = async () => {
+    if (!demoSeed?.seeded) return;
+    if (!confirm("¿Revertir el seed demo? Se borrarán las creadoras creadas por este seed (los usuarios originales no se tocan).")) return;
+    setDemoSeedLoading(true);
+    setDemoSeedMsg(null);
+    try {
+      const res = await apiFetch<{ reverted: boolean; count: number }>("/admin/umate/demo-seed/revert", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      setDemoSeedMsg(`✅ ${res.count} creadora(s) demo borrada(s). Home limpio.`);
+      await loadDemoSeedStatus();
+    } catch (err: any) {
+      setDemoSeedMsg(err?.body?.message || err?.body?.error || "No se pudo revertir.");
+    } finally {
+      setDemoSeedLoading(false);
+    }
   };
 
   const tabs = [
@@ -658,6 +713,71 @@ export default function UmateAdminPage() {
               <h3 className="text-sm font-bold text-red-300/80">Zona peligrosa</h3>
             </div>
             <p className="text-xs text-white/40">Los cambios en la configuración afectan inmediatamente todos los nuevos pagos. Las transacciones existentes no se modifican retroactivamente.</p>
+          </div>
+
+          {/* Demo seed — 10 creadoras de prueba tomando perfiles existentes */}
+          <div className="rounded-2xl border border-[#00aff0]/15 bg-[#00aff0]/[0.03] p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-[#00aff0]/80" />
+              <h3 className="text-sm font-bold text-white/80">Seed demo (visualización)</h3>
+            </div>
+            <p className="text-xs text-white/45">
+              Crea 10 creadoras U-Mate temporales promoviendo usuarios existentes de Uzeed
+              (prioriza profesionales con bio y cover). Es 100% reversible: al revertir, se borran
+              sólo los creators creados por este seed. Los usuarios originales no se tocan.
+            </p>
+
+            {demoSeed?.seeded ? (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] p-3.5 space-y-1">
+                <p className="text-xs font-bold text-emerald-300">Seed activo</p>
+                <p className="text-[11px] text-white/50">
+                  {demoSeed.count} creadora(s) seedeada(s)
+                  {typeof demoSeed.alive === "number" && demoSeed.alive !== demoSeed.count
+                    ? ` · ${demoSeed.alive} aún vivas en DB`
+                    : ""}
+                  {demoSeed.createdAt ? ` · ${new Date(demoSeed.createdAt).toLocaleString("es-CL")}` : ""}
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5">
+                <p className="text-[11px] text-white/45">Sin seed demo activo.</p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={runDemoSeed}
+                disabled={demoSeedLoading || demoSeed?.seeded}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-5 py-2.5 text-xs font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.25)] transition hover:shadow-[0_6px_28px_rgba(0,175,240,0.35)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {demoSeedLoading && !demoSeed?.seeded ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Users className="h-3.5 w-3.5" />}
+                Seedear 10 creadoras
+              </button>
+              <button
+                type="button"
+                onClick={revertDemoSeed}
+                disabled={demoSeedLoading || !demoSeed?.seeded}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/25 bg-red-500/[0.08] px-5 py-2.5 text-xs font-bold text-red-300 transition hover:bg-red-500/[0.15] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {demoSeedLoading && demoSeed?.seeded ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                Revertir seed
+              </button>
+              <button
+                type="button"
+                onClick={loadDemoSeedStatus}
+                disabled={demoSeedLoading}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.08] px-4 py-2.5 text-xs font-medium text-white/50 transition hover:border-white/20 hover:text-white/70 disabled:opacity-40"
+              >
+                <RefreshCw className="h-3 w-3" /> Refrescar
+              </button>
+            </div>
+
+            {demoSeedMsg && (
+              <p className="rounded-xl border border-[#00aff0]/15 bg-[#00aff0]/[0.04] px-3 py-2 text-[11px] text-white/70">
+                {demoSeedMsg}
+              </p>
+            )}
           </div>
         </div>
       )}

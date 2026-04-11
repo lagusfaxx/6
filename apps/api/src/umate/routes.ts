@@ -1974,3 +1974,228 @@ umateRouter.put("/admin/umate/withdrawals/:id/reject", requireAdmin, asyncHandle
 
   res.json({ rejected: true });
 }));
+
+// ══════════════════════════════════════════════════════════════════════
+// ADMIN — Demo seed: 10 creadoras de mentira usando perfiles existentes
+// ══════════════════════════════════════════════════════════════════════
+//
+// Totalmente reversible. El manifest con los IDs creados se guarda en
+// PlatformConfig (key: umate_demo_seed_manifest). Solo promueve usuarios
+// que ya existen a UmateCreator; NO crea usuarios, posts ni suscripciones.
+//
+// Endpoints:
+//   GET  /admin/umate/demo-seed/status   → estado del seed
+//   POST /admin/umate/demo-seed          → crear 10 creadoras de demo
+//   POST /admin/umate/demo-seed/revert   → borrar sólo las que creó el seed
+
+const DEMO_SEED_KEY = "umate_demo_seed_manifest";
+const DEMO_SEED_TARGET_COUNT = 10;
+const DEMO_SEED_PRICE_OPTIONS = [2990, 3990, 4990, 5990, 6990, 7990, 9990, 12990, 14990, 19990];
+
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function randIntRange(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+umateRouter.get("/admin/umate/demo-seed/status", requireAdmin, asyncHandler(async (_req, res) => {
+  const row = await prisma.platformConfig.findUnique({ where: { key: DEMO_SEED_KEY } });
+  if (!row) return res.json({ seeded: false });
+  try {
+    const manifest = JSON.parse(row.value);
+    const creators = Array.isArray(manifest?.creators) ? manifest.creators : [];
+    // Sanity check: confirm the creators still exist in DB
+    const ids = creators.map((c: any) => c.id).filter(Boolean);
+    const alive = ids.length > 0
+      ? await prisma.umateCreator.count({ where: { id: { in: ids } } })
+      : 0;
+    return res.json({
+      seeded: true,
+      count: creators.length,
+      alive,
+      createdAt: manifest.createdAt,
+      creators: creators.map((c: any) => ({
+        id: c.id,
+        username: c.username,
+        displayName: c.displayName,
+        monthlyPriceCLP: c.monthlyPriceCLP,
+      })),
+    });
+  } catch {
+    return res.json({ seeded: false });
+  }
+}));
+
+umateRouter.post("/admin/umate/demo-seed", requireAdmin, asyncHandler(async (_req, res) => {
+  // Guard: only one active seed at a time
+  const existing = await prisma.platformConfig.findUnique({ where: { key: DEMO_SEED_KEY } });
+  if (existing) {
+    return res.status(400).json({
+      error: "ALREADY_SEEDED",
+      message: "Ya hay un seed demo activo. Revértelo primero antes de crear uno nuevo.",
+    });
+  }
+
+  // Buscar candidatos — activos, con avatar, sin UmateCreator previo.
+  // Orden de preferencia igual al script JS:
+  //   1º: PROFESSIONAL con bio + cover
+  //   2º: PROFESSIONAL con bio (sin cover)
+  //   3º: cualquier usuario activo con avatar
+  const baseWhere: any = {
+    isActive: true,
+    avatarUrl: { not: null },
+    umateCreator: null,
+  };
+
+  const candidates: Array<{
+    id: string;
+    username: string;
+    displayName: string | null;
+    bio: string | null;
+    avatarUrl: string | null;
+    coverUrl: string | null;
+  }> = [];
+
+  const lvl1 = await prisma.user.findMany({
+    where: {
+      ...baseWhere,
+      profileType: "PROFESSIONAL",
+      bio: { not: null },
+      coverUrl: { not: null },
+    },
+    select: { id: true, username: true, displayName: true, bio: true, avatarUrl: true, coverUrl: true },
+    take: DEMO_SEED_TARGET_COUNT,
+    orderBy: { createdAt: "desc" },
+  });
+  candidates.push(...lvl1);
+
+  if (candidates.length < DEMO_SEED_TARGET_COUNT) {
+    const already = new Set(candidates.map((c) => c.id));
+    const lvl2 = await prisma.user.findMany({
+      where: {
+        ...baseWhere,
+        profileType: "PROFESSIONAL",
+        bio: { not: null },
+        id: { notIn: Array.from(already) },
+      },
+      select: { id: true, username: true, displayName: true, bio: true, avatarUrl: true, coverUrl: true },
+      take: DEMO_SEED_TARGET_COUNT - candidates.length,
+      orderBy: { createdAt: "desc" },
+    });
+    candidates.push(...lvl2);
+  }
+
+  if (candidates.length < DEMO_SEED_TARGET_COUNT) {
+    const already = new Set(candidates.map((c) => c.id));
+    const lvl3 = await prisma.user.findMany({
+      where: {
+        ...baseWhere,
+        id: { notIn: Array.from(already) },
+      },
+      select: { id: true, username: true, displayName: true, bio: true, avatarUrl: true, coverUrl: true },
+      take: DEMO_SEED_TARGET_COUNT - candidates.length,
+      orderBy: { createdAt: "desc" },
+    });
+    candidates.push(...lvl3);
+  }
+
+  if (candidates.length === 0) {
+    return res.status(400).json({
+      error: "NO_CANDIDATES",
+      message: "No se encontraron usuarios elegibles (activos, con avatar, sin UmateCreator previo).",
+    });
+  }
+
+  const now = new Date();
+  const created: Array<{
+    id: string;
+    userId: string;
+    username: string;
+    displayName: string;
+    monthlyPriceCLP: number;
+  }> = [];
+
+  for (const user of candidates) {
+    try {
+      const creator = await prisma.umateCreator.create({
+        data: {
+          userId: user.id,
+          displayName: user.displayName || user.username || "Creadora",
+          bio: user.bio,
+          avatarUrl: user.avatarUrl,
+          coverUrl: user.coverUrl,
+          monthlyPriceCLP: pickRandom(DEMO_SEED_PRICE_OPTIONS),
+          status: "ACTIVE",
+          termsAcceptedAt: now,
+          rulesAcceptedAt: now,
+          contractAcceptedAt: now,
+          subscriberCount: randIntRange(0, 250),
+          totalPosts: 0,
+          totalLikes: 0,
+        },
+        select: { id: true, displayName: true, monthlyPriceCLP: true },
+      });
+
+      created.push({
+        id: creator.id,
+        userId: user.id,
+        username: user.username,
+        displayName: creator.displayName,
+        monthlyPriceCLP: creator.monthlyPriceCLP,
+      });
+    } catch (err: any) {
+      console.warn("[umate demo-seed] error creando creator", { userId: user.id, err: err?.message });
+    }
+  }
+
+  if (created.length === 0) {
+    return res.status(500).json({ error: "SEED_FAILED", message: "No se pudo crear ningún creator." });
+  }
+
+  // Guardar manifest en PlatformConfig
+  const manifest = {
+    createdAt: now.toISOString(),
+    count: created.length,
+    creators: created,
+  };
+
+  await prisma.platformConfig.create({
+    data: { key: DEMO_SEED_KEY, value: JSON.stringify(manifest) },
+  });
+
+  res.json({ seeded: true, count: created.length, creators: created });
+}));
+
+umateRouter.post("/admin/umate/demo-seed/revert", requireAdmin, asyncHandler(async (_req, res) => {
+  const row = await prisma.platformConfig.findUnique({ where: { key: DEMO_SEED_KEY } });
+  if (!row) {
+    return res.json({ reverted: true, count: 0, message: "No había seed demo activo." });
+  }
+
+  let manifest: any;
+  try {
+    manifest = JSON.parse(row.value);
+  } catch {
+    // Manifest corrupto — simplemente bórralo
+    await prisma.platformConfig.delete({ where: { key: DEMO_SEED_KEY } });
+    return res.json({ reverted: true, count: 0, message: "Manifest corrupto; eliminado." });
+  }
+
+  const ids: string[] = Array.isArray(manifest?.creators)
+    ? manifest.creators.map((c: any) => c.id).filter(Boolean)
+    : [];
+
+  let deleted = 0;
+  if (ids.length > 0) {
+    // Cascade en Prisma borra UmatePost, UmatePostMedia, UmateCreatorSub,
+    // UmateDirectSubscription y UmateLedgerEntry (creatorId SetNull) asociados.
+    const result = await prisma.umateCreator.deleteMany({ where: { id: { in: ids } } });
+    deleted = result.count;
+  }
+
+  await prisma.platformConfig.delete({ where: { key: DEMO_SEED_KEY } });
+
+  res.json({ reverted: true, count: deleted });
+}));
