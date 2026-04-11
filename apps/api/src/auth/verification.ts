@@ -36,6 +36,9 @@ function safeCompare(a: string, b: string): boolean {
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const RESEND_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
 const MAX_VERIFY_ATTEMPTS = 5; // Max wrong code attempts before invalidation
+// After verify-code succeeds, the email is considered verified for this long,
+// giving the user time to submit the /register form with the verified email.
+const VERIFIED_EMAIL_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 interface PendingCode {
   code: string;
@@ -47,11 +50,36 @@ interface PendingCode {
 
 const pendingCodes = new Map<string, PendingCode>();
 
-// Cleanup expired codes every 5 minutes
+// Emails that have successfully completed /verify-code. Used by /register
+// (and related flows) to enforce backend email verification.
+const verifiedEmails = new Map<string, number>(); // email -> expiresAt
+
+/**
+ * Returns true if the given email currently has a valid verified status and
+ * atomically consumes it (single-use). Used by /register to ensure the email
+ * was actually verified via /verify-code instead of being trusted from the client.
+ */
+export function consumeVerifiedEmail(email: string): boolean {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized) return false;
+  const expiresAt = verifiedEmails.get(normalized);
+  if (!expiresAt) return false;
+  if (Date.now() > expiresAt) {
+    verifiedEmails.delete(normalized);
+    return false;
+  }
+  verifiedEmails.delete(normalized);
+  return true;
+}
+
+// Cleanup expired codes / verified markers every 5 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of pendingCodes) {
     if (entry.expiresAt < now) pendingCodes.delete(key);
+  }
+  for (const [key, expiresAt] of verifiedEmails) {
+    if (expiresAt < now) verifiedEmails.delete(key);
   }
 }, 5 * 60 * 1000);
 
@@ -132,6 +160,26 @@ verificationRouter.post(
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+
+    // Reject obviously malformed emails to avoid sending bogus codes
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: "EMAIL_INVALID", message: "Correo inválido." });
+    }
+
+    // Block code sending for emails that are already registered. This prevents
+    // (a) email bombing of existing users and (b) wasted verification flows
+    // that would ultimately fail at /register with EMAIL_IN_USE.
+    const alreadyRegistered = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true },
+    });
+    if (alreadyRegistered) {
+      return res.status(409).json({
+        error: "EMAIL_IN_USE",
+        message: "Este correo ya está registrado. Inicia sesión o recupera tu contraseña.",
+      });
+    }
+
     const existing = pendingCodes.get(normalizedEmail);
 
     if (existing && Date.now() - existing.lastSentAt < RESEND_COOLDOWN_MS) {
@@ -217,6 +265,9 @@ verificationRouter.post(
     }
 
     pendingCodes.delete(normalizedEmail);
+    // Mark this email as verified so the subsequent /register call can
+    // enforce that email verification actually happened on the backend.
+    verifiedEmails.set(normalizedEmail, Date.now() + VERIFIED_EMAIL_TTL_MS);
     return res.json({ ok: true, verified: true });
   })
 );
@@ -612,7 +663,14 @@ verificationRouter.post(
       },
     });
 
-    // Auto-login: create session
+    // Auto-login: regenerate session to prevent session fixation, then
+    // set the authenticated userId/role on the fresh session.
+    await new Promise<void>((resolve, reject) => {
+      req.session.regenerate((err: unknown) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
     req.session.userId = user.id;
     req.session.role = user.role;
     await new Promise<void>((resolve, reject) => {

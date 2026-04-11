@@ -4,7 +4,7 @@ import { requireAuth, requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 import { prisma } from "../db";
-import { createProfessionalUser } from "../auth/createProfessional";
+import { createProfessionalUser, EmailInUseError } from "../auth/createProfessional";
 import {
   createFlowPlan,
   getFlowPlan,
@@ -661,7 +661,24 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
 
           console.log("[flow webhook] PUBLICATE_GOLD: user created after payment", { userId: user.id, pendingId: pendingReg.id });
         } catch (err) {
-          console.error("[flow webhook] PUBLICATE_GOLD: failed to create user", { pendingId: pendingReg.id, error: err });
+          // Special-case: the email already belongs to someone else by
+          // the time the payment cleared. Mark the pending as FAILED so
+          // we can reconcile/refund manually instead of silently losing
+          // the user's payment state.
+          if (err instanceof EmailInUseError) {
+            await prisma.pendingGoldRegistration
+              .update({
+                where: { id: pendingReg.id },
+                data: { status: "FAILED" },
+              })
+              .catch(() => undefined);
+            console.error(
+              "[flow webhook] PUBLICATE_GOLD: email already in use, pending marked FAILED",
+              { pendingId: pendingReg.id, email: err.email, token },
+            );
+          } else {
+            console.error("[flow webhook] PUBLICATE_GOLD: failed to create user", { pendingId: pendingReg.id, error: err });
+          }
         }
         return res.status(200).send("OK");
       }
