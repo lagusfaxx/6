@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { CheckCircle2, Eye, EyeOff, Loader2, Lock } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 
 export default function CrearContrasenaClient() {
@@ -16,6 +17,7 @@ export default function CrearContrasenaClient() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   const isValid =
@@ -38,6 +40,7 @@ export default function CrearContrasenaClient() {
       setError(
         err?.body?.message || "Ocurrió un error. Intenta nuevamente.",
       );
+      setErrorCode(err?.body?.error || null);
     } finally {
       setSubmitting(false);
     }
@@ -49,6 +52,13 @@ export default function CrearContrasenaClient() {
         <p className="text-sm text-white/50">
           Enlace inválido. Revisa tu correo electrónico e intenta nuevamente.
         </p>
+        <Link
+          href="/reenviar-contrasena"
+          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-3 text-sm font-semibold text-white"
+        >
+          <Mail className="h-4 w-4" />
+          Reenviar correo
+        </Link>
       </div>
     );
   }
@@ -131,6 +141,17 @@ export default function CrearContrasenaClient() {
         {error && (
           <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">
             {error}
+            {(errorCode === "INVALID_TOKEN" || errorCode === "TOKEN_EXPIRED") && (
+              <div className="mt-2">
+                <Link
+                  href={`/reenviar-contrasena?email=${encodeURIComponent(email)}`}
+                  className="inline-flex items-center gap-1.5 font-semibold text-fuchsia-300 hover:text-fuchsia-200"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  Reenviar correo con un nuevo enlace
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
