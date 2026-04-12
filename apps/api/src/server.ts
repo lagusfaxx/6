@@ -1,3 +1,9 @@
+/**
+ * @deprecated This file is a legacy entry point that lacks CSRF protection,
+ * compression, and other security hardening present in index.ts.
+ * The production entry point is index.ts (see package.json "start" script).
+ * This file should be removed once confirmed safe to do so.
+ */
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";

@@ -153,12 +153,25 @@ app.use(
 // ── CSRF protection: validate Origin header on state-changing requests ──
 app.use((req, res, next) => {
   if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
-  // Skip for webhooks (server-to-server)
+  // Skip for webhooks (server-to-server, validated via HMAC signature)
   if (req.path.startsWith("/webhooks/")) return next();
   const origin = req.headers.origin;
-  if (!origin) return next(); // Same-origin requests (non-CORS) don't send Origin
-  if (corsOrigins.includes(origin)) return next();
-  return res.status(403).json({ error: "CSRF_REJECTED", message: "Origin not allowed" });
+  // If an Origin is present it MUST match our allowlist. Browsers always send
+  // Origin on cross-origin requests; same-origin fetches may omit it.
+  if (origin && !corsOrigins.includes(origin)) {
+    return res.status(403).json({ error: "CSRF_REJECTED", message: "Origin not allowed" });
+  }
+  // When Origin is absent, require a custom header that simple HTML forms
+  // cannot set. fetch() and XHR from our SPA include Content-Type: application/json
+  // or X-Requested-With, which triggers a CORS preflight from foreign origins.
+  if (!origin) {
+    const ct = req.headers["content-type"] || "";
+    const hasCustomHeader = req.headers["x-requested-with"] || ct.includes("application/json");
+    if (!hasCustomHeader) {
+      return res.status(403).json({ error: "CSRF_REJECTED", message: "Missing required header" });
+    }
+  }
+  return next();
 });
 
 // ── Public routes (before auth middleware) ──
@@ -170,7 +183,7 @@ app.use(requireAuth);
 app.get("/health", (_req, res) => res.json({ ok: true }));
 app.get("/ready", async (_req, res) => {
   try {
-    await prisma.$queryRawUnsafe("SELECT 1");
+    await prisma.$queryRaw`SELECT 1`;
     return res.json({ ok: true });
   } catch {
     return res.status(500).json({ ok: false, error: "DB_NOT_READY" });
@@ -202,6 +215,13 @@ app.use(
       res.setHeader("X-Content-Type-Options", "nosniff");
       // Prevent any uploaded file from being rendered as HTML
       res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; media-src 'self'");
+      // Force download for non-image/video files to prevent inline rendering of
+      // unexpected file types (e.g. SVG with embedded scripts).
+      const ext = filePath.split(".").pop()?.toLowerCase() || "";
+      const safeInlineExts = new Set(["jpg", "jpeg", "png", "gif", "webp", "avif", "mp4", "mov", "webm"]);
+      if (!safeInlineExts.has(ext)) {
+        res.setHeader("Content-Disposition", "attachment");
+      }
       // WebP files get longer cache since they're content-addressed by timestamp
       if (filePath.endsWith(".webp")) {
         res.setHeader("Cache-Control", "public, max-age=2592000, immutable");

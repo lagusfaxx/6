@@ -2,6 +2,24 @@ import fs from "fs/promises";
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 
+/** Extensions that could execute scripts when served by the browser or a reverse proxy */
+const DANGEROUS_EXTENSIONS = new Set([
+  ".html", ".htm", ".xhtml", ".svg", ".xml",
+  ".php", ".jsp", ".asp", ".aspx", ".cgi",
+  ".js", ".mjs", ".ts", ".css",
+  ".swf", ".xss",
+]);
+
+/**
+ * Sanitize a file extension by rejecting dangerous ones that could be executed
+ * as scripts if served by the web server or a misconfigured reverse proxy.
+ */
+export function sanitizeExtension(ext: string): string {
+  const lower = ext.toLowerCase();
+  if (DANGEROUS_EXTENSIONS.has(lower)) return ".bin";
+  return lower;
+}
+
 export type UploadedKind = "image" | "video" | "image-or-video";
 
 export async function validateUploadedFile(file: Express.Multer.File, kind: UploadedKind) {

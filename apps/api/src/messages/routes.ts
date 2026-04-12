@@ -8,7 +8,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { canMessage } from "./canMessage";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { config } from "../config";
-import { validateUploadedFile } from "../lib/uploads";
+import { validateUploadedFile, sanitizeExtension } from "../lib/uploads";
 import { isUUID } from "../lib/validators";
 import { sendToUser, broadcast } from "../realtime/sse";
 
@@ -34,8 +34,9 @@ const upload = multer({
       cb(null, config.storageDir);
     },
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || "";
-      const safeBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, "");
+      const rawExt = path.extname(file.originalname) || "";
+      const ext = sanitizeExtension(rawExt);
+      const safeBase = path.basename(file.originalname, rawExt).replace(/[^a-zA-Z0-9_-]/g, "");
       const name = `${Date.now()}-${safeBase}${ext}`;
       cb(null, name);
     }

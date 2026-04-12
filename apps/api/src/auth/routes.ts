@@ -12,7 +12,7 @@ import { config } from "../config";
 import { emitAdminEvent } from "../lib/adminEvents";
 import { redeemReferralCode } from "../referral/redeem";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
-import { validateUploadedFile } from "../lib/uploads";
+import { validateUploadedFile, sanitizeExtension } from "../lib/uploads";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { sendSetPasswordEmail, consumeVerifiedEmail } from "./verification";
 import { createFlowPayment } from "../khipu/client";
@@ -488,9 +488,10 @@ const quickRegisterDisk = multer.diskStorage({
     cb(null, config.storageDir);
   },
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || "";
+    const rawExt = path.extname(file.originalname) || "";
+    const ext = sanitizeExtension(rawExt);
     const safeBase = path
-      .basename(file.originalname, ext)
+      .basename(file.originalname, rawExt)
       .replace(/[^a-zA-Z0-9_-]/g, "");
     cb(null, `${Date.now()}-${safeBase}${ext}`);
   },
@@ -732,6 +733,12 @@ authRouter.post(
     const email = rawEmail.toLowerCase().trim();
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.passwordHash) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+
+    // Admin-managed accounts have a placeholder hash that is not a valid argon2
+    // digest. Reject early to avoid argon2.verify throwing on invalid input.
+    if (!user.passwordHash.startsWith("$argon2")) {
+      return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+    }
 
     const ok = await argon2.verify(user.passwordHash, password);
     if (!ok) return res.status(401).json({ error: "INVALID_CREDENTIALS" });

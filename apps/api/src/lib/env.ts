@@ -31,4 +31,5 @@ export const env = {
 
 export function assertEnv() {
   if (!env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+  if (!env.SESSION_SECRET) throw new Error("SESSION_SECRET is required — sessions would be trivially forgeable without it");
 }

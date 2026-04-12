@@ -7,7 +7,7 @@ import multer from "multer";
 import path from "path";
 import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
-import { validateUploadedFile } from "../lib/uploads";
+import { validateUploadedFile, sanitizeExtension } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { findCategoryByRef } from "../lib/categories";
@@ -31,9 +31,10 @@ const upload = multer({
       cb(null, config.storageDir);
     },
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || "";
+      const rawExt = path.extname(file.originalname) || "";
+      const ext = sanitizeExtension(rawExt);
       const safeBase = path
-        .basename(file.originalname, ext)
+        .basename(file.originalname, rawExt)
         .replace(/[^a-zA-Z0-9_-]/g, "");
       const name = `${Date.now()}-${safeBase}${ext}`;
       cb(null, name);
