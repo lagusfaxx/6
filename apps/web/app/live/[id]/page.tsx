@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch, resolveMediaUrl, getApiBase } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 import { connectRealtime } from "../../../lib/realtime";
-import { getLocalMedia, ICE_SERVERS } from "../../../lib/webrtc";
+import { getLocalMedia, ICE_SERVERS, ICE_SERVERS_RELAY, isMobileDevice } from "../../../lib/webrtc";
 import { getLivekitToken } from "../../../lib/livekit";
 import { Room, RoomEvent, Track } from "livekit-client";
 import {
@@ -270,9 +270,19 @@ export default function LiveStreamPage() {
     }
   }, []);
 
-  const connectToLivekit = useCallback(async () => {
+  const connectAttemptRef = useRef(0);
+
+  const connectToLivekit = useCallback(async (forceRelay = false) => {
     const sId = streamIdRef.current;
     if (!sId || !myId || !streamActiveRef.current) return;
+
+    // Clean up any previous room before reconnecting
+    if (roomRef.current) {
+      roomRef.current.removeAllListeners();
+      await roomRef.current.disconnect(true).catch(() => {});
+      roomRef.current = null;
+      attachedTracksRef.current.clear();
+    }
 
     setRtcError("");
     setRtcState("connecting");
@@ -329,11 +339,15 @@ export default function LiveStreamPage() {
         setStream((prev) => prev ? { ...prev, viewerCount: Math.max(0, prev.viewerCount - 1) } : prev);
       });
 
+    const mobile = isMobileDevice();
+    const useRelay = forceRelay || (mobile && connectAttemptRef.current > 0);
+    const rtcConfig = useRelay ? ICE_SERVERS_RELAY : { iceServers: ICE_SERVERS };
+
     try {
       const tokenRes = await getLivekitToken({ kind: "live", streamId: sId, roomName: `live:${sId}` });
       await room.connect(tokenRes.url, tokenRes.token, {
         autoSubscribe: true,
-        rtcConfig: { iceServers: ICE_SERVERS },
+        rtcConfig,
       });
 
       if (isHostRef.current) {
@@ -352,9 +366,26 @@ export default function LiveStreamPage() {
         attachRemoteTrack(room);
       }
       setRtcState("connected");
+      connectAttemptRef.current = 0;
     } catch (error) {
+      connectAttemptRef.current += 1;
+
+      // On mobile, auto-retry once with relay-only (forces TURN)
+      if (mobile && connectAttemptRef.current === 1 && !forceRelay) {
+        room.removeAllListeners();
+        await room.disconnect(true).catch(() => {});
+        roomRef.current = null;
+        attachedTracksRef.current.clear();
+        connectToLivekit(true);
+        return;
+      }
+
       setRtcState("error");
-      setRtcError(error instanceof Error ? error.message : "No se pudo conectar al Live.");
+      setRtcError(
+        mobile
+          ? "No se pudo conectar. Verifica tu conexión a internet e intenta de nuevo."
+          : error instanceof Error ? error.message : "No se pudo conectar al Live.",
+      );
       setVideoReady(false);
     }
   }, [attachRemoteTrack, myId]);
@@ -381,6 +412,22 @@ export default function LiveStreamPage() {
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, [joined, id, cleanupRoom]);
+
+  // ── Auto-reconnect on network change (mobile WiFi ↔ cellular) ──
+  useEffect(() => {
+    if (!isMobileDevice()) return;
+    const shouldReconnect = () => {
+      if (!streamActiveRef.current) return;
+      const room = roomRef.current;
+      const isConnected = room && room.state === "connected";
+      if (!isConnected && (rtcState === "error" || rtcState === "disconnected")) {
+        connectAttemptRef.current = 0;
+        connectToLivekit();
+      }
+    };
+    window.addEventListener("online", shouldReconnect);
+    return () => window.removeEventListener("online", shouldReconnect);
+  }, [connectToLivekit, rtcState]);
 
   // ── SSE realtime events ──
   useEffect(() => {
@@ -807,9 +854,23 @@ export default function LiveStreamPage() {
 
             {stream.isActive && !videoReady && !needsManualPermission && (
               <div className="text-center px-6">
-                <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
-                <p className="text-xs text-white/30">Conectando video...</p>
-                {rtcError && <p className="mt-2 text-xs text-red-300">{rtcError}</p>}
+                {rtcState === "error" ? (
+                  <div className="mx-auto max-w-xs space-y-3">
+                    <Radio className="mx-auto mb-2 h-12 w-12 text-red-400/50" />
+                    <p className="text-xs text-red-300">{rtcError || "Error de conexión"}</p>
+                    <button
+                      onClick={() => { connectAttemptRef.current = 0; connectToLivekit(); }}
+                      className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-2.5 text-sm font-semibold text-white active:scale-95 transition-transform"
+                    >
+                      Reintentar conexión
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Radio className="mx-auto mb-3 h-12 w-12 animate-pulse text-fuchsia-400/30" />
+                    <p className="text-xs text-white/30">Conectando video...</p>
+                  </>
+                )}
               </div>
             )}
 
@@ -1264,9 +1325,23 @@ export default function LiveStreamPage() {
           {stream.isActive && !videoReady && joined && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center px-6">
-                <div className="mx-auto mb-4 h-10 w-10 rounded-full border-2 border-fuchsia-500/30 border-t-fuchsia-500 animate-spin" />
-                <p className="text-xs text-white/30">Conectando al live...</p>
-                {rtcError && <p className="mt-2 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-2 text-xs text-red-300">{rtcError}</p>}
+                {rtcState === "error" ? (
+                  <div className="mx-auto max-w-xs space-y-3">
+                    <Radio className="mx-auto mb-2 h-10 w-10 text-red-400/50" />
+                    <p className="text-xs text-red-300">{rtcError || "Error de conexión"}</p>
+                    <button
+                      onClick={() => { connectAttemptRef.current = 0; connectToLivekit(); }}
+                      className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-2.5 text-sm font-semibold text-white active:scale-95 transition-transform"
+                    >
+                      Reintentar conexión
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mx-auto mb-4 h-10 w-10 rounded-full border-2 border-fuchsia-500/30 border-t-fuchsia-500 animate-spin" />
+                    <p className="text-xs text-white/30">Conectando al live...</p>
+                  </>
+                )}
               </div>
             </div>
           )}

@@ -4,7 +4,9 @@ const DEFAULT_TURN_SERVERS: RTCIceServer[] = [
   {
     urls: [
       "turn:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:80?transport=tcp",
       "turn:openrelay.metered.ca:443",
+      "turn:openrelay.metered.ca:443?transport=tcp",
       "turns:openrelay.metered.ca:443",
     ],
     username: "openrelayproject",
@@ -24,6 +26,8 @@ function parseIceServerUrls(raw: string | undefined): string[] {
 const STUN_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
 ];
 
 const envTurnUrls = parseIceServerUrls(process.env.NEXT_PUBLIC_TURN_URLS);
@@ -47,6 +51,22 @@ const RTC_CONFIG: RTCConfiguration = {
   bundlePolicy: "max-bundle",
   rtcpMuxPolicy: "require",
 };
+
+/** Relay-only ICE config — forces TURN, useful as mobile fallback */
+export const ICE_SERVERS_RELAY: RTCConfiguration = {
+  iceServers: ICE_SERVERS,
+  iceTransportPolicy: "relay",
+  bundlePolicy: "max-bundle",
+  rtcpMuxPolicy: "require",
+};
+
+/** Detect if running on a mobile device (any browser, not just PWA) */
+export function isMobileDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
 
 /* ── Bitrate limits (kbps) ── */
 const VIDEO_MAX_BITRATE = 500_000; // 500kbps - smooth for videocalls
