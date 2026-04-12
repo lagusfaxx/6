@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch, resolveMediaUrl, getApiBase } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
 import { connectRealtime } from "../../../lib/realtime";
-import { getLocalMedia, ICE_SERVERS, ICE_SERVERS_RELAY, isMobileDevice } from "../../../lib/webrtc";
+import { getLocalMedia, isMobileDevice } from "../../../lib/webrtc";
 import { getLivekitToken } from "../../../lib/livekit";
 import { Room, RoomEvent, Track } from "livekit-client";
 import {
@@ -270,9 +270,7 @@ export default function LiveStreamPage() {
     }
   }, []);
 
-  const connectAttemptRef = useRef(0);
-
-  const connectToLivekit = useCallback(async (forceRelay = false) => {
+  const connectToLivekit = useCallback(async () => {
     const sId = streamIdRef.current;
     if (!sId || !myId || !streamActiveRef.current) return;
 
@@ -339,15 +337,10 @@ export default function LiveStreamPage() {
         setStream((prev) => prev ? { ...prev, viewerCount: Math.max(0, prev.viewerCount - 1) } : prev);
       });
 
-    const mobile = isMobileDevice();
-    const useRelay = forceRelay || (mobile && connectAttemptRef.current > 0);
-    const rtcConfig = useRelay ? ICE_SERVERS_RELAY : { iceServers: ICE_SERVERS };
-
     try {
       const tokenRes = await getLivekitToken({ kind: "live", streamId: sId, roomName: `live:${sId}` });
       await room.connect(tokenRes.url, tokenRes.token, {
         autoSubscribe: true,
-        rtcConfig,
       });
 
       if (isHostRef.current) {
@@ -366,25 +359,10 @@ export default function LiveStreamPage() {
         attachRemoteTrack(room);
       }
       setRtcState("connected");
-      connectAttemptRef.current = 0;
     } catch (error) {
-      connectAttemptRef.current += 1;
-
-      // On mobile, auto-retry once with relay-only (forces TURN)
-      if (mobile && connectAttemptRef.current === 1 && !forceRelay) {
-        room.removeAllListeners();
-        await room.disconnect(true).catch(() => {});
-        roomRef.current = null;
-        attachedTracksRef.current.clear();
-        connectToLivekit(true);
-        return;
-      }
-
       setRtcState("error");
       setRtcError(
-        mobile
-          ? "No se pudo conectar. Verifica tu conexión a internet e intenta de nuevo."
-          : error instanceof Error ? error.message : "No se pudo conectar al Live.",
+        error instanceof Error ? error.message : "No se pudo conectar al Live. Verifica tu conexión e intenta de nuevo.",
       );
       setVideoReady(false);
     }
@@ -421,7 +399,6 @@ export default function LiveStreamPage() {
       const room = roomRef.current;
       const isConnected = room && room.state === "connected";
       if (!isConnected && (rtcState === "error" || rtcState === "disconnected")) {
-        connectAttemptRef.current = 0;
         connectToLivekit();
       }
     };
@@ -859,7 +836,7 @@ export default function LiveStreamPage() {
                     <Radio className="mx-auto mb-2 h-12 w-12 text-red-400/50" />
                     <p className="text-xs text-red-300">{rtcError || "Error de conexión"}</p>
                     <button
-                      onClick={() => { connectAttemptRef.current = 0; connectToLivekit(); }}
+                      onClick={() => connectToLivekit()}
                       className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-2.5 text-sm font-semibold text-white active:scale-95 transition-transform"
                     >
                       Reintentar conexión
@@ -1330,7 +1307,7 @@ export default function LiveStreamPage() {
                     <Radio className="mx-auto mb-2 h-10 w-10 text-red-400/50" />
                     <p className="text-xs text-red-300">{rtcError || "Error de conexión"}</p>
                     <button
-                      onClick={() => { connectAttemptRef.current = 0; connectToLivekit(); }}
+                      onClick={() => connectToLivekit()}
                       className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-2.5 text-sm font-semibold text-white active:scale-95 transition-transform"
                     >
                       Reintentar conexión

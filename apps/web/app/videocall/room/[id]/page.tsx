@@ -6,7 +6,7 @@ import { apiFetch, resolveMediaUrl } from "../../../../lib/api";
 import { connectRealtime } from "../../../../lib/realtime";
 import useMe from "../../../../hooks/useMe";
 import { getLivekitToken } from "../../../../lib/livekit";
-import { ICE_SERVERS, ICE_SERVERS_RELAY, isMobileDevice } from "../../../../lib/webrtc";
+
 import { Room, RoomEvent, type RemoteParticipant, Track } from "livekit-client";
 import {
   Mic, MicOff, VideoIcon, VideoOff, PhoneOff, Clock, User,
@@ -130,9 +130,7 @@ export default function VideocallRoomPage() {
     }
   }, []);
 
-  const vcConnectAttemptRef = useRef(0);
-
-  const connectRoom = useCallback(async (forceRelay = false) => {
+  const connectRoom = useCallback(async () => {
     const b = bookingRef.current;
     if (!b?.roomId) return;
 
@@ -212,10 +210,6 @@ export default function VideocallRoomPage() {
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
       });
 
-    const mobile = isMobileDevice();
-    const useRelay = forceRelay || (mobile && vcConnectAttemptRef.current > 0);
-    const rtcConfig = useRelay ? ICE_SERVERS_RELAY : { iceServers: ICE_SERVERS };
-
     try {
       const tokenRes = await getLivekitToken({
         kind: "videocall",
@@ -224,11 +218,9 @@ export default function VideocallRoomPage() {
       });
       await room.connect(tokenRes.url, tokenRes.token, {
         autoSubscribe: true,
-        rtcConfig,
       });
       await room.localParticipant.enableCameraAndMicrophone();
       setHasLocalStream(true);
-      vcConnectAttemptRef.current = 0;
       if (localVideoRef.current) {
         const cameraPub = room.localParticipant.getTrackPublication(Track.Source.Camera);
         if (cameraPub?.track && cameraPub.track.kind === Track.Kind.Video) {
@@ -236,25 +228,9 @@ export default function VideocallRoomPage() {
         }
       }
     } catch (err) {
-      vcConnectAttemptRef.current += 1;
-
-      // On mobile, auto-retry once with relay-only (forces TURN)
-      if (mobile && vcConnectAttemptRef.current === 1 && !forceRelay) {
-        room.removeAllListeners();
-        await room.disconnect(true).catch(() => {});
-        roomRef.current = null;
-        clearInterval(connectingTimerRef.current);
-        connectRoom(true);
-        return;
-      }
-
       setRtcState("error");
       setStatus("waiting");
-      setError(
-        mobile
-          ? "No se pudo conectar. Verifica tu conexión a internet e intenta de nuevo."
-          : err instanceof Error ? err.message : "No se pudo conectar la videollamada",
-      );
+      setError(err instanceof Error ? err.message : "No se pudo conectar la videollamada. Verifica tu conexión e intenta de nuevo.");
       clearInterval(connectingTimerRef.current);
     }
   }, [attachRemoteVideo]);
