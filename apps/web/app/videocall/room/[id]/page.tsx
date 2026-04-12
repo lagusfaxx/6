@@ -6,7 +6,6 @@ import { apiFetch, resolveMediaUrl } from "../../../../lib/api";
 import { connectRealtime } from "../../../../lib/realtime";
 import useMe from "../../../../hooks/useMe";
 import { getLivekitToken } from "../../../../lib/livekit";
-import { ICE_SERVERS } from "../../../../lib/webrtc";
 import { Room, RoomEvent, type RemoteParticipant, Track } from "livekit-client";
 import {
   Mic, MicOff, VideoIcon, VideoOff, PhoneOff, Clock, User,
@@ -211,7 +210,6 @@ export default function VideocallRoomPage() {
       });
       await room.connect(tokenRes.url, tokenRes.token, {
         autoSubscribe: true,
-        rtcConfig: { iceServers: ICE_SERVERS },
       });
       await room.localParticipant.enableCameraAndMicrophone();
       setHasLocalStream(true);
