@@ -1035,7 +1035,7 @@ export default function HomeClient() {
                 </div>
                 <h2 className="text-base font-bold tracking-tight">Disponibles ahora</h2>
               </div>
-              <Link href="/servicios?sort=availableNow" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-emerald-400 transition-colors duration-200">
+              <Link href="/servicios?sort=available" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-emerald-400 transition-colors duration-200">
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </div>
@@ -1311,7 +1311,7 @@ export default function HomeClient() {
               <div className="flex items-center gap-2.5">
                 <h2 className="text-xl font-bold tracking-tight">Cerca de ti</h2>
               </div>
-              <Link href="/servicios?sort=near" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
+              <Link href="/servicios?sort=distance" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
                 Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </div>
@@ -1376,7 +1376,7 @@ export default function HomeClient() {
               <div className="flex items-center gap-2.5">
                 <h2 className="text-xl font-bold tracking-tight">Nuevas</h2>
               </div>
-              <Link href="/servicios?sort=new" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-violet-400 transition-colors duration-200">
+              <Link href="/servicios?sort=newest" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-violet-400 transition-colors duration-200">
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </div>
