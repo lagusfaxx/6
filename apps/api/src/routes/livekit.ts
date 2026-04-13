@@ -21,6 +21,10 @@ function getLivekitConfig() {
     throw new Error("LIVEKIT_NOT_CONFIGURED");
   }
 
+  if (apiSecret.length < 32) {
+    console.warn("[livekit] LIVEKIT_API_SECRET is shorter than 32 characters — LiveKit requires at least 32 chars for security");
+  }
+
   return { url, apiKey, apiSecret };
 }
 
