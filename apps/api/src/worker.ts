@@ -664,31 +664,33 @@ async function tick() {
   tickRunning = true;
   console.log("[worker] tick started at", new Date().toISOString());
 
-  // Each task runs independently — one failure doesn't block others
-  const tasks = [
-    { name: "membershipExpiry", fn: tickMembershipExpiry },
-    { name: "noPhotoReminder", fn: tickNoPhotoReminder },
-    { name: "inactiveReminder", fn: tickInactiveReminder },
-    { name: "videocallConfig", fn: tickVideocallConfigReminder },
-    { name: "expireStalePendingIntents", fn: tickExpireStalePendingIntents },
-    { name: "syncPacSubscriptions", fn: tickSyncPacSubscriptions },
-    { name: "syncUmatePacSubscriptions", fn: tickSyncUmatePacSubscriptions },
-    { name: "goldRenewalReminder", fn: tickGoldRenewalReminder },
-    { name: "referralWelcomeEmail", fn: tickReferralWelcomeEmail },
-    { name: "referralValidation", fn: tickReferralValidation },
-    { name: "referralCycles", fn: tickReferralCycles },
-  ];
+  try {
+    // Each task runs independently — one failure doesn't block others
+    const tasks = [
+      { name: "membershipExpiry", fn: tickMembershipExpiry },
+      { name: "noPhotoReminder", fn: tickNoPhotoReminder },
+      { name: "inactiveReminder", fn: tickInactiveReminder },
+      { name: "videocallConfig", fn: tickVideocallConfigReminder },
+      { name: "expireStalePendingIntents", fn: tickExpireStalePendingIntents },
+      { name: "syncPacSubscriptions", fn: tickSyncPacSubscriptions },
+      { name: "syncUmatePacSubscriptions", fn: tickSyncUmatePacSubscriptions },
+      { name: "goldRenewalReminder", fn: tickGoldRenewalReminder },
+      { name: "referralWelcomeEmail", fn: tickReferralWelcomeEmail },
+      { name: "referralValidation", fn: tickReferralValidation },
+      { name: "referralCycles", fn: tickReferralCycles },
+    ];
 
-  for (const task of tasks) {
-    try {
-      await task.fn();
-    } catch (err) {
-      console.error(`[worker] ${task.name} failed`, err);
+    for (const task of tasks) {
+      try {
+        await task.fn();
+      } catch (err) {
+        console.error(`[worker] ${task.name} failed`, err);
+      }
     }
+  } finally {
+    console.log("[worker] tick completed");
+    tickRunning = false;
   }
-
-  console.log("[worker] tick completed");
-  tickRunning = false;
 }
 
 /**
