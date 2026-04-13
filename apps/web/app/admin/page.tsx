@@ -80,6 +80,7 @@ const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutGrid },
   { href: "/admin/estadisticas", label: "Estadisticas", icon: BarChart3 },
   { href: "/admin/verification", label: "Verificaciones", icon: UserCheck },
+  { href: "/admin/exams", label: "Examenes", icon: ShieldCheck },
   { href: "/admin/profiles", label: "Perfiles", icon: Users },
   { href: "/admin/rating", label: "Catador", icon: Star },
   { href: "/admin/deposits", label: "Depositos", icon: ArrowDownToLine },

@@ -611,6 +611,139 @@ adminRouter.put(
   }),
 );
 
+/* ══════════════════════════════════════════════════════════════
+   EXAM DOCUMENTS (review queue)
+   ══════════════════════════════════════════════════════════════ */
+
+adminRouter.get(
+  "/exams/pending",
+  asyncHandler(async (req, res) => {
+    const { q, status, limit, offset } = req.query as Record<
+      string,
+      string | undefined
+    >;
+    const take = Math.min(parseInt(limit || "50", 10) || 50, 200);
+    const skip = parseInt(offset || "0", 10) || 0;
+
+    const normalizedStatus = (status || "pending").toLowerCase();
+    const statusFilter =
+      normalizedStatus === "all"
+        ? { not: null }
+        : normalizedStatus;
+
+    const where: any = { examsStatus: statusFilter };
+    if (q) {
+      where.OR = [
+        { displayName: { contains: q, mode: "insensitive" } },
+        { username: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    const [profiles, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          displayName: true,
+          avatarUrl: true,
+          profileType: true,
+          profileTags: true,
+          examsDocumentUrl: true,
+          examsStatus: true,
+          examsSubmittedAt: true,
+          examsReviewedAt: true,
+          examsRejectionReason: true,
+        },
+        orderBy: { examsSubmittedAt: "desc" },
+        take,
+        skip,
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    return res.json({ profiles, total });
+  }),
+);
+
+adminRouter.put(
+  "/exams/:id/approve",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, profileTags: true, examsDocumentUrl: true },
+    });
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+    if (!user.examsDocumentUrl) {
+      return res.status(400).json({ error: "NO_DOCUMENT" });
+    }
+
+    const current = Array.isArray(user.profileTags) ? user.profileTags : [];
+    const nextTags = current.includes("profesional con examenes")
+      ? current
+      : [...current, "profesional con examenes"];
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        examsStatus: "approved",
+        examsReviewedAt: new Date(),
+        examsRejectionReason: null,
+        profileTags: nextTags,
+      },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        examsStatus: true,
+        examsReviewedAt: true,
+        profileTags: true,
+      },
+    });
+    return res.json({ profile: updated });
+  }),
+);
+
+adminRouter.put(
+  "/exams/:id/reject",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { reason } = req.body ?? {};
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, profileTags: true },
+    });
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+    // Remove the badge if it was previously granted
+    const current = Array.isArray(user.profileTags) ? user.profileTags : [];
+    const nextTags = current.filter((t) => t !== "profesional con examenes");
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        examsStatus: "rejected",
+        examsReviewedAt: new Date(),
+        examsRejectionReason: reason ? String(reason).slice(0, 500) : null,
+        profileTags: nextTags,
+      },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        examsStatus: true,
+        examsReviewedAt: true,
+        examsRejectionReason: true,
+        profileTags: true,
+      },
+    });
+    return res.json({ profile: updated });
+  }),
+);
+
 adminRouter.get("/profiles/:id/media-videos", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const media = await prisma.profileMedia.findMany({

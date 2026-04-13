@@ -394,6 +394,11 @@ model User {
   isVerified          Boolean           @default(false)
   verifiedAt          DateTime?
   verifiedByPhone     String?
+  examsDocumentUrl    String?
+  examsStatus         String?
+  examsSubmittedAt    DateTime?
+  examsReviewedAt     DateTime?
+  examsRejectionReason String?
   tier                ProfessionalTier?
   isOnline            Boolean           @default(false)
   lastSeen            DateTime?
@@ -492,6 +497,8 @@ model User {
   // Referral system
   creatorReferralCode    CreatorReferralCode? @relation("CreatorReferralCode")
   referralRedemption     ReferralRedemption?  @relation("ReferralProfessional")
+
+  @@index([examsStatus])
 }
 
 model PushSubscription {

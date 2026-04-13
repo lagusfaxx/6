@@ -56,6 +56,18 @@ const uploadMedia = multer({
   limits: { fileSize: 100 * 1024 * 1024 },
 });
 
+// Exam documents: accept image (photo of certificate) or PDF, up to 15 MB.
+const uploadExamDocument = multer({
+  storage,
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const mime = (file.mimetype || "").toLowerCase();
+    const ok = mime.startsWith("image/") || mime === "application/pdf";
+    if (!ok) return cb(new Error("INVALID_FILE_TYPE"));
+    return cb(null, true);
+  },
+});
+
 const AVAILABLE_WINDOW_MS = 5 * 60 * 1000;
 
 function computeAvailableNow(lastSeen: Date | null | undefined) {
@@ -808,5 +820,87 @@ profileRouter.delete(
       return res.status(404).json({ error: "NOT_FOUND" });
     await prisma.profileMedia.delete({ where: { id: media.id } });
     return res.json({ ok: true });
+  }),
+);
+
+/* ──────────────────────────────────────────────────────────────
+   EXAM DOCUMENTS — creators upload health-exam certificates
+   which admins must approve before the "profesional con examenes"
+   badge is assigned.
+   ────────────────────────────────────────────────────────────── */
+
+profileRouter.get(
+  "/profile/exams",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId! },
+      select: {
+        examsDocumentUrl: true,
+        examsStatus: true,
+        examsSubmittedAt: true,
+        examsReviewedAt: true,
+        examsRejectionReason: true,
+      },
+    });
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+    return res.json({ exams: user });
+  }),
+);
+
+profileRouter.post(
+  "/profile/exams",
+  requireAuth,
+  uploadExamDocument.single("file"),
+  asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "NO_FILE" });
+    const mime = (req.file.mimetype || "").toLowerCase();
+    if (!mime.startsWith("image/") && mime !== "application/pdf") {
+      return res.status(400).json({ error: "INVALID_FILE_TYPE" });
+    }
+    const url = storageProvider.publicUrl(req.file.filename);
+    const user = await prisma.user.update({
+      where: { id: req.session.userId! },
+      data: {
+        examsDocumentUrl: url,
+        examsStatus: "pending",
+        examsSubmittedAt: new Date(),
+        examsReviewedAt: null,
+        examsRejectionReason: null,
+      },
+      select: {
+        examsDocumentUrl: true,
+        examsStatus: true,
+        examsSubmittedAt: true,
+        examsReviewedAt: true,
+        examsRejectionReason: true,
+      },
+    });
+    return res.json({ exams: user });
+  }),
+);
+
+profileRouter.delete(
+  "/profile/exams",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = await prisma.user.update({
+      where: { id: req.session.userId! },
+      data: {
+        examsDocumentUrl: null,
+        examsStatus: null,
+        examsSubmittedAt: null,
+        examsReviewedAt: null,
+        examsRejectionReason: null,
+      },
+      select: {
+        examsDocumentUrl: true,
+        examsStatus: true,
+        examsSubmittedAt: true,
+        examsReviewedAt: true,
+        examsRejectionReason: true,
+      },
+    });
+    return res.json({ exams: user });
   }),
 );

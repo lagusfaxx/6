@@ -7,6 +7,7 @@ import EditorCard from "../EditorCard";
 import FloatingInput from "../FloatingInput";
 import FloatingTextarea from "../FloatingTextarea";
 import FloatingSelect from "../FloatingSelect";
+import ExamsUploader from "./ExamsUploader";
 import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../../../../../components/DirectoryPage";
 
 const PRIMARY_CATEGORY_OPTIONS = [
@@ -184,7 +185,12 @@ export default function ProfileEditor() {
         </div>
       </EditorCard>
 
-      {/* ─── 5. DATOS PERSONALES (minor, collapsible) ─── */}
+      {/* ─── 5. EXÁMENES DE SALUD ─── */}
+      <EditorCard delay={0.18}>
+        <ExamsUploader />
+      </EditorCard>
+
+      {/* ─── 6. DATOS PERSONALES (minor, collapsible) ─── */}
       <EditorCard delay={0.2}>
         <MinorSection title="Datos personales (opcional)">
           <div className="grid gap-3 sm:grid-cols-2">
