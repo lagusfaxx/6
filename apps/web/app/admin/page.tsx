@@ -88,6 +88,7 @@ const NAV_ITEMS = [
   { href: "/admin/pricing", label: "Precios", icon: Tag },
   { href: "/admin/quick-listings", label: "Listados", icon: Store },
   { href: "/admin/quick-professionals", label: "Profesionales", icon: UserCheck },
+  { href: "/admin/acreditaciones", label: "Acreditaciones", icon: ShieldCheck },
   { href: "/admin/moderation", label: "Moderacion", icon: Shield },
   { href: "/admin/privacy-requests", label: "Privacidad", icon: Trash2 },
 ];

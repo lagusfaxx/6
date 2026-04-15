@@ -14,7 +14,7 @@ import {
   User, MessageSquare, Heart,
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
-  TrendingUp, Zap, Shield, Wallet, Video, RefreshCw,
+  TrendingUp, Zap, Shield, ShieldCheck, Wallet, Video, RefreshCw,
   Gift, Copy, Check,
 } from "lucide-react";
 
@@ -82,6 +82,7 @@ export default function AccountPage() {
       { label: "Subir story", description: "Foto o video de 24h", href: "/dashboard/stories", icon: Camera, color: "text-pink-400" },
       { label: "Ver mi perfil", description: "Como lo ven los clientes", href: publicProfileUrl, icon: Eye, color: "text-violet-400" },
       { label: "Videollamadas", description: "Config y reservas", href: "/videocall", icon: Video, color: "text-emerald-400" },
+      { label: "Acreditar exámenes", description: "Sube documentos profesionales", href: "/cuenta/acreditacion", icon: ShieldCheck, color: "text-blue-400" },
     );
   }
   if (!canManageProfile) {
