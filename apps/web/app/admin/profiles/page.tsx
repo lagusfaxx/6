@@ -312,6 +312,15 @@ export default function AdminProfilesPage() {
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40 flex-wrap">
                     <span>@{p.username}</span>
+                    {p.email && (
+                      <a
+                        href={`mailto:${p.email}`}
+                        className="truncate text-white/60 hover:text-fuchsia-300 transition"
+                        title={p.email}
+                      >
+                        {p.email}
+                      </a>
+                    )}
                     <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px]">{p.profileType}</span>
                     {p.city && <span>{p.city}</span>}
                     <span>{p.profileViews} vistas</span>
