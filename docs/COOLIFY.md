@@ -40,7 +40,7 @@
    - `APP_URL=https://uzeed.cl`
    - `API_URL=https://api.uzeed.cl`
    - `CORS_ORIGIN=https://uzeed.cl,https://www.uzeed.cl`
-   - `UPLOADS_DIR=uploads`
+   - `UPLOADS_DIR=/data/uploads`  *(coincide con el VOLUME del Dockerfile y con el mount del paso 2.b)*
    
    **Variables de Khipu (Pagos Automáticos):**
    - `KHIPU_API_KEY=5c24de64-13fd-4f64-bdd4-acabe2c46bbb`
@@ -67,6 +67,37 @@
    - `SMTP_USER=`
    - `SMTP_PASS=`
    - `SMTP_FROM=no-reply@uzeed.cl`
+
+### 2.b) ⚠️ Persistencia de archivos subidos (CRÍTICO)
+
+> Sin este paso, **cada deploy borra todas las imágenes, videos y documentos subidos por usuarios** (avatares, galería, certificados de exámenes, etc.).
+
+El contenedor del API guarda las subidas en `/data/uploads` (definido como `VOLUME` en el Dockerfile y como `UPLOADS_DIR` en las env vars). En Coolify hay que **montar un volumen persistente** en esa ruta:
+
+1. En Coolify → tu app del API → pestaña **Storages** (o **Persistent Storage**)
+2. **Add Storage** con:
+   - **Name:** `uzeed-uploads`
+   - **Source path** (en el host del VPS): `/var/lib/coolify/uzeed/uploads` *(o cualquier ruta del host fuera del proyecto)*
+   - **Destination path** (dentro del contenedor): `/data/uploads`
+   - **Type:** Bind mount (o Volume si tu Coolify lo soporta)
+3. Guarda y **redeploy** del API.
+4. Verifica desde el contenedor:
+   ```bash
+   ls -la /data/uploads
+   # Debe existir y ser escribible. Si no, crea la ruta en el host:
+   #   mkdir -p /var/lib/coolify/uzeed/uploads && chown 1000:1000 /var/lib/coolify/uzeed/uploads
+   ```
+5. **Backup recomendado:** programa un cronjob en el VPS que respalde
+   `/var/lib/coolify/uzeed/uploads` a almacenamiento externo (S3, B2, rsync.net, etc.).
+
+> 💡 Si tienes uploads de antes de aplicar este cambio, cópialos al nuevo
+> directorio antes del primer redeploy con el volumen activo:
+> `docker cp <api_container>:/app/uploads/. /var/lib/coolify/uzeed/uploads/`
+
+> 🚀 Para escalar a varios contenedores o evitar depender del disco del VPS,
+> migra a object storage (S3 / Cloudflare R2 / Backblaze B2). El código ya
+> abstrae la subida via `LocalStorageProvider`; sólo hay que añadir un
+> `S3StorageProvider` análogo y cambiar el provider en cada router.
 
 9. **Importante - Migración de Base de Datos:**
    Después del primer deploy, DEBES ejecutar las migraciones:
@@ -96,6 +127,7 @@
 4. **Command override:** `node dist/worker.cjs`
 5. NO expone dominios/puertos.
 6. Mismas env vars que API (al menos DATABASE_URL y SMTP si quieres email).
+7. Si el worker llega a leer/escribir archivos de uploads, monta el **mismo** volumen del paso 2.b en `/data/uploads`.
 
 ## 4) Service: WEB (uzeed.cl)
 1. **New Resource → Application**
@@ -178,6 +210,7 @@ caddy_ingress_network=coolify
 - Cookie Domain: `.uzeed.cl`
 - HTTPS en ambos dominios
 - Postgres accesible desde los contenedores
+- **Volumen persistente montado en `/data/uploads` (paso 2.b) — sin esto, cada deploy borra todas las subidas de usuarios**
 - Migraciones de base de datos ejecutadas (incluye la nueva de suscripciones)
 - Webhook Khipu apunta a:
   - `https://api.uzeed.cl/webhooks/khipu/subscription`
