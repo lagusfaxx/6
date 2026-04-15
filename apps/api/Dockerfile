@@ -49,13 +49,5 @@ COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
 COPY apps/api/scripts/convert-uploads-webp.js /app/apps/api/scripts/convert-uploads-webp.js
 RUN chmod +x /docker-entrypoint.sh
 EXPOSE 3001
-
-# Persistent storage for user-uploaded files (avatars, gallery, exam
-# documents, etc.). MUST be backed by a volume in production, otherwise
-# every deploy wipes all uploads. Default UPLOADS_DIR points here so a
-# volume mounted at /data/uploads persists across deploys.
-VOLUME ["/data/uploads"]
-ENV UPLOADS_DIR=/data/uploads
-
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD sh -lc "cd prisma && npx prisma migrate deploy --schema=schema.prisma && cd .. && node apps/api/dist/index.js"
