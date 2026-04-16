@@ -381,3 +381,66 @@ export async function sendGoldRenewalEmail(email: string, displayName: string | 
   );
   await send(email, "Tu plan Gold expira pronto — Renueva por $14.990", html);
 }
+
+/* ─── Weekly Highlights email ─── */
+
+export type WeeklyHighlightProfile = {
+  id: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  city: string | null;
+  primaryCategory: string | null;
+  username: string;
+};
+
+export function generateWeeklyHighlightsHtml(
+  profiles: WeeklyHighlightProfile[],
+  customSubject?: string,
+): string {
+  const title = customSubject || "Destacadas de la semana";
+
+  const profileCards = profiles
+    .map((p) => {
+      const name = esc(p.displayName || p.username);
+      const city = p.city ? esc(p.city) : "";
+      const category = p.primaryCategory ? esc(p.primaryCategory) : "";
+      const avatarSrc = p.avatarUrl || "https://uzeed.cl/brand/isotipo-new.png";
+      const profileUrl = `${config.appUrl}/${esc(p.username)}`;
+
+      return `<tr><td style="padding:8px 30px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;">
+          <tr>
+            <td style="width:80px;padding:16px;" valign="top">
+              <img src="${avatarSrc}" alt="${name}" width="64" height="64" style="display:block;border-radius:14px;object-fit:cover;border:2px solid rgba(168,85,247,0.3);" />
+            </td>
+            <td style="padding:16px 16px 16px 0;" valign="middle">
+              <p style="margin:0 0 4px;font-size:16px;font-weight:700;color:#ffffff;">${name}</p>
+              ${category ? `<p style="margin:0 0 3px;font-size:12px;color:rgba(168,85,247,0.8);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${category}</p>` : ""}
+              ${city ? `<p style="margin:0 0 8px;font-size:12px;color:rgba(255,255,255,0.4);">📍 ${city}</p>` : ""}
+              <a href="${profileUrl}" style="display:inline-block;background:linear-gradient(135deg,#a855f7,#ec4899);border-radius:8px;padding:6px 16px;font-size:11px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.02em;">
+                Ver perfil
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td></tr>`;
+    })
+    .join("");
+
+  return wrapEmail(
+    title,
+    [
+      paragraph("Estas son las profesionales más destacadas de esta semana en UZEED. ¡No te las pierdas!"),
+      `<tr><td style="padding:4px 0;"><table width="100%" cellpadding="0" cellspacing="0">${profileCards}</table></td></tr>`,
+      ctaButton("Explorar más en UZEED", `${config.appUrl}`),
+    ].join(""),
+  );
+}
+
+export async function sendWeeklyHighlightsEmail(
+  to: string,
+  html: string,
+  subject: string,
+) {
+  await send(to, subject, html);
+}

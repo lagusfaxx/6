@@ -1448,6 +1448,143 @@ adminRouter.post(
   }),
 );
 
+/* ══════════════════════════════════════════════════════════════
+   WEEKLY HIGHLIGHTS EMAIL
+   ══════════════════════════════════════════════════════════════ */
+
+adminRouter.get(
+  "/weekly-highlights/search-profiles",
+  asyncHandler(async (req, res) => {
+    const q = (req.query.q as string) || "";
+    const profileType = req.query.profileType as string | undefined;
+
+    const where: any = {
+      isActive: true,
+      profileType: { in: ["PROFESSIONAL", "CREATOR", "ESTABLISHMENT"] },
+    };
+    if (profileType) where.profileType = profileType;
+    if (q) {
+      where.OR = [
+        { displayName: { contains: q, mode: "insensitive" } },
+        { username: { contains: q, mode: "insensitive" } },
+        { city: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    const profiles = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        city: true,
+        primaryCategory: true,
+        profileType: true,
+        tier: true,
+        isVerified: true,
+      },
+      orderBy: { profileViews: "desc" },
+      take: 20,
+    });
+
+    return res.json({ profiles });
+  }),
+);
+
+adminRouter.post(
+  "/weekly-highlights/preview",
+  asyncHandler(async (req, res) => {
+    const { profileIds, subject } = req.body ?? {};
+    if (!Array.isArray(profileIds) || profileIds.length === 0 || profileIds.length > 4) {
+      return res.status(400).json({ error: "Se requieren entre 1 y 4 perfiles" });
+    }
+
+    const profiles = await prisma.user.findMany({
+      where: { id: { in: profileIds } },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        city: true,
+        primaryCategory: true,
+      },
+    });
+
+    const ordered = profileIds
+      .map((id: string) => profiles.find((p) => p.id === id))
+      .filter(Boolean);
+
+    const { generateWeeklyHighlightsHtml } = await import("../lib/notificationEmail");
+    const html = generateWeeklyHighlightsHtml(ordered as any, subject || undefined);
+
+    return res.json({ html, profileCount: ordered.length });
+  }),
+);
+
+adminRouter.post(
+  "/weekly-highlights/send",
+  asyncHandler(async (req, res) => {
+    const { profileIds, subject, audience } = req.body ?? {};
+    if (!Array.isArray(profileIds) || profileIds.length === 0 || profileIds.length > 4) {
+      return res.status(400).json({ error: "Se requieren entre 1 y 4 perfiles" });
+    }
+    if (!["clients", "professionals", "both"].includes(audience)) {
+      return res.status(400).json({ error: "audience debe ser 'clients', 'professionals' o 'both'" });
+    }
+
+    const profiles = await prisma.user.findMany({
+      where: { id: { in: profileIds } },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        city: true,
+        primaryCategory: true,
+      },
+    });
+
+    const ordered = profileIds
+      .map((id: string) => profiles.find((p) => p.id === id))
+      .filter(Boolean);
+
+    const { generateWeeklyHighlightsHtml, sendWeeklyHighlightsEmail } = await import("../lib/notificationEmail");
+    const emailSubject = subject || "Destacadas de la semana — UZEED";
+    const html = generateWeeklyHighlightsHtml(ordered as any, subject || undefined);
+
+    const recipientWhere: any = {
+      isActive: true,
+      email: { not: { contains: "@placeholder.uzeed.cl" } },
+    };
+
+    if (audience === "clients") {
+      recipientWhere.profileType = "CLIENT";
+    } else if (audience === "professionals") {
+      recipientWhere.profileType = { in: ["PROFESSIONAL", "CREATOR", "ESTABLISHMENT", "SHOP"] };
+    }
+
+    const recipients = await prisma.user.findMany({
+      where: recipientWhere,
+      select: { email: true },
+    });
+
+    let sent = 0;
+    let failed = 0;
+    for (const r of recipients) {
+      try {
+        await sendWeeklyHighlightsEmail(r.email, html, emailSubject);
+        sent++;
+      } catch {
+        failed++;
+      }
+    }
+
+    return res.json({ sent, failed, total: recipients.length });
+  }),
+);
+
 adminRouter.delete(
   "/quick-professionals/:id/media/:mediaId",
   asyncHandler(async (req, res) => {
