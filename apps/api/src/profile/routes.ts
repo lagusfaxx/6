@@ -217,7 +217,7 @@ profileRouter.get(
         profiles: near.slice(0, limit).map(({ createdAt, ...row }) => row),
       });
     } else if (sort === "new") {
-      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const sevenDaysAgo = Date.now() - 15 * 24 * 60 * 60 * 1000;
       const recentOnly = enriched.filter(
         (p) => new Date(p.createdAt).getTime() >= sevenDaysAgo,
       );
