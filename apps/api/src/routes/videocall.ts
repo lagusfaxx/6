@@ -260,7 +260,7 @@ videocallRouter.post("/videocall/book", requireAuth, async (req, res) => {
   // Check client balance
   const clientWallet = await getOrCreateWallet(clientId);
   if (clientWallet.balance < totalTokens) {
-    return res.status(400).json({ error: "Insufficient tokens", required: totalTokens, available: clientWallet.balance });
+    return res.status(400).json({ error: "Insufficient tokens", required: totalTokens });
   }
 
   // Hold tokens + create booking atomically
@@ -302,7 +302,7 @@ videocallRouter.post("/videocall/book", requireAuth, async (req, res) => {
     });
   } catch (err: any) {
     if (err?.message === "INSUFFICIENT_BALANCE") {
-      return res.status(400).json({ error: "Saldo insuficiente", required: totalTokens, available: clientWallet.balance });
+      return res.status(400).json({ error: "Saldo insuficiente", required: totalTokens, insufficientBalance: true });
     }
     throw err;
   }

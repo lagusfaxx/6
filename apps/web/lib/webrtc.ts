@@ -1,28 +1,6 @@
 import { apiFetch } from "./api";
 
-const DEFAULT_TURN_SERVERS: RTCIceServer[] = [
-  {
-    urls: [
-      "turn:openrelay.metered.ca:80",
-      "turn:openrelay.metered.ca:80?transport=tcp",
-      "turn:openrelay.metered.ca:443",
-      "turn:openrelay.metered.ca:443?transport=tcp",
-      "turns:openrelay.metered.ca:443",
-    ],
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-];
-
-function parseIceServerUrls(raw: string | undefined): string[] {
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-/* ── STUN/TURN servers ── */
+/* ── STUN servers (public, no credentials needed) ── */
 const STUN_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
@@ -30,18 +8,39 @@ const STUN_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun3.l.google.com:19302" },
 ];
 
-const envTurnUrls = parseIceServerUrls(process.env.NEXT_PUBLIC_TURN_URLS);
-const envTurnServer = envTurnUrls.length > 0
-  ? [{
-      urls: envTurnUrls,
-      username: process.env.NEXT_PUBLIC_TURN_USERNAME,
-      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
-    } satisfies RTCIceServer]
-  : [];
+/**
+ * Fetch TURN credentials from the backend API.
+ * TURN credentials should NEVER be hardcoded or exposed via NEXT_PUBLIC_ env vars.
+ * The backend should return short-lived ephemeral credentials.
+ */
+let cachedTurnServers: RTCIceServer[] | null = null;
+let turnCacheExpiry = 0;
+const TURN_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function fetchTurnServers(): Promise<RTCIceServer[]> {
+  if (cachedTurnServers && Date.now() < turnCacheExpiry) {
+    return cachedTurnServers;
+  }
+  try {
+    const resp = await apiFetch<{ iceServers?: RTCIceServer[] }>("/auth/ice-servers");
+    if (resp.iceServers && resp.iceServers.length > 0) {
+      cachedTurnServers = resp.iceServers;
+      turnCacheExpiry = Date.now() + TURN_CACHE_TTL_MS;
+      return cachedTurnServers;
+    }
+  } catch {
+    // Fall back to STUN-only if backend is unreachable
+  }
+  return [];
+}
+
+export async function getIceServers(): Promise<RTCIceServer[]> {
+  const turnServers = await fetchTurnServers();
+  return [...STUN_SERVERS, ...turnServers];
+}
 
 export const ICE_SERVERS: RTCIceServer[] = [
   ...STUN_SERVERS,
-  ...(envTurnServer.length > 0 ? envTurnServer : DEFAULT_TURN_SERVERS),
 ];
 
 const RTC_CONFIG: RTCConfiguration = {
@@ -51,6 +50,18 @@ const RTC_CONFIG: RTCConfiguration = {
   bundlePolicy: "max-bundle",
   rtcpMuxPolicy: "require",
 };
+
+/** Build full RTC config with TURN servers fetched from backend */
+export async function getRtcConfig(relayOnly = false): Promise<RTCConfiguration> {
+  const servers = await getIceServers();
+  return {
+    iceServers: servers,
+    iceCandidatePoolSize: 10,
+    iceTransportPolicy: relayOnly ? "relay" : "all",
+    bundlePolicy: "max-bundle",
+    rtcpMuxPolicy: "require",
+  };
+}
 
 /** Relay-only ICE config — forces TURN, useful as mobile fallback */
 export const ICE_SERVERS_RELAY: RTCConfiguration = {

@@ -69,14 +69,22 @@ paymentsRouter.post("/payments/:paymentId/refresh", requireAuth, async (req, res
 });
 
 export async function markPaymentPaid(paymentId: string) {
-  const existing = await prisma.payment.findUnique({ where: { id: paymentId } });
-  if (!existing) throw new Error("PAYMENT_NOT_FOUND");
-  if (existing.status === "PAID") return existing;
-
-  const payment = await prisma.payment.update({
-    where: { id: paymentId },
-    data: { status: "PAID", paidAt: new Date() }
+  // Use updateMany with status condition to prevent double-processing race condition.
+  // Only one concurrent caller can transition PENDING → PAID.
+  const result = await prisma.payment.updateMany({
+    where: { id: paymentId, status: { not: "PAID" } },
+    data: { status: "PAID", paidAt: new Date() },
   });
+
+  if (result.count === 0) {
+    // Either already PAID (idempotent) or not found
+    const existing = await prisma.payment.findUnique({ where: { id: paymentId } });
+    if (!existing) throw new Error("PAYMENT_NOT_FOUND");
+    return existing; // Already PAID — return idempotently
+  }
+
+  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+  if (!payment) throw new Error("PAYMENT_NOT_FOUND");
 
   const user = await prisma.user.findUnique({ where: { id: payment.userId }, select: { membershipExpiresAt: true } });
   const now = new Date();

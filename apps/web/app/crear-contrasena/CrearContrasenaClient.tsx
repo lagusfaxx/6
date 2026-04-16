@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
@@ -11,6 +11,13 @@ export default function CrearContrasenaClient() {
   const router = useRouter();
   const token = params.get("token") || "";
   const email = params.get("email") || "";
+
+  // Clear sensitive token from URL to prevent leakage via Referer header / browser history
+  useEffect(() => {
+    if (token && typeof window !== "undefined") {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");

@@ -16,6 +16,11 @@
 const { PrismaClient } = require("@prisma/client");
 const argon2 = require("argon2");
 
+if (process.env.NODE_ENV === "production") {
+  console.error("ERROR: seed-test-profiles.js must NOT be run in production. Aborting.");
+  process.exit(1);
+}
+
 const prisma = new PrismaClient();
 
 const TEST_EMAIL_DOMAIN = "@testseed.uzeed.cl";

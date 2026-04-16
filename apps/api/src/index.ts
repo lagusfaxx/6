@@ -156,7 +156,21 @@ app.use((req, res, next) => {
   // Skip for webhooks (server-to-server)
   if (req.path.startsWith("/webhooks/")) return next();
   const origin = req.headers.origin;
-  if (!origin) return next(); // Same-origin requests (non-CORS) don't send Origin
+  if (!origin) {
+    // No Origin header: also check Referer as a fallback defense
+    const referer = req.headers.referer;
+    if (referer) {
+      try {
+        const refOrigin = new URL(referer).origin;
+        if (!corsOrigins.includes(refOrigin)) {
+          return res.status(403).json({ error: "CSRF_REJECTED", message: "Referer origin not allowed" });
+        }
+      } catch {
+        // Malformed Referer — allow through (same-origin forms may have no referer)
+      }
+    }
+    return next();
+  }
   if (corsOrigins.includes(origin)) return next();
   return res.status(403).json({ error: "CSRF_REJECTED", message: "Origin not allowed" });
 });

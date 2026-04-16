@@ -4,7 +4,13 @@ export const env = {
   NODE_ENV: process.env.NODE_ENV ?? "development",
   PORT: parseInt(process.env.PORT ?? "3001", 10),
   DATABASE_URL: process.env.DATABASE_URL ?? "",
-  SESSION_SECRET: process.env.SESSION_SECRET ?? "",
+  SESSION_SECRET: process.env.SESSION_SECRET || (() => {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SESSION_SECRET is required in production and must be at least 32 characters");
+    }
+    console.warn("[env] WARNING: SESSION_SECRET not set — using insecure default for development only");
+    return "INSECURE_DEV_SECRET_DO_NOT_USE_IN_PROD";
+  })(),
   SESSION_COOKIE_NAME: process.env.SESSION_COOKIE_NAME ?? "uzeed_session",
   COOKIE_DOMAIN: process.env.COOKIE_DOMAIN ?? "",
   WEB_ORIGIN: process.env.WEB_ORIGIN ?? process.env.CORS_ORIGIN ?? process.env.APP_URL ?? "http://localhost:3000",

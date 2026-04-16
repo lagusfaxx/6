@@ -29,7 +29,7 @@ services:
       WEB_ORIGIN: http://localhost:3000
       API_BASE_URL: http://localhost:3001
       UPLOADS_DIR: uploads
-      KHIPU_API_KEY: "5c24de64-13fd-4f64-bdd4-acabe2c46bbb"
+      KHIPU_API_KEY: ${KHIPU_API_KEY:-change-me-khipu-dev-key}
       KHIPU_SUBSCRIPTION_NOTIFY_URL: http://localhost:3001/webhooks/khipu/subscription
       KHIPU_CHARGE_NOTIFY_URL: http://localhost:3001/webhooks/khipu/charge
       KHIPU_RETURN_URL: http://localhost:3000/dashboard
@@ -37,8 +37,8 @@ services:
       MEMBERSHIP_DAYS: "30"
       MEMBERSHIP_PRICE_CLP: "4990"
       SHOP_MONTHLY_PRICE_CLP: "10000"
-      ADMIN_EMAIL: admin@uzeed.cl
-      ADMIN_PASSWORD: Automazdabxzx94
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@uzeed.cl}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set in .env}
     ports:
       - "3001:3001"
     depends_on:
@@ -58,7 +58,7 @@ services:
       WEB_ORIGIN: http://localhost:3000
       API_BASE_URL: http://localhost:3001
       UPLOADS_DIR: uploads
-      KHIPU_API_KEY: "5c24de64-13fd-4f64-bdd4-acabe2c46bbb"
+      KHIPU_API_KEY: ${KHIPU_API_KEY:-change-me-khipu-dev-key}
       KHIPU_SUBSCRIPTION_NOTIFY_URL: http://localhost:3001/webhooks/khipu/subscription
       KHIPU_CHARGE_NOTIFY_URL: http://localhost:3001/webhooks/khipu/charge
       KHIPU_RETURN_URL: http://localhost:3000/dashboard
@@ -66,8 +66,8 @@ services:
       MEMBERSHIP_DAYS: "30"
       MEMBERSHIP_PRICE_CLP: "4990"
       SHOP_MONTHLY_PRICE_CLP: "10000"
-      ADMIN_EMAIL: admin@uzeed.cl
-      ADMIN_PASSWORD: Automazdabxzx94
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@uzeed.cl}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set in .env}
     depends_on:
       - db
 

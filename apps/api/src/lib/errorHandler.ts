@@ -9,5 +9,9 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     // eslint-disable-next-line no-console
     console.error(err);
   }
-  res.status(status).json({ ok: false, error: message });
+  // In production, never expose internal error details to clients
+  const safeMessage = status >= 500 && process.env.NODE_ENV === "production"
+    ? "Internal server error"
+    : message;
+  res.status(status).json({ ok: false, error: safeMessage });
 }

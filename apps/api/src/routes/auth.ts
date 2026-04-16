@@ -1,3 +1,8 @@
+/**
+ * @deprecated LEGACY auth routes using bcrypt without session regeneration,
+ * rate limiting, or email verification. The primary auth is in /auth/routes.ts.
+ * Do NOT use in production — see server.ts deprecation notice.
+ */
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";

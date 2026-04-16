@@ -446,10 +446,23 @@ adminRouter.put(
     const { id } = req.params;
     const { isActive, tier, role, membershipExpiresAt } = req.body ?? {};
 
+    const VALID_TIERS = ["PREMIUM", "GOLD", "SILVER"];
+    const VALID_ROLES = ["USER", "ADMIN"];
+
     const data: any = {};
     if (isActive !== undefined) data.isActive = Boolean(isActive);
-    if (tier !== undefined) data.tier = tier;
-    if (role !== undefined) data.role = role;
+    if (tier !== undefined) {
+      if (!VALID_TIERS.includes(String(tier).toUpperCase())) {
+        return res.status(400).json({ error: "VALIDATION", message: `tier must be one of: ${VALID_TIERS.join(", ")}` });
+      }
+      data.tier = String(tier).toUpperCase();
+    }
+    if (role !== undefined) {
+      if (!VALID_ROLES.includes(String(role).toUpperCase())) {
+        return res.status(400).json({ error: "VALIDATION", message: `role must be one of: ${VALID_ROLES.join(", ")}` });
+      }
+      data.role = String(role).toUpperCase();
+    }
     if (membershipExpiresAt !== undefined) {
       data.membershipExpiresAt = membershipExpiresAt
         ? new Date(membershipExpiresAt)
@@ -884,7 +897,12 @@ adminRouter.post(
       data: {
         title: String(title),
         imageUrl: String(imageUrl || promoImageUrl || ""),
-        linkUrl: linkUrl ? String(linkUrl) : null,
+        linkUrl: linkUrl ? (() => {
+          const url = String(linkUrl);
+          // Prevent javascript: and data: URI XSS attacks
+          if (!/^https?:\/\//i.test(url)) return null;
+          return url;
+        })() : null,
         position: kind,
         isActive: typeof isActive === "boolean" ? isActive : true,
         sortOrder:
@@ -1379,6 +1397,21 @@ adminRouter.post(
       return res.status(400).json({ error: "Solo URLs http/https" });
     }
 
+    // SSRF protection: block internal/private IP ranges
+    const hostname = parsed.hostname.toLowerCase();
+    const blockedHostnames = ["localhost", "127.0.0.1", "0.0.0.0", "[::1]", "metadata.google.internal"];
+    if (blockedHostnames.includes(hostname) || hostname.endsWith(".internal") || hostname.endsWith(".local")) {
+      return res.status(400).json({ error: "URL apunta a una dirección interna no permitida" });
+    }
+    // Block private IP ranges (10.x, 172.16-31.x, 192.168.x, 169.254.x link-local)
+    const ipMatch = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (ipMatch) {
+      const [, a, b] = ipMatch.map(Number);
+      if (a === 10 || a === 127 || a === 0 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254)) {
+        return res.status(400).json({ error: "URL apunta a una dirección interna no permitida" });
+      }
+    }
+
     const user = await prisma.user.findUnique({ where: { id }, select: { id: true, avatarUrl: true } });
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
 
@@ -1391,6 +1424,7 @@ adminRouter.post(
       const response = await fetch(imageUrl, {
         signal: controller.signal,
         headers: { "User-Agent": "UZEED-Admin/1.0" },
+        redirect: "error", // Prevent redirect-based SSRF bypasses
       });
       clearTimeout(timeout);
 

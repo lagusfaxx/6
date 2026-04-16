@@ -48,6 +48,9 @@ COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
 COPY apps/api/scripts/convert-uploads-webp.js /app/apps/api/scripts/convert-uploads-webp.js
 RUN chmod +x /docker-entrypoint.sh
+RUN addgroup --system app && adduser --system --ingroup app app
+RUN chown -R app:app /app
+USER app
 EXPOSE 3001
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD sh -lc "cd prisma && npx prisma migrate deploy --schema=schema.prisma && cd .. && node apps/api/dist/index.js"

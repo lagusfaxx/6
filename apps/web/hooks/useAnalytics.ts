@@ -39,13 +39,8 @@ export function usePageViewTracker() {
 
 /** Track a specific user action */
 export function trackAction(action: string, targetId?: string, metadata?: Record<string, unknown>) {
-  console.log("[uzeed] trackAction:", action, targetId);
   apiFetch("/analytics/action", {
     method: "POST",
     body: JSON.stringify({ action, targetId, metadata }),
-  }).then(() => {
-    console.log("[uzeed] trackAction OK:", action);
-  }).catch((err) => {
-    console.error("[uzeed] trackAction FAILED:", action, err);
-  });
+  }).catch(() => {});
 }

@@ -165,10 +165,9 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     const user = (req as any).user as { email?: string; role?: string } | undefined;
     if (!user?.email) return res.status(401).json({ error: "UNAUTHENTICATED" });
 
-    const isAdminByEmail = user.email === config.adminEmail;
     const isAdminByRole = (user.role || "").toUpperCase() === "ADMIN";
 
-    if (!isAdminByEmail && !isAdminByRole) {
+    if (!isAdminByRole) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 

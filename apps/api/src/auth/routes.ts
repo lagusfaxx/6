@@ -24,7 +24,7 @@ const authLimiter = rateLimit({
   message: { error: "TOO_MANY_ATTEMPTS", message: "Demasiados intentos. Intenta en 15 minutos." },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true,
+  skipSuccessfulRequests: false,
 });
 
 export const authRouter = Router();
@@ -563,6 +563,16 @@ authRouter.post(
     } = parsed.data;
 
     const email = rawEmail.toLowerCase().trim();
+
+    // Verify the email was previously validated through the verification flow.
+    // This prevents account creation with unverified/spoofed email addresses.
+    const isEmailVerified = consumeVerifiedEmail(email);
+    if (!isEmailVerified) {
+      return res.status(403).json({
+        error: "EMAIL_NOT_VERIFIED",
+        message: "Debes verificar tu correo antes de registrarte. Solicita un código de verificación.",
+      });
+    }
 
     // Parse tags from JSON strings
     let profileTags: string[] = [];

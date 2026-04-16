@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiFetch } from "../../../lib/api";
+import { apiFetch, cachedApiFetch } from "../../../lib/api";
 
 type AdminNotification = {
   id: string;
@@ -14,20 +14,41 @@ type AdminNotification = {
   readAt: string | null;
 };
 
+type MeResponse = { user: { role?: string } | null };
+
 export default function ModerationPage() {
   const [items, setItems] = useState<AdminNotification[]>([]);
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
-    apiFetch<{ notifications: AdminNotification[] }>("/admin/control-center")
-      .then((res) =>
-        setItems(
-          (res.notifications || []).filter(
-            (n) => n.type === "content_reported",
-          ),
-        ),
-      )
-      .catch(() => setItems([]));
+    cachedApiFetch<MeResponse>("/auth/me", 30_000)
+      .then((res) => {
+        const isAdmin = (res.user?.role ?? "").toUpperCase() === "ADMIN";
+        setAuthorized(isAdmin);
+        if (!isAdmin) return;
+        return apiFetch<{ notifications: AdminNotification[] }>("/admin/control-center")
+          .then((r) =>
+            setItems(
+              (r.notifications || []).filter(
+                (n) => n.type === "content_reported",
+              ),
+            ),
+          );
+      })
+      .catch(() => setAuthorized(false));
   }, []);
+
+  if (authorized === null) {
+    return <div className="mx-auto max-w-4xl px-4 py-6 text-white text-center">Cargando...</div>;
+  }
+  if (!authorized) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-6 text-white text-center">
+        <h1 className="text-2xl font-semibold">Acceso denegado</h1>
+        <p className="mt-2 text-white/70">No tienes permisos para acceder a esta página.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 text-white">

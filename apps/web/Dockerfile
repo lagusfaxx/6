@@ -38,5 +38,8 @@ COPY --from=build /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./.next/static
 COPY --from=build /app/apps/web/public ./public
+RUN addgroup --system app && adduser --system --ingroup app app
+RUN chown -R app:app /app
+USER app
 EXPOSE 3000
 CMD ["node", "server.js"]

@@ -305,8 +305,12 @@ livestreamRouter.post("/live/:id/thumbnail", requireAuth, async (req, res) => {
       if (prevUrl) {
         // prevUrl is like "/uploads/live-thumbnails/<uuid>.jpg"
         const relative = prevUrl.replace(/^\/uploads\//, "");
-        const absPath = path.join(path.resolve(env.UPLOADS_DIR), relative);
-        await fs.unlink(absPath).catch(() => {});
+        const uploadsRoot = path.resolve(env.UPLOADS_DIR);
+        const absPath = path.join(uploadsRoot, relative);
+        // Path traversal protection: ensure resolved path stays within uploads directory
+        if (absPath.startsWith(uploadsRoot + path.sep)) {
+          await fs.unlink(absPath).catch(() => {});
+        }
       }
     } catch {
       // Column may not exist yet — ignore
@@ -491,7 +495,7 @@ livestreamRouter.post("/live/:id/tip", requireAuth, tipLimiter, async (req, res)
   // Check balance
   const senderWallet = await getOrCreateWallet(userId);
   if (senderWallet.balance < amount) {
-    return res.status(400).json({ error: "Insufficient tokens", required: amount, available: senderWallet.balance });
+    return res.status(400).json({ error: "Insufficient tokens", required: amount });
   }
 
   const commissionPct = await getCommissionPercent();
@@ -566,7 +570,7 @@ livestreamRouter.post("/live/:id/tip", requireAuth, tipLimiter, async (req, res)
     });
   } catch (err: any) {
     if (err?.message === "INSUFFICIENT_BALANCE") {
-      return res.status(400).json({ error: "Saldo insuficiente", required: amount, available: senderWallet.balance });
+      return res.status(400).json({ error: "Saldo insuficiente", required: amount, insufficientBalance: true });
     }
     throw err;
   }
@@ -823,7 +827,7 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, privateShowLimiter,
 
   const buyerWallet = await getOrCreateWallet(userId);
   if (buyerWallet.balance < price) {
-    return res.status(400).json({ error: "Insufficient tokens", required: price, available: buyerWallet.balance });
+    return res.status(400).json({ error: "Insufficient tokens", required: price, insufficientBalance: true });
   }
 
   const commissionPct = await getCommissionPercent();
@@ -883,7 +887,7 @@ livestreamRouter.post("/live/:id/private-show", requireAuth, privateShowLimiter,
     });
   } catch (err: any) {
     if (err?.message === "INSUFFICIENT_BALANCE") {
-      return res.status(400).json({ error: "Saldo insuficiente", required: price, available: buyerWallet.balance });
+      return res.status(400).json({ error: "Saldo insuficiente", required: price, insufficientBalance: true });
     }
     throw err;
   }

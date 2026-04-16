@@ -1,3 +1,15 @@
+/**
+ * @deprecated This file is a LEGACY entry point and must NOT be used in production.
+ * The primary entry point is index.ts which uses argon2, session regeneration, email
+ * verification, and rate limiting. This file uses bcrypt and lacks those security measures.
+ *
+ * TODO: Remove this file entirely once confirmed it is not referenced by any deployment.
+ */
+if (process.env.NODE_ENV === "production") {
+  console.error("FATAL: server.ts is a deprecated entry point and must not be used in production. Use index.ts instead.");
+  process.exit(1);
+}
+
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";

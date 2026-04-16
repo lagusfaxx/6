@@ -1,6 +1,11 @@
 const { PrismaClient } = require("@prisma/client");
 const argon2 = require("argon2");
 
+if (process.env.NODE_ENV === "production") {
+  console.error("ERROR: seed.js must NOT be run in production. Aborting.");
+  process.exit(1);
+}
+
 const prisma = new PrismaClient();
 
 async function main() {

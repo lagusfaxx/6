@@ -174,10 +174,10 @@ verificationRouter.post(
       select: { id: true },
     });
     if (alreadyRegistered) {
-      return res.status(409).json({
-        error: "EMAIL_IN_USE",
-        message: "Este correo ya está registrado. Inicia sesión o recupera tu contraseña.",
-      });
+      // Return the same success response to prevent email enumeration.
+      // The user won't receive a code, but the attacker can't distinguish
+      // registered from unregistered emails.
+      return res.json({ ok: true, expiresInSeconds: CODE_TTL_MS / 1000 });
     }
 
     const existing = pendingCodes.get(normalizedEmail);
