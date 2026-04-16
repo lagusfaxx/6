@@ -141,6 +141,12 @@ enum WithdrawalStatus {
   REJECTED
 }
 
+enum ProfessionalDocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum VideocallBookingStatus {
   PENDING
   CONFIRMED
@@ -492,6 +498,10 @@ model User {
   // Referral system
   creatorReferralCode    CreatorReferralCode? @relation("CreatorReferralCode")
   referralRedemption     ReferralRedemption?  @relation("ReferralProfessional")
+
+  // Professional accreditation documents (e.g. "profesional con examenes")
+  professionalDocuments     ProfessionalDocument[] @relation("ProfessionalDocuments")
+  professionalDocsReviewed  ProfessionalDocument[] @relation("ProfessionalDocumentReviewer")
 }
 
 model PushSubscription {
@@ -1478,4 +1488,29 @@ model AdminProfileRating {
   @@unique([profileId, adminId])
   @@index([profileId])
   @@index([overallScore])
+}
+
+// Professional accreditation documents. Creators (profesionales) upload
+// medical exams / licenses here. An admin reviews and, once APPROVED,
+// can grant the "profesional con examenes" tag on the user profile.
+model ProfessionalDocument {
+  id           String                     @id @default(uuid()) @db.Uuid
+  userId       String                     @db.Uuid
+  fileUrl      String                     // public URL under /uploads/professional-docs/...
+  originalName String                     // display name shown to admin/creator
+  mimeType     String
+  sizeBytes    Int
+  note         String?                    // optional note from creator
+  status       ProfessionalDocumentStatus @default(PENDING)
+  reviewedById String?                    @db.Uuid
+  reviewedAt   DateTime?
+  rejectReason String?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  user     User  @relation("ProfessionalDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("ProfessionalDocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
 }
