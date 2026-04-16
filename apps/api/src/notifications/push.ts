@@ -82,6 +82,7 @@ export async function sendPushToUsers(
         // IMPORTANT: iOS push services can reject requests for strict reasons
         // (VAPID subject/keys, headers). Log the failure so we don't fail silently.
         console.error("[webpush] send failed", {
+          userId: subscription.userId,
           statusCode: err?.statusCode,
           body: err?.body,
           endpointHost: (() => {
