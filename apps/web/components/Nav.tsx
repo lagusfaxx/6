@@ -17,19 +17,16 @@ import {
   Video,
   Radio,
   HelpCircle,
-  Eye,
 } from "lucide-react";
 import useMe from "../hooks/useMe";
 import { useForumNotifications } from "./ForumNotifications";
 import { useChatNotifications } from "./ChatNotifications";
-import { useStoryUpload } from "./StoryUploadContext";
 
 type NavItem = {
   href: string;
   label: string;
   icon: typeof Home;
   protected: boolean;
-  action?: "story-upload";
 };
 
 const clientItems: NavItem[] = [
@@ -64,7 +61,6 @@ export default function Nav() {
   const isAuthed = Boolean(me?.user?.id);
   const { badgeCount } = useForumNotifications();
   const { unreadCount: chatUnread } = useChatNotifications();
-  const storyUpload = useStoryUpload();
 
   const role = String(me?.user?.role || "").toUpperCase();
   const ptype = String(me?.user?.profileType || "").toUpperCase();
@@ -84,8 +80,7 @@ export default function Nav() {
         { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, protected: true },
         { href: "/dashboard/services", label: "Editar perfil", icon: Edit3, protected: true },
         ...(isProfessional ? [
-          { href: "#", label: "Subir story", icon: Camera, protected: true, action: "story-upload" as const },
-          { href: "/dashboard/stories", label: "Mis stories", icon: Eye, protected: true },
+          { href: "/dashboard/stories", label: "Subir story", icon: Camera, protected: true },
         ] : []),
         { href: "/wallet", label: "Billetera", icon: Wallet, protected: true },
       ]
@@ -157,27 +152,6 @@ export default function Nav() {
               {profileItems.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 const Icon = item.icon;
-                const baseClass = `group flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
-                  active
-                    ? "bg-gradient-to-r from-fuchsia-500/[0.12] to-violet-500/[0.06] border border-fuchsia-500/20 text-fuchsia-200 shadow-[0_0_20px_rgba(217,70,239,0.08)]"
-                    : "text-white/60 hover:bg-white/[0.04] hover:text-white/80"
-                }`;
-                const iconClass = `h-4 w-4 transition-colors ${active ? "text-fuchsia-400" : "group-hover:text-fuchsia-400/60"}`;
-
-                if (item.action === "story-upload") {
-                  return (
-                    <button
-                      key="story-upload"
-                      type="button"
-                      onClick={() => storyUpload.open()}
-                      className={`${baseClass} w-full`}
-                    >
-                      <Icon className={iconClass} />
-                      {item.label}
-                    </button>
-                  );
-                }
-
                 const href = item.protected && !isAuthed
                   ? `/login?next=${encodeURIComponent(item.href)}`
                   : item.href;
@@ -185,9 +159,13 @@ export default function Nav() {
                   <Link
                     key={item.href}
                     href={href}
-                    className={baseClass}
+                    className={`group flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+                      active
+                        ? "bg-gradient-to-r from-fuchsia-500/[0.12] to-violet-500/[0.06] border border-fuchsia-500/20 text-fuchsia-200 shadow-[0_0_20px_rgba(217,70,239,0.08)]"
+                        : "text-white/60 hover:bg-white/[0.04] hover:text-white/80"
+                    }`}
                   >
-                    <Icon className={iconClass} />
+                    <Icon className={`h-4 w-4 transition-colors ${active ? "text-fuchsia-400" : "group-hover:text-fuchsia-400/60"}`} />
                     {item.label}
                   </Link>
                 );

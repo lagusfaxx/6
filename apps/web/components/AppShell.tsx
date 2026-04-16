@@ -10,8 +10,6 @@ import LocationFilterProvider from "./LocationFilterProvider";
 import BackButton from "./BackButton";
 import { ForumNotificationProvider } from "./ForumNotifications";
 import { ChatNotificationProvider } from "./ChatNotifications";
-import { StoryUploadProvider } from "./StoryUploadContext";
-import StoryUploadModal from "./StoryUploadModal";
 import { usePageViewTracker } from "../hooks/useAnalytics";
 import ScrollToTop from "./ScrollToTop";
 
@@ -96,7 +94,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isDashboardRoute) {
     return (
       <LocationFilterProvider>
-        <StoryUploadProvider>
         <div
           style={iosTextSizeFix}
           className="min-h-[100svh] w-full bg-transparent text-white"
@@ -108,8 +105,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             {children}
           </main>
         </div>
-        <StoryUploadModal />
-        </StoryUploadProvider>
       </LocationFilterProvider>
     );
   }
@@ -118,7 +113,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <LocationFilterProvider>
       <ForumNotificationProvider>
         <ChatNotificationProvider>
-        <StoryUploadProvider>
         <div
           style={iosTextSizeFix}
           className="flex min-h-[100svh] w-full bg-transparent text-white"
@@ -139,8 +133,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Footer />
           </div>
         </div>
-        <StoryUploadModal />
-        </StoryUploadProvider>
         </ChatNotificationProvider>
       </ForumNotificationProvider>
     </LocationFilterProvider>
