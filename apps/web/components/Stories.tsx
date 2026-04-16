@@ -3,9 +3,9 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle, Radio } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle, Radio, Upload, Image as ImageIcon, Film, CheckCircle } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
-import { apiFetch, resolveMediaUrl } from "../lib/api";
+import { apiFetch, getApiBase, resolveMediaUrl } from "../lib/api";
 import useMe from "../hooks/useMe";
 
 /* ─── Types ─────────────────────────────────────────────── */
@@ -250,6 +250,143 @@ function StoryViewer({
   );
 }
 
+/* ─── Quick-upload modal (Instagram-style) ─────────────── */
+function StoryUploadModal({ onClose, onUploaded }: { onClose: () => void; onUploaded: () => void }) {
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [preview, setPreview] = useState<{ url: string; type: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // auto-open picker immediately
+    fileRef.current?.click();
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) { onClose(); return; }
+    setPreview({ url: URL.createObjectURL(file), type: file.type });
+    setError(null);
+  };
+
+  const handleUpload = async () => {
+    if (!fileRef.current?.files?.[0]) return;
+    setUploading(true);
+    setError(null);
+    const formData = new FormData();
+    formData.append("file", fileRef.current.files[0]);
+    try {
+      const res = await fetch(`${getApiBase()}/stories/upload`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) throw new Error();
+      setDone(true);
+      onUploaded();
+      setTimeout(onClose, 1400);
+    } catch {
+      setError("No se pudo subir. Intenta de nuevo.");
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="relative w-full max-w-xs">
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="absolute -top-10 right-0 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        {done ? (
+          /* ── Success state ── */
+          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-white/5 border border-white/10 py-14">
+            <CheckCircle className="h-12 w-12 text-emerald-400" />
+            <p className="text-sm font-semibold text-white">¡Story publicado!</p>
+            <p className="text-xs text-white/40">Dura 7 días en el carrusel</p>
+          </div>
+        ) : !preview ? (
+          /* ── Empty picker state ── */
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="flex w-full flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-fuchsia-500/40 bg-fuchsia-500/5 py-16 hover:border-fuchsia-400/60 hover:bg-fuchsia-500/10 transition"
+          >
+            <div className="flex items-center gap-2 rounded-full bg-fuchsia-500/15 px-5 py-2.5 text-fuchsia-400">
+              <ImageIcon className="h-5 w-5" />
+              <span className="text-sm font-semibold">+</span>
+              <Film className="h-5 w-5" />
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-sm font-medium text-white/80">Elegir foto o video</p>
+              <p className="text-[11px] text-white/30">Máx 100 MB · Formato vertical 9:16</p>
+            </div>
+          </button>
+        ) : (
+          /* ── Preview + publish ── */
+          <div className="rounded-2xl overflow-hidden border border-white/10 bg-black">
+            <div className="relative mx-auto aspect-[9/16] max-h-[72vh] overflow-hidden">
+              {preview.type.startsWith("video/") ? (
+                <video src={preview.url} className="h-full w-full object-cover" muted controls playsInline />
+              ) : (
+                <img src={preview.url} alt="Vista previa" className="h-full w-full object-cover" />
+              )}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-4 pb-3 pt-10">
+                <p className="text-[11px] text-white/50 text-center">Así se verá tu story</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setPreview(null); if (fileRef.current) fileRef.current.value = ""; }}
+                className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white/70 hover:text-white transition backdrop-blur-sm"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-3 space-y-2">
+              {error && <p className="text-xs text-red-400 px-1">{error}</p>}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 text-xs font-medium text-white/60 hover:bg-white/[0.08] transition"
+                >
+                  Cambiar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUpload}
+                  disabled={uploading}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-xs font-semibold text-white disabled:opacity-40 hover:brightness-110 transition"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {uploading ? "Subiendo…" : "Publicar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFile} />
+      </div>
+    </div>
+  );
+}
+
 /* ─── Stories row ───────────────────────────────────────── */
 export default function Stories() {
   const locationCtx = useContext(LocationFilterContext);
@@ -264,6 +401,13 @@ export default function Stories() {
   const [liveStreams, setLiveStreams] = useState<LiveStreamItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewerGroupIdx, setViewerGroupIdx] = useState<number | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  const reloadStories = useCallback(() => {
+    apiFetch<{ stories: StoryGroup[] }>("/stories/active")
+      .then((d) => setGroups(d.stories ?? []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let done = 0;
@@ -335,12 +479,12 @@ export default function Stories() {
             </button>
           )}
           {isProfessional && (
-            <Link
-              href="/dashboard/stories"
+            <button
+              onClick={() => setShowUploadModal(true)}
               className="text-[11px] text-fuchsia-400 hover:text-fuchsia-300 transition font-medium"
             >
               + Subir story
-            </Link>
+            </button>
           )}
         </div>
       </div>
@@ -362,12 +506,12 @@ export default function Stories() {
         {/* Upload story button for professionals */}
         {canUpload && (
           <div className="flex-shrink-0 flex flex-col items-center gap-2">
-            <Link
-              href="/dashboard/stories"
+            <button
+              onClick={() => setShowUploadModal(true)}
               className="relative h-16 w-16 rounded-full border-2 border-dashed border-fuchsia-500/50 bg-fuchsia-500/5 flex items-center justify-center text-fuchsia-400 hover:border-fuchsia-400 hover:bg-fuchsia-500/10 transition hover:shadow-[0_0_20px_rgba(168,85,247,0.25)]"
             >
               <Plus className="h-6 w-6" />
-            </Link>
+            </button>
             <span className="text-[11px] text-fuchsia-300/60 font-medium">Tu story</span>
           </div>
         )}
@@ -447,6 +591,13 @@ export default function Stories() {
           groups={groups}
           initialGroupIndex={viewerGroupIdx}
           onClose={() => setViewerGroupIdx(null)}
+        />
+      )}
+
+      {showUploadModal && (
+        <StoryUploadModal
+          onClose={() => setShowUploadModal(false)}
+          onUploaded={reloadStories}
         />
       )}
     </>
