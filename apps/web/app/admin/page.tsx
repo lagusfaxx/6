@@ -31,6 +31,7 @@ import {
   UserCheck,
   Users,
   Star,
+  Mail,
 } from "lucide-react";
 
 type MetricBundle = {
@@ -91,6 +92,7 @@ const NAV_ITEMS = [
   { href: "/admin/acreditaciones", label: "Acreditaciones", icon: ShieldCheck },
   { href: "/admin/moderation", label: "Moderacion", icon: Shield },
   { href: "/admin/privacy-requests", label: "Privacidad", icon: Trash2 },
+  { href: "/admin/weekly-highlights", label: "Correo Semanal", icon: Mail },
 ];
 
 function timeAgo(iso: string): string {
@@ -300,6 +302,7 @@ export default function AdminIndex() {
                 <QuickAction href="/admin/banners" icon={BookImage} label="Banners" desc="Promociones" accent="pink" />
                 <QuickAction href="/admin/pricing" icon={Tag} label="Precios" desc="Planes y reglas" accent="violet" />
                 <QuickAction href="/admin/quick-listings" icon={Store} label="Listados" desc="Externos" accent="cyan" />
+                <QuickAction href="/admin/weekly-highlights" icon={Mail} label="Correo Semanal" desc="Destacadas" accent="pink" />
               </div>
             </div>
 
