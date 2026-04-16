@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Upload, Film, Image as ImageIcon, Trash2, Clock, X, Eye } from "lucide-react";
-import { apiFetch, getApiBase, resolveMediaUrl } from "../../../lib/api";
+import { useEffect, useState, useCallback } from "react";
+import { Film, Image as ImageIcon, Trash2, Clock, X, Eye, Plus, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { apiFetch, resolveMediaUrl } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
+import { useStoryUpload } from "../../../components/StoryUploadContext";
 
 type OwnStory = {
   id: string;
@@ -15,16 +17,13 @@ type OwnStory = {
 
 export default function StoriesPage() {
   const { me } = useMe();
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const storyUpload = useStoryUpload();
 
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [preview, setPreview] = useState<{ url: string; type: string } | null>(null);
   const [stories, setStories] = useState<OwnStory[]>([]);
   const [loadingStories, setLoadingStories] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [viewingStory, setViewingStory] = useState<OwnStory | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const loadMyStories = useCallback(async () => {
     try {
@@ -43,46 +42,11 @@ export default function StoriesPage() {
     if (me?.user?.id) loadMyStories();
   }, [me?.user?.id, loadMyStories]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const objectUrl = URL.createObjectURL(file);
-    setPreview({ url: objectUrl, type: file.type });
-    setError(null);
-    setSuccess(false);
-  };
-
-  const handleUpload = async () => {
-    if (!fileRef.current?.files?.[0]) return;
-    const file = fileRef.current.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-    setUploading(true);
-    setError(null);
-    setSuccess(false);
-    try {
-      const apiBase = getApiBase();
-      const res = await fetch(`${apiBase}/stories/upload`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-      if (!res.ok) throw new Error("UPLOAD_FAILED");
-      setSuccess(true);
-      setPreview(null);
-      if (fileRef.current) fileRef.current.value = "";
+  useEffect(() => {
+    if (!storyUpload.isOpen) {
       loadMyStories();
-    } catch {
-      setError("No se pudo subir el story. Intenta nuevamente.");
-    } finally {
-      setUploading(false);
     }
-  };
-
-  const handleClearPreview = () => {
-    setPreview(null);
-    if (fileRef.current) fileRef.current.value = "";
-  };
+  }, [storyUpload.isOpen, loadMyStories]);
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
@@ -110,108 +74,34 @@ export default function StoriesPage() {
   return (
     <div className="mx-auto max-w-lg px-4 py-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-lg font-bold">Mis Stories</h1>
-        <p className="text-xs text-white/40 mt-0.5">
-          Sube fotos o videos que duran 7 días y aparecen en el carrusel.
-        </p>
-      </div>
-
-      {/* Upload area */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
-        {!preview ? (
-          /* Drop zone */
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="flex w-full flex-col items-center justify-center gap-3 p-10 transition hover:bg-fuchsia-500/5 group"
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/10 transition"
           >
-            <div className="flex items-center gap-2 rounded-full bg-fuchsia-500/10 px-4 py-2 text-fuchsia-400 group-hover:bg-fuchsia-500/20 transition">
-              <ImageIcon className="h-5 w-5" />
-              <span className="text-xs font-medium">+</span>
-              <Film className="h-5 w-5" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm text-white/60">Toca para elegir foto o video</p>
-              <p className="text-[11px] text-white/30 mt-1">Máx 100 MB · Se verá en formato vertical 9:16</p>
-            </div>
-          </button>
-        ) : (
-          /* Preview — phone-style 9:16 so user sees exactly how it'll look */
-          <div className="relative">
-            <div className="relative mx-auto aspect-[9/16] max-h-[480px] bg-black overflow-hidden">
-              {preview.type.startsWith("video/") ? (
-                <video
-                  src={preview.url}
-                  className="h-full w-full object-cover"
-                  controls
-                  muted
-                  playsInline
-                />
-              ) : (
-                <img
-                  src={preview.url}
-                  alt="Vista previa"
-                  className="h-full w-full object-cover"
-                />
-              )}
-              {/* Phone-frame overlay hint */}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-4 pb-4 pt-10">
-                <p className="text-[11px] text-white/50 text-center">
-                  Así se verá tu story
-                </p>
-              </div>
-            </div>
-            {/* Clear preview */}
-            <button
-              type="button"
-              onClick={handleClearPreview}
-              className="absolute right-3 top-3 rounded-full bg-black/60 p-1.5 text-white/70 hover:text-white transition backdrop-blur-sm"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*,video/*"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-
-        {/* Actions bar */}
-        <div className="border-t border-white/[0.06] p-3 space-y-2">
-          {error && <p className="text-xs text-red-400 px-1">{error}</p>}
-          {success && (
-            <p className="text-xs text-emerald-400 px-1">
-              Story publicado. Dura 7 días.
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </Link>
+          <div>
+            <h1 className="text-lg font-bold">Mis Stories</h1>
+            <p className="text-xs text-white/40 mt-0.5">
+              Tus stories activos · Duran 7 días
             </p>
-          )}
-
-          <div className="flex gap-2">
-            {preview && (
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 text-xs font-medium text-white/60 hover:bg-white/[0.08] transition"
-              >
-                Cambiar archivo
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={preview ? handleUpload : () => fileRef.current?.click()}
-              disabled={preview ? uploading : false}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-xs font-semibold text-white disabled:opacity-40 hover:brightness-110 transition"
-            >
-              <Upload className="h-3.5 w-3.5" />
-              {!preview ? "Elegir archivo" : uploading ? "Subiendo…" : "Publicar story"}
-            </button>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => storyUpload.open()}
+          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2.5 text-xs font-semibold text-white hover:brightness-110 transition"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Nueva
+        </button>
       </div>
+
+      {error && (
+        <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-xs text-red-400">{error}</p>
+      )}
 
       {/* Active stories */}
       <div className="space-y-3">
@@ -227,9 +117,23 @@ export default function StoriesPage() {
             Cargando…
           </div>
         ) : stories.length === 0 ? (
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 text-center text-xs text-white/30">
-            No tienes stories activos. ¡Sube uno arriba!
-          </div>
+          <button
+            type="button"
+            onClick={() => storyUpload.open()}
+            className="w-full rounded-2xl border-2 border-dashed border-white/10 bg-white/[0.02] p-10 text-center transition hover:border-fuchsia-500/30 hover:bg-fuchsia-500/[0.03] group"
+          >
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex items-center gap-2 rounded-full bg-fuchsia-500/10 px-4 py-2 group-hover:bg-fuchsia-500/20 transition">
+                <ImageIcon className="h-5 w-5 text-fuchsia-400" />
+                <span className="text-sm font-medium text-fuchsia-300">+</span>
+                <Film className="h-5 w-5 text-fuchsia-400" />
+              </div>
+              <div>
+                <p className="text-sm text-white/60">No tienes stories activos</p>
+                <p className="text-[11px] text-white/30 mt-1">Toca para subir tu primera story</p>
+              </div>
+            </div>
+          </button>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {stories.map((s) => (
@@ -274,7 +178,7 @@ export default function StoriesPage() {
                   </div>
                 )}
 
-                {/* Action buttons — visible on hover / always on mobile */}
+                {/* Action buttons */}
                 <div className="absolute right-2 top-2 flex gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <button
                     type="button"
@@ -326,7 +230,6 @@ export default function StoriesPage() {
                 className="h-full w-full object-cover"
               />
             )}
-            {/* Bottom bar with delete */}
             <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 to-transparent px-4 pb-4 pt-10">
               <div className="text-[11px] text-white/50">
                 <Clock className="mr-1 inline h-3 w-3" />
