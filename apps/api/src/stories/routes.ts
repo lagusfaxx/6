@@ -353,7 +353,8 @@ storiesRouter.post(
         if (existing) {
           // Refresh existing notification so it bubbles to the top with the new count.
           // Delete + create lets the Prisma middleware emit SSE + push naturally.
-          await prisma.notification.delete({ where: { id: existing.id } });
+          // deleteMany is idempotent — safe against concurrent like races.
+          await prisma.notification.deleteMany({ where: { id: existing.id } });
         }
         await prisma.notification.create({
           data: {
