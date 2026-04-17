@@ -3,7 +3,7 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle, Radio } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle, Radio, Heart } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import useMe from "../hooks/useMe";
@@ -15,6 +15,8 @@ type StoryItem = {
   mediaType: "IMAGE" | "VIDEO";
   expiresAt: string;
   createdAt: string;
+  likeCount?: number;
+  likedByMe?: boolean;
 };
 
 type StoryGroup = {
@@ -40,15 +42,18 @@ function StoryViewer({
   groups,
   initialGroupIndex,
   onClose,
+  onLikeChanged,
 }: {
   groups: StoryGroup[];
   initialGroupIndex: number;
   onClose: () => void;
+  onLikeChanged: (storyId: string, liked: boolean, likeCount: number) => void;
 }) {
   const [groupIdx, setGroupIdx] = useState(initialGroupIndex);
   const [storyIdx, setStoryIdx] = useState(0);
   const [progress, setProgress] = useState(0);
   const [muted, setMuted] = useState(true);
+  const [likePending, setLikePending] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const startTimeRef = useRef<number>(Date.now());
@@ -57,6 +62,27 @@ function StoryViewer({
   const story = group?.stories[storyIdx];
   const isVideo = story?.mediaType === "VIDEO";
   const totalStories = group?.stories.length ?? 0;
+
+  const handleLike = useCallback(async () => {
+    if (!story || likePending) return;
+    const prevLiked = !!story.likedByMe;
+    const prevCount = story.likeCount ?? 0;
+    // Optimistic update
+    onLikeChanged(story.id, !prevLiked, prevLiked ? Math.max(0, prevCount - 1) : prevCount + 1);
+    setLikePending(true);
+    try {
+      const res = await apiFetch<{ liked: boolean; likeCount: number }>(
+        `/stories/${story.id}/like`,
+        { method: "POST" },
+      );
+      onLikeChanged(story.id, res.liked, res.likeCount);
+    } catch {
+      // Revert on error
+      onLikeChanged(story.id, prevLiked, prevCount);
+    } finally {
+      setLikePending(false);
+    }
+  }, [story, likePending, onLikeChanged]);
 
   const goNext = useCallback(() => {
     if (storyIdx < totalStories - 1) {
@@ -209,7 +235,22 @@ function StoryViewer({
 
         {/* Bottom CTAs - Conversion focused */}
         <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/80 to-transparent">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleLike(); }}
+              disabled={likePending}
+              aria-label={story.likedByMe ? "Quitar like" : "Dar like"}
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold backdrop-blur transition ${
+                story.likedByMe
+                  ? "bg-rose-500/20 border-rose-400/60 text-rose-200 hover:bg-rose-500/30"
+                  : "bg-white/10 border-white/20 text-white hover:bg-white/20"
+              }`}
+            >
+              <Heart
+                className={`h-4 w-4 transition-transform ${story.likedByMe ? "fill-rose-400 text-rose-400 scale-110" : ""}`}
+              />
+              <span className="tabular-nums">{story.likeCount ?? 0}</span>
+            </button>
             <Link
               href={`/chat/${group.userId}`}
               onClick={onClose}
@@ -447,6 +488,16 @@ export default function Stories() {
           groups={groups}
           initialGroupIndex={viewerGroupIdx}
           onClose={() => setViewerGroupIdx(null)}
+          onLikeChanged={(storyId, liked, likeCount) => {
+            setGroups((prev) =>
+              prev.map((g) => ({
+                ...g,
+                stories: g.stories.map((s) =>
+                  s.id === storyId ? { ...s, likedByMe: liked, likeCount } : s,
+                ),
+              })),
+            );
+          }}
         />
       )}
     </>

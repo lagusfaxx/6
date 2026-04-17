@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import path from "path";
+import crypto from "crypto";
 import { prisma } from "../db";
 import { Prisma } from "@prisma/client";
 import { requireAuth } from "../auth/middleware";
@@ -46,6 +47,23 @@ const STORY_TTL_HOURS = 24 * 7; // 7 days
    Query: lat, lng, radiusKm (optional — defaults to 100 km)
    Returns stories with owner info for the Story viewer.
    ─────────────────────────────────────────────────────────── */
+const ANON_COOKIE = "uzeed_anon_id";
+
+function getOrSetAnonId(req: any, res: any): string {
+  let id = req.cookies?.[ANON_COOKIE];
+  if (!id || typeof id !== "string" || id.length < 8) {
+    id = crypto.randomUUID();
+    res.cookie(ANON_COOKIE, id, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: config.env !== "development",
+      domain: config.cookieDomain,
+      maxAge: 1000 * 60 * 60 * 24 * 365,
+    });
+  }
+  return id;
+}
+
 storiesRouter.get(
   "/stories/active",
   asyncHandler(async (req, res) => {
@@ -53,6 +71,8 @@ storiesRouter.get(
     const lat = req.query.lat ? Number(req.query.lat) : null;
     const lng = req.query.lng ? Number(req.query.lng) : null;
     const radiusKm = Math.max(1, Math.min(200, Number(req.query.radiusKm) || 100));
+    const viewerUserId = (req as any).user?.id as string | undefined;
+    const anonId = req.cookies?.[ANON_COOKIE] as string | undefined;
 
     function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
       const R = 6371;
@@ -66,7 +86,7 @@ storiesRouter.get(
     }
 
     // Fetch active stories — gracefully handle missing Story table
-    let stories: Awaited<ReturnType<typeof prisma.story.findMany>> = [];
+    let stories: any[] = [];
     try {
     stories = await prisma.story.findMany({
       where: { expiresAt: { gt: now } },
@@ -78,6 +98,7 @@ storiesRouter.get(
         mediaType: true,
         expiresAt: true,
         createdAt: true,
+        likeCount: true,
         user: {
           select: {
             id: true,
@@ -106,7 +127,7 @@ storiesRouter.get(
     }
 
     // Group by user, filter by location if provided
-    const byUser = new Map<string, { user: (typeof stories)[0]["user"]; stories: typeof stories }>();
+    const byUser = new Map<string, { user: any; stories: any[] }>();
     for (const s of stories) {
       if (!s.user.isActive) continue;
       // location filter
@@ -118,6 +139,27 @@ storiesRouter.get(
         byUser.set(s.user.id, { user: s.user, stories: [] });
       }
       byUser.get(s.user.id)!.stories.push(s);
+    }
+
+    // Compute which visible stories the viewer liked (single query)
+    const visibleIds = Array.from(byUser.values()).flatMap(({ stories }) => stories.map((s) => s.id));
+    const likedIds = new Set<string>();
+    if (visibleIds.length > 0 && (viewerUserId || anonId)) {
+      try {
+        const likes = await prisma.storyLike.findMany({
+          where: {
+            storyId: { in: visibleIds },
+            OR: [
+              ...(viewerUserId ? [{ userId: viewerUserId }] : []),
+              ...(anonId ? [{ anonymousId: anonId }] : []),
+            ],
+          },
+          select: { storyId: true },
+        });
+        for (const l of likes) likedIds.add(l.storyId);
+      } catch {
+        // StoryLike table might not exist yet (migration pending) — ignore
+      }
     }
 
     const result = Array.from(byUser.values()).map(({ user, stories: userStories }) => ({
@@ -134,6 +176,8 @@ storiesRouter.get(
           mediaType: s.mediaType,
           expiresAt: s.expiresAt.toISOString(),
           createdAt: s.createdAt.toISOString(),
+          likeCount: s.likeCount ?? 0,
+          likedByMe: likedIds.has(s.id),
         })),
     }));
 
@@ -193,6 +237,138 @@ storiesRouter.post(
         createdAt: story.createdAt.toISOString(),
       },
     });
+  }),
+);
+
+/* ─── POST /stories/:id/like ─────────────────────────────────
+   Toggle like on a story. Anonymous users (no session) can also
+   like — identified by a long-lived httpOnly cookie (uzeed_anon_id).
+   The story owner gets a single aggregated notification that
+   increments its count instead of creating one per like.
+   ─────────────────────────────────────────────────────────── */
+storiesRouter.post(
+  "/stories/:id/like",
+  asyncHandler(async (req, res) => {
+    const storyId = req.params.id;
+    const viewerUser = (req as any).user;
+    const viewerUserId = viewerUser?.id as string | undefined;
+
+    const story = await prisma.story.findUnique({
+      where: { id: storyId },
+      select: { id: true, userId: true, expiresAt: true },
+    });
+    if (!story) return res.status(404).json({ error: "NOT_FOUND" });
+    if (story.expiresAt.getTime() <= Date.now()) {
+      return res.status(410).json({ error: "STORY_EXPIRED" });
+    }
+
+    // Can't self-like
+    const isOwner = viewerUserId && viewerUserId === story.userId;
+
+    const anonId = viewerUserId ? null : getOrSetAnonId(req, res);
+
+    // Toggle: try to create; on unique conflict, delete (unlike)
+    let liked: boolean;
+    let likeCount: number;
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const created = await tx.storyLike.create({
+          data: {
+            storyId,
+            userId: viewerUserId ?? null,
+            anonymousId: anonId,
+          },
+        });
+        const updated = await tx.story.update({
+          where: { id: storyId },
+          data: { likeCount: { increment: 1 } },
+          select: { likeCount: true },
+        });
+        return { liked: true, likeCount: updated.likeCount, createdId: created.id };
+      });
+      liked = result.liked;
+      likeCount = result.likeCount;
+    } catch (err: any) {
+      if (err?.code === "P2002") {
+        // Already liked — unlike (toggle off)
+        const result = await prisma.$transaction(async (tx) => {
+          await tx.storyLike.deleteMany({
+            where: viewerUserId
+              ? { storyId, userId: viewerUserId }
+              : { storyId, anonymousId: anonId! },
+          });
+          const fresh = await tx.story.findUnique({
+            where: { id: storyId },
+            select: { likeCount: true },
+          });
+          if (fresh && fresh.likeCount > 0) {
+            const updated = await tx.story.update({
+              where: { id: storyId },
+              data: { likeCount: { decrement: 1 } },
+              select: { likeCount: true },
+            });
+            return { liked: false, likeCount: updated.likeCount };
+          }
+          return { liked: false, likeCount: fresh?.likeCount ?? 0 };
+        });
+        return res.json({ liked: result.liked, likeCount: result.likeCount });
+      }
+      // StoryLike table might not exist yet (migration pending)
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError ||
+        err instanceof Prisma.PrismaClientValidationError
+      ) {
+        return res.status(503).json({ error: "LIKES_NOT_READY" });
+      }
+      throw err;
+    }
+
+    // Aggregate notification for story owner — one per story, bumped on each like
+    if (!isOwner) {
+      try {
+        const existing = await prisma.notification.findFirst({
+          where: {
+            userId: story.userId,
+            type: "STORY_LIKE",
+            readAt: null,
+            data: { path: ["storyId"], equals: storyId } as any,
+          },
+          orderBy: { createdAt: "desc" },
+        });
+
+        const newCount = likeCount;
+        const payload = {
+          storyId,
+          count: newCount,
+          title: "❤️ Nuevo like en tu historia",
+          body:
+            newCount === 1
+              ? "Alguien reaccionó a tu historia"
+              : `${newCount} personas han reaccionado a tu historia`,
+          url: "/dashboard/stories",
+          tag: `story-like-${storyId}`,
+        };
+
+        if (existing) {
+          // Refresh existing notification so it bubbles to the top with the new count.
+          // Delete + create lets the Prisma middleware emit SSE + push naturally.
+          // deleteMany is idempotent — safe against concurrent like races.
+          await prisma.notification.deleteMany({ where: { id: existing.id } });
+        }
+        await prisma.notification.create({
+          data: {
+            userId: story.userId,
+            type: "STORY_LIKE",
+            data: payload,
+          },
+        });
+      } catch (err) {
+        console.error("[stories/like] notification aggregation failed:", (err as Error)?.message);
+      }
+    }
+
+    return res.json({ liked, likeCount });
   }),
 );
 
