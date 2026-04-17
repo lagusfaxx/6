@@ -297,6 +297,11 @@ export default function CreatorProfilePage() {
     return true;
   });
 
+  const visibleMediaFor = (post: Post) => {
+    if (tab === "premium") return post.media.filter((m) => m.visibility === "PREMIUM");
+    return post.media;
+  };
+
   const premiumCount = posts.filter((p) => p.visibility === "PREMIUM").length;
   const freeCount = posts.filter((p) => p.visibility === "FREE").length;
 
@@ -449,21 +454,25 @@ export default function CreatorProfilePage() {
               )}
 
               {/* Media */}
-              {post.media.length > 0 && (
-                <ProtectedMedia
-                  enabled={!post.isBlurred && post.visibility === "PREMIUM"}
-                  viewerUsername={me?.user?.username}
-                >
-                  <div className="relative">
-                    <MediaCarousel media={post.media} onUnlock={handleSubscribeClick} />
-                    {post.visibility === "PREMIUM" && !post.isBlurred && (
-                      <span className="absolute right-3 top-3 z-10 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 backdrop-blur-sm">
-                        Premium
-                      </span>
-                    )}
-                  </div>
-                </ProtectedMedia>
-              )}
+              {(() => {
+                const media = visibleMediaFor(post);
+                if (media.length === 0) return null;
+                return (
+                  <ProtectedMedia
+                    enabled={!post.isBlurred && post.visibility === "PREMIUM"}
+                    viewerUsername={me?.user?.username}
+                  >
+                    <div className="relative">
+                      <MediaCarousel media={media} onUnlock={handleSubscribeClick} />
+                      {post.visibility === "PREMIUM" && !post.isBlurred && (
+                        <span className="absolute right-3 top-3 z-10 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 backdrop-blur-sm">
+                          Premium
+                        </span>
+                      )}
+                    </div>
+                  </ProtectedMedia>
+                );
+              })()}
 
               {/* Actions */}
               <div className="flex items-center gap-2 sm:gap-4 px-4 py-3">
