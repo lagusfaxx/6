@@ -206,8 +206,8 @@ export default function OnboardingPage() {
         <div className="mx-auto max-w-xs space-y-3 text-left">
           {[
             "Publica fotos y videos gratis o premium",
-            "Los suscriptores pagan un plan mensual",
-            "Recibes $5.000 CLP por cada suscripción",
+            "Tú defines el precio mensual de tu suscripción",
+            "Recibes el pago de cada suscripción, menos la comisión",
             "Retira tus ganancias cuando quieras",
           ].map((text) => (
             <div key={text} className="flex items-start gap-3 text-xs text-white/40">
