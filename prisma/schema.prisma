@@ -91,6 +91,7 @@ enum NotificationType {
   UMATE_NEW_SUBSCRIBER
   ADMIN_EVENT
   TRANSFER_REJECTED
+  STORY_LIKE
 }
 
 enum PaymentIntentPurpose {
@@ -475,6 +476,7 @@ model User {
   motelPromotions         MotelPromotion[] @relation("MotelPromotions")
   pushSubscriptions      PushSubscription[]
   stories                Story[]
+  storyLikes             StoryLike[]
   forumThreads           ForumThread[]
   forumPosts             ForumPost[]
   wallet                 Wallet?
@@ -917,11 +919,29 @@ model Story {
   mediaType MediaType @default(IMAGE)
   expiresAt DateTime
   createdAt DateTime  @default(now())
+  likeCount Int       @default(0)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes StoryLike[]
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model StoryLike {
+  id          String   @id @default(uuid()) @db.Uuid
+  storyId     String   @db.Uuid
+  userId      String?  @db.Uuid
+  anonymousId String?
+  createdAt   DateTime @default(now())
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, userId])
+  @@unique([storyId, anonymousId])
+  @@index([storyId])
+  @@index([userId])
 }
 
 enum BannerAdTier {
