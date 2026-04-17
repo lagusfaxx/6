@@ -351,7 +351,12 @@ export default function DashboardServicesClient() {
           contexts.find((c) => c.id.includes("neighborhood"))?.text ||
           contexts.find((c) => c.id.includes("locality"))?.text ||
           contexts.find((c) => c.id.includes("place"))?.text ||
-          "";
+          (Array.isArray(feature.place_type) &&
+            feature.place_type.some((t: string) =>
+              ["place", "locality", "neighborhood"].includes(t),
+            )
+            ? feature.text || ""
+            : "");
         setMany({
           serviceLongitude: String(feature.center[0]),
           serviceLatitude: String(feature.center[1]),
@@ -411,7 +416,12 @@ export default function DashboardServicesClient() {
           contexts.find((c) => c.id.includes("neighborhood"))?.text ||
           contexts.find((c) => c.id.includes("locality"))?.text ||
           contexts.find((c) => c.id.includes("place"))?.text ||
-          "";
+          (Array.isArray(feature.place_type) &&
+            feature.place_type.some((t: string) =>
+              ["place", "locality", "neighborhood"].includes(t),
+            )
+            ? feature.text || ""
+            : "");
         setMany({
           profileLongitude: String(feature.center[0]),
           profileLatitude: String(feature.center[1]),

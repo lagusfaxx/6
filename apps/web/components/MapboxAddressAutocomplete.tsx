@@ -22,12 +22,24 @@ type Props = {
 
 function extractCity(
   context: Array<{ id?: string; text?: string }> | undefined,
+  feature?: { place_type?: string[]; text?: string },
 ) {
-  if (!Array.isArray(context)) return null;
-  const place = context.find((item) =>
-    String(item.id || "").startsWith("place."),
-  );
-  return place?.text ? String(place.text) : null;
+  if (Array.isArray(context)) {
+    const match =
+      context.find((item) => String(item.id || "").startsWith("neighborhood.")) ||
+      context.find((item) => String(item.id || "").startsWith("locality.")) ||
+      context.find((item) => String(item.id || "").startsWith("place."));
+    if (match?.text) return String(match.text);
+  }
+  if (
+    feature?.text &&
+    feature.place_type?.some((t: string) =>
+      ["place", "locality", "neighborhood"].includes(t),
+    )
+  ) {
+    return feature.text;
+  }
+  return null;
 }
 
 export default function MapboxAddressAutocomplete({
@@ -75,7 +87,7 @@ export default function MapboxAddressAutocomplete({
               placeName: String(feature.place_name || ""),
               longitude: Number(feature.center[0]),
               latitude: Number(feature.center[1]),
-              city: extractCity(feature.context),
+              city: extractCity(feature.context, feature),
             } satisfies Suggestion;
           })
           .filter(Boolean);

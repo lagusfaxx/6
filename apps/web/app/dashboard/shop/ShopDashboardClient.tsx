@@ -228,7 +228,12 @@ export default function ShopDashboardClient() {
         contexts.find((c) => c.id.includes("neighborhood"))?.text ||
         contexts.find((c) => c.id.includes("locality"))?.text ||
         contexts.find((c) => c.id.includes("place"))?.text ||
-        "";
+        (Array.isArray(feature.place_type) &&
+          feature.place_type.some((t: string) =>
+            ["place", "locality", "neighborhood"].includes(t),
+          )
+          ? feature.text || ""
+          : "");
       setLongitude(String(feature.center[0]));
       setLatitude(String(feature.center[1]));
       setAddress(feature.place_name || q);
