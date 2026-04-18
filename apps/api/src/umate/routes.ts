@@ -392,7 +392,9 @@ umateRouter.get("/umate/creators", asyncHandler(async (req, res) => {
   if (q) {
     where.displayName = { contains: q, mode: "insensitive" };
   }
-  if (genderFilter) {
+  if (genderFilter === "FEMALE") {
+    where.user = { OR: [{ gender: "FEMALE" }, { gender: null }] };
+  } else if (genderFilter) {
     where.user = { gender: genderFilter };
   }
 

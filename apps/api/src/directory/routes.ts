@@ -441,7 +441,11 @@ directoryRouter.get(
         profileType: "PROFESSIONAL",
         avatarUrl: { not: null },
         isVerified: true,
-        ...(genderFilter ? { gender: genderFilter } : {}),
+        ...(genderFilter === "FEMALE"
+          ? { OR: [{ gender: "FEMALE" }, { gender: null }] }
+          : genderFilter
+            ? { gender: genderFilter }
+            : {}),
         // DEV: subscription filter removed during development
       },
       take: 120,

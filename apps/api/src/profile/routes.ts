@@ -125,7 +125,11 @@ profileRouter.get(
       where: {
         profileType: "PROFESSIONAL",
         isActive: true,
-        ...(genderFilter ? { gender: genderFilter } : {}),
+        ...(genderFilter === "FEMALE"
+          ? { OR: [{ gender: "FEMALE" }, { gender: null }] }
+          : genderFilter
+            ? { gender: genderFilter }
+            : {}),
       },
       orderBy: { createdAt: "desc" },
       take: Math.max(limit * 3, 48),
