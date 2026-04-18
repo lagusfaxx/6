@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { ChevronLeft, ShieldCheck } from "lucide-react";
+import LegalDocViewer from "../_components/LegalDocViewer";
+import { RULES_SECTIONS, RULES_VERSION } from "../../../lib/umate-legal";
 
 export default function RulesPage() {
   return (
-    <div className="mx-auto max-w-2xl py-8 space-y-6">
-      <Link href="/umate/account" className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white/60 transition">
+    <div className="mx-auto max-w-2xl px-4 py-8 space-y-6">
+      <Link
+        href="/umate/account"
+        className="inline-flex items-center gap-1.5 text-xs text-white/40 transition hover:text-white/60"
+      >
         <ChevronLeft className="h-3.5 w-3.5" /> Volver
       </Link>
 
@@ -14,32 +19,27 @@ export default function RulesPage() {
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00aff0]/10">
           <ShieldCheck className="h-5 w-5 text-[#00aff0]" />
         </div>
-        <h1 className="text-xl font-extrabold tracking-tight">Reglas de U-Mate</h1>
+        <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+          Reglas de U-Mate
+        </h1>
       </div>
 
-      <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-7 space-y-6 text-sm text-white/45 leading-relaxed">
-        {[
-          { title: "1. Contenido permitido", text: "Las creadoras pueden publicar fotos, videos y textos originales. Todo el contenido debe ser propio o contar con autorización expresa." },
-          { title: "2. Contenido prohibido", text: "Está prohibido el contenido que involucre menores de edad, violencia extrema, explotación, o cualquier material que viole la legislación chilena." },
-          { title: "3. Verificación de identidad", text: "Las creadoras deben ser mayores de 18 años y pueden ser requeridas a verificar su identidad antes de activar su cuenta." },
-          { title: "4. Comportamiento", text: "Se espera un trato respetuoso entre creadoras y suscriptores. El acoso, spam o comportamiento abusivo resultará en suspensión de la cuenta." },
-          { title: "5. Propiedad intelectual", text: "Las creadoras mantienen la propiedad de su contenido. U-Mate obtiene licencia para mostrar y distribuir el contenido dentro de la plataforma." },
-          { title: "6. Suspensión", text: "U-Mate se reserva el derecho de suspender o eliminar cuentas que infrinjan estas reglas, sin previo aviso en casos graves." },
-        ].map((section) => (
-          <section key={section.title}>
-            <h2 className="text-white font-bold mb-2">{section.title}</h2>
-            <p>{section.text}</p>
-          </section>
-        ))}
+      <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] p-5 sm:p-7">
+        <LegalDocViewer sections={RULES_SECTIONS} version={RULES_VERSION} />
       </div>
 
-      <div className="rounded-2xl border border-[#00aff0]/15 bg-[#00aff0]/[0.04] p-5 text-center space-y-3">
-        <p className="text-sm text-white/50">¿Necesitas aceptar las reglas para activar tu cuenta de creadora?</p>
+      <div className="flex flex-wrap gap-2">
         <Link
-          href="/umate/onboarding"
-          className="inline-flex items-center gap-2 rounded-full bg-[#00aff0] px-6 py-2.5 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.2)] transition hover:bg-[#00aff0]/90"
+          href="/umate/terms"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.06] px-3 py-2 text-xs font-medium text-white/50 transition hover:border-white/[0.12] hover:text-white/70"
         >
-          Ir al onboarding <ChevronLeft className="h-3.5 w-3.5 rotate-180" />
+          Términos y condiciones
+        </Link>
+        <Link
+          href="/umate/contrato"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.06] px-3 py-2 text-xs font-medium text-white/50 transition hover:border-white/[0.12] hover:text-white/70"
+        >
+          Contrato de prestación de servicios
         </Link>
       </div>
     </div>

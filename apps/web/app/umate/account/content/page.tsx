@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { apiFetch, getApiBase, resolveMediaUrl } from "../../../../lib/api";
+import { ATTESTATION_TEXT, ATTESTATION_VERSION } from "../../../../lib/umate-legal";
 
 type Post = {
   id: string;
@@ -57,6 +58,7 @@ export default function ContentPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [publishError, setPublishError] = useState("");
   const [creatorStatus, setCreatorStatus] = useState<CreatorStatus | null>(null);
+  const [attestationAccepted, setAttestationAccepted] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -129,17 +131,26 @@ export default function ContentPage() {
     setFileVisibilities([]);
     setCaption("");
     setPublishError("");
+    setAttestationAccepted(false);
     if (fileRef.current) fileRef.current.value = "";
   };
 
   const handlePublish = async () => {
     if (!files.length) return;
+    if (!attestationAccepted) {
+      setPublishError(
+        "Debes confirmar la declaración de autoría antes de publicar.",
+      );
+      return;
+    }
     setUploading(true);
     setPublishError("");
     try {
       const form = new FormData();
       files.forEach((file) => form.append("files", file));
       form.append("caption", caption);
+      form.append("attestation", "true");
+      form.append("attestationVersion", ATTESTATION_VERSION);
       const anyPremium = fileVisibilities.some((v) => v === "PREMIUM");
       form.append("visibility", anyPremium ? "PREMIUM" : "FREE");
       form.append("mediaVisibility", JSON.stringify(fileVisibilities));
@@ -391,6 +402,25 @@ export default function ContentPage() {
             className="mt-4 w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.03] p-3.5 text-sm text-white placeholder-white/25 outline-none transition focus:border-[#00aff0]/40"
           />
 
+          {/* Authorship attestation — legally required for each publication */}
+          <label
+            className={`mt-4 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition ${
+              attestationAccepted
+                ? "border-emerald-500/30 bg-emerald-500/[0.05]"
+                : "border-amber-500/25 bg-amber-500/[0.04]"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={attestationAccepted}
+              onChange={(e) => setAttestationAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[#00aff0]"
+            />
+            <span className="text-[11px] leading-relaxed text-white/70">
+              {ATTESTATION_TEXT}
+            </span>
+          </label>
+
           {publishError && (
             <p className="mt-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2 text-xs text-red-300">
               {publishError}
@@ -399,7 +429,7 @@ export default function ContentPage() {
 
           <button
             onClick={handlePublish}
-            disabled={uploading || !files.length}
+            disabled={uploading || !files.length || !attestationAccepted}
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-3 text-sm font-bold text-white shadow-[0_4px_20px_rgba(0,175,240,0.3)] transition disabled:opacity-40 sm:w-auto"
           >
             {uploading ? (
