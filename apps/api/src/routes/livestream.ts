@@ -173,7 +173,11 @@ livestreamRouter.get("/live/active", async (req, res) => {
     const streams = await prisma.liveStream.findMany({
       where: {
         isActive: true,
-        ...(genderFilter ? { host: { gender: genderFilter } } : {}),
+        ...(genderFilter === "FEMALE"
+          ? { host: { OR: [{ gender: "FEMALE" }, { gender: null }] } }
+          : genderFilter
+            ? { host: { gender: genderFilter } }
+            : {}),
       },
       orderBy: { startedAt: "desc" },
       select: {

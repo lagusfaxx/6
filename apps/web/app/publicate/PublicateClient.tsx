@@ -43,6 +43,7 @@ const SERVICE_TAGS = [
 type WizardData = {
   // Step 1 — Perfil + Fotos
   displayName: string;
+  gender: "FEMALE" | "MALE" | "OTHER";
   primaryCategory: string;
   bio: string;
   galleryFiles: File[];
@@ -67,6 +68,7 @@ type WizardData = {
 
 const INITIAL_DATA: WizardData = {
   displayName: "",
+  gender: "FEMALE",
   primaryCategory: "",
   bio: "",
   galleryFiles: [],
@@ -167,6 +169,7 @@ export default function PublicateClient() {
     try {
       const fd = new FormData();
       fd.append("displayName", data.displayName.trim());
+      fd.append("gender", data.gender);
       fd.append("primaryCategory", data.primaryCategory);
       fd.append("address", data.address);
       fd.append("latitude", String(data.latitude));
@@ -271,6 +274,34 @@ export default function PublicateClient() {
           <div>
             <label className={labelClass}>Nombre artístico *</label>
             <input type="text" className={inputClass} placeholder="Ej: Valentina" maxLength={50} value={data.displayName} onChange={(e) => update({ displayName: e.target.value })} />
+          </div>
+
+          {/* Gender */}
+          <div>
+            <label className={labelClass}>Género *</label>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { value: "FEMALE", label: "Mujer" },
+                { value: "MALE", label: "Hombre" },
+                { value: "OTHER", label: "Trans" },
+              ] as const).map((g) => {
+                const active = data.gender === g.value;
+                return (
+                  <button
+                    key={g.value}
+                    type="button"
+                    onClick={() => update({ gender: g.value })}
+                    className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${
+                      active
+                        ? "border-fuchsia-500/50 bg-fuchsia-500/15 text-fuchsia-200 shadow-[0_0_12px_rgba(217,70,239,0.15)]"
+                        : "border-white/10 text-white/50 hover:border-white/20 hover:text-white/70"
+                    }`}
+                  >
+                    {g.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Category */}

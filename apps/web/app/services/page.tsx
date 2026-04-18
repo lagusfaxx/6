@@ -624,7 +624,13 @@ export default function ServicesPage() {
           if (category === "sexshop" && profile.profileType !== "SHOP") return false;
           if (category !== "moteles" && category !== "sexshop" && !matchesProfessionalCategory(profile, category)) return false;
         }
-        if (activeGenderValue && profile.gender !== activeGenderValue) return false;
+        if (activeGenderValue) {
+          if (activeGenderValue === "FEMALE") {
+            if (profile.gender != null && profile.gender !== "FEMALE") return false;
+          } else if (profile.gender !== activeGenderValue) {
+            return false;
+          }
+        }
         if (q) {
           const text = `${profile.displayName || ""} ${profile.username || ""} ${profile.serviceCategory || ""} ${profile.city || ""}`.toLowerCase();
           if (!text.includes(q)) return false;
