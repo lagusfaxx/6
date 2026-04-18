@@ -529,7 +529,7 @@ export default function ServicesPage() {
   const [sortBy, setSortBy] = useState<string>("relevance");
   const [previewProfile, setPreviewProfile] = useState<ProfileResult | null>(null);
   const [activeQuickFilters, setActiveQuickFilters] = useState<Set<string>>(new Set());
-  const [genderFilter, setGenderFilter] = useState<string | null>("mujeres");
+  const [genderFilter, setGenderFilter] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(true);
   const fetchRef = useRef(0);
 
