@@ -7,10 +7,7 @@ import {
   ArrowUpRight,
   CheckCircle,
   Clock,
-  DollarSign,
   Loader2,
-  Receipt,
-  TrendingUp,
   XCircle,
 } from "lucide-react";
 import { apiFetch } from "../../../../lib/api";
@@ -75,7 +72,6 @@ export default function WalletPage() {
             ...stats.ledger,
           ],
         });
-        // Reload withdrawals
         const w = await apiFetch<{ withdrawals: Withdrawal[] }>("/umate/creator/withdrawals").catch(() => null);
         if (w?.withdrawals) setWithdrawals(w.withdrawals);
       }
@@ -87,141 +83,125 @@ export default function WalletPage() {
   if (!stats) return <div className="py-24 text-center text-white/40">No eres creadora aún.</div>;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-white">Ingresos</h1>
         <p className="mt-1 text-sm text-white/30">Balance, retiros y movimientos.</p>
       </div>
 
-      {/* Balance cards */}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-4">
-          <DollarSign className="h-4 w-4 text-emerald-400" />
-          <p className="mt-2 text-2xl font-extrabold text-emerald-400">${stats.availableBalance.toLocaleString("es-CL")}</p>
-          <p className="text-xs text-white/45">Disponible</p>
+      {/* Hero: Available balance + withdraw action */}
+      <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.08] to-emerald-500/[0.01] p-5 sm:p-6">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-400/80">Disponible para retirar</p>
+        <p className="mt-2 text-4xl font-extrabold tracking-tight text-emerald-400 sm:text-5xl">
+          ${stats.availableBalance.toLocaleString("es-CL")}
+        </p>
+        <p className="mt-1 text-xs text-white/40">Neto, ya descontado IVA y comisión.</p>
+        <button
+          onClick={handleWithdraw}
+          disabled={withdrawing || stats.availableBalance <= 0}
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-500/90 disabled:opacity-40 sm:w-auto"
+        >
+          {withdrawing ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ArrowDown className="h-4 w-4" /> Solicitar retiro</>}
+        </button>
+      </div>
+
+      {/* Secondary stats */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-white/[0.05] bg-white/[0.015] px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Clock className="h-3.5 w-3.5 text-amber-400/80" />
+            <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">Retenido</p>
+          </div>
+          <p className="mt-1 text-xl font-bold text-white">${stats.pendingBalance.toLocaleString("es-CL")}</p>
         </div>
-        <div className="rounded-2xl border border-amber-500/15 bg-amber-500/[0.04] p-4">
-          <Clock className="h-4 w-4 text-amber-400" />
-          <p className="mt-2 text-2xl font-extrabold text-amber-400">${stats.pendingBalance.toLocaleString("es-CL")}</p>
-          <p className="text-xs text-white/45">Retenido</p>
-        </div>
-        <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-4">
-          <TrendingUp className="h-4 w-4 text-white/40" />
-          <p className="mt-2 text-2xl font-extrabold text-white">${stats.totalEarned.toLocaleString("es-CL")}</p>
-          <p className="text-xs text-white/45">Total histórico</p>
-        </div>
-        <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-4">
-          <Receipt className="h-4 w-4 text-white/40" />
-          <p className="mt-2 text-2xl font-extrabold text-white">{withdrawals.length}</p>
-          <p className="text-xs text-white/45">Retiros</p>
+        <div className="rounded-xl border border-white/[0.05] bg-white/[0.015] px-4 py-3">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">Total histórico</p>
+          <p className="mt-1 text-xl font-bold text-white">${stats.totalEarned.toLocaleString("es-CL")}</p>
         </div>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-[1fr_300px]">
-        {/* Ledger */}
-        <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Movimientos</h2>
-            <span className="text-[11px] text-white/40">{stats.ledger.length} registros</span>
-          </div>
-
-          {stats.ledger.length === 0 && (
-            <p className="mt-6 text-center text-sm text-white/45">Sin movimientos aún.</p>
-          )}
-
-          <div className="mt-4 space-y-1">
+      {/* Movimientos */}
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-white/50">Movimientos</h2>
+          <span className="text-[11px] text-white/35">{stats.ledger.length} registros</span>
+        </div>
+        {stats.ledger.length === 0 ? (
+          <p className="rounded-xl border border-white/[0.04] bg-white/[0.015] py-8 text-center text-sm text-white/40">Sin movimientos aún.</p>
+        ) : (
+          <div className="divide-y divide-white/[0.04] overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.015]">
             {stats.ledger.map((entry) => (
-              <div key={entry.id} className="rounded-lg border border-white/[0.03] p-3 transition hover:bg-white/[0.015]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+              <div key={entry.id} className="px-4 py-3 transition hover:bg-white/[0.02]">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     {entry.creatorPayout >= 0 ? (
-                      <ArrowUpRight className="h-4 w-4 text-emerald-400" />
+                      <ArrowUpRight className="h-4 w-4 shrink-0 text-emerald-400" />
                     ) : (
-                      <ArrowDownRight className="h-4 w-4 text-red-400" />
+                      <ArrowDownRight className="h-4 w-4 shrink-0 text-red-400" />
                     )}
-                    <div>
-                      <p className="text-sm font-medium text-white/60">{entry.description || entry.type}</p>
-                      <p className="text-[11px] text-white/45">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white/75">{entry.description || entry.type}</p>
+                      <p className="text-[11px] text-white/40">{new Date(entry.createdAt).toLocaleDateString("es-CL")}</p>
                     </div>
                   </div>
-                  <span className={`text-sm font-semibold ${entry.creatorPayout >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  <span className={`shrink-0 text-sm font-semibold ${entry.creatorPayout >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                     {entry.creatorPayout >= 0 ? "+" : "-"}${Math.abs(entry.creatorPayout).toLocaleString("es-CL")}
                   </span>
                 </div>
-                {entry.type === "SLOT_ACTIVATION" && entry.grossAmount > 0 && (
-                  <div className="mt-2 ml-7 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-white/30">
-                    <span>Bruto: ${entry.grossAmount.toLocaleString("es-CL")}</span>
-                    {entry.ivaAmount > 0 && <span>IVA: -${entry.ivaAmount.toLocaleString("es-CL")}</span>}
-                    {entry.platformFee > 0 && <span>Comisión: -${entry.platformFee.toLocaleString("es-CL")}</span>}
-                  </div>
-                )}
               </div>
             ))}
           </div>
-        </div>
+        )}
+      </section>
 
-        {/* Sidebar */}
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-400/70">Solicitar retiro</h2>
-            <p className="mt-1 text-[11px] text-white/35">El monto ya tiene descontado IVA y comisiones.</p>
-            <p className="mt-2 text-2xl font-extrabold text-emerald-400">${stats.availableBalance.toLocaleString("es-CL")}</p>
-            <p className="text-[11px] text-white/35">Neto a recibir en tu cuenta</p>
-            <button
-              onClick={handleWithdraw}
-              disabled={withdrawing || stats.availableBalance <= 0}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-500/90 disabled:opacity-40"
-            >
-              {withdrawing ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ArrowDown className="h-4 w-4" /> Retirar</>}
-            </button>
-          </div>
-
-          <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Desglose total</h2>
-            <p className="mt-1 text-[11px] text-white/25">Acumulado de todas tus ganancias</p>
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center justify-between rounded-lg bg-white/[0.03] p-2.5 text-sm">
-                <span className="text-white/50">Ingreso bruto</span>
-                <span className="font-semibold text-white">${totals.gross.toLocaleString("es-CL")}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg bg-red-500/[0.06] p-2.5 text-sm">
-                <span className="text-red-400/70">IVA (19%)</span>
-                <span className="font-semibold text-red-400">-${totals.iva.toLocaleString("es-CL")}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg bg-red-500/[0.06] p-2.5 text-sm">
-                <span className="text-red-400/70">Comisión plataforma</span>
-                <span className="font-semibold text-red-400">-${totals.commission.toLocaleString("es-CL")}</span>
-              </div>
-              <div className="h-px bg-white/[0.06]" />
-              <div className="flex items-center justify-between rounded-lg bg-emerald-500/[0.06] p-2.5 text-sm">
-                <span className="text-emerald-400/70">Neto ganado</span>
-                <span className="font-semibold text-emerald-400">${totals.income.toLocaleString("es-CL")}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-white/40">Historial de retiros</h2>
-            {withdrawals.length === 0 && <p className="mt-3 text-xs text-white/45">Sin retiros aún.</p>}
-            <div className="mt-3 space-y-1.5">
-              {withdrawals.map((w) => (
-                <div key={w.id} className="flex items-center justify-between rounded-lg border border-white/[0.03] p-2.5">
-                  <div className="flex items-center gap-2">
-                    {w.status === "APPROVED" && <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />}
-                    {w.status === "PENDING" && <Clock className="h-3.5 w-3.5 text-amber-400" />}
-                    {w.status === "REJECTED" && <XCircle className="h-3.5 w-3.5 text-red-400" />}
-                    <div>
-                      <p className="text-sm font-medium text-white/60">${w.amount.toLocaleString("es-CL")}</p>
-                      <p className="text-[11px] text-white/40">{w.bankName}</p>
-                    </div>
+      {/* Historial de retiros */}
+      <section>
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-white/50">Historial de retiros</h2>
+        {withdrawals.length === 0 ? (
+          <p className="rounded-xl border border-white/[0.04] bg-white/[0.015] py-6 text-center text-sm text-white/40">Sin retiros aún.</p>
+        ) : (
+          <div className="divide-y divide-white/[0.04] overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.015]">
+            {withdrawals.map((w) => (
+              <div key={w.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  {w.status === "APPROVED" && <CheckCircle className="h-4 w-4 shrink-0 text-emerald-400" />}
+                  {w.status === "PENDING" && <Clock className="h-4 w-4 shrink-0 text-amber-400" />}
+                  {w.status === "REJECTED" && <XCircle className="h-4 w-4 shrink-0 text-red-400" />}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white/75">${w.amount.toLocaleString("es-CL")}</p>
+                    <p className="truncate text-[11px] text-white/40">{w.bankName}</p>
                   </div>
-                  <span className="text-[11px] text-white/40">{new Date(w.createdAt).toLocaleDateString("es-CL")}</span>
                 </div>
-              ))}
-            </div>
+                <span className="shrink-0 text-[11px] text-white/40">{new Date(w.createdAt).toLocaleDateString("es-CL")}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Desglose total */}
+      <section>
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-white/50">Desglose total</h2>
+        <div className="space-y-1.5 rounded-xl border border-white/[0.05] bg-white/[0.015] p-4">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-white/50">Ingreso bruto</span>
+            <span className="font-semibold text-white">${totals.gross.toLocaleString("es-CL")}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-white/50">IVA (19%)</span>
+            <span className="font-semibold text-red-400">-${totals.iva.toLocaleString("es-CL")}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-white/50">Comisión plataforma</span>
+            <span className="font-semibold text-red-400">-${totals.commission.toLocaleString("es-CL")}</span>
+          </div>
+          <div className="my-1 h-px bg-white/[0.06]" />
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-semibold text-emerald-400/80">Neto ganado</span>
+            <span className="font-bold text-emerald-400">${totals.income.toLocaleString("es-CL")}</span>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
