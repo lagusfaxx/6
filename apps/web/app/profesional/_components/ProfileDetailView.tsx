@@ -321,6 +321,16 @@ export default function ProfileDetailView({
       .catch(() => setHasVideocall(false));
   }, [professional?.id]);
 
+  // Lock body scroll while survey modal is open
+  useEffect(() => {
+    if (!showSurveyModal) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [showSurveyModal]);
+
   useEffect(() => {
     setGalleryIndex(0);
     if (!professional?.id) return;
@@ -1421,7 +1431,7 @@ export default function ProfileDetailView({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 20, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-[#1a0e28]/95 p-6 shadow-2xl"
+              className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-[#1a0e28]/95 p-6 shadow-2xl"
             >
               {surveySuccess ? (
                 <div className="text-center py-6">
