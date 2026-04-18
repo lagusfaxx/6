@@ -529,7 +529,7 @@ export default function ServicesPage() {
   const [sortBy, setSortBy] = useState<string>("relevance");
   const [previewProfile, setPreviewProfile] = useState<ProfileResult | null>(null);
   const [activeQuickFilters, setActiveQuickFilters] = useState<Set<string>>(new Set());
-  const [genderFilter, setGenderFilter] = useState<string | null>(null);
+  const [genderFilter, setGenderFilter] = useState<string | null>("mujeres");
   const [showMap, setShowMap] = useState(true);
   const fetchRef = useRef(0);
 
@@ -562,6 +562,10 @@ export default function ServicesPage() {
     if (query.get("radiusKm")) setRadiusKm(Number(query.get("radiusKm")) || INITIAL_RADIUS_KM);
     if (query.get("category")) setCategory(query.get("category") || "all");
     if (query.get("sort")) setSortBy(query.get("sort") || "relevance");
+    if (query.has("gender")) {
+      const g = (query.get("gender") || "").toLowerCase();
+      setGenderFilter(GENDER_FILTERS.some((f) => f.key === g) ? g : null);
+    }
   }, []);
 
   useEffect(() => {

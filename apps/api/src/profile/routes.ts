@@ -109,6 +109,12 @@ profileRouter.get(
         : 24;
     const lat = req.query.lat != null ? Number(req.query.lat) : null;
     const lng = req.query.lng != null ? Number(req.query.lng) : null;
+    const genderParam =
+      typeof req.query.gender === "string" ? req.query.gender.toUpperCase() : "";
+    const genderFilter =
+      genderParam === "MALE" || genderParam === "FEMALE" || genderParam === "OTHER"
+        ? (genderParam as "MALE" | "FEMALE" | "OTHER")
+        : null;
 
     // Fallback: if sort=near but no location provided, use availableNow instead
     if (sort === "near" && (lat === null || lng === null)) {
@@ -119,6 +125,7 @@ profileRouter.get(
       where: {
         profileType: "PROFESSIONAL",
         isActive: true,
+        ...(genderFilter ? { gender: genderFilter } : {}),
       },
       orderBy: { createdAt: "desc" },
       take: Math.max(limit * 3, 48),

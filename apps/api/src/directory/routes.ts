@@ -429,12 +429,19 @@ directoryRouter.get(
     const limit = Math.max(1, Math.min(12, Number(req.query.limit || 6)));
     const lat = req.query.lat ? Number(req.query.lat) : null;
     const lng = req.query.lng ? Number(req.query.lng) : null;
+    const genderParam =
+      typeof req.query.gender === "string" ? req.query.gender.toUpperCase() : "";
+    const genderFilter =
+      genderParam === "MALE" || genderParam === "FEMALE" || genderParam === "OTHER"
+        ? (genderParam as "MALE" | "FEMALE" | "OTHER")
+        : null;
 
     const users = await prisma.user.findMany({
       where: {
         profileType: "PROFESSIONAL",
         avatarUrl: { not: null },
         isVerified: true,
+        ...(genderFilter ? { gender: genderFilter } : {}),
         // DEV: subscription filter removed during development
       },
       take: 120,
