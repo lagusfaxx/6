@@ -161,10 +161,20 @@ livestreamRouter.post("/live/:id/end", requireAuth, async (req, res) => {
 });
 
 // ── GET /live/active — list active streams ──
-livestreamRouter.get("/live/active", async (_req, res) => {
+livestreamRouter.get("/live/active", async (req, res) => {
   try {
+    const genderParam =
+      typeof req.query.gender === "string" ? req.query.gender.toUpperCase() : "";
+    const genderFilter =
+      genderParam === "MALE" || genderParam === "FEMALE" || genderParam === "OTHER"
+        ? (genderParam as "MALE" | "FEMALE" | "OTHER")
+        : null;
+
     const streams = await prisma.liveStream.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(genderFilter ? { host: { gender: genderFilter } } : {}),
+      },
       orderBy: { startedAt: "desc" },
       select: {
         id: true,

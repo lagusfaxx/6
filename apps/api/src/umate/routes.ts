@@ -381,9 +381,19 @@ umateRouter.get("/umate/creators", asyncHandler(async (req, res) => {
   const offset = parseInt(String(req.query.offset || "0"), 10) || 0;
   const q = (req.query.q as string || "").trim();
 
+  const genderParam =
+    typeof req.query.gender === "string" ? req.query.gender.toUpperCase() : "";
+  const genderFilter =
+    genderParam === "MALE" || genderParam === "FEMALE" || genderParam === "OTHER"
+      ? (genderParam as "MALE" | "FEMALE" | "OTHER")
+      : null;
+
   const where: any = { status: "ACTIVE" };
   if (q) {
     where.displayName = { contains: q, mode: "insensitive" };
+  }
+  if (genderFilter) {
+    where.user = { gender: genderFilter };
   }
 
   const creators = await prisma.umateCreator.findMany({

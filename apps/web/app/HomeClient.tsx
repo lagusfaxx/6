@@ -504,6 +504,7 @@ export default function HomeClient() {
       params.set("lng", String(location[1]));
     }
     params.set("limit", "30");
+    params.set("gender", "FEMALE");
     const query = params.toString();
 
     const controller = new AbortController();
@@ -573,6 +574,7 @@ export default function HomeClient() {
             qp.set("lat", String(location[0]));
             qp.set("lng", String(location[1]));
           }
+          qp.set("gender", "FEMALE");
           const res = await apiFetch<{ profiles: DiscoverProfile[] }>(
             `/profiles/discover?${qp.toString()}`,
             { signal: controller.signal },
@@ -604,10 +606,10 @@ export default function HomeClient() {
     // Defer 2s so above-the-fold images load first
     const timer = setTimeout(() => {
       if (controller.signal.aborted) return;
-      apiFetch<{ creators: UmateCreatorCard[] }>("/umate/creators?limit=12", { signal: controller.signal })
+      apiFetch<{ creators: UmateCreatorCard[] }>("/umate/creators?limit=12&gender=FEMALE", { signal: controller.signal })
         .then((r) => setUmateCreators(r?.creators ?? []))
         .catch(() => {});
-      apiFetch<{ streams: any[] }>("/live/active", { signal: controller.signal })
+      apiFetch<{ streams: any[] }>("/live/active?gender=FEMALE", { signal: controller.signal })
         .then((r) => setLiveStreams(r?.streams ?? []))
         .catch(() => {});
     }, 2000);
