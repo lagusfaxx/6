@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "es_CL",
     url: "https://uzeed.cl",
-    siteName: "UZEED",
+    siteName: "UZEED: Escorts y experiencias únicas para adultos",
     title: "UZEED: Escorts y experiencias únicas para adultos",
     description:
       "Encuentra las mejores escorts, acompañantes y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados y disponibilidad hoy.",
