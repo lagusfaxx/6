@@ -60,7 +60,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     Promise.all([
-      apiFetch<{ creator: Creator | null }>("/umate/creator/me"),
+      apiFetch<{ creator: Creator | null }>("/umate/creator/me").catch(() => null),
       apiFetch<{ active: boolean }>("/umate/subscription/status").catch(() => null),
     ]).then(([d, sub]) => {
       setIsSubscriber(Boolean(sub?.active));

@@ -168,14 +168,12 @@ function ConfirmContent() {
                   : "No pudimos activar tu suscripción. Intenta de nuevo.")}
             </p>
           </div>
-          {creatorId && (
-            <Link
-              href={`/umate/profile/${creatorId}`}
-              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-3 text-sm font-semibold text-white transition"
-            >
-              Intentar de nuevo
-            </Link>
-          )}
+          <Link
+            href="/umate/explore"
+            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-6 py-3 text-sm font-semibold text-white transition"
+          >
+            Volver a explorar
+          </Link>
         </div>
       )}
     </div>

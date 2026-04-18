@@ -129,6 +129,7 @@ export default function ContentPage() {
     setFileVisibilities([]);
     setCaption("");
     setPublishError("");
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   const handlePublish = async () => {
