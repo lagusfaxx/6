@@ -197,10 +197,20 @@ export default function UmateHeader() {
 
       <div className="mx-auto flex h-[56px] max-w-[1170px] items-center justify-between gap-3 px-4">
         {/* Left: Logo + Nav */}
-        <div className="flex items-center gap-4">
-          <Link href="/umate/explore" className="flex shrink-0 items-center gap-2">
-            <img src="/brand/umate-logo.svg" alt="U-Mate" className="h-8 w-auto" />
-          </Link>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2">
+            <Link href="/umate/explore" className="flex shrink-0 items-center gap-2">
+              <img src="/brand/umate-logo.svg" alt="U-Mate" className="h-8 w-auto" />
+            </Link>
+            <Link
+              href="/"
+              title="Volver a UZEED"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#00aff0]/25 bg-[#00aff0]/[0.08] px-2.5 py-1 text-[11px] font-semibold text-[#00aff0] transition hover:border-[#00aff0]/50 hover:bg-[#00aff0]/[0.14]"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              <span className="hidden sm:inline">UZEED</span>
+            </Link>
+          </div>
 
           {/* Desktop nav */}
           <nav className="hidden items-center gap-0.5 md:flex">
@@ -361,13 +371,6 @@ export default function UmateHeader() {
               </Link>
             </div>
           )}
-
-          <Link
-            href="/"
-            className="hidden items-center gap-1 rounded-xl border border-white/[0.06] px-3 py-2 text-[11px] font-medium text-white/35 transition hover:border-white/15 hover:text-white/50 xl:flex"
-          >
-            <ArrowLeft className="h-3 w-3" /> UZEED
-          </Link>
         </div>
       </div>
 
