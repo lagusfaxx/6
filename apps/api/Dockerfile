@@ -48,6 +48,7 @@ COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
 COPY apps/api/scripts/convert-uploads-webp.js /app/apps/api/scripts/convert-uploads-webp.js
 COPY apps/api/scripts/migrate-umate-premium-to-private.js /app/apps/api/scripts/migrate-umate-premium-to-private.js
+COPY apps/api/scripts/import-gallery-to-umate-posts.js /app/apps/api/scripts/import-gallery-to-umate-posts.js
 RUN chmod +x /docker-entrypoint.sh
 EXPOSE 3001
 ENTRYPOINT ["/docker-entrypoint.sh"]
