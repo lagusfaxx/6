@@ -37,6 +37,15 @@ export default function AccountPage() {
     window.location.href = "/login";
   };
 
+  const [isUmateCreator, setIsUmateCreator] = useState(false);
+  useEffect(() => {
+    if (!me?.user) return;
+    apiFetch<{ creator: { status?: string } | null }>("/umate/creator/me")
+      .then((d) => setIsUmateCreator(Boolean(d?.creator && d.creator.status !== "SUSPENDED")))
+      .catch(() => setIsUmateCreator(false));
+  }, [me]);
+  const umateHref = isUmateCreator ? "/umate/explore" : "/umate/onboarding";
+
   const handleSubscribe = () => {
     router.push("/pago");
   };
@@ -95,7 +104,7 @@ export default function AccountPage() {
   }
   quickActions.push(
     { label: "Billetera", description: "Tokens y saldo", href: "/wallet", icon: Wallet, color: "text-amber-400" },
-    { label: "UMate", description: "Crea tu perfil UMate", href: "/umate/onboarding", icon: Sparkles, color: "text-violet-400" },
+    { label: "UMate", description: isUmateCreator ? "Ir a UMate" : "Crea tu perfil UMate", href: umateHref, icon: Sparkles, color: "text-violet-400" },
   );
 
   const showVisibility = isProfessional || profileType === "CREATOR";
@@ -303,7 +312,7 @@ export default function AccountPage() {
                       <Link href="/dashboard/services" className="inline-flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:bg-white/10 transition">
                         <Edit3 className="h-3 w-3" /> Perfil
                       </Link>
-                      <Link href="/umate/onboarding" className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-500/15 to-violet-500/15 border border-violet-500/20 px-2.5 py-1 text-[11px] text-violet-300 transition">
+                      <Link href={umateHref} className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-500/15 to-violet-500/15 border border-violet-500/20 px-2.5 py-1 text-[11px] text-violet-300 transition">
                         <Sparkles className="h-3 w-3" /> UMate
                       </Link>
                     </div>
