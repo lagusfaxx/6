@@ -354,7 +354,7 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
   }
 
   const items = posts.map((post) => {
-    const isSubscribed = viewerIsAdmin || subscribedCreatorIds.has(post.creatorId);
+    const canViewPremium = viewerIsAdmin || subscribedCreatorIds.has(post.creatorId);
     return {
       id: post.id,
       caption: post.caption,
@@ -365,7 +365,7 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
       createdAt: post.createdAt,
       creator: post.creator,
       media: post.media.map((m: any) => {
-        const blurred = m.visibility === "PREMIUM" && !isSubscribed;
+        const blurred = m.visibility === "PREMIUM" && !canViewPremium;
         return {
           ...m,
           url: blurred ? null : m.url,
@@ -373,7 +373,7 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
           isBlurred: blurred,
         };
       }),
-      isBlurred: post.visibility === "PREMIUM" && !isSubscribed,
+      isBlurred: post.visibility === "PREMIUM" && !canViewPremium,
       isLiked: likedPostIds.has(post.id),
     };
   });
@@ -467,7 +467,8 @@ umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
     return res.status(404).json({ error: "NOT_FOUND" });
   }
 
-  const isSubscribed = viewerIsAdmin || (userId ? await isSubscribedToCreator(userId, creator.id) : false);
+  const isSubscribed = userId && !viewerIsAdmin ? await isSubscribedToCreator(userId, creator.id) : false;
+  const canViewPremium = viewerIsAdmin || isSubscribed;
 
   // Get posts
   const posts = await prisma.umatePost.findMany({
@@ -499,7 +500,7 @@ umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
       ...post,
       commentCount: (post as any).commentCount || 0,
       media: post.media.map((m: any) => {
-        const blurred = m.visibility === "PREMIUM" && !isSubscribed;
+        const blurred = m.visibility === "PREMIUM" && !canViewPremium;
         return {
           ...m,
           url: blurred ? null : m.url,
@@ -507,7 +508,7 @@ umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
           isBlurred: blurred,
         };
       }),
-      isBlurred: post.visibility === "PREMIUM" && !isSubscribed,
+      isBlurred: post.visibility === "PREMIUM" && !canViewPremium,
       isLiked: likedPostIds.has(post.id),
     };
   });
