@@ -49,6 +49,12 @@ COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
 COPY apps/api/scripts/convert-uploads-webp.js /app/apps/api/scripts/convert-uploads-webp.js
 COPY apps/api/scripts/migrate-umate-premium-to-private.js /app/apps/api/scripts/migrate-umate-premium-to-private.js
 RUN chmod +x /docker-entrypoint.sh
+# Declare both persistent storage mount points. Host MUST back these with a
+# named volume or bind mount — otherwise umate premium content and every other
+# upload are wiped on redeploy.
+#   /app/uploads        public static content (UZEED + umate FREE + avatars/covers)
+#   /app/umate-private  umate PREMIUM media, served only via signed /umate/media/:id
+VOLUME ["/app/uploads", "/app/umate-private"]
 EXPOSE 3001
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD sh -lc "cd prisma && npx prisma migrate deploy --schema=schema.prisma && cd .. && node apps/api/dist/index.js"

@@ -79,8 +79,21 @@
    cd /app && npx prisma migrate deploy --schema=prisma/schema.prisma
    ```
 
-10. Deploy.
-10. Verifica: `GET https://api.uzeed.cl/health` → `{ ok: true }`
+10. **⚠️ Persistent Storages (OBLIGATORIO antes del primer deploy):**
+    En la UI del service API → **Storages** → **+ Add** → **Volume Mount**, creá
+    DOS volúmenes. Sin ambos, el contenido se pierde en cada redeploy.
+
+    | Name | Source Path | Destination Path | Qué guarda |
+    |---|---|---|---|
+    | `uzeed-uploads` | *(vacío)* | `/app/uploads` | Avatares, fotos de servicios, tienda, moteles, stories, forum, chat, umate FREE y avatares/covers de creadoras. |
+    | `umate-private` | *(vacío)* | `/app/umate-private` | Umate PREMIUM (videos/fotos pagadas) servidos solo via URL firmada. |
+
+    Source Path vacío hace que Coolify gestione un Docker named volume persistente.
+    Ambos paths están declarados como `VOLUME` en el Dockerfile del API, pero Coolify
+    igual requiere crearlos explícitamente aquí para que sobrevivan redeploys.
+
+11. Deploy.
+12. Verifica: `GET https://api.uzeed.cl/health` → `{ ok: true }`
 11. **Verifica suscripciones:** `GET https://api.uzeed.cl/billing/subscription/status` (requiere autenticación)
 12. Si el frontend muestra **Failed to fetch** y en la consola aparece
     `net::ERR_CERT_AUTHORITY_INVALID`, el problema es el **certificado SSL del API**.
