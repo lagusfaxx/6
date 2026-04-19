@@ -300,6 +300,45 @@ function rewritePrivateMediaUrls(mediaId: string, url: string | null, thumbnailU
   };
 }
 
+/** Seed a freshly-created creator account with a single carousel UmatePost (FREE)
+ *  built from the professional's existing Uzeed gallery (ProfileMedia). Idempotent:
+ *  only runs when the creator has zero posts and the gallery has content. */
+export async function importProfileGalleryAsUmatePost(args: {
+  creatorId: string;
+  userId: string;
+}): Promise<number> {
+  const { creatorId, userId } = args;
+  const existingPosts = await prisma.umatePost.count({ where: { creatorId } });
+  if (existingPosts > 0) return 0;
+
+  const gallery = await prisma.profileMedia.findMany({
+    where: { ownerId: userId },
+    orderBy: { createdAt: "asc" },
+  });
+  if (gallery.length === 0) return 0;
+
+  await prisma.umatePost.create({
+    data: {
+      creatorId,
+      caption: null,
+      visibility: "FREE",
+      media: {
+        create: gallery.map((m, pos) => ({
+          type: m.type,
+          url: m.url,
+          pos,
+          visibility: "FREE" as const,
+        })),
+      },
+    },
+  });
+  await prisma.umateCreator.update({
+    where: { id: creatorId },
+    data: { totalPosts: { increment: 1 } },
+  });
+  return gallery.length;
+}
+
 /** Check if user is subscribed to a specific creator (via plan slot OR direct per-creator sub) */
 async function isSubscribedToCreator(userId: string, creatorId: string): Promise<boolean> {
   // Legacy plan-slot subscription
@@ -686,7 +725,18 @@ umateRouter.post("/umate/creator/onboard", requireAuth, asyncHandler(async (req,
     },
   });
 
-  res.json({ creator });
+  const importedFromGallery = await importProfileGalleryAsUmatePost({
+    creatorId: creator.id,
+    userId,
+  }).catch((err) => {
+    console.error("[umate onboard] gallery import failed:", err);
+    return 0;
+  });
+  const fresh = importedFromGallery > 0
+    ? (await prisma.umateCreator.findUnique({ where: { id: creator.id } })) ?? creator
+    : creator;
+
+  res.json({ creator: fresh, importedFromGallery });
 }));
 
 umateRouter.put("/umate/creator/profile", requireAuth, asyncHandler(async (req, res) => {
