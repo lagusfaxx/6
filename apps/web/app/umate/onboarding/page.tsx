@@ -46,7 +46,6 @@ export default function OnboardingPage() {
   const coverRef = useRef<HTMLInputElement>(null);
   const [isSubscriber, setIsSubscriber] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [importedFromGallery, setImportedFromGallery] = useState(0);
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
@@ -99,12 +98,11 @@ export default function OnboardingPage() {
     setSaving(true);
     setError("");
     try {
-      const d = await apiFetch<{ creator: Creator; importedFromGallery?: number }>("/umate/creator/onboard", { method: "POST" });
+      const d = await apiFetch<{ creator: Creator }>("/umate/creator/onboard", { method: "POST" });
       if (d?.creator) {
         setCreator(d.creator);
         setDisplayName(d.creator.displayName);
         setBio(d.creator.bio || "");
-        if (d.importedFromGallery && d.importedFromGallery > 0) setImportedFromGallery(d.importedFromGallery);
         // Express onboarding: verified professionals skip profile step
         if (d.creator.status === "PENDING_BANK" || (d.creator.avatarUrl && d.creator.displayName && d.creator.bio)) {
           setStep(2);
@@ -328,11 +326,6 @@ export default function OnboardingPage() {
             ? "Tu cuenta está siendo revisada. Te notificaremos cuando esté aprobada."
             : "Tu cuenta de creadora está activa. Empieza a publicar contenido."}
         </p>
-        {importedFromGallery > 0 && (
-          <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.06] px-4 py-3 text-xs text-violet-200/80">
-            Importamos {importedFromGallery} {importedFromGallery === 1 ? "foto" : "fotos"} de tu galería Uzeed como publicación gratis. Puedes editarla o eliminarla desde Publicaciones.
-          </div>
-        )}
         {!isPending && (
           <button
             onClick={() => router.push("/umate/account/content")}
