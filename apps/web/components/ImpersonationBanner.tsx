@@ -49,11 +49,14 @@ export default function ImpersonationBanner() {
 
   const label = target.displayName || target.username || "usuario";
 
+  // Rendered in normal document flow (not fixed) so it pushes page headers
+  // downward instead of overlapping them (TopHeader and UmateHeader both sit
+  // at top-0 z-50). The admin can always scroll up to click "Volver a admin".
   return (
-    <div className="fixed left-0 right-0 top-0 z-[100] bg-amber-500 text-black shadow-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2 text-xs font-semibold">
+    <div className="relative z-[60] w-full bg-amber-500 text-black shadow-md">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2 text-xs font-semibold">
         <span>
-          Estás actuando como <span className="font-bold">@{target.username || label}</span> — todas las acciones quedan en nombre de este usuario.
+          Estás actuando como <span className="font-bold">@{target.username || label}</span> — todas las acciones quedan en nombre de esta usuaria.
         </span>
         <button
           onClick={exit}
