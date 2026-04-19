@@ -1010,7 +1010,15 @@ umateRouter.get("/umate/creator/posts", requireAuth, asyncHandler(async (req, re
     orderBy: { createdAt: "desc" },
   });
 
-  res.json({ posts });
+  const postsWithSignedMedia = posts.map((post) => ({
+    ...post,
+    media: post.media.map((m) => {
+      const rewritten = rewritePrivateMediaUrls(m.id, m.url, m.thumbnailUrl);
+      return { ...m, url: rewritten.url, thumbnailUrl: rewritten.thumbnailUrl };
+    }),
+  }));
+
+  res.json({ posts: postsWithSignedMedia });
 }));
 
 umateRouter.delete("/umate/posts/:postId", requireAuth, asyncHandler(async (req, res) => {
