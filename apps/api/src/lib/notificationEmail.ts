@@ -320,6 +320,60 @@ export async function sendReferralCampaignEmail(
   await send(email, `Gana hasta $650.000 con tu codigo ${code} — UZEED`, html);
 }
 
+/* ─── Campaign: Umate creator-subscription invitation ─── */
+
+export async function sendUmatePromotionalEmail(
+  email: string,
+  data: {
+    displayName: string | null;
+    hasUmateAccount: boolean;
+  },
+) {
+  const name = esc(data.displayName || "creadora");
+  const ctaLabel = data.hasUmateAccount
+    ? "Completar mi perfil Umate"
+    : "Unirme a Umate";
+  const ctaUrl = `${config.appUrl}/umate/onboarding`;
+
+  const html = wrapEmail(
+    "Gana suscripciones recurrentes en Umate",
+    [
+      paragraph(
+        `Hola <strong>${name}</strong>, lanzamos <strong>Umate</strong>: ` +
+        `la nueva vertical de UZEED donde monetizas contenido exclusivo con ` +
+        `suscripciones mensuales recurrentes.`,
+      ),
+
+      `<tr><td align="center" style="padding:12px 30px 8px;">
+        <div style="background:rgba(168,85,247,0.14);border:1px solid rgba(168,85,247,0.35);border-radius:16px;padding:18px 22px;text-align:left;">
+          <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#ffffff;letter-spacing:0.02em;">Promocion de lanzamiento</p>
+          <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.75);line-height:1.6;">
+            Al activar tu cuenta Umate y <strong>publicar tu primer post</strong> te regalamos:<br/>
+            <span style="color:#fbbf24;">&#9733;</span> Plan <strong>Gold</strong> por 30 dias, sin costo.<br/>
+            <span style="color:#a855f7;">&#8679;</span> Mayor visibilidad en la home de UZEED.<br/>
+            <span style="color:#10b981;">$</span> Ingresos recurrentes por suscripcion.
+          </p>
+        </div>
+      </td></tr>`,
+
+      paragraph(
+        "Solo necesitas <strong>aceptar terminos</strong>, cargar tus datos bancarios y subir al menos 1 post. " +
+        "El Gold se activa automaticamente al publicar tu primer contenido.",
+      ),
+
+      ctaButton(ctaLabel, ctaUrl),
+
+      paragraph(
+        `<span style="font-size:12px;color:rgba(255,255,255,0.35);">` +
+        `Promocion por tiempo limitado. El plan Gold de 30 dias se aplica una sola vez por cuenta ` +
+        `y no reemplaza memberships Premium activos.</span>`,
+      ),
+    ].join(""),
+  );
+
+  await send(email, "Activa Umate y recibe Gold gratis por 30 dias — UZEED", html);
+}
+
 export async function sendQualityReviewEmail(
   email: string,
   data: {
