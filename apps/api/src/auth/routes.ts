@@ -909,6 +909,101 @@ authRouter.get(
         subscriptionActive,
         requiresPayment,
       },
+      impersonatedBy: req.session.impersonatedBy || null,
     });
+  }),
+);
+
+// ══════════════════════════════════════════════════════════════════════
+// TEMPORARY — admin impersonation
+// Added for a one-off content restore (lost umate-private volume).
+// Remove along with SessionData.impersonatedBy when the incident is closed.
+// ══════════════════════════════════════════════════════════════════════
+
+authRouter.post(
+  "/impersonate",
+  asyncHandler(async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "UNAUTHENTICATED" });
+    }
+    if (req.session.impersonatedBy) {
+      return res.status(400).json({ error: "ALREADY_IMPERSONATING" });
+    }
+
+    // requireAdmin treats both role=ADMIN and email=config.adminEmail as admin,
+    // so mirror that here — otherwise an admin-by-email would be blocked.
+    const me = await prisma.user.findUnique({
+      where: { id: req.session.userId },
+      select: { id: true, role: true, email: true },
+    });
+    const isAdminByRole = (me?.role || "").toUpperCase() === "ADMIN";
+    const isAdminByEmail = !!me?.email && me.email === config.adminEmail;
+    if (!me || (!isAdminByRole && !isAdminByEmail)) {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+
+    const targetUserId = String(req.body?.userId || "");
+    if (!targetUserId) return res.status(400).json({ error: "MISSING_USER_ID" });
+    if (targetUserId === me.id) {
+      return res.status(400).json({ error: "CANNOT_IMPERSONATE_SELF" });
+    }
+
+    const target = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, role: true, username: true, displayName: true },
+    });
+    if (!target) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    const originalAdminId = me.id;
+    const originalRole = me.role || "ADMIN";
+
+    await new Promise<void>((resolve, reject) => {
+      req.session.regenerate((err) => (err ? reject(err) : resolve()));
+    });
+
+    req.session.userId = target.id;
+    req.session.role = target.role;
+    req.session.impersonatedBy = originalAdminId;
+    req.session.impersonatorRole = originalRole;
+    await persistSession(req);
+
+    console.log(
+      `[auth/impersonate] admin=${originalAdminId} now acting as user=${target.id} (@${target.username})`,
+    );
+    return res.json({
+      ok: true,
+      target: { id: target.id, username: target.username, displayName: target.displayName },
+    });
+  }),
+);
+
+authRouter.post(
+  "/stop-impersonate",
+  asyncHandler(async (req, res) => {
+    const originalAdminId = req.session.impersonatedBy;
+    if (!originalAdminId) {
+      return res.status(400).json({ error: "NOT_IMPERSONATING" });
+    }
+
+    const admin = await prisma.user.findUnique({
+      where: { id: originalAdminId },
+      select: { id: true, role: true },
+    });
+    if (!admin) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ error: "ADMIN_GONE" });
+    }
+
+    const actingAs = req.session.userId;
+    await new Promise<void>((resolve, reject) => {
+      req.session.regenerate((err) => (err ? reject(err) : resolve()));
+    });
+
+    req.session.userId = admin.id;
+    req.session.role = admin.role;
+    await persistSession(req);
+
+    console.log(`[auth/impersonate] admin=${admin.id} stopped acting as user=${actingAs}`);
+    return res.json({ ok: true });
   }),
 );
