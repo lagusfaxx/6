@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import UmateHeader from "./_components/UmateHeader";
 import UmateMobileNav from "./_components/UmateMobileNav";
 
@@ -6,11 +6,22 @@ export const metadata: Metadata = {
   title: "U-Mate — Descubre creadoras y contenido exclusivo",
   description:
     "U-Mate es una plataforma de suscripción para descubrir creadoras, desbloquear contenido premium y conectar con su comunidad.",
+  applicationName: "U-Mate",
+  manifest: "/umate.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "U-Mate",
+  },
   icons: {
     icon: "/brand/umate-icon.svg",
     shortcut: "/brand/umate-icon.svg",
-    apple: "/brand/umate-icon.svg",
+    apple: "/brand/Umate.png",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#00aff0",
 };
 
 export default function UmateLayout({ children }: { children: React.ReactNode }) {

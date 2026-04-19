@@ -1,0 +1,32 @@
+{
+  "name": "U-Mate — Creadoras y contenido exclusivo",
+  "short_name": "U-Mate",
+  "description": "U-Mate es una plataforma de suscripción para descubrir creadoras, desbloquear contenido premium y conectar con su comunidad.",
+  "start_url": "/umate",
+  "scope": "/umate/",
+  "id": "/umate",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#00aff0",
+  "lang": "es-CL",
+  "icons": [
+    {
+      "src": "/brand/Umate.png",
+      "sizes": "727x727",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/Umate.png",
+      "sizes": "727x727",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/brand/umate-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
