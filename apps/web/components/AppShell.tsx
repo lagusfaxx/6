@@ -12,7 +12,6 @@ import { ForumNotificationProvider } from "./ForumNotifications";
 import { ChatNotificationProvider } from "./ChatNotifications";
 import { usePageViewTracker } from "../hooks/useAnalytics";
 import ScrollToTop from "./ScrollToTop";
-import ImpersonationBanner from "./ImpersonationBanner";
 
 /* Lazy-load non-critical shell components to reduce initial main-thread work */
 const PushNotificationsManager = dynamic(
@@ -84,7 +83,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div style={iosTextSizeFix} className="min-h-[100svh] w-full text-white">
         <ScrollToTop />
-        <ImpersonationBanner />
         {deferredReady && <PushNotificationsManager />}
         {deferredReady && <PresenceHeartbeat />}
         {children}
@@ -123,7 +121,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="relative min-w-0 flex-1">
             <ScrollToTop />
-            <ImpersonationBanner />
             <TopHeader />
             {deferredReady && <PushNotificationsManager />}
             {deferredReady && <PresenceHeartbeat />}
