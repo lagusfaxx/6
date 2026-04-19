@@ -100,16 +100,22 @@ export default function UmateAccountLayout({ children }: { children: React.React
 
   return (
     <div className="mx-auto w-full max-w-[1170px] px-4 py-5 sm:py-6">
-      {/* Mobile back bar — visible on subpages only, hidden on lg+ where sidebar is present */}
+      {/* Mobile breadcrumb — visible on subpages only, hidden on lg+ where sidebar is present */}
       {!onIndex && (
-        <div className="-mx-4 mb-4 border-b border-white/[0.05] bg-white/[0.015] px-4 py-2.5 lg:hidden">
+        <div className="-mx-4 mb-4 flex items-center gap-1.5 border-b border-white/[0.05] bg-white/[0.015] px-4 py-2.5 text-sm lg:hidden">
           <Link
             href="/umate/account"
-            className="inline-flex items-center gap-2 text-sm font-medium text-white/70 transition hover:text-white"
+            className="inline-flex items-center gap-1.5 font-medium text-white/50 transition hover:text-white"
           >
             <ArrowLeft className="h-4 w-4 text-[#00aff0]" />
-            <span className="truncate">Volver a Mi cuenta{currentTitle ? ` · ${currentTitle}` : ""}</span>
+            {isCreator ? "Studio" : "Mi cuenta"}
           </Link>
+          {currentTitle && (
+            <>
+              <span className="text-white/25">/</span>
+              <span className="truncate font-semibold text-white/80">{currentTitle}</span>
+            </>
+          )}
         </div>
       )}
 

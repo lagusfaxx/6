@@ -250,6 +250,13 @@ async function maturePendingBalances() {
   }
 }
 
+/** Check if the viewer is an admin (by email or by role). Admins bypass all paywalls. */
+function isAdminUser(user: { email?: string | null; role?: string | null } | undefined | null): boolean {
+  if (!user) return false;
+  if (user.email && user.email === config.adminEmail) return true;
+  return (user.role || "").toUpperCase() === "ADMIN";
+}
+
 /** Check if user is subscribed to a specific creator (via plan slot OR direct per-creator sub) */
 async function isSubscribedToCreator(userId: string, creatorId: string): Promise<boolean> {
   // Legacy plan-slot subscription
@@ -294,7 +301,9 @@ async function getSubscribedCreatorIds(userId: string): Promise<Set<string>> {
 // ══════════════════════════════════════════════════════════════════════
 
 umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
-  const userId = (req as any).user?.id;
+  const viewer = (req as any).user;
+  const userId = viewer?.id;
+  const viewerIsAdmin = isAdminUser(viewer);
   const limit = Math.min(parseInt(String(req.query.limit || "20"), 10) || 20, 50);
   const offset = parseInt(String(req.query.offset || "0"), 10) || 0;
   const filter = req.query.filter as string | undefined; // "free", "premium", or undefined
@@ -345,7 +354,7 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
   }
 
   const items = posts.map((post) => {
-    const isSubscribed = subscribedCreatorIds.has(post.creatorId);
+    const isSubscribed = viewerIsAdmin || subscribedCreatorIds.has(post.creatorId);
     return {
       id: post.id,
       caption: post.caption,
@@ -426,7 +435,9 @@ umateRouter.get("/umate/creators", asyncHandler(async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════
 
 umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
-  const userId = (req as any).user?.id;
+  const viewer = (req as any).user;
+  const userId = viewer?.id;
+  const viewerIsAdmin = isAdminUser(viewer);
 
   const user = await prisma.user.findUnique({
     where: { username: req.params.username },
@@ -456,7 +467,7 @@ umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
     return res.status(404).json({ error: "NOT_FOUND" });
   }
 
-  const isSubscribed = userId ? await isSubscribedToCreator(userId, creator.id) : false;
+  const isSubscribed = viewerIsAdmin || (userId ? await isSubscribedToCreator(userId, creator.id) : false);
 
   // Get posts
   const posts = await prisma.umatePost.findMany({
@@ -1085,7 +1096,8 @@ umateRouter.get("/umate/posts/:postId/comments", asyncHandler(async (req, res) =
 }));
 
 umateRouter.post("/umate/posts/:postId/comments", requireAuth, commentLimiter, asyncHandler(async (req, res) => {
-  const userId = (req as any).user.id;
+  const viewer = (req as any).user;
+  const userId = viewer.id;
   const { postId } = req.params;
   const { text } = req.body;
 
@@ -1102,8 +1114,8 @@ umateRouter.post("/umate/posts/:postId/comments", requireAuth, commentLimiter, a
   });
   if (!post) return res.status(404).json({ error: "NOT_FOUND" });
 
-  // Check access: premium posts require subscription
-  if (post.visibility === "PREMIUM") {
+  // Check access: premium posts require subscription (admins bypass)
+  if (post.visibility === "PREMIUM" && !isAdminUser(viewer)) {
     const isCreatorOwner = post.creator.userId === userId;
     if (!isCreatorOwner) {
       const subscribed = await isSubscribedToCreator(userId, post.creatorId);
