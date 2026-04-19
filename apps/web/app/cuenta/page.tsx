@@ -37,14 +37,19 @@ export default function AccountPage() {
     window.location.href = "/login";
   };
 
-  const [isUmateCreator, setIsUmateCreator] = useState(false);
+  const [umateCreatorStatus, setUmateCreatorStatus] = useState<string | null>(null);
   useEffect(() => {
     if (!me?.user) return;
     apiFetch<{ creator: { status?: string } | null }>("/umate/creator/me")
-      .then((d) => setIsUmateCreator(Boolean(d?.creator && d.creator.status !== "SUSPENDED")))
-      .catch(() => setIsUmateCreator(false));
+      .then((d) => setUmateCreatorStatus(d?.creator?.status ?? null))
+      .catch(() => setUmateCreatorStatus(null));
   }, [me]);
-  const umateHref = isUmateCreator ? "/umate/explore" : "/umate/onboarding";
+  const umateHref = umateCreatorStatus === "ACTIVE" ? "/umate/explore" : "/umate/onboarding";
+  const umateDescription =
+    umateCreatorStatus === "ACTIVE" ? "Ir a UMate"
+    : umateCreatorStatus === "PENDING_REVIEW" ? "En revisión"
+    : umateCreatorStatus ? "Continúa tu registro"
+    : "Crea tu perfil UMate";
 
   const handleSubscribe = () => {
     router.push("/pago");
@@ -104,7 +109,7 @@ export default function AccountPage() {
   }
   quickActions.push(
     { label: "Billetera", description: "Tokens y saldo", href: "/wallet", icon: Wallet, color: "text-amber-400" },
-    { label: "UMate", description: isUmateCreator ? "Ir a UMate" : "Crea tu perfil UMate", href: umateHref, icon: Sparkles, color: "text-violet-400" },
+    { label: "UMate", description: umateDescription, href: umateHref, icon: Sparkles, color: "text-violet-400" },
   );
 
   const showVisibility = isProfessional || profileType === "CREATOR";
