@@ -5,5 +5,9 @@ declare module "express-session" {
     userId?: string;
     role?: "USER" | "ADMIN";
     profileViewTracker?: Record<string, number>;
+    // TEMPORARY — admin impersonation (remove along with the endpoints below
+    // when the one-off content restore is done).
+    impersonatedBy?: string;
+    impersonatorRole?: "USER" | "ADMIN";
   }
 }
