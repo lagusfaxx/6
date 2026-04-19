@@ -15,6 +15,14 @@ import { optimizeImage } from "../lib/imageOptimizer";
 import { validateUploadedFile } from "../lib/uploads";
 import { sendToUser } from "../realtime/sse";
 import { asyncHandler } from "../lib/asyncHandler";
+import { signMedia, verifyMediaSig } from "./mediaSigning";
+import {
+  PRIVATE_PREFIX,
+  isPrivateRef,
+  privateRefToRelPath,
+  savePrivate,
+  streamPrivateFile,
+} from "./privateStorage";
 import {
   createFlowCustomer,
   registerFlowCustomer,
@@ -43,8 +51,13 @@ const upload = multer({
   limits: { fileSize: 100 * 1024 * 1024 },
 });
 
-/** Extract first frame from a video buffer and save as JPEG thumbnail */
-async function extractVideoThumbnail(videoBuffer: Buffer, originalFilename: string): Promise<string | null> {
+/** Extract first frame from a video buffer and save as JPEG thumbnail. When `privateAsset` is true,
+ *  the thumbnail is stored in the private umate storage (never served via /uploads). */
+async function extractVideoThumbnail(
+  videoBuffer: Buffer,
+  originalFilename: string,
+  opts: { privateAsset?: boolean } = {},
+): Promise<string | null> {
   try {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "umate-thumb-"));
     const tmpVideo = path.join(tmpDir, "input" + path.extname(originalFilename));
@@ -59,15 +72,26 @@ async function extractVideoThumbnail(videoBuffer: Buffer, originalFilename: stri
       tmpThumb,
     ], { timeout: 15000 });
     const thumbBuffer = await fs.readFile(tmpThumb);
-    const saved = await storage.save({
-      buffer: thumbBuffer,
-      filename: "thumb.jpg",
-      mimeType: "image/jpeg",
-      folder: "umate-thumbs",
-    });
-    // Cleanup temp files
+    let resultUrl: string;
+    if (opts.privateAsset) {
+      const saved = await savePrivate({
+        buffer: thumbBuffer,
+        originalName: "thumb.jpg",
+        mimeType: "image/jpeg",
+        folder: "umate-thumbs",
+      });
+      resultUrl = saved.url;
+    } else {
+      const saved = await storage.save({
+        buffer: thumbBuffer,
+        filename: "thumb.jpg",
+        mimeType: "image/jpeg",
+        folder: "umate-thumbs",
+      });
+      resultUrl = saved.url;
+    }
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
-    return saved.url;
+    return resultUrl;
   } catch {
     return null;
   }
@@ -257,6 +281,25 @@ function isAdminUser(user: { email?: string | null; role?: string | null } | und
   return (user.role || "").toUpperCase() === "ADMIN";
 }
 
+/** Build a signed URL that serves a private UmatePostMedia asset via GET /umate/media/:id.
+ *  Returns null if the input is not a private reference. */
+function buildSignedMediaUrl(mediaId: string, subject: "asset" | "thumb"): string {
+  const base = (config.apiUrl || "").replace(/\/$/, "");
+  const signingSubject = `${mediaId}:${subject}`;
+  const { exp, sig } = signMedia(signingSubject);
+  const suffix = subject === "thumb" ? "/thumb" : "";
+  return `${base}/umate/media/${encodeURIComponent(mediaId)}${suffix}?exp=${exp}&sig=${encodeURIComponent(sig)}`;
+}
+
+/** Given a (possibly private) url + thumbnail from a UmatePostMedia row, rewrite private refs
+ *  to freshly signed URLs. Non-private URLs are returned unchanged. */
+function rewritePrivateMediaUrls(mediaId: string, url: string | null, thumbnailUrl: string | null): { url: string | null; thumbnailUrl: string | null } {
+  return {
+    url: isPrivateRef(url) ? buildSignedMediaUrl(mediaId, "asset") : url,
+    thumbnailUrl: isPrivateRef(thumbnailUrl) ? buildSignedMediaUrl(mediaId, "thumb") : thumbnailUrl,
+  };
+}
+
 /** Check if user is subscribed to a specific creator (via plan slot OR direct per-creator sub) */
 async function isSubscribedToCreator(userId: string, creatorId: string): Promise<boolean> {
   // Legacy plan-slot subscription
@@ -295,6 +338,40 @@ async function getSubscribedCreatorIds(userId: string): Promise<Set<string>> {
   ]);
   return new Set([...slotSubs.map((s) => s.creatorId), ...directSubs.map((s) => s.creatorId)]);
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// PUBLIC — Signed media streaming for PREMIUM umate assets
+// The signature (HMAC of mediaId + exp + subject, TTL 1h) is the auth here;
+// no session is required so the video element can load the src without cookies.
+// ══════════════════════════════════════════════════════════════════════
+
+async function handleSignedMedia(req: import("express").Request, res: import("express").Response, subject: "asset" | "thumb") {
+  const mediaId = String(req.params.mediaId || "");
+  const exp = parseInt(String(req.query.exp || ""), 10);
+  const sig = typeof req.query.sig === "string" ? req.query.sig : "";
+  if (!mediaId || !exp || !sig) {
+    return res.status(400).json({ error: "BAD_SIGNATURE" });
+  }
+  const signingSubject = `${mediaId}:${subject}`;
+  if (!verifyMediaSig(signingSubject, exp, sig)) {
+    return res.status(403).json({ error: "BAD_SIGNATURE" });
+  }
+  const media = await prisma.umatePostMedia.findUnique({
+    where: { id: mediaId },
+    select: { url: true, thumbnailUrl: true },
+  });
+  if (!media) return res.status(404).json({ error: "NOT_FOUND" });
+  const source = subject === "thumb" ? media.thumbnailUrl : media.url;
+  if (!source || !isPrivateRef(source)) return res.status(404).json({ error: "NOT_PRIVATE" });
+  const relPath = privateRefToRelPath(source);
+  if (!relPath) return res.status(404).json({ error: "NOT_FOUND" });
+  await streamPrivateFile(relPath, req, res);
+}
+
+umateRouter.get("/umate/media/:mediaId", asyncHandler((req, res) => handleSignedMedia(req, res, "asset")));
+umateRouter.head("/umate/media/:mediaId", asyncHandler((req, res) => handleSignedMedia(req, res, "asset")));
+umateRouter.get("/umate/media/:mediaId/thumb", asyncHandler((req, res) => handleSignedMedia(req, res, "thumb")));
+umateRouter.head("/umate/media/:mediaId/thumb", asyncHandler((req, res) => handleSignedMedia(req, res, "thumb")));
 
 // ══════════════════════════════════════════════════════════════════════
 // PUBLIC — Feed / Explore
@@ -366,10 +443,11 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
       creator: post.creator,
       media: post.media.map((m: any) => {
         const blurred = m.visibility === "PREMIUM" && !canViewPremium;
+        const rewritten = blurred ? { url: null, thumbnailUrl: null } : rewritePrivateMediaUrls(m.id, m.url, m.thumbnailUrl);
         return {
           ...m,
-          url: blurred ? null : m.url,
-          thumbnailUrl: blurred ? null : m.thumbnailUrl,
+          url: rewritten.url,
+          thumbnailUrl: rewritten.thumbnailUrl,
           isBlurred: blurred,
         };
       }),
@@ -501,10 +579,11 @@ umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
       commentCount: (post as any).commentCount || 0,
       media: post.media.map((m: any) => {
         const blurred = m.visibility === "PREMIUM" && !canViewPremium;
+        const rewritten = blurred ? { url: null, thumbnailUrl: null } : rewritePrivateMediaUrls(m.id, m.url, m.thumbnailUrl);
         return {
           ...m,
-          url: blurred ? null : m.url,
-          thumbnailUrl: blurred ? null : m.thumbnailUrl,
+          url: rewritten.url,
+          thumbnailUrl: rewritten.thumbnailUrl,
           isBlurred: blurred,
         };
       }),
@@ -774,21 +853,37 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
 
   const mediaItems: { type: "IMAGE" | "VIDEO"; url: string; thumbnailUrl?: string; pos: number; visibility: "FREE" | "PREMIUM" }[] = [];
   for (let i = 0; i < files.length; i++) {
-    const saved = await storage.save({
-      buffer: files[i].buffer,
-      filename: files[i].originalname,
-      mimeType: files[i].mimetype,
-      folder: "umate-posts",
-    });
     const mediaVis = mediaVisibilities[i] === "PREMIUM" ? "PREMIUM" : "FREE";
+    const isPremium = mediaVis === "PREMIUM";
+    let savedUrl: string;
+    let savedType: "image" | "video";
+    if (isPremium) {
+      const savedPriv = await savePrivate({
+        buffer: files[i].buffer,
+        originalName: files[i].originalname,
+        mimeType: files[i].mimetype,
+        folder: "umate-posts",
+      });
+      savedUrl = savedPriv.url;
+      savedType = savedPriv.type;
+    } else {
+      const savedPub = await storage.save({
+        buffer: files[i].buffer,
+        filename: files[i].originalname,
+        mimeType: files[i].mimetype,
+        folder: "umate-posts",
+      });
+      savedUrl = savedPub.url;
+      savedType = savedPub.type;
+    }
     let thumbnailUrl: string | undefined;
-    if (saved.type === "video") {
-      const thumb = await extractVideoThumbnail(files[i].buffer, files[i].originalname);
+    if (savedType === "video") {
+      const thumb = await extractVideoThumbnail(files[i].buffer, files[i].originalname, { privateAsset: isPremium });
       if (thumb) thumbnailUrl = thumb;
     }
     mediaItems.push({
-      type: saved.type === "video" ? "VIDEO" : "IMAGE",
-      url: saved.url,
+      type: savedType === "video" ? "VIDEO" : "IMAGE",
+      url: savedUrl,
       thumbnailUrl,
       pos: i,
       visibility: mediaVis,

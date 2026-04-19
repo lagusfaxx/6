@@ -49,6 +49,7 @@ const PUBLIC_PREFIXES = [
   "/umate/trending",    // ✅ U-Mate trending posts (public)
   "/umate/suggested",   // ✅ U-Mate suggested creators (public)
   "/umate/posts",       // ✅ U-Mate post comments (public GET)
+  "/umate/media",       // ✅ U-Mate signed premium media (HMAC token is the auth)
 ];
 
 /**
