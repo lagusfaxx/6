@@ -139,9 +139,13 @@ function MediaCarousel({ media, onUnlock }: { media: { id: string; type: string;
                   src={resolveMediaUrl(m.url) || ""}
                   poster={m.thumbnailUrl ? resolveMediaUrl(m.thumbnailUrl) || undefined : undefined}
                   controls
+                  controlsList="nodownload noplaybackrate noremoteplayback"
+                  disablePictureInPicture
+                  disableRemotePlayback
                   playsInline
                   preload="metadata"
                   crossOrigin="anonymous"
+                  onContextMenu={(e) => e.preventDefault()}
                   className="w-full aspect-[4/5] object-contain bg-black"
                 />
               ) : (

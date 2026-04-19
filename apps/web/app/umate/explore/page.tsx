@@ -72,10 +72,14 @@ function VideoPreview({ src, poster, className }: { src: string; poster?: string
         src={src}
         poster={poster}
         controls={playing}
+        controlsList="nodownload noplaybackrate noremoteplayback"
+        disablePictureInPicture
+        disableRemotePlayback
         playsInline
         preload="metadata"
         crossOrigin="anonymous"
         className={className}
+        onContextMenu={(e) => e.preventDefault()}
         onPause={() => {
           if (videoRef.current && videoRef.current.currentTime > 0) return;
           setPlaying(false);
