@@ -3,9 +3,19 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Camera, Building2, FileCheck, Loader2, CheckCircle, ArrowRight, Shield, Upload, X } from "lucide-react";
+import { Camera, Building2, FileCheck, Loader2, CheckCircle, ArrowRight, Shield, Upload, X, ExternalLink } from "lucide-react";
 import { apiFetch, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import useMe from "../../../hooks/useMe";
+import { ScrollableLegalDoc } from "../_components/LegalDocViewer";
+import {
+  TERMS_SECTIONS,
+  TERMS_VERSION,
+  RULES_SECTIONS,
+  RULES_VERSION,
+  CONTRACT_SECTIONS,
+  CONTRACT_VERSION,
+  type LegalDocKey,
+} from "../../../lib/umate-legal";
 
 type Creator = {
   id: string;
@@ -47,6 +57,8 @@ export default function OnboardingPage() {
   const [termsChecked, setTermsChecked] = useState(false);
   const [rulesChecked, setRulesChecked] = useState(false);
   const [contractChecked, setContractChecked] = useState(false);
+  const [openLegalDoc, setOpenLegalDoc] = useState<LegalDocKey | null>(null);
+  const [docReadComplete, setDocReadComplete] = useState(false);
 
   // Warn user if leaving mid-registration (steps 1-3)
   useEffect(() => {
@@ -163,7 +175,14 @@ export default function OnboardingPage() {
     try {
       const d = await apiFetch<{ creator: Creator }>("/umate/creator/accept-terms", {
         method: "POST",
-        body: JSON.stringify({ terms: true, rules: true, contract: true }),
+        body: JSON.stringify({
+          terms: true,
+          rules: true,
+          contract: true,
+          termsVersion: TERMS_VERSION,
+          rulesVersion: RULES_VERSION,
+          contractVersion: CONTRACT_VERSION,
+        }),
       });
       if (d?.creator) setCreator(d.creator);
       setStep(4);
@@ -171,6 +190,38 @@ export default function OnboardingPage() {
       setError("Error al aceptar los terminos. Intenta de nuevo.");
     }
     setSaving(false);
+  };
+
+  // Lock body scroll while legal modal is open
+  useEffect(() => {
+    if (!openLegalDoc) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [openLegalDoc]);
+
+  const handleOpenDoc = (key: LegalDocKey) => {
+    setDocReadComplete(false);
+    setOpenLegalDoc(key);
+  };
+
+  const handleAcceptOpenDoc = () => {
+    if (openLegalDoc === "terms") setTermsChecked(true);
+    if (openLegalDoc === "rules") setRulesChecked(true);
+    if (openLegalDoc === "contract") setContractChecked(true);
+    setOpenLegalDoc(null);
+  };
+
+  const getActiveDoc = () => {
+    if (openLegalDoc === "terms")
+      return { title: "Términos y condiciones", sections: TERMS_SECTIONS, version: TERMS_VERSION };
+    if (openLegalDoc === "rules")
+      return { title: "Reglas de la plataforma", sections: RULES_SECTIONS, version: RULES_VERSION };
+    if (openLegalDoc === "contract")
+      return { title: "Contrato de prestación de servicios", sections: CONTRACT_SECTIONS, version: CONTRACT_VERSION };
+    return null;
   };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-white/45" /></div>;
@@ -407,40 +458,144 @@ export default function OnboardingPage() {
       {step === 3 && (
         <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6 space-y-5">
           <div>
-            <h2 className="text-base font-bold tracking-tight text-white">Términos y condiciones</h2>
-            <p className="mt-1 text-xs text-white/40">Lee y acepta para continuar</p>
+            <h2 className="text-base font-bold tracking-tight text-white">
+              Documentos legales
+            </h2>
+            <p className="mt-1 text-xs text-white/40">
+              Lee cada documento completo y acéptalo para continuar. Quedará
+              registrada la fecha, IP y navegador de tu aceptación.
+            </p>
           </div>
-          <div className="max-h-52 overflow-y-auto rounded-lg bg-white/[0.02] p-4 text-xs text-white/40 space-y-2.5 leading-relaxed border border-white/[0.04]">
-            <p><strong className="text-white/50">Contrato de creadora U-Mate</strong></p>
-            <p>Al aceptar, confirmas que eres mayor de 18 años y tienes derecho legal a publicar el contenido que subas.</p>
-            <p>Todo contenido publicado debe cumplir con las reglas de la plataforma y las leyes chilenas vigentes.</p>
-            <p>U-Mate se reserva el derecho de suspender cuentas que infrinjan las normas.</p>
-            <p>Los pagos a creadoras se procesan según el calendario de liquidaciones establecido.</p>
-            <p>La plataforma puede aplicar una comisión futura sobre los ingresos generados, la cual será comunicada con antelación.</p>
+
+          <div className="space-y-2.5">
+            {[
+              {
+                key: "terms" as LegalDocKey,
+                title: "Términos y condiciones",
+                checked: termsChecked,
+                version: TERMS_VERSION,
+              },
+              {
+                key: "rules" as LegalDocKey,
+                title: "Reglas de la plataforma",
+                checked: rulesChecked,
+                version: RULES_VERSION,
+              },
+              {
+                key: "contract" as LegalDocKey,
+                title: "Contrato de prestación de servicios",
+                checked: contractChecked,
+                version: CONTRACT_VERSION,
+              },
+            ].map((doc) => (
+              <button
+                key={doc.key}
+                type="button"
+                onClick={() => handleOpenDoc(doc.key)}
+                className={`flex w-full items-center gap-3 rounded-xl border p-3.5 text-left transition ${
+                  doc.checked
+                    ? "border-emerald-500/30 bg-emerald-500/[0.06]"
+                    : "border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.06]"
+                }`}
+              >
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                    doc.checked ? "bg-emerald-500/15" : "bg-white/[0.04]"
+                  }`}
+                >
+                  {doc.checked ? (
+                    <CheckCircle className="h-4 w-4 text-emerald-400" />
+                  ) : (
+                    <FileCheck className="h-4 w-4 text-white/40" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white/85">
+                    {doc.title}
+                  </p>
+                  <p className="text-[10px] text-white/30">
+                    {doc.checked
+                      ? `Aceptado · versión ${doc.version}`
+                      : "Toca para leer y aceptar"}
+                  </p>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-white/30" />
+              </button>
+            ))}
           </div>
-          <div className="space-y-3">
-            <label className="flex items-center gap-3 text-xs text-white/40 cursor-pointer">
-              <input type="checkbox" checked={termsChecked} onChange={(e) => setTermsChecked(e.target.checked)} className="rounded border-white/20" />
-              Acepto los <Link href="/umate/terms" className="text-[#00aff0] underline">términos y condiciones</Link>
-            </label>
-            <label className="flex items-center gap-3 text-xs text-white/40 cursor-pointer">
-              <input type="checkbox" checked={rulesChecked} onChange={(e) => setRulesChecked(e.target.checked)} className="rounded border-white/20" />
-              Acepto las <Link href="/umate/rules" className="text-[#00aff0] underline">reglas de la plataforma</Link>
-            </label>
-            <label className="flex items-center gap-3 text-xs text-white/40 cursor-pointer">
-              <input type="checkbox" checked={contractChecked} onChange={(e) => setContractChecked(e.target.checked)} className="rounded border-white/20" />
-              Acepto el contrato de creadora
-            </label>
-          </div>
+
+          {error && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2 text-xs text-red-300">
+              {error}
+            </div>
+          )}
+
           <button
             onClick={acceptAll}
             disabled={saving || !termsChecked || !rulesChecked || !contractChecked}
             className="w-full rounded-full bg-[#00aff0] py-3 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.2)] transition-all duration-200 hover:bg-[#00aff0]/90 hover:shadow-[0_4px_24px_rgba(0,175,240,0.3)] disabled:opacity-40"
           >
-            {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : "Aceptar y enviar a revisión"}
+            {saving ? (
+              <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+            ) : (
+              "Confirmar aceptación y enviar a revisión"
+            )}
           </button>
         </div>
       )}
+
+      {/* Legal document modal — scroll-to-read gate */}
+      {openLegalDoc &&
+        (() => {
+          const active = getActiveDoc();
+          if (!active) return null;
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-md sm:items-center sm:p-4"
+              onClick={() => setOpenLegalDoc(null)}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-2xl rounded-t-3xl border border-white/[0.06] bg-[#0a0a12] p-5 shadow-[0_-24px_80px_rgba(0,0,0,0.6)] sm:rounded-3xl sm:p-6"
+              >
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-base font-bold text-white sm:text-lg">
+                      {active.title}
+                    </h3>
+                    <p className="text-[11px] text-white/35">
+                      Versión {active.version}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setOpenLegalDoc(null)}
+                    className="shrink-0 text-white/40 transition hover:text-white/70"
+                    aria-label="Cerrar"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <ScrollableLegalDoc
+                  key={openLegalDoc}
+                  sections={active.sections}
+                  version={active.version}
+                  onReadComplete={() => setDocReadComplete(true)}
+                />
+
+                <button
+                  onClick={handleAcceptOpenDoc}
+                  disabled={!docReadComplete}
+                  className="mt-4 w-full rounded-full bg-[#00aff0] py-3 text-sm font-bold text-white shadow-[0_2px_16px_rgba(0,175,240,0.2)] transition hover:bg-[#00aff0]/90 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {docReadComplete
+                    ? "He leído y acepto"
+                    : "Desliza hasta el final para aceptar"}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }

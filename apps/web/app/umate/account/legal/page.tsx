@@ -113,6 +113,7 @@ export default function UmateLegalPage() {
           {[
             { label: "Términos de servicio", href: "/umate/terms" },
             { label: "Reglas de la plataforma", href: "/umate/rules" },
+            { label: "Contrato de prestación de servicios", href: "/umate/contrato" },
           ].map((link) => (
             <Link
               key={link.href}

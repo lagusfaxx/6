@@ -1142,6 +1142,17 @@ model UmateCreator {
   rulesAcceptedAt   DateTime?
   contractAcceptedAt DateTime?
 
+  // Forensic proof of acceptance (IP + user agent + document version at time of acceptance)
+  termsAcceptedIp        String?
+  termsAcceptedUserAgent String?
+  termsAcceptedVersion   String?
+  rulesAcceptedIp        String?
+  rulesAcceptedUserAgent String?
+  rulesAcceptedVersion   String?
+  contractAcceptedIp        String?
+  contractAcceptedUserAgent String?
+  contractAcceptedVersion   String?
+
   // Denormalized stats
   subscriberCount Int   @default(0)
   totalPosts      Int   @default(0)
@@ -1289,6 +1300,13 @@ model UmatePost {
   updatedAt   DateTime            @updatedAt
 
   commentCount Int                 @default(0)
+
+  // Per-publication authorship attestation (creator swears they own the content,
+  // it was produced legally, and every person depicted is 18+ and consented)
+  authorshipAttestedAt        DateTime?
+  authorshipAttestedIp        String?
+  authorshipAttestedUserAgent String?
+  authorshipAttestedVersion   String?
 
   creator  UmateCreator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   media    UmatePostMedia[]

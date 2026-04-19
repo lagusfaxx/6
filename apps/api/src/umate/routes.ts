@@ -739,11 +739,45 @@ umateRouter.post("/umate/creator/accept-terms", requireAuth, asyncHandler(async 
   const creator = await prisma.umateCreator.findUnique({ where: { userId } });
   if (!creator) return res.status(404).json({ error: "NOT_CREATOR" });
 
-  const { terms, rules, contract } = req.body as { terms?: boolean; rules?: boolean; contract?: boolean };
+  const { terms, rules, contract, termsVersion, rulesVersion, contractVersion } = req.body as {
+    terms?: boolean;
+    rules?: boolean;
+    contract?: boolean;
+    termsVersion?: string;
+    rulesVersion?: string;
+    contractVersion?: string;
+  };
+
+  // Extract forensic proof from request
+  const ipRaw =
+    (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ||
+    (req.headers["x-real-ip"] as string | undefined) ||
+    req.ip ||
+    req.socket.remoteAddress ||
+    null;
+  const ip = ipRaw ? String(ipRaw).slice(0, 64) : null;
+  const userAgent = (req.headers["user-agent"] as string | undefined)?.slice(0, 500) || null;
+
+  const now = new Date();
   const data: any = {};
-  if (terms) data.termsAcceptedAt = new Date();
-  if (rules) data.rulesAcceptedAt = new Date();
-  if (contract) data.contractAcceptedAt = new Date();
+  if (terms) {
+    data.termsAcceptedAt = now;
+    if (termsVersion) data.termsAcceptedVersion = String(termsVersion).slice(0, 64);
+    if (ip) data.termsAcceptedIp = ip;
+    if (userAgent) data.termsAcceptedUserAgent = userAgent;
+  }
+  if (rules) {
+    data.rulesAcceptedAt = now;
+    if (rulesVersion) data.rulesAcceptedVersion = String(rulesVersion).slice(0, 64);
+    if (ip) data.rulesAcceptedIp = ip;
+    if (userAgent) data.rulesAcceptedUserAgent = userAgent;
+  }
+  if (contract) {
+    data.contractAcceptedAt = now;
+    if (contractVersion) data.contractAcceptedVersion = String(contractVersion).slice(0, 64);
+    if (ip) data.contractAcceptedIp = ip;
+    if (userAgent) data.contractAcceptedUserAgent = userAgent;
+  }
 
   const updated = await prisma.umateCreator.update({ where: { id: creator.id }, data });
 
@@ -841,6 +875,34 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
     mediaVisibilities = req.body.mediaVisibility ? JSON.parse(req.body.mediaVisibility) : [];
   } catch { /* ignore parse errors */ }
 
+  // Authorship attestation is mandatory — creator swears they own the content,
+  // it was produced legally, and every person depicted is 18+ and consented.
+  const attestationAccepted =
+    req.body.attestation === true ||
+    req.body.attestation === "true" ||
+    req.body.attestation === "1";
+  if (!attestationAccepted) {
+    return res.status(400).json({
+      error: "ATTESTATION_REQUIRED",
+      message:
+        "Debes declarar que eres mayor de edad, dueña del contenido y que todas las personas retratadas son mayores y consintieron.",
+    });
+  }
+  const attestationVersion =
+    typeof req.body.attestationVersion === "string"
+      ? req.body.attestationVersion.slice(0, 64)
+      : null;
+
+  const attestationIpRaw =
+    (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ||
+    (req.headers["x-real-ip"] as string | undefined) ||
+    req.ip ||
+    req.socket.remoteAddress ||
+    null;
+  const attestationIp = attestationIpRaw ? String(attestationIpRaw).slice(0, 64) : null;
+  const attestationUserAgent =
+    (req.headers["user-agent"] as string | undefined)?.slice(0, 500) || null;
+
   const files = req.files as Express.Multer.File[];
   if (!files?.length) return res.status(400).json({ error: "NO_FILES" });
 
@@ -899,6 +961,10 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
       creatorId: creator.id,
       caption: caption || null,
       visibility: postVisibility,
+      authorshipAttestedAt: new Date(),
+      authorshipAttestedIp: attestationIp,
+      authorshipAttestedUserAgent: attestationUserAgent,
+      authorshipAttestedVersion: attestationVersion,
       media: { create: mediaItems },
     },
     include: { media: true },
