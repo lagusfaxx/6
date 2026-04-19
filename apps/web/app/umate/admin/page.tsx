@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
   Users, TrendingUp, DollarSign, Settings, Loader2, Check, X,
   ArrowDown, CheckCircle, XCircle,
-  Wallet, AlertTriangle, RefreshCw, LogIn
+  Wallet, AlertTriangle, RefreshCw
 } from "lucide-react";
 import { apiFetch } from "../../../lib/api";
 
@@ -25,7 +25,6 @@ type Dashboard = {
 
 type Creator = {
   id: string;
-  userId: string;
   displayName: string;
   status: string;
   subscriberCount: number;
@@ -172,26 +171,6 @@ export default function UmateAdminPage() {
     setRejectId(null);
     setRejectReason("");
     setActionLoading(null);
-  };
-
-  // TEMPORARY — admin impersonation (remove when the restore incident is closed)
-  const impersonate = async (userId: string, displayName: string) => {
-    if (!confirm(
-      `¿Entrar como "${displayName}"?\n\n` +
-      `Todas las acciones que realices quedarán en nombre de esta usuaria (incluyendo publicaciones y declaraciones de autoría). ` +
-      `Úsalo sólo para restaurar contenido.`,
-    )) return;
-    setActionLoading(userId);
-    try {
-      await apiFetch("/auth/impersonate", {
-        method: "POST",
-        body: JSON.stringify({ userId }),
-      });
-      window.location.href = "/umate/account/content";
-    } catch (err: any) {
-      alert(err?.body?.message || err?.body?.error || "No se pudo impersonar.");
-      setActionLoading(null);
-    }
   };
 
   const saveConfig = async () => {
@@ -416,16 +395,6 @@ export default function UmateAdminPage() {
                   </div>
                   {/* Actions */}
                   <div className="flex flex-wrap items-center gap-1 shrink-0">
-                    {/* TEMPORARY — admin impersonation */}
-                    <button
-                      onClick={() => impersonate(c.userId, c.displayName)}
-                      disabled={actionLoading === c.userId}
-                      title="Entrar como esta creadora (temporal — sólo para restaurar contenido)"
-                      className="flex items-center gap-1 rounded-lg bg-amber-500/15 px-3 py-1.5 text-[11px] font-medium text-amber-300 transition hover:bg-amber-500/25 disabled:opacity-50"
-                    >
-                      {actionLoading === c.userId ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogIn className="h-3 w-3" />}
-                      Entrar como
-                    </button>
                     {c.status === "PENDING_REVIEW" && (
                       <>
                         <button
