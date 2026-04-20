@@ -24,6 +24,7 @@ import {
   savePrivate,
   streamPrivateFile,
 } from "./privateStorage";
+import { buildBlurPreviewUrl, handleBlurPreview } from "./blurPreview";
 import {
   createFlowCustomer,
   registerFlowCustomer,
@@ -374,6 +375,33 @@ umateRouter.head("/umate/media/:mediaId", asyncHandler((req, res) => handleSigne
 umateRouter.get("/umate/media/:mediaId/thumb", asyncHandler((req, res) => handleSignedMedia(req, res, "thumb")));
 umateRouter.head("/umate/media/:mediaId/thumb", asyncHandler((req, res) => handleSignedMedia(req, res, "thumb")));
 
+// Public, pre-blurred previews for PREMIUM media (safe derivative — see blurPreview.ts).
+const lookupMediaForBlur = async (mediaId: string) =>
+  prisma.umatePostMedia.findUnique({
+    where: { id: mediaId },
+    select: { url: true, thumbnailUrl: true, visibility: true },
+  }).then((m) => (m && m.visibility === "PREMIUM") ? { url: m.url, thumbnailUrl: m.thumbnailUrl } : null);
+
+umateRouter.get("/umate/media/:mediaId/blur", asyncHandler((req, res) => handleBlurPreview(req, res, "asset", lookupMediaForBlur)));
+umateRouter.head("/umate/media/:mediaId/blur", asyncHandler((req, res) => handleBlurPreview(req, res, "asset", lookupMediaForBlur)));
+umateRouter.get("/umate/media/:mediaId/blur-thumb", asyncHandler((req, res) => handleBlurPreview(req, res, "thumb", lookupMediaForBlur)));
+umateRouter.head("/umate/media/:mediaId/blur-thumb", asyncHandler((req, res) => handleBlurPreview(req, res, "thumb", lookupMediaForBlur)));
+
+/** For blurred (paywalled) media: return public blur-preview URLs instead of null.
+ *  The original pixel data stays private — only a heavily blurred derivative is exposed. */
+function blurredMediaUrls(mediaId: string, mediaType: string, hasThumbnail: boolean): { url: string | null; thumbnailUrl: string | null } {
+  if (mediaType === "VIDEO") {
+    return {
+      url: null,
+      thumbnailUrl: hasThumbnail ? buildBlurPreviewUrl(mediaId, "thumb") : null,
+    };
+  }
+  return {
+    url: buildBlurPreviewUrl(mediaId, "asset"),
+    thumbnailUrl: null,
+  };
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // PUBLIC — Feed / Explore
 // ══════════════════════════════════════════════════════════════════════
@@ -444,7 +472,9 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
       creator: post.creator,
       media: post.media.map((m: any) => {
         const blurred = m.visibility === "PREMIUM" && !canViewPremium;
-        const rewritten = blurred ? { url: null, thumbnailUrl: null } : rewritePrivateMediaUrls(m.id, m.url, m.thumbnailUrl);
+        const rewritten = blurred
+          ? blurredMediaUrls(m.id, m.type, Boolean(m.thumbnailUrl))
+          : rewritePrivateMediaUrls(m.id, m.url, m.thumbnailUrl);
         return {
           ...m,
           url: rewritten.url,
@@ -580,7 +610,9 @@ umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
       commentCount: (post as any).commentCount || 0,
       media: post.media.map((m: any) => {
         const blurred = m.visibility === "PREMIUM" && !canViewPremium;
-        const rewritten = blurred ? { url: null, thumbnailUrl: null } : rewritePrivateMediaUrls(m.id, m.url, m.thumbnailUrl);
+        const rewritten = blurred
+          ? blurredMediaUrls(m.id, m.type, Boolean(m.thumbnailUrl))
+          : rewritePrivateMediaUrls(m.id, m.url, m.thumbnailUrl);
         return {
           ...m,
           url: rewritten.url,

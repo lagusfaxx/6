@@ -263,7 +263,7 @@ export default function UmateHeader() {
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           {isCreator && me?.user && (
             <Link
               href="/umate/account/content"
@@ -280,13 +280,16 @@ export default function UmateHeader() {
             {mobileSearch ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
           </button>
 
-          <Link
-            href="/chats"
-            className="relative flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
-          >
-            <MessageCircle className="h-5 w-5" />
-          </Link>
+          {isAuthed && (
+            <Link
+              href="/chats"
+              className="relative flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
+            >
+              <MessageCircle className="h-5 w-5" />
+            </Link>
+          )}
 
+          {isAuthed && (
           <div className="relative" ref={bellRef}>
             <button
               type="button"
@@ -302,7 +305,7 @@ export default function UmateHeader() {
             </button>
 
             {bellOpen && (
-              <div className="absolute right-0 top-12 w-[300px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a12]/95 shadow-[0_18px_48px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:w-[340px]">
+              <div className="absolute right-0 top-12 w-[min(88vw,340px)] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a12]/95 shadow-[0_18px_48px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
                 <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
                   <span className="text-sm font-semibold text-white">Notificaciones</span>
                   {unreadCount > 0 && (
@@ -339,6 +342,7 @@ export default function UmateHeader() {
               </div>
             )}
           </div>
+          )}
 
           {me?.user ? (
             <Link
@@ -356,18 +360,19 @@ export default function UmateHeader() {
               )}
             </Link>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <Link
                 href="/login?next=/umate"
-                className="rounded-xl border border-white/[0.08] px-3.5 py-2 text-sm font-medium text-white/60 transition hover:border-white/20 hover:text-white/80"
+                className="whitespace-nowrap rounded-xl border border-white/[0.08] px-2.5 py-1.5 text-xs font-medium text-white/60 transition hover:border-white/20 hover:text-white/80 sm:px-3.5 sm:py-2 sm:text-sm"
               >
                 Ingresar
               </Link>
               <Link
                 href="/register?type=CLIENT&next=/umate"
-                className="rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-4 py-2 text-sm font-semibold text-white transition hover:shadow-[0_4px_20px_rgba(0,175,240,0.3)]"
+                className="whitespace-nowrap rounded-xl bg-gradient-to-r from-[#00aff0] to-[#0090d0] px-3 py-1.5 text-xs font-semibold text-white transition hover:shadow-[0_4px_20px_rgba(0,175,240,0.3)] sm:px-4 sm:py-2 sm:text-sm"
               >
-                Crear cuenta
+                <span className="sm:hidden">Crear</span>
+                <span className="hidden sm:inline">Crear cuenta</span>
               </Link>
             </div>
           )}
