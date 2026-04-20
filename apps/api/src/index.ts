@@ -17,6 +17,7 @@ import { authRouter } from "./auth/routes";
 import { verificationRouter } from "./auth/verification";
 import { ensureAdminUser } from "./auth/seedAdmin";
 import { seedCategories } from "./client/seedCategories";
+import { runStoriesTtlExtensionOnce } from "./stories/boot";
 import { feedRouter } from "./feed/routes";
 import { adminRouter } from "./admin/routes";
 import { plansRouter } from "./khipu/plans";
@@ -277,6 +278,7 @@ process.on("uncaughtException", (err) => console.error("[api] uncaughtException"
 async function boot() {
   await ensureAdminUser().catch((err) => console.error("[api] admin seed failed", err));
   await seedCategories().catch((err) => console.error("[api] category seed failed", err));
+  await runStoriesTtlExtensionOnce().catch((err) => console.error("[api] stories ttl recovery failed", err));
 
   app.listen(config.port, () => {
     console.log(`[api] listening on :${config.port}`);
