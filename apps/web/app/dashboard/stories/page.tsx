@@ -113,7 +113,7 @@ export default function StoriesPage() {
       <div>
         <h1 className="text-lg font-bold">Mis Stories</h1>
         <p className="text-xs text-white/40 mt-0.5">
-          Sube fotos o videos que duran 7 días y aparecen en el carrusel.
+          Sube fotos o videos que duran 20 días y aparecen en el carrusel.
         </p>
       </div>
 
@@ -186,7 +186,7 @@ export default function StoriesPage() {
           {error && <p className="text-xs text-red-400 px-1">{error}</p>}
           {success && (
             <p className="text-xs text-emerald-400 px-1">
-              Story publicado. Dura 7 días.
+              Story publicado. Dura 20 días.
             </p>
           )}
 
