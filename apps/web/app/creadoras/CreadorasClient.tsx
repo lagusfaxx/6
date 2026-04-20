@@ -151,15 +151,15 @@ export default function CreadorasClient({ profiles = [] }: { profiles?: PublicPr
                 $70.000 / mes
               </span>
               <span className="text-4xl font-extrabold tracking-tight text-emerald-300 sm:text-5xl">
-                Gratis en el lanzamiento
+                Gratis
               </span>
             </div>
 
             <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-white/60">
-              Estamos en fase de lanzamiento, así que hoy usar todas las
-              funciones es gratis. La membresía mensual se activará más
-              adelante; al registrarte ahora quedas como creadora fundadora y
-              accedes a beneficios preferentes cuando empecemos a cobrar.
+              Registra tu perfil hoy y accede a todas las funciones sin pagar
+              nada. Sin letra chica, sin pruebas limitadas y sin cobros
+              automáticos. Las creadoras que se sumen ahora quedan como
+              fundadoras y conservan beneficios preferentes.
             </p>
 
             <ul className="mx-auto mt-5 grid max-w-xl grid-cols-1 gap-2 text-left text-sm text-white/70 sm:grid-cols-2">
