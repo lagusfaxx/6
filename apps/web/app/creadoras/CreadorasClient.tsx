@@ -5,34 +5,44 @@ import Image from "next/image";
 
 const benefits = [
   {
-    title: "Contacto directo con clientes",
+    title: "Seguridad",
     description:
-      "Los interesados escriben a tu WhatsApp desde tu perfil. Tú decides cuándo respondes y con quién coordinas.",
+      "Verificación de identidad, protección de tus datos y moderación activa contra perfiles falsos y mensajes abusivos.",
   },
   {
-    title: "Tú defines tus tarifas",
+    title: "Control total",
     description:
-      "Publicas tus precios, duración y servicios. UZEED no cobra comisión por tus reservas ni interviene en los pagos.",
+      "Tú decides qué publicar, a quién aceptar y cuándo responder. Pausas, ocultas o eliminas tu perfil cuando quieras.",
+  },
+  {
+    title: "Tarifa baja",
+    description:
+      "La comisión más baja del mercado chileno. Te quedas con la mayor parte de cada suscripción y propina.",
+  },
+  {
+    title: "Feed completo",
+    description:
+      "Publicaciones, galerías, historias y mensajes directos. Todo el feed tipo red social integrado en tu perfil.",
+  },
+  {
+    title: "Anuncios dentro de la plataforma",
+    description:
+      "Aparece en los espacios destacados del feed, del inicio y de las búsquedas, frente a usuarios que ya pagan por contenido.",
+  },
+  {
+    title: "Campañas de marketing",
+    description:
+      "Participas en campañas recurrentes en redes y dentro de UZEED que traen tráfico nuevo a tu perfil cada semana.",
+  },
+  {
+    title: "Contacto directo con clientes",
+    description:
+      "Los interesados te escriben por chat interno o WhatsApp desde tu perfil. Sin intermediarios, sin esperas.",
   },
   {
     title: "Perfil verificado y destacado",
     description:
-      "Revisamos tu identidad para darte la insignia Verificada. Un perfil verificado recibe más visitas y contactos.",
-  },
-  {
-    title: "Privacidad y control",
-    description:
-      "Solo se muestra la zona, nunca tu dirección exacta. Bloqueas usuarios, pausas tu perfil o cambias tus datos cuando quieras.",
-  },
-  {
-    title: "Visibilidad en toda la región",
-    description:
-      "Aparecerás en búsquedas por ciudad, comuna y cercanía. Miles de visitas diarias en Santiago, Viña del Mar, Valparaíso, Concepción y más.",
-  },
-  {
-    title: "Plan Gold opcional",
-    description:
-      "Si quieres más alcance, activas el plan Gold y apareces primero, con badge destacado y hasta cinco veces más contactos.",
+      "La insignia Verificada multiplica tus visitas. Los perfiles verificados reciben hasta cinco veces más contactos.",
   },
 ];
 
@@ -89,10 +99,11 @@ export default function CreadorasClient() {
           Trabaja con independencia en la plataforma líder de Chile
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/60 sm:text-base">
-          UZEED es el directorio chileno donde miles de clientes buscan cada día
-          compañía, masajes y experiencias para adultos. Creas tu perfil,
-          decides tus condiciones y hablas directamente con quien te contacta.
-          Sin comisiones por reserva y sin intermediarios.
+          UZEED es la plataforma chilena que reúne directorio de perfiles,
+          feed de contenido y suscripciones en un solo lugar. Creas tu perfil,
+          publicas tu contenido, decides tus precios y hablas directamente con
+          tus clientes. Seguridad, control total y la tarifa más baja del
+          mercado.
         </p>
 
         {/* Primary CTAs */}
@@ -124,15 +135,64 @@ export default function CreadorasClient() {
         </div>
       </section>
 
+      {/* Pricing promo */}
+      <section className="mt-12">
+        <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.08] via-white/[0.03] to-fuchsia-500/[0.05] p-6 text-center sm:p-8">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-emerald-400/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-fuchsia-400/10 blur-3xl" />
+
+          <div className="relative">
+            <span className="inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+              Promoción de lanzamiento
+            </span>
+
+            <div className="mt-5 flex flex-wrap items-end justify-center gap-3">
+              <span className="text-lg font-medium text-white/40 line-through sm:text-xl">
+                $70.000 / mes
+              </span>
+              <span className="text-4xl font-extrabold tracking-tight text-emerald-300 sm:text-5xl">
+                Gratis ahora
+              </span>
+            </div>
+
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-white/60">
+              Registra tu perfil hoy y accede a todas las funciones sin pagar
+              nada. Sin letra chica, sin pruebas limitadas y sin cobros
+              automáticos. Cuando empecemos a cobrar, tu tarifa quedará
+              congelada.
+            </p>
+
+            <ul className="mx-auto mt-5 grid max-w-xl grid-cols-1 gap-2 text-left text-sm text-white/70 sm:grid-cols-2">
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                Todas las funciones activas
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                Publicaciones y feed ilimitados
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                Campañas y promoción incluidas
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                Sin comisiones ocultas
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       {/* Stats strip */}
-      <section className="mt-12 grid grid-cols-3 divide-x divide-white/[0.06] rounded-2xl border border-white/[0.08] bg-white/[0.03] py-5 text-center backdrop-blur">
+      <section className="mt-8 grid grid-cols-3 divide-x divide-white/[0.06] rounded-2xl border border-white/[0.08] bg-white/[0.03] py-5 text-center backdrop-blur">
         <div>
           <div className="text-lg font-bold text-white sm:text-2xl">+20</div>
           <div className="mt-0.5 text-[11px] text-white/50 sm:text-xs">Ciudades en Chile</div>
         </div>
         <div>
-          <div className="text-lg font-bold text-white sm:text-2xl">0%</div>
-          <div className="mt-0.5 text-[11px] text-white/50 sm:text-xs">Comisión sobre reservas</div>
+          <div className="text-lg font-bold text-white sm:text-2xl">Gratis</div>
+          <div className="mt-0.5 text-[11px] text-white/50 sm:text-xs">Membresía mensual</div>
         </div>
         <div>
           <div className="text-lg font-bold text-white sm:text-2xl">24/7</div>
