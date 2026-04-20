@@ -40,7 +40,7 @@ const uploadMedia = multer({
   },
 });
 
-const STORY_TTL_HOURS = 24 * 7; // 7 days
+const STORY_TTL_HOURS = 24 * 20; // 20 days
 
 /* ─── GET /stories/active ─────────────────────────────────────
    Returns active stories (not expired) for a city/area.
