@@ -280,69 +280,65 @@ export default function UmateHeader() {
             {mobileSearch ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
           </button>
 
-          {me?.user && (
-            <Link
-              href="/chats"
+          <Link
+            href="/chats"
+            className="relative flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
+          >
+            <MessageCircle className="h-5 w-5" />
+          </Link>
+
+          <div className="relative" ref={bellRef}>
+            <button
+              type="button"
+              onClick={() => setBellOpen((prev) => !prev)}
               className="relative flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
             >
-              <MessageCircle className="h-5 w-5" />
-            </Link>
-          )}
-
-          {me?.user && (
-            <div className="relative" ref={bellRef}>
-              <button
-                type="button"
-                onClick={() => setBellOpen((prev) => !prev)}
-                className="relative flex h-9 w-9 items-center justify-center rounded-xl text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
-              >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-[#00aff0] px-1 py-0.5 text-center text-[9px] font-bold leading-none text-white shadow-[0_0_8px_rgba(0,175,240,0.6)]">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {bellOpen && (
-                <div className="absolute right-0 top-12 w-[300px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a12]/95 shadow-[0_18px_48px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:w-[340px]">
-                  <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
-                    <span className="text-sm font-semibold text-white">Notificaciones</span>
-                    {unreadCount > 0 && (
-                      <button type="button" onClick={handleMarkAllRead} className="text-[11px] font-medium text-[#00aff0] hover:text-[#00aff0]/80 transition">
-                        Marcar leídas
-                      </button>
-                    )}
-                  </div>
-                  <div className="max-h-[320px] overflow-y-auto p-2">
-                    {loadingNotifs ? (
-                      <div className="px-3 py-6 text-center text-sm text-white/40">Cargando…</div>
-                    ) : notifications.length === 0 ? (
-                      <div className="px-3 py-6 text-center text-sm text-white/40">Sin notificaciones</div>
-                    ) : (
-                      <div className="space-y-0.5">
-                        {notifications.slice(0, 15).map((item) => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => handleNotifClick(item)}
-                            className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
-                          >
-                            <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.readAt ? "bg-white/20" : "bg-[#00aff0] shadow-[0_0_6px_rgba(0,175,240,0.5)]"}`} />
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm text-white/90">{notifLabel(item)}</div>
-                              {!!item.data?.body && <div className="mt-0.5 text-[11px] text-white/35 line-clamp-1">{String(item.data.body)}</div>}
-                              <div className="mt-1 text-[10px] text-white/25">{new Date(item.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-[#00aff0] px-1 py-0.5 text-center text-[9px] font-bold leading-none text-white shadow-[0_0_8px_rgba(0,175,240,0.6)]">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
               )}
-            </div>
-          )}
+            </button>
+
+            {bellOpen && (
+              <div className="absolute right-0 top-12 w-[300px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a12]/95 shadow-[0_18px_48px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:w-[340px]">
+                <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+                  <span className="text-sm font-semibold text-white">Notificaciones</span>
+                  {unreadCount > 0 && (
+                    <button type="button" onClick={handleMarkAllRead} className="text-[11px] font-medium text-[#00aff0] hover:text-[#00aff0]/80 transition">
+                      Marcar leídas
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-[320px] overflow-y-auto p-2">
+                  {loadingNotifs ? (
+                    <div className="px-3 py-6 text-center text-sm text-white/40">Cargando…</div>
+                  ) : notifications.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-sm text-white/40">Sin notificaciones</div>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {notifications.slice(0, 15).map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleNotifClick(item)}
+                          className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
+                        >
+                          <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.readAt ? "bg-white/20" : "bg-[#00aff0] shadow-[0_0_6px_rgba(0,175,240,0.5)]"}`} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm text-white/90">{notifLabel(item)}</div>
+                            {!!item.data?.body && <div className="mt-0.5 text-[11px] text-white/35 line-clamp-1">{String(item.data.body)}</div>}
+                            <div className="mt-1 text-[10px] text-white/25">{new Date(item.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {me?.user ? (
             <Link
