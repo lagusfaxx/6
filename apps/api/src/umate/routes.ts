@@ -443,7 +443,7 @@ umateRouter.get("/umate/feed", asyncHandler(async (req, res) => {
       createdAt: post.createdAt,
       creator: post.creator,
       media: post.media.map((m: any) => {
-        const blurred = m.visibility === "PREMIUM" && !canViewPremium;
+        const blurred = (m.visibility === "PREMIUM" || post.visibility === "PREMIUM") && !canViewPremium;
         const rewritten = blurred ? { url: null, thumbnailUrl: null } : rewritePrivateMediaUrls(m.id, m.url, m.thumbnailUrl);
         return {
           ...m,
@@ -579,7 +579,7 @@ umateRouter.get("/umate/profile/:username", asyncHandler(async (req, res) => {
       ...post,
       commentCount: (post as any).commentCount || 0,
       media: post.media.map((m: any) => {
-        const blurred = m.visibility === "PREMIUM" && !canViewPremium;
+        const blurred = (m.visibility === "PREMIUM" || post.visibility === "PREMIUM") && !canViewPremium;
         const rewritten = blurred ? { url: null, thumbnailUrl: null } : rewritePrivateMediaUrls(m.id, m.url, m.thumbnailUrl);
         return {
           ...m,
