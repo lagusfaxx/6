@@ -117,7 +117,7 @@ export default function CreadorasClient({ profiles = [] }: { profiles?: PublicPr
         {/* Primary CTAs */}
         <div className="mx-auto mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
-            href="/register"
+            href="/empezar"
             className="inline-flex flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_0_24px_rgba(217,70,239,0.25)] transition-transform hover:scale-[1.02]"
           >
             Registrarse
@@ -359,7 +359,7 @@ export default function CreadorasClient({ profiles = [] }: { profiles?: PublicPr
 
         <div className="mx-auto mt-6 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
-            href="/register"
+            href="/empezar"
             className="inline-flex flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_0_24px_rgba(217,70,239,0.25)] transition-transform hover:scale-[1.02]"
           >
             Registrarse
