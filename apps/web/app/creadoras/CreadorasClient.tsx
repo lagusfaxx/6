@@ -83,10 +83,10 @@ export default function CreadorasClient({ profiles = [] }: { profiles?: PublicPr
         <Image
           src="/brand/logo.png"
           alt="UZEED"
-          width={140}
-          height={40}
+          width={320}
+          height={90}
           priority
-          className="h-10 w-auto opacity-90"
+          className="h-20 w-auto sm:h-24"
         />
       </div>
 
@@ -187,7 +187,7 @@ export default function CreadorasClient({ profiles = [] }: { profiles?: PublicPr
       {/* Stats strip */}
       <section className="mt-8 grid grid-cols-3 divide-x divide-white/[0.06] rounded-2xl border border-white/[0.08] bg-white/[0.03] py-5 text-center backdrop-blur">
         <div>
-          <div className="text-lg font-bold text-white sm:text-2xl">+20</div>
+          <div className="text-lg font-bold text-white sm:text-2xl">+300</div>
           <div className="mt-0.5 text-[11px] text-white/50 sm:text-xs">Ciudades en Chile</div>
         </div>
         <div>
