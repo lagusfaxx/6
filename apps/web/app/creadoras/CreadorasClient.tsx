@@ -259,7 +259,7 @@ export default function CreadorasClient({ profiles = [] }: { profiles?: PublicPr
         </div>
       </section>
 
-      {/* Community — perfiles ya registrados */}
+      {/* Community — marquee de creadoras ya registradas */}
       {profiles.length > 0 && (
         <section className="mt-14">
           <header className="mb-6 text-center">
@@ -275,45 +275,27 @@ export default function CreadorasClient({ profiles = [] }: { profiles?: PublicPr
             </p>
           </header>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
-            {profiles.slice(0, 12).map((p) => (
-              <Link
-                key={p.id}
-                href={`/profesional/${p.id}`}
-                className="group flex flex-col items-center rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 text-center transition-all duration-200 hover:border-fuchsia-500/25 hover:bg-white/[0.04]"
-              >
-                <div className="relative h-16 w-16 overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.04]">
-                  {p.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={p.avatarUrl}
-                      alt={p.displayName}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-white/40">
-                      {p.displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  {p.isVerified && (
-                    <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#08080d] bg-fuchsia-500">
-                      <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                        <path d="M5 10l3.5 3.5L15 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </span>
-                  )}
-                </div>
-                <p className="mt-2.5 line-clamp-1 text-xs font-semibold text-white/85">
-                  {p.displayName}
-                </p>
-                {p.city && (
-                  <p className="mt-0.5 line-clamp-1 text-[10px] text-white/40">
-                    {p.city}
-                  </p>
-                )}
-              </Link>
-            ))}
+          <div
+            className="relative -mx-4 overflow-hidden sm:-mx-6"
+            style={{
+              maskImage:
+                "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+              WebkitMaskImage:
+                "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+            }}
+          >
+            {/* Row 1 */}
+            <div className="flex w-max animate-marquee-left gap-4 py-3">
+              {[...profiles, ...profiles].map((p, i) => (
+                <ProfileChip key={`r1-${p.id}-${i}`} profile={p} />
+              ))}
+            </div>
+            {/* Row 2 — sentido contrario */}
+            <div className="mt-2 flex w-max animate-marquee-right gap-4 py-3">
+              {[...profiles.slice().reverse(), ...profiles.slice().reverse()].map((p, i) => (
+                <ProfileChip key={`r2-${p.id}-${i}`} profile={p} />
+              ))}
+            </div>
           </div>
 
           <div className="mt-6 flex justify-center">
@@ -407,5 +389,47 @@ export default function CreadorasClient({ profiles = [] }: { profiles?: PublicPr
         exclusiva para mayores de 18 años.
       </p>
     </div>
+  );
+}
+
+function ProfileChip({ profile }: { profile: PublicProfile }) {
+  return (
+    <Link
+      href={`/profesional/${profile.id}`}
+      className="group flex shrink-0 items-center gap-3 rounded-full border border-white/[0.06] bg-white/[0.03] px-3 py-2 pr-5 backdrop-blur-sm transition-all duration-200 hover:border-fuchsia-500/25 hover:bg-white/[0.06]"
+    >
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.04]">
+        {profile.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={profile.avatarUrl}
+            alt={profile.displayName}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-white/40">
+            {profile.displayName.charAt(0).toUpperCase()}
+          </div>
+        )}
+        {profile.isVerified && (
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-[#08080d] bg-fuchsia-500">
+            <svg className="h-2 w-2 text-white" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M5 10l3.5 3.5L15 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        )}
+      </div>
+      <div className="flex flex-col">
+        <span className="line-clamp-1 text-xs font-semibold text-white/85">
+          {profile.displayName}
+        </span>
+        {profile.city && (
+          <span className="line-clamp-1 text-[10px] text-white/40">
+            {profile.city}
+          </span>
+        )}
+      </div>
+    </Link>
   );
 }
