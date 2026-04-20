@@ -15,6 +15,7 @@ import { optimizeImage } from "../lib/imageOptimizer";
 import { validateUploadedFile } from "../lib/uploads";
 import { sendToUser } from "../realtime/sse";
 import { asyncHandler } from "../lib/asyncHandler";
+import { sendUmatePromotionalEmail } from "../lib/notificationEmail";
 import { signMedia, verifyMediaSig } from "./mediaSigning";
 import {
   PRIVATE_PREFIX,
@@ -970,10 +971,37 @@ umateRouter.post("/umate/posts", requireAuth, contentLimiter, upload.array("file
     include: { media: true },
   });
 
-  await prisma.umateCreator.update({
+  const updatedCreator = await prisma.umateCreator.update({
     where: { id: creator.id },
     data: { totalPosts: { increment: 1 } },
+    select: { totalPosts: true, userId: true },
   });
+
+  // Promotional Gold: first ever Umate post grants 30 days of GOLD tier,
+  // unless the user already has PREMIUM or a longer paid membership.
+  if (updatedCreator.totalPosts === 1) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: updatedCreator.userId },
+        select: { tier: true, membershipExpiresAt: true },
+      });
+      if (user && user.tier !== "PREMIUM") {
+        const thirtyDaysOut = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const currentExpiry = user.membershipExpiresAt?.getTime() ?? 0;
+        if (currentExpiry <= thirtyDaysOut.getTime()) {
+          await prisma.user.update({
+            where: { id: updatedCreator.userId },
+            data: {
+              tier: "GOLD",
+              membershipExpiresAt: thirtyDaysOut,
+            },
+          });
+        }
+      }
+    } catch (err) {
+      console.error("[umate/posts] auto-gold grant failed", err);
+    }
+  }
 
   // Notify subscribers of new post (fire & forget)
   prisma.umateCreatorSub.findMany({
@@ -2393,3 +2421,111 @@ umateRouter.post("/admin/umate/demo-seed/revert", requireAdmin, asyncHandler(asy
 
   res.json({ reverted: true, count: deleted });
 }));
+
+// ══════════════════════════════════════════════════════════════════════
+// ADMIN — Umate promotional campaign (invitation blast to professionals)
+// ══════════════════════════════════════════════════════════════════════
+
+const UMATE_PROMO_LOG_TYPE = "umate_promo_v1";
+
+umateRouter.post(
+  "/admin/umate/promotional-campaign/send",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const testEmail = typeof req.body.testEmail === "string" ? req.body.testEmail : undefined;
+    const batchSize = Math.min(200, Number(req.body.batchSize) || 50);
+
+    if (testEmail) {
+      await sendUmatePromotionalEmail(testEmail, {
+        displayName: "Test Creator",
+        hasUmateAccount: false,
+      });
+      return res.json({ ok: true, mode: "test", sentTo: testEmail });
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        profileType: "PROFESSIONAL",
+        isActive: true,
+        email: { not: "" },
+        OR: [
+          { umateCreator: null },
+          { umateCreator: { status: { not: "ACTIVE" } } },
+        ],
+      },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        umateCreator: { select: { status: true } },
+      },
+      take: batchSize,
+    });
+
+    const userIds = users.map((u) => u.id);
+    const alreadySent = await prisma.reminderLog.findMany({
+      where: { userId: { in: userIds }, type: UMATE_PROMO_LOG_TYPE },
+      select: { userId: true },
+    });
+    const sentSet = new Set(alreadySent.map((r) => r.userId));
+    const toSend = users.filter((u) => !sentSet.has(u.id));
+
+    let sentCount = 0;
+    let errorCount = 0;
+
+    for (const user of toSend) {
+      try {
+        await prisma.reminderLog.upsert({
+          where: { userId_type: { userId: user.id, type: UMATE_PROMO_LOG_TYPE } },
+          update: { createdAt: new Date() },
+          create: { userId: user.id, type: UMATE_PROMO_LOG_TYPE },
+        });
+
+        await sendUmatePromotionalEmail(user.email, {
+          displayName: user.displayName,
+          hasUmateAccount: Boolean(user.umateCreator),
+        });
+        sentCount++;
+      } catch (err) {
+        console.error("[admin/umate-promo] failed", user.email, err);
+        errorCount++;
+      }
+    }
+
+    return res.json({
+      ok: true,
+      mode: "campaign",
+      batchFetched: users.length,
+      sent: sentCount,
+      errors: errorCount,
+      alreadySent: sentSet.size,
+      remainingInBatch: users.length - toSend.length,
+    });
+  }),
+);
+
+umateRouter.get(
+  "/admin/umate/promotional-campaign/status",
+  requireAdmin,
+  asyncHandler(async (_req, res) => {
+    const [totalEligible, totalSent] = await Promise.all([
+      prisma.user.count({
+        where: {
+          profileType: "PROFESSIONAL",
+          isActive: true,
+          email: { not: "" },
+          OR: [
+            { umateCreator: null },
+            { umateCreator: { status: { not: "ACTIVE" } } },
+          ],
+        },
+      }),
+      prisma.reminderLog.count({ where: { type: UMATE_PROMO_LOG_TYPE } }),
+    ]);
+    res.json({
+      totalEligible,
+      totalSent,
+      remaining: Math.max(0, totalEligible - totalSent),
+    });
+  }),
+);
