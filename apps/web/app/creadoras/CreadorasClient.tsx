@@ -14,43 +14,35 @@ export type PublicProfile = {
 const benefits = [
   {
     title: "Seguridad",
-    description:
-      "Verificación de identidad, protección de tus datos y moderación activa contra perfiles falsos y mensajes abusivos.",
+    description: "Verificación de identidad y moderación activa contra perfiles falsos.",
   },
   {
     title: "Control total",
-    description:
-      "Tú decides qué publicar, a quién aceptar y cuándo responder. Pausas, ocultas o eliminas tu perfil cuando quieras.",
+    description: "Decides qué publicar, a quién responder y cuándo pausar tu perfil.",
   },
   {
     title: "Tarifa baja",
-    description:
-      "La comisión más baja del mercado chileno. Te quedas con la mayor parte de cada suscripción y propina.",
+    description: "La comisión más baja del mercado chileno. Te quedas con casi todo.",
   },
   {
     title: "Feed completo",
-    description:
-      "Publicaciones, galerías, historias y mensajes directos. Todo el feed tipo red social integrado en tu perfil.",
+    description: "Publicaciones, historias, mensajes directos. Tu mini red social.",
   },
   {
-    title: "Anuncios dentro de la plataforma",
-    description:
-      "Aparece en los espacios destacados del feed, del inicio y de las búsquedas, frente a usuarios que ya pagan por contenido.",
+    title: "Anuncios en la plataforma",
+    description: "Apareces en el inicio, feed y búsquedas frente a clientes que pagan.",
   },
   {
     title: "Campañas de marketing",
-    description:
-      "Participas en campañas recurrentes en redes y dentro de UZEED que traen tráfico nuevo a tu perfil cada semana.",
+    description: "Tráfico recurrente desde nuestras redes y campañas hacia tu perfil.",
   },
   {
-    title: "Contacto directo con clientes",
-    description:
-      "Los interesados te escriben por chat interno o WhatsApp desde tu perfil. Sin intermediarios, sin esperas.",
+    title: "Contacto directo",
+    description: "Chat interno o WhatsApp desde tu perfil. Sin intermediarios.",
   },
   {
-    title: "Perfil verificado y destacado",
-    description:
-      "La insignia Verificada multiplica tus visitas. Los perfiles verificados reciben hasta cinco veces más contactos.",
+    title: "Perfil verificado",
+    description: "La insignia Verificada multiplica hasta 5 veces tus contactos.",
   },
 ];
 
@@ -208,27 +200,39 @@ export default function CreadorasClient({ profiles = [] }: { profiles?: PublicPr
         </div>
       </section>
 
-      {/* Benefits */}
+      {/* Benefits — carrusel horizontal */}
       <section className="mt-14">
         <header className="mb-6 text-center">
           <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
             Beneficios al publicar en UZEED
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-white/55">
-            Hecho para que tengas más clientes reales y menos complicaciones.
+            Hecho para que tengas más clientes y menos complicaciones.
           </p>
         </header>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {benefits.map((b) => (
-            <article
-              key={b.title}
-              className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5 transition-colors hover:border-fuchsia-500/20 hover:bg-white/[0.05]"
-            >
-              <h3 className="text-sm font-semibold text-white sm:text-base">{b.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/55">{b.description}</p>
-            </article>
-          ))}
+        <div
+          className="group relative -mx-4 overflow-hidden sm:-mx-6"
+          style={{
+            maskImage:
+              "linear-gradient(to right, transparent, black 6%, black 94%, transparent)",
+            WebkitMaskImage:
+              "linear-gradient(to right, transparent, black 6%, black 94%, transparent)",
+          }}
+        >
+          <div className="flex w-max gap-3 animate-marquee-left py-1 [animation-duration:55s] group-hover:[animation-play-state:paused]">
+            {[...benefits, ...benefits].map((b, i) => (
+              <article
+                key={`${b.title}-${i}`}
+                className="flex w-[260px] shrink-0 flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 transition-colors hover:border-fuchsia-500/25 hover:bg-white/[0.05] sm:w-[280px]"
+              >
+                <h3 className="text-sm font-semibold text-white">{b.title}</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-white/55 sm:text-sm">
+                  {b.description}
+                </p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
