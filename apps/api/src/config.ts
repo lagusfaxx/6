@@ -51,4 +51,9 @@ export const config = {
     from: process.env.SMTP_FROM
   },
   resendApiKey: requiredInProd("RESEND_API_KEY"),
+  googleOAuth: {
+    clientId: process.env.GOOGLE_OAUTH_CLIENT_ID || "",
+    clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET || "",
+    redirectUri: process.env.GOOGLE_OAUTH_REDIRECT_URI || "",
+  },
 };
