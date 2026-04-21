@@ -17,6 +17,7 @@ import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { sendSetPasswordEmail, consumeVerifiedEmail } from "./verification";
 import { createFlowPayment } from "../khipu/client";
 import { createProfessionalUser } from "./createProfessional";
+import { googleAuthRouter } from "./google";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -28,6 +29,10 @@ const authLimiter = rateLimit({
 });
 
 export const authRouter = Router();
+
+// Google OAuth (public, no password). Mounted before other routes so the
+// /auth/google/* paths don't get caught by anything else.
+authRouter.use(googleAuthRouter);
 
 function persistSession(req: any): Promise<void> {
   return new Promise((resolve, reject) => {
