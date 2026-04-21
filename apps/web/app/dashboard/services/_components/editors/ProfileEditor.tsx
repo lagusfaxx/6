@@ -67,6 +67,13 @@ export default function ProfileEditor() {
             onChange={(v) => setField("displayName", v)}
             placeholder="Tu nombre o alias"
           />
+          <FloatingInput
+            label="Teléfono de contacto"
+            value={state.phone}
+            onChange={(v) => setField("phone", v)}
+            type="tel"
+            placeholder="+56 9 1234 5678"
+          />
           <FloatingSelect
             label="Categoría principal"
             value={state.primaryCategory}

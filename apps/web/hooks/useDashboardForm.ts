@@ -61,6 +61,7 @@ export type DashboardFormState = {
   serviceDescription: string;
   birthdate: string;
   gender: string;
+  phone: string;
   address: string;
   city: string;
   profileLatitude: string;
@@ -146,6 +147,7 @@ export const INITIAL_STATE: DashboardFormState = {
   serviceDescription: "",
   birthdate: "",
   gender: "FEMALE",
+  phone: "",
   address: "",
   city: "",
   profileLatitude: "",
@@ -264,6 +266,7 @@ const DIRTY_TRACKED_KEYS = [
   "serviceDescription",
   "birthdate",
   "gender",
+  "phone",
   "address",
   "city",
   "profileLatitude",
