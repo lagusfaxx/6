@@ -149,7 +149,7 @@ function hasVideoCallBadge(p: { serviceTags?: string[]; profileTags?: string[] }
 }
 
 /* ── Install App Button ── */
-function InstallAppButton() {
+function InstallAppButton({ compact = false }: { compact?: boolean }) {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstructions, setShowInstructions] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -180,9 +180,13 @@ function InstallAppButton() {
     <>
       <button
         onClick={handleClick}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-8 py-4 text-sm font-medium text-white/80 backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.08] sm:w-auto"
+        className={
+          compact
+            ? "inline-flex items-center gap-1 text-[11px] font-medium text-white/40 underline-offset-4 transition hover:text-white/70 hover:underline"
+            : "inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-8 py-4 text-sm font-medium text-white/80 backdrop-blur-xl transition-all duration-200 hover:border-white/25 hover:bg-white/[0.08] sm:w-auto"
+        }
       >
-        <Download className="h-4 w-4" />
+        <Download className={compact ? "h-3 w-3" : "h-4 w-4"} />
         Descargar App
       </button>
 
@@ -312,16 +316,16 @@ function HeroCounters() {
 
   return (
     <div
-      className={`mt-8 flex items-center justify-center gap-6 sm:gap-10 ${animate ? "animate-float-up" : "opacity-0"}`}
+      className={`flex items-center justify-center gap-4 sm:gap-5 ${animate ? "animate-float-up" : "opacity-0"}`}
       style={{ animationDelay: "320ms", animationFillMode: "both" }}
     >
       {counters.map((c, i) => (
-        <div key={i} className="group/stat flex cursor-default flex-col items-center gap-1">
-          <c.icon className="mb-1 h-4 w-4 text-fuchsia-400/70 transition-colors duration-150 group-hover/stat:text-fuchsia-400" />
-          <span className="text-xl font-bold tabular-nums tracking-tight text-white/90 sm:text-2xl">
+        <div key={i} className="group/stat flex cursor-default items-center gap-1.5">
+          <c.icon className="h-3.5 w-3.5 text-fuchsia-400/70 transition-colors duration-150 group-hover/stat:text-fuchsia-400" />
+          <span className="text-sm font-bold tabular-nums tracking-tight text-white/90">
             {c.value}{c.suffix}
           </span>
-          <span className="text-[11px] text-white/40 sm:text-xs">{c.label}</span>
+          <span className="text-[11px] text-white/40">{c.label}</span>
         </div>
       ))}
     </div>
@@ -774,8 +778,8 @@ export default function HomeClient() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
-      {/* ═══ HERO — Premium immersive ═══ */}
-      <section className="relative flex min-h-[26vh] items-center justify-center overflow-hidden px-4 md:min-h-[32vh]">
+      {/* ═══ HERO — Premium immersive (compacto en mobile y desktop) ═══ */}
+      <section className="relative flex items-center justify-center overflow-hidden px-4 pt-4 pb-4 md:pt-8 md:pb-6">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
         {/* Static ambient orbs — no animation to reduce rendering cost */}
@@ -785,76 +789,80 @@ export default function HomeClient() {
         {/* Noise texture overlay for premium texture */}
         <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
 
-        <div className="relative mx-auto max-w-3xl text-center">
-          <h1 className="text-[1.6rem] font-extrabold leading-[1.1] tracking-tight sm:text-3xl md:text-4xl animate-float-up" style={{ animationFillMode: "both" }}>
+        <div className="relative mx-auto w-full max-w-3xl text-center">
+          <h1 className="text-[1.25rem] font-extrabold leading-[1.1] tracking-tight sm:text-[1.75rem] md:text-[2rem] animate-float-up" style={{ animationFillMode: "both" }}>
             <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
           </h1>
 
-          <h2 className="mx-auto mt-3 max-w-xl text-[12px] font-medium leading-relaxed text-white/45 sm:text-sm animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
+          <h2 className="mx-auto mt-1.5 max-w-xl text-[11px] font-medium leading-snug text-white/45 sm:mt-2 sm:text-[13px] animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
             Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Discreto, verificado y premium.
           </h2>
 
-          <div className="mt-5 flex flex-col items-center gap-2.5 animate-float-up" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
+          {/* CTA primario + contadores (contadores se ocultan en mobile para acortar hero) */}
+          <div className="mt-3 flex flex-col items-center gap-3 animate-float-up sm:mt-4 sm:flex-row sm:justify-center sm:gap-6" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
             <Link
               href="/servicios"
-              className="uzeed-hero-cta group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)] sm:w-auto"
+              className="uzeed-hero-cta group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)]"
             >
               Explorar ahora
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
-            <div className="text-[11px] text-white/40">
-              <InstallAppButton />
+            <div className="hidden sm:block">
+              <HeroCounters />
             </div>
           </div>
 
-          <HeroCounters />
-        </div>
-      </section>
-
-      {/* ═══ BUSCADOR + FILTROS RÁPIDOS (sobre el fold) ═══ */}
-      <section className="relative mx-auto w-full max-w-4xl px-4 pt-4 pb-2">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const q = heroQuery.trim();
-            router.push(q ? `/escorts?q=${encodeURIComponent(q)}` : "/escorts");
-          }}
-          className="relative mx-auto flex w-full max-w-2xl items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 backdrop-blur-md focus-within:border-fuchsia-500/40 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_24px_rgba(217,70,239,0.12)] transition"
-        >
-          <SearchIcon className="h-4 w-4 shrink-0 text-white/40" aria-hidden />
-          <input
-            type="search"
-            value={heroQuery}
-            onChange={(e) => setHeroQuery(e.target.value)}
-            placeholder="Buscar por nombre, zona o servicio"
-            aria-label="Buscar"
-            className="w-full bg-transparent text-sm text-white placeholder:text-white/35 outline-none"
-          />
-          <button
-            type="submit"
-            className="shrink-0 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110"
+          {/* Buscador dentro del hero */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const q = heroQuery.trim();
+              router.push(q ? `/escorts?q=${encodeURIComponent(q)}` : "/escorts");
+            }}
+            className="relative mx-auto mt-3 flex w-full max-w-xl items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 backdrop-blur-md focus-within:border-fuchsia-500/40 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_24px_rgba(217,70,239,0.12)] transition animate-float-up sm:mt-4"
+            style={{ animationDelay: "300ms", animationFillMode: "both" }}
           >
-            Buscar
-          </button>
-        </form>
-
-        <div className="scrollbar-none mt-3 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
-          {[
-            { label: "Cerca (2km)", href: "/servicios", icon: Navigation, iconColor: "text-emerald-400" },
-            { label: "Disponible ahora", href: "/escorts?availableNow=true", icon: Zap, iconColor: "text-amber-400" },
-            { label: "Videollamada", href: "/videocall", icon: Video, iconColor: "text-blue-400" },
-            { label: "Verificadas", href: "/escorts", icon: ShieldCheck, iconColor: "text-fuchsia-400" },
-            { label: "Premium", href: "/premium", icon: Crown, iconColor: "text-amber-300" },
-          ].map((c) => (
-            <Link
-              key={c.label}
-              href={c.href}
-              className="group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-white/70 backdrop-blur-sm transition hover:border-fuchsia-500/25 hover:bg-white/[0.06] hover:text-white"
+            <SearchIcon className="h-4 w-4 shrink-0 text-white/40" aria-hidden />
+            <input
+              type="search"
+              value={heroQuery}
+              onChange={(e) => setHeroQuery(e.target.value)}
+              placeholder="Buscar por nombre, zona o servicio"
+              aria-label="Buscar"
+              className="w-full bg-transparent text-sm text-white placeholder:text-white/35 outline-none"
+            />
+            <button
+              type="submit"
+              className="shrink-0 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110"
             >
-              <c.icon className={`h-3.5 w-3.5 ${c.iconColor}`} aria-hidden />
-              {c.label}
-            </Link>
-          ))}
+              Buscar
+            </button>
+          </form>
+
+          {/* Chips de filtros rápidos */}
+          <div className="scrollbar-none mt-2.5 -mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
+            {[
+              { label: "Cerca (2km)", href: "/servicios", icon: Navigation, iconColor: "text-emerald-400" },
+              { label: "Disponible ahora", href: "/escorts?availableNow=true", icon: Zap, iconColor: "text-amber-400" },
+              { label: "Videollamada", href: "/videocall", icon: Video, iconColor: "text-blue-400" },
+              { label: "Verificadas", href: "/escorts", icon: ShieldCheck, iconColor: "text-fuchsia-400" },
+              { label: "Premium", href: "/premium", icon: Crown, iconColor: "text-amber-300" },
+            ].map((c) => (
+              <Link
+                key={c.label}
+                href={c.href}
+                className="group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium text-white/70 backdrop-blur-sm transition hover:border-fuchsia-500/25 hover:bg-white/[0.06] hover:text-white"
+              >
+                <c.icon className={`h-3 w-3 ${c.iconColor}`} aria-hidden />
+                {c.label}
+              </Link>
+            ))}
+          </div>
+
+          {/* Link compacto para descargar app — solo desktop (mobile ya tiene PWA prompt nativo) */}
+          <div className="mt-3 hidden sm:block">
+            <InstallAppButton compact />
+          </div>
         </div>
       </section>
 
