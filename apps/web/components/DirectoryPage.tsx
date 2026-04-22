@@ -309,7 +309,9 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
       (r) =>
         (r.displayName || "").toLowerCase().includes(q) ||
         (r.city || "").toLowerCase().includes(q) ||
-        r.profileTags.some((t) => t.includes(q)),
+        (r.serviceCategory || "").toLowerCase().includes(q) ||
+        r.profileTags.some((t) => t.toLowerCase().includes(q)) ||
+        r.serviceTags.some((t) => t.toLowerCase().includes(q)),
     );
   }, [results, search]);
 

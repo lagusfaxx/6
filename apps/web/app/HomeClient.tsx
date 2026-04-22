@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
-import { LocationFilterContext } from "../hooks/useLocationFilter";
+import { CHILEAN_CITIES, LocationFilterContext } from "../hooks/useLocationFilter";
+import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../components/DirectoryPage";
 import useMe from "../hooks/useMe";
 import UserLevelBadge from "../components/UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
@@ -49,6 +50,69 @@ function trialLabel(days: number): string {
 }
 const FREE_TRIAL_DAYS = Number(process.env.NEXT_PUBLIC_FREE_TRIAL_DAYS || 90);
 const TRIAL_TEXT = `${trialLabel(FREE_TRIAL_DAYS)} gratis`;
+
+/* ── Hero search: smart routing (categorías / tags / comunas) ── */
+const CATEGORY_ALIASES: Array<{ keywords: string[]; href: string }> = [
+  { keywords: ["escort", "escorts", "puta", "putas", "acompañante", "acompañantes", "acompanante", "acompanantes"], href: "/escorts" },
+  { keywords: ["masajista", "masajistas", "masaje", "masajes"], href: "/masajistas" },
+  { keywords: ["motel", "moteles"], href: "/moteles" },
+  { keywords: ["sexshop", "sex shop", "sexo shop", "juguete", "juguetes"], href: "/sexshop" },
+  { keywords: ["videollamada", "videollamadas", "video llamada", "videocall", "cam"], href: "/videocall" },
+  { keywords: ["premium", "gold", "platino", "diamante", "diamond"], href: "/premium" },
+  { keywords: ["live", "lives", "en vivo"], href: "/live" },
+  { keywords: ["foro", "comunidad"], href: "/foro" },
+];
+
+function normalizeQuery(s: string): string {
+  return s.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+type ResolvedSearch = { href: string; cityToSet?: (typeof CHILEAN_CITIES)[number] };
+function resolveSearch(raw: string): ResolvedSearch {
+  const q = normalizeQuery(raw);
+  if (!q) return { href: "/escorts" };
+
+  // 1. Alias de categoría (exacto o substring)
+  for (const cat of CATEGORY_ALIASES) {
+    if (cat.keywords.some((k) => {
+      const nk = normalizeQuery(k);
+      return nk === q || nk.startsWith(q) || q.startsWith(nk);
+    })) {
+      return { href: cat.href };
+    }
+  }
+
+  // 2. Service tag del catálogo (anal, sexo oral, masaje erotico, trios, etc.)
+  const serviceMatch = SERVICE_TAGS_CATALOG.find((t) => {
+    const nt = normalizeQuery(t);
+    return nt === q || nt.includes(q) || q.includes(nt);
+  });
+  if (serviceMatch) {
+    return { href: `/escorts?serviceTags=${encodeURIComponent(serviceMatch)}` };
+  }
+
+  // 3. Profile tag del catálogo (tetona, rubia, tatuada, etc.)
+  const profileMatch = PROFILE_TAGS_CATALOG.find((t) => {
+    const nt = normalizeQuery(t);
+    return nt === q || nt.includes(q) || q.includes(nt);
+  });
+  if (profileMatch) {
+    return { href: `/escorts?profileTags=${encodeURIComponent(profileMatch)}` };
+  }
+
+  // 4. Comuna / ciudad chilena: setear la location y llevar a /escorts
+  const cityMatch = CHILEAN_CITIES.find((c) => {
+    const nc = normalizeQuery(c.name);
+    return nc === q || nc.includes(q) || q.includes(nc);
+  });
+  if (cityMatch) {
+    return { href: "/escorts", cityToSet: cityMatch };
+  }
+
+  // 5. Fallback: búsqueda por nombre. DirectoryPage filtra client-side por
+  // displayName / city / profileTags / serviceTags / serviceCategory.
+  return { href: `/escorts?q=${encodeURIComponent(raw.trim())}` };
+}
 
 /* ── Types ── */
 
@@ -816,8 +880,9 @@ export default function HomeClient() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              const q = heroQuery.trim();
-              router.push(q ? `/escorts?q=${encodeURIComponent(q)}` : "/escorts");
+              const resolved = resolveSearch(heroQuery);
+              if (resolved.cityToSet) locationCtx?.setCity(resolved.cityToSet);
+              router.push(resolved.href);
             }}
             className="relative mx-auto mt-3 flex w-full max-w-xl items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 backdrop-blur-md focus-within:border-fuchsia-500/40 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_24px_rgba(217,70,239,0.12)] transition animate-float-up sm:mt-4"
             style={{ animationDelay: "300ms", animationFillMode: "both" }}
