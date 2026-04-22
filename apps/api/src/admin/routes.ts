@@ -473,6 +473,35 @@ adminRouter.put(
   }),
 );
 
+adminRouter.put(
+  "/profiles/:id/avatar",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { mediaId } = req.body ?? {};
+    if (!mediaId || typeof mediaId !== "string") {
+      return res.status(400).json({ error: "VALIDATION", message: "mediaId required" });
+    }
+
+    const media = await prisma.profileMedia.findUnique({
+      where: { id: mediaId },
+      select: { id: true, url: true, type: true, ownerId: true },
+    });
+    if (!media || media.ownerId !== id) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Media no pertenece al perfil" });
+    }
+    if (media.type !== "IMAGE") {
+      return res.status(400).json({ error: "VALIDATION", message: "Solo imagenes pueden ser avatar" });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { avatarUrl: media.url },
+      select: { id: true, username: true, avatarUrl: true },
+    });
+    return res.json({ profile: updated });
+  }),
+);
+
 adminRouter.delete(
   "/profiles/:id",
   asyncHandler(async (req, res) => {

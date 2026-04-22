@@ -24,6 +24,8 @@ import {
   Filter,
   BarChart3,
   Image as ImageIcon,
+  UserCheck,
+  Check,
 } from "lucide-react";
 
 /* ─── Types ─── */
@@ -124,6 +126,7 @@ export default function AdminRatingPage() {
 
   // Photo gallery
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const [settingAvatar, setSettingAvatar] = useState(false);
 
   // Swipe direction for animation
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
@@ -216,6 +219,33 @@ export default function AdminRatingPage() {
       setError("No se pudo enviar la calificacion.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function setAsAvatar() {
+    if (!currentProfile || settingAvatar) return;
+    const media = currentProfile.profileMedia[activePhotoIndex];
+    if (!media) return;
+    if (media.type !== "IMAGE") {
+      setError("Solo puedes usar imagenes como foto de perfil.");
+      return;
+    }
+    setSettingAvatar(true);
+    setError(null);
+    try {
+      const res = await apiFetch<{ profile: { avatarUrl: string | null } }>(
+        `/admin/profiles/${currentProfile.id}/avatar`,
+        { method: "PUT", body: JSON.stringify({ mediaId: media.id }) },
+      );
+      const newAvatar = res?.profile?.avatarUrl ?? media.url;
+      setProfiles((prev) =>
+        prev.map((p, i) => (i === currentIndex ? { ...p, avatarUrl: newAvatar } : p)),
+      );
+      setSuccess("Foto de perfil actualizada");
+    } catch {
+      setError("No se pudo actualizar la foto de perfil.");
+    } finally {
+      setSettingAvatar(false);
     }
   }
 
@@ -388,6 +418,33 @@ export default function AdminRatingPage() {
                       alt=""
                       className="w-full h-full object-cover"
                     />
+                    {/* Set as avatar button */}
+                    {(() => {
+                      const activeMedia = currentProfile.profileMedia[activePhotoIndex];
+                      if (!activeMedia || activeMedia.type !== "IMAGE") return null;
+                      const isCurrentAvatar = currentProfile.avatarUrl === activeMedia.url;
+                      return (
+                        <button
+                          onClick={setAsAvatar}
+                          disabled={settingAvatar || isCurrentAvatar}
+                          title={isCurrentAvatar ? "Ya es la foto de perfil" : "Usar como foto de perfil"}
+                          className={`absolute top-3 left-3 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium backdrop-blur-sm transition disabled:opacity-70 ${
+                            isCurrentAvatar
+                              ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 cursor-default"
+                              : "bg-black/60 border border-white/20 text-white hover:bg-fuchsia-600/80 hover:border-fuchsia-400"
+                          }`}
+                        >
+                          {settingAvatar ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : isCurrentAvatar ? (
+                            <Check className="h-3.5 w-3.5" />
+                          ) : (
+                            <UserCheck className="h-3.5 w-3.5" />
+                          )}
+                          {isCurrentAvatar ? "Foto de perfil actual" : "Usar como foto de perfil"}
+                        </button>
+                      );
+                    })()}
                     {/* Photo nav dots */}
                     {currentProfile.profileMedia.length > 1 && (
                       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
