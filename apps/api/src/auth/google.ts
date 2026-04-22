@@ -1,9 +1,10 @@
 import { Router } from "express";
 import crypto from "crypto";
 import { prisma } from "../db";
-import { Prisma } from "@prisma/client";
+import { Prisma, ProfileType } from "@prisma/client";
 import { config } from "../config";
 import { asyncHandler } from "../lib/asyncHandler";
+import { emitAdminEvent } from "../lib/adminEvents";
 
 export const googleAuthRouter = Router();
 
@@ -176,74 +177,36 @@ googleAuthRouter.get(
     }
     const email = rawEmail.toLowerCase();
 
-    // Find or create the user. Google already verified the email, so we skip
-    // the 6-digit code flow. New accounts are always created as CLIENT via
-    // Google — professionals/establishments/shops use the multi-step form.
-    let user = await prisma.user.findUnique({
+    // If the email already has an account, log in as that user (preserving
+    // whatever profileType they registered with). If the email is new, stash
+    // the Google identity in the session and send them to the account-type
+    // chooser — we no longer silently create new accounts as CLIENT, because
+    // professionals/establishments/shops were ending up miscategorised.
+    const user = await prisma.user.findUnique({
       where: { email },
-      select: {
-        id: true,
-        role: true,
-      },
+      select: { id: true, role: true },
     });
 
     if (!user) {
       const displayName =
-        userInfo.name?.trim() || userInfo.given_name?.trim() || "Cliente";
-      const baseSlug = slugify(displayName) || "user";
-      let username = baseSlug;
-      let attempts = 0;
-      while (attempts < 10) {
-        const taken = await prisma.user.findUnique({ where: { username } });
-        if (!taken) break;
-        username = `${baseSlug}-${crypto.randomInt(1000, 9999)}`;
-        attempts++;
-      }
-
-      try {
-        user = await prisma.user.create({
-          data: {
-            email,
-            username,
-            displayName,
-            profileType: "CLIENT",
-            role: "USER",
-            isVerified: true,
-            isOnline: true,
-            lastSeen: new Date(),
-            termsAcceptedAt: new Date(),
-            avatarUrl: userInfo.picture || null,
-          },
-          select: { id: true, role: true },
-        });
-      } catch (err) {
-        // Race: another concurrent Google callback just created the user.
-        if (
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === "P2002"
-        ) {
-          user = await prisma.user.findUnique({
-            where: { email },
-            select: { id: true, role: true },
-          });
-        } else {
-          console.error("[auth/google] user create failed", { email, error: err });
-          return res.redirect(buildFrontendRedirect("/login", "create_failed"));
-        }
-      }
-
-      if (!user) {
-        return res.redirect(buildFrontendRedirect("/login", "create_failed"));
-      }
-    } else {
-      // Existing user — just mark them online.
-      await prisma.user
-        .update({
-          where: { id: user.id },
-          data: { isOnline: true, lastSeen: new Date() },
-        })
-        .catch(() => undefined);
+        userInfo.name?.trim() || userInfo.given_name?.trim() || "Usuario";
+      req.session.pendingGoogleSignup = {
+        email,
+        displayName,
+        avatarUrl: userInfo.picture || null,
+        next,
+      };
+      await persistSession(req);
+      return res.redirect(buildFrontendRedirect("/register/tipo-cuenta"));
     }
+
+    // Existing user — just mark them online.
+    await prisma.user
+      .update({
+        where: { id: user.id },
+        data: { isOnline: true, lastSeen: new Date() },
+      })
+      .catch(() => undefined);
 
     // Regenerate session to prevent session fixation, then attach userId.
     await new Promise<void>((resolve, reject) => {
@@ -257,5 +220,170 @@ googleAuthRouter.get(
     await persistSession(req);
 
     return res.redirect(buildFrontendRedirect(next));
+  }),
+);
+
+const ALLOWED_SIGNUP_TYPES: ProfileType[] = [
+  "CLIENT",
+  "PROFESSIONAL",
+  "ESTABLISHMENT",
+  "SHOP",
+];
+
+function addDays(base: Date, days: number): Date {
+  const d = new Date(base.getTime());
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
+
+googleAuthRouter.get(
+  "/google/pending",
+  asyncHandler(async (req, res) => {
+    const pending = req.session.pendingGoogleSignup;
+    if (!pending) {
+      return res.status(404).json({ error: "NO_PENDING_SIGNUP" });
+    }
+    return res.json({
+      email: pending.email,
+      displayName: pending.displayName,
+      avatarUrl: pending.avatarUrl,
+    });
+  }),
+);
+
+googleAuthRouter.post(
+  "/google/cancel",
+  asyncHandler(async (req, res) => {
+    req.session.pendingGoogleSignup = undefined;
+    await persistSession(req);
+    return res.json({ ok: true });
+  }),
+);
+
+googleAuthRouter.post(
+  "/google/complete",
+  asyncHandler(async (req, res) => {
+    const pending = req.session.pendingGoogleSignup;
+    if (!pending) {
+      return res.status(400).json({
+        error: "NO_PENDING_SIGNUP",
+        message: "La sesión de Google expiró. Inicia sesión con Google de nuevo.",
+      });
+    }
+
+    const rawType = String(req.body?.profileType || "").toUpperCase();
+    if (!ALLOWED_SIGNUP_TYPES.includes(rawType as ProfileType)) {
+      return res.status(400).json({
+        error: "PROFILE_TYPE_INVALID",
+        message: "Tipo de cuenta inválido.",
+      });
+    }
+    const profileType = rawType as ProfileType;
+
+    // If somehow an account was created for this email in the meantime (e.g.
+    // race with another browser tab), just log the user in instead of erroring.
+    const existing = await prisma.user.findUnique({
+      where: { email: pending.email },
+      select: { id: true, role: true },
+    });
+    if (existing) {
+      req.session.pendingGoogleSignup = undefined;
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((err) => (err ? reject(err) : resolve()));
+      });
+      req.session.userId = existing.id;
+      req.session.role = existing.role as "USER" | "ADMIN";
+      await persistSession(req);
+      return res.json({ redirect: safePath(pending.next) });
+    }
+
+    const baseSlug = slugify(pending.displayName) || "user";
+    let username = baseSlug;
+    let attempts = 0;
+    while (attempts < 10) {
+      const taken = await prisma.user.findUnique({ where: { username } });
+      if (!taken) break;
+      username = `${baseSlug}-${crypto.randomInt(1000, 9999)}`;
+      attempts++;
+    }
+
+    const isBusinessProfile =
+      profileType === "PROFESSIONAL" ||
+      profileType === "ESTABLISHMENT" ||
+      profileType === "SHOP";
+    const shopTrialEndsAt = isBusinessProfile
+      ? addDays(new Date(), config.freeTrialDays)
+      : null;
+
+    let user;
+    try {
+      user = await prisma.user.create({
+        data: {
+          email: pending.email,
+          username,
+          displayName: pending.displayName,
+          profileType,
+          role: "USER",
+          isVerified: !isBusinessProfile,
+          isOnline: true,
+          lastSeen: new Date(),
+          termsAcceptedAt: new Date(),
+          avatarUrl: pending.avatarUrl,
+          shopTrialEndsAt,
+          subscriptionPrice: profileType === "PROFESSIONAL" ? 2500 : null,
+        },
+        select: { id: true, username: true, role: true, profileType: true },
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        const recovered = await prisma.user.findUnique({
+          where: { email: pending.email },
+          select: { id: true, role: true },
+        });
+        if (recovered) {
+          req.session.pendingGoogleSignup = undefined;
+          await new Promise<void>((resolve, reject) => {
+            req.session.regenerate((err2) => (err2 ? reject(err2) : resolve()));
+          });
+          req.session.userId = recovered.id;
+          req.session.role = recovered.role as "USER" | "ADMIN";
+          await persistSession(req);
+          return res.json({ redirect: safePath(pending.next) });
+        }
+      }
+      console.error("[auth/google] complete create failed", {
+        email: pending.email,
+        profileType,
+        error: err,
+      });
+      return res.status(500).json({
+        error: "CREATE_FAILED",
+        message: "No pudimos crear la cuenta. Intenta de nuevo.",
+      });
+    }
+
+    if (isBusinessProfile) {
+      await emitAdminEvent({
+        type: "profile_verification_requested",
+        user: user.username || null,
+      }).catch(() => {});
+    }
+
+    req.session.pendingGoogleSignup = undefined;
+    await new Promise<void>((resolve, reject) => {
+      req.session.regenerate((err) => (err ? reject(err) : resolve()));
+    });
+    req.session.userId = user.id;
+    req.session.role = user.role as "USER" | "ADMIN";
+    await persistSession(req);
+
+    // Clients go wherever they were heading; business profiles go to their
+    // account page so they can fill in phone/address/bio/photos before the
+    // manual phone verification call.
+    const redirect = isBusinessProfile ? "/cuenta" : safePath(pending.next);
+    return res.json({ redirect });
   }),
 );
