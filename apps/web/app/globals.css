@@ -847,6 +847,21 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   transform: scale(1.06);
 }
 
+/* ── Modo discreto: blur thumbnails y stories hasta hover/tap ── */
+html.discreet .uzeed-card-img,
+html.discreet .uzeed-discreet-blur {
+  filter: blur(14px) saturate(0.85);
+  transition: filter 200ms ease;
+}
+html.discreet .uzeed-card-img:hover,
+html.discreet .uzeed-card-img:active,
+html.discreet .uzeed-card-img:focus-visible,
+html.discreet .uzeed-discreet-blur:hover,
+html.discreet .uzeed-discreet-blur:active,
+html.discreet .uzeed-discreet-blur:focus-visible {
+  filter: none;
+}
+
 /* Card gradient overlays */
 .uzeed-card-gradient {
   background: linear-gradient(

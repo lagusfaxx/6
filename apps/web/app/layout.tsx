@@ -143,6 +143,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        {/* Anti-flash modo discreto: aplica clase al <html> antes del primer paint */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('uzeed:discreet')==='1'){document.documentElement.classList.add('discreet');}}catch(e){}`,
+          }}
+        />
       </head>
       <body className="min-h-screen text-white antialiased">
         <AppShell>{children}</AppShell>
