@@ -237,11 +237,13 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
     searchParams.get("serviceTags")?.split(",").filter(Boolean) ?? [],
   );
   const [maduras, setMaduras] = useState(searchParams.get("maduras") === "true");
-  const [availableNow, setAvailableNow] = useState(false);
-  const [sort, setSort] = useState<"featured" | "near" | "new" | "availableNow">("featured");
+  const [availableNow, setAvailableNow] = useState(searchParams.get("availableNow") === "true");
+  const [sort, setSort] = useState<"featured" | "near" | "new" | "availableNow">(
+    searchParams.get("availableNow") === "true" ? "availableNow" : "featured",
+  );
   const [genderFilter, setGenderFilter] = useState(searchParams.get("gender") || "");
   const [showFilters, setShowFilters] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("q") || "");
 
   /* ── data state ── */
   const [results, setResults] = useState<DirectoryResult[]>([]);

@@ -1,7 +1,8 @@
 "use client";
 
-import { startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
@@ -30,6 +31,7 @@ import {
   MapPin,
   Navigation,
   PartyPopper,
+  Search as SearchIcon,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -414,6 +416,8 @@ const TIERS = [
 const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
 
 export default function HomeClient() {
+  const router = useRouter();
+  const [heroQuery, setHeroQuery] = useState("");
   const [banners, setBanners] = useState<Banner[]>([]);
   const [bannersLoaded, setBannersLoaded] = useState(false);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
@@ -428,14 +432,6 @@ export default function HomeClient() {
   const [recentLoading, setRecentLoading] = useState(true);
   const { me } = useMe();
   const [previewProfile, setPreviewProfile] = useState<any>(null);
-  const availableSectionRef = useRef<HTMLElement | null>(null);
-  const availableCarouselRef = useRef<HTMLDivElement | null>(null);
-  const [isAvailableInView, setIsAvailableInView] = useState(true);
-  const [isAvailableInteracting, setIsAvailableInteracting] = useState(false);
-  const isDraggingRef = useRef(false);
-  const didDragRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const dragScrollLeftRef = useRef(0);
   const isAuthed = Boolean(me?.user?.id);
 
   /* ── U-Mate creators (home showcase) ── */
@@ -697,15 +693,11 @@ export default function HomeClient() {
       galleryUrls: p.galleryUrls,
     }));
   }, [rawAvailableProfiles, recentPros]);
-  const availableCarouselProfiles = useMemo(
-    () => (availableProfiles.length > 0 ? [...availableProfiles, ...availableProfiles] : []),
-    [availableProfiles],
-  );
   // Prefetch first visible profile images using idle time
   useEffect(() => {
     if (typeof requestIdleCallback !== "function") return;
     const id = requestIdleCallback(() => {
-      const first4 = availableCarouselProfiles.slice(0, 4);
+      const first4 = availableProfiles.slice(0, 4);
       for (const p of first4) {
         const src = resolveProfileImage(p);
         if (src && src !== "/brand/isotipo-new.png") {
@@ -715,102 +707,23 @@ export default function HomeClient() {
       }
     }, { timeout: 4000 });
     return () => cancelIdleCallback(id);
-  }, [availableCarouselProfiles]);
+  }, [availableProfiles]);
 
-  const shouldAutoScrollAvailable = availableProfiles.length > 1 && isAvailableInView && !isAvailableInteracting;
   const nearProfiles = discoverSections["near"] || [];
   const newProfiles = discoverSections["new"] || [];
 
-  useEffect(() => {
-    if (!availableSectionRef.current || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsAvailableInView(entry.isIntersecting),
-      { threshold: 0.35 },
-    );
-    observer.observe(availableSectionRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!availableCarouselRef.current) return;
-    availableCarouselRef.current.scrollTo({ left: 0, behavior: "auto" });
-  }, [availableProfiles]);
-
-  useEffect(() => {
-    if (!shouldAutoScrollAvailable || !availableCarouselRef.current) return;
-    const carousel = availableCarouselRef.current;
-
-    let rafId = 0;
-    let lastTs = 0;
-    let position = carousel.scrollLeft;
-    let loopWidth = 0;
-    const speedPxPerSecond = 24;
-
-    const tick = (ts: number) => {
-      if (!loopWidth) {
-        loopWidth = carousel.scrollWidth / 2;
-        if (!loopWidth) {
-          rafId = window.requestAnimationFrame(tick);
-          return;
-        }
-      }
-
-      if (!lastTs) {
-        lastTs = ts;
-        rafId = window.requestAnimationFrame(tick);
-        return;
-      }
-
-      const delta = ts - lastTs;
-      lastTs = ts;
-
-      position += (speedPxPerSecond * delta) / 1000;
-      if (position >= loopWidth) position -= loopWidth;
-      carousel.scrollLeft = position;
-
-      rafId = window.requestAnimationFrame(tick);
-    };
-
-    rafId = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(rafId);
-  }, [shouldAutoScrollAvailable, availableCarouselProfiles.length]);
-
-  const handleAvailablePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const carousel = availableCarouselRef.current;
-    if (!carousel) return;
-    isDraggingRef.current = true;
-    didDragRef.current = false;
-    dragStartXRef.current = e.clientX;
-    dragScrollLeftRef.current = carousel.scrollLeft;
-    setIsAvailableInteracting(true);
-  }, []);
-
-  const handleAvailablePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current) return;
-    const carousel = availableCarouselRef.current;
-    if (!carousel) return;
-    const dx = e.clientX - dragStartXRef.current;
-    if (Math.abs(dx) > 3) {
-      if (!didDragRef.current) {
-        didDragRef.current = true;
-        carousel.setPointerCapture(e.pointerId);
-      }
-      e.preventDefault();
-      carousel.scrollLeft = dragScrollLeftRef.current - dx;
+  /* ── "Para ti ahora": merge available (prioridad, ya online) + near; dedupe por id ── */
+  const paraTiProfiles = useMemo(() => {
+    const seen = new Set<string>();
+    const out: DiscoverProfile[] = [];
+    for (const p of availableProfiles) {
+      if (!seen.has(p.id)) { seen.add(p.id); out.push(p); }
     }
-  }, []);
-
-  const handleAvailablePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    setIsAvailableInteracting(false);
-    const carousel = availableCarouselRef.current;
-    if (carousel && didDragRef.current) carousel.releasePointerCapture(e.pointerId);
-  }, []);
-
-  const handleAvailableCardClick = useCallback((p: DiscoverProfile) => {
-    if (!didDragRef.current) startTransition(() => setPreviewProfile(p));
-  }, []);
+    for (const p of nearProfiles) {
+      if (!seen.has(p.id)) { seen.add(p.id); out.push(p); }
+    }
+    return out;
+  }, [availableProfiles, nearProfiles]);
 
   const bannerHref = (banner: Banner) => {
     const profileId = (banner.linkUrl || "").startsWith("profile:") ? (banner.linkUrl || "").slice("profile:".length) : "";
@@ -881,7 +794,7 @@ export default function HomeClient() {
             Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Discreto, verificado y premium.
           </h2>
 
-          <div className="mt-5 flex flex-col items-center gap-2.5 sm:flex-row sm:justify-center animate-float-up" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
+          <div className="mt-5 flex flex-col items-center gap-2.5 animate-float-up" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
             <Link
               href="/servicios"
               className="uzeed-hero-cta group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)] sm:w-auto"
@@ -889,10 +802,59 @@ export default function HomeClient() {
               Explorar ahora
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
-            <InstallAppButton />
+            <div className="text-[11px] text-white/40">
+              <InstallAppButton />
+            </div>
           </div>
 
           <HeroCounters />
+        </div>
+      </section>
+
+      {/* ═══ BUSCADOR + FILTROS RÁPIDOS (sobre el fold) ═══ */}
+      <section className="relative mx-auto w-full max-w-4xl px-4 pt-4 pb-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const q = heroQuery.trim();
+            router.push(q ? `/escorts?q=${encodeURIComponent(q)}` : "/escorts");
+          }}
+          className="relative mx-auto flex w-full max-w-2xl items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 backdrop-blur-md focus-within:border-fuchsia-500/40 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_24px_rgba(217,70,239,0.12)] transition"
+        >
+          <SearchIcon className="h-4 w-4 shrink-0 text-white/40" aria-hidden />
+          <input
+            type="search"
+            value={heroQuery}
+            onChange={(e) => setHeroQuery(e.target.value)}
+            placeholder="Buscar por nombre, zona o servicio"
+            aria-label="Buscar"
+            className="w-full bg-transparent text-sm text-white placeholder:text-white/35 outline-none"
+          />
+          <button
+            type="submit"
+            className="shrink-0 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110"
+          >
+            Buscar
+          </button>
+        </form>
+
+        <div className="scrollbar-none mt-3 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
+          {[
+            { label: "Cerca (2km)", href: "/servicios", icon: Navigation, iconColor: "text-emerald-400" },
+            { label: "Disponible ahora", href: "/escorts?availableNow=true", icon: Zap, iconColor: "text-amber-400" },
+            { label: "Videollamada", href: "/videocall", icon: Video, iconColor: "text-blue-400" },
+            { label: "Verificadas", href: "/escorts", icon: ShieldCheck, iconColor: "text-fuchsia-400" },
+            { label: "Premium", href: "/premium", icon: Crown, iconColor: "text-amber-300" },
+          ].map((c) => (
+            <Link
+              key={c.label}
+              href={c.href}
+              className="group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-white/70 backdrop-blur-sm transition hover:border-fuchsia-500/25 hover:bg-white/[0.06] hover:text-white"
+            >
+              <c.icon className={`h-3.5 w-3.5 ${c.iconColor}`} aria-hidden />
+              {c.label}
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -1026,66 +988,6 @@ export default function HomeClient() {
 
         {/* Section gradient divider */}
         <div className="mb-6 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
-
-        {/* ═══ DISPONIBLE AHORA — Compact horizontal scroll ═══ */}
-        <section ref={availableSectionRef} className="mb-8">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/[0.12]">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-lg bg-emerald-400/30" />
-                  <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                </div>
-                <h2 className="text-base font-bold tracking-tight">Disponibles ahora</h2>
-              </div>
-              <Link href="/servicios?sort=available" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-emerald-400 transition-colors duration-200">
-                Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-              </Link>
-            </div>
-            {availableProfiles.length > 0 ? (
-              <div
-                ref={availableCarouselRef}
-                className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 cursor-grab active:cursor-grabbing select-none"
-                style={{ touchAction: "pan-x" }}
-                onPointerDown={handleAvailablePointerDown}
-                onPointerMove={handleAvailablePointerMove}
-                onPointerUp={handleAvailablePointerUp}
-                onPointerCancel={handleAvailablePointerUp}
-              >
-                {availableCarouselProfiles.map((p, index) => (
-                  <button
-                    key={`${p.id}-${index}`}
-                    data-available-card="true"
-                    type="button"
-                    onClick={() => handleAvailableCardClick(p)}
-                    className="uzeed-available-ring group w-[140px] shrink-0 overflow-hidden rounded-2xl border border-emerald-500/15 bg-gradient-to-b from-white/[0.06] to-white/[0.02] text-left transition-all duration-400 hover:-translate-y-1.5 hover:border-emerald-400/30 hover:shadow-[0_16px_48px_rgba(16,185,129,0.12)]"
-                  >
-                    <div className="relative aspect-[3/4] overflow-hidden">
-                      <img src={resolveProfileImage(p)} alt={p.displayName} className="uzeed-card-img h-full w-full object-cover" decoding="async" />
-                      <div className="absolute left-2 top-2 uzeed-badge-pill uzeed-badge-online text-[9px] z-[2]">
-                        <span className="uzeed-badge-dot" />
-                        {fakeRecentLabel(p.id)}
-                      </div>
-                      <div className="uzeed-card-gradient absolute inset-0" />
-                      <div className="absolute bottom-2 left-2 right-2 z-[2]">
-                        <div className="truncate text-xs font-bold text-white">{p.displayName}{p.age ? `, ${p.age}` : ""}</div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-5">
-                <p className="text-sm text-white/80">No hay perfiles disponibles en este momento.</p>
-                <p className="mt-1 text-xs text-white/50">Explora perfiles verificados y vuelve a intentar en unos minutos.</p>
-                <Link
-                  href="/servicios"
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2 text-xs font-medium text-fuchsia-200 transition hover:border-fuchsia-300/50 hover:bg-fuchsia-500/20"
-                >
-                  Ver perfiles <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            )}
-          </section>
 
         {/* Section gradient divider */}
         <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.08] to-transparent" />
@@ -1306,28 +1208,30 @@ export default function HomeClient() {
           </section>
         )}
 
-        {/* ═══ CERCA DE TI — Grid for abundance ═══ */}
-        {nearProfiles.length > 0 && (
-          <section key={`near-${locationKey}`} className="mb-10 uzeed-below-fold">
+        {/* ═══ PARA TI AHORA — Grid combinado (disponibles + cerca) ═══ */}
+        {paraTiProfiles.length > 0 && (
+          <section key={`parati-${locationKey}`} className="mb-10 uzeed-below-fold">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <h2 className="text-xl font-bold tracking-tight">Cerca de ti</h2>
+                <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/[0.12]">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-lg bg-emerald-400/30" />
+                  <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                </div>
+                <h2 className="text-xl font-bold tracking-tight">Para ti ahora</h2>
               </div>
               <Link href="/servicios?sort=distance" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
                 Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {nearProfiles.map((profile) => (
+              {paraTiProfiles.map((profile) => {
+                const priceFrom = (profile as any).priceFrom as number | null | undefined;
+                const recentLabel = profile.availableNow ? fakeRecentLabel(profile.id) : null;
+                return (
                 <article key={profile.id} className="uzeed-premium-card group">
                   <button type="button" onClick={() => startTransition(() => setPreviewProfile(profile))} className="block w-full text-left">
                     <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
-                      {profile.distanceKm != null && (
-                        <div className="absolute right-2 top-2 z-[3] rounded-lg border border-white/[0.08] bg-black/40 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur-xl tabular-nums">
-                          {profile.distanceKm.toFixed(1)} km
-                        </div>
-                      )}
                       <div className="absolute left-2 top-2 z-[3] flex flex-col gap-1">
                         {profile.availableNow && (
                           <div className="uzeed-badge-pill uzeed-badge-online text-[8px]">
@@ -1347,18 +1251,36 @@ export default function HomeClient() {
                       </div>
                       <div className="uzeed-card-gradient absolute inset-0" />
                       <div className="absolute bottom-0 left-0 right-0 p-2.5 z-[3]">
+                        {/* 1. Nombre + badges */}
                         <div className="flex items-center gap-1 truncate text-[13px] font-bold">
                           {profile.displayName}{profile.age ? `, ${profile.age}` : ""}
                           {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
                           {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
                         </div>
-                        {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0 || profile.serviceCategory) && (
-                          <div className="flex flex-wrap gap-1 mt-1">
+                        {/* 2. Distancia · actividad reciente (destacado) */}
+                        {(profile.distanceKm != null || recentLabel) && (
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
+                            {profile.distanceKm != null && (
+                              <span className="tabular-nums">{profile.distanceKm.toFixed(1)} km</span>
+                            )}
+                            {profile.distanceKm != null && recentLabel && <span className="text-white/30">·</span>}
+                            {recentLabel && <span className="text-emerald-300/90">{recentLabel}</span>}
+                          </div>
+                        )}
+                        {/* 3. Precio desde */}
+                        {typeof priceFrom === "number" && priceFrom > 0 && (
+                          <div className="mt-0.5 text-[11px] font-semibold text-fuchsia-300">
+                            Desde ${priceFrom.toLocaleString("es-CL")}
+                          </div>
+                        )}
+                        {/* 4. Tags en último lugar, más sutiles */}
+                        {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0) && (
+                          <div className="mt-1 flex flex-wrap gap-1">
                             {filterUserTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
-                              <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia text-[8px]">{tag}</span>
+                              <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia text-[8px] opacity-70">{tag}</span>
                             ))}
-                            {(profile as any).serviceTags?.slice(0, 2).map((tag: string) => (
-                              <span key={`st-${tag}`} className="uzeed-tag uzeed-tag-violet text-[8px]">{tag}</span>
+                            {(profile as any).serviceTags?.slice(0, 1).map((tag: string) => (
+                              <span key={`st-${tag}`} className="uzeed-tag uzeed-tag-violet text-[8px] opacity-70">{tag}</span>
                             ))}
                           </div>
                         )}
@@ -1366,7 +1288,8 @@ export default function HomeClient() {
                     </div>
                   </button>
                 </article>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}
@@ -1403,19 +1326,34 @@ export default function HomeClient() {
                       </div>
                       <div className="uzeed-card-gradient absolute inset-0" />
                       <div className="absolute bottom-0 left-0 right-0 p-2.5 z-[3]">
+                        {/* 1. Nombre + badges */}
                         <div className="flex items-center gap-1 truncate text-[13px] font-bold">
                           {profile.displayName}{profile.age ? `, ${profile.age}` : ""}
                           {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
                           {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
                         </div>
-                        <div className="mt-0.5 text-[10px] text-white/35">{fakeRecentLabel(profile.id)}</div>
+                        {/* 2. Distancia · actividad reciente (destacado) */}
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
+                          {profile.distanceKm != null && (
+                            <span className="tabular-nums">{profile.distanceKm.toFixed(1)} km</span>
+                          )}
+                          {profile.distanceKm != null && <span className="text-white/30">·</span>}
+                          <span className="text-emerald-300/90">{fakeRecentLabel(profile.id)}</span>
+                        </div>
+                        {/* 3. Precio desde */}
+                        {typeof (profile as any).priceFrom === "number" && (profile as any).priceFrom > 0 && (
+                          <div className="mt-0.5 text-[11px] font-semibold text-fuchsia-300">
+                            Desde ${((profile as any).priceFrom as number).toLocaleString("es-CL")}
+                          </div>
+                        )}
+                        {/* 4. Tags en último lugar, más sutiles */}
                         {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0) && (
-                          <div className="flex flex-wrap gap-1 mt-1">
+                          <div className="mt-1 flex flex-wrap gap-1">
                             {filterUserTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
-                              <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia text-[8px]">{tag}</span>
+                              <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia text-[8px] opacity-70">{tag}</span>
                             ))}
-                            {(profile as any).serviceTags?.slice(0, 2).map((tag: string) => (
-                              <span key={`st-${tag}`} className="uzeed-tag uzeed-tag-violet text-[8px]">{tag}</span>
+                            {(profile as any).serviceTags?.slice(0, 1).map((tag: string) => (
+                              <span key={`st-${tag}`} className="uzeed-tag uzeed-tag-violet text-[8px] opacity-70">{tag}</span>
                             ))}
                           </div>
                         )}

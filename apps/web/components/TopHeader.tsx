@@ -30,6 +30,8 @@ import {
   Crown,
   Wallet,
   HelpCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import Avatar from "./Avatar";
 import useMe from "../hooks/useMe";
@@ -122,6 +124,24 @@ export default function TopHeader() {
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [discreet, setDiscreet] = useState(false);
+
+  /* ── Modo discreto: hidrata desde localStorage + sincroniza <html> ── */
+  useEffect(() => {
+    const enabled = typeof window !== "undefined" && window.localStorage.getItem("uzeed:discreet") === "1";
+    setDiscreet(enabled);
+    if (enabled) document.documentElement.classList.add("discreet");
+  }, []);
+  const toggleDiscreet = () => {
+    setDiscreet((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("uzeed:discreet", next ? "1" : "0");
+        document.documentElement.classList.toggle("discreet", next);
+      }
+      return next;
+    });
+  };
 
   const panelRef    = useRef<HTMLDivElement | null>(null);
   const locationRef = useRef<HTMLDivElement | null>(null);
@@ -272,14 +292,8 @@ export default function TopHeader() {
                 </Link>
               </div>
 
-              {/* Center: Desktop category navigation only */}
+              {/* Center: Desktop category navigation (Inicio / Cerca tuyo / Foro se omiten: ya existen en el sidebar) */}
               <nav className="hidden md:flex items-center gap-1">
-                <Link
-                  href="/"
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${pathname === "/" ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25" : "text-white/60 hover:bg-white/10 hover:text-white/90"}`}
-                >
-                  Inicio
-                </Link>
                 {MEGA_MENU.map((item) => (
                   <Link
                     key={item.route}
@@ -289,27 +303,25 @@ export default function TopHeader() {
                     {item.label}
                   </Link>
                 ))}
-                <Link
-                  href="/servicios"
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${pathname.startsWith("/servicios") || pathname.startsWith("/services") ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25" : "text-white/60 hover:bg-white/10 hover:text-white/90"}`}
-                >
-                  Cerca tuyo
-                </Link>
-                <Link
-                  href="/foro"
-                  className={`relative rounded-full px-3 py-1.5 text-xs font-medium transition ${pathname.startsWith("/foro") ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25" : "text-white/60 hover:bg-white/10 hover:text-white/90"}`}
-                >
-                  Foro
-                  {forumBadge > 0 && (
-                    <span className="absolute -right-1 -top-1 min-w-[16px] rounded-full bg-fuchsia-500 px-1 py-[1px] text-center text-[9px] font-bold leading-none text-white shadow-[0_0_8px_rgba(217,70,239,0.6)]">
-                      {forumBadge > 9 ? "9+" : forumBadge}
-                    </span>
-                  )}
-                </Link>
               </nav>
 
-              {/* Right: Location + Notifications + Avatar */}
+              {/* Right: Discreet mode + Location + Notifications + Avatar */}
               <div className="flex min-w-0 items-center gap-1.5 md:gap-2">
+                {/* Modo discreto */}
+                <button
+                  type="button"
+                  onClick={toggleDiscreet}
+                  title={discreet ? "Desactivar modo discreto" : "Activar modo discreto"}
+                  aria-pressed={discreet}
+                  aria-label={discreet ? "Desactivar modo discreto" : "Activar modo discreto"}
+                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition md:h-10 md:w-10 ${
+                    discreet
+                      ? "border-fuchsia-500/35 bg-fuchsia-500/15 text-fuchsia-200 shadow-[0_0_12px_rgba(217,70,239,0.25)]"
+                      : "border-white/10 bg-white/[0.06] text-white hover:bg-white/10"
+                  }`}
+                >
+                  {discreet ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
                 {/* Location chip */}
                 <div className="relative min-w-0" ref={locationRef}>
                   <button
