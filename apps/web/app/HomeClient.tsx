@@ -778,8 +778,8 @@ export default function HomeClient() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
-      {/* ═══ HERO — Premium immersive (compacto en desktop) ═══ */}
-      <section className="relative flex items-center justify-center overflow-hidden px-4 pt-6 pb-5 md:pt-8 md:pb-6">
+      {/* ═══ HERO — Premium immersive (compacto en mobile y desktop) ═══ */}
+      <section className="relative flex items-center justify-center overflow-hidden px-4 pt-4 pb-4 md:pt-8 md:pb-6">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
         {/* Static ambient orbs — no animation to reduce rendering cost */}
@@ -790,16 +790,16 @@ export default function HomeClient() {
         <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
 
         <div className="relative mx-auto w-full max-w-3xl text-center">
-          <h1 className="text-[1.5rem] font-extrabold leading-[1.1] tracking-tight sm:text-[1.75rem] md:text-[2rem] animate-float-up" style={{ animationFillMode: "both" }}>
+          <h1 className="text-[1.25rem] font-extrabold leading-[1.1] tracking-tight sm:text-[1.75rem] md:text-[2rem] animate-float-up" style={{ animationFillMode: "both" }}>
             <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
           </h1>
 
-          <h2 className="mx-auto mt-2 max-w-xl text-[12px] font-medium leading-relaxed text-white/45 sm:text-[13px] animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
+          <h2 className="mx-auto mt-1.5 max-w-xl text-[11px] font-medium leading-snug text-white/45 sm:mt-2 sm:text-[13px] animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
             Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Discreto, verificado y premium.
           </h2>
 
-          {/* CTA primario + contadores en la misma fila en desktop */}
-          <div className="mt-4 flex flex-col items-center gap-3 animate-float-up sm:flex-row sm:justify-center sm:gap-6" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
+          {/* CTA primario + contadores (contadores se ocultan en mobile para acortar hero) */}
+          <div className="mt-3 flex flex-col items-center gap-3 animate-float-up sm:mt-4 sm:flex-row sm:justify-center sm:gap-6" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
             <Link
               href="/servicios"
               className="uzeed-hero-cta group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)]"
@@ -807,7 +807,9 @@ export default function HomeClient() {
               Explorar ahora
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
-            <HeroCounters />
+            <div className="hidden sm:block">
+              <HeroCounters />
+            </div>
           </div>
 
           {/* Buscador dentro del hero */}
@@ -817,7 +819,7 @@ export default function HomeClient() {
               const q = heroQuery.trim();
               router.push(q ? `/escorts?q=${encodeURIComponent(q)}` : "/escorts");
             }}
-            className="relative mx-auto mt-4 flex w-full max-w-xl items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 backdrop-blur-md focus-within:border-fuchsia-500/40 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_24px_rgba(217,70,239,0.12)] transition animate-float-up"
+            className="relative mx-auto mt-3 flex w-full max-w-xl items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 backdrop-blur-md focus-within:border-fuchsia-500/40 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_24px_rgba(217,70,239,0.12)] transition animate-float-up sm:mt-4"
             style={{ animationDelay: "300ms", animationFillMode: "both" }}
           >
             <SearchIcon className="h-4 w-4 shrink-0 text-white/40" aria-hidden />
@@ -857,8 +859,8 @@ export default function HomeClient() {
             ))}
           </div>
 
-          {/* Link compacto para descargar app */}
-          <div className="mt-3">
+          {/* Link compacto para descargar app — solo desktop (mobile ya tiene PWA prompt nativo) */}
+          <div className="mt-3 hidden sm:block">
             <InstallAppButton compact />
           </div>
         </div>
