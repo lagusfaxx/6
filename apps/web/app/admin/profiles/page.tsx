@@ -173,6 +173,31 @@ export default function AdminProfilesPage() {
     }
   }
 
+  async function updateTier(profile: Profile, tier: "PREMIUM" | "GOLD" | "SILVER" | null) {
+    if (profile.tier === tier) return;
+    setBusy(profile.id);
+    setError(null);
+    const prevProfiles = [...profiles];
+    setProfiles((prev) => prev.map((pr) => pr.id === profile.id ? { ...pr, tier } : pr));
+    try {
+      await apiFetch(`/admin/profiles/${profile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ tier }),
+      });
+      setSuccess(
+        tier
+          ? `Tier ${tier} asignado a ${profile.displayName || profile.username}.`
+          : `Tier removido de ${profile.displayName || profile.username}.`,
+      );
+      await loadProfiles();
+    } catch {
+      setProfiles(prevProfiles);
+      setError("No se pudo actualizar el tier del perfil.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   if (loading) return <div className="p-6 text-white/70">Cargando...</div>;
@@ -400,6 +425,54 @@ export default function AdminProfilesPage() {
                   }`}
                 >
                   Profesional con exámenes
+                </button>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] uppercase tracking-wide text-white/40">Tier:</span>
+                <button
+                  disabled={busy === p.id}
+                  onClick={() => updateTier(p, null)}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
+                    p.tier === null
+                      ? "border-white/30 bg-white/10 text-white"
+                      : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                  }`}
+                >
+                  Sin tier
+                </button>
+                <button
+                  disabled={busy === p.id}
+                  onClick={() => updateTier(p, "SILVER")}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
+                    p.tier === "SILVER"
+                      ? "border-slate-300/40 bg-slate-200/15 text-slate-100"
+                      : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                  }`}
+                >
+                  Silver
+                </button>
+                <button
+                  disabled={busy === p.id}
+                  onClick={() => updateTier(p, "GOLD")}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
+                    p.tier === "GOLD"
+                      ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
+                      : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                  }`}
+                >
+                  Gold
+                </button>
+                <button
+                  disabled={busy === p.id}
+                  onClick={() => updateTier(p, "PREMIUM")}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
+                    p.tier === "PREMIUM"
+                      ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-200"
+                      : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                  }`}
+                >
+                  Premium
                 </button>
               </div>
 
