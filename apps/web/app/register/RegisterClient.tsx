@@ -65,7 +65,7 @@ const businessOptions: Array<{
 
 export default function RegisterClient() {
   const [step, setStep] = useState<"choose" | "form" | "verify" | "pending">("choose");
-  const [profileType, setProfileType] = useState<ProfileType>("CLIENT");
+  const [profileType, setProfileType] = useState<ProfileType | null>(null);
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
@@ -97,6 +97,7 @@ export default function RegisterClient() {
   const isProfessional = profileType === "PROFESSIONAL";
 
   const selected = useMemo(() => {
+    if (profileType === null) return null;
     if (profileType === "CLIENT") return consumerOption;
     return businessOptions.find((o) => o.key === profileType);
   }, [profileType]);
@@ -359,14 +360,15 @@ export default function RegisterClient() {
               {/* Continue button */}
               <button
                 type="button"
+                disabled={profileType === null}
                 onClick={() => {
                   setTermsAccepted(false);
                   setStep("form");
                 }}
-                className={`${profileType === "CLIENT" ? "" : "mt-6"} w-full btn-primary py-3.5 text-base flex items-center justify-center gap-2`}
+                className={`${profileType === "CLIENT" ? "" : "mt-6"} w-full btn-primary py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                Continuar
-                <ArrowRight className="h-4 w-4" />
+                {profileType === null ? "Elige una opción" : "Continuar"}
+                {profileType !== null && <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
           ) : step === "form" ? (
@@ -402,7 +404,7 @@ export default function RegisterClient() {
                 <>
                   <AuthForm
                     mode="register"
-                    initialProfileType={profileType}
+                    initialProfileType={profileType ?? undefined}
                     lockProfileType
                     termsAccepted={termsAccepted}
                     onOpenTerms={() => setTermsOpen(true)}
