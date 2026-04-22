@@ -1,21 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, LogIn, ArrowLeft } from "lucide-react";
-import { apiFetch, friendlyErrorMessage, getApiBase, safeRedirect } from "../../lib/api";
-
-const GOOGLE_OAUTH_ERRORS: Record<string, string> = {
-  access_denied: "Cancelaste el inicio de sesión con Google.",
-  email_not_verified: "Tu cuenta de Google no tiene email verificado.",
-  invalid_state: "La sesión de Google expiró. Intenta de nuevo.",
-  token_exchange_failed: "No pudimos validar tu cuenta de Google. Intenta de nuevo.",
-  userinfo_failed: "No pudimos obtener tus datos de Google. Intenta de nuevo.",
-  no_access_token: "Google no devolvió un token válido. Intenta de nuevo.",
-  create_failed: "No pudimos crear tu cuenta. Intenta de nuevo.",
-  google_unavailable: "El inicio con Google no está disponible por ahora.",
-};
+import { apiFetch, friendlyErrorMessage, safeRedirect } from "../../lib/api";
 
 export default function LoginClient() {
   const searchParams = useSearchParams();
@@ -23,23 +12,7 @@ export default function LoginClient() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const oauthError = searchParams.get("oauth_error");
-    if (oauthError) {
-      setError(GOOGLE_OAUTH_ERRORS[oauthError] || "No pudimos iniciar sesión con Google.");
-    }
-  }, [searchParams]);
-
-  function onGoogleClick() {
-    setGoogleLoading(true);
-    setError(null);
-    const next = safeRedirect(searchParams.get("next"));
-    const url = `${getApiBase()}/auth/google/start?next=${encodeURIComponent(next)}`;
-    window.location.href = url;
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -86,40 +59,7 @@ export default function LoginClient() {
         <div className="relative rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
 
-          {/* Google sign-in */}
-          <div className="px-8 pt-8">
-            <button
-              type="button"
-              onClick={onGoogleClick}
-              disabled={googleLoading || loading}
-              className="w-full flex items-center justify-center gap-3 rounded-xl border border-white/15 bg-white/95 hover:bg-white text-gray-800 font-medium py-3 transition disabled:opacity-60"
-            >
-              {googleLoading ? (
-                <div className="w-5 h-5 border-2 border-gray-400 border-t-gray-700 rounded-full animate-spin" />
-              ) : (
-                <>
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.83z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.83C6.71 7.31 9.14 5.38 12 5.38z"/>
-                  </svg>
-                  Continuar con Google
-                </>
-              )}
-            </button>
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="px-4 text-xs text-white/40 bg-[#0d0e1a]">o con correo</span>
-              </div>
-            </div>
-          </div>
-
-          <form onSubmit={onSubmit} className="px-8 pb-8 grid gap-5">
+          <form onSubmit={onSubmit} className="px-8 pt-8 pb-8 grid gap-5">
             {/* Email */}
             <div className="grid gap-2">
               <label className="text-sm font-medium text-white/70">Email</label>
