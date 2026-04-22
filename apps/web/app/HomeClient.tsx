@@ -859,8 +859,8 @@ export default function HomeClient() {
             ))}
           </div>
 
-          {/* Link compacto para descargar app — solo desktop (mobile ya tiene PWA prompt nativo) */}
-          <div className="mt-3 hidden sm:block">
+          {/* Link compacto para descargar app */}
+          <div className="mt-3">
             <InstallAppButton compact />
           </div>
         </div>
