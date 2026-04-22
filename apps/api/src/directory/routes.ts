@@ -966,6 +966,9 @@ directoryRouter.get(
     const radiusKm = parseRangeKm(req.query.radiusKm, 50);
     const limit = Math.min(Number(req.query.limit) || 48, 120);
     const sort = (req.query.sort as string) || "featured";
+    /* Free-text search across displayName / username / city. Optional. */
+    const qRaw = typeof req.query.q === "string" ? req.query.q : "";
+    const q = qRaw.trim().slice(0, 80);
 
     /* ── normalise tag filters ── */
     function normTag(t: string) {
@@ -1024,6 +1027,26 @@ directoryRouter.get(
       where.serviceTags = { hasSome: serviceTagFilter };
     }
 
+    /* Free-text search (q): ILIKE on displayName / username / city.
+       If `where.OR` is already used by the category filter, we keep both by
+       wrapping them inside an AND array so the Prisma semantics stay correct. */
+    function buildQueryConditions(qValue: string) {
+      return [
+        { displayName: { contains: qValue, mode: "insensitive" as const } },
+        { username: { contains: qValue, mode: "insensitive" as const } },
+        { city: { contains: qValue, mode: "insensitive" as const } },
+      ];
+    }
+    if (q) {
+      const textOr = { OR: buildQueryConditions(q) };
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, textOr];
+        delete where.OR;
+      } else {
+        where.AND = [textOr];
+      }
+    }
+
     /* ── Select with new columns — fallback if migration not applied ── */
     const fullSelect = {
       id: true, username: true, displayName: true, avatarUrl: true,
@@ -1057,6 +1080,16 @@ directoryRouter.get(
       fallbackWhere.OR = categoryVariantsList.map((v) => ({
         serviceCategory: { contains: v, mode: "insensitive" as const },
       }));
+    }
+    /* Free-text search also honoured on the fallback path */
+    if (q) {
+      const textOr = { OR: buildQueryConditions(q) };
+      if (fallbackWhere.OR) {
+        fallbackWhere.AND = [{ OR: fallbackWhere.OR }, textOr];
+        delete fallbackWhere.OR;
+      } else {
+        fallbackWhere.AND = [textOr];
+      }
     }
 
     let users: any[];
