@@ -380,7 +380,7 @@ function HeroCounters() {
 
   return (
     <div
-      className={`flex items-center justify-center gap-4 sm:gap-5 ${animate ? "animate-float-up" : "opacity-0"}`}
+      className={`flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:gap-x-5 ${animate ? "animate-float-up" : "opacity-0"}`}
       style={{ animationDelay: "320ms", animationFillMode: "both" }}
     >
       {counters.map((c, i) => (
@@ -862,7 +862,7 @@ export default function HomeClient() {
             Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Discreto, verificado y premium.
           </h2>
 
-          {/* CTA primario + contadores (contadores se ocultan en mobile para acortar hero) */}
+          {/* CTA primario + contadores — visibles en mobile y desktop */}
           <div className="mt-3 flex flex-col items-center gap-3 animate-float-up sm:mt-4 sm:flex-row sm:justify-center sm:gap-6" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
             <Link
               href="/servicios"
@@ -871,9 +871,7 @@ export default function HomeClient() {
               Explorar ahora
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
-            <div className="hidden sm:block">
-              <HeroCounters />
-            </div>
+            <HeroCounters />
           </div>
 
           {/* Buscador dentro del hero */}
