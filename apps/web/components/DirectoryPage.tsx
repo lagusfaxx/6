@@ -244,6 +244,9 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
   const [genderFilter, setGenderFilter] = useState(searchParams.get("gender") || "");
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState(searchParams.get("q") || "");
+  /* Query que pide el server-side search. Se captura UNA VEZ desde la URL
+     para no refetchear mientras el usuario tipea dentro de la página. */
+  const [urlQuery] = useState(searchParams.get("q") || "");
 
   /* ── data state ── */
   const [results, setResults] = useState<DirectoryResult[]>([]);
@@ -279,6 +282,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
       if (maduras) params.set("maduras", "true");
       if (availableNow) params.set("availableNow", "true");
       if (genderFilter) params.set("gender", genderFilter);
+      if (urlQuery.trim()) params.set("q", urlQuery.trim().slice(0, 80));
 
       const data = await apiFetch<{ results: DirectoryResult[]; total: number }>(
         `/directory/search?${params.toString()}`,
@@ -297,7 +301,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
     } finally {
       if (myFetch === fetchRef.current) setLoading(false);
     }
-  }, [entityType, categorySlug, effectiveLoc, profileTagsFilter, serviceTagsFilter, maduras, availableNow, sort, genderFilter]);
+  }, [entityType, categorySlug, effectiveLoc, profileTagsFilter, serviceTagsFilter, maduras, availableNow, sort, genderFilter, urlQuery]);
 
   useEffect(() => { fetchResults(); }, [fetchResults]);
 
