@@ -862,8 +862,8 @@ export default function HomeClient() {
             Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Discreto, verificado y premium.
           </h2>
 
-          {/* CTA primario + contadores — visibles en mobile y desktop */}
-          <div className="mt-3 flex flex-col items-center gap-3 animate-float-up sm:mt-4 sm:flex-row sm:justify-center sm:gap-6" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
+          {/* CTA primario + contadores en la misma fila (mobile y desktop) */}
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 animate-float-up sm:mt-4 sm:gap-x-6" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
             <Link
               href="/servicios"
               className="uzeed-hero-cta group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)]"
