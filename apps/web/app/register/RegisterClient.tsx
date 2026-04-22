@@ -62,8 +62,8 @@ const consumerOption: OptionConfig = {
 const businessOptions: OptionConfig[] = [
   {
     key: "PROFESSIONAL",
-    title: "Experiencia",
-    description: "Ofrece experiencias con perfil completo, fotos y categorías.",
+    title: "Acompañante",
+    description: "Publica tu perfil con fotos, tarifas y recibe clientes por chat.",
     icon: Briefcase,
     accent: "from-fuchsia-500/15 via-pink-500/10 to-rose-500/10",
     iconGradient: "from-fuchsia-400 to-pink-500",
