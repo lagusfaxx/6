@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import AuthForm, { type RegisterFormData } from "../../components/AuthForm";
 import ProfessionalRegisterForm from "../../components/ProfessionalRegisterForm";
 import TermsModal from "../../components/TermsModal";
@@ -91,8 +92,19 @@ const businessOptions: OptionConfig[] = [
 ];
 
 export default function RegisterClient() {
-  const [step, setStep] = useState<"choose" | "form" | "verify" | "pending">("choose");
-  const [profileType, setProfileType] = useState<ProfileType | null>(null);
+  const searchParams = useSearchParams();
+  const googleMode = searchParams.get("google") === "1";
+  const googleInitialType = (searchParams.get("type") || "").toUpperCase() as ProfileType;
+  const isGoogleFlow =
+    googleMode &&
+    (googleInitialType === "PROFESSIONAL" || googleInitialType === "CLIENT");
+
+  const [step, setStep] = useState<"choose" | "form" | "verify" | "pending">(
+    isGoogleFlow ? "form" : "choose",
+  );
+  const [profileType, setProfileType] = useState<ProfileType | null>(
+    isGoogleFlow ? googleInitialType : null,
+  );
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
@@ -102,6 +114,12 @@ export default function RegisterClient() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [googlePending, setGooglePending] = useState<{
+    email: string;
+    displayName: string;
+    avatarUrl: string | null;
+  } | null>(null);
+  const [googlePendingLoading, setGooglePendingLoading] = useState(isGoogleFlow);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   function onGoogleClick() {
@@ -112,6 +130,33 @@ export default function RegisterClient() {
 
   const MIN_PHOTOS = 3;
   const MAX_PHOTOS = 6;
+
+  // When arriving from the Google chooser (?google=1&type=PROFESSIONAL),
+  // pull the pending profile to prefill email + displayName. If the session
+  // has no pending signup, bounce to login.
+  useEffect(() => {
+    if (!isGoogleFlow) return;
+    let active = true;
+    (async () => {
+      try {
+        const data = await apiFetch<{
+          email: string;
+          displayName: string;
+          avatarUrl: string | null;
+        }>("/auth/google/pending");
+        if (!active) return;
+        setGooglePending(data);
+      } catch {
+        if (!active) return;
+        window.location.replace("/login");
+      } finally {
+        if (active) setGooglePendingLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isGoogleFlow]);
 
   // Revoke blob URLs on unmount to prevent memory leaks
   useEffect(() => {
@@ -131,6 +176,60 @@ export default function RegisterClient() {
   }, [profileType]);
 
   const termsType = isBusinessProfile ? "business" : "client";
+
+  async function uploadProfessionalPhotos() {
+    if (!isProfessional || galleryFiles.length === 0) return;
+    const base = getApiBase();
+
+    const avatarForm = new FormData();
+    avatarForm.append("file", galleryFiles[0]);
+    await fetch(`${base}/profile/avatar`, {
+      method: "POST",
+      body: avatarForm,
+      credentials: "include",
+    });
+
+    const mediaForm = new FormData();
+    for (const file of galleryFiles) {
+      mediaForm.append("files", file);
+    }
+    await fetch(`${base}/profile/media`, {
+      method: "POST",
+      body: mediaForm,
+      credentials: "include",
+    });
+  }
+
+  // Google flow: the session already has a pendingGoogleSignup. Create the
+  // account via /auth/google/complete (no password, no email verification),
+  // then upload photos and land on the pending screen for professionals.
+  async function createAccountFromGoogle(data: RegisterFormData) {
+    setRegistering(true);
+    setRegisterError(null);
+    try {
+      const { password: _omitPassword, email: _omitEmail, ...rest } = data;
+      await apiFetch("/auth/google/complete", {
+        method: "POST",
+        body: JSON.stringify(rest),
+      });
+
+      await uploadProfessionalPhotos();
+
+      if (isBusinessProfile) {
+        setStep("pending");
+      } else {
+        window.location.replace("/");
+      }
+    } catch (err: any) {
+      const msg =
+        err?.body?.message ||
+        friendlyErrorMessage(err) ||
+        "Error al crear la cuenta.";
+      setRegisterError(msg);
+    } finally {
+      setRegistering(false);
+    }
+  }
 
   // After email verified, create the account (and upload photos for professionals)
   async function createAccountAfterVerification() {
@@ -205,6 +304,18 @@ export default function RegisterClient() {
     URL.revokeObjectURL(galleryPreviews[idx]);
     setGalleryFiles((prev) => prev.filter((_, i) => i !== idx));
     setGalleryPreviews((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  // Google signup: loading the pending profile before rendering the form
+  if (isGoogleFlow && googlePendingLoading) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center px-4">
+        <div className="flex items-center gap-3 text-white/60">
+          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          Verificando tu cuenta de Google...
+        </div>
+      </div>
+    );
   }
 
   // Email verification screen
@@ -430,6 +541,10 @@ export default function RegisterClient() {
                     <button
                       type="button"
                       onClick={() => {
+                        if (isGoogleFlow) {
+                          window.location.href = "/register/tipo-cuenta";
+                          return;
+                        }
                         setStep("choose");
                         setTermsAccepted(false);
                       }}
@@ -487,9 +602,17 @@ export default function RegisterClient() {
                     setPendingFormData(data);
                     setRegisteredEmail(data.email);
                     setRegisterError(null);
-                    setStep("verify");
+                    if (isGoogleFlow) {
+                      createAccountFromGoogle(data);
+                    } else {
+                      setStep("verify");
+                    }
                   }}
                   onBack={() => {
+                    if (isGoogleFlow) {
+                      window.location.href = "/register/tipo-cuenta";
+                      return;
+                    }
                     setStep("choose");
                     setTermsAccepted(false);
                   }}
@@ -500,6 +623,10 @@ export default function RegisterClient() {
                   galleryInputRef={galleryInputRef}
                   minPhotos={MIN_PHOTOS}
                   maxPhotos={MAX_PHOTOS}
+                  initialEmail={googlePending?.email}
+                  initialDisplayName={googlePending?.displayName}
+                  lockEmail={isGoogleFlow}
+                  skipPassword={isGoogleFlow}
                 />
               ) : (
                 <AuthForm

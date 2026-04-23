@@ -5,5 +5,11 @@ declare module "express-session" {
     userId?: string;
     role?: "USER" | "ADMIN";
     profileViewTracker?: Record<string, number>;
+    pendingGoogleSignup?: {
+      email: string;
+      displayName: string;
+      avatarUrl: string | null;
+      next: string;
+    };
   }
 }
