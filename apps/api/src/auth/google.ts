@@ -1,10 +1,14 @@
 import { Router } from "express";
 import crypto from "crypto";
+import { z } from "zod";
 import { prisma } from "../db";
 import { Prisma, ProfileType } from "@prisma/client";
 import { config } from "../config";
 import { asyncHandler } from "../lib/asyncHandler";
 import { emitAdminEvent } from "../lib/adminEvents";
+import { Genders, PreferenceGenders } from "@uzeed/shared";
+import { createProfessionalForumThread } from "./registerHelpers";
+import { redeemReferralCode } from "../referral/redeem";
 
 export const googleAuthRouter = Router();
 
@@ -223,18 +227,37 @@ googleAuthRouter.get(
   }),
 );
 
-const ALLOWED_SIGNUP_TYPES: ProfileType[] = [
-  "CLIENT",
-  "PROFESSIONAL",
-  "ESTABLISHMENT",
-  "SHOP",
-];
+const ALLOWED_SIGNUP_TYPES: ProfileType[] = ["CLIENT", "PROFESSIONAL"];
 
 function addDays(base: Date, days: number): Date {
   const d = new Date(base.getTime());
   d.setUTCDate(d.getUTCDate() + days);
   return d;
 }
+
+const phoneRegex =
+  /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
+
+const professionalCompleteSchema = z.object({
+  profileType: z.literal("PROFESSIONAL"),
+  displayName: z.string().min(2).max(50),
+  phone: z
+    .string()
+    .regex(phoneRegex, "Ingresa un número válido con código de país (+56, +57, +58 o +51)."),
+  gender: Genders,
+  preferenceGender: PreferenceGenders.optional(),
+  birthdate: z.string().min(1, "required"),
+  primaryCategory: z.string().min(1, "required").max(120),
+  address: z.string().min(6, "required").max(200),
+  city: z.string().max(120).optional(),
+  latitude: z.number().finite(),
+  longitude: z.number().finite(),
+  bio: z.string().max(1000).optional(),
+  referralCode: z.string().max(20).optional(),
+  acceptTerms: z.literal(true, {
+    errorMap: () => ({ message: "Terms must be accepted" }),
+  }),
+});
 
 googleAuthRouter.get(
   "/google/pending",
@@ -260,6 +283,32 @@ googleAuthRouter.post(
   }),
 );
 
+async function pickUniqueUsername(baseDisplayName: string) {
+  const baseSlug = slugify(baseDisplayName) || "user";
+  let username = baseSlug;
+  let attempts = 0;
+  while (attempts < 10) {
+    const taken = await prisma.user.findUnique({ where: { username } });
+    if (!taken) break;
+    username = `${baseSlug}-${crypto.randomInt(1000, 9999)}`;
+    attempts++;
+  }
+  return username;
+}
+
+async function finalizeGoogleSession(
+  req: any,
+  user: { id: string; role: string },
+): Promise<void> {
+  req.session.pendingGoogleSignup = undefined;
+  await new Promise<void>((resolve, reject) => {
+    req.session.regenerate((err: unknown) => (err ? reject(err) : resolve()));
+  });
+  req.session.userId = user.id;
+  req.session.role = user.role as "USER" | "ADMIN";
+  await persistSession(req);
+}
+
 googleAuthRouter.post(
   "/google/complete",
   asyncHandler(async (req, res) => {
@@ -280,40 +329,129 @@ googleAuthRouter.post(
     }
     const profileType = rawType as ProfileType;
 
-    // If somehow an account was created for this email in the meantime (e.g.
-    // race with another browser tab), just log the user in instead of erroring.
+    // Race with another tab that created the account already — log in instead.
     const existing = await prisma.user.findUnique({
       where: { email: pending.email },
       select: { id: true, role: true },
     });
     if (existing) {
-      req.session.pendingGoogleSignup = undefined;
-      await new Promise<void>((resolve, reject) => {
-        req.session.regenerate((err) => (err ? reject(err) : resolve()));
-      });
-      req.session.userId = existing.id;
-      req.session.role = existing.role as "USER" | "ADMIN";
-      await persistSession(req);
+      await finalizeGoogleSession(req, existing);
       return res.json({ redirect: safePath(pending.next) });
     }
 
-    const baseSlug = slugify(pending.displayName) || "user";
-    let username = baseSlug;
-    let attempts = 0;
-    while (attempts < 10) {
-      const taken = await prisma.user.findUnique({ where: { username } });
-      if (!taken) break;
-      username = `${baseSlug}-${crypto.randomInt(1000, 9999)}`;
-      attempts++;
+    // ─── CLIENT: instant, minimal account ───
+    if (profileType === "CLIENT") {
+      const username = await pickUniqueUsername(pending.displayName);
+      let user;
+      try {
+        user = await prisma.user.create({
+          data: {
+            email: pending.email,
+            username,
+            displayName: pending.displayName,
+            profileType: "CLIENT",
+            role: "USER",
+            isVerified: true,
+            isOnline: true,
+            lastSeen: new Date(),
+            termsAcceptedAt: new Date(),
+            avatarUrl: pending.avatarUrl,
+          },
+          select: { id: true, role: true },
+        });
+      } catch (err) {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === "P2002"
+        ) {
+          const recovered = await prisma.user.findUnique({
+            where: { email: pending.email },
+            select: { id: true, role: true },
+          });
+          if (recovered) {
+            await finalizeGoogleSession(req, recovered);
+            return res.json({ redirect: safePath(pending.next) });
+          }
+        }
+        console.error("[auth/google] client create failed", {
+          email: pending.email,
+          error: err,
+        });
+        return res.status(500).json({
+          error: "CREATE_FAILED",
+          message: "No pudimos crear la cuenta. Intenta de nuevo.",
+        });
+      }
+
+      await finalizeGoogleSession(req, user);
+      return res.json({ redirect: safePath(pending.next) });
     }
 
-    const isBusinessProfile =
-      profileType === "PROFESSIONAL" ||
-      profileType === "ESTABLISHMENT" ||
-      profileType === "SHOP";
-    const shopTrialEndsAt = isBusinessProfile
-      ? addDays(new Date(), config.freeTrialDays)
-      : null;
+    // ─── PROFESSIONAL: validate full form payload ───
+    const parsed = professionalCompleteSchema.safeParse({
+      ...req.body,
+      profileType: "PROFESSIONAL",
+    });
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: "VALIDATION", details: parsed.error.flatten() });
+    }
+    const data = parsed.data;
+
+    // Age check (same rules as /auth/register)
+    const parsedBirthdate = new Date(data.birthdate);
+    if (Number.isNaN(parsedBirthdate.getTime())) {
+      return res.status(400).json({
+        error: "BIRTHDATE_INVALID",
+        message: "La fecha de nacimiento no es válida.",
+      });
+    }
+    const now = new Date();
+    let age = now.getFullYear() - parsedBirthdate.getFullYear();
+    const monthDiff = now.getMonth() - parsedBirthdate.getMonth();
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && now.getDate() < parsedBirthdate.getDate())
+    ) {
+      age -= 1;
+    }
+    if (age < 18) {
+      return res.status(400).json({
+        error: "BIRTHDATE_UNDERAGE",
+        message: "Debes ser mayor de 18 años.",
+      });
+    }
+
+    // Resolve category (forum + service)
+    let resolvedCategoryId: string | null = null;
+    let resolvedCategoryName: string | null = null;
+    if (data.primaryCategory) {
+      const cat = await prisma.category.findFirst({
+        where: {
+          OR: [
+            { slug: data.primaryCategory },
+            { name: { equals: data.primaryCategory, mode: "insensitive" } },
+            {
+              displayName: {
+                equals: data.primaryCategory,
+                mode: "insensitive",
+              },
+            },
+          ],
+        },
+        select: { id: true, displayName: true, name: true },
+      });
+      if (cat) {
+        resolvedCategoryId = cat.id;
+        resolvedCategoryName = cat.displayName || cat.name;
+      } else {
+        resolvedCategoryName = data.primaryCategory;
+      }
+    }
+
+    const username = await pickUniqueUsername(data.displayName);
+    const shopTrialEndsAt = addDays(new Date(), config.freeTrialDays);
 
     let user;
     try {
@@ -321,42 +459,63 @@ googleAuthRouter.post(
         data: {
           email: pending.email,
           username,
-          displayName: pending.displayName,
-          profileType,
-          role: "USER",
-          isVerified: !isBusinessProfile,
+          phone: data.phone,
+          gender: data.gender,
+          preferenceGender: data.preferenceGender || null,
+          profileType: "PROFESSIONAL",
+          address: data.address,
+          city: data.city || null,
+          primaryCategory: data.primaryCategory,
+          serviceCategory: resolvedCategoryName,
+          categoryId: resolvedCategoryId,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          displayName: data.displayName,
+          bio: data.bio || null,
+          birthdate: parsedBirthdate,
+          termsAcceptedAt: new Date(),
+          shopTrialEndsAt,
+          subscriptionPrice: 2500,
           isOnline: true,
           lastSeen: new Date(),
-          termsAcceptedAt: new Date(),
+          role: "USER",
+          isVerified: false,
           avatarUrl: pending.avatarUrl,
-          shopTrialEndsAt,
-          subscriptionPrice: profileType === "PROFESSIONAL" ? 2500 : null,
         },
-        select: { id: true, username: true, role: true, profileType: true },
+        select: {
+          id: true,
+          username: true,
+          role: true,
+          displayName: true,
+        },
       });
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === "P2002"
       ) {
-        const recovered = await prisma.user.findUnique({
-          where: { email: pending.email },
-          select: { id: true, role: true },
-        });
-        if (recovered) {
-          req.session.pendingGoogleSignup = undefined;
-          await new Promise<void>((resolve, reject) => {
-            req.session.regenerate((err2) => (err2 ? reject(err2) : resolve()));
+        const target = Array.isArray((err.meta as any)?.target)
+          ? ((err.meta as any).target as string[])
+          : [];
+        if (target.includes("email")) {
+          const recovered = await prisma.user.findUnique({
+            where: { email: pending.email },
+            select: { id: true, role: true },
           });
-          req.session.userId = recovered.id;
-          req.session.role = recovered.role as "USER" | "ADMIN";
-          await persistSession(req);
-          return res.json({ redirect: safePath(pending.next) });
+          if (recovered) {
+            await finalizeGoogleSession(req, recovered);
+            return res.json({ redirect: "/cuenta" });
+          }
+        }
+        if (target.includes("username")) {
+          return res.status(409).json({
+            error: "USERNAME_IN_USE",
+            message: "Nombre de usuario no disponible. Intenta de nuevo.",
+          });
         }
       }
-      console.error("[auth/google] complete create failed", {
+      console.error("[auth/google] professional create failed", {
         email: pending.email,
-        profileType,
         error: err,
       });
       return res.status(500).json({
@@ -365,25 +524,36 @@ googleAuthRouter.post(
       });
     }
 
-    if (isBusinessProfile) {
-      await emitAdminEvent({
-        type: "profile_verification_requested",
-        user: user.username || null,
-      }).catch(() => {});
+    await createProfessionalForumThread({
+      userId: user.id,
+      username: user.username,
+      displayName: user.displayName || null,
+      primaryCategory: data.primaryCategory,
+    }).catch((error) => {
+      console.error("[auth/google] failed to create forum thread", {
+        userId: user.id,
+        error,
+      });
+    });
+
+    await emitAdminEvent({
+      type: "profile_verification_requested",
+      user: user.username || null,
+    }).catch(() => {});
+
+    if (data.referralCode) {
+      try {
+        await redeemReferralCode(data.referralCode.toUpperCase(), user.id);
+      } catch (err) {
+        console.error("[auth/google] referral redemption failed", {
+          userId: user.id,
+          referralCode: data.referralCode,
+          error: err,
+        });
+      }
     }
 
-    req.session.pendingGoogleSignup = undefined;
-    await new Promise<void>((resolve, reject) => {
-      req.session.regenerate((err) => (err ? reject(err) : resolve()));
-    });
-    req.session.userId = user.id;
-    req.session.role = user.role as "USER" | "ADMIN";
-    await persistSession(req);
-
-    // Clients go wherever they were heading; business profiles go to their
-    // account page so they can fill in phone/address/bio/photos before the
-    // manual phone verification call.
-    const redirect = isBusinessProfile ? "/cuenta" : safePath(pending.next);
-    return res.json({ redirect });
+    await finalizeGoogleSession(req, user);
+    return res.json({ redirect: "/cuenta" });
   }),
 );

@@ -63,6 +63,11 @@ export default function ProfessionalRegisterForm({
   galleryInputRef,
   minPhotos,
   maxPhotos,
+  initialEmail,
+  initialDisplayName,
+  lockEmail = false,
+  skipPassword = false,
+  submitLabel,
 }: {
   termsAccepted: boolean;
   onOpenTerms: () => void;
@@ -75,12 +80,17 @@ export default function ProfessionalRegisterForm({
   galleryInputRef: React.RefObject<HTMLInputElement>;
   minPhotos: number;
   maxPhotos: number;
+  initialEmail?: string;
+  initialDisplayName?: string;
+  lockEmail?: boolean;
+  skipPassword?: boolean;
+  submitLabel?: string;
 }) {
   const [subStep, setSubStep] = useState(1);
 
   // Step 1
-  const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState(initialDisplayName || "");
+  const [email, setEmail] = useState(initialEmail || "");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -111,7 +121,7 @@ export default function ProfessionalRegisterForm({
       if (!email.trim()) return "Ingresa tu email.";
       if (!phoneRegex.test(phone.trim()))
         return "Ingresa un número válido con código de país (+56, +57, +58 o +51).";
-      if (password.length < 8)
+      if (!skipPassword && password.length < 8)
         return "La contraseña debe tener al menos 8 caracteres.";
     }
     if (step === 2) {
@@ -254,13 +264,19 @@ export default function ProfessionalRegisterForm({
           <div className="grid gap-2">
             <label className="text-sm font-medium text-white/70">Email</label>
             <input
-              className="input"
+              className={`input ${lockEmail ? "opacity-70 cursor-not-allowed" : ""}`}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@email.com"
               type="email"
               required
+              readOnly={lockEmail}
             />
+            {lockEmail && (
+              <p className="text-xs text-white/40">
+                Usaremos tu correo de Google (ya verificado).
+              </p>
+            )}
           </div>
 
           <div className="grid gap-2">
@@ -276,33 +292,35 @@ export default function ProfessionalRegisterForm({
             />
           </div>
 
-          <div className="grid gap-2">
-            <label className="text-sm font-medium text-white/70">
-              Contraseña
-            </label>
-            <div className="relative">
-              <input
-                className="input pr-12"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                type={showPassword ? "text" : "password"}
-                required
-                minLength={8}
-                placeholder="Mínimo 8 caracteres"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1"
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
+          {!skipPassword && (
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-white/70">
+                Contraseña
+              </label>
+              <div className="relative">
+                <input
+                  className="input pr-12"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type={showPassword ? "text" : "password"}
+                  required
+                  minLength={8}
+                  placeholder="Mínimo 8 caracteres"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
 
@@ -593,7 +611,7 @@ export default function ProfessionalRegisterForm({
               <ArrowRight className="h-4 w-4" />
             </>
           ) : (
-            "Crear cuenta"
+            submitLabel || "Crear cuenta"
           )}
         </button>
       </div>

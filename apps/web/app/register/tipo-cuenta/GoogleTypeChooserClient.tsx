@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Briefcase,
-  Building2,
-  ShoppingBag,
   User,
   ArrowRight,
   ShieldCheck,
@@ -18,7 +16,7 @@ import {
 } from "lucide-react";
 import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
 
-type ProfileType = "CLIENT" | "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
+type ProfileType = "CLIENT" | "PROFESSIONAL";
 
 type PendingProfile = {
   email: string;
@@ -48,7 +46,7 @@ function trialLabel(days: number): string {
 const FREE_TRIAL_DAYS = Number(process.env.NEXT_PUBLIC_FREE_TRIAL_DAYS || 90);
 const TRIAL_TEXT = `${trialLabel(FREE_TRIAL_DAYS)} gratis`;
 
-const consumerOption: OptionConfig = {
+const clientOption: OptionConfig = {
   key: "CLIENT",
   title: "Cliente",
   description: "Busca perfiles, guarda favoritos y coordina por chat.",
@@ -59,36 +57,16 @@ const consumerOption: OptionConfig = {
   badge: { text: "Más popular", tone: "popular" },
 };
 
-const businessOptions: OptionConfig[] = [
-  {
-    key: "PROFESSIONAL",
-    title: "Acompañante",
-    description: "Publica tu perfil con fotos, tarifas y recibe clientes por chat.",
-    icon: Briefcase,
-    accent: "from-fuchsia-500/15 via-pink-500/10 to-rose-500/10",
-    iconGradient: "from-fuchsia-400 to-pink-500",
-    ringColor: "ring-fuchsia-400/50 border-fuchsia-400/40",
-    badge: { text: TRIAL_TEXT, tone: "promo" },
-  },
-  {
-    key: "ESTABLISHMENT",
-    title: "Motel / Hotel",
-    description: "Administra habitaciones, promociones y reservas.",
-    icon: Building2,
-    accent: "from-violet-500/15 via-purple-500/10 to-indigo-500/10",
-    iconGradient: "from-violet-400 to-purple-500",
-    ringColor: "ring-violet-400/50 border-violet-400/40",
-  },
-  {
-    key: "SHOP",
-    title: "Tienda",
-    description: "Comercios que venden artículos tipo sex shop.",
-    icon: ShoppingBag,
-    accent: "from-amber-500/15 via-orange-500/10 to-yellow-500/10",
-    iconGradient: "from-amber-400 to-orange-500",
-    ringColor: "ring-amber-400/50 border-amber-400/40",
-  },
-];
+const professionalOption: OptionConfig = {
+  key: "PROFESSIONAL",
+  title: "Acompañante",
+  description: "Publica tu perfil con fotos, tarifas y recibe clientes por chat.",
+  icon: Briefcase,
+  accent: "from-fuchsia-500/15 via-pink-500/10 to-rose-500/10",
+  iconGradient: "from-fuchsia-400 to-pink-500",
+  ringColor: "ring-fuchsia-400/50 border-fuchsia-400/40",
+  badge: { text: TRIAL_TEXT, tone: "promo" },
+};
 
 export default function GoogleTypeChooserClient() {
   const [pending, setPending] = useState<PendingProfile | null>(null);
@@ -118,13 +96,21 @@ export default function GoogleTypeChooserClient() {
   }, []);
 
   const selected = useMemo<OptionConfig | null>(() => {
-    if (profileType === null) return null;
-    if (profileType === "CLIENT") return consumerOption;
-    return businessOptions.find((o) => o.key === profileType) ?? null;
+    if (profileType === "CLIENT") return clientOption;
+    if (profileType === "PROFESSIONAL") return professionalOption;
+    return null;
   }, [profileType]);
 
   async function onContinue() {
     if (!profileType || submitting) return;
+
+    // Acompañante (profesional) necesita completar formulario + fotos — la
+    // creación se hace al final de /register?google=1. Aquí solo navegamos.
+    if (profileType === "PROFESSIONAL") {
+      window.location.href = "/register?google=1&type=PROFESSIONAL";
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
@@ -190,41 +176,17 @@ export default function GoogleTypeChooserClient() {
           <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl" />
 
           <div className="relative p-6 sm:p-8">
-            {/* Consumer section */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="h-px flex-1 bg-white/5" />
-                <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-semibold">
-                  Consumidor
-                </p>
-                <span className="h-px flex-1 bg-white/5" />
-              </div>
+            <div className="grid gap-3">
               <OptionCard
-                option={consumerOption}
-                selected={profileType === consumerOption.key}
-                onSelect={() => setProfileType(consumerOption.key)}
+                option={clientOption}
+                selected={profileType === "CLIENT"}
+                onSelect={() => setProfileType("CLIENT")}
               />
-            </div>
-
-            {/* Business section */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="h-px flex-1 bg-white/5" />
-                <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-semibold">
-                  Profesional / Comercio
-                </p>
-                <span className="h-px flex-1 bg-white/5" />
-              </div>
-              <div className="grid gap-3">
-                {businessOptions.map((opt) => (
-                  <OptionCard
-                    key={opt.key}
-                    option={opt}
-                    selected={profileType === opt.key}
-                    onSelect={() => setProfileType(opt.key)}
-                  />
-                ))}
-              </div>
+              <OptionCard
+                option={professionalOption}
+                selected={profileType === "PROFESSIONAL"}
+                onSelect={() => setProfileType("PROFESSIONAL")}
+              />
             </div>
 
             {isProfessional && (
@@ -240,19 +202,12 @@ export default function GoogleTypeChooserClient() {
                       <span className="text-sm font-bold text-white">{TRIAL_TEXT}</span>
                     </div>
                     <p className="mt-0.5 text-xs text-white/65 leading-relaxed">
-                      Sin tarjeta de crédito. Completa tu perfil y empieza a recibir clientes.
+                      Sin tarjeta de crédito. Completa tu perfil (teléfono,
+                      dirección y fotos) y un admin te llamará para verificarte.
                     </p>
                   </div>
                 </div>
               </div>
-            )}
-
-            {selected && selected.key !== "CLIENT" && (
-              <p className="mt-5 text-xs text-white/55 leading-relaxed">
-                Después de continuar te pediremos algunos datos más (teléfono,
-                dirección y fotos) desde tu perfil. Un administrador verificará
-                tu cuenta mediante una llamada antes de que aparezca en la plataforma.
-              </p>
             )}
 
             {error && (
@@ -272,7 +227,11 @@ export default function GoogleTypeChooserClient() {
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <span className="relative z-10 flex items-center gap-2">
-                  {profileType === null ? "Elige una opción" : "Continuar"}
+                  {profileType === null
+                    ? "Elige una opción"
+                    : profileType === "PROFESSIONAL"
+                      ? "Completar registro"
+                      : "Continuar"}
                   {profileType !== null && (
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                   )}
