@@ -233,8 +233,8 @@ export default function Nav() {
                 href={href}
                 className="flex flex-col items-center gap-0.5 py-2 text-[10px] transition-all duration-200"
               >
-                <div className={`relative rounded-xl p-1.5 transition-all duration-200 ${active ? "bg-gradient-to-br from-fuchsia-500/20 to-violet-500/10 shadow-[0_0_12px_rgba(217,70,239,0.15)]" : ""}`}>
-                  <Icon className={`h-5 w-5 transition-colors ${active ? "text-fuchsia-400" : "text-white/45"}`} />
+                <div className={`uzeed-bottom-nav-icon ${active ? "uzeed-bottom-nav-icon--active" : ""}`}>
+                  <Icon className={`h-5 w-5 transition-colors ${active ? "text-white" : "text-white/45"}`} />
                   {/* Live pulse indicator */}
                   {isLive && !active && (
                     <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">

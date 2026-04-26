@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { BadgeCheck, ShieldCheck, Wallet } from "lucide-react";
 
 const footerLinks = {
   "Explorar": [
@@ -37,6 +38,39 @@ const footerLinks = {
 export default function Footer() {
   return (
     <footer className="border-t border-white/[0.06] bg-black/30 pb-20 md:pb-0">
+      {/* Trust row — premium reassurance, full-width above footer columns */}
+      <div className="border-b border-white/[0.04] px-4 py-6 md:px-6 md:py-7">
+        <div className="uzeed-trust-row">
+          <div className="uzeed-trust-pill">
+            <span className="uzeed-trust-pill__icon">
+              <ShieldCheck className="h-4 w-4" />
+            </span>
+            <span className="uzeed-trust-pill__label">
+              100% Segura
+              <span className="uzeed-trust-pill__sub">Tu privacidad primero</span>
+            </span>
+          </div>
+          <div className="uzeed-trust-pill">
+            <span className="uzeed-trust-pill__icon">
+              <BadgeCheck className="h-4 w-4" />
+            </span>
+            <span className="uzeed-trust-pill__label">
+              Verificada
+              <span className="uzeed-trust-pill__sub">Perfiles reales</span>
+            </span>
+          </div>
+          <div className="uzeed-trust-pill">
+            <span className="uzeed-trust-pill__icon">
+              <Wallet className="h-4 w-4" />
+            </span>
+            <span className="uzeed-trust-pill__label">
+              Retiro directo
+              <span className="uzeed-trust-pill__sub">Sin demoras</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Desktop: full footer */}
       <div className="mx-auto hidden max-w-6xl px-6 py-12 md:block">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">

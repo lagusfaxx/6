@@ -131,6 +131,24 @@ function ProfileCard({
 
   const tierClass = p.userLevel === "DIAMOND" ? "uzeed-tier-diamond" : p.userLevel === "GOLD" ? "uzeed-tier-gold" : "";
 
+  // Corner badge — single highest-priority label per card so the design
+  // stays clean (matches UZEED mockups: NUEVA / TOP / POPULAR / SOLO PARA TI).
+  const cornerBadge = (() => {
+    if (p.userLevel === "DIAMOND" || p.userLevel === "GOLD") {
+      return { label: "Solo para ti", className: "uzeed-corner-badge--for-you" };
+    }
+    if (p.profileViews >= 500 || p.completedServices >= 30) {
+      return { label: "Top", className: "uzeed-corner-badge--top" };
+    }
+    if (p.completedServices >= 10 || p.profileViews >= 150) {
+      return { label: "Popular", className: "uzeed-corner-badge--popular" };
+    }
+    if (p.completedServices === 0 && p.profileViews < 30) {
+      return { label: "Nueva", className: "uzeed-corner-badge--new" };
+    }
+    return null;
+  })();
+
   return (
     <div
       ref={cardRef}
@@ -139,6 +157,11 @@ function ProfileCard({
     >
       {/* Cover / hero photo with shimmer effect */}
       <div className="uzeed-card-shimmer relative aspect-[3/4] bg-[#0a0a10] overflow-hidden">
+        {cornerBadge && (
+          <span className={`uzeed-corner-badge ${cornerBadge.className}`}>
+            {cornerBadge.label}
+          </span>
+        )}
         {coverSrc || avatarSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -455,30 +478,34 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
         {showFilters && (
           <div className="border-t border-white/5 px-4 py-4 max-w-7xl mx-auto space-y-4">
             {/* Quick filters */}
-            <div className="flex flex-wrap gap-2">
+            <div className="uzeed-filter-row flex-wrap">
               <button
+                type="button"
+                aria-pressed={availableNow}
                 onClick={() => setAvailableNow((v) => !v)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  availableNow ? "border-emerald-500 bg-emerald-500/10 text-emerald-400" : "border-white/10 text-white/50 hover:border-white/20"
-                }`}
+                className="uzeed-filter-pill"
               >
-                🟢 Disponible ahora
+                <span className="relative flex h-2 w-2">
+                  <span className={`absolute inline-flex h-full w-full rounded-full ${availableNow ? "bg-white/60 animate-ping" : "bg-emerald-400/40"}`} />
+                  <span className={`relative inline-flex h-2 w-2 rounded-full ${availableNow ? "bg-white" : "bg-emerald-400"}`} />
+                </span>
+                Disponible ahora
               </button>
               <button
+                type="button"
+                aria-pressed={maduras}
                 onClick={() => setMaduras((v) => !v)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  maduras ? "border-amber-500 bg-amber-500/10 text-amber-400" : "border-white/10 text-white/50 hover:border-white/20"
-                }`}
+                className="uzeed-filter-pill"
               >
                 Maduras (40+)
               </button>
               {["FEMALE", "MALE", "OTHER"].map((g) => (
                 <button
                   key={g}
+                  type="button"
+                  aria-pressed={genderFilter === g}
                   onClick={() => setGenderFilter((v) => (v === g ? "" : g))}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                    genderFilter === g ? "border-violet-500 bg-violet-500/10 text-violet-300" : "border-white/10 text-white/50 hover:border-white/20"
-                  }`}
+                  className="uzeed-filter-pill"
                 >
                   {g === "FEMALE" ? "Mujeres" : g === "MALE" ? "Hombres" : "Trans"}
                 </button>

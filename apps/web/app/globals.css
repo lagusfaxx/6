@@ -1162,6 +1162,372 @@ html.discreet .uzeed-discreet-blur:focus-visible {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   PREMIUM UZEED — design language v2 (matches brand kit)
+   Brand chip, mega CTA, trust row, creator rings, corner
+   badges, vibrant filter pills, polished nav.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Star-icon brand chip ("LA PLATAFORMA MÁS COMPLETA") */
+.uzeed-brand-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(217, 70, 239, 0.35);
+  background: linear-gradient(120deg, rgba(168, 85, 247, 0.10), rgba(217, 70, 239, 0.06));
+  box-shadow:
+    0 0 0 1px rgba(217, 70, 239, 0.05) inset,
+    0 6px 20px rgba(168, 85, 247, 0.18);
+  color: #f5d0fe;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.uzeed-brand-chip::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.35), transparent 60%),
+    linear-gradient(135deg, #d946ef, #7c3aed);
+  box-shadow: 0 0 12px rgba(217, 70, 239, 0.6);
+  -webkit-mask-image: radial-gradient(circle, #000 60%, transparent 62%);
+}
+
+/* Mega CTA — "REGÍSTRATE GRATIS" / "Crear cuenta gratis" gradient
+   pill with embedded arrow circle. */
+.uzeed-mega-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 520px;
+  padding: 18px 64px 18px 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 121, 249, 0.45);
+  background:
+    linear-gradient(135deg, #d946ef 0%, #a855f7 45%, #7c3aed 100%);
+  color: white;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  box-shadow:
+    0 0 0 6px rgba(168, 85, 247, 0.10),
+    0 22px 60px -12px rgba(217, 70, 239, 0.55),
+    0 8px 24px rgba(124, 58, 237, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 250ms ease,
+              filter 200ms ease;
+}
+.uzeed-mega-cta::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(232, 121, 249, 0.6), rgba(124, 58, 237, 0.4));
+  filter: blur(14px);
+  opacity: 0.7;
+  transition: opacity 250ms;
+}
+.uzeed-mega-cta::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.uzeed-mega-cta__arrow {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  color: #7c3aed;
+  pointer-events: none;
+}
+.uzeed-mega-cta:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.07);
+  box-shadow:
+    0 0 0 8px rgba(168, 85, 247, 0.14),
+    0 28px 70px -12px rgba(217, 70, 239, 0.7),
+    0 12px 28px rgba(124, 58, 237, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.uzeed-mega-cta:active {
+  transform: translateY(0) scale(0.99);
+}
+@media (max-width: 480px) {
+  .uzeed-mega-cta {
+    font-size: 14px;
+    padding: 15px 56px 15px 20px;
+    letter-spacing: 0.04em;
+  }
+  .uzeed-mega-cta::after,
+  .uzeed-mega-cta__arrow {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* Trust row — bottom badges ("100% SEGURA", "VERIFICADA", "RETIRO DIRECTO") */
+.uzeed-trust-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.uzeed-trust-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.uzeed-trust-pill__icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #f0abfc;
+  background: linear-gradient(135deg, rgba(217, 70, 239, 0.18), rgba(124, 58, 237, 0.12));
+  border: 1px solid rgba(217, 70, 239, 0.2);
+}
+.uzeed-trust-pill__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.15;
+}
+.uzeed-trust-pill__sub {
+  display: block;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+/* Premium creator avatar ring — for "Creadoras destacadas" carousel */
+.uzeed-creator-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 76px;
+  text-align: center;
+}
+.uzeed-creator-ring {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  padding: 2.5px;
+  background: conic-gradient(from 220deg,
+    #d946ef 0deg,
+    #a855f7 90deg,
+    #7c3aed 180deg,
+    #c026d3 270deg,
+    #d946ef 360deg);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(217, 70, 239, 0.45);
+}
+.uzeed-creator-ring__inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #0a0a14;
+  position: relative;
+}
+.uzeed-creator-ring__inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.uzeed-creator-ring__dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #22c55e;
+  border: 2.5px solid #0a0a14;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+}
+.uzeed-creator-tile__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  max-width: 76px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.uzeed-creator-tile__status {
+  font-size: 10px;
+  font-weight: 600;
+  color: #4ade80;
+  letter-spacing: 0.02em;
+}
+
+/* Corner badges on cards — NUEVA / TOP / POPULAR / SOLO PARA TI */
+.uzeed-corner-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  padding: 4px 10px 5px;
+  border-bottom-right-radius: 12px;
+  border-top-left-radius: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.uzeed-corner-badge--new {
+  background: linear-gradient(135deg, #ec4899 0%, #d946ef 100%);
+}
+.uzeed-corner-badge--top {
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+}
+.uzeed-corner-badge--popular {
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+}
+.uzeed-corner-badge--for-you {
+  background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
+}
+
+/* Premium filter pills — for "Todo / Fotos / Videos / PPV / Streams" style rows */
+.uzeed-filter-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  padding: 4px 0;
+}
+.uzeed-filter-row::-webkit-scrollbar {
+  display: none;
+}
+.uzeed-filter-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+.uzeed-filter-pill:hover {
+  border-color: rgba(217, 70, 239, 0.25);
+  background: rgba(217, 70, 239, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+}
+.uzeed-filter-pill--active,
+.uzeed-filter-pill[aria-pressed="true"] {
+  border-color: transparent;
+  background: linear-gradient(135deg, #d946ef 0%, #a855f7 60%, #7c3aed 100%);
+  color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(217, 70, 239, 0.4),
+    0 8px 22px rgba(168, 85, 247, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+.uzeed-filter-pill--active:hover,
+.uzeed-filter-pill[aria-pressed="true"]:hover {
+  filter: brightness(1.08);
+}
+
+/* Slightly stronger online dot for cards (matches mockups) */
+.uzeed-badge-online .uzeed-badge-dot {
+  width: 7px;
+  height: 7px;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.8);
+}
+
+/* Mobile bottom nav — premium polish to match UZEED bottom bar */
+.uzeed-bottom-nav-icon {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  transition: all 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.uzeed-bottom-nav-icon--active {
+  background: linear-gradient(135deg, rgba(217, 70, 239, 0.32), rgba(124, 58, 237, 0.16));
+  box-shadow:
+    0 0 0 1px rgba(232, 121, 249, 0.35),
+    0 6px 18px rgba(217, 70, 239, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.uzeed-bottom-nav-icon--active::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d946ef, #a855f7);
+  box-shadow: 0 0 12px rgba(217, 70, 239, 0.6);
+}
+
 /*
   content-visibility: auto — skip rendering work for off-screen sections.
   The browser still reserves layout space (contain-intrinsic-size) so CLS stays zero.
