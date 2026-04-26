@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useContext, useEffect, useMemo, useState, type ComponentType } from "react";
+import { startTransition, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -27,8 +27,6 @@ import {
   ChevronRight,
   Crown,
   Download,
-  Eye,
-  Flame,
   Hand,
   Hotel,
   MapPin,
@@ -39,7 +37,6 @@ import {
   ShieldCheck,
   ShoppingBag,
   Sparkles,
-  Star,
   Users,
   Video,
   X,
@@ -484,7 +481,6 @@ function fakeRecentLabel(profileId: string): string {
  */
 type CornerBadge = {
   text: string;
-  Icon: ComponentType<{ className?: string }>;
   /** Tailwind gradient classes "from-… to-…" */
   gradient: string;
   /** Glow color (rgba) for the box-shadow */
@@ -499,32 +495,30 @@ function getCornerBadge(p: {
   profileViews?: number;
 }, opts?: { forceNew?: boolean }): CornerBadge | null {
   if (opts?.forceNew) {
-    return { text: "NUEVA", Icon: Sparkles, gradient: "from-fuchsia-500 to-pink-600", glow: "rgba(217,70,239,0.45)" };
+    return { text: "NUEVA", gradient: "from-fuchsia-500 to-pink-600", glow: "rgba(217,70,239,0.45)" };
   }
   if (p.userLevel === "DIAMOND") {
-    return { text: "TOP", Icon: Crown, gradient: "from-sky-400 to-cyan-500", glow: "rgba(56,189,248,0.45)" };
+    return { text: "TOP", gradient: "from-sky-400 to-cyan-500", glow: "rgba(56,189,248,0.45)" };
   }
   if (p.userLevel === "GOLD") {
-    return { text: "POPULAR", Icon: Flame, gradient: "from-amber-500 to-orange-500", glow: "rgba(251,146,60,0.45)" };
+    return { text: "POPULAR", gradient: "from-amber-500 to-orange-500", glow: "rgba(251,146,60,0.45)" };
   }
   const dist = p.distanceKm ?? p.distance ?? null;
   if (p.availableNow && dist != null && dist < 3) {
-    return { text: "SOLO PARA TI", Icon: Star, gradient: "from-rose-500 to-fuchsia-600", glow: "rgba(236,72,153,0.45)" };
+    return { text: "SOLO PARA TI", gradient: "from-rose-500 to-fuchsia-600", glow: "rgba(236,72,153,0.45)" };
   }
   if ((p.profileViews ?? 0) > 800) {
-    return { text: "POPULAR", Icon: Flame, gradient: "from-amber-500 to-orange-500", glow: "rgba(251,146,60,0.45)" };
+    return { text: "POPULAR", gradient: "from-amber-500 to-orange-500", glow: "rgba(251,146,60,0.45)" };
   }
   return null;
 }
 
 function CornerBadgePill({ badge }: { badge: CornerBadge }) {
-  const { Icon } = badge;
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md bg-gradient-to-r ${badge.gradient} px-2 py-[3px] text-[9px] font-extrabold uppercase tracking-[0.08em] text-white shadow-[0_4px_14px_var(--corner-glow)] ring-1 ring-inset ring-white/20`}
+      className={`inline-flex items-center rounded-md bg-gradient-to-r ${badge.gradient} px-2 py-[3px] text-[9px] font-extrabold uppercase tracking-[0.08em] text-white shadow-[0_4px_14px_var(--corner-glow)] ring-1 ring-inset ring-white/20`}
       style={{ ["--corner-glow" as any]: badge.glow }}
     >
-      <Icon className="h-2.5 w-2.5" />
       {badge.text}
     </span>
   );
@@ -1401,31 +1395,22 @@ export default function HomeClient() {
                           {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
                         </div>
 
-                        {/* Stats: vistas · servicios (estilo Fotos · Videos) */}
-                        <div className="mt-1 flex items-center gap-2 text-[11px] font-medium text-white/65">
-                          <span className="inline-flex items-center gap-1 tabular-nums">
-                            <Eye className="h-3 w-3 text-fuchsia-300/70" />
-                            {views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views}
-                          </span>
+                        {/* Stats: vistas · servicios */}
+                        <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-white/60 tabular-nums">
+                          <span>{views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views} vistas</span>
                           {services > 0 && (
                             <>
                               <span className="text-white/25">·</span>
-                              <span className="inline-flex items-center gap-1 tabular-nums">
-                                <Star className="h-3 w-3 text-amber-300/80" />
-                                {services} servicios
-                              </span>
+                              <span>{services} servicios</span>
                             </>
                           )}
                         </div>
 
                         {/* Distancia · actividad reciente */}
                         {(profile.distanceKm != null || recentLabel) && (
-                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/75">
                             {profile.distanceKm != null && (
-                              <span className="inline-flex items-center gap-0.5 tabular-nums">
-                                <MapPin className="h-3 w-3 text-fuchsia-400/60" />
-                                {profile.distanceKm.toFixed(1)} km
-                              </span>
+                              <span className="tabular-nums">{profile.distanceKm.toFixed(1)} km</span>
                             )}
                             {profile.distanceKm != null && recentLabel && <span className="text-white/25">·</span>}
                             {recentLabel && <span className="text-emerald-300/90">{recentLabel}</span>}
@@ -1500,28 +1485,19 @@ export default function HomeClient() {
                           {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
                         </div>
 
-                        <div className="mt-1 flex items-center gap-2 text-[11px] font-medium text-white/65">
-                          <span className="inline-flex items-center gap-1 tabular-nums">
-                            <Eye className="h-3 w-3 text-fuchsia-300/70" />
-                            {views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views}
-                          </span>
+                        <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-white/60 tabular-nums">
+                          <span>{views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views} vistas</span>
                           {services > 0 && (
                             <>
                               <span className="text-white/25">·</span>
-                              <span className="inline-flex items-center gap-1 tabular-nums">
-                                <Star className="h-3 w-3 text-amber-300/80" />
-                                {services} servicios
-                              </span>
+                              <span>{services} servicios</span>
                             </>
                           )}
                         </div>
 
-                        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/75">
                           {profile.distanceKm != null && (
-                            <span className="inline-flex items-center gap-0.5 tabular-nums">
-                              <MapPin className="h-3 w-3 text-fuchsia-400/60" />
-                              {profile.distanceKm.toFixed(1)} km
-                            </span>
+                            <span className="tabular-nums">{profile.distanceKm.toFixed(1)} km</span>
                           )}
                           {profile.distanceKm != null && <span className="text-white/25">·</span>}
                           <span className="text-emerald-300/90">{fakeRecentLabel(profile.id)}</span>
