@@ -971,6 +971,47 @@ html.discreet .uzeed-discreet-blur:focus-visible {
     0 0 60px rgba(56, 189, 248, 0.04);
 }
 
+/* ── Elite (premium home) card variant ──
+ *  Used by the Home grid cards to match the screenshot reference:
+ *  larger radius, animated gradient ring on hover, deeper shadow.
+ */
+.uzeed-card-elite {
+  border-radius: 1.4rem;
+  border-color: rgba(168, 85, 247, 0.14);
+  box-shadow:
+    0 8px 22px -10px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(168, 85, 247, 0.04);
+  background:
+    radial-gradient(140% 100% at 0% 0%, rgba(217, 70, 239, 0.08), transparent 55%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(168, 85, 247, 0.04) 100%);
+}
+.uzeed-card-elite::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(140deg, rgba(217, 70, 239, 0.55), rgba(139, 92, 246, 0.15) 45%, rgba(56, 189, 248, 0.45));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 350ms ease;
+  pointer-events: none;
+  z-index: 2;
+}
+.uzeed-card-elite:hover::after {
+  opacity: 1;
+}
+.uzeed-card-elite:hover {
+  border-color: rgba(217, 70, 239, 0.35);
+  box-shadow:
+    0 24px 60px -18px rgba(217, 70, 239, 0.32),
+    0 0 0 1px rgba(217, 70, 239, 0.18),
+    0 0 90px rgba(168, 85, 247, 0.06);
+}
+
 /* Section heading premium line */
 .uzeed-section-line {
   position: relative;
