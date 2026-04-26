@@ -49,12 +49,24 @@ export default function GalleryEditor({ onUploadGallery, onRemoveGalleryItem }: 
             ) : (
               <img src={resolveMediaUrl(g.url) ?? undefined} alt="Galeria" className="h-full w-full object-cover" />
             )}
-            <button
-              onClick={() => onRemoveGalleryItem(g.id)}
-              className="absolute inset-x-0 bottom-0 bg-black/70 py-2 text-center text-xs text-white/70 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
-            >
-              Eliminar
-            </button>
+            {g.isLocked ? (
+              <div
+                title="Foto del registro: no se puede eliminar"
+                className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-[10px] text-white/80 backdrop-blur-sm"
+              >
+                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c1.105 0 2 .895 2 2v3a2 2 0 11-4 0v-3c0-1.105.895-2 2-2zm6-2V7a6 6 0 10-12 0v2a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2zM8 9V7a4 4 0 118 0v2H8z" />
+                </svg>
+                Registro
+              </div>
+            ) : (
+              <button
+                onClick={() => onRemoveGalleryItem(g.id)}
+                className="absolute inset-x-0 bottom-0 bg-black/70 py-2 text-center text-xs text-white/70 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
+              >
+                Eliminar
+              </button>
+            )}
           </motion.div>
         ))}
       </div>

@@ -631,6 +631,7 @@ model ProfileMedia {
   ownerId   String    @db.Uuid
   type      MediaType
   url       String
+  isLocked  Boolean   @default(false)
   createdAt DateTime  @default(now())
 
   owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
