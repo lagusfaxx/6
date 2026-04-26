@@ -183,7 +183,7 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
   for (const url of galleryUrls) {
     try {
       await prisma.profileMedia.create({
-        data: { ownerId: user.id, type: "IMAGE", url },
+        data: { ownerId: user.id, type: "IMAGE", url, isLocked: true },
       });
     } catch (err) {
       console.error("[createProfessional] gallery media failed", { userId: user.id, url, error: err });

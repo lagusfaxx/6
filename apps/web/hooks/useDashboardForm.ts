@@ -41,7 +41,7 @@ export type Product = {
 };
 
 export type ShopCategory = { id: string; name: string; slug: string };
-export type ProfileMedia = { id: string; url: string; type: string };
+export type ProfileMedia = { id: string; url: string; type: string; isLocked?: boolean };
 
 export type Category = {
   id: string;

@@ -817,6 +817,8 @@ profileRouter.delete(
     });
     if (!media || media.ownerId !== req.session.userId!)
       return res.status(404).json({ error: "NOT_FOUND" });
+    if (media.isLocked)
+      return res.status(403).json({ error: "MEDIA_LOCKED" });
     await prisma.profileMedia.delete({ where: { id: media.id } });
     return res.json({ ok: true });
   }),
