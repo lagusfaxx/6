@@ -44,6 +44,7 @@ type Props = {
   icon: ReactNode;
   tone?: Tone;
   defaultOpen?: boolean;
+  alwaysOpen?: boolean;
   profiles: CollapsibleProfile[];
   ctaHref?: string;
   ctaLabel?: string;
@@ -63,35 +64,54 @@ export default function CollapsibleSection({
   icon,
   tone = "fuchsia",
   defaultOpen = false,
+  alwaysOpen = false,
   profiles,
   ctaHref,
   ctaLabel = "Ver todas",
 }: Props) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [openState, setOpen] = useState(defaultOpen || alwaysOpen);
+  const open = alwaysOpen || openState;
   const t = TONE_CLASSES[tone];
+
+  const headerClass = `flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left ${t.bar}`;
 
   return (
     <section className="mb-3">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition hover:brightness-110 ${t.bar}`}
-      >
-        <span className={`shrink-0 ${t.pill}`}>{icon}</span>
-        <span className="flex-1 truncate text-base font-bold text-white">
-          {title}
-        </span>
-        <span
-          className={`tabular-nums text-base font-bold ${t.pill}`}
-          aria-hidden="true"
+      {alwaysOpen ? (
+        <div className={headerClass}>
+          <span className={`shrink-0 ${t.pill}`}>{icon}</span>
+          <span className="flex-1 truncate text-base font-bold text-white">
+            {title}
+          </span>
+          <span
+            className={`tabular-nums text-base font-bold ${t.pill}`}
+            aria-hidden="true"
+          >
+            {count}
+          </span>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className={`${headerClass} transition hover:brightness-110`}
         >
-          {count}
-        </span>
-        <ChevronDown
-          className={`h-5 w-5 shrink-0 text-white/70 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
-        />
-      </button>
+          <span className={`shrink-0 ${t.pill}`}>{icon}</span>
+          <span className="flex-1 truncate text-base font-bold text-white">
+            {title}
+          </span>
+          <span
+            className={`tabular-nums text-base font-bold ${t.pill}`}
+            aria-hidden="true"
+          >
+            {count}
+          </span>
+          <ChevronDown
+            className={`h-5 w-5 shrink-0 text-white/70 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      )}
 
       <div
         className={`grid overflow-hidden transition-[grid-template-rows] duration-300 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
