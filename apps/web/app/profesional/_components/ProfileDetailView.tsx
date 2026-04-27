@@ -33,6 +33,11 @@ import {
   Zap,
   Gem,
   Phone,
+  Ruler,
+  Weight,
+  Scissors,
+  Palette,
+  Languages,
 } from "lucide-react";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
 import StatusBadgeIcon from "../../../components/StatusBadgeIcon";
@@ -345,32 +350,69 @@ export default function ProfileDetailView({
   }, [professional?.id]);
 
   const infoItems = useMemo(() => {
-    if (!professional) return [] as { label: string; value: string }[];
+    if (!professional)
+      return [] as {
+        label: string;
+        value: string;
+        Icon: typeof Ruler;
+        accent: string;
+      }[];
 
-    const baseItems: { label: string; value: string | null | undefined }[] = [
+    const baseItems: {
+      label: string;
+      value: string | null | undefined;
+      Icon: typeof Ruler;
+      accent: string;
+    }[] = [
       {
         label: "Estatura",
         value: professional.heightCm ? `${professional.heightCm} cm` : null,
+        Icon: Ruler,
+        accent: "from-fuchsia-500/30 to-fuchsia-500/0 text-fuchsia-200",
       },
       {
         label: "Peso",
         value: professional.weightKg ? `${professional.weightKg} kg` : null,
+        Icon: Weight,
+        accent: "from-violet-500/30 to-violet-500/0 text-violet-200",
       },
-      { label: "Medidas", value: professional.measurements || null },
-      { label: "Cabello", value: professional.hairColor || null },
-      { label: "Piel", value: professional.skinTone || null },
+      {
+        label: "Medidas",
+        value: professional.measurements || null,
+        Icon: Sparkles,
+        accent: "from-pink-500/30 to-pink-500/0 text-pink-200",
+      },
+      {
+        label: "Cabello",
+        value: professional.hairColor || null,
+        Icon: Scissors,
+        accent: "from-amber-500/30 to-amber-500/0 text-amber-200",
+      },
+      {
+        label: "Piel",
+        value: professional.skinTone || null,
+        Icon: Palette,
+        accent: "from-rose-500/30 to-rose-500/0 text-rose-200",
+      },
     ];
 
     const languageItems = splitCsv(professional.languages).map(
       (language, index) => ({
         label: index === 0 ? "Idiomas" : "Idioma",
         value: language,
+        Icon: Languages,
+        accent: "from-sky-500/30 to-sky-500/0 text-sky-200",
       }),
     );
 
     return [...baseItems, ...languageItems]
       .filter((item) => Boolean(item.value))
-      .map((item) => ({ label: item.label, value: String(item.value) }));
+      .map((item) => ({
+        label: item.label,
+        value: String(item.value),
+        Icon: item.Icon,
+        accent: item.accent,
+      }));
   }, [professional]);
 
   const styleChips = useMemo(
@@ -816,73 +858,39 @@ export default function ProfileDetailView({
             )}
           </section>
 
-          {/* Service tags preview — compact highlight below gallery */}
-          {((professional?.serviceTags?.length ?? 0) > 0 ||
-            matchedSubcategories.length > 0) && (
-            <div className="flex min-w-0 flex-wrap gap-1.5 px-1">
-              {(professional?.serviceTags ?? []).slice(0, 6).map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex rounded-2xl border border-violet-300/25 bg-violet-500/40 px-2.5 py-1 text-[11px] font-semibold text-violet-50 capitalize"
-                >
-                  {tag}
-                </span>
-              ))}
-              {extraSubcategories
-                .slice(
-                  0,
-                  Math.max(0, 6 - (professional?.serviceTags?.length ?? 0)),
-                )
-                .map((sub) => (
-                  <span
-                    key={sub}
-                    className="inline-flex rounded-2xl border border-violet-300/25 bg-violet-500/40 px-2.5 py-1 text-[11px] font-semibold text-violet-50"
-                  >
-                    {sub}
-                  </span>
-                ))}
-              {(professional?.serviceTags?.length ?? 0) +
-                extraSubcategories.length >
-                6 && (
-                <span className="inline-flex rounded-2xl border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/40">
-                  +
-                  {(professional?.serviceTags?.length ?? 0) +
-                    extraSubcategories.length -
-                    6}{" "}
-                  más
-                </span>
-              )}
-            </div>
+          {/* Sobre mi */}
+          {cleanProfileText(professional.description) && (
+            <section className="relative min-w-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-fuchsia-500/[0.06] via-violet-500/[0.04] to-transparent p-5 md:p-6">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-5 left-0 w-[3px] rounded-r-full bg-gradient-to-b from-fuchsia-400 via-violet-400 to-transparent"
+              />
+              <h2 className="mb-3 pl-3 text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300/80">
+                Sobre mi
+              </h2>
+              <p className="whitespace-pre-line pl-3 text-[15px] leading-[1.7] text-white/85">
+                {cleanProfileText(professional.description)}
+              </p>
+            </section>
           )}
 
-          {/* Perfil (Sobre mi + Servicios) */}
-          {(cleanProfileText(professional.description) ||
-            (professional?.serviceTags?.length ?? 0) > 0 ||
-            matchedSubcategories.length > 0) && (
-            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
-              <h2 className="mb-4 text-base font-semibold text-white/95">Perfil</h2>
-
-              {cleanProfileText(professional.description) && (
-                <div className="min-w-0">
-                  <h3 className="mb-2 text-base font-semibold text-white/95">Sobre mi</h3>
-                  <p className="whitespace-pre-line text-sm leading-[1.6] text-white/75">
-                    {cleanProfileText(professional.description)}
-                  </p>
-                </div>
-              )}
-
+          {/* Servicios + Estilo */}
+          {((professional?.serviceTags?.length ?? 0) > 0 ||
+            matchedSubcategories.length > 0 ||
+            hasStyleSection) && (
+            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-5 md:p-6">
               {((professional?.serviceTags?.length ?? 0) > 0 ||
                 matchedSubcategories.length > 0) && (
-                <div className={cleanProfileText(professional.description) ? "mt-5" : ""}>
-                  <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-white/95">
-                    <Sparkles className="h-4 w-4 text-violet-400" />
+                <>
+                  <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-white">
+                    <Sparkles className="h-4 w-4 text-violet-300" />
                     Servicios que ofrece
-                  </h3>
+                  </h2>
                   <div className="flex flex-wrap gap-2">
                     {(professional?.serviceTags ?? []).map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex rounded-2xl border border-violet-300/25 bg-violet-500/40 px-3 py-1.5 text-xs font-semibold text-violet-50 capitalize"
+                        className="inline-flex items-center rounded-full border border-violet-300/30 bg-gradient-to-b from-violet-500/40 to-violet-600/30 px-3 py-1.5 text-xs font-semibold capitalize text-violet-50 shadow-[0_1px_4px_rgba(139,92,246,0.25)]"
                       >
                         {tag}
                       </span>
@@ -890,9 +898,34 @@ export default function ProfileDetailView({
                     {extraSubcategories.map((sub) => (
                       <span
                         key={sub}
-                        className="inline-flex rounded-2xl border border-violet-300/25 bg-violet-500/40 px-3 py-1.5 text-xs font-semibold text-violet-50"
+                        className="inline-flex items-center rounded-full border border-violet-300/30 bg-gradient-to-b from-violet-500/40 to-violet-600/30 px-3 py-1.5 text-xs font-semibold text-violet-50 shadow-[0_1px_4px_rgba(139,92,246,0.25)]"
                       >
                         {sub}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {hasStyleSection && (
+                <div
+                  className={
+                    (professional?.serviceTags?.length ?? 0) > 0 ||
+                    matchedSubcategories.length > 0
+                      ? "mt-5 border-t border-white/[0.06] pt-4"
+                      : ""
+                  }
+                >
+                  <h3 className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-fuchsia-300/70">
+                    Estilo
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {styleChips.map((chip) => (
+                      <span
+                        key={chip}
+                        className="inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100"
+                      >
+                        {chip}
                       </span>
                     ))}
                   </div>
@@ -901,45 +934,42 @@ export default function ProfileDetailView({
             </section>
           )}
 
-          {/* Physical info */}
+          {/* Información */}
           {hasDetailsSection && (
-            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
-              <h2 className="mb-4 text-base font-semibold text-white/95">
+            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-5 md:p-6">
+              <h2 className="mb-4 text-base font-semibold text-white">
                 Información
               </h2>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-3">
-                {infoItems.map((item) => (
-                  <div
-                    key={`${item.label}-${item.value}`}
-                    className="min-w-0 border-b border-white/10 pb-2"
-                  >
-                    <dt className="text-[11px] uppercase tracking-wide text-white/45">
-                      {item.label}
-                    </dt>
-                    <dd className="truncate text-sm text-white/85">
-                      {item.value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          )}
-
-          {/* Tags */}
-          {hasStyleSection && (
-            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
-              <h2 className="mb-3 text-base font-semibold text-white/95">
-                Etiquetas
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {styleChips.map((chip) => (
-                  <span
-                    key={chip}
-                    className="inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100"
-                  >
-                    {chip}
-                  </span>
-                ))}
+              <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3">
+                {infoItems.map((item) => {
+                  const ItemIcon = item.Icon;
+                  return (
+                    <div
+                      key={`${item.label}-${item.value}`}
+                      className="group relative min-w-0 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 transition hover:border-white/[0.12] hover:bg-white/[0.05]"
+                    >
+                      <div
+                        aria-hidden="true"
+                        className={`pointer-events-none absolute inset-0 bg-gradient-to-br opacity-60 ${item.accent}`}
+                      />
+                      <div className="relative flex items-center gap-2.5">
+                        <div
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] ring-1 ring-inset ring-white/10 ${item.accent.split(" ").pop()}`}
+                        >
+                          <ItemIcon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-white/45">
+                            {item.label}
+                          </div>
+                          <div className="truncate text-sm font-semibold text-white">
+                            {item.value}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           )}
