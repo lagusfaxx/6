@@ -1279,41 +1279,6 @@ export default function HomeClient() {
           </section>
         )}
 
-        {/* ═══ ESTILOS — Filtros rápidos por tag de perfil ═══ */}
-        <section className="mb-8">
-          <div className="mb-3 flex items-end justify-between">
-            <h3 className="text-sm font-bold tracking-tight text-white/85">Encuentra tu estilo</h3>
-            <Link href="/escorts" className="group flex items-center gap-1 text-[11px] font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
-              Todos <ChevronRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </Link>
-          </div>
-          <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-            {[
-              { label: "Tetonas", tag: "tetona", grad: "from-fuchsia-500/25 to-pink-500/15", border: "border-fuchsia-400/30", text: "text-fuchsia-200" },
-              { label: "Culonas", tag: "culona", grad: "from-rose-500/25 to-red-500/15", border: "border-rose-400/30", text: "text-rose-200" },
-              { label: "Rubias", tag: "rubia", grad: "from-amber-500/25 to-yellow-500/15", border: "border-amber-400/30", text: "text-amber-200" },
-              { label: "Morenas", tag: "morena", grad: "from-orange-600/25 to-amber-700/15", border: "border-orange-400/30", text: "text-orange-200" },
-              { label: "Pelirrojas", tag: "pelirroja", grad: "from-red-500/25 to-rose-600/15", border: "border-red-400/30", text: "text-red-200" },
-              { label: "Trigueñas", tag: "trigueña", grad: "from-amber-700/25 to-orange-800/15", border: "border-amber-500/25", text: "text-amber-100/90" },
-              { label: "Fitness", tag: "fitness", grad: "from-emerald-500/25 to-green-500/15", border: "border-emerald-400/30", text: "text-emerald-200" },
-              { label: "Delgadas", tag: "delgada", grad: "from-cyan-500/25 to-teal-500/15", border: "border-cyan-400/30", text: "text-cyan-200" },
-              { label: "Tatuadas", tag: "tatuada", grad: "from-violet-500/25 to-purple-500/15", border: "border-violet-400/30", text: "text-violet-200" },
-              { label: "Naturales", tag: "natural", grad: "from-teal-500/25 to-emerald-600/15", border: "border-teal-400/30", text: "text-teal-200" },
-              { label: "Sumisas", tag: "sumisa", grad: "from-purple-500/25 to-fuchsia-600/15", border: "border-purple-400/30", text: "text-purple-200" },
-              { label: "Dominantes", tag: "dominante", grad: "from-red-600/25 to-rose-700/15", border: "border-red-500/30", text: "text-red-200" },
-              { label: "Calientes", tag: "caliente", grad: "from-orange-500/25 to-red-500/15", border: "border-orange-400/30", text: "text-orange-200" },
-            ].map((c) => (
-              <Link
-                key={c.tag}
-                href={`/escorts?profileTags=${encodeURIComponent(c.tag)}`}
-                className={`uzeed-category-card shrink-0 rounded-full border ${c.border} bg-gradient-to-r ${c.grad} px-4 py-2 backdrop-blur-sm`}
-              >
-                <span className={`whitespace-nowrap text-xs font-semibold ${c.text}`}>{c.label}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-
         {/* ═══ PARA TI AHORA — Grid combinado (disponibles + cerca) ═══ */}
         {paraTiProfiles.length > 0 && (
           <section key={`parati-${locationKey}`} className="mb-10 uzeed-below-fold">
@@ -1330,14 +1295,13 @@ export default function HomeClient() {
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {paraTiProfiles.map((profile, idx) => {
+              {paraTiProfiles.map((profile) => {
                 const priceFrom = (profile as any).priceFrom as number | null | undefined;
                 const recentLabel = profile.availableNow ? fakeRecentLabel(profile.id) : null;
-                const isHero = idx === 0;
                 return (
-                <article key={profile.id} className={`uzeed-premium-card group ${isHero ? "col-span-2 md:col-span-1" : ""}`}>
+                <article key={profile.id} className="uzeed-premium-card group">
                   <button type="button" onClick={() => startTransition(() => setPreviewProfile(profile))} className="block w-full text-left">
-                    <div className={`uzeed-card-shimmer relative ${isHero ? "aspect-[16/10] md:aspect-[3/4]" : "aspect-[3/4]"} overflow-hidden rounded-[inherit] bg-[#0a0a10]`}>
+                    <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
                       <div className="absolute left-2 top-2 z-[3] flex flex-col gap-1">
                         {profile.availableNow && (
@@ -1357,16 +1321,16 @@ export default function HomeClient() {
                         )}
                       </div>
                       <div className="uzeed-card-gradient absolute inset-0" />
-                      <div className={`absolute bottom-0 left-0 right-0 z-[3] ${isHero ? "p-3.5 md:p-2.5" : "p-2.5"}`}>
+                      <div className="absolute bottom-0 left-0 right-0 p-2.5 z-[3]">
                         {/* 1. Nombre + badges */}
-                        <div className={`flex items-center gap-1 truncate font-bold ${isHero ? "text-[15px] md:text-[13px]" : "text-[13px]"}`}>
+                        <div className="flex items-center gap-1 truncate text-[13px] font-bold">
                           {profile.displayName}{profile.age ? `, ${profile.age}` : ""}
-                          {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size={isHero ? "h-3.5 w-3.5 md:h-3 md:w-3" : "h-3 w-3"} />}
-                          {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size={isHero ? "h-3.5 w-3.5 md:h-3 md:w-3" : "h-3 w-3"} />}
+                          {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
+                          {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
                         </div>
                         {/* 2. Distancia · actividad reciente (destacado) */}
                         {(profile.distanceKm != null || recentLabel) && (
-                          <div className={`mt-0.5 flex items-center gap-1.5 font-semibold text-white/80 ${isHero ? "text-[12px] md:text-[11px]" : "text-[11px]"}`}>
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
                             {profile.distanceKm != null && (
                               <span className="tabular-nums">{profile.distanceKm.toFixed(1)} km</span>
                             )}
@@ -1376,17 +1340,17 @@ export default function HomeClient() {
                         )}
                         {/* 3. Precio desde */}
                         {typeof priceFrom === "number" && priceFrom > 0 && (
-                          <div className={`mt-0.5 font-semibold text-fuchsia-300 ${isHero ? "text-[12px] md:text-[11px]" : "text-[11px]"}`}>
+                          <div className="mt-0.5 text-[11px] font-semibold text-fuchsia-300">
                             Desde ${priceFrom.toLocaleString("es-CL")}
                           </div>
                         )}
                         {/* 4. Tags en último lugar, más sutiles */}
                         {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0) && (
                           <div className="mt-1 flex flex-wrap gap-1">
-                            {filterUserTags((profile as any).profileTags).slice(0, isHero ? 3 : 2).map((tag: string) => (
+                            {filterUserTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
                               <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia text-[8px] opacity-70">{tag}</span>
                             ))}
-                            {(profile as any).serviceTags?.slice(0, isHero ? 2 : 1).map((tag: string) => (
+                            {(profile as any).serviceTags?.slice(0, 1).map((tag: string) => (
                               <span key={`st-${tag}`} className="uzeed-tag uzeed-tag-violet text-[8px] opacity-70">{tag}</span>
                             ))}
                           </div>
@@ -1400,39 +1364,6 @@ export default function HomeClient() {
             </div>
           </section>
         )}
-
-        {/* ═══ SERVICIOS — Filtros rápidos por servicio ═══ */}
-        <section className="mb-8">
-          <div className="mb-3 flex items-end justify-between">
-            <h3 className="text-sm font-bold tracking-tight text-white/85">Por servicio</h3>
-            <Link href="/escorts" className="group flex items-center gap-1 text-[11px] font-medium text-white/40 hover:text-violet-400 transition-colors duration-200">
-              Todos <ChevronRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </Link>
-          </div>
-          <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-            {[
-              { label: "Anal", tag: "anal", grad: "from-rose-500/25 to-red-500/15", border: "border-rose-400/30", text: "text-rose-200" },
-              { label: "Trios", tag: "trios", grad: "from-violet-500/25 to-purple-500/15", border: "border-violet-400/30", text: "text-violet-200" },
-              { label: "Sexo oral", tag: "sexo oral", grad: "from-fuchsia-500/25 to-pink-500/15", border: "border-fuchsia-400/30", text: "text-fuchsia-200" },
-              { label: "Masaje erótico", tag: "masaje erotico", grad: "from-pink-500/25 to-rose-500/15", border: "border-pink-400/30", text: "text-pink-200" },
-              { label: "BDSM", tag: "bdsm", grad: "from-purple-600/25 to-violet-700/15", border: "border-purple-400/30", text: "text-purple-200" },
-              { label: "Fetiches", tag: "fetiches", grad: "from-red-500/25 to-rose-600/15", border: "border-red-400/30", text: "text-red-200" },
-              { label: "Lluvia dorada", tag: "lluvia dorada", grad: "from-amber-500/25 to-yellow-600/15", border: "border-amber-400/30", text: "text-amber-200" },
-              { label: "Rol", tag: "rol", grad: "from-blue-500/25 to-indigo-500/15", border: "border-blue-400/30", text: "text-blue-200" },
-              { label: "Packs", tag: "packs", grad: "from-emerald-500/25 to-teal-500/15", border: "border-emerald-400/30", text: "text-emerald-200" },
-              { label: "Videollamada", tag: "videollamada", grad: "from-sky-500/25 to-blue-500/15", border: "border-sky-400/30", text: "text-sky-200" },
-              { label: "Despedidas", tag: "despedidas", grad: "from-cyan-500/25 to-teal-500/15", border: "border-cyan-400/30", text: "text-cyan-200" },
-            ].map((c) => (
-              <Link
-                key={c.tag}
-                href={`/escorts?serviceTags=${encodeURIComponent(c.tag)}`}
-                className={`uzeed-category-card shrink-0 rounded-full border ${c.border} bg-gradient-to-r ${c.grad} px-4 py-2 backdrop-blur-sm`}
-              >
-                <span className={`whitespace-nowrap text-xs font-semibold ${c.text}`}>{c.label}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
 
         {/* ═══ NUEVAS ═══ */}
         {newProfiles.length > 0 && (
