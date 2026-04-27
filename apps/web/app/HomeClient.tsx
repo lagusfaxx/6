@@ -495,20 +495,20 @@ function getCornerBadge(p: {
   profileViews?: number;
 }, opts?: { forceNew?: boolean; isNew?: boolean }): CornerBadge | null {
   if (opts?.forceNew || opts?.isNew) {
-    return { text: "NUEVA", gradient: "from-fuchsia-500 to-pink-500", glow: "rgba(217,70,239,0.40)" };
+    return { text: "NUEVA", gradient: "from-fuchsia-500/40 to-pink-500/40", glow: "rgba(217,70,239,0.30)" };
   }
   if (p.userLevel === "DIAMOND") {
-    return { text: "TOP", gradient: "from-violet-600 to-fuchsia-600", glow: "rgba(168,85,247,0.45)" };
+    return { text: "TOP", gradient: "from-violet-600/45 to-fuchsia-600/40", glow: "rgba(168,85,247,0.32)" };
   }
   if (p.userLevel === "GOLD") {
-    return { text: "POPULAR", gradient: "from-fuchsia-600 to-rose-500", glow: "rgba(217,70,239,0.40)" };
+    return { text: "POPULAR", gradient: "from-fuchsia-600/40 to-rose-500/35", glow: "rgba(217,70,239,0.28)" };
   }
   const dist = p.distanceKm ?? p.distance ?? null;
   if (p.availableNow && dist != null && dist < 3) {
-    return { text: "SOLO PARA TI", gradient: "from-pink-500 to-fuchsia-500", glow: "rgba(236,72,153,0.40)" };
+    return { text: "SOLO PARA TI", gradient: "from-pink-500/40 to-fuchsia-500/40", glow: "rgba(236,72,153,0.30)" };
   }
   if ((p.profileViews ?? 0) > 800) {
-    return { text: "POPULAR", gradient: "from-fuchsia-600 to-rose-500", glow: "rgba(217,70,239,0.40)" };
+    return { text: "POPULAR", gradient: "from-fuchsia-600/40 to-rose-500/35", glow: "rgba(217,70,239,0.28)" };
   }
   return null;
 }

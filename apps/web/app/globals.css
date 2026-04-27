@@ -929,12 +929,15 @@ html.discreet .uzeed-discreet-blur:focus-visible {
           backdrop-filter: blur(10px) saturate(120%);
 }
 
-/* Premium corner pill — solid gradient with soft glow */
+/* Premium corner pill — translucent glass with brand tint */
 .uzeed-corner-pill {
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+          backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow:
-    0 6px 16px var(--corner-glow, rgba(217, 70, 239, 0.35)),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+    0 4px 14px var(--corner-glow, rgba(217, 70, 239, 0.25)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .uzeed-badge-online {
