@@ -159,7 +159,7 @@ export default function HomeFeed({
             count={disponibles.length}
             icon={<Sparkles className="h-5 w-5" />}
             tone="fuchsia"
-            alwaysOpen
+            defaultOpen
             profiles={disponibles}
           />
         )}
