@@ -40,7 +40,7 @@ const TONE_CLASSES: Record<Tone, { bar: string; pill: string; ring: string }> = 
 
 type Props = {
   title: string;
-  count: number;
+  count?: number;
   icon: ReactNode;
   tone?: Tone;
   defaultOpen?: boolean;
@@ -82,12 +82,14 @@ export default function CollapsibleSection({
         <span className="flex-1 truncate text-base font-bold text-white">
           {title}
         </span>
-        <span
-          className={`tabular-nums text-base font-bold ${t.pill}`}
-          aria-hidden="true"
-        >
-          {count}
-        </span>
+        {typeof count === "number" && (
+          <span
+            className={`tabular-nums text-base font-bold ${t.pill}`}
+            aria-hidden="true"
+          >
+            {count}
+          </span>
+        )}
         <ChevronDown
           className={`h-5 w-5 shrink-0 text-white/70 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
         />
