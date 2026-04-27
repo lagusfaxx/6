@@ -1079,7 +1079,7 @@ export default function HomeClient() {
                   Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
               </div>
-              <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3">
+              <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:grid-cols-4 lg:grid-cols-5">
                 {profiles.map((p) => (
                   <div key={p.id} className="w-[72vw] shrink-0 snap-start sm:w-auto">
                     <button
@@ -1183,7 +1183,7 @@ export default function HomeClient() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -40 }}
                   transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                  className="scrollbar-none flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 md:grid-cols-3"
+                  className="scrollbar-none flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 md:grid-cols-4 lg:grid-cols-5"
                 >
                   {featuredCarouselProfiles
                     .slice(featuredPage * FEATURED_PAGE_SIZE, featuredPage * FEATURED_PAGE_SIZE + FEATURED_PAGE_SIZE)
@@ -1294,7 +1294,7 @@ export default function HomeClient() {
                 Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-3 gap-2.5 md:grid-cols-4 lg:grid-cols-5">
               {paraTiProfiles.map((profile) => {
                 const priceFrom = (profile as any).priceFrom as number | null | undefined;
                 const recentLabel = profile.availableNow ? fakeRecentLabel(profile.id) : null;
@@ -1376,7 +1376,7 @@ export default function HomeClient() {
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:grid-cols-4 lg:grid-cols-5">
               {newProfiles.map((profile) => (
                 <article key={profile.id} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto">
                   <button type="button" onClick={() => startTransition(() => setPreviewProfile(profile))} className="block w-full text-left">
@@ -1534,7 +1534,7 @@ export default function HomeClient() {
                 Ver todas <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </div>
-            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 md:grid-cols-3 lg:grid-cols-4">
+            <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 md:grid-cols-4 lg:grid-cols-5">
               {umateCreators.map((c) => (
                 <article
                   key={c.id}
