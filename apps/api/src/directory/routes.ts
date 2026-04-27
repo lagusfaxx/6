@@ -990,9 +990,14 @@ directoryRouter.get(
       trans:      ["trans"],
       despedidas: ["despedidas"],
     };
-    const categoryVariantsList = categorySlug
-      ? (SLUG_TO_PRIMARY[normTag(categorySlug)] || [normTag(categorySlug)])
-      : [];
+    /* Accept multiple slugs separated by commas (e.g. "escort,masajes") */
+    const categorySlugList = categorySlug
+      .split(",")
+      .map((s) => normTag(s))
+      .filter(Boolean);
+    const categoryVariantsList = categorySlugList.flatMap(
+      (slug) => SLUG_TO_PRIMARY[slug] || [slug],
+    );
 
     /* ── determine profileType filter ── */
     let profileTypeFilter: string[] = ["PROFESSIONAL"];

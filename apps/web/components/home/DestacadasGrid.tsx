@@ -37,7 +37,7 @@ export default function DestacadasGrid({
         <Crown className="h-5 w-5 text-amber-400" />
         <h2 className="text-2xl font-extrabold tracking-tight">{title}</h2>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {profiles.map((p) => (
           <Link
             key={p.id}
