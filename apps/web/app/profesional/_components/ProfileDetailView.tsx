@@ -492,6 +492,13 @@ export default function ProfileDetailView({
     professional?.avatarUrl,
   ]);
   const selectedGalleryItem = gallery[galleryIndex] ?? gallery[0] ?? null;
+  const latestStoryVideoUrl = useMemo(() => {
+    const first = (professional?.stories ?? []).find(
+      (s) => String(s.type || "").toUpperCase() === "VIDEO",
+    );
+    if (!first) return null;
+    return resolveMediaUrl(first.url) ?? first.url;
+  }, [professional?.stories]);
   const lightboxIndex = lightbox
     ? gallery.findIndex((g) => g.url === lightbox.url)
     : -1;
@@ -883,15 +890,25 @@ export default function ProfileDetailView({
                     >
                       {item.type === "VIDEO" ? (
                         <>
-                          <video
-                            src={item.url}
-                            muted
-                            loop
-                            autoPlay
-                            playsInline
-                            preload="metadata"
-                            className="absolute inset-0 h-full w-full object-cover"
-                          />
+                          {item.url === latestStoryVideoUrl ? (
+                            <video
+                              src={item.url}
+                              muted
+                              loop
+                              autoPlay
+                              playsInline
+                              preload="metadata"
+                              className="absolute inset-0 h-full w-full object-cover"
+                            />
+                          ) : (
+                            <video
+                              src={item.url}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              className="absolute inset-0 h-full w-full object-cover"
+                            />
+                          )}
                           <div className="pointer-events-none absolute right-1 top-1">
                             <div className="rounded-full bg-black/55 p-1 ring-1 ring-white/30">
                               <Play className="h-2.5 w-2.5 fill-white text-white" />
