@@ -161,8 +161,6 @@ export default function HomeFeed({
             tone="fuchsia"
             defaultOpen
             profiles={disponibles}
-            ctaHref="/escorts?availableNow=true"
-            ctaLabel="Ver todas las disponibles"
           />
         )}
 
