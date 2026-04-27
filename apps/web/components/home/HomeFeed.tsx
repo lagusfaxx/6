@@ -215,8 +215,7 @@ export default function HomeFeed({
       {destacadas.length > 0 && <DestacadasGrid profiles={destacadas} />}
 
       <InfiniteFeed
-        title="Escorts en todo Santiago"
-        categorySlug="escort"
+        categorySlug="escort,masajes"
         excludeIds={excludeIds}
       />
     </>

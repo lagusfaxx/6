@@ -11,7 +11,9 @@ import UserLevelBadge from "../UserLevelBadge";
 import type { DirectoryResult } from "../DirectoryPage";
 
 type Props = {
+  /** When omitted, the title is derived from the active city/GPS chip. */
   title?: string;
+  /** Comma-separated list, e.g. "escort,masajes". */
   categorySlug?: string;
   entityType?: "professional" | "establishment" | "shop";
   pageSize?: number;
@@ -52,8 +54,8 @@ function hasVideoCallBadge(p: DirectoryResult) {
 }
 
 export default function InfiniteFeed({
-  title = "Escorts en todo Santiago",
-  categorySlug = "escort",
+  title,
+  categorySlug = "escort,masajes",
   entityType = "professional",
   pageSize = PAGE_SIZE_DEFAULT,
   excludeIds,
@@ -61,6 +63,15 @@ export default function InfiniteFeed({
 }: Props) {
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
+  const selectedCity = locationCtx?.state.selectedCity ?? null;
+
+  // If parent didn't pass a title, derive one from the active chip / location.
+  const resolvedTitle = useMemo(() => {
+    if (title) return title;
+    if (selectedCity?.name) return `Escorts en ${selectedCity.name}`;
+    if (effectiveLoc) return "Escorts cerca de ti";
+    return "Escorts en todo Chile";
+  }, [title, selectedCity?.name, effectiveLoc]);
 
   const [items, setItems] = useState<DirectoryResult[]>([]);
   const [offset, setOffset] = useState(0);
@@ -85,14 +96,19 @@ export default function InfiniteFeed({
         const params = new URLSearchParams({
           entityType,
           categorySlug,
-          sort: "featured",
+          // Home is female-only — male and trans are handled in their own pages.
+          gender: "FEMALE",
+          // When a chip/GPS is active, sort by proximity so the user always
+          // sees the nearest profiles even if their region has no listings.
+          sort: effectiveLoc ? "near" : "featured",
           limit: String(pageSize),
           offset: String(nextOffset),
         });
         if (effectiveLoc) {
           params.set("lat", String(effectiveLoc[0]));
           params.set("lng", String(effectiveLoc[1]));
-          params.set("radiusKm", "100");
+          // Wide radius so empty regions still show closest profiles.
+          params.set("radiusKm", "2000");
         }
         const data = await apiFetch<SearchResponse>(
           `/directory/search?${params.toString()}`,
@@ -164,7 +180,7 @@ export default function InfiniteFeed({
 
   return (
     <section className="mb-12">
-      <h2 className="mb-4 text-2xl font-extrabold tracking-tight">{title}</h2>
+      <h2 className="mb-4 text-2xl font-extrabold tracking-tight">{resolvedTitle}</h2>
 
       {error && (
         <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
@@ -267,13 +283,19 @@ export default function InfiniteFeed({
       )}
 
       {hasMore && (
-        <div ref={sentinelRef} aria-hidden="true" className="h-12 w-full" />
-      )}
-
-      {!hasMore && items.length > 0 && (
-        <p className="mt-6 text-center text-sm text-white/30">
-          Has visto todo lo disponible
-        </p>
+        <>
+          <div ref={sentinelRef} aria-hidden="true" className="h-8 w-full" />
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => loadPage(offset)}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-6 py-2.5 text-sm font-semibold text-fuchsia-200 transition hover:border-fuchsia-400/60 hover:bg-fuchsia-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Cargando…" : "Ver más"}
+            </button>
+          </div>
+        </>
       )}
     </section>
   );
