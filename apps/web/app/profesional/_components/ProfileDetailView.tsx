@@ -886,13 +886,15 @@ export default function ProfileDetailView({
                           <video
                             src={item.url}
                             muted
+                            loop
+                            autoPlay
                             playsInline
                             preload="metadata"
                             className="absolute inset-0 h-full w-full object-cover"
                           />
-                          <div className="absolute inset-0 grid place-items-center bg-black/30">
-                            <div className="rounded-full bg-black/60 p-1.5 ring-1 ring-white/40">
-                              <Play className="h-3.5 w-3.5 fill-white text-white" />
+                          <div className="pointer-events-none absolute right-1 top-1">
+                            <div className="rounded-full bg-black/55 p-1 ring-1 ring-white/30">
+                              <Play className="h-2.5 w-2.5 fill-white text-white" />
                             </div>
                           </div>
                         </>
