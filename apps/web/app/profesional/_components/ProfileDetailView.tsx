@@ -472,11 +472,13 @@ export default function ProfileDetailView({
     resolveMediaUrl(professional?.coverUrl) ??
     resolveMediaUrl(professional?.avatarUrl);
   const gallery = useMemo<GalleryItem[]>(() => {
-    const items: GalleryItem[] = [];
     const seen = new Set<string>();
-    const push = (
+    const baseItems: GalleryItem[] = [];
+    const storyItems: GalleryItem[] = [];
+    const tryAdd = (
       raw: string | null | undefined,
       rawType: string | null | undefined,
+      target: GalleryItem[],
     ) => {
       if (!raw) return;
       const resolved = resolveMediaUrl(raw) ?? raw;
@@ -484,13 +486,25 @@ export default function ProfileDetailView({
       const type =
         String(rawType || "").toUpperCase() === "VIDEO" ? "VIDEO" : "IMAGE";
       seen.add(resolved);
-      items.push({ url: resolved, type });
+      target.push({ url: resolved, type });
     };
-    push(professional?.coverUrl, "IMAGE");
-    push(professional?.avatarUrl, "IMAGE");
-    for (const g of professional?.gallery ?? []) push(g.url, g.type);
-    for (const s of professional?.stories ?? []) push(s.url, s.type);
-    return items;
+    tryAdd(professional?.coverUrl, "IMAGE", baseItems);
+    tryAdd(professional?.avatarUrl, "IMAGE", baseItems);
+    for (const g of professional?.gallery ?? []) tryAdd(g.url, g.type, baseItems);
+    for (const s of professional?.stories ?? [])
+      tryAdd(s.url, s.type, storyItems);
+    const latestVideoIdx = storyItems.findIndex((s) => s.type === "VIDEO");
+    let latestVideo: GalleryItem | null = null;
+    if (latestVideoIdx >= 0) {
+      [latestVideo] = storyItems.splice(latestVideoIdx, 1);
+    }
+    const merged = [...baseItems];
+    if (latestVideo) {
+      const insertAt = Math.min(5, merged.length);
+      merged.splice(insertAt, 0, latestVideo);
+    }
+    merged.push(...storyItems);
+    return merged;
   }, [
     professional?.gallery,
     professional?.stories,
