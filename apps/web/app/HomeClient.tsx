@@ -976,9 +976,6 @@ export default function HomeClient() {
         )}
 
         {/* Section gradient divider */}
-        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
-
-        {/* Section gradient divider */}
         <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.08] to-transparent" />
 
         {/* ═══ HOME FEED — secciones inmediatas + scroll infinito ═══ */}
