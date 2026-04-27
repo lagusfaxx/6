@@ -45,7 +45,7 @@ type Props = {
   tone?: Tone;
   defaultOpen?: boolean;
   profiles: CollapsibleProfile[];
-  ctaHref: string;
+  ctaHref?: string;
   ctaLabel?: string;
 };
 
@@ -143,14 +143,16 @@ export default function CollapsibleSection({
                 </p>
               )}
 
-              <div className="mt-3 flex justify-center">
-                <Link
-                  href={ctaHref}
-                  className="rounded-2xl border border-white/[0.10] bg-white/[0.03] px-5 py-2 text-sm font-medium text-white/75 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
-                >
-                  {ctaLabel}
-                </Link>
-              </div>
+              {ctaHref && (
+                <div className="mt-3 flex justify-center">
+                  <Link
+                    href={ctaHref}
+                    className="rounded-2xl border border-white/[0.10] bg-white/[0.03] px-5 py-2 text-sm font-medium text-white/75 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+                  >
+                    {ctaLabel}
+                  </Link>
+                </div>
+              )}
             </div>
           )}
         </div>
