@@ -585,7 +585,7 @@ directoryRouter.get(
           select: { id: true, url: true, type: true },
         },
         stories: {
-          where: { mediaType: "IMAGE", expiresAt: { gt: new Date() } },
+          where: { expiresAt: { gt: new Date() } },
           orderBy: { createdAt: "desc" },
           take: 12,
           select: { id: true, mediaUrl: true, mediaType: true },

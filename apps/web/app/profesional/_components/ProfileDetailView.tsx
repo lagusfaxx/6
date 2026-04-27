@@ -38,9 +38,12 @@ import {
   Scissors,
   Palette,
   Languages,
+  Play,
 } from "lucide-react";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
 import StatusBadgeIcon from "../../../components/StatusBadgeIcon";
+
+type GalleryItem = { url: string; type: "IMAGE" | "VIDEO" };
 
 type ForumComment = {
   id: string;
@@ -220,7 +223,7 @@ export default function ProfileDetailView({
   const [favorite, setFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<GalleryItem | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [galleryDirection, setGalleryDirection] = useState(1);
   const [showAllReviews, setShowAllReviews] = useState(false);
@@ -462,35 +465,35 @@ export default function ProfileDetailView({
   const coverSrc =
     resolveMediaUrl(professional?.coverUrl) ??
     resolveMediaUrl(professional?.avatarUrl);
-  const gallery = useMemo(() => {
-    const realGallery = (professional?.gallery || [])
-      .map((g) => resolveMediaUrl(g.url))
-      .filter(
-        (url): url is string =>
-          typeof url === "string" && url.trim().length > 0,
-      );
-    const storyImages = (professional?.stories || [])
-      .map((s) => resolveMediaUrl(s.url))
-      .filter(
-        (url): url is string =>
-          typeof url === "string" && url.trim().length > 0,
-      );
-    const cover = resolveMediaUrl(professional?.coverUrl);
-    const avatar = resolveMediaUrl(professional?.avatarUrl);
-    const combined = [cover, avatar, ...realGallery, ...storyImages].filter(
-      (url): url is string =>
-        typeof url === "string" && url.trim().length > 0,
-    );
-    return Array.from(new Set(combined));
+  const gallery = useMemo<GalleryItem[]>(() => {
+    const items: GalleryItem[] = [];
+    const seen = new Set<string>();
+    const push = (
+      raw: string | null | undefined,
+      rawType: string | null | undefined,
+    ) => {
+      if (!raw) return;
+      const resolved = resolveMediaUrl(raw) ?? raw;
+      if (!resolved || seen.has(resolved)) return;
+      const type =
+        String(rawType || "").toUpperCase() === "VIDEO" ? "VIDEO" : "IMAGE";
+      seen.add(resolved);
+      items.push({ url: resolved, type });
+    };
+    push(professional?.coverUrl, "IMAGE");
+    push(professional?.avatarUrl, "IMAGE");
+    for (const g of professional?.gallery ?? []) push(g.url, g.type);
+    for (const s of professional?.stories ?? []) push(s.url, s.type);
+    return items;
   }, [
     professional?.gallery,
     professional?.stories,
     professional?.coverUrl,
     professional?.avatarUrl,
   ]);
-  const selectedGalleryImage = gallery[galleryIndex] ?? gallery[0] ?? null;
+  const selectedGalleryItem = gallery[galleryIndex] ?? gallery[0] ?? null;
   const lightboxIndex = lightbox
-    ? gallery.findIndex((img) => img === lightbox)
+    ? gallery.findIndex((g) => g.url === lightbox.url)
     : -1;
 
   useEffect(() => {
@@ -784,27 +787,47 @@ export default function ProfileDetailView({
         <div className="min-w-0 space-y-4">
           {/* Gallery */}
           <section className="min-w-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent">
-            {selectedGalleryImage ? (
+            {selectedGalleryItem ? (
               <motion.button
                 type="button"
-                onClick={() => setLightbox(selectedGalleryImage)}
+                onClick={() => setLightbox(selectedGalleryItem)}
                 className="relative block w-full overflow-hidden border-b border-white/10"
               >
                 <div className="relative aspect-[4/5] w-full md:aspect-[16/9]">
                   <AnimatePresence mode="wait">
-                    <motion.img
-                      key={selectedGalleryImage}
-                      src={selectedGalleryImage}
-                      alt="Imagen destacada"
-                      className="absolute inset-0 h-full w-full object-cover"
-                      initial={{
-                        opacity: 0,
-                        x: galleryDirection > 0 ? 40 : -40,
-                      }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: galleryDirection > 0 ? -40 : 40 }}
-                      transition={{ duration: 0.3, ease: "easeInOut" }}
-                    />
+                    {selectedGalleryItem.type === "VIDEO" ? (
+                      <motion.video
+                        key={selectedGalleryItem.url}
+                        src={selectedGalleryItem.url}
+                        muted
+                        loop
+                        playsInline
+                        autoPlay
+                        preload="metadata"
+                        className="absolute inset-0 h-full w-full object-cover"
+                        initial={{
+                          opacity: 0,
+                          x: galleryDirection > 0 ? 40 : -40,
+                        }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: galleryDirection > 0 ? -40 : 40 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                      />
+                    ) : (
+                      <motion.img
+                        key={selectedGalleryItem.url}
+                        src={selectedGalleryItem.url}
+                        alt="Imagen destacada"
+                        className="absolute inset-0 h-full w-full object-cover"
+                        initial={{
+                          opacity: 0,
+                          x: galleryDirection > 0 ? 40 : -40,
+                        }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: galleryDirection > 0 ? -40 : 40 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                      />
+                    )}
                   </AnimatePresence>
                 </div>
                 <span className="absolute bottom-3 right-3 rounded-2xl border border-white/20 bg-black/50 px-2.5 py-1 text-xs text-white/90 backdrop-blur-md">
@@ -847,10 +870,10 @@ export default function ProfileDetailView({
             {gallery.length > 1 && (
               <div className="min-w-0 overflow-hidden px-3 py-2.5 md:px-4">
                 <div className="flex min-w-0 flex-nowrap gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {gallery.map((url, idx) => (
+                  {gallery.map((item, idx) => (
                     <button
                       type="button"
-                      key={`${url}-${idx}`}
+                      key={`${item.url}-${idx}`}
                       onClick={() => goToGallery(idx)}
                       className={`relative w-20 shrink-0 overflow-hidden rounded-xl border transition-all duration-200 aspect-[3/4] md:w-24 ${
                         idx === galleryIndex
@@ -858,11 +881,28 @@ export default function ProfileDetailView({
                           : "border-white/10 opacity-80 hover:opacity-100 hover:scale-105 hover:brightness-110"
                       }`}
                     >
-                      <img
-                        src={url}
-                        alt={`Galería ${idx + 1}`}
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
+                      {item.type === "VIDEO" ? (
+                        <>
+                          <video
+                            src={item.url}
+                            muted
+                            playsInline
+                            preload="metadata"
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                          <div className="absolute inset-0 grid place-items-center bg-black/30">
+                            <div className="rounded-full bg-black/60 p-1.5 ring-1 ring-white/40">
+                              <Play className="h-3.5 w-3.5 fill-white text-white" />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <img
+                          src={item.url}
+                          alt={`Galería ${idx + 1}`}
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -1369,11 +1409,23 @@ export default function ProfileDetailView({
               >
                 <X className="h-4 w-4" />
               </button>
-              <img
-                src={lightbox}
-                alt="Vista ampliada"
-                className="h-full w-full rounded-3xl border border-white/10 object-contain"
-              />
+              {lightbox.type === "VIDEO" ? (
+                <video
+                  key={lightbox.url}
+                  src={lightbox.url}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="h-full w-full rounded-3xl border border-white/10 bg-black object-contain"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <img
+                  src={lightbox.url}
+                  alt="Vista ampliada"
+                  className="h-full w-full rounded-3xl border border-white/10 object-contain"
+                />
+              )}
               {gallery.length > 1 && (
                 <>
                   <button
