@@ -481,9 +481,11 @@ function fakeRecentLabel(profileId: string): string {
  */
 type CornerBadge = {
   text: string;
-  /** Tailwind gradient classes "from-… to-…" */
+  /** Tailwind gradient classes "from-… to-…" (used cuando el badge va sobre dark gradient) */
   gradient: string;
-  /** Glow color (rgba) for the box-shadow */
+  /** Tailwind text color class para la versión "transparente" (solo texto sobre la foto) */
+  textClass: string;
+  /** Glow color (rgba) for the box-shadow / text-shadow */
   glow: string;
 };
 
@@ -495,20 +497,20 @@ function getCornerBadge(p: {
   profileViews?: number;
 }, opts?: { forceNew?: boolean; isNew?: boolean }): CornerBadge | null {
   if (opts?.forceNew || opts?.isNew) {
-    return { text: "NUEVA", gradient: "from-fuchsia-500/40 to-pink-500/40", glow: "rgba(217,70,239,0.30)" };
+    return { text: "NUEVA", gradient: "from-fuchsia-500/40 to-pink-500/40", textClass: "text-fuchsia-300", glow: "rgba(217,70,239,0.55)" };
   }
   if (p.userLevel === "DIAMOND") {
-    return { text: "TOP", gradient: "from-violet-600/45 to-fuchsia-600/40", glow: "rgba(168,85,247,0.32)" };
+    return { text: "TOP", gradient: "from-violet-600/45 to-fuchsia-600/40", textClass: "text-violet-300", glow: "rgba(168,85,247,0.55)" };
   }
   if (p.userLevel === "GOLD") {
-    return { text: "POPULAR", gradient: "from-fuchsia-600/40 to-rose-500/35", glow: "rgba(217,70,239,0.28)" };
+    return { text: "POPULAR", gradient: "from-fuchsia-600/40 to-rose-500/35", textClass: "text-rose-300", glow: "rgba(244,63,94,0.50)" };
   }
   const dist = p.distanceKm ?? p.distance ?? null;
   if (p.availableNow && dist != null && dist < 3) {
-    return { text: "SOLO PARA TI", gradient: "from-pink-500/40 to-fuchsia-500/40", glow: "rgba(236,72,153,0.30)" };
+    return { text: "SOLO PARA TI", gradient: "from-pink-500/40 to-fuchsia-500/40", textClass: "text-pink-300", glow: "rgba(236,72,153,0.55)" };
   }
   if ((p.profileViews ?? 0) > 800) {
-    return { text: "POPULAR", gradient: "from-fuchsia-600/40 to-rose-500/35", glow: "rgba(217,70,239,0.28)" };
+    return { text: "POPULAR", gradient: "from-fuchsia-600/40 to-rose-500/35", textClass: "text-rose-300", glow: "rgba(244,63,94,0.50)" };
   }
   return null;
 }
@@ -517,6 +519,18 @@ function CornerBadgePill({ badge }: { badge: CornerBadge }) {
   return (
     <span
       className={`uzeed-corner-pill inline-flex items-center rounded-[7px] bg-gradient-to-r ${badge.gradient} px-2 py-[3px] text-[9px] font-bold uppercase tracking-[0.06em] text-white`}
+      style={{ ["--corner-glow" as any]: badge.glow }}
+    >
+      {badge.text}
+    </span>
+  );
+}
+
+/** Texto-only — sin contenedor. Se queda flotando sobre la foto sin taparla. */
+function CornerBadgeText({ badge }: { badge: CornerBadge }) {
+  return (
+    <span
+      className={`uzeed-corner-text ${badge.textClass} text-[10px] font-extrabold uppercase tracking-[0.10em] leading-none`}
       style={{ ["--corner-glow" as any]: badge.glow }}
     >
       {badge.text}
@@ -1042,7 +1056,14 @@ export default function HomeClient() {
                     <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
 
-                      {/* Online dot only — no badges over the photo */}
+                      {/* Top-left: status como TEXTO (sin contenedor, transparente) */}
+                      {cornerBadge && (
+                        <span className="absolute left-2 top-2 z-[4]">
+                          <CornerBadgeText badge={cornerBadge} />
+                        </span>
+                      )}
+
+                      {/* Top-right: punto verde si está online */}
                       {profile.availableNow && (
                         <span className="absolute right-1.5 top-1.5 z-[4] flex h-2.5 w-2.5 items-center justify-center">
                           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/50" />
@@ -1052,13 +1073,7 @@ export default function HomeClient() {
 
                       <div className="uzeed-card-gradient absolute inset-0" />
 
-                      {/* Bottom info — todo lo informativo va sobre el degradado, no sobre la foto */}
                       <div className="absolute bottom-0 left-0 right-0 p-2 z-[3]">
-                        {cornerBadge && (
-                          <span className={`inline-flex items-center rounded bg-gradient-to-r ${cornerBadge.gradient} px-1.5 py-[1px] text-[8px] font-bold uppercase tracking-[0.06em] text-white mb-1 uzeed-corner-pill`} style={{ ["--corner-glow" as any]: cornerBadge.glow }}>
-                            {cornerBadge.text}
-                          </span>
-                        )}
                         <div className="flex items-center gap-0.5 truncate text-[12px] font-bold leading-tight">
                           <span className="truncate">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</span>
                           {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
@@ -1419,8 +1434,8 @@ export default function HomeClient() {
                     <div className="uzeed-card-shimmer relative aspect-[4/5] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
 
-                      <div className="absolute left-2 top-2 z-[4] flex flex-col gap-1">
-                        <CornerBadgePill badge={getCornerBadge(profile as any, { forceNew: true })!} />
+                      <div className="absolute left-2 top-2 z-[4] flex flex-col items-start gap-1">
+                        <CornerBadgeText badge={getCornerBadge(profile as any, { forceNew: true })!} />
                         {profile.availableNow && (
                           <span className="uzeed-badge-pill uzeed-badge-online text-[8px]">
                             <span className="uzeed-badge-dot" /> Online
