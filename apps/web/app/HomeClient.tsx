@@ -894,38 +894,38 @@ export default function HomeClient() {
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
       {/* ═══ HERO — Premium immersive (compacto en mobile y desktop) ═══ */}
-      <section className="relative flex items-center justify-center overflow-hidden px-4 pt-2 pb-2 sm:pt-4 sm:pb-4 md:pt-8 md:pb-6">
+      <section className="relative flex items-center justify-center overflow-hidden px-4 pt-4 pb-4 md:pt-8 md:pb-6">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
-        {/* Static ambient orbs — desktop only (mobile prioriza inmediatez) */}
-        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 hidden h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[120px] sm:block" />
-        <div className="pointer-events-none absolute right-[8%] top-[18%] -z-10 hidden h-[300px] w-[300px] rounded-full bg-fuchsia-500/[0.06] blur-[100px] sm:block" />
-        <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 hidden h-[250px] w-[250px] rounded-full bg-indigo-500/[0.05] blur-[80px] sm:block" />
+        {/* Static ambient orbs */}
+        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[120px]" />
+        <div className="pointer-events-none absolute right-[8%] top-[18%] -z-10 h-[300px] w-[300px] rounded-full bg-fuchsia-500/[0.06] blur-[100px]" />
+        <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 h-[250px] w-[250px] rounded-full bg-indigo-500/[0.05] blur-[80px]" />
+        {/* Noise texture overlay */}
+        <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
 
         <div className="relative mx-auto w-full max-w-3xl text-center">
-          {/* Wall of text + CTA + counters — sólo desde sm para no empujar el grid en mobile */}
-          <div className="hidden sm:block">
-            <h1 className="text-[1.25rem] font-extrabold leading-[1.1] tracking-tight sm:text-[1.75rem] md:text-[2rem] animate-float-up" style={{ animationFillMode: "both" }}>
-              <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
-            </h1>
+          <h1 className="text-[1.25rem] font-extrabold leading-[1.1] tracking-tight sm:text-[1.75rem] md:text-[2rem] animate-float-up" style={{ animationFillMode: "both" }}>
+            <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
+          </h1>
 
-            <h2 className="mx-auto mt-2 max-w-xl text-[13px] font-medium leading-snug text-white/45 animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
-              Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Discreto, verificado y premium.
-            </h2>
+          <h2 className="mx-auto mt-1.5 max-w-xl text-[11px] font-medium leading-snug text-white/45 sm:mt-2 sm:text-[13px] animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
+            Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Discreto, verificado y premium.
+          </h2>
 
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 animate-float-up" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
-              <Link
-                href="/servicios"
-                className="uzeed-hero-cta group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)]"
-              >
-                Explorar ahora
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </Link>
-              <HeroCounters />
-            </div>
+          {/* CTA primario + contadores en la misma fila (mobile y desktop) */}
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 animate-float-up sm:mt-4 sm:gap-x-6" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
+            <Link
+              href="/servicios"
+              className="uzeed-hero-cta group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)]"
+            >
+              Explorar ahora
+              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </Link>
+            <HeroCounters />
           </div>
 
-          {/* Buscador (visible siempre) */}
+          {/* Buscador dentro del hero */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -933,7 +933,8 @@ export default function HomeClient() {
               if (resolved.cityToSet) locationCtx?.setCity(resolved.cityToSet);
               router.push(resolved.href);
             }}
-            className="relative mx-auto mt-0 flex w-full max-w-xl items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 backdrop-blur-md focus-within:border-fuchsia-500/40 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_24px_rgba(217,70,239,0.12)] transition sm:mt-4"
+            className="relative mx-auto mt-3 flex w-full max-w-xl items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 backdrop-blur-md focus-within:border-fuchsia-500/40 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_24px_rgba(217,70,239,0.12)] transition animate-float-up sm:mt-4"
+            style={{ animationDelay: "300ms", animationFillMode: "both" }}
           >
             <SearchIcon className="h-4 w-4 shrink-0 text-white/40" aria-hidden />
             <input
@@ -952,8 +953,8 @@ export default function HomeClient() {
             </button>
           </form>
 
-          {/* Chips de filtros rápidos (visibles siempre) */}
-          <div className="scrollbar-none mt-2 -mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:mt-3 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
+          {/* Chips de filtros rápidos */}
+          <div className="scrollbar-none mt-2.5 -mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
             {[
               { label: "Cerca (2km)", href: "/servicios", icon: Navigation, iconColor: "text-emerald-400" },
               { label: "Disponible ahora", href: "/escorts?availableNow=true", icon: Zap, iconColor: "text-amber-400" },
@@ -972,8 +973,8 @@ export default function HomeClient() {
             ))}
           </div>
 
-          {/* Link de descargar app — sólo desktop, en mobile estorba */}
-          <div className="mt-3 hidden sm:block">
+          {/* Link compacto para descargar app */}
+          <div className="mt-3">
             <InstallAppButton compact />
           </div>
         </div>
@@ -1030,82 +1031,46 @@ export default function HomeClient() {
                 Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
               {paraTiProfiles.map((profile) => {
                 const priceFrom = (profile as any).priceFrom as number | null | undefined;
-                const recentLabel = profile.availableNow ? fakeRecentLabel(profile.id) : null;
                 const cornerBadge = getCornerBadge(profile as any, { isNew: newProfileIds.has(profile.id) });
                 const views = profile.profileViews ?? 0;
-                const services = profile.completedServices ?? 0;
                 return (
                 <article key={profile.id} className="uzeed-premium-card uzeed-card-elite group">
                   <button type="button" onClick={() => startTransition(() => setPreviewProfile(profile))} className="block w-full text-left">
-                    <div className="uzeed-card-shimmer relative aspect-[4/5] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
+                    <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
 
-                      {/* Top-left corner badge (NUEVA / TOP / POPULAR / SOLO PARA TI) */}
-                      <div className="absolute left-2 top-2 z-[4] flex flex-col gap-1">
-                        {cornerBadge && <CornerBadgePill badge={cornerBadge} />}
-                        {profile.availableNow && (
-                          <span className="uzeed-badge-pill uzeed-badge-online text-[8px]">
-                            <span className="uzeed-badge-dot" /> Online
-                          </span>
-                        )}
-                        {hasExamsBadge(profile as any) && (
-                          <span className="uzeed-badge-pill border-sky-300/30 text-sky-200 text-[8px]">
-                            <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
-                          </span>
-                        )}
-                        {hasVideoCallBadge(profile as any) && (
-                          <span className="uzeed-badge-pill border-violet-300/30 text-violet-200 text-[8px]">
-                            <Video className="h-2.5 w-2.5" /> Videollamadas
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Top-right "more" menu */}
-                      <span
-                        aria-hidden
-                        className="absolute right-2 top-2 z-[4] flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/35 text-white/80 backdrop-blur-md transition group-hover:border-white/25 group-hover:bg-black/55"
-                      >
-                        <MoreVertical className="h-3.5 w-3.5" />
-                      </span>
+                      {/* Online dot only — no badges over the photo */}
+                      {profile.availableNow && (
+                        <span className="absolute right-1.5 top-1.5 z-[4] flex h-2.5 w-2.5 items-center justify-center">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/50" />
+                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-[#0a0a10]" />
+                        </span>
+                      )}
 
                       <div className="uzeed-card-gradient absolute inset-0" />
 
-                      <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
-                        {/* Nombre + badges */}
-                        <div className="flex items-center gap-1 truncate text-[14px] font-extrabold tracking-tight">
-                          {profile.displayName}{profile.age ? `, ${profile.age}` : ""}
-                          {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
-                          {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
-                        </div>
-
-                        {/* Stats: vistas · servicios */}
-                        <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-white/60 tabular-nums">
-                          <span>{views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views} vistas</span>
-                          {services > 0 && (
-                            <>
-                              <span className="text-white/25">·</span>
-                              <span>{services} servicios</span>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Distancia · actividad reciente */}
-                        {(profile.distanceKm != null || recentLabel) && (
-                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/75">
-                            {profile.distanceKm != null && (
-                              <span className="tabular-nums">{profile.distanceKm.toFixed(1)} km</span>
-                            )}
-                            {profile.distanceKm != null && recentLabel && <span className="text-white/25">·</span>}
-                            {recentLabel && <span className="text-emerald-300/90">{recentLabel}</span>}
-                          </div>
+                      {/* Bottom info — todo lo informativo va sobre el degradado, no sobre la foto */}
+                      <div className="absolute bottom-0 left-0 right-0 p-2 z-[3]">
+                        {cornerBadge && (
+                          <span className={`inline-flex items-center rounded bg-gradient-to-r ${cornerBadge.gradient} px-1.5 py-[1px] text-[8px] font-bold uppercase tracking-[0.06em] text-white mb-1 uzeed-corner-pill`} style={{ ["--corner-glow" as any]: cornerBadge.glow }}>
+                            {cornerBadge.text}
+                          </span>
                         )}
-
-                        {/* Precio desde */}
+                        <div className="flex items-center gap-0.5 truncate text-[12px] font-bold leading-tight">
+                          <span className="truncate">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</span>
+                          {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
+                          {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-white/60 tabular-nums">
+                          {profile.distanceKm != null && <span>{profile.distanceKm.toFixed(1)} km</span>}
+                          {profile.distanceKm != null && views > 0 && <span className="text-white/25">·</span>}
+                          {views > 0 && <span>{views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views}</span>}
+                        </div>
                         {typeof priceFrom === "number" && priceFrom > 0 && (
-                          <div className="mt-1 inline-flex items-center rounded-md border border-fuchsia-400/25 bg-fuchsia-500/10 px-1.5 py-0.5 text-[10px] font-bold text-fuchsia-200">
+                          <div className="mt-0.5 text-[10px] font-bold text-fuchsia-300">
                             Desde ${priceFrom.toLocaleString("es-CL")}
                           </div>
                         )}
