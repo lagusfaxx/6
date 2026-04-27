@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ApiHttpError, apiFetch, resolveMediaUrl } from "../../../lib/api";
 import {
@@ -225,6 +225,12 @@ export default function ProfileDetailView({
   const [notFound, setNotFound] = useState(false);
   const [lightbox, setLightbox] = useState<GalleryItem | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [pendingVideoSeek, setPendingVideoSeek] = useState<{
+    url: string;
+    time: number;
+  } | null>(null);
+  const thumbVideoRefs = useRef(new Map<string, HTMLVideoElement>());
+  const mainVideoRef = useRef<HTMLVideoElement | null>(null);
   const [galleryDirection, setGalleryDirection] = useState(1);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
@@ -510,6 +516,27 @@ export default function ProfileDetailView({
     }
     setGalleryIndex((prev) => Math.min(prev, gallery.length - 1));
   }, [gallery.length]);
+
+  useEffect(() => {
+    if (!pendingVideoSeek) return;
+    if (selectedGalleryItem?.url !== pendingVideoSeek.url) return;
+    const video = mainVideoRef.current;
+    if (!video) return;
+    const apply = () => {
+      try {
+        video.currentTime = pendingVideoSeek.time;
+        void video.play();
+      } catch {}
+      setPendingVideoSeek(null);
+    };
+    if (video.readyState >= 1) {
+      apply();
+    } else {
+      const onMeta = () => apply();
+      video.addEventListener("loadedmetadata", onMeta, { once: true });
+      return () => video.removeEventListener("loadedmetadata", onMeta);
+    }
+  }, [pendingVideoSeek, selectedGalleryItem?.url]);
 
   function goToGallery(nextIndex: number) {
     if (!gallery.length) return;
@@ -805,6 +832,7 @@ export default function ProfileDetailView({
                     {selectedGalleryItem.type === "VIDEO" ? (
                       <motion.video
                         key={selectedGalleryItem.url}
+                        ref={mainVideoRef}
                         src={selectedGalleryItem.url}
                         muted
                         loop
@@ -877,38 +905,49 @@ export default function ProfileDetailView({
             {gallery.length > 1 && (
               <div className="min-w-0 overflow-hidden px-3 py-2.5 md:px-4">
                 <div className="flex min-w-0 flex-nowrap gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {gallery.map((item, idx) => (
+                  {gallery.map((item, idx) => {
+                    const isLatestVideo =
+                      item.type === "VIDEO" && item.url === latestStoryVideoUrl;
+                    const isSelected = idx === galleryIndex;
+                    const shouldLoopThumb = isLatestVideo && !isSelected;
+                    const handleClick = () => {
+                      if (isLatestVideo) {
+                        const v = thumbVideoRefs.current.get(item.url);
+                        if (v && Number.isFinite(v.currentTime)) {
+                          setPendingVideoSeek({
+                            url: item.url,
+                            time: v.currentTime,
+                          });
+                        }
+                      }
+                      goToGallery(idx);
+                    };
+                    return (
                     <button
                       type="button"
                       key={`${item.url}-${idx}`}
-                      onClick={() => goToGallery(idx)}
+                      onClick={handleClick}
                       className={`relative w-20 shrink-0 overflow-hidden rounded-xl border transition-all duration-200 aspect-[3/4] md:w-24 ${
-                        idx === galleryIndex
+                        isSelected
                           ? "border-fuchsia-300 shadow-[0_0_0_1px_rgba(232,121,249,0.5)] scale-[1.03]"
                           : "border-white/10 opacity-80 hover:opacity-100 hover:scale-105 hover:brightness-110"
                       }`}
                     >
                       {item.type === "VIDEO" ? (
                         <>
-                          {item.url === latestStoryVideoUrl ? (
-                            <video
-                              src={item.url}
-                              muted
-                              loop
-                              autoPlay
-                              playsInline
-                              preload="metadata"
-                              className="absolute inset-0 h-full w-full object-cover"
-                            />
-                          ) : (
-                            <video
-                              src={item.url}
-                              muted
-                              playsInline
-                              preload="metadata"
-                              className="absolute inset-0 h-full w-full object-cover"
-                            />
-                          )}
+                          <video
+                            ref={(el) => {
+                              if (el) thumbVideoRefs.current.set(item.url, el);
+                              else thumbVideoRefs.current.delete(item.url);
+                            }}
+                            src={shouldLoopThumb ? item.url : `${item.url}#t=0.1`}
+                            muted
+                            loop={shouldLoopThumb}
+                            autoPlay={shouldLoopThumb}
+                            playsInline
+                            preload="metadata"
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
                           <div className="pointer-events-none absolute right-1 top-1">
                             <div className="rounded-full bg-black/55 p-1 ring-1 ring-white/30">
                               <Play className="h-2.5 w-2.5 fill-white text-white" />
@@ -923,7 +962,8 @@ export default function ProfileDetailView({
                         />
                       )}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
