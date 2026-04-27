@@ -500,7 +500,7 @@ export default function ProfileDetailView({
     }
     const merged = [...baseItems];
     if (latestVideo) {
-      const insertAt = Math.min(5, merged.length);
+      const insertAt = Math.min(4, merged.length);
       merged.splice(insertAt, 0, latestVideo);
     }
     merged.push(...storyItems);
