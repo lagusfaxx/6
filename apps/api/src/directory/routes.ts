@@ -965,6 +965,7 @@ directoryRouter.get(
     const lng = req.query.lng ? Number(req.query.lng) : null;
     const radiusKm = parseRangeKm(req.query.radiusKm, 50);
     const limit = Math.min(Number(req.query.limit) || 48, 120);
+    const offset = Math.max(0, Math.min(Number(req.query.offset) || 0, 600));
     const sort = (req.query.sort as string) || "featured";
     /* Free-text search across displayName / username / city. Optional. */
     const qRaw = typeof req.query.q === "string" ? req.query.q : "";
@@ -1096,7 +1097,7 @@ directoryRouter.get(
     let hasNewColumns = true;
     try {
       users = await prisma.user.findMany({
-        where, take: Math.max(limit * 4, 200), select: fullSelect,
+        where, take: Math.max((offset + limit) * 4, 400), select: fullSelect,
       });
     } catch (err) {
       if (
@@ -1106,7 +1107,7 @@ directoryRouter.get(
         console.warn("[directory/search] new columns not available, falling back:", (err as Error).message?.slice(0, 120));
         hasNewColumns = false;
         users = await prisma.user.findMany({
-          where: fallbackWhere, take: Math.max(limit * 4, 200), select: fallbackSelect,
+          where: fallbackWhere, take: Math.max((offset + limit) * 4, 400), select: fallbackSelect,
         });
       } else {
         throw err;
@@ -1255,11 +1256,16 @@ directoryRouter.get(
     if (sort === "near") {
       merged.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
     }
-    const allResults = merged.slice(0, limit);
+    const allResults = merged.slice(offset, offset + limit);
+    const hasMore = offset + allResults.length < merged.length;
 
     return res.json({
       results: allResults,
       total: merged.length,
+      offset,
+      limit,
+      hasMore,
+      nextOffset: hasMore ? offset + allResults.length : null,
     });
   }),
 );
