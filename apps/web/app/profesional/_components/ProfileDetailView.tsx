@@ -85,6 +85,7 @@ type Professional = {
   serviceTags?: string[];
   phone?: string | null;
   gallery: { id: string; url: string; type: string }[];
+  stories?: { id: string; url: string; type: string }[];
   completedServices?: number;
   profileViews?: number;
   userLevel?: string | null;
@@ -468,14 +469,25 @@ export default function ProfileDetailView({
         (url): url is string =>
           typeof url === "string" && url.trim().length > 0,
       );
+    const storyImages = (professional?.stories || [])
+      .map((s) => resolveMediaUrl(s.url))
+      .filter(
+        (url): url is string =>
+          typeof url === "string" && url.trim().length > 0,
+      );
     const cover = resolveMediaUrl(professional?.coverUrl);
     const avatar = resolveMediaUrl(professional?.avatarUrl);
-    const combined = [cover, avatar, ...realGallery].filter(
+    const combined = [cover, avatar, ...realGallery, ...storyImages].filter(
       (url): url is string =>
         typeof url === "string" && url.trim().length > 0,
     );
     return Array.from(new Set(combined));
-  }, [professional?.gallery, professional?.coverUrl, professional?.avatarUrl]);
+  }, [
+    professional?.gallery,
+    professional?.stories,
+    professional?.coverUrl,
+    professional?.avatarUrl,
+  ]);
   const selectedGalleryImage = gallery[galleryIndex] ?? gallery[0] ?? null;
   const lightboxIndex = lightbox
     ? gallery.findIndex((img) => img === lightbox)

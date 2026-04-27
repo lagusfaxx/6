@@ -584,6 +584,12 @@ directoryRouter.get(
           take: 12,
           select: { id: true, url: true, type: true },
         },
+        stories: {
+          where: { mediaType: "IMAGE", expiresAt: { gt: new Date() } },
+          orderBy: { createdAt: "desc" },
+          take: 12,
+          select: { id: true, mediaUrl: true, mediaType: true },
+        },
     };
 
     let u: any;
@@ -725,6 +731,11 @@ directoryRouter.get(
         isOnline: isOnline(u.lastSeen),
         lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
         gallery: u.profileMedia,
+        stories: (u.stories ?? []).map((s: any) => ({
+          id: s.id,
+          url: s.mediaUrl,
+          type: s.mediaType,
+        })),
         completedServices: u.completedServices,
         profileViews: u.profileViews,
         userLevel: resolveProfessionalLevel({
