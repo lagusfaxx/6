@@ -913,17 +913,28 @@ html.discreet .uzeed-discreet-blur:focus-visible {
   100% { transform: translateX(100%) rotate(12deg); }
 }
 
-/* Premium badge pill */
+/* Premium badge pill — readable on top of any image */
 .uzeed-badge-pill {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 10px;
+  padding: 3px 8px;
   border-radius: 999px;
   font-size: 10px;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   letter-spacing: 0.02em;
+  background-color: rgba(10, 10, 16, 0.55);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+          backdrop-filter: blur(10px) saturate(120%);
+}
+
+/* Premium corner pill — solid gradient with soft glow */
+.uzeed-corner-pill {
+  box-shadow:
+    0 6px 16px var(--corner-glow, rgba(217, 70, 239, 0.35)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .uzeed-badge-online {

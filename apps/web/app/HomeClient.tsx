@@ -493,22 +493,22 @@ function getCornerBadge(p: {
   distance?: number | null;
   distanceKm?: number | null;
   profileViews?: number;
-}, opts?: { forceNew?: boolean }): CornerBadge | null {
-  if (opts?.forceNew) {
-    return { text: "NUEVA", gradient: "from-fuchsia-500 to-pink-600", glow: "rgba(217,70,239,0.45)" };
+}, opts?: { forceNew?: boolean; isNew?: boolean }): CornerBadge | null {
+  if (opts?.forceNew || opts?.isNew) {
+    return { text: "NUEVA", gradient: "from-fuchsia-500 to-pink-500", glow: "rgba(217,70,239,0.40)" };
   }
   if (p.userLevel === "DIAMOND") {
-    return { text: "TOP", gradient: "from-sky-400 to-cyan-500", glow: "rgba(56,189,248,0.45)" };
+    return { text: "TOP", gradient: "from-violet-600 to-fuchsia-600", glow: "rgba(168,85,247,0.45)" };
   }
   if (p.userLevel === "GOLD") {
-    return { text: "POPULAR", gradient: "from-amber-500 to-orange-500", glow: "rgba(251,146,60,0.45)" };
+    return { text: "POPULAR", gradient: "from-fuchsia-600 to-rose-500", glow: "rgba(217,70,239,0.40)" };
   }
   const dist = p.distanceKm ?? p.distance ?? null;
   if (p.availableNow && dist != null && dist < 3) {
-    return { text: "SOLO PARA TI", gradient: "from-rose-500 to-fuchsia-600", glow: "rgba(236,72,153,0.45)" };
+    return { text: "SOLO PARA TI", gradient: "from-pink-500 to-fuchsia-500", glow: "rgba(236,72,153,0.40)" };
   }
   if ((p.profileViews ?? 0) > 800) {
-    return { text: "POPULAR", gradient: "from-amber-500 to-orange-500", glow: "rgba(251,146,60,0.45)" };
+    return { text: "POPULAR", gradient: "from-fuchsia-600 to-rose-500", glow: "rgba(217,70,239,0.40)" };
   }
   return null;
 }
@@ -516,7 +516,7 @@ function getCornerBadge(p: {
 function CornerBadgePill({ badge }: { badge: CornerBadge }) {
   return (
     <span
-      className={`inline-flex items-center rounded-md bg-gradient-to-r ${badge.gradient} px-2 py-[3px] text-[9px] font-extrabold uppercase tracking-[0.08em] text-white shadow-[0_4px_14px_var(--corner-glow)] ring-1 ring-inset ring-white/20`}
+      className={`uzeed-corner-pill inline-flex items-center rounded-[7px] bg-gradient-to-r ${badge.gradient} px-2 py-[3px] text-[9px] font-bold uppercase tracking-[0.06em] text-white`}
       style={{ ["--corner-glow" as any]: badge.glow }}
     >
       {badge.text}
@@ -829,6 +829,7 @@ export default function HomeClient() {
 
   const nearProfiles = discoverSections["near"] || [];
   const newProfiles = discoverSections["new"] || [];
+  const newProfileIds = useMemo(() => new Set(newProfiles.map((p) => p.id)), [newProfiles]);
 
   /* ── "Para ti ahora": merge available (prioridad, ya online) + near; dedupe por id ── */
   const paraTiProfiles = useMemo(() => {
@@ -1162,12 +1163,12 @@ export default function HomeClient() {
                         <div className="absolute left-3 top-3 z-[3] flex flex-col gap-1.5">
                           <UserLevelBadge level={p.userLevel} className="px-2.5 py-1 text-[11px]" />
                           {hasExamsBadge(p) && (
-                            <div className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[9px]">
+                            <div className="uzeed-badge-pill border-sky-300/30 text-sky-200 text-[9px]">
                               <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                             </div>
                           )}
                           {hasVideoCallBadge(p) && (
-                            <div className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[9px]">
+                            <div className="uzeed-badge-pill border-violet-300/30 text-violet-200 text-[9px]">
                               <Video className="h-2.5 w-2.5" /> Videollamadas
                             </div>
                           )}
@@ -1269,12 +1270,12 @@ export default function HomeClient() {
                           <div className="absolute left-3 top-3 z-[3] flex flex-col gap-1.5">
                             <UserLevelBadge level={p.userLevel} className="px-2.5 py-1 text-[11px]" />
                             {hasExamsBadge(p) && (
-                              <div className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[9px]">
+                              <div className="uzeed-badge-pill border-sky-300/30 text-sky-200 text-[9px]">
                                 <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                               </div>
                             )}
                             {hasVideoCallBadge(p) && (
-                              <div className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[9px]">
+                              <div className="uzeed-badge-pill border-violet-300/30 text-violet-200 text-[9px]">
                                 <Video className="h-2.5 w-2.5" /> Videollamadas
                               </div>
                             )}
@@ -1348,7 +1349,7 @@ export default function HomeClient() {
               {paraTiProfiles.map((profile) => {
                 const priceFrom = (profile as any).priceFrom as number | null | undefined;
                 const recentLabel = profile.availableNow ? fakeRecentLabel(profile.id) : null;
-                const cornerBadge = getCornerBadge(profile as any);
+                const cornerBadge = getCornerBadge(profile as any, { isNew: newProfileIds.has(profile.id) });
                 const views = profile.profileViews ?? 0;
                 const services = profile.completedServices ?? 0;
                 return (
@@ -1366,12 +1367,12 @@ export default function HomeClient() {
                           </span>
                         )}
                         {hasExamsBadge(profile as any) && (
-                          <span className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[8px]">
+                          <span className="uzeed-badge-pill border-sky-300/30 text-sky-200 text-[8px]">
                             <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                           </span>
                         )}
                         {hasVideoCallBadge(profile as any) && (
-                          <span className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[8px]">
+                          <span className="uzeed-badge-pill border-violet-300/30 text-violet-200 text-[8px]">
                             <Video className="h-2.5 w-2.5" /> Videollamadas
                           </span>
                         )}
@@ -1462,12 +1463,12 @@ export default function HomeClient() {
                           </span>
                         )}
                         {hasExamsBadge(profile as any) && (
-                          <span className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[9px]">
+                          <span className="uzeed-badge-pill border-sky-300/30 text-sky-200 text-[9px]">
                             <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                           </span>
                         )}
                         {hasVideoCallBadge(profile as any) && (
-                          <span className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[9px]">
+                          <span className="uzeed-badge-pill border-violet-300/30 text-violet-200 text-[9px]">
                             <Video className="h-2.5 w-2.5" /> Videollamadas
                           </span>
                         )}
