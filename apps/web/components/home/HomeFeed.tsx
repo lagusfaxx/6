@@ -142,15 +142,6 @@ export default function HomeFeed({
     [destacadasProfiles],
   );
 
-  // IDs already shown above so the infinite feed doesn't repeat them
-  const excludeIds = useMemo(() => {
-    const ids = new Set<string>();
-    [novedades, disponibles, examenes, masajistasCollapsible, centro, destacadas]
-      .flat()
-      .forEach((p) => ids.add(p.id));
-    return Array.from(ids);
-  }, [novedades, disponibles, examenes, masajistasCollapsible, centro, destacadas]);
-
   return (
     <>
       {novedades.length > 0 && (
@@ -214,10 +205,7 @@ export default function HomeFeed({
 
       {destacadas.length > 0 && <DestacadasGrid profiles={destacadas} />}
 
-      <InfiniteFeed
-        categorySlug="escort,masajes"
-        excludeIds={excludeIds}
-      />
+      <InfiniteFeed categorySlug="escort,masajes" />
     </>
   );
 }
