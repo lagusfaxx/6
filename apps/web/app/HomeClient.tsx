@@ -30,7 +30,6 @@ import {
   Hand,
   Hotel,
   MapPin,
-  MoreVertical,
   Navigation,
   PartyPopper,
   Search as SearchIcon,
@@ -475,69 +474,6 @@ function fakeRecentLabel(profileId: string): string {
   return `Activa hace ${mins} min`;
 }
 
-/* ── Premium corner badge ──
- *  Derives a marketable label for the top-left corner of a profile card.
- *  Mirrors the look of "NUEVA / TOP / POPULAR / SOLO PARA TI" from the design.
- */
-type CornerBadge = {
-  text: string;
-  /** Tailwind gradient classes "from-… to-…" (used cuando el badge va sobre dark gradient) */
-  gradient: string;
-  /** Tailwind text color class para la versión "transparente" (solo texto sobre la foto) */
-  textClass: string;
-  /** Glow color (rgba) for the box-shadow / text-shadow */
-  glow: string;
-};
-
-function getCornerBadge(p: {
-  userLevel?: UserLevel;
-  availableNow?: boolean;
-  distance?: number | null;
-  distanceKm?: number | null;
-  profileViews?: number;
-}, opts?: { forceNew?: boolean; isNew?: boolean }): CornerBadge | null {
-  if (opts?.forceNew || opts?.isNew) {
-    return { text: "NUEVA", gradient: "from-fuchsia-500/40 to-pink-500/40", textClass: "text-fuchsia-300", glow: "rgba(217,70,239,0.55)" };
-  }
-  if (p.userLevel === "DIAMOND") {
-    return { text: "TOP", gradient: "from-violet-600/45 to-fuchsia-600/40", textClass: "text-violet-300", glow: "rgba(168,85,247,0.55)" };
-  }
-  if (p.userLevel === "GOLD") {
-    return { text: "POPULAR", gradient: "from-fuchsia-600/40 to-rose-500/35", textClass: "text-rose-300", glow: "rgba(244,63,94,0.50)" };
-  }
-  const dist = p.distanceKm ?? p.distance ?? null;
-  if (p.availableNow && dist != null && dist < 3) {
-    return { text: "SOLO PARA TI", gradient: "from-pink-500/40 to-fuchsia-500/40", textClass: "text-pink-300", glow: "rgba(236,72,153,0.55)" };
-  }
-  if ((p.profileViews ?? 0) > 800) {
-    return { text: "POPULAR", gradient: "from-fuchsia-600/40 to-rose-500/35", textClass: "text-rose-300", glow: "rgba(244,63,94,0.50)" };
-  }
-  return null;
-}
-
-function CornerBadgePill({ badge }: { badge: CornerBadge }) {
-  return (
-    <span
-      className={`uzeed-corner-pill inline-flex items-center rounded-[7px] bg-gradient-to-r ${badge.gradient} px-2 py-[3px] text-[9px] font-bold uppercase tracking-[0.06em] text-white`}
-      style={{ ["--corner-glow" as any]: badge.glow }}
-    >
-      {badge.text}
-    </span>
-  );
-}
-
-/** Texto-only — sin contenedor. Se queda flotando sobre la foto sin taparla. */
-function CornerBadgeText({ badge }: { badge: CornerBadge }) {
-  return (
-    <span
-      className={`uzeed-corner-text ${badge.textClass} text-[10px] font-extrabold uppercase tracking-[0.10em] leading-none`}
-      style={{ ["--corner-glow" as any]: badge.glow }}
-    >
-      {badge.text}
-    </span>
-  );
-}
-
 /* ── Tier config ── */
 const TIERS = [
   { key: "SILVER", label: "Silver", icon: Sparkles, gradient: "from-slate-300 to-slate-400", border: "border-slate-400/30", bg: "bg-slate-500/10" },
@@ -843,7 +779,6 @@ export default function HomeClient() {
 
   const nearProfiles = discoverSections["near"] || [];
   const newProfiles = discoverSections["new"] || [];
-  const newProfileIds = useMemo(() => new Set(newProfiles.map((p) => p.id)), [newProfiles]);
 
   /* ── "Para ti ahora": merge available (prioridad, ya online) + near; dedupe por id ── */
   const paraTiProfiles = useMemo(() => {
@@ -911,11 +846,11 @@ export default function HomeClient() {
       <section className="relative flex items-center justify-center overflow-hidden px-4 pt-4 pb-4 md:pt-8 md:pb-6">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
-        {/* Static ambient orbs */}
+        {/* Static ambient orbs — no animation to reduce rendering cost */}
         <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[120px]" />
         <div className="pointer-events-none absolute right-[8%] top-[18%] -z-10 h-[300px] w-[300px] rounded-full bg-fuchsia-500/[0.06] blur-[100px]" />
         <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 h-[250px] w-[250px] rounded-full bg-indigo-500/[0.05] blur-[80px]" />
-        {/* Noise texture overlay */}
+        {/* Noise texture overlay for premium texture */}
         <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
 
         <div className="relative mx-auto w-full max-w-3xl text-center">
@@ -1029,75 +964,6 @@ export default function HomeClient() {
         <section className="mb-6">
           <Stories />
         </section>
-
-        {/* ═══ PARA TI AHORA — Grid combinado (disponibles + cerca). Movido al inicio para inmediatez. ═══ */}
-        {paraTiProfiles.length > 0 && (
-          <section key={`parati-${locationKey}`} className="mb-10">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/[0.12]">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-lg bg-emerald-400/30" />
-                  <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                </div>
-                <h2 className="text-xl font-bold tracking-tight">Para ti ahora</h2>
-              </div>
-              <Link href="/servicios?sort=distance" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
-                Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-              </Link>
-            </div>
-            <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
-              {paraTiProfiles.map((profile) => {
-                const priceFrom = (profile as any).priceFrom as number | null | undefined;
-                const cornerBadge = getCornerBadge(profile as any, { isNew: newProfileIds.has(profile.id) });
-                const views = profile.profileViews ?? 0;
-                return (
-                <article key={profile.id} className="uzeed-premium-card uzeed-card-elite group">
-                  <button type="button" onClick={() => startTransition(() => setPreviewProfile(profile))} className="block w-full text-left">
-                    <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
-                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
-
-                      {/* Top-left: status como TEXTO (sin contenedor, transparente) */}
-                      {cornerBadge && (
-                        <span className="absolute left-2 top-2 z-[4]">
-                          <CornerBadgeText badge={cornerBadge} />
-                        </span>
-                      )}
-
-                      {/* Top-right: punto verde si está online */}
-                      {profile.availableNow && (
-                        <span className="absolute right-1.5 top-1.5 z-[4] flex h-2.5 w-2.5 items-center justify-center">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/50" />
-                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-[#0a0a10]" />
-                        </span>
-                      )}
-
-                      <div className="uzeed-card-gradient absolute inset-0" />
-
-                      <div className="absolute bottom-0 left-0 right-0 p-2 z-[3]">
-                        <div className="flex items-center gap-0.5 truncate text-[12px] font-bold leading-tight">
-                          <span className="truncate">{profile.displayName}{profile.age ? `, ${profile.age}` : ""}</span>
-                          {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
-                          {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
-                        </div>
-                        <div className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-white/60 tabular-nums">
-                          {profile.distanceKm != null && <span>{profile.distanceKm.toFixed(1)} km</span>}
-                          {profile.distanceKm != null && views > 0 && <span className="text-white/25">·</span>}
-                          {views > 0 && <span>{views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views}</span>}
-                        </div>
-                        {typeof priceFrom === "number" && priceFrom > 0 && (
-                          <div className="mt-0.5 text-[10px] font-bold text-fuchsia-300">
-                            Desde ${priceFrom.toLocaleString("es-CL")}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                </article>
-                );
-              })}
-            </div>
-          </section>
-        )}
 
         {/* ═══ BANNERS PUBLICITARIOS ═══ */}
         {/* Stable wrapper prevents CLS: reserves space until we know if banners exist */}
@@ -1246,12 +1112,12 @@ export default function HomeClient() {
                         <div className="absolute left-3 top-3 z-[3] flex flex-col gap-1.5">
                           <UserLevelBadge level={p.userLevel} className="px-2.5 py-1 text-[11px]" />
                           {hasExamsBadge(p) && (
-                            <div className="uzeed-badge-pill border-sky-300/30 text-sky-200 text-[9px]">
+                            <div className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[9px]">
                               <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                             </div>
                           )}
                           {hasVideoCallBadge(p) && (
-                            <div className="uzeed-badge-pill border-violet-300/30 text-violet-200 text-[9px]">
+                            <div className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[9px]">
                               <Video className="h-2.5 w-2.5" /> Videollamadas
                             </div>
                           )}
@@ -1353,12 +1219,12 @@ export default function HomeClient() {
                           <div className="absolute left-3 top-3 z-[3] flex flex-col gap-1.5">
                             <UserLevelBadge level={p.userLevel} className="px-2.5 py-1 text-[11px]" />
                             {hasExamsBadge(p) && (
-                              <div className="uzeed-badge-pill border-sky-300/30 text-sky-200 text-[9px]">
+                              <div className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[9px]">
                                 <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
                               </div>
                             )}
                             {hasVideoCallBadge(p) && (
-                              <div className="uzeed-badge-pill border-violet-300/30 text-violet-200 text-[9px]">
+                              <div className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[9px]">
                                 <Video className="h-2.5 w-2.5" /> Videollamadas
                               </div>
                             )}
@@ -1413,6 +1279,92 @@ export default function HomeClient() {
           </section>
         )}
 
+        {/* ═══ PARA TI AHORA — Grid combinado (disponibles + cerca) ═══ */}
+        {paraTiProfiles.length > 0 && (
+          <section key={`parati-${locationKey}`} className="mb-10 uzeed-below-fold">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/[0.12]">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-lg bg-emerald-400/30" />
+                  <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                </div>
+                <h2 className="text-xl font-bold tracking-tight">Para ti ahora</h2>
+              </div>
+              <Link href="/servicios?sort=distance" className="group flex items-center gap-1 text-xs font-medium text-white/40 hover:text-fuchsia-400 transition-colors duration-200">
+                Ver mapa <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {paraTiProfiles.map((profile) => {
+                const priceFrom = (profile as any).priceFrom as number | null | undefined;
+                const recentLabel = profile.availableNow ? fakeRecentLabel(profile.id) : null;
+                return (
+                <article key={profile.id} className="uzeed-premium-card group">
+                  <button type="button" onClick={() => startTransition(() => setPreviewProfile(profile))} className="block w-full text-left">
+                    <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
+                      <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
+                      <div className="absolute left-2 top-2 z-[3] flex flex-col gap-1">
+                        {profile.availableNow && (
+                          <div className="uzeed-badge-pill uzeed-badge-online text-[8px]">
+                            <span className="uzeed-badge-dot" /> Online
+                          </div>
+                        )}
+                        {hasExamsBadge(profile as any) && (
+                          <div className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[8px]">
+                            <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
+                          </div>
+                        )}
+                        {hasVideoCallBadge(profile as any) && (
+                          <div className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[8px]">
+                            <Video className="h-2.5 w-2.5" /> Videollamadas
+                          </div>
+                        )}
+                      </div>
+                      <div className="uzeed-card-gradient absolute inset-0" />
+                      <div className="absolute bottom-0 left-0 right-0 p-2.5 z-[3]">
+                        {/* 1. Nombre + badges */}
+                        <div className="flex items-center gap-1 truncate text-[13px] font-bold">
+                          {profile.displayName}{profile.age ? `, ${profile.age}` : ""}
+                          {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
+                          {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
+                        </div>
+                        {/* 2. Distancia · actividad reciente (destacado) */}
+                        {(profile.distanceKm != null || recentLabel) && (
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
+                            {profile.distanceKm != null && (
+                              <span className="tabular-nums">{profile.distanceKm.toFixed(1)} km</span>
+                            )}
+                            {profile.distanceKm != null && recentLabel && <span className="text-white/30">·</span>}
+                            {recentLabel && <span className="text-emerald-300/90">{recentLabel}</span>}
+                          </div>
+                        )}
+                        {/* 3. Precio desde */}
+                        {typeof priceFrom === "number" && priceFrom > 0 && (
+                          <div className="mt-0.5 text-[11px] font-semibold text-fuchsia-300">
+                            Desde ${priceFrom.toLocaleString("es-CL")}
+                          </div>
+                        )}
+                        {/* 4. Tags en último lugar, más sutiles */}
+                        {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0) && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {filterUserTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
+                              <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia text-[8px] opacity-70">{tag}</span>
+                            ))}
+                            {(profile as any).serviceTags?.slice(0, 1).map((tag: string) => (
+                              <span key={`st-${tag}`} className="uzeed-tag uzeed-tag-violet text-[8px] opacity-70">{tag}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* ═══ NUEVAS ═══ */}
         {newProfiles.length > 0 && (
           <section key={`new-${locationKey}`} className="mb-10 uzeed-below-fold">
@@ -1425,75 +1377,62 @@ export default function HomeClient() {
               </Link>
             </div>
             <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
-              {newProfiles.map((profile) => {
-                const views = profile.profileViews ?? 0;
-                const services = profile.completedServices ?? 0;
-                return (
-                <article key={profile.id} className="uzeed-premium-card uzeed-card-elite group w-[68vw] shrink-0 snap-start sm:w-auto">
+              {newProfiles.map((profile) => (
+                <article key={profile.id} className="uzeed-premium-card group w-[68vw] shrink-0 snap-start sm:w-auto">
                   <button type="button" onClick={() => startTransition(() => setPreviewProfile(profile))} className="block w-full text-left">
-                    <div className="uzeed-card-shimmer relative aspect-[4/5] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
+                    <div className="uzeed-card-shimmer relative aspect-[3/4] overflow-hidden rounded-[inherit] bg-[#0a0a10]">
                       <img src={resolveProfileImage(profile)} alt={profile.displayName} className="uzeed-card-img h-full w-full object-cover" loading="lazy" decoding="async" />
-
-                      <div className="absolute left-2 top-2 z-[4] flex flex-col items-start gap-1">
-                        <CornerBadgeText badge={getCornerBadge(profile as any, { forceNew: true })!} />
-                        {profile.availableNow && (
-                          <span className="uzeed-badge-pill uzeed-badge-online text-[8px]">
-                            <span className="uzeed-badge-dot" /> Online
-                          </span>
-                        )}
+                      <UserLevelBadge level={profile.userLevel} className="absolute right-2 top-2 z-[3] px-2 py-0.5 text-[10px]" />
+                      <div className="absolute left-2 top-2 z-[3] flex flex-col gap-1">
                         {hasExamsBadge(profile as any) && (
-                          <span className="uzeed-badge-pill border-sky-300/30 text-sky-200 text-[9px]">
+                          <div className="uzeed-badge-pill border-sky-300/30 bg-sky-500/15 text-sky-200 text-[9px]">
                             <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
-                          </span>
+                          </div>
                         )}
                         {hasVideoCallBadge(profile as any) && (
-                          <span className="uzeed-badge-pill border-violet-300/30 text-violet-200 text-[9px]">
+                          <div className="uzeed-badge-pill border-violet-300/30 bg-violet-500/15 text-violet-200 text-[9px]">
                             <Video className="h-2.5 w-2.5" /> Videollamadas
-                          </span>
+                          </div>
                         )}
                       </div>
-
-                      <span aria-hidden className="absolute right-2 top-2 z-[4] flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/35 text-white/80 backdrop-blur-md transition group-hover:border-white/25 group-hover:bg-black/55">
-                        <MoreVertical className="h-3.5 w-3.5" />
-                      </span>
-
                       <div className="uzeed-card-gradient absolute inset-0" />
-                      <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
-                        <div className="flex items-center gap-1 truncate text-[14px] font-extrabold tracking-tight">
+                      <div className="absolute bottom-0 left-0 right-0 p-2.5 z-[3]">
+                        {/* 1. Nombre + badges */}
+                        <div className="flex items-center gap-1 truncate text-[13px] font-bold">
                           {profile.displayName}{profile.age ? `, ${profile.age}` : ""}
-                          {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
-                          {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
+                          {hasPremiumBadge((profile as any).profileTags) && <StatusBadgeIcon type="premium" size="h-3 w-3" />}
+                          {hasVerifiedBadge((profile as any).profileTags) && <StatusBadgeIcon type="verificada" size="h-3 w-3" />}
                         </div>
-
-                        <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-white/60 tabular-nums">
-                          <span>{views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views} vistas</span>
-                          {services > 0 && (
-                            <>
-                              <span className="text-white/25">·</span>
-                              <span>{services} servicios</span>
-                            </>
-                          )}
-                        </div>
-
-                        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/75">
+                        {/* 2. Distancia · actividad reciente (destacado) */}
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
                           {profile.distanceKm != null && (
                             <span className="tabular-nums">{profile.distanceKm.toFixed(1)} km</span>
                           )}
-                          {profile.distanceKm != null && <span className="text-white/25">·</span>}
+                          {profile.distanceKm != null && <span className="text-white/30">·</span>}
                           <span className="text-emerald-300/90">{fakeRecentLabel(profile.id)}</span>
                         </div>
-
+                        {/* 3. Precio desde */}
                         {typeof (profile as any).priceFrom === "number" && (profile as any).priceFrom > 0 && (
-                          <div className="mt-1 inline-flex items-center rounded-md border border-fuchsia-400/25 bg-fuchsia-500/10 px-1.5 py-0.5 text-[10px] font-bold text-fuchsia-200">
+                          <div className="mt-0.5 text-[11px] font-semibold text-fuchsia-300">
                             Desde ${((profile as any).priceFrom as number).toLocaleString("es-CL")}
+                          </div>
+                        )}
+                        {/* 4. Tags en último lugar, más sutiles */}
+                        {(filterUserTags((profile as any).profileTags).length > 0 || (profile as any).serviceTags?.length > 0) && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {filterUserTags((profile as any).profileTags).slice(0, 2).map((tag: string) => (
+                              <span key={`pt-${tag}`} className="uzeed-tag uzeed-tag-fuchsia text-[8px] opacity-70">{tag}</span>
+                            ))}
+                            {(profile as any).serviceTags?.slice(0, 1).map((tag: string) => (
+                              <span key={`st-${tag}`} className="uzeed-tag uzeed-tag-violet text-[8px] opacity-70">{tag}</span>
+                            ))}
                           </div>
                         )}
                       </div>
                     </div>
                   </button>
                 </article>
-                );
-              })}
+              ))}
             </div>
           </section>
         )}
