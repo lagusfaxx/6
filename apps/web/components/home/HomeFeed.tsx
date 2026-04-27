@@ -156,7 +156,6 @@ export default function HomeFeed({
         {disponibles.length > 0 && (
           <CollapsibleSection
             title="Disponibles ahora"
-            count={disponibles.length}
             icon={<Sparkles className="h-5 w-5" />}
             tone="fuchsia"
             defaultOpen

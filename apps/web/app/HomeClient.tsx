@@ -917,10 +917,6 @@ export default function HomeClient() {
               { label: "Masajistas", href: "/masajistas", icon: Hand, gradient: "from-violet-600/15 to-purple-600/10", borderColor: "border-violet-500/20", iconColor: "text-violet-400" },
               { label: "Moteles", href: "/moteles", icon: Hotel, gradient: "from-amber-600/15 to-orange-600/10", borderColor: "border-amber-500/20", iconColor: "text-amber-400" },
               { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, gradient: "from-rose-600/15 to-red-600/10", borderColor: "border-rose-500/20", iconColor: "text-rose-400" },
-              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, gradient: "from-cyan-600/15 to-teal-600/10", borderColor: "border-cyan-500/20", iconColor: "text-cyan-400" },
-              { label: "Videollamadas", href: "/videocall", icon: Video, gradient: "from-blue-600/15 to-indigo-600/10", borderColor: "border-blue-500/20", iconColor: "text-blue-400" },
-              { label: "Cerca tuyo", href: "/servicios", icon: Navigation, gradient: "from-emerald-600/15 to-green-600/10", borderColor: "border-emerald-500/20", iconColor: "text-emerald-400" },
-              { label: "Premium", href: "/premium", icon: Crown, gradient: "from-amber-600/15 to-yellow-600/10", borderColor: "border-amber-500/20", iconColor: "text-amber-400" },
             ].map((cat) => (
               <Link
                 key={cat.href}
