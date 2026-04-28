@@ -4,6 +4,7 @@ import { requireAdmin } from "../auth/middleware";
 import { CreatePostSchema } from "@uzeed/shared";
 import multer from "multer";
 import path from "path";
+import fs from "node:fs/promises";
 import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -28,6 +29,28 @@ const upload = multer({
     destination: async (_req, _file, cb) => {
       await storageProvider.ensureBaseDir();
       cb(null, config.storageDir);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || "";
+      const safeBase = path
+        .basename(file.originalname, ext)
+        .replace(/[^a-zA-Z0-9_-]/g, "");
+      const name = `${Date.now()}-${safeBase}${ext}`;
+      cb(null, name);
+    },
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 },
+  fileFilter: mediaFilter,
+});
+
+const QUICK_LISTINGS_SUBFOLDER = "quick-listings";
+const QUICK_LISTINGS_DIR = path.join(path.resolve(config.storageDir), QUICK_LISTINGS_SUBFOLDER);
+
+const quickListingsUpload = multer({
+  storage: multer.diskStorage({
+    destination: async (_req, _file, cb) => {
+      await fs.mkdir(QUICK_LISTINGS_DIR, { recursive: true });
+      cb(null, QUICK_LISTINGS_DIR);
     },
     filename: (_req, file, cb) => {
       const ext = path.extname(file.originalname) || "";
@@ -1437,12 +1460,12 @@ adminRouter.delete(
 
 adminRouter.post(
   "/quick-listings/:id/upload",
-  upload.single("file"),
+  quickListingsUpload.single("file"),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     if (!req.file) return res.status(400).json({ error: "NO_FILE" });
 
-    const url = storageProvider.publicUrl(req.file.filename);
+    const url = storageProvider.publicUrl(`${QUICK_LISTINGS_SUBFOLDER}/${req.file.filename}`);
 
     // Atomic append — prevents lost photos when uploads overlap (read-modify-write race).
     const updated = await prisma.establishment.update({
