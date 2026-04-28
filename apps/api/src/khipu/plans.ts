@@ -4,7 +4,11 @@ import { requireAuth, requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 import { prisma } from "../db";
-import { createProfessionalUser, EmailInUseError } from "../auth/createProfessional";
+import {
+  createProfessionalUser,
+  EmailInUseError,
+  InsufficientGalleryPhotosError,
+} from "../auth/createProfessional";
 import {
   createFlowPlan,
   getFlowPlan,
@@ -675,6 +679,21 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
             console.error(
               "[flow webhook] PUBLICATE_GOLD: email already in use, pending marked FAILED",
               { pendingId: pendingReg.id, email: err.email, token },
+            );
+          } else if (err instanceof InsufficientGalleryPhotosError) {
+            // Should not happen with current quick-register validation, but
+            // protects against legacy pending rows whose photos were lost or
+            // never collected. Mark FAILED so the payment is reconciled
+            // manually instead of creating a half-empty professional.
+            await prisma.pendingGoldRegistration
+              .update({
+                where: { id: pendingReg.id },
+                data: { status: "FAILED" },
+              })
+              .catch(() => undefined);
+            console.error(
+              "[flow webhook] PUBLICATE_GOLD: insufficient photos, pending marked FAILED",
+              { pendingId: pendingReg.id, received: err.received, token },
             );
           } else {
             console.error("[flow webhook] PUBLICATE_GOLD: failed to create user", { pendingId: pendingReg.id, error: err });
