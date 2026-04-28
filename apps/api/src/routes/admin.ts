@@ -6,6 +6,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { env } from "../lib/env";
 import path from "node:path";
 import { asyncHandler } from "../lib/asyncHandler";
+import { config } from "../config";
 
 export const adminRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -235,6 +236,234 @@ adminRouter.put("/admin/profiles/:id", requireAdmin, asyncHandler(async (req, re
     },
   });
   res.json({ profile: updated });
+}));
+
+// ----------------------------
+// TRIALS / SUBSCRIPTIONS (Admin Management)
+// ----------------------------
+
+const BUSINESS_TYPES = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as const;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// List business profiles by trial / payment status
+adminRouter.get("/admin/trials", requireAdmin, asyncHandler(async (req, res) => {
+  const { status, q, profileType, limit, offset } = req.query as Record<string, string | undefined>;
+  const take = Math.min(parseInt(limit || "50", 10) || 50, 200);
+  const skip = parseInt(offset || "0", 10) || 0;
+  const now = new Date();
+  const graceCutoff = new Date(now.getTime() - config.freeTrialDays * DAY_MS);
+
+  const where: any = {
+    profileType: profileType && (BUSINESS_TYPES as readonly string[]).includes(profileType)
+      ? profileType
+      : { in: BUSINESS_TYPES as unknown as string[] },
+  };
+
+  if (q) {
+    where.OR = [
+      { displayName: { contains: q, mode: "insensitive" } },
+      { username: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  if (status === "active") {
+    // Trial active (explicit shopTrialEndsAt OR within grace window) AND no active paid membership
+    where.AND = [
+      { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+      {
+        OR: [
+          { shopTrialEndsAt: { gt: now } },
+          {
+            AND: [
+              { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
+              { createdAt: { gt: graceCutoff } },
+            ],
+          },
+        ],
+      },
+    ];
+  } else if (status === "expired") {
+    // Trial expired AND no paid membership = deactivated by non-payment
+    where.AND = [
+      { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+      { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
+      { createdAt: { lte: graceCutoff } },
+    ];
+  } else if (status === "paid") {
+    where.AND = [{ membershipExpiresAt: { gt: now } }];
+  }
+
+  const [profiles, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        profileType: true,
+        isActive: true,
+        isOnline: true,
+        lastSeen: true,
+        city: true,
+        tier: true,
+        role: true,
+        shopTrialEndsAt: true,
+        membershipExpiresAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: [{ shopTrialEndsAt: "asc" }, { createdAt: "desc" }],
+      take,
+      skip,
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  const augmented = profiles.map((p) => {
+    const effectiveTrialEnd = p.shopTrialEndsAt
+      ? p.shopTrialEndsAt
+      : new Date(p.createdAt.getTime() + config.freeTrialDays * DAY_MS);
+    const trialActive = effectiveTrialEnd.getTime() > now.getTime();
+    const membershipActive = p.membershipExpiresAt ? p.membershipExpiresAt.getTime() > now.getTime() : false;
+    const planActive = trialActive || membershipActive;
+    const trialMsRemaining = effectiveTrialEnd.getTime() - now.getTime();
+    const trialDaysRemaining = trialActive ? Math.max(0, Math.ceil(trialMsRemaining / DAY_MS)) : 0;
+    const trialHoursRemaining = trialActive ? Math.max(0, Math.floor(trialMsRemaining / (60 * 60 * 1000))) : 0;
+    const membershipDaysRemaining = membershipActive && p.membershipExpiresAt
+      ? Math.max(0, Math.ceil((p.membershipExpiresAt.getTime() - now.getTime()) / DAY_MS))
+      : 0;
+
+    return {
+      ...p,
+      shopTrialEndsAt: p.shopTrialEndsAt?.toISOString() || null,
+      effectiveTrialEndsAt: effectiveTrialEnd.toISOString(),
+      membershipExpiresAt: p.membershipExpiresAt?.toISOString() || null,
+      trialActive,
+      membershipActive,
+      planActive,
+      trialDaysRemaining,
+      trialHoursRemaining,
+      trialMsRemaining: trialActive ? trialMsRemaining : 0,
+      membershipDaysRemaining,
+      deactivatedByNonPayment: !planActive,
+      createdAt: p.createdAt.toISOString(),
+      updatedAt: p.updatedAt.toISOString(),
+      lastSeen: p.lastSeen?.toISOString() || null,
+    };
+  });
+
+  res.json({
+    profiles: augmented,
+    total,
+    freeTrialDays: config.freeTrialDays,
+    membershipDays: config.membershipDays,
+  });
+}));
+
+// Counters for the trials dashboard tabs
+adminRouter.get("/admin/trials/counts", requireAdmin, asyncHandler(async (_req, res) => {
+  const now = new Date();
+  const graceCutoff = new Date(now.getTime() - config.freeTrialDays * DAY_MS);
+  const businessFilter = { profileType: { in: BUSINESS_TYPES as unknown as string[] } };
+
+  const [active, expired, paid] = await Promise.all([
+    prisma.user.count({
+      where: {
+        ...businessFilter,
+        AND: [
+          { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+          {
+            OR: [
+              { shopTrialEndsAt: { gt: now } },
+              {
+                AND: [
+                  { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
+                  { createdAt: { gt: graceCutoff } },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    }),
+    prisma.user.count({
+      where: {
+        ...businessFilter,
+        AND: [
+          { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+          { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
+          { createdAt: { lte: graceCutoff } },
+        ],
+      },
+    }),
+    prisma.user.count({
+      where: { ...businessFilter, membershipExpiresAt: { gt: now } },
+    }),
+  ]);
+
+  res.json({ active, expired, paid, freeTrialDays: config.freeTrialDays });
+}));
+
+// Manage trial / membership for a profile (manual activation / extension)
+adminRouter.put("/admin/profiles/:id/trial", requireAdmin, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { trialEndsAt, membershipExpiresAt, addTrialDays, addMembershipDays, isActive } = req.body ?? {};
+
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, shopTrialEndsAt: true, membershipExpiresAt: true, isActive: true, profileType: true },
+  });
+  if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const now = new Date();
+  const data: any = {};
+
+  if (trialEndsAt !== undefined) {
+    data.shopTrialEndsAt = trialEndsAt ? new Date(trialEndsAt) : null;
+  } else if (typeof addTrialDays === "number" && Number.isFinite(addTrialDays) && addTrialDays !== 0) {
+    const base = user.shopTrialEndsAt && user.shopTrialEndsAt.getTime() > now.getTime() ? user.shopTrialEndsAt : now;
+    data.shopTrialEndsAt = new Date(base.getTime() + addTrialDays * DAY_MS);
+  }
+
+  if (membershipExpiresAt !== undefined) {
+    data.membershipExpiresAt = membershipExpiresAt ? new Date(membershipExpiresAt) : null;
+  } else if (typeof addMembershipDays === "number" && Number.isFinite(addMembershipDays) && addMembershipDays !== 0) {
+    const base = user.membershipExpiresAt && user.membershipExpiresAt.getTime() > now.getTime()
+      ? user.membershipExpiresAt
+      : now;
+    data.membershipExpiresAt = new Date(base.getTime() + addMembershipDays * DAY_MS);
+  }
+
+  if (isActive !== undefined) data.isActive = Boolean(isActive);
+
+  if (Object.keys(data).length === 0) {
+    return res.status(400).json({ error: "VALIDATION", message: "No changes provided" });
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data,
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      isActive: true,
+      profileType: true,
+      shopTrialEndsAt: true,
+      membershipExpiresAt: true,
+    },
+  });
+
+  res.json({
+    profile: {
+      ...updated,
+      shopTrialEndsAt: updated.shopTrialEndsAt?.toISOString() || null,
+      membershipExpiresAt: updated.membershipExpiresAt?.toISOString() || null,
+    },
+  });
 }));
 
 // Delete profile permanently
