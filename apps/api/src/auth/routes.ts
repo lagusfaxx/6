@@ -16,7 +16,7 @@ import { validateUploadedFile } from "../lib/uploads";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { sendSetPasswordEmail, consumeVerifiedEmail } from "./verification";
 import { createFlowPayment } from "../khipu/client";
-import { createProfessionalUser } from "./createProfessional";
+import { createProfessionalUser, InsufficientGalleryPhotosError } from "./createProfessional";
 import { googleAuthRouter } from "./google";
 import {
   createProfessionalForumThread,
@@ -510,15 +510,37 @@ authRouter.post(
 
     // Upload gallery photos to disk and collect URLs
     const files = req.files as { avatar?: Express.Multer.File[]; gallery?: Express.Multer.File[] } | undefined;
+    const incomingGalleryCount = files?.gallery?.length || 0;
     const galleryUrls: string[] = [];
+    let galleryUploadFailures = 0;
     for (const gFile of files?.gallery || []) {
       try {
         await validateUploadedFile(gFile, "image");
         const optimized = await optimizeUploadedImage(gFile, "gallery");
         galleryUrls.push(quickRegisterStorage.publicUrl(optimized));
       } catch (err) {
-        console.error("[auth/quick-register] gallery upload failed", { error: err });
+        galleryUploadFailures++;
+        console.error("[auth/quick-register] gallery upload failed", { email, error: err });
       }
+    }
+
+    // Enforce the same 3-photo minimum the UI shows. Without this server-side
+    // check a request that omits the `gallery` field, or whose images all
+    // fail `sharp`/EXIF processing, would silently create a professional
+    // with 0–2 photos.
+    const MIN_GALLERY_PHOTOS = 3;
+    if (galleryUrls.length < MIN_GALLERY_PHOTOS) {
+      console.warn("[auth/quick-register] insufficient photos", {
+        email,
+        incoming: incomingGalleryCount,
+        accepted: galleryUrls.length,
+        failures: galleryUploadFailures,
+      });
+      const message =
+        galleryUploadFailures > 0
+          ? `Algunas de tus fotos no se pudieron procesar. Debes subir al menos ${MIN_GALLERY_PHOTOS} fotos válidas para registrarte. Intenta de nuevo con otras imágenes (formatos JPG o PNG funcionan mejor).`
+          : `Debes subir al menos ${MIN_GALLERY_PHOTOS} fotos para registrarte.`;
+      return res.status(400).json({ error: "INSUFFICIENT_PHOTOS", message });
     }
 
     const isGold = selectedPlan === "gold";
@@ -587,6 +609,12 @@ authRouter.post(
       // rejects a duplicate email.
       if (err?.code === "EMAIL_IN_USE" || (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002")) {
         return res.status(409).json({ error: "EMAIL_IN_USE", message: "Este correo ya está registrado." });
+      }
+      if (err instanceof InsufficientGalleryPhotosError) {
+        return res.status(400).json({
+          error: "INSUFFICIENT_PHOTOS",
+          message: `Debes subir al menos 3 fotos válidas para registrarte.`,
+        });
       }
       console.error("[auth/quick-register] createProfessionalUser failed", { email, error: err });
       throw err;

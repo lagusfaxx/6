@@ -16,6 +16,23 @@ export class EmailInUseError extends Error {
   }
 }
 
+export const MIN_PROFESSIONAL_GALLERY_PHOTOS = 3;
+
+/**
+ * Thrown when a caller tries to create a professional with fewer than the
+ * required gallery photos. The web UI enforces this too, but we also enforce
+ * it here so no path (quick-register, Gold webhook replay, future callers)
+ * can create a professional with an incomplete gallery.
+ */
+export class InsufficientGalleryPhotosError extends Error {
+  code = "INSUFFICIENT_PHOTOS" as const;
+  constructor(public received: number) {
+    super(
+      `Professional registration requires at least ${MIN_PROFESSIONAL_GALLERY_PHOTOS} gallery photos, got ${received}`,
+    );
+  }
+}
+
 function addDays(base: Date, days: number): Date {
   const d = new Date(base.getTime());
   d.setUTCDate(d.getUTCDate() + days);
@@ -62,6 +79,11 @@ export type CreateProfessionalInput = {
  */
 export async function createProfessionalUser(input: CreateProfessionalInput) {
   const email = input.email.toLowerCase().trim();
+
+  const galleryUrls = (input.galleryUrls || []).filter((u) => typeof u === "string" && u.length > 0);
+  if (galleryUrls.length < MIN_PROFESSIONAL_GALLERY_PHOTOS) {
+    throw new InsufficientGalleryPhotosError(galleryUrls.length);
+  }
 
   // Explicit email uniqueness check. Prevents orphan Gold payments where
   // the webhook would otherwise try to create a second user with the same
@@ -178,8 +200,7 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
     throw err;
   }
 
-  // Create ProfileMedia from gallery URLs
-  const galleryUrls = input.galleryUrls || [];
+  // Create ProfileMedia from gallery URLs (validated above to be >= MIN)
   for (const url of galleryUrls) {
     try {
       await prisma.profileMedia.create({
