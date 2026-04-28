@@ -43,6 +43,8 @@ services:
       - "3001:3001"
     depends_on:
       - db
+    volumes:
+      - uzeed_uploads:/app/uploads
 
   worker:
     build:
@@ -70,6 +72,8 @@ services:
       ADMIN_PASSWORD: Automazdabxzx94
     depends_on:
       - db
+    volumes:
+      - uzeed_uploads:/app/uploads
 
   web:
     build:
@@ -85,3 +89,4 @@ services:
 
 volumes:
   uzeed_pg:
+  uzeed_uploads:

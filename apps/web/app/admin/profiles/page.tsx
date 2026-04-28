@@ -38,6 +38,7 @@ type Profile = {
   isVerified: boolean;
   profileTags: string[];
   membershipExpiresAt: string | null;
+  shopTrialEndsAt: string | null;
   completedServices: number;
   profileViews: number;
   createdAt: string;
@@ -334,6 +335,29 @@ export default function AdminProfilesPage() {
                     {hasLabel(p, "profesional con examenes") && (
                       <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-200">Profesional con exámenes</span>
                     )}
+                    {(() => {
+                      if (!p.shopTrialEndsAt) return null;
+                      const end = new Date(p.shopTrialEndsAt).getTime();
+                      const now = Date.now();
+                      const ms = end - now;
+                      const membershipActive = p.membershipExpiresAt
+                        ? new Date(p.membershipExpiresAt).getTime() > now
+                        : false;
+                      if (membershipActive) return null;
+                      if (ms > 0) {
+                        const days = Math.ceil(ms / 86400000);
+                        return (
+                          <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-200" title={`Termina ${new Date(p.shopTrialEndsAt).toLocaleDateString("es-CL")}`}>
+                            Prueba · {days}d
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-medium text-red-300" title={`Vencida ${new Date(p.shopTrialEndsAt).toLocaleDateString("es-CL")}`}>
+                          Prueba vencida
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40 flex-wrap">
                     <span>@{p.username}</span>

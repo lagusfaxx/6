@@ -68,7 +68,35 @@
    - `SMTP_PASS=`
    - `SMTP_FROM=no-reply@uzeed.cl`
 
-9. **Importante - Migración de Base de Datos:**
+9. **Persistent Storage para uploads (CRÍTICO):**
+
+   Sin esto, **todas las fotos subidas por admin desaparecen en cada redeploy**
+   (motel/quick-listings, banners, fotos de profesionales, avatares, etc.).
+   Esto pasa porque cada redeploy crea un contenedor nuevo y la carpeta
+   `/app/uploads` arranca vacía.
+
+   En Coolify, en el servicio **API** → pestaña **Storages** (o **Persistent Storage**):
+   - Source: `/data/uzeed/uploads` (carpeta del host)
+   - Destination: `/app/uploads`
+   - Type: `Bind mount` (recomendado para poder respaldar)
+
+   Alternativa con volumen nombrado:
+   - Source: `uzeed_uploads`
+   - Destination: `/app/uploads`
+   - Type: `Volume`
+
+   Después de configurar el storage, redeploya. Verifica con:
+   ```bash
+   docker exec -it <api-container> ls /app/uploads
+   ```
+   Las fotos subidas desde el admin (`/admin/quick-listings`, `/admin/banners`,
+   etc.) deben sobrevivir al próximo redeploy.
+
+   > **Importante**: si el servicio **worker** se ejecuta como contenedor
+   > separado y necesita leer las mismas fotos (no es el caso por defecto),
+   > debe montar el mismo bind mount/volumen en `/app/uploads`.
+
+10. **Importante - Migración de Base de Datos:**
    Después del primer deploy, DEBES ejecutar las migraciones:
    ```bash
    # Desde tu máquina local o conectándote al contenedor
@@ -79,10 +107,10 @@
    cd /app && npx prisma migrate deploy --schema=prisma/schema.prisma
    ```
 
-10. Deploy.
-10. Verifica: `GET https://api.uzeed.cl/health` → `{ ok: true }`
-11. **Verifica suscripciones:** `GET https://api.uzeed.cl/billing/subscription/status` (requiere autenticación)
-12. Si el frontend muestra **Failed to fetch** y en la consola aparece
+11. Deploy.
+12. Verifica: `GET https://api.uzeed.cl/health` → `{ ok: true }`
+13. **Verifica suscripciones:** `GET https://api.uzeed.cl/billing/subscription/status` (requiere autenticación)
+14. Si el frontend muestra **Failed to fetch** y en la consola aparece
     `net::ERR_CERT_AUTHORITY_INVALID`, el problema es el **certificado SSL del API**.
     Solución rápida:
     - Asegura que `api.uzeed.cl` tenga un certificado válido (Let's Encrypt en Coolify).

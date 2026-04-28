@@ -49,6 +49,12 @@ COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
 COPY apps/api/scripts/convert-uploads-webp.js /app/apps/api/scripts/convert-uploads-webp.js
 COPY apps/api/scripts/migrate-umate-premium-to-private.js /app/apps/api/scripts/migrate-umate-premium-to-private.js
 RUN chmod +x /docker-entrypoint.sh
+# Persistent uploads directory.
+# IMPORTANT: in production (Coolify) you MUST mount a host path or named
+# volume on /app/uploads — otherwise every redeploy spawns a fresh container
+# and uploaded files (motel photos, banners, profile media) are lost.
+RUN mkdir -p /app/uploads
+VOLUME ["/app/uploads"]
 EXPOSE 3001
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD sh -lc "cd prisma && npx prisma migrate deploy --schema=schema.prisma && cd .. && node apps/api/dist/index.js"

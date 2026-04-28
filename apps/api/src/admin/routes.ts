@@ -369,6 +369,7 @@ adminRouter.get(
           tier: true,
           role: true,
           membershipExpiresAt: true,
+          shopTrialEndsAt: true,
           completedServices: true,
           profileViews: true,
           createdAt: true,
@@ -382,6 +383,137 @@ adminRouter.get(
     ]);
 
     return res.json({ profiles, total });
+  }),
+);
+
+/* ══════════════════════════════════════════════════════════════
+   FREE TRIALS (Admin Management)
+   List active and expired free trials, manually grant/extend a
+   trial to reactivate a profile that was disabled for non-payment.
+   ══════════════════════════════════════════════════════════════ */
+
+adminRouter.get(
+  "/trials",
+  asyncHandler(async (req, res) => {
+    const { status, q, limit, offset } = req.query as Record<
+      string,
+      string | undefined
+    >;
+    const take = Math.min(parseInt(limit || "50", 10) || 50, 200);
+    const skip = parseInt(offset || "0", 10) || 0;
+    const now = new Date();
+
+    const baseWhere: any = {
+      profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
+    };
+    if (q) {
+      baseWhere.OR = [
+        { displayName: { contains: q, mode: "insensitive" } },
+        { username: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    const where: any = { ...baseWhere };
+    if (status === "active") {
+      where.shopTrialEndsAt = { gt: now };
+    } else if (status === "expired") {
+      where.shopTrialEndsAt = { not: null, lte: now };
+      where.membershipExpiresAt = null;
+    } else {
+      where.shopTrialEndsAt = { not: null };
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          displayName: true,
+          avatarUrl: true,
+          profileType: true,
+          isActive: true,
+          city: true,
+          tier: true,
+          shopTrialEndsAt: true,
+          membershipExpiresAt: true,
+          createdAt: true,
+        },
+        orderBy: { shopTrialEndsAt: "asc" },
+        take,
+        skip,
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    const profiles = users.map((u) => {
+      const trialEndMs = u.shopTrialEndsAt?.getTime() ?? null;
+      const membershipEndMs = u.membershipExpiresAt?.getTime() ?? null;
+      const trialActive = trialEndMs ? trialEndMs > now.getTime() : false;
+      const membershipActive = membershipEndMs ? membershipEndMs > now.getTime() : false;
+      const daysRemaining = trialActive
+        ? Math.ceil((trialEndMs! - now.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      const daysSinceExpired = !trialActive && trialEndMs
+        ? Math.floor((now.getTime() - trialEndMs) / (1000 * 60 * 60 * 24))
+        : 0;
+      let trialStatus: "active" | "expired" | "paid";
+      if (trialActive) trialStatus = "active";
+      else if (membershipActive) trialStatus = "paid";
+      else trialStatus = "expired";
+      return {
+        ...u,
+        trialStatus,
+        daysRemaining,
+        daysSinceExpired,
+      };
+    });
+
+    return res.json({ profiles, total });
+  }),
+);
+
+adminRouter.put(
+  "/trials/:id/extend",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { days, activate } = req.body ?? {};
+    const extraDays = Number(days);
+    if (!Number.isFinite(extraDays) || extraDays <= 0 || extraDays > 365) {
+      return res.status(400).json({ error: "VALIDATION", message: "days must be 1-365" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, shopTrialEndsAt: true, isActive: true },
+    });
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const now = new Date();
+    const base = user.shopTrialEndsAt && user.shopTrialEndsAt.getTime() > now.getTime()
+      ? user.shopTrialEndsAt
+      : now;
+    const newEnd = new Date(base.getTime() + extraDays * 24 * 60 * 60 * 1000);
+
+    const data: any = { shopTrialEndsAt: newEnd };
+    if (activate !== false) data.isActive = true;
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        isActive: true,
+        shopTrialEndsAt: true,
+        membershipExpiresAt: true,
+      },
+    });
+
+    return res.json({ profile: updated });
   }),
 );
 
