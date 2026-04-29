@@ -1049,7 +1049,11 @@ profileRouter.post(
         shopTrialEndsAt: trialEndsAt,
         subscriptionPrice: 2500,
         tier: "SILVER",
+        // El perfil queda oculto hasta que un admin verifique por teléfono.
         isVerified: false,
+        isActive: false,
+        verifiedAt: null,
+        verifiedByPhone: null,
       },
       select: {
         id: true,

@@ -322,16 +322,16 @@ export default function UpgradeToProfessionalPage() {
             </div>
           </div>
           <div className="mt-5 flex flex-col sm:flex-row gap-3">
-            <Link
+            <a
               href="/dashboard/services"
               className="btn-primary flex-1 text-center flex items-center justify-center gap-2"
             >
               Ir a Creator Studio
               <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link href="/cuenta" className="btn-secondary flex-1 text-center">
+            </a>
+            <a href="/cuenta" className="btn-secondary flex-1 text-center">
               Volver a mi cuenta
-            </Link>
+            </a>
           </div>
         </div>
       </div>
