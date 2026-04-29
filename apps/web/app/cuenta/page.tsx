@@ -62,7 +62,7 @@ export default function AccountPage() {
   const isShop = profileType === "SHOP";
   const canManageProfile = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
   const requiresPayment = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
-  const canUpgradeToProfessional = ["CLIENT", "VIEWER"].includes(profileType);
+  const canUpgradeToProfessional = profileType === "CLIENT";
   const isAdmin = role === "ADMIN";
 
   const isTrialPeriod = subscriptionStatus?.trialActive && !subscriptionStatus?.membershipActive;

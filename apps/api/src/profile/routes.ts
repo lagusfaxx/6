@@ -829,13 +829,16 @@ profileRouter.delete(
   }),
 );
 
-// ── Upgrade Client/Viewer profile to Professional ─────────────────────────
+// ── Upgrade Client profile to Professional ────────────────────────────────
 //
 // Clients que se registraron con el tipo de cuenta equivocado pueden
 // convertirse en Profesionales aquí, siempre y cuando completen los
 // requerimientos: nombre, género, categoría, dirección con coordenadas,
 // teléfono y al menos 3 fotos en su galería.
-const UPGRADEABLE_TYPES = new Set(["CLIENT", "VIEWER"]);
+//
+// Solo CLIENT puede convertirse — el resto (PROFESSIONAL, ESTABLISHMENT,
+// SHOP, VIEWER, CREATOR) tiene su propio flujo o no aplica.
+const UPGRADEABLE_TYPES = new Set(["CLIENT"]);
 const MIN_PROFESSIONAL_GALLERY_PHOTOS = 3;
 const PROFESSIONAL_PHONE_REGEX =
   /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
@@ -865,9 +868,9 @@ profileRouter.post(
 
     if (!UPGRADEABLE_TYPES.has(me.profileType)) {
       return res.status(400).json({
-        error: "ALREADY_PROFESSIONAL",
+        error: "NOT_UPGRADEABLE",
         message:
-          "Tu cuenta ya no es de cliente. Solo los clientes pueden convertirse en perfil profesional.",
+          "Esta cuenta no es de cliente, no puede convertirse en perfil profesional.",
       });
     }
 

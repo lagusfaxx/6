@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import useMe from "../../../hooks/useMe";
-import { apiFetch, getApiBase, friendlyErrorMessage, resolveMediaUrl } from "../../../lib/api";
+import { apiFetch, getApiBase, friendlyErrorMessage } from "../../../lib/api";
 import MapboxAddressAutocomplete from "../../../components/MapboxAddressAutocomplete";
 import TermsModal from "../../../components/TermsModal";
 
@@ -49,13 +49,6 @@ const STEPS = [
   { num: 3, label: "Ubicación" },
 ];
 
-type ExistingMedia = {
-  id: string;
-  url: string;
-  type: "IMAGE" | "VIDEO";
-  isLocked?: boolean;
-};
-
 export default function UpgradeToProfessionalPage() {
   const router = useRouter();
   const { me, loading: meLoading } = useMe();
@@ -77,7 +70,6 @@ export default function UpgradeToProfessionalPage() {
   const [primaryCategory, setPrimaryCategory] = useState("");
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
-  const [existingMedia, setExistingMedia] = useState<ExistingMedia[]>([]);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Step 3
@@ -107,14 +99,6 @@ export default function UpgradeToProfessionalPage() {
     setPrefilled(true);
   }, [user, prefilled]);
 
-  // Load existing gallery media
-  useEffect(() => {
-    if (!user) return;
-    apiFetch<{ media: ExistingMedia[] }>("/profile/media")
-      .then((d) => setExistingMedia(d.media || []))
-      .catch(() => setExistingMedia([]));
-  }, [user]);
-
   // Revoke blob URLs on unmount
   useEffect(() => {
     return () => {
@@ -122,16 +106,14 @@ export default function UpgradeToProfessionalPage() {
     };
   }, []);
 
-  // Guard: only CLIENT/VIEWER can access this page
+  // Guard: only CLIENT can access this page
   useEffect(() => {
     if (meLoading || !user) return;
     const type = (user.profileType || "").toUpperCase();
-    if (type && type !== "CLIENT" && type !== "VIEWER") {
+    if (type && type !== "CLIENT") {
       router.replace("/cuenta");
     }
   }, [user, meLoading, router]);
-
-  const totalImages = existingMedia.filter((m) => m.type === "IMAGE").length + galleryFiles.length;
 
   function handleGalleryAdd(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
@@ -142,7 +124,7 @@ export default function UpgradeToProfessionalPage() {
       if (file.size > 10 * 1024 * 1024) continue;
       valid.push(file);
     }
-    const remaining = MAX_PHOTOS - totalImages;
+    const remaining = MAX_PHOTOS - galleryFiles.length;
     const toAdd = valid.slice(0, Math.max(0, remaining));
     if (toAdd.length > 0) {
       setGalleryFiles((prev) => [...prev, ...toAdd]);
@@ -155,15 +137,6 @@ export default function UpgradeToProfessionalPage() {
     URL.revokeObjectURL(galleryPreviews[idx]);
     setGalleryFiles((prev) => prev.filter((_, i) => i !== idx));
     setGalleryPreviews((prev) => prev.filter((_, i) => i !== idx));
-  }
-
-  async function removeExistingMedia(id: string) {
-    try {
-      await apiFetch(`/profile/media/${id}`, { method: "DELETE" });
-      setExistingMedia((prev) => prev.filter((m) => m.id !== id));
-    } catch (err: any) {
-      setError(err?.body?.message || "No se pudo eliminar la foto.");
-    }
   }
 
   function validateStep(step: number): string | null {
@@ -182,7 +155,7 @@ export default function UpgradeToProfessionalPage() {
     }
     if (step === 2) {
       if (!primaryCategory) return "Selecciona el tipo de servicio que ofreces.";
-      if (totalImages < MIN_PHOTOS)
+      if (galleryFiles.length < MIN_PHOTOS)
         return `Sube al menos ${MIN_PHOTOS} fotos para continuar.`;
     }
     if (step === 3) {
@@ -538,73 +511,46 @@ export default function UpgradeToProfessionalPage() {
                   La primera será tu foto principal de perfil.
                 </p>
                 <div className="grid grid-cols-3 gap-2">
-                  {/* Existing media */}
-                  {existingMedia
-                    .filter((m) => m.type === "IMAGE")
-                    .slice(0, MAX_PHOTOS)
-                    .map((m, idx) => (
+                  {Array.from({ length: MAX_PHOTOS }).map((_, idx) => {
+                    const hasPhoto = idx < galleryPreviews.length;
+                    return (
                       <div
-                        key={m.id}
+                        key={idx}
                         className="relative aspect-[3/4] overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]"
                       >
-                        <img
-                          src={resolveMediaUrl(m.url) || m.url}
-                          alt={`Foto ${idx + 1}`}
-                          className="h-full w-full object-cover"
-                        />
-                        {idx === 0 && (
-                          <span className="absolute left-1 top-1 rounded-md bg-fuchsia-500/80 px-1.5 py-0.5 text-[9px] font-semibold text-white">
-                            Principal
-                          </span>
-                        )}
-                        {!m.isLocked && (
+                        {hasPhoto ? (
+                          <>
+                            <img
+                              src={galleryPreviews[idx]}
+                              alt={`Foto ${idx + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                            {idx === 0 && (
+                              <span className="absolute left-1 top-1 rounded-md bg-fuchsia-500/80 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                                Principal
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeGalleryItem(idx)}
+                              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white/80 hover:bg-red-500/80 transition"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </>
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => removeExistingMedia(m.id)}
-                            className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white/80 hover:bg-red-500/80 transition"
+                            onClick={() => galleryInputRef.current?.click()}
+                            className="flex h-full w-full flex-col items-center justify-center gap-1 text-white/20 transition-colors hover:text-fuchsia-400/60"
                           >
-                            <X className="h-3 w-3" />
+                            <ImagePlus className="h-5 w-5" />
+                            <span className="text-[9px]">Agregar</span>
                           </button>
                         )}
                       </div>
-                    ))}
-
-                  {/* New uploads */}
-                  {galleryPreviews.map((preview, idx) => (
-                    <div
-                      key={`new-${idx}`}
-                      className="relative aspect-[3/4] overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]"
-                    >
-                      <img
-                        src={preview}
-                        alt={`Nueva ${idx + 1}`}
-                        className="h-full w-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeGalleryItem(idx)}
-                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white/80 hover:bg-red-500/80 transition"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-
-                  {/* Empty slots */}
-                  {totalImages < MAX_PHOTOS &&
-                    Array.from({
-                      length: MAX_PHOTOS - totalImages,
-                    }).map((_, idx) => (
-                      <button
-                        key={`empty-${idx}`}
-                        type="button"
-                        onClick={() => galleryInputRef.current?.click()}
-                        className="aspect-[3/4] overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] flex flex-col items-center justify-center gap-1 text-white/20 transition-colors hover:text-fuchsia-400/60"
-                      >
-                        <ImagePlus className="h-5 w-5" />
-                        <span className="text-[9px]">Agregar</span>
-                      </button>
-                    ))}
+                    );
+                  })}
                 </div>
                 <input
                   ref={galleryInputRef}
@@ -619,7 +565,7 @@ export default function UpgradeToProfessionalPage() {
                     JPG, PNG o WebP. Máx 10 MB.
                   </p>
                   <p className="text-[10px] text-white/40">
-                    {totalImages} de {MAX_PHOTOS}
+                    {galleryFiles.length} de {MAX_PHOTOS}
                   </p>
                 </div>
               </div>
