@@ -15,7 +15,7 @@ import {
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
   TrendingUp, Zap, Shield, ShieldCheck, Wallet, Video, RefreshCw,
-  Gift, Copy, Check,
+  Gift, Copy, Check, Flame, ArrowRight,
 } from "lucide-react";
 
 type QuickAction = {
@@ -62,6 +62,7 @@ export default function AccountPage() {
   const isShop = profileType === "SHOP";
   const canManageProfile = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
   const requiresPayment = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
+  const canUpgradeToProfessional = ["CLIENT", "VIEWER"].includes(profileType);
   const isAdmin = role === "ADMIN";
 
   const isTrialPeriod = subscriptionStatus?.trialActive && !subscriptionStatus?.membershipActive;
@@ -185,6 +186,35 @@ export default function AccountPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Upgrade to Professional CTA (clientes) ── */}
+          {canUpgradeToProfessional && (
+            <div className="border-t border-white/[0.06] px-6 py-5">
+              <Link
+                href="/cuenta/convertir-profesional"
+                className="group relative block overflow-hidden rounded-2xl border border-fuchsia-400/30 bg-gradient-to-r from-fuchsia-600/15 via-violet-600/15 to-pink-600/15 p-4 transition hover:border-fuchsia-400/50 hover:from-fuchsia-600/20 hover:to-pink-600/20"
+              >
+                <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-fuchsia-500/15 blur-3xl" />
+                <div className="relative flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/40 to-violet-500/40 border border-fuchsia-400/30 shadow-lg shadow-fuchsia-500/20">
+                    <Flame className="h-5 w-5 text-fuchsia-200" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white">
+                        Conviértete en profesional
+                      </span>
+                      <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                    </div>
+                    <p className="mt-0.5 text-xs text-white/60 leading-relaxed">
+                      Publica tu perfil y empieza a recibir clientes. Necesitas fotos, género, nombre y tipo de servicio.
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-fuchsia-300 transition-transform group-hover:translate-x-1" />
+                </div>
+              </Link>
+            </div>
+          )}
 
           {/* ── Quick Actions ── */}
           {quickActions.length > 0 && (
