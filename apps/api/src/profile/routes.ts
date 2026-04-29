@@ -12,6 +12,11 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { parseAndNormalizeTags } from "../lib/tags";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { obfuscateLocation } from "../lib/locationPrivacy";
+import { emitAdminEvent } from "../lib/adminEvents";
+import {
+  createProfessionalForumThread,
+  geocodeAddress,
+} from "../auth/registerHelpers";
 
 const ADMIN_ONLY_PROFILE_TAGS = new Set(["premium", "verificada", "profesional con examenes"]);
 import {
@@ -821,5 +826,288 @@ profileRouter.delete(
       return res.status(403).json({ error: "MEDIA_LOCKED" });
     await prisma.profileMedia.delete({ where: { id: media.id } });
     return res.json({ ok: true });
+  }),
+);
+
+// ── Upgrade Client profile to Professional ────────────────────────────────
+//
+// Clients que se registraron con el tipo de cuenta equivocado pueden
+// convertirse en Profesionales aquí, siempre y cuando completen los
+// requerimientos: nombre, género, categoría, dirección con coordenadas,
+// teléfono y al menos 3 fotos en su galería.
+//
+// Solo CLIENT puede convertirse — el resto (PROFESSIONAL, ESTABLISHMENT,
+// SHOP, VIEWER, CREATOR) tiene su propio flujo o no aplica.
+const UPGRADEABLE_TYPES = new Set(["CLIENT"]);
+const MIN_PROFESSIONAL_GALLERY_PHOTOS = 3;
+const PROFESSIONAL_PHONE_REGEX =
+  /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
+const PROFESSIONAL_GENDERS = new Set(["MALE", "FEMALE", "OTHER"]);
+
+function addDays(base: Date, days: number): Date {
+  const d = new Date(base.getTime());
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
+
+profileRouter.post(
+  "/profile/upgrade-to-professional",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const me = await prisma.user.findUnique({
+      where: { id: req.session.userId! },
+      select: {
+        id: true,
+        username: true,
+        profileType: true,
+        displayName: true,
+        avatarUrl: true,
+      },
+    });
+    if (!me) return res.status(404).json({ error: "NOT_FOUND" });
+
+    if (!UPGRADEABLE_TYPES.has(me.profileType)) {
+      return res.status(400).json({
+        error: "NOT_UPGRADEABLE",
+        message:
+          "Esta cuenta no es de cliente, no puede convertirse en perfil profesional.",
+      });
+    }
+
+    const {
+      displayName,
+      gender,
+      phone,
+      primaryCategory,
+      address,
+      city,
+      latitude,
+      longitude,
+      bio,
+      birthYear,
+      birthMonth,
+      acceptTerms,
+    } = req.body as Record<string, any>;
+
+    const safeDisplayName = String(displayName || "").trim();
+    if (safeDisplayName.length < 2 || safeDisplayName.length > 50) {
+      return res.status(400).json({
+        error: "DISPLAY_NAME_REQUIRED",
+        message: "Ingresa tu nombre público (entre 2 y 50 caracteres).",
+      });
+    }
+
+    const safeGender = String(gender || "").toUpperCase();
+    if (!PROFESSIONAL_GENDERS.has(safeGender)) {
+      return res.status(400).json({
+        error: "GENDER_REQUIRED",
+        message: "Selecciona tu género para continuar.",
+      });
+    }
+
+    const safePhone = String(phone || "").trim();
+    if (!PROFESSIONAL_PHONE_REGEX.test(safePhone)) {
+      return res.status(400).json({
+        error: "PHONE_INVALID",
+        message:
+          "Ingresa un número válido con código de país (+56, +57, +58 o +51).",
+      });
+    }
+
+    const safePrimaryCategory = String(primaryCategory || "").trim();
+    if (!safePrimaryCategory) {
+      return res.status(400).json({
+        error: "CATEGORY_REQUIRED",
+        message: "Selecciona el tipo de servicio que ofreces.",
+      });
+    }
+
+    const safeAddress = String(address || "").trim();
+    if (safeAddress.length < 6) {
+      return res.status(400).json({
+        error: "ADDRESS_REQUIRED",
+        message:
+          "Debes ingresar y validar tu dirección con el buscador de Mapbox.",
+      });
+    }
+
+    let safeLatitude = Number(latitude);
+    let safeLongitude = Number(longitude);
+    let safeCity = typeof city === "string" && city.trim() ? city.trim() : null;
+    if (!Number.isFinite(safeLatitude) || !Number.isFinite(safeLongitude)) {
+      const geocoded = await geocodeAddress(safeAddress);
+      if (
+        !geocoded ||
+        !Number.isFinite(geocoded.latitude) ||
+        !Number.isFinite(geocoded.longitude)
+      ) {
+        return res.status(400).json({
+          error: "ADDRESS_NOT_VERIFIED",
+          message:
+            "Debes validar la dirección usando el buscador de Mapbox.",
+        });
+      }
+      safeLatitude = geocoded.latitude;
+      safeLongitude = geocoded.longitude;
+      if (!safeCity) safeCity = geocoded.city || null;
+    }
+
+    let safeBirthdate: Date | null = null;
+    if (birthYear) {
+      const yearNum = parseInt(String(birthYear), 10);
+      const monthNum = birthMonth ? parseInt(String(birthMonth), 10) - 1 : 0;
+      if (!Number.isFinite(yearNum)) {
+        return res.status(400).json({
+          error: "BIRTHDATE_INVALID",
+          message: "La fecha de nacimiento no es válida.",
+        });
+      }
+      const candidate = new Date(yearNum, monthNum, 15);
+      if (Number.isNaN(candidate.getTime())) {
+        return res.status(400).json({
+          error: "BIRTHDATE_INVALID",
+          message: "La fecha de nacimiento no es válida.",
+        });
+      }
+      const now = new Date();
+      let age = now.getFullYear() - candidate.getFullYear();
+      const m = now.getMonth() - candidate.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < candidate.getDate())) age -= 1;
+      if (age < 18) {
+        return res.status(400).json({
+          error: "BIRTHDATE_UNDERAGE",
+          message: "Debes ser mayor de 18 años.",
+        });
+      }
+      safeBirthdate = candidate;
+    }
+
+    if (acceptTerms !== true && acceptTerms !== "true") {
+      return res.status(400).json({
+        error: "TERMS_REQUIRED",
+        message: "Debes aceptar los términos y condiciones para continuar.",
+      });
+    }
+
+    const galleryCount = await prisma.profileMedia.count({
+      where: { ownerId: me.id, type: "IMAGE" },
+    });
+    if (galleryCount < MIN_PROFESSIONAL_GALLERY_PHOTOS) {
+      return res.status(400).json({
+        error: "INSUFFICIENT_PHOTOS",
+        message: `Sube al menos ${MIN_PROFESSIONAL_GALLERY_PHOTOS} fotos en tu galería antes de convertirte en profesional.`,
+        required: MIN_PROFESSIONAL_GALLERY_PHOTOS,
+        current: galleryCount,
+      });
+    }
+
+    const phoneTaken = await prisma.user.findFirst({
+      where: { phone: safePhone, NOT: { id: me.id } },
+      select: { id: true },
+    });
+    if (phoneTaken) {
+      return res.status(409).json({
+        error: "PHONE_IN_USE",
+        message: "Este teléfono ya está registrado en otra cuenta.",
+      });
+    }
+
+    let resolvedCategoryId: string | null = null;
+    let resolvedCategoryName: string | null = safePrimaryCategory;
+    const cat = await prisma.category.findFirst({
+      where: {
+        OR: [
+          { slug: safePrimaryCategory },
+          { name: { equals: safePrimaryCategory, mode: "insensitive" } },
+          { displayName: { equals: safePrimaryCategory, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true, displayName: true, name: true },
+    });
+    if (cat) {
+      resolvedCategoryId = cat.id;
+      resolvedCategoryName = cat.displayName || cat.name;
+    }
+
+    const now = new Date();
+    const trialEndsAt = addDays(now, config.freeTrialDays);
+
+    const updated = await prisma.user.update({
+      where: { id: me.id },
+      data: {
+        profileType: "PROFESSIONAL",
+        displayName: safeDisplayName,
+        gender: safeGender as any,
+        phone: safePhone,
+        primaryCategory: safePrimaryCategory,
+        serviceCategory: resolvedCategoryName,
+        categoryId: resolvedCategoryId,
+        address: safeAddress,
+        city: safeCity,
+        latitude: safeLatitude,
+        longitude: safeLongitude,
+        bio: bio ? String(bio).slice(0, 1000) : undefined,
+        birthdate: safeBirthdate ?? undefined,
+        termsAcceptedAt: now,
+        shopTrialEndsAt: trialEndsAt,
+        subscriptionPrice: 2500,
+        tier: "SILVER",
+        // El perfil queda oculto hasta que un admin verifique por teléfono.
+        isVerified: false,
+        isActive: false,
+        verifiedAt: null,
+        verifiedByPhone: null,
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        profileType: true,
+        avatarUrl: true,
+        isVerified: true,
+        shopTrialEndsAt: true,
+      },
+    });
+
+    if (!updated.avatarUrl) {
+      const firstImage = await prisma.profileMedia.findFirst({
+        where: { ownerId: me.id, type: "IMAGE" },
+        orderBy: { createdAt: "asc" },
+        select: { url: true },
+      });
+      if (firstImage?.url) {
+        await prisma.user.update({
+          where: { id: me.id },
+          data: { avatarUrl: firstImage.url },
+        });
+      }
+    }
+
+    await createProfessionalForumThread({
+      userId: updated.id,
+      username: updated.username,
+      displayName: updated.displayName || null,
+      avatarUrl: updated.avatarUrl,
+      primaryCategory: safePrimaryCategory,
+    }).catch((error) => {
+      console.error("[profile/upgrade] forum thread failed", {
+        userId: updated.id,
+        error,
+      });
+    });
+
+    await emitAdminEvent({
+      type: "profile_verification_requested",
+      user: updated.username || null,
+    }).catch(() => {});
+
+    return res.json({
+      ok: true,
+      user: {
+        ...updated,
+        shopTrialEndsAt: updated.shopTrialEndsAt?.toISOString() || null,
+      },
+    });
   }),
 );

@@ -9,7 +9,7 @@ import EmailVerification from "../../components/EmailVerification";
 import Link from "next/link";
 import { apiFetch, getApiBase, friendlyErrorMessage } from "../../lib/api";
 import {
-  Briefcase,
+  VenetianMask,
   Building2,
   ShoppingBag,
   User,
@@ -24,7 +24,6 @@ import {
   Lock,
   Heart,
   Check,
-  Star,
 } from "lucide-react";
 
 function trialLabel(days: number): string {
@@ -46,7 +45,7 @@ type OptionConfig = {
   accent: string;
   iconGradient: string;
   ringColor: string;
-  badge?: { text: string; tone: "promo" | "popular" };
+  badge?: { text: string; tone: "promo" };
 };
 
 const consumerOption: OptionConfig = {
@@ -57,7 +56,6 @@ const consumerOption: OptionConfig = {
   accent: "from-sky-500/15 via-blue-500/10 to-cyan-500/10",
   iconGradient: "from-sky-400 to-blue-500",
   ringColor: "ring-sky-400/50 border-sky-400/40",
-  badge: { text: "Más popular", tone: "popular" },
 };
 
 const businessOptions: OptionConfig[] = [
@@ -65,7 +63,7 @@ const businessOptions: OptionConfig[] = [
     key: "PROFESSIONAL",
     title: "Acompañante",
     description: "Publica tu perfil con fotos, tarifas y recibe clientes por chat.",
-    icon: Briefcase,
+    icon: VenetianMask,
     accent: "from-fuchsia-500/15 via-pink-500/10 to-rose-500/10",
     iconGradient: "from-fuchsia-400 to-pink-500",
     ringColor: "ring-fuchsia-400/50 border-fuchsia-400/40",
@@ -747,18 +745,8 @@ function OptionCard({
     >
       {/* Badge */}
       {option.badge && (
-        <span
-          className={`absolute top-3 right-3 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-            option.badge.tone === "promo"
-              ? "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200"
-              : "border-sky-400/40 bg-sky-500/15 text-sky-200"
-          }`}
-        >
-          {option.badge.tone === "promo" ? (
-            <Sparkles className="h-2.5 w-2.5" />
-          ) : (
-            <Star className="h-2.5 w-2.5 fill-current" />
-          )}
+        <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider">
+          <Sparkles className="h-2.5 w-2.5" />
           {option.badge.text}
         </span>
       )}
