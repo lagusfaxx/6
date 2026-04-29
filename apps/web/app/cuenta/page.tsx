@@ -15,7 +15,7 @@ import {
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
   TrendingUp, Zap, Shield, ShieldCheck, Wallet, Video, RefreshCw,
-  Gift, Copy, Check, Flame, ArrowRight,
+  Gift, Copy, Check, VenetianMask, ArrowRight,
 } from "lucide-react";
 
 type QuickAction = {
@@ -197,7 +197,7 @@ export default function AccountPage() {
                 <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-fuchsia-500/15 blur-3xl" />
                 <div className="relative flex items-center gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500/40 to-violet-500/40 border border-fuchsia-400/30 shadow-lg shadow-fuchsia-500/20">
-                    <Flame className="h-5 w-5 text-fuchsia-200" />
+                    <VenetianMask className="h-5 w-5 text-fuchsia-200" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">

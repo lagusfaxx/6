@@ -7,7 +7,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  Flame,
+  VenetianMask,
   ImagePlus,
   Phone,
   ShieldCheck,
@@ -352,7 +352,7 @@ export default function UpgradeToProfessionalPage() {
         <div className="relative">
           <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/40 to-violet-500/40 blur-3xl scale-150 animate-pulse" />
           <div className="relative rounded-3xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 p-3 shadow-2xl">
-            <Flame className="h-10 w-10 text-fuchsia-200" />
+            <VenetianMask className="h-10 w-10 text-fuchsia-200" />
           </div>
         </div>
         <h1 className="mt-6 text-[1.65rem] md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-fuchsia-200 to-violet-200 bg-clip-text text-transparent text-center">

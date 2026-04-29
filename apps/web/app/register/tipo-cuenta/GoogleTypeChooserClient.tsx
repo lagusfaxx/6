@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Flame,
+  VenetianMask,
   User,
   ArrowRight,
   ShieldCheck,
@@ -59,7 +59,7 @@ const professionalOption: OptionConfig = {
   key: "PROFESSIONAL",
   title: "Acompañante",
   description: "Publica tu perfil con fotos, tarifas y recibe clientes por chat.",
-  icon: Flame,
+  icon: VenetianMask,
   accent: "from-fuchsia-500/15 via-pink-500/10 to-rose-500/10",
   iconGradient: "from-fuchsia-400 to-pink-500",
   ringColor: "ring-fuchsia-400/50 border-fuchsia-400/40",
