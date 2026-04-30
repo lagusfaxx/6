@@ -30,7 +30,7 @@ async function fetchFeaturedProfiles(): Promise<ProfileLink[]> {
 }
 
 export const metadata: Metadata = {
-  title: "UZEED: Escorts y experiencias únicas para adultos",
+  title: "UZEED: Escorts, chat en vivo, contenido para adultos y más",
   description:
     "Encuentra las mejores escorts, acompañantes y profesionales en Santiago, Las Condes, Providencia y Viña del Mar. Perfiles verificados con fotos reales, sexo incógnito y disponibilidad hoy en UZEED.",
   keywords: [
@@ -46,8 +46,8 @@ export const metadata: Metadata = {
     type: "website",
     locale: "es_CL",
     url: "https://uzeed.cl",
-    siteName: "UZEED: Escorts y experiencias únicas para adultos",
-    title: "UZEED: Escorts y experiencias únicas para adultos",
+    siteName: "UZEED: Escorts, chat en vivo, contenido para adultos y más",
+    title: "UZEED: Escorts, chat en vivo, contenido para adultos y más",
     description:
       "Encuentra las mejores escorts, acompañantes y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados y disponibilidad hoy.",
     images: [
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "UZEED: Escorts y experiencias únicas para adultos",
+    title: "UZEED: Escorts, chat en vivo, contenido para adultos y más",
     description:
       "Encuentra las mejores escorts, acompañantes y profesionales en Santiago y todo Chile. Perfiles verificados y disponibilidad hoy.",
     images: ["https://uzeed.cl/brand/isotipo-new.png"],

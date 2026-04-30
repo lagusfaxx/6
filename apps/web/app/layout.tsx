@@ -5,10 +5,10 @@ import AppShell from '../components/AppShell';
 
 export const metadata: Metadata = {
   title: {
-    default: 'UZEED: Escorts y experiencias únicas para adultos',
+    default: 'UZEED: Escorts, chat en vivo, contenido para adultos y más',
     template: '%s | UZEED',
   },
-  applicationName: 'UZEED: Escorts y experiencias únicas para adultos',
+  applicationName: 'UZEED: Escorts, chat en vivo, contenido para adultos y más',
   description: 'Encuentra escorts, acompañantes y profesionales verificados en Santiago, Las Condes, Providencia y Viña del Mar. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy en UZEED Chile.',
   keywords: [
     'escorts chile', 'acompañantes chile', 'escorts santiago', 'acompañantes santiago',
@@ -31,8 +31,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'es_CL',
     url: 'https://uzeed.cl',
-    siteName: 'UZEED: Escorts y experiencias únicas para adultos',
-    title: 'UZEED: Escorts, Acompañantes y Profesionales en Chile',
+    siteName: 'UZEED: Escorts, chat en vivo, contenido para adultos y más',
+    title: 'UZEED: Escorts, chat en vivo, contenido para adultos y más',
     description: 'Encuentra escorts, acompañantes y profesionales verificados en Santiago, Las Condes y Viña del Mar. Fotos reales, contacto directo y disponibilidad hoy.',
     images: [
       {
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'UZEED: Escorts y Acompañantes Verificadas en Chile',
+    title: 'UZEED: Escorts, chat en vivo, contenido para adultos y más',
     description: 'Encuentra escorts, acompañantes y profesionales verificados en Santiago y todo Chile. Fotos reales y disponibilidad hoy.',
     images: ['/brand/isotipo-new.png'],
   },
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'UZEED: Escorts y experiencias únicas para adultos'
+    title: 'UZEED: Escorts, chat en vivo, contenido para adultos y más'
   },
   icons: {
     icon: [
@@ -92,7 +92,7 @@ const jsonLd = {
       '@type': 'WebSite',
       '@id': 'https://uzeed.cl/#website',
       url: 'https://uzeed.cl',
-      name: 'UZEED: Escorts y experiencias únicas para adultos',
+      name: 'UZEED: Escorts, chat en vivo, contenido para adultos y más',
       alternateName: 'UZEED',
       description: 'Directorio N°1 de escorts, acompañantes y profesionales verificados en Chile. Perfiles con fotos reales, contacto directo y disponibilidad hoy.',
       inLanguage: 'es-CL',
