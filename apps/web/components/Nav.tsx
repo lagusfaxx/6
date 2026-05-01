@@ -29,11 +29,13 @@ type NavItem = {
   protected: boolean;
 };
 
+const LIVE_EXTERNAL_URL = "https://live.uzeed.cl/";
+
 const clientItems: NavItem[] = [
   { href: "/", label: "Inicio", icon: Home, protected: false },
   { href: "/servicios", label: "Cerca tuyo", icon: MapPin, protected: false },
   { href: "/videocall", label: "Videollamadas", icon: Video, protected: false },
-  { href: "/live", label: "En Vivo", icon: Radio, protected: false },
+  { href: LIVE_EXTERNAL_URL, label: "En Vivo", icon: Radio, protected: false },
   { href: "/favoritos", label: "Favoritos", icon: Heart, protected: true },
   { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
   { href: "/foro", label: "Foro", icon: MessageSquare, protected: false },
@@ -49,7 +51,7 @@ const motelItems: NavItem[] = [
 /* Bottom bar shows max 5 items on mobile – "En Vivo" is a key feature */
 const mobileClientItems: NavItem[] = [
   { href: "/", label: "Inicio", icon: Home, protected: false },
-  { href: "/live", label: "En Vivo", icon: Radio, protected: false },
+  { href: LIVE_EXTERNAL_URL, label: "En Vivo", icon: Radio, protected: false },
   { href: "/servicios", label: "Cerca", icon: MapPin, protected: false },
   { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
   { href: "/cuenta", label: "Cuenta", icon: User, protected: false },
@@ -103,22 +105,24 @@ export default function Nav() {
           {/* Main navigation */}
           <div className="space-y-0.5">
             {sidebarItems.map((item) => {
-              const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const isExternal = item.href.startsWith("http");
+              const active = isExternal
+                ? false
+                : item.href === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(item.href);
               const Icon = item.icon;
-              const isLive = item.href === "/live";
-              const href = item.protected && !isAuthed
+              const isLive = item.label === "En Vivo";
+              const href = item.protected && !isAuthed && !isExternal
                 ? `/login?next=${encodeURIComponent(item.href)}`
                 : item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={href}
-                  className={`group relative flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
-                    active
-                      ? "bg-gradient-to-r from-fuchsia-500/[0.12] to-violet-500/[0.06] border border-fuchsia-500/20 text-fuchsia-200 shadow-[0_0_20px_rgba(217,70,239,0.08)]"
-                      : "text-white/70 hover:bg-white/[0.04] hover:text-white/90"
-                  }`}
-                >
+              const className = `group relative flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
+                active
+                  ? "bg-gradient-to-r from-fuchsia-500/[0.12] to-violet-500/[0.06] border border-fuchsia-500/20 text-fuchsia-200 shadow-[0_0_20px_rgba(217,70,239,0.08)]"
+                  : "text-white/70 hover:bg-white/[0.04] hover:text-white/90"
+              }`;
+              const inner = (
+                <>
                   <Icon className={`h-4 w-4 transition-colors ${active ? "text-fuchsia-400" : "group-hover:text-fuchsia-400/60"}`} />
                   {item.label}
                   {/* Live pulse dot */}
@@ -138,6 +142,15 @@ export default function Nav() {
                       {chatUnread > 9 ? "9+" : chatUnread}
                     </span>
                   )}
+                </>
+              );
+              return isExternal ? (
+                <a key={item.href} href={href} className={className}>
+                  {inner}
+                </a>
+              ) : (
+                <Link key={item.href} href={href} className={className}>
+                  {inner}
                 </Link>
               );
             })}
@@ -221,18 +234,19 @@ export default function Nav() {
           style={{ gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))` }}
         >
           {mobileItems.map((item) => {
-            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            const isExternal = item.href.startsWith("http");
+            const active = isExternal
+              ? false
+              : item.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(item.href);
             const Icon = item.icon;
-            const isLive = item.href === "/live";
-            const href = item.protected && !isAuthed
+            const isLive = item.label === "En Vivo";
+            const href = item.protected && !isAuthed && !isExternal
               ? `/login?next=${encodeURIComponent(item.href)}`
               : item.href;
-            return (
-              <Link
-                key={item.href}
-                href={href}
-                className="flex flex-col items-center gap-0.5 py-2 text-[10px] transition-all duration-200"
-              >
+            const inner = (
+              <>
                 <div className={`relative rounded-xl p-1.5 transition-all duration-200 ${active ? "bg-gradient-to-br from-fuchsia-500/20 to-violet-500/10 shadow-[0_0_12px_rgba(217,70,239,0.15)]" : ""}`}>
                   <Icon className={`h-5 w-5 transition-colors ${active ? "text-fuchsia-400" : "text-white/45"}`} />
                   {/* Live pulse indicator */}
@@ -251,6 +265,16 @@ export default function Nav() {
                 <span className={`transition-colors ${active ? "text-fuchsia-300 font-semibold" : "text-white/45"}`}>
                   {item.label}
                 </span>
+              </>
+            );
+            const className = "flex flex-col items-center gap-0.5 py-2 text-[10px] transition-all duration-200";
+            return isExternal ? (
+              <a key={item.href} href={href} className={className}>
+                {inner}
+              </a>
+            ) : (
+              <Link key={item.href} href={href} className={className}>
+                {inner}
               </Link>
             );
           })}
