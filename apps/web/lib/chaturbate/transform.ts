@@ -179,20 +179,43 @@ export function trackParamFor(source: TrackSource): string {
 }
 
 /**
- * Agrega ?track=uzeed_live_<source> al URL del iframe sin pisar otros
- * parámetros (chat_room_url_revshare ya trae wm, tour, campaign, etc.).
- * Devuelve null si la URL es inválida.
+ * Agrega `?track=uzeed_live_<source>` al URL del iframe.
+ *
+ * Defense-in-depth: aunque `toExternalLiveCam` ya normaliza el path al
+ * formato embebible en el server-side, esta función vuelve a pasar la
+ * URL por `toEmbeddableUrl` antes de agregar el track. Garantiza que
+ * NINGÚN iframe reciba `chaturbate.com/<username>/` (que devuelve
+ * X-Frame-Options: DENY), aunque la `embedUrl` llegue cruda por:
+ * - una respuesta del CDN cacheada antes de un deploy
+ * - una race entre el SSR snapshot y un refetch en cliente
+ * - código futuro que olvide pasar por `toExternalLiveCam`
+ *
+ * Devuelve `null` si la URL es inválida.
  */
 export function withTrack(embedUrl: string, source: TrackSource): string | null {
   if (!embedUrl) return null;
   const trackValue = trackParamFor(source);
+  // Normalizamos primero — extraemos el username del path o del param
+  // `room` que algunas variantes traen, en ese orden.
+  const probableUsername = (() => {
+    try {
+      const u = new URL(embedUrl);
+      const fromRoom = u.searchParams.get("room");
+      if (fromRoom) return fromRoom;
+      const m = u.pathname.match(/^\/([^/]+)\/?$/);
+      return m ? m[1] : "";
+    } catch {
+      return "";
+    }
+  })();
+  const safeUrl = toEmbeddableUrl(embedUrl, probableUsername);
   try {
-    const url = new URL(embedUrl);
+    const url = new URL(safeUrl);
     url.searchParams.set("track", trackValue);
     return url.toString();
   } catch {
     // URL relativa o malformada — fallback simple
-    const sep = embedUrl.includes("?") ? "&" : "?";
-    return `${embedUrl}${sep}track=${encodeURIComponent(trackValue)}`;
+    const sep = safeUrl.includes("?") ? "&" : "?";
+    return `${safeUrl}${sep}track=${encodeURIComponent(trackValue)}`;
   }
 }
