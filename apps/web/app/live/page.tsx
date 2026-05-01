@@ -281,7 +281,7 @@ export default function LivePage() {
             </span>
           </div>
         </div>
-        <div className="relative bg-black w-full h-[calc(100vh-4rem)] min-h-[600px]">
+        <div className="relative bg-black w-full min-h-[calc(100vh-12rem)] md:min-h-[calc(100vh-10rem)]">
           <LiveIframe />
         </div>
       </section>

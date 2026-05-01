@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 const WHITELABEL_URL = "https://live.uzeed.cl";
 
-export function LiveIframe() {
+function LiveIframeImpl() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -115,7 +115,7 @@ export function LiveIframe() {
           href={WHITELABEL_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="absolute top-3 right-3 z-20 px-3 py-1.5 bg-black/70 hover:bg-black/90 backdrop-blur-sm text-white text-xs rounded-full transition-colors flex items-center gap-1.5"
+          className="absolute bottom-3 right-3 z-30 px-3 py-1.5 bg-black/80 hover:bg-black/95 backdrop-blur-sm text-white text-xs rounded-full transition-colors flex items-center gap-1.5 shadow-lg shadow-black/40"
           title="Abrir en pantalla completa"
         >
           <span>Pantalla completa</span>
@@ -137,3 +137,5 @@ export function LiveIframe() {
     </>
   );
 }
+
+export const LiveIframe = memo(LiveIframeImpl);
