@@ -31,7 +31,10 @@ export interface LiveCamModalProps {
  * Modal de reproducción para desktop.
  * - Fija history.pushState a `/live/cam/<username>` al abrir y vuelve a la
  *   URL anterior al cerrar (compartible + popstate-friendly).
- * - El iframe usa chat_room_url_revshare con ?track=uzeed_live_<source>.
+ * - El iframe usa `cam.embedUrl` (ya normalizado a `/in/?room=<username>`
+ *   por `toEmbeddableUrl`) con `?track=uzeed_live_<source>` agregado por
+ *   `withTrack`. La página pública `chaturbate.com/<username>/` envía
+ *   `X-Frame-Options: DENY` y por eso no se usa nunca como src de iframe.
  * - Bloquea scroll del body mientras está abierto.
  */
 export default function LiveCamModal({

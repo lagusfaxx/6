@@ -82,7 +82,13 @@ export interface ExternalLiveCam {
   isHd: boolean;
   isNew: boolean;
   tags: string[];
-  /** chat_room_url_revshare crudo — debe pasar por buildEmbedUrl(track) antes del iframe */
+  /**
+   * URL embebible del chat de afiliados, ya normalizada al formato
+   * `https://chaturbate.com/in/?room=<username>&...` (la página pública
+   * `/<username>/` envía X-Frame-Options: DENY y queda excluida).
+   * Antes de meterla en un `<iframe src=...>` debe pasar por
+   * `withTrack(embedUrl, source)` para agregar el track de la fuente.
+   */
   embedUrl: string;
 }
 

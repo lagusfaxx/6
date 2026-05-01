@@ -72,6 +72,13 @@ transmisiones webrtc.
 1. **Siempre `chat_room_url_revshare`** para el iframe — ese es el link
    con 20% lifetime revshare. El `chat_room_url` normal entrega solo $1
    PPS y queda explícitamente prohibido en este proyecto.
+   ⚠️ El campo a veces vuelve apuntando a la página pública del modelo
+   (`https://chaturbate.com/<username>/?...`) que envía
+   `X-Frame-Options: DENY` y NO se puede embeber. Por eso pasamos toda
+   URL por `toEmbeddableUrl()` antes de exponerla al cliente, que reescribe
+   el path a `/in/?room=<username>` (el "tour de afiliados" sí permite
+   iframe). Regla operativa: cualquier iframe que apunte a chaturbate
+   debe usar el formato `/in/?room=<username>`, nunca `/<username>/`.
 2. **`wm=Ifv4A` jamás se expone al cliente.** Toda llamada a la API
    externa pasa por `apps/web/lib/chaturbate/api.ts` (server-side).
 3. **`client_ip` es la IP real del visitante.** Se extrae de los headers
