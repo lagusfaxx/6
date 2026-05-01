@@ -50,6 +50,7 @@ import { analyticsRouter } from "./analytics/routes";
 import { umateRouter } from "./umate/routes";
 import { referralRouter } from "./referral/routes";
 import { adminReferralRouter } from "./referral/adminRoutes";
+import { whatsappRouter, whatsappWebhookRouter } from "./whatsapp/routes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 import { startWorker } from "./worker";
@@ -165,6 +166,7 @@ app.use((req, res, next) => {
 
 // ── Public routes (before auth middleware) ──
 app.use("/", privacyRouter);
+app.use("/", whatsappWebhookRouter);
 
 // ✅ Global auth allowlist (categories/auth/health/etc quedan públicos dentro del middleware)
 app.use(requireAuth);
@@ -244,6 +246,7 @@ app.use("/", analyticsRouter);
 app.use("/", umateRouter);
 app.use("/", referralRouter);
 app.use("/", adminReferralRouter);
+app.use("/", whatsappRouter);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const requestId = (req as any).requestId;

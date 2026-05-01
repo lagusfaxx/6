@@ -31,6 +31,7 @@ const PUBLIC_PREFIXES = [
   "/hot",               // ✅ trending content (Hot section)
   "/forum",             // ✅ forum public read (categories, threads, recent)
   "/webhooks/flow",     // Flow subscription webhooks
+  "/webhooks/whatsapp", // ✅ Meta WhatsApp Cloud API webhook (handshake + inbound)
   "/directory",         // ✅ búsqueda pública de directorio (escorts, moteles, etc.)
   "/shop/sexshops",     // ✅ listado público de sex shops y sus productos
   "/videocall/config",  // ✅ config pública de videollamada por profesional
