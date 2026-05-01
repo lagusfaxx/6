@@ -251,9 +251,8 @@ export default function Nav() {
                   <Icon className={`h-5 w-5 transition-colors ${active ? "text-fuchsia-400" : "text-white/45"}`} />
                   {/* Live pulse indicator */}
                   {isLive && !active && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.6)]" />
+                    <span className="absolute -right-2 -top-1.5 inline-flex items-center justify-center rounded-full bg-red-500 px-1 py-[1px] text-[8px] font-extrabold leading-none text-white shadow-[0_0_6px_rgba(239,68,68,0.7)] ring-1 ring-red-300/50 animate-pulse">
+                      +15
                     </span>
                   )}
                   {item.href === "/chats" && chatUnread > 0 && (
