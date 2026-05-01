@@ -3,7 +3,7 @@
 import { useLiveCount } from "../../hooks/useLiveCount";
 
 interface LiveCountBadgeProps {
-  variant?: "inline" | "stacked";
+  variant?: "inline" | "dot";
 }
 
 export function LiveCountBadge({ variant = "inline" }: LiveCountBadgeProps) {
@@ -11,27 +11,31 @@ export function LiveCountBadge({ variant = "inline" }: LiveCountBadgeProps) {
 
   if (count === null || count === 0) return null;
 
-  const formatted = count >= 100 ? `+${Math.floor(count / 10) * 10}` : `+${count}`;
+  const aria = `${count} transmisiones en vivo`;
 
-  if (variant === "stacked") {
+  if (variant === "dot") {
+    const display = count >= 100 ? "99+" : String(count);
     return (
-      <span className="mt-0.5 flex items-center gap-1 text-[10px] leading-none text-red-400">
-        <span className="relative flex h-1.5 w-1.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+      <span
+        aria-label={aria}
+        className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center"
+      >
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
+        <span className="relative inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white shadow-[0_0_8px_rgba(239,68,68,0.6)]">
+          {display}
         </span>
-        <span className="font-medium">{formatted} en vivo</span>
       </span>
     );
   }
 
+  const display = count >= 100 ? "99+" : `+${count}`;
   return (
-    <span className="ml-auto flex items-center gap-1.5 text-xs">
+    <span aria-label={aria} className="ml-auto flex items-center gap-1.5 text-xs">
       <span className="relative flex h-2 w-2">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
         <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
       </span>
-      <span className="font-medium text-red-400">{formatted}</span>
+      <span className="font-medium text-red-400">{display}</span>
     </span>
   );
 }
