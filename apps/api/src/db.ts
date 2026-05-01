@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { sendPushToUsers } from "./notifications/push";
 import { sendToUser } from "./realtime/sse";
 import { invalidateUserCache } from "./auth/userCache";
+import { notifyWhatsAppAsync } from "./whatsapp/notify";
 
 const dbUrl = process.env.DATABASE_URL || "";
 const poolParams = "connection_limit=30&pool_timeout=10";
@@ -58,6 +59,15 @@ prisma.$use(async (params, next) => {
         }).catch((err) => {
           console.error("[push-middleware] sendPush failed for create:", err?.message || err);
         });
+
+        // Mirror the notification to WhatsApp for opted-in users.
+        // Skips silently when not configured / not opted-in (see notify.ts).
+        notifyWhatsAppAsync(userId, {
+          type: String(data?.type || "ADMIN_EVENT"),
+          title: payloadData.title || "UZEED",
+          body: payloadData.body || "Tienes una nueva notificación",
+          url: payloadData.url || "/",
+        });
       }
     }
 
@@ -68,6 +78,13 @@ prisma.$use(async (params, next) => {
           .filter((item: any) => item?.userId)
           .map((item: any) => {
             const payloadData = (item?.data && typeof item.data === "object") ? item.data : {};
+            // WhatsApp mirror — fire-and-forget, no-op if not configured.
+            notifyWhatsAppAsync(item.userId, {
+              type: String(item?.type || "ADMIN_EVENT"),
+              title: payloadData.title || "UZEED",
+              body: payloadData.body || "Tienes una nueva notificación",
+              url: payloadData.url || "/",
+            });
             return sendPushToUsers(prisma as any, [item.userId], {
               title: payloadData.title || "UZEED",
               body: payloadData.body || "Tienes una nueva notificación",

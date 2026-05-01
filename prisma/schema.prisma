@@ -445,6 +445,20 @@ model User {
   adminQualityScore   Float?
   passwordSetToken          String?
   passwordSetTokenExpiresAt DateTime?
+
+  // ── WhatsApp bot opt-in & preferences ─────────────────────────────────
+  // Phone in E.164 format (e.g. +56912345678) used to deliver bot messages.
+  // Kept separate from `phone` so the user can opt in with a different number.
+  whatsappNumber        String?
+  whatsappOptIn         Boolean   @default(false)
+  whatsappVerifiedAt    DateTime?
+  whatsappEvents        Boolean   @default(true)
+  whatsappMessages      Boolean   @default(true)
+  whatsappReminders     Boolean   @default(true)
+  // Last time the user sent us a WhatsApp message — Meta only allows
+  // free-form replies inside a 24h customer-service window.
+  whatsappLastInboundAt DateTime?
+
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -504,6 +518,9 @@ model User {
   // Professional accreditation documents (e.g. "profesional con examenes")
   professionalDocuments     ProfessionalDocument[] @relation("ProfessionalDocuments")
   professionalDocsReviewed  ProfessionalDocument[] @relation("ProfessionalDocumentReviewer")
+
+  // WhatsApp OTP codes used during opt-in
+  whatsappOtps              WhatsAppOtp[]
 }
 
 model PushSubscription {
@@ -1552,4 +1569,22 @@ model ProfessionalDocument {
 
   @@index([userId])
   @@index([status])
+}
+
+// One-time codes used to verify a WhatsApp number during opt-in.
+// We store the code hashed (SHA-256 hex) so a DB leak doesn't reveal codes.
+model WhatsAppOtp {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  phone     String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([phone])
 }

@@ -654,6 +654,75 @@ async function tickReferralCycles() {
   }
 }
 
+/* ─── WhatsApp digest: alert opted-in users about unread messages ─── */
+/* Runs hourly, only nudges users who haven't opened the app since the
+   first unread message arrived, and rate-limits via ReminderLog so we
+   don't spam them every hour about the same backlog. */
+
+async function tickWhatsAppPendingDigest() {
+  const now = new Date();
+  // Only ping for backlogs older than 30 minutes — gives the user a chance
+  // to read the in-app push first before bothering them on WhatsApp.
+  const cutoff = new Date(now.getTime() - 30 * 60 * 1000);
+
+  // Cap the work per tick at 200 users so this never dominates the loop.
+  const candidates = await prisma.user.findMany({
+    where: {
+      whatsappOptIn: true,
+      whatsappVerifiedAt: { not: null },
+      whatsappMessages: true,
+      whatsappNumber: { not: null },
+    },
+    select: { id: true, displayName: true, lastSeen: true },
+    take: 200,
+  });
+
+  if (candidates.length === 0) return;
+
+  const { notifyWhatsAppAsync } = await import("./whatsapp/notify");
+
+  for (const user of candidates) {
+    // Find oldest unread inbound message
+    const oldestUnread = await prisma.message.findFirst({
+      where: { toId: user.id, readAt: null, createdAt: { lt: cutoff } },
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true, fromId: true },
+    });
+    if (!oldestUnread) continue;
+
+    // Skip if user has been online after the message arrived — they likely saw it.
+    if (user.lastSeen && user.lastSeen.getTime() > oldestUnread.createdAt.getTime()) continue;
+
+    const unreadCount = await prisma.message.count({
+      where: { toId: user.id, readAt: null },
+    });
+    if (unreadCount === 0) continue;
+
+    // Dedupe: at most one digest per (user, oldest-message-day).
+    const reminderKey = `whatsapp_digest_${oldestUnread.createdAt.toISOString().slice(0, 13)}`;
+    if (await wasReminderSent(user.id, reminderKey)) continue;
+
+    await markReminderSent(user.id, reminderKey);
+
+    const sender = await prisma.user.findUnique({
+      where: { id: oldestUnread.fromId },
+      select: { displayName: true, username: true },
+    });
+    const senderLabel = sender?.displayName || sender?.username || "alguien";
+    const body =
+      unreadCount === 1
+        ? `Tienes 1 mensaje sin leer de ${senderLabel}.`
+        : `Tienes ${unreadCount} mensajes sin leer (último de ${senderLabel}).`;
+
+    notifyWhatsAppAsync(user.id, {
+      type: "MESSAGE_RECEIVED",
+      title: "Mensajes pendientes",
+      body,
+      url: "/messages",
+    });
+  }
+}
+
 /* ─── Main tick: runs all checks independently ─── */
 
 async function tick() {
@@ -678,6 +747,7 @@ async function tick() {
       { name: "referralWelcomeEmail", fn: tickReferralWelcomeEmail },
       { name: "referralValidation", fn: tickReferralValidation },
       { name: "referralCycles", fn: tickReferralCycles },
+      { name: "whatsappPendingDigest", fn: tickWhatsAppPendingDigest },
     ];
 
     for (const task of tasks) {
