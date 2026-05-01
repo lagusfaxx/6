@@ -92,7 +92,11 @@ export default function LiveCamClient({ initialCam, initialFeed, username }: Pro
 
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="min-w-0">
-            <div className="relative aspect-video overflow-hidden rounded-2xl border border-fuchsia-500/15 bg-black">
+            {/*
+              Mobile: iframe protagonista, ~60% del viewport (con piso 420px
+              para pantallas cortas). Desktop: 16:9 que encaja con el sidebar.
+            */}
+            <div className="relative h-[60dvh] min-h-[420px] overflow-hidden rounded-2xl border border-fuchsia-500/15 bg-black md:h-auto md:min-h-0 md:aspect-video">
               {iframeSrc ? (
                 <iframe
                   src={iframeSrc}
