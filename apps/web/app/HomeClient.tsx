@@ -58,7 +58,7 @@ const CATEGORY_ALIASES: Array<{ keywords: string[]; href: string }> = [
   { keywords: ["sexshop", "sex shop", "sexo shop", "juguete", "juguetes"], href: "/sexshop" },
   { keywords: ["videollamada", "videollamadas", "video llamada", "videocall", "cam"], href: "/videocall" },
   { keywords: ["premium", "gold", "platino", "diamante", "diamond"], href: "/premium" },
-  { keywords: ["live", "lives", "en vivo"], href: "/live" },
+  { keywords: ["live", "lives", "en vivo"], href: "https://live.uzeed.cl/south-american-cams/female/" },
   { keywords: ["foro", "comunidad"], href: "/foro" },
 ];
 
@@ -798,7 +798,11 @@ export default function HomeClient() {
               e.preventDefault();
               const resolved = resolveSearch(heroQuery);
               if (resolved.cityToSet) locationCtx?.setCity(resolved.cityToSet);
-              router.push(resolved.href);
+              if (resolved.href.startsWith("http")) {
+                window.location.href = resolved.href;
+              } else {
+                router.push(resolved.href);
+              }
             }}
             className="relative mx-auto mt-3 flex w-full max-w-xl items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 backdrop-blur-md focus-within:border-fuchsia-500/40 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_24px_rgba(217,70,239,0.12)] transition animate-float-up sm:mt-4"
             style={{ animationDelay: "300ms", animationFillMode: "both" }}

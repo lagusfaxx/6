@@ -30,7 +30,7 @@ type NavItem = {
   protected: boolean;
 };
 
-const LIVE_EXTERNAL_URL = "https://live.uzeed.cl/";
+const LIVE_EXTERNAL_URL = "https://live.uzeed.cl/south-american-cams/female/";
 
 const clientItems: NavItem[] = [
   { href: "/", label: "Inicio", icon: Home, protected: false },

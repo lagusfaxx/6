@@ -156,6 +156,8 @@ const nextConfig = {
       { source: "/sexshops", destination: "/sexshop", permanent: true },
       { source: "/hospedajes", destination: "/hospedaje", permanent: true },
       { source: "/hot", destination: "/premium", permanent: true },
+      // Live section now lives on the live.uzeed.cl whitelabel
+      { source: "/live", destination: "https://live.uzeed.cl/south-american-cams/female/", permanent: false },
     ];
   },
   async rewrites() {

@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 
-const WHITELABEL_URL = "https://live.uzeed.cl";
+const WHITELABEL_URL = "https://live.uzeed.cl/south-american-cams/female/";
 
 function LiveIframeImpl() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
