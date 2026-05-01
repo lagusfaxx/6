@@ -244,6 +244,7 @@ export default function Nav() {
               <>
                 <div className={`relative rounded-xl p-1.5 transition-all duration-200 ${active ? "bg-gradient-to-br from-fuchsia-500/20 to-violet-500/10 shadow-[0_0_12px_rgba(217,70,239,0.15)]" : ""}`}>
                   <Icon className={`h-5 w-5 transition-colors ${active ? "text-fuchsia-400" : "text-white/45"}`} />
+                  {isLive && <LiveCountBadge variant="dot" />}
                   {item.href === "/chats" && chatUnread > 0 && (
                     <span className="absolute -right-1 -top-1 min-w-[16px] rounded-full bg-fuchsia-500 px-1 py-[1px] text-center text-[9px] font-bold leading-none text-white shadow-[0_0_8px_rgba(217,70,239,0.6)]">
                       {chatUnread > 9 ? "9+" : chatUnread}
@@ -253,7 +254,6 @@ export default function Nav() {
                 <span className={`transition-colors ${active ? "text-fuchsia-300 font-semibold" : "text-white/45"}`}>
                   {item.label}
                 </span>
-                {isLive && <LiveCountBadge variant="stacked" />}
               </>
             );
             const className = "flex flex-col items-center gap-0.5 py-2 text-[10px] transition-all duration-200";
