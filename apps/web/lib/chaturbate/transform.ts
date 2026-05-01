@@ -101,6 +101,39 @@ function pickAge(room: ChaturbateRoom): number | null {
   return null;
 }
 
+/**
+ * El campo `chat_room_url_revshare` del API a veces apunta a la página
+ * pública del modelo (`https://chaturbate.com/<username>/?...`), que tiene
+ * `X-Frame-Options: DENY` y no se puede embeber. Para iframe necesitamos
+ * el endpoint `/in/?room=<username>&...` (o `/embed/`) — el "tour" de
+ * afiliados que sí permite embed.
+ *
+ * Esta función reescribe el path a `/in/` cuando detecta el formato de
+ * página pública, preservando intactos todos los query params (campaign,
+ * tour, room, disable_sound, join_overlay, etc.). Si la URL ya viene en
+ * un formato embebible la deja igual.
+ */
+export function toEmbeddableUrl(rawUrl: string, fallbackUsername: string): string {
+  if (!rawUrl) return rawUrl;
+  try {
+    const url = new URL(rawUrl);
+    // Paths que ya son embebibles — no tocar.
+    if (/^\/(in|embed)\/?$/i.test(url.pathname)) return url.toString();
+    // Path de un solo segmento: la página pública del modelo. Reescribir.
+    const match = url.pathname.match(/^\/([^/]+)\/?$/);
+    if (match) {
+      const room = match[1];
+      url.pathname = "/in/";
+      if (!url.searchParams.has("room")) {
+        url.searchParams.set("room", room || fallbackUsername);
+      }
+    }
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 export function toExternalLiveCam(room: ChaturbateRoom): ExternalLiveCam {
   return {
     source: "external",
@@ -116,7 +149,9 @@ export function toExternalLiveCam(room: ChaturbateRoom): ExternalLiveCam {
     isHd: Boolean(room.is_hd),
     isNew: Boolean(room.is_new),
     tags: Array.isArray(room.tags) ? room.tags.slice(0, 6) : [],
-    embedUrl: room.chat_room_url_revshare,
+    // Normalizamos a un path embebible (/in/?room=...) para evitar el
+    // X-Frame-Options: DENY de la página pública.
+    embedUrl: toEmbeddableUrl(room.chat_room_url_revshare, room.username),
   };
 }
 
