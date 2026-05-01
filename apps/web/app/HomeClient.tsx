@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useContext, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -10,10 +10,12 @@ import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../components/Direct
 import useMe from "../hooks/useMe";
 import { hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import StatusBadgeIcon from "../components/StatusBadgeIcon";
+import type { UzeedLiveStreamLike } from "../components/live/adapt";
 
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
 const HomeFeed = dynamic(() => import("../components/home/HomeFeed"), { ssr: false });
+const LivesRow = dynamic(() => import("../components/live/LivesRow"), { ssr: false });
 
 import {
   buildChatHref,
@@ -470,8 +472,17 @@ export default function HomeClient() {
   /* ── U-Mate creators (home showcase) ── */
   const [umateCreators, setUmateCreators] = useState<UmateCreatorCard[]>([]);
 
-  /* ── Live Streams ── */
-  const [liveStreams, setLiveStreams] = useState<any[]>([]);
+  /* ── Live Streams (uzeed webrtc) — el feed externo lo trae <LivesRow /> ── */
+  const fetchUzeedStreams = useCallback(async () => {
+    try {
+      const r = await apiFetch<{ streams: UzeedLiveStreamLike[] }>(
+        "/live/active?gender=FEMALE",
+      );
+      return r?.streams ?? [];
+    } catch {
+      return [] as UzeedLiveStreamLike[];
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -628,7 +639,8 @@ export default function HomeClient() {
     return () => { controller.abort(); };
   }, [location]);
 
-  // ── Fetch U-Mate creators & live streams (deferred — below the fold) ──
+  // ── Fetch U-Mate creators (deferred — below the fold) ──
+  // El feed de "En Vivo Ahora" se carga dentro del componente <LivesRow />
   useEffect(() => {
     const controller = new AbortController();
 
@@ -637,9 +649,6 @@ export default function HomeClient() {
       if (controller.signal.aborted) return;
       apiFetch<{ creators: UmateCreatorCard[] }>("/umate/creators?limit=12&gender=FEMALE", { signal: controller.signal })
         .then((r) => setUmateCreators(r?.creators ?? []))
-        .catch(() => {});
-      apiFetch<{ streams: any[] }>("/live/active?gender=FEMALE", { signal: controller.signal })
-        .then((r) => setLiveStreams(r?.streams ?? []))
         .catch(() => {});
     }, 2000);
 
@@ -1026,42 +1035,13 @@ export default function HomeClient() {
         )}
 
         {/* ═══ EN VIVO AHORA ═══ */}
-        {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}
-        {liveStreams.length > 0 && (
-          <section key={`live-${locationKey}`} className="mb-10">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="relative flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
-              </span>
-              <h2 className="text-xl font-bold">En Vivo Ahora</h2>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
-              {liveStreams.map((s: any) => (
-                <Link key={s.id} href={`/live/${s.id}`} className="group relative flex-shrink-0 w-40">
-                  <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-red-500/25 bg-gradient-to-br from-fuchsia-900/40 to-violet-900/40 shadow-[0_0_24px_rgba(239,68,68,0.1)] group-hover:shadow-[0_0_32px_rgba(239,68,68,0.2)] transition-shadow duration-300">
-                    {s.host?.avatarUrl ? (
-                      <img src={resolveMediaUrl(s.host.avatarUrl) ?? undefined} alt="" className="h-full w-full object-cover opacity-80 group-hover:opacity-100 transition" loading="lazy" decoding="async" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-white/20">
-                        {(s.host?.displayName || "?")[0]}
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                    <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-red-600/90 px-2 py-0.5 text-[10px] font-bold text-white">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> LIVE
-                    </div>
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <p className="text-xs font-semibold truncate">{s.host?.displayName || s.host?.username}</p>
-                      {s.title && <p className="text-[10px] text-white/50 truncate">{s.title}</p>}
-                      <p className="text-[10px] text-white/40 mt-0.5">{s.viewerCount} viendo</p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
+        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />
+        <LivesRow
+          key={`live-${locationKey}`}
+          fetchUzeedStreams={fetchUzeedStreams}
+          limit={12}
+        />
+
 
         {/* ═══ CREADORAS U-MATE ═══ */}
         {umateCreators.length > 0 && (

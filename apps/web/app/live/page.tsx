@@ -1,54 +1,40 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { apiFetch, resolveMediaUrl } from "../../lib/api";
+import { apiFetch } from "../../lib/api";
 import useMe from "../../hooks/useMe";
 import {
   Radio,
-  Users,
-  Play,
-  User,
-  VideoOff,
   Eye,
-  Clock,
   ChevronRight,
   Monitor,
   Flame,
+  VideoOff,
 } from "lucide-react";
 
-type LiveStream = {
-  id: string;
-  title: string | null;
-  thumbnailUrl: string | null;
+import LiveCard from "../../components/live/LiveCard";
+import { useLiveCamLauncher } from "../../components/live/useLiveCamLauncher";
+import {
+  adaptExternalCam,
+  adaptUzeedStream,
+  type UzeedLiveStreamLike,
+} from "../../components/live/adapt";
+import type {
+  ExternalLiveCam,
+  LivesFeedResponse,
+} from "../../lib/chaturbate/types";
+
+type LiveStream = UzeedLiveStreamLike & {
   isActive: boolean;
-  viewerCount: number;
-  maxViewers: number;
-  startedAt: string;
-  host: {
-    id: string;
-    displayName: string;
-    username: string;
-    avatarUrl: string | null;
-    bio?: string | null;
-  };
+  maxViewers?: number;
+  host: UzeedLiveStreamLike["host"] & { bio?: string | null };
 };
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "ahora";
-  if (mins < 60) return `${mins} min`;
-  const hours = Math.floor(mins / 60);
-  return `${hours}h`;
-}
-
 export default function LivePage() {
-  const router = useRouter();
   const { me } = useMe();
   const [streams, setStreams] = useState<LiveStream[]>([]);
+  const [externalCams, setExternalCams] = useState<ExternalLiveCam[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isProfessional = me?.user?.profileType === "PROFESSIONAL";
@@ -58,18 +44,53 @@ export default function LivePage() {
     try {
       const res = await apiFetch<{ streams: LiveStream[] }>("/live/active");
       setStreams(res.streams || []);
-    } catch {}
-    setLoading(false);
+    } catch {
+      // mantenemos el último estado conocido si falla la API propia
+    }
+  }, []);
+
+  const loadExternal = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch("/lives/feed?limit=60", {
+        signal,
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) return;
+      const json = (await res.json()) as LivesFeedResponse;
+      setExternalCams(json.cams ?? []);
+    } catch {
+      // ídem — soft-fail; la sección sigue funcionando con webrtc
+    }
   }, []);
 
   useEffect(() => {
-    loadStreams();
-    const interval = setInterval(loadStreams, 15000);
-    return () => clearInterval(interval);
-  }, [loadStreams]);
+    const controller = new AbortController();
+    Promise.allSettled([loadStreams(), loadExternal(controller.signal)]).finally(() =>
+      setLoading(false),
+    );
+    const interval = setInterval(() => {
+      loadStreams();
+      loadExternal();
+    }, 60_000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
+  }, [loadStreams, loadExternal]);
 
   const myStream = streams.find((s) => s.host.id === myId);
-  const totalViewers = streams.reduce((s, st) => s + st.viewerCount, 0);
+  const totalViewers = streams.reduce((acc, s) => acc + s.viewerCount, 0);
+  const totalLive = streams.length + externalCams.length;
+
+  const { handleCardClick, modal } = useLiveCamLauncher({
+    externalCams,
+    source: "live_grid",
+  });
+
+  const uzeedCards = streams.map(adaptUzeedStream);
+  const externalCards = externalCams.map(adaptExternalCam);
+
+  const isEmpty = !loading && uzeedCards.length === 0 && externalCards.length === 0;
 
   return (
     <div className="min-h-screen bg-[#070816] text-white">
@@ -88,19 +109,19 @@ export default function LivePage() {
               <h1 className="text-xl font-bold tracking-tight sm:text-2xl">En Vivo</h1>
               <div className="mt-1 flex items-center gap-3 text-xs text-white/40">
                 <span>Transmisiones en tiempo real</span>
-                {streams.length > 0 && (
+                {totalLive > 0 && (
                   <>
                     <span className="text-white/15">·</span>
                     <span className="flex items-center gap-1 text-fuchsia-400/70">
                       <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
-                      {streams.length} en vivo
+                      {totalLive}+ en vivo ahora
                     </span>
                     {totalViewers > 0 && (
                       <>
                         <span className="text-white/15">·</span>
                         <span className="flex items-center gap-1">
                           <Eye className="h-3 w-3" />
-                          {totalViewers} viendo
+                          {totalViewers.toLocaleString("es-CL")} viendo
                         </span>
                       </>
                     )}
@@ -143,7 +164,10 @@ export default function LivePage() {
                 <Radio className="h-5 w-5" />
                 Abrir Live Studio
                 <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-                  <div className="absolute -left-full top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent" style={{ animation: "shimmer 3s ease-in-out infinite" }} />
+                  <div
+                    className="absolute -left-full top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                    style={{ animation: "shimmer 3s ease-in-out infinite" }}
+                  />
                 </div>
               </Link>
             )}
@@ -153,10 +177,10 @@ export default function LivePage() {
         {/* Gradient divider */}
         <div className="mb-5 h-px bg-gradient-to-r from-transparent via-fuchsia-500/15 to-transparent" />
 
-        {/* Active Streams List */}
+        {/* Skeleton loader */}
         {loading ? (
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="animate-pulse">
                 <div className="aspect-video rounded-xl bg-white/[0.04]" />
                 <div className="mt-2.5 flex gap-2.5">
@@ -169,7 +193,7 @@ export default function LivePage() {
               </div>
             ))}
           </div>
-        ) : streams.length === 0 ? (
+        ) : isEmpty ? (
           <div className="flex flex-col items-center py-20 text-center">
             <div className="relative mb-5">
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/15 to-violet-500/15 blur-3xl scale-[2]" />
@@ -179,93 +203,62 @@ export default function LivePage() {
             </div>
             <p className="text-sm font-semibold text-white/50">No hay transmisiones en vivo</p>
             <p className="mt-1.5 max-w-xs text-xs text-white/30 leading-relaxed">
-              Vuelve mas tarde o sigue a tus profesionales favoritas para no perderte nada
+              Vuelve más tarde o sigue a tus profesionales favoritas para no perderte nada.
             </p>
           </div>
         ) : (
           <>
-            {/* Section label */}
-            <div className="mb-3 flex items-center gap-2">
-              <Flame className="h-3.5 w-3.5 text-red-400" />
-              <span className="text-xs font-semibold text-white/50">
-                {streams.length} transmisi{streams.length === 1 ? "on" : "ones"} en vivo
-              </span>
-            </div>
+            {/* Webrtc propias — priorizadas */}
+            {uzeedCards.length > 0 && (
+              <section className="mb-8">
+                <div className="mb-3 flex items-center gap-2">
+                  <Flame className="h-3.5 w-3.5 text-fuchsia-300" />
+                  <span className="text-xs font-semibold text-white/55">
+                    Exclusivas Uzeed · {uzeedCards.length}{" "}
+                    transmisi{uzeedCards.length === 1 ? "ón" : "ones"}
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {uzeedCards.map((card) => (
+                    <LiveCard
+                      key={`uzeed-${card.id}`}
+                      data={card}
+                      variant="grid"
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
 
-            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {streams.map((s) => {
-                const thumbnail = s.thumbnailUrl || s.host.avatarUrl;
-                return (
-                  <Link
-                    key={s.id}
-                    href={`/live/${s.id}`}
-                    className="group block transition-all duration-200"
-                  >
-                    {/* Thumbnail — 16:9 like Twitch */}
-                    <div className="relative aspect-video overflow-hidden rounded-xl bg-gradient-to-br from-fuchsia-500/[0.06] to-violet-500/[0.04]">
-                      {thumbnail ? (
-                        <img
-                          src={resolveMediaUrl(thumbnail) ?? undefined}
-                          alt=""
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <Radio className="h-10 w-10 text-fuchsia-400/15" />
-                        </div>
-                      )}
-
-                      {/* Subtle hover overlay */}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
-
-                      {/* LIVE badge — top left */}
-                      <div className="absolute left-2 top-2 flex items-center gap-1.5 rounded bg-red-600 px-1.5 py-0.5">
-                        <span className="text-[10px] font-bold text-white tracking-wide">EN VIVO</span>
-                      </div>
-
-                      {/* Viewers — bottom left */}
-                      <div className="absolute left-2 bottom-2 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5">
-                        <Users className="h-2.5 w-2.5 text-white/80" />
-                        <span className="text-[10px] font-medium text-white/80">{s.viewerCount} espectadores</span>
-                      </div>
-
-                      {/* Duration — bottom right */}
-                      <div className="absolute right-2 bottom-2 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5">
-                        <Clock className="h-2.5 w-2.5 text-white/60" />
-                        <span className="text-[10px] text-white/60">{timeAgo(s.startedAt)}</span>
-                      </div>
-                    </div>
-
-                    {/* Info below thumbnail — Twitch style */}
-                    <div className="mt-2.5 flex gap-2.5">
-                      {/* Avatar */}
-                      {s.host.avatarUrl ? (
-                        <img
-                          src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
-                          alt=""
-                          className="h-9 w-9 shrink-0 rounded-full object-cover border border-white/10"
-                        />
-                      ) : (
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] border border-white/10">
-                          <User className="h-4 w-4 text-white/30" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-semibold text-white/90 truncate group-hover:text-fuchsia-300 transition-colors">
-                          {s.title || s.host.displayName || s.host.username}
-                        </p>
-                        <p className="text-[11px] text-white/40 truncate">
-                          {s.host.displayName || s.host.username}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+            {/* Cams externas */}
+            {externalCards.length > 0 && (
+              <section>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                  </span>
+                  <span className="text-xs font-semibold text-white/55">
+                    {externalCards.length}+ cams en vivo ahora
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {externalCards.map((card) => (
+                    <LiveCard
+                      key={`ext-${card.id}`}
+                      data={card}
+                      variant="grid"
+                      onClick={handleCardClick}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         )}
       </div>
+
+      {modal}
 
       <style jsx>{`
         @keyframes shimmer {
