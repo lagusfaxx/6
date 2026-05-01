@@ -541,14 +541,18 @@ export default function TopHeader() {
                 <button onClick={() => handleNavLink("/servicios")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
                   <Search className="h-4 w-4 text-white/40" /> Cerca tuyo
                 </button>
-                <button onClick={() => handleNavLink("/live")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                <a
+                  href="https://live.uzeed.cl/"
+                  onClick={() => setHamburgerOpen(false)}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition"
+                >
                   <Radio className="h-4 w-4 text-red-400/80" />
                   En Vivo
                   <span className="relative ml-0.5 flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
                   </span>
-                </button>
+                </a>
                 <button onClick={() => handleNavLink("/foro")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
                   <MessageSquare className="h-4 w-4 text-white/40" /> Foro
                   {forumBadge > 0 && (
