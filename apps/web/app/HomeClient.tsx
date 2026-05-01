@@ -14,6 +14,7 @@ import StatusBadgeIcon from "../components/StatusBadgeIcon";
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
 const HomeFeed = dynamic(() => import("../components/home/HomeFeed"), { ssr: false });
+const LiveCamsSection = dynamic(() => import("../components/home/LiveCamsSection"), { ssr: false });
 
 import {
   buildChatHref,
@@ -986,6 +987,9 @@ export default function HomeClient() {
           centroProfiles={recentPros}
           destacadasProfiles={featuredCarouselProfiles}
         />
+
+        {/* ═══ CAMS EN VIVO ═══ */}
+        <LiveCamsSection />
 
         {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
         <VideollamadasBanner />
