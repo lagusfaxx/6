@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import useMe from "../../hooks/useMe";
+import { LiveIframe } from "../../components/live/LiveIframe";
 import {
   Radio,
   Users,
@@ -185,10 +186,13 @@ export default function LivePage() {
         ) : (
           <>
             {/* Section label */}
-            <div className="mb-3 flex items-center gap-2">
+            <div className="mb-3 flex items-center gap-2 flex-wrap">
+              <span className="px-2 py-0.5 bg-fuchsia-600 text-white text-[10px] font-bold rounded tracking-wide">
+                EXCLUSIVO UZEED
+              </span>
               <Flame className="h-3.5 w-3.5 text-red-400" />
               <span className="text-xs font-semibold text-white/50">
-                {streams.length} transmisi{streams.length === 1 ? "on" : "ones"} en vivo
+                {streams.length} transmisi{streams.length === 1 ? "on propia" : "ones propias"} en vivo
               </span>
             </div>
 
@@ -266,6 +270,21 @@ export default function LivePage() {
           </>
         )}
       </div>
+
+      {/* Whitelabel iframe — live.uzeed.cl (same-site subdomain, no third-party blocking) */}
+      <section className="border-t border-fuchsia-500/15 bg-black">
+        <div className="mx-auto max-w-7xl px-4 pt-5 pb-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Flame className="h-3.5 w-3.5 text-fuchsia-400" />
+            <span className="text-xs font-semibold text-white/50">
+              Miles de modelos en vivo ahora mismo
+            </span>
+          </div>
+        </div>
+        <div className="relative bg-black w-full h-[calc(100vh-4rem)] min-h-[600px]">
+          <LiveIframe />
+        </div>
+      </section>
 
       <style jsx>{`
         @keyframes shimmer {
