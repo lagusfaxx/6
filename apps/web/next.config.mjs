@@ -35,10 +35,6 @@ const nextConfig = {
         protocol: "https",
         hostname: "api.uzeed.cl",
       },
-      // Chaturbate affiliate feed thumbnails (cams en vivo)
-      { protocol: "https", hostname: "**.live.mmcdn.com" },
-      { protocol: "https", hostname: "roomimg.stream.highwebmedia.com" },
-      { protocol: "https", hostname: "**.highwebmedia.com" },
     ],
     formats: ["image/avif", "image/webp"],
     deviceSizes: [640, 750, 828, 1080, 1200],

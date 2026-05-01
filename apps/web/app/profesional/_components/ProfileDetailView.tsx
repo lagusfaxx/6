@@ -42,7 +42,6 @@ import {
 } from "lucide-react";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
 import StatusBadgeIcon from "../../../components/StatusBadgeIcon";
-import RelatedCams from "../../../components/live/RelatedCams";
 
 type GalleryItem = { url: string; type: "IMAGE" | "VIDEO" };
 
@@ -1463,11 +1462,6 @@ export default function ProfileDetailView({
             )}
           </div>
         </aside>
-      </div>
-
-      {/* También disponibles ahora — feed externo, retención del visitante */}
-      <div className="mx-auto mt-6 w-full max-w-6xl px-4 md:px-8">
-        <RelatedCams source="perfil_reco" limit={4} />
       </div>
 
       {/* Lightbox */}
