@@ -21,6 +21,7 @@ import {
 import useMe from "../hooks/useMe";
 import { useForumNotifications } from "./ForumNotifications";
 import { useChatNotifications } from "./ChatNotifications";
+import { LiveCountBadge } from "./navigation/LiveCountBadge";
 
 type NavItem = {
   href: string;
@@ -125,13 +126,7 @@ export default function Nav() {
                 <>
                   <Icon className={`h-4 w-4 transition-colors ${active ? "text-fuchsia-400" : "group-hover:text-fuchsia-400/60"}`} />
                   {item.label}
-                  {/* Live pulse dot */}
-                  {isLive && (
-                    <span className="relative ml-0.5 flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.7)]" />
-                    </span>
-                  )}
+                  {isLive && <LiveCountBadge variant="inline" />}
                   {item.href === "/foro" && badgeCount > 0 && (
                     <span className="ml-auto min-w-[18px] rounded-full bg-fuchsia-500 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white shadow-[0_0_8px_rgba(217,70,239,0.5)]">
                       {badgeCount > 9 ? "9+" : badgeCount}
@@ -249,13 +244,6 @@ export default function Nav() {
               <>
                 <div className={`relative rounded-xl p-1.5 transition-all duration-200 ${active ? "bg-gradient-to-br from-fuchsia-500/20 to-violet-500/10 shadow-[0_0_12px_rgba(217,70,239,0.15)]" : ""}`}>
                   <Icon className={`h-5 w-5 transition-colors ${active ? "text-fuchsia-400" : "text-white/45"}`} />
-                  {/* Live pulse indicator */}
-                  {isLive && !active && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.6)]" />
-                    </span>
-                  )}
                   {item.href === "/chats" && chatUnread > 0 && (
                     <span className="absolute -right-1 -top-1 min-w-[16px] rounded-full bg-fuchsia-500 px-1 py-[1px] text-center text-[9px] font-bold leading-none text-white shadow-[0_0_8px_rgba(217,70,239,0.6)]">
                       {chatUnread > 9 ? "9+" : chatUnread}
@@ -265,6 +253,7 @@ export default function Nav() {
                 <span className={`transition-colors ${active ? "text-fuchsia-300 font-semibold" : "text-white/45"}`}>
                   {item.label}
                 </span>
+                {isLive && <LiveCountBadge variant="stacked" />}
               </>
             );
             const className = "flex flex-col items-center gap-0.5 py-2 text-[10px] transition-all duration-200";
