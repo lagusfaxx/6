@@ -91,9 +91,12 @@ export async function GET(req: NextRequest): Promise<NextResponse<LivesFeedRespo
 
   return NextResponse.json(body, {
     headers: {
-      // Compartido entre visitantes del mismo país — coordina con el TTL
-      // del cache interno (60s).
-      "Cache-Control": "public, max-age=0, s-maxage=60, stale-while-revalidate=120",
+      // Cache solo in-memory (lib/chaturbate/cache.ts). El CDN/edge no
+      // debe cachear porque después de un deploy puede quedar sirviendo
+      // payloads viejos con URLs no normalizadas, mientras el server ya
+      // entrega correctas. El propio cache del proceso ya protege a
+      // chaturbate de exceso de RPS.
+      "Cache-Control": "private, no-store",
     },
   });
 }
