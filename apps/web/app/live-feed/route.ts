@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const CHATURBATE_API = "https://chaturbate.com/api/public/affiliates/onlinerooms/";
 const WM = process.env.CHATURBATE_AFFILIATE_WM || "Ifv4A";
 
@@ -7,6 +10,12 @@ const CACHE_TTL_MS = 60_000;
 const FETCH_LIMIT = 30;
 const VISIBLE_COUNT = 12;
 const ROTATION_STEP = 6;
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
+};
 
 type Cam = {
   username: string;
@@ -43,11 +52,13 @@ function rotateSlice(p: Cam[], offset: number, count: number): Cam[] {
   return out;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  void request;
+
   if (cache && Date.now() - cache.timestamp < CACHE_TTL_MS) {
     return NextResponse.json(
-      { cams: cache.cams, cached: true },
-      { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" } },
+      { cams: cache.cams, cached: true, ts: cache.timestamp },
+      { headers: NO_CACHE_HEADERS },
     );
   }
 
@@ -65,6 +76,7 @@ export async function GET() {
     const res = await fetch(`${CHATURBATE_API}?${params}`, {
       headers: { "User-Agent": "Uzeed/1.0" },
       signal: AbortSignal.timeout(5000),
+      cache: "no-store",
     });
 
     if (!res.ok) throw new Error(`API ${res.status}`);
@@ -89,15 +101,18 @@ export async function GET() {
     cache = { cams: visible, timestamp: Date.now() };
 
     return NextResponse.json(
-      { cams: visible, cached: false },
-      { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" } },
+      { cams: visible, cached: false, ts: cache.timestamp },
+      { headers: NO_CACHE_HEADERS },
     );
   } catch (error) {
     console.error("live-feed error:", error);
 
     if (cache) {
-      return NextResponse.json({ cams: cache.cams, cached: true, stale: true });
+      return NextResponse.json(
+        { cams: cache.cams, cached: true, stale: true, ts: cache.timestamp },
+        { headers: NO_CACHE_HEADERS },
+      );
     }
-    return NextResponse.json({ cams: [] });
+    return NextResponse.json({ cams: [] }, { headers: NO_CACHE_HEADERS });
   }
 }
