@@ -4,6 +4,9 @@ const CHATURBATE_API = "https://chaturbate.com/api/public/affiliates/onlinerooms
 const WM = process.env.CHATURBATE_AFFILIATE_WM || "Ifv4A";
 
 const CACHE_TTL_MS = 60_000;
+const FETCH_LIMIT = 30;
+const VISIBLE_COUNT = 12;
+const ROTATION_STEP = 6;
 
 type Cam = {
   username: string;
@@ -14,6 +17,8 @@ type Cam = {
   isHd: boolean;
 };
 
+let pool: Cam[] = [];
+let rotationOffset = 0;
 let cache: { cams: Cam[]; timestamp: number } | null = null;
 
 function humanize(username: string): string {
@@ -26,6 +31,16 @@ function humanize(username: string): string {
     .split(/\s+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(" ");
+}
+
+function rotateSlice(p: Cam[], offset: number, count: number): Cam[] {
+  if (p.length === 0) return [];
+  if (p.length <= count) return p.slice();
+  const out: Cam[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push(p[(offset + i) % p.length]);
+  }
+  return out;
 }
 
 export async function GET() {
@@ -43,7 +58,7 @@ export async function GET() {
       gender: "f",
       region: "southamerica",
       hd: "true",
-      limit: "12",
+      limit: String(FETCH_LIMIT),
       format: "json",
     });
 
@@ -57,7 +72,7 @@ export async function GET() {
     const data = await res.json();
     const results: any[] = Array.isArray(data?.results) ? data.results : [];
 
-    const cams: Cam[] = results
+    const fresh: Cam[] = results
       .filter((r) => r && typeof r.username === "string" && typeof r.image_url_360x270 === "string")
       .map((r) => ({
         username: String(r.username),
@@ -66,13 +81,15 @@ export async function GET() {
         age: typeof r.age === "number" && r.age > 0 ? r.age : null,
         viewers: typeof r.num_users === "number" ? r.num_users : 0,
         isHd: Boolean(r.is_hd),
-      }))
-      .slice(0, 12);
+      }));
 
-    cache = { cams, timestamp: Date.now() };
+    pool = fresh;
+    const visible = rotateSlice(pool, rotationOffset, VISIBLE_COUNT);
+    rotationOffset = pool.length > 0 ? (rotationOffset + ROTATION_STEP) % pool.length : 0;
+    cache = { cams: visible, timestamp: Date.now() };
 
     return NextResponse.json(
-      { cams, cached: false },
+      { cams: visible, cached: false },
       { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" } },
     );
   } catch (error) {
