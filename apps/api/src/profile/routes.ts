@@ -17,6 +17,7 @@ import {
   createProfessionalForumThread,
   geocodeAddress,
 } from "../auth/registerHelpers";
+import { MIN_PROFESSIONAL_GALLERY_PHOTOS } from "../auth/createProfessional";
 
 const ADMIN_ONLY_PROFILE_TAGS = new Set(["premium", "verificada", "profesional con examenes"]);
 import {
@@ -798,14 +799,33 @@ profileRouter.post(
   asyncHandler(async (req, res) => {
     const files = (req.files as Express.Multer.File[]) ?? [];
     if (!files.length) return res.status(400).json({ error: "NO_FILES" });
+
+    // Photos uploaded by a PROFESSIONAL while still below the registration
+    // minimum belong to the registration set and must be locked so the user
+    // can't drop below the minimum by deleting them. Once they have the
+    // minimum, additional photos are unlocked and freely deletable.
+    const owner = await prisma.user.findUnique({
+      where: { id: req.session.userId! },
+      select: { profileType: true },
+    });
+    let lockedImageBudget = 0;
+    if (owner?.profileType === "PROFESSIONAL") {
+      const existingImages = await prisma.profileMedia.count({
+        where: { ownerId: req.session.userId!, type: "IMAGE" },
+      });
+      lockedImageBudget = Math.max(0, MIN_PROFESSIONAL_GALLERY_PHOTOS - existingImages);
+    }
+
     const media = [];
     for (const file of files) {
       const { type } = await validateUploadedFile(file, "image-or-video");
       const finalFilename = type === "IMAGE" ? await optimizeUploadedImage(file, "gallery") : file.filename;
       const url = storageProvider.publicUrl(finalFilename);
+      const isLocked = type === "IMAGE" && lockedImageBudget > 0;
+      if (isLocked) lockedImageBudget--;
       media.push(
         await prisma.profileMedia.create({
-          data: { ownerId: req.session.userId!, type, url },
+          data: { ownerId: req.session.userId!, type, url, isLocked },
         }),
       );
     }
@@ -839,7 +859,6 @@ profileRouter.delete(
 // Solo CLIENT puede convertirse — el resto (PROFESSIONAL, ESTABLISHMENT,
 // SHOP, VIEWER, CREATOR) tiene su propio flujo o no aplica.
 const UPGRADEABLE_TYPES = new Set(["CLIENT"]);
-const MIN_PROFESSIONAL_GALLERY_PHOTOS = 3;
 const PROFESSIONAL_PHONE_REGEX =
   /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
 const PROFESSIONAL_GENDERS = new Set(["MALE", "FEMALE", "OTHER"]);
@@ -1082,6 +1101,21 @@ profileRouter.post(
           data: { avatarUrl: firstImage.url },
         });
       }
+    }
+
+    // Lock the registration photos (oldest MIN images) so the user can't
+    // delete them and fall below the professional minimum.
+    const registrationPhotos = await prisma.profileMedia.findMany({
+      where: { ownerId: me.id, type: "IMAGE", isLocked: false },
+      orderBy: { createdAt: "asc" },
+      take: MIN_PROFESSIONAL_GALLERY_PHOTOS,
+      select: { id: true },
+    });
+    if (registrationPhotos.length > 0) {
+      await prisma.profileMedia.updateMany({
+        where: { id: { in: registrationPhotos.map((p) => p.id) } },
+        data: { isLocked: true },
+      });
     }
 
     await createProfessionalForumThread({
