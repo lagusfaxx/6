@@ -29,9 +29,14 @@ function camHref(username: string): string {
   return `${WHITELABEL_BASE}/${encodeURIComponent(username)}/?track=${TRACK}`;
 }
 
+function bustCache(url: string, tick: number): string {
+  return `${url}${url.includes("?") ? "&" : "?"}_t=${tick}`;
+}
+
 export default function LiveCamsSection() {
   const [cams, setCams] = useState<Cam[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +57,7 @@ export default function LiveCamsSection() {
           return;
         }
         setCams(list);
+        setTick((t) => t + 1);
         setFailed(false);
       } catch (err: any) {
         if (err?.name === "AbortError") return;
@@ -100,7 +106,7 @@ export default function LiveCamsSection() {
           >
             <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0a10] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-red-500/30 group-hover:shadow-[0_8px_28px_rgba(239,68,68,0.15)]">
               <img
-                src={cam.thumbnail}
+                src={bustCache(cam.thumbnail, tick)}
                 alt={cam.displayName}
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
                 loading="lazy"
