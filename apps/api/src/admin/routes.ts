@@ -7,6 +7,7 @@ import path from "path";
 import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { asyncHandler } from "../lib/asyncHandler";
+import { optimizeImage, optimizeUploadedImage } from "../lib/imageOptimizer";
 
 export const adminRouter = Router();
 
@@ -1176,7 +1177,8 @@ adminRouter.post(
     const listing = await prisma.establishment.findUnique({ where: { id }, select: { galleryUrls: true } });
     if (!listing) return res.status(404).json({ error: "NOT_FOUND" });
 
-    const url = storageProvider.publicUrl(req.file.filename);
+    const finalFilename = await optimizeUploadedImage(req.file, "gallery");
+    const url = storageProvider.publicUrl(finalFilename);
     const galleryUrls = [...(listing.galleryUrls || []), url];
 
     await prisma.establishment.update({ where: { id }, data: { galleryUrls } });
@@ -1270,9 +1272,11 @@ adminRouter.post(
 
     const fs = await import("fs/promises");
     await storageProvider.ensureBaseDir();
-    await fs.writeFile(path.join(config.storageDir, filename), buffer);
+    const filePath = path.join(config.storageDir, filename);
+    await fs.writeFile(filePath, buffer);
 
-    const url = storageProvider.publicUrl(filename);
+    const { filename: finalFilename } = await optimizeImage(filePath, "gallery");
+    const url = storageProvider.publicUrl(finalFilename);
     const galleryUrls = [...(listing.galleryUrls || []), url];
 
     await prisma.establishment.update({ where: { id }, data: { galleryUrls } });
