@@ -104,6 +104,31 @@ async function main() {
           // Table might not exist — skip silently
         }
       }
+
+      // String[] columns (need array_agg + unnest because REPLACE doesn't apply to arrays)
+      const arrayColumns = [
+        { table: "Establishment", column: "galleryUrls" },
+        { table: "MotelRoom", column: "photoUrls" },
+      ];
+
+      for (const { table, column } of arrayColumns) {
+        try {
+          await prisma.$executeRawUnsafe(
+            `UPDATE "${table}" SET "${column}" = (
+               SELECT array_agg(replace(elem, $1, $2))
+               FROM unnest("${column}") AS elem
+             )
+             WHERE EXISTS (
+               SELECT 1 FROM unnest("${column}") AS elem WHERE elem LIKE $3
+             )`,
+            oldEnc,
+            newEnc,
+            like
+          );
+        } catch {
+          // Table might not exist — skip silently
+        }
+      }
     }
     console.log("[convert] DB updates complete.");
   } finally {
