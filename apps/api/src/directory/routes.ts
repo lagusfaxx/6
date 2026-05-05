@@ -9,6 +9,7 @@ import {
   compareProfessionalLevelDesc,
   resolveProfessionalLevel,
 } from "../lib/professionalLevel";
+import { isUUID } from "../lib/validators";
 
 export const directoryRouter = Router();
 
@@ -526,6 +527,7 @@ directoryRouter.get(
   "/professionals/:id",
   asyncHandler(async (req, res) => {
     const id = String(req.params.id);
+    if (!isUUID(id)) return res.status(404).json({ error: "not_found" });
     const nowTs = Date.now();
     const viewWindowMs = 60 * 60 * 1000;
     const tracker = req.session.profileViewTracker || {};
