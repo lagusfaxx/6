@@ -105,7 +105,8 @@ async function main() {
         }
       }
 
-      // String[] columns (need array_agg + unnest because REPLACE doesn't apply to arrays)
+      // String[] columns (need array_agg + unnest because REPLACE doesn't apply to arrays).
+      // WITH ORDINALITY + ORDER BY preserves the array order (cover photo stays first, etc.).
       const arrayColumns = [
         { table: "Establishment", column: "galleryUrls" },
         { table: "MotelRoom", column: "photoUrls" },
@@ -115,11 +116,11 @@ async function main() {
         try {
           await prisma.$executeRawUnsafe(
             `UPDATE "${table}" SET "${column}" = (
-               SELECT array_agg(replace(elem, $1, $2))
-               FROM unnest("${column}") AS elem
+               SELECT array_agg(replace(elem, $1, $2) ORDER BY ord)
+               FROM unnest("${column}") WITH ORDINALITY AS t(elem, ord)
              )
              WHERE EXISTS (
-               SELECT 1 FROM unnest("${column}") AS elem WHERE elem LIKE $3
+               SELECT 1 FROM unnest("${column}") AS u(elem) WHERE elem LIKE $3
              )`,
             oldEnc,
             newEnc,
