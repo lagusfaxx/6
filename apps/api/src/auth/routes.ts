@@ -4,6 +4,20 @@ import crypto from "crypto";
 import multer from "multer";
 import path from "path";
 import rateLimit from "express-rate-limit";
+
+/**
+ * Mask an email so logs don't ship full PII to whatever sink
+ * (Loki, Cloudwatch, third-party APM) ingests stdout. Keeps the first
+ * char + domain so we still have something useful for forensic review.
+ *   "lucia.gonzalez@uzeed.cl" → "l***@uzeed.cl"
+ */
+function maskEmail(email: string | null | undefined): string {
+  if (!email) return "<none>";
+  const [local, domain] = String(email).split("@");
+  if (!domain) return "<malformed>";
+  if (!local) return `*@${domain}`;
+  return `${local[0]}***@${domain}`;
+}
 import { prisma } from "../db";
 import { Prisma } from "@prisma/client";
 import { loginInputSchema, registerInputSchema, quickRegisterSchema } from "@uzeed/shared";
@@ -90,7 +104,7 @@ authRouter.post(
       if (profileTypeIssue) {
         console.error("[auth/register] invalid profileType", {
           profileType: payload.profileType,
-          email: payload.email,
+          email: maskEmail(payload.email),
           username: payload.username,
         });
         return res.status(400).json({
@@ -306,7 +320,7 @@ authRouter.post(
         }
       }
       console.error("[auth/register] create failed", {
-        email,
+        email: maskEmail(email),
         username,
         profileType,
         error: err,
@@ -520,7 +534,7 @@ authRouter.post(
         galleryUrls.push(quickRegisterStorage.publicUrl(optimized));
       } catch (err) {
         galleryUploadFailures++;
-        console.error("[auth/quick-register] gallery upload failed", { email, error: err });
+        console.error("[auth/quick-register] gallery upload failed", { email: maskEmail(email), error: err });
       }
     }
 
@@ -531,7 +545,7 @@ authRouter.post(
     const MIN_GALLERY_PHOTOS = 3;
     if (galleryUrls.length < MIN_GALLERY_PHOTOS) {
       console.warn("[auth/quick-register] insufficient photos", {
-        email,
+        email: maskEmail(email),
         incoming: incomingGalleryCount,
         accepted: galleryUrls.length,
         failures: galleryUploadFailures,
@@ -616,7 +630,7 @@ authRouter.post(
           message: `Debes subir al menos 3 fotos válidas para registrarte.`,
         });
       }
-      console.error("[auth/quick-register] createProfessionalUser failed", { email, error: err });
+      console.error("[auth/quick-register] createProfessionalUser failed", { email: maskEmail(email), error: err });
       throw err;
     }
 
@@ -669,6 +683,26 @@ authRouter.post(
 
     req.session.userId = user.id;
     req.session.role = user.role;
+
+    // ── Two-factor: mark session half-authenticated until code verified ──
+    // Until /auth/2fa/login-verify succeeds, requireAuth lets only
+    // /auth/2fa/* and /auth/logout through (see middleware.ts). The user
+    // record exists on the session so the client can render the 2FA prompt.
+    if ((user as any).totpEnabled) {
+      (req.session as any).pendingTotp = true;
+      (req.session as any).totpVerifiedAt = undefined;
+      await persistSession(req);
+      return res.json({
+        twoFactorRequired: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          role: user.role,
+        },
+      });
+    }
+
     await persistSession(req);
 
     await prisma.user.update({

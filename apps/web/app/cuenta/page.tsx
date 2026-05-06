@@ -111,6 +111,7 @@ export default function AccountPage() {
   quickActions.push(
     { label: "Billetera", description: "Tokens y saldo", href: "/wallet", icon: Wallet, color: "text-amber-400" },
     { label: "UMate", description: umateDescription, href: umateHref, icon: Sparkles, color: "text-violet-400" },
+    { label: "Seguridad", description: "Verificación en dos pasos", href: "/cuenta/seguridad", icon: Shield, color: "text-emerald-400" },
   );
 
   const showVisibility = isProfessional || profileType === "CREATOR";

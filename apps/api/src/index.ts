@@ -15,6 +15,7 @@ import { Prisma } from "@prisma/client";
 import { config } from "./config";
 import { authRouter } from "./auth/routes";
 import { verificationRouter } from "./auth/verification";
+import { twoFactorRouter } from "./auth/twoFactor";
 import { ensureAdminUser } from "./auth/seedAdmin";
 import { seedCategories } from "./client/seedCategories";
 import { runStoriesTtlExtensionOnce } from "./stories/boot";
@@ -214,6 +215,10 @@ app.use(
 
 app.use("/auth", authRouter);
 app.use("/auth/verification", verificationRouter);
+// Two-factor authentication (Google Authenticator). Mounted under /auth so
+// the existing public-prefix allow-list ("/auth") covers /auth/2fa/login-verify
+// for half-authenticated sessions.
+app.use("/auth", twoFactorRouter);
 app.use("/", clientRouter);
 app.use("/shop", shopRouter);
 app.use("/", feedRouter);

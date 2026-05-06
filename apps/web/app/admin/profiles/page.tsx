@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
-import { apiFetch } from "../../../lib/api";
+import { useStepUp } from "../../../hooks/useStepUp";
+import StepUpModal from "../../../components/StepUpModal";
+import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
 import Avatar from "../../../components/Avatar";
 import {
   ArrowLeft,
@@ -62,6 +64,9 @@ export default function AdminProfilesPage() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
   const isAdmin = useMemo(() => (user?.role ?? "").toUpperCase() === "ADMIN", [user?.role]);
+  // Step-up runner: wraps destructive admin calls and surfaces a TOTP modal
+  // when the API rejects with STEP_UP_REQUIRED.
+  const stepUp = useStepUp();
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [total, setTotal] = useState(0);
@@ -141,12 +146,18 @@ export default function AdminProfilesPage() {
     setBusy(id);
     setError(null);
     try {
-      await apiFetch(`/admin/profiles/${id}`, { method: "DELETE" });
+      await stepUp.run(() =>
+        apiFetch(`/admin/profiles/${id}`, { method: "DELETE" }),
+      );
       setSuccess("Perfil eliminado permanentemente.");
       setDeleteConfirm(null);
       await loadProfiles();
-    } catch {
-      setError("No se pudo eliminar el perfil.");
+    } catch (err: any) {
+      if (err?.message === "STEP_UP_CANCELLED") {
+        // User dismissed the 2FA prompt — quiet, no scary error banner.
+        return;
+      }
+      setError(friendlyErrorMessage(err) || "No se pudo eliminar el perfil.");
     } finally {
       setBusy(null);
     }
@@ -180,19 +191,22 @@ export default function AdminProfilesPage() {
     const prevProfiles = [...profiles];
     setProfiles((prev) => prev.map((pr) => pr.id === profile.id ? { ...pr, tier } : pr));
     try {
-      await apiFetch(`/admin/profiles/${profile.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ tier }),
-      });
+      await stepUp.run(() =>
+        apiFetch(`/admin/profiles/${profile.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ tier }),
+        }),
+      );
       setSuccess(
         tier
           ? `Tier ${tier} asignado a ${profile.displayName || profile.username}.`
           : `Tier removido de ${profile.displayName || profile.username}.`,
       );
       await loadProfiles();
-    } catch {
+    } catch (err: any) {
       setProfiles(prevProfiles);
-      setError("No se pudo actualizar el tier del perfil.");
+      if (err?.message === "STEP_UP_CANCELLED") return;
+      setError(friendlyErrorMessage(err) || "No se pudo actualizar el tier del perfil.");
     } finally {
       setBusy(null);
     }
@@ -206,6 +220,7 @@ export default function AdminProfilesPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 text-white">
+      <StepUpModal runner={stepUp} />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

@@ -3,7 +3,16 @@ const USER_CACHE_TTL = 60_000; // 1 minute
 const USER_CACHE_MAX = 10_000;
 
 type CachedUser = {
-  data: { id: string; email: string; role: string; profileType: string; membershipExpiresAt: Date | null; shopTrialEndsAt: Date | null; createdAt: Date };
+  data: {
+    id: string;
+    email: string;
+    role: string;
+    profileType: string;
+    membershipExpiresAt: Date | null;
+    shopTrialEndsAt: Date | null;
+    createdAt: Date;
+    totpEnabled?: boolean;
+  };
   ts: number;
 };
 

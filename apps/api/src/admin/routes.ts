@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db";
-import { requireAdmin } from "../auth/middleware";
+import { requireAdmin, requireRecentTotp } from "../auth/middleware";
 import { CreatePostSchema } from "@uzeed/shared";
 import multer from "multer";
 import path from "path";
@@ -8,6 +8,7 @@ import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { asyncHandler } from "../lib/asyncHandler";
 import { optimizeImage, optimizeUploadedImage } from "../lib/imageOptimizer";
+import { writeAdminAuditLog, reqFingerprint } from "../lib/adminAudit";
 
 export const adminRouter = Router();
 
@@ -296,8 +297,16 @@ adminRouter.put(
 
 adminRouter.delete(
   "/posts/:id",
+  requireRecentTotp,
   asyncHandler(async (req, res) => {
     await prisma.post.delete({ where: { id: req.params.id } });
+    await writeAdminAuditLog({
+      adminId: req.session.userId!,
+      action: "delete_profile",
+      targetType: "post",
+      targetId: req.params.id,
+      ...reqFingerprint(req),
+    });
     return res.json({ ok: true });
   }),
 );
@@ -443,14 +452,59 @@ adminRouter.put(
 
 adminRouter.put(
   "/profiles/:id",
+  asyncHandler(async (req, res, next) => {
+    // Role / membership changes are privilege-escalating: a stolen admin
+    // session must not be enough to grant ADMIN to an attacker. Force a
+    // fresh TOTP step-up whenever those fields are present.
+    const { role, membershipExpiresAt, tier } = req.body ?? {};
+    const isPrivilegeChange =
+      role !== undefined || membershipExpiresAt !== undefined || tier !== undefined;
+    if (isPrivilegeChange) {
+      return requireRecentTotp(req, res, next);
+    }
+    next();
+  }),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { isActive, tier, role, membershipExpiresAt } = req.body ?? {};
 
+    // Normalize and validate role explicitly so we never trust an arbitrary
+    // string from the client. Only USER and ADMIN are accepted.
+    let normalizedRole: "USER" | "ADMIN" | undefined;
+    if (role !== undefined) {
+      const upper = String(role).toUpperCase();
+      if (upper !== "USER" && upper !== "ADMIN") {
+        return res.status(400).json({ error: "INVALID_ROLE" });
+      }
+      normalizedRole = upper as "USER" | "ADMIN";
+    }
+
+    // Capture the previous values for the audit log before mutating.
+    const before = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true, isActive: true, tier: true, membershipExpiresAt: true },
+    });
+    if (!before) return res.status(404).json({ error: "NOT_FOUND" });
+
+    // Prevent an admin from demoting themselves out of ADMIN if they are
+    // the only admin left — that would lock the platform out.
+    const adminId = req.session.userId!;
+    if (normalizedRole === "USER" && before.role === "ADMIN" && before.id === adminId) {
+      const otherAdminCount = await prisma.user.count({
+        where: { role: "ADMIN", id: { not: adminId } },
+      });
+      if (otherAdminCount === 0) {
+        return res.status(409).json({
+          error: "LAST_ADMIN",
+          message: "No puedes degradarte: serías el único administrador restante.",
+        });
+      }
+    }
+
     const data: any = {};
     if (isActive !== undefined) data.isActive = Boolean(isActive);
     if (tier !== undefined) data.tier = tier;
-    if (role !== undefined) data.role = role;
+    if (normalizedRole !== undefined) data.role = normalizedRole;
     if (membershipExpiresAt !== undefined) {
       data.membershipExpiresAt = membershipExpiresAt
         ? new Date(membershipExpiresAt)
@@ -470,6 +524,31 @@ adminRouter.put(
         membershipExpiresAt: true,
       },
     });
+
+    if (normalizedRole !== undefined && normalizedRole !== before.role) {
+      await writeAdminAuditLog({
+        adminId,
+        action: "change_role",
+        targetType: "user",
+        targetId: id,
+        metadata: { from: before.role, to: normalizedRole, targetEmail: before.email },
+        ...reqFingerprint(req),
+      });
+    }
+    if (membershipExpiresAt !== undefined && (before.membershipExpiresAt?.getTime() ?? null) !== (data.membershipExpiresAt?.getTime() ?? null)) {
+      await writeAdminAuditLog({
+        adminId,
+        action: "change_membership",
+        targetType: "user",
+        targetId: id,
+        metadata: {
+          from: before.membershipExpiresAt?.toISOString() || null,
+          to: data.membershipExpiresAt?.toISOString() || null,
+        },
+        ...reqFingerprint(req),
+      });
+    }
+
     return res.json({ profile: updated });
   }),
 );
@@ -505,10 +584,30 @@ adminRouter.put(
 
 adminRouter.delete(
   "/profiles/:id",
+  requireRecentTotp,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const user = await prisma.user.findUnique({ where: { id } });
+    const adminId = req.session.userId!;
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, username: true, role: true },
+    });
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+    // Refuse to delete the only remaining ADMIN. Without this check a single
+    // misclick (or a compromised admin acting on themselves) could lock the
+    // platform out of every admin route.
+    if (user.role === "ADMIN") {
+      const otherAdminCount = await prisma.user.count({
+        where: { role: "ADMIN", id: { not: id } },
+      });
+      if (otherAdminCount === 0) {
+        return res.status(409).json({
+          error: "LAST_ADMIN",
+          message: "No puedes eliminar al único administrador de la plataforma.",
+        });
+      }
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.notification.deleteMany({ where: { userId: id } });
@@ -523,6 +622,15 @@ adminRouter.delete(
         where: { OR: [{ fromId: id }, { toId: id }] },
       });
       await tx.user.delete({ where: { id } });
+    });
+
+    await writeAdminAuditLog({
+      adminId,
+      action: "delete_profile",
+      targetType: "user",
+      targetId: id,
+      metadata: { email: user.email, username: user.username, role: user.role },
+      ...reqFingerprint(req),
     });
 
     return res.json({ ok: true });
@@ -587,6 +695,7 @@ adminRouter.get(
 
 adminRouter.put(
   "/verification/:id/approve",
+  requireRecentTotp,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { verifiedByPhone } = req.body ?? {};
@@ -612,12 +721,23 @@ adminRouter.put(
         profileType: true,
       },
     });
+
+    await writeAdminAuditLog({
+      adminId: req.session.userId!,
+      action: "approve_verification",
+      targetType: "user",
+      targetId: id,
+      metadata: { verifiedByPhone: verifiedByPhone || null },
+      ...reqFingerprint(req),
+    });
+
     return res.json({ profile: updated });
   }),
 );
 
 adminRouter.put(
   "/verification/:id/reject",
+  requireRecentTotp,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const user = await prisma.user.findUnique({
@@ -637,6 +757,15 @@ adminRouter.put(
         isActive: true,
       },
     });
+
+    await writeAdminAuditLog({
+      adminId: req.session.userId!,
+      action: "reject_verification",
+      targetType: "user",
+      targetId: id,
+      ...reqFingerprint(req),
+    });
+
     return res.json({ profile: updated });
   }),
 );
@@ -1002,9 +1131,22 @@ adminRouter.put(
 
 adminRouter.delete(
   "/banners/:id",
+  requireRecentTotp,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
+    const before = await prisma.banner.findUnique({
+      where: { id },
+      select: { title: true, position: true },
+    });
     await prisma.banner.delete({ where: { id } });
+    await writeAdminAuditLog({
+      adminId: req.session.userId!,
+      action: "delete_banner",
+      targetType: "banner",
+      targetId: id,
+      metadata: before || null,
+      ...reqFingerprint(req),
+    });
     return res.json({ ok: true });
   }),
 );
@@ -1160,9 +1302,22 @@ adminRouter.put(
 
 adminRouter.delete(
   "/quick-listings/:id",
+  requireRecentTotp,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
+    const before = await prisma.establishment.findUnique({
+      where: { id },
+      select: { name: true, city: true },
+    });
     await prisma.establishment.delete({ where: { id } });
+    await writeAdminAuditLog({
+      adminId: req.session.userId!,
+      action: "delete_quick_listing",
+      targetType: "establishment",
+      targetId: id,
+      metadata: before || null,
+      ...reqFingerprint(req),
+    });
     return res.json({ ok: true });
   }),
 );
@@ -1427,9 +1582,14 @@ adminRouter.put(
 
 adminRouter.delete(
   "/quick-professionals/:id",
+  requireRecentTotp,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const user = await prisma.user.findUnique({ where: { id }, select: { adminManaged: true } });
+    const adminId = req.session.userId!;
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { adminManaged: true, username: true, email: true },
+    });
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
     if (!user.adminManaged) return res.status(403).json({ error: "FORBIDDEN", message: "Only admin-managed profiles can be deleted here" });
 
@@ -1439,6 +1599,15 @@ adminRouter.delete(
       await tx.favorite.deleteMany({ where: { OR: [{ userId: id }, { professionalId: id }] } });
       await tx.notification.deleteMany({ where: { userId: id } });
       await tx.user.delete({ where: { id } });
+    });
+
+    await writeAdminAuditLog({
+      adminId,
+      action: "delete_quick_professional",
+      targetType: "user",
+      targetId: id,
+      metadata: { username: user.username, email: user.email },
+      ...reqFingerprint(req),
     });
 
     return res.json({ ok: true });

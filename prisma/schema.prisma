@@ -445,6 +445,20 @@ model User {
   adminQualityScore   Float?
   passwordSetToken          String?
   passwordSetTokenExpiresAt DateTime?
+
+  // ── Two-factor authentication (TOTP / Google Authenticator) ──
+  // totpSecret is stored encrypted (AES-256-GCM) using TOTP_ENCRYPTION_KEY.
+  // It is only ever written/read server-side; never exposed to clients.
+  totpSecret           String?
+  totpEnabled          Boolean   @default(false)
+  totpEnabledAt        DateTime?
+  // Hashed (argon2) one-time backup codes (newline-separated). Each code is
+  // consumed atomically; the hash list is rewritten without the consumed code.
+  totpBackupCodesHash  String?
+  // Step-up: timestamp of the last successful TOTP verification on this account.
+  // Used to gate destructive actions (delete profile, role change, withdrawals).
+  lastTotpVerifiedAt   DateTime?
+
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -1505,6 +1519,25 @@ model ReferralRedemption {
   @@index([referralCodeId, createdAt])
   @@index([cycleId])
   @@index([status])
+}
+
+// Audit log for admin actions that destroy or escalate (delete user, role
+// change, financial approvals). Append-only; never updated. Written from
+// admin endpoints behind requireAdmin + requireRecentTotp.
+model AdminAuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  adminId     String   @db.Uuid
+  adminEmail  String   // denormalized for forensics if user is later deleted
+  action      String   // e.g. "delete_profile", "change_role", "approve_withdrawal"
+  targetType  String?  // "user", "withdrawal", "deposit", "banner", ...
+  targetId    String?  // not @db.Uuid because some targets (e.g. session ids) are not uuids
+  metadata    Json?    // before/after, reason, request fingerprint
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([adminId, createdAt])
+  @@index([action, createdAt])
 }
 
 model AdminProfileRating {

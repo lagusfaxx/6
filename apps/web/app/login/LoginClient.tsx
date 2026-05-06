@@ -26,6 +26,13 @@ export default function LoginClient() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ── 2FA prompt state ──
+  // After /auth/login responds with twoFactorRequired the form switches to
+  // a code-entry step that POSTs to /auth/2fa/login-verify.
+  const [twoFactorPending, setTwoFactorPending] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [useBackupCode, setUseBackupCode] = useState(false);
+
   useEffect(() => {
     const oauthError = searchParams.get("oauth_error");
     if (oauthError) {
@@ -46,10 +53,14 @@ export default function LoginClient() {
     setLoading(true);
     setError(null);
     try {
-      await apiFetch("/auth/login", {
+      const resp = await apiFetch<{ twoFactorRequired?: boolean }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
+      if (resp?.twoFactorRequired) {
+        setTwoFactorPending(true);
+        return;
+      }
       const next = searchParams.get("next");
       window.location.replace(safeRedirect(next));
     } catch (err: any) {
@@ -57,6 +68,35 @@ export default function LoginClient() {
         setError("Correo o contraseña incorrectos.");
       } else {
         setError(friendlyErrorMessage(err) || "Error al iniciar sesión");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onSubmitTwoFactor(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const payload = useBackupCode
+        ? { backupCode: twoFactorCode.trim() }
+        : { code: twoFactorCode.trim() };
+      await apiFetch("/auth/2fa/login-verify", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const next = searchParams.get("next");
+      window.location.replace(safeRedirect(next));
+    } catch (err: any) {
+      if (err?.body?.error === "CODE_INVALID") {
+        setError("Código incorrecto. Verifica el reloj de tu teléfono o usa un código de respaldo.");
+      } else if (err?.body?.error === "NO_PENDING_TOTP") {
+        // Session no longer has a pending 2FA flag — start over.
+        setTwoFactorPending(false);
+        setError("La sesión expiró. Vuelve a iniciar sesión.");
+      } else {
+        setError(friendlyErrorMessage(err) || "No pudimos verificar el código");
       }
     } finally {
       setLoading(false);
@@ -119,6 +159,59 @@ export default function LoginClient() {
             </div>
           </div>
 
+          {twoFactorPending ? (
+            <form onSubmit={onSubmitTwoFactor} className="px-8 pb-8 grid gap-5">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-white/70">
+                  {useBackupCode ? "Código de respaldo" : "Código de Google Authenticator"}
+                </label>
+                <input
+                  className="input tracking-widest text-center font-mono text-lg"
+                  value={twoFactorCode}
+                  onChange={(e) => setTwoFactorCode(e.target.value)}
+                  placeholder={useBackupCode ? "abcde-fghij" : "123456"}
+                  inputMode={useBackupCode ? "text" : "numeric"}
+                  autoComplete="one-time-code"
+                  required
+                  autoFocus
+                />
+                <p className="text-xs text-white/40">
+                  {useBackupCode
+                    ? "Cada código de respaldo solo se puede usar una vez."
+                    : "Abre tu app de autenticación e ingresa el código de 6 dígitos."}
+                </p>
+              </div>
+
+              {error && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {error}
+                </div>
+              )}
+
+              <button
+                disabled={loading}
+                className="btn-primary w-full py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>Verificar código</>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setUseBackupCode((v) => !v);
+                  setTwoFactorCode("");
+                  setError(null);
+                }}
+                className="text-xs text-fuchsia-300/70 hover:text-fuchsia-300 transition"
+              >
+                {useBackupCode ? "Usar código de la app" : "Usar código de respaldo"}
+              </button>
+            </form>
+          ) : (
           <form onSubmit={onSubmit} className="px-8 pb-8 grid gap-5">
             {/* Email */}
             <div className="grid gap-2">
@@ -190,6 +283,7 @@ export default function LoginClient() {
               )}
             </button>
           </form>
+          )}
 
           {/* Divider */}
           <div className="px-8 pb-6">

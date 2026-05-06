@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
-import { requireAdmin } from "../lib/auth";
+import { requireAdmin, requireRecentTotp } from "../lib/auth";
 import { sendDepositApprovedEmail, sendWithdrawalApprovedEmail } from "../lib/transactionEmail";
+import { writeAdminAuditLog, reqFingerprint } from "../lib/adminAudit";
 
 export const adminTokensRouter = Router();
 
@@ -43,7 +44,7 @@ adminTokensRouter.get("/admin/deposits", requireAdmin, async (req, res) => {
 });
 
 // ── PUT /admin/deposits/:id/approve — approve a deposit ──
-adminTokensRouter.put("/admin/deposits/:id/approve", requireAdmin, async (req, res) => {
+adminTokensRouter.put("/admin/deposits/:id/approve", requireAdmin, requireRecentTotp, async (req, res) => {
   const deposit = await prisma.tokenDeposit.findUnique({
     where: { id: req.params.id },
     include: { wallet: true },
@@ -85,12 +86,21 @@ adminTokensRouter.put("/admin/deposits/:id/approve", requireAdmin, async (req, r
     sendDepositApprovedEmail(depositUser.email, { tokens: deposit.amount, clpAmount: deposit.clpAmount }).catch((err) => console.error("[admin] deposit approved email failed", err));
   }
 
+  await writeAdminAuditLog({
+    adminId: req.session.userId!,
+    action: "approve_deposit",
+    targetType: "deposit",
+    targetId: deposit.id,
+    metadata: { amount: deposit.amount, clpAmount: deposit.clpAmount, walletId: deposit.walletId },
+    ...reqFingerprint(req),
+  });
+
   console.log(`[admin] deposit ${deposit.id} approved by ${req.session.userId} — ${deposit.amount} tokens`);
   res.json({ ok: true });
 });
 
 // ── PUT /admin/deposits/:id/reject — reject a deposit ──
-adminTokensRouter.put("/admin/deposits/:id/reject", requireAdmin, async (req, res) => {
+adminTokensRouter.put("/admin/deposits/:id/reject", requireAdmin, requireRecentTotp, async (req, res) => {
   const deposit = await prisma.tokenDeposit.findUnique({ where: { id: req.params.id } });
   if (!deposit) return res.status(404).json({ error: "Not found" });
   if (deposit.method === "FLOW") return res.status(400).json({ error: "Flow deposits are automatic" });
@@ -109,6 +119,15 @@ adminTokensRouter.put("/admin/deposits/:id/reject", requireAdmin, async (req, re
       reviewedAt: new Date(),
       rejectReason: reason || null,
     },
+  });
+
+  await writeAdminAuditLog({
+    adminId: req.session.userId!,
+    action: "reject_deposit",
+    targetType: "deposit",
+    targetId: deposit.id,
+    metadata: { reason: reason || null },
+    ...reqFingerprint(req),
   });
 
   console.log(`[admin] deposit ${deposit.id} rejected by ${req.session.userId}`);
@@ -142,7 +161,7 @@ adminTokensRouter.get("/admin/withdrawals", requireAdmin, async (req, res) => {
 });
 
 // ── PUT /admin/withdrawals/:id/approve — approve withdrawal ──
-adminTokensRouter.put("/admin/withdrawals/:id/approve", requireAdmin, async (req, res) => {
+adminTokensRouter.put("/admin/withdrawals/:id/approve", requireAdmin, requireRecentTotp, async (req, res) => {
   const wr = await prisma.withdrawalRequest.findUnique({ where: { id: req.params.id } });
   if (!wr) return res.status(404).json({ error: "Not found" });
   if (wr.status !== "PENDING") return res.status(400).json({ error: "Already processed" });
@@ -161,12 +180,26 @@ adminTokensRouter.put("/admin/withdrawals/:id/approve", requireAdmin, async (req
     sendWithdrawalApprovedEmail(wrUser.email, { tokens: wr.amount, clpAmount: wr.clpAmount, bankName: wr.bankName }).catch((err) => console.error("[admin] withdrawal approved email failed", err));
   }
 
+  await writeAdminAuditLog({
+    adminId: req.session.userId!,
+    action: "approve_withdrawal",
+    targetType: "withdrawal",
+    targetId: wr.id,
+    metadata: {
+      amount: wr.amount,
+      clpAmount: wr.clpAmount,
+      bankName: wr.bankName,
+      walletId: wr.walletId,
+    },
+    ...reqFingerprint(req),
+  });
+
   console.log(`[admin] withdrawal ${wr.id} approved by ${req.session.userId} — ${wr.amount} tokens`);
   res.json({ ok: true });
 });
 
 // ── PUT /admin/withdrawals/:id/reject — reject withdrawal (refund tokens) ──
-adminTokensRouter.put("/admin/withdrawals/:id/reject", requireAdmin, async (req, res) => {
+adminTokensRouter.put("/admin/withdrawals/:id/reject", requireAdmin, requireRecentTotp, async (req, res) => {
   const wr = await prisma.withdrawalRequest.findUnique({
     where: { id: req.params.id },
     include: { wallet: true },
@@ -206,6 +239,15 @@ adminTokensRouter.put("/admin/withdrawals/:id/reject", requireAdmin, async (req,
         description: `Retiro rechazado — tokens devueltos: ${wr.amount}`,
       },
     });
+  });
+
+  await writeAdminAuditLog({
+    adminId: req.session.userId!,
+    action: "reject_withdrawal",
+    targetType: "withdrawal",
+    targetId: wr.id,
+    metadata: { amount: wr.amount, reason: reason || null },
+    ...reqFingerprint(req),
   });
 
   console.log(`[admin] withdrawal ${wr.id} rejected by ${req.session.userId} — ${wr.amount} tokens refunded`);

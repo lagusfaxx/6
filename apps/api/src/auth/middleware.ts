@@ -6,6 +6,21 @@ import { getCachedUser, setCachedUser, type CachedUser } from "./userCache";
 
 // Re-export for backward compat
 export { invalidateUserCache } from "./userCache";
+// Re-export step-up middleware so route files can import from a single place.
+export { requireRecentTotp, requireRecentTotpStrict, isStepUpFresh } from "./twoFactor";
+
+// Endpoints we MUST allow when a session is in the "pendingTotp" state
+// (logged in with username/password but waiting for the second factor).
+// Anything else gets a 401 PENDING_TOTP so the client knows to prompt.
+const PENDING_TOTP_ALLOWED_PATHS = new Set<string>([
+  "/auth/2fa/login-verify",
+  "/auth/2fa/status",
+  "/auth/logout",
+  "/auth/me",
+  "/health",
+  "/ready",
+  "/version",
+]);
 
 /**
  * Rutas que deben ser PUBLICAS (sin sesión).
@@ -99,7 +114,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         const cached = getCachedUser(optionalUserId);
         const optUser = cached || await prisma.user.findUnique({
           where: { id: optionalUserId },
-          select: { id: true, email: true, role: true, profileType: true, membershipExpiresAt: true, shopTrialEndsAt: true, createdAt: true }
+          select: { id: true, email: true, role: true, profileType: true, membershipExpiresAt: true, shopTrialEndsAt: true, createdAt: true, totpEnabled: true }
         });
         if (optUser) {
           if (!cached) setCachedUser(optionalUserId, optUser as CachedUser["data"]);
@@ -114,6 +129,16 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return res.status(401).json({ error: "UNAUTHENTICATED" });
     }
 
+    // Half-authenticated sessions: user passed password but hasn't entered
+    // the TOTP code yet. Block everything except the 2FA verify/status/logout
+    // endpoints to prevent a stolen-pre-2FA-cookie from being used as full auth.
+    if ((req.session as any)?.pendingTotp && !PENDING_TOTP_ALLOWED_PATHS.has(req.path)) {
+      return res.status(401).json({
+        error: "PENDING_TOTP",
+        message: "Verifica tu segundo factor (Google Authenticator) para continuar.",
+      });
+    }
+
     const cached = getCachedUser(sessionUserId);
     const user = cached || await prisma.user.findUnique({
       where: { id: sessionUserId },
@@ -124,7 +149,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         profileType: true,
         membershipExpiresAt: true,
         shopTrialEndsAt: true,
-        createdAt: true
+        createdAt: true,
+        totpEnabled: true,
       }
     });
 
