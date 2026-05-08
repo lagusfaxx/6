@@ -154,11 +154,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AppShell>{children}</AppShell>
         {/* Google tag (gtag.js) — deferred with afterInteractive to avoid blocking FCP/LCP */}
         <Script
-          src="https://www.googletagmanager.com/gtag/js?id=AW-18052031619"
+          src="https://www.googletagmanager.com/gtag/js?id=AW-18149257523"
           strategy="afterInteractive"
         />
         <Script id="gtag-init" strategy="afterInteractive">
-          {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','AW-18052031619');`}
+          {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','AW-18149257523');`}
         </Script>
       </body>
     </html>
