@@ -10,6 +10,9 @@ const CACHE_TTL_MS = 60_000;
 const FETCH_LIMIT = 30;
 const VISIBLE_COUNT = 12;
 const ROTATION_STEP = 6;
+const FETCH_TIMEOUT_MS = 4000;
+const MAX_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 500;
 
 const NO_CACHE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
@@ -52,6 +55,57 @@ function rotateSlice(p: Cam[], offset: number, count: number): Cam[] {
   return out;
 }
 
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+async function fetchCams(): Promise<Cam[]> {
+  const params = new URLSearchParams({
+    wm: WM,
+    client_ip: "request_ip",
+    gender: "f",
+    region: "southamerica",
+    hd: "true",
+    limit: String(FETCH_LIMIT),
+    format: "json",
+  });
+  const url = `${CHATURBATE_API}?${params}`;
+
+  let lastErr: Error = new Error("upstream failed");
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) await sleep(RETRY_DELAY_MS);
+
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "Uzeed/1.0" },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const results: any[] = Array.isArray(data?.results) ? data.results : [];
+        return results
+          .filter((r) => r && typeof r.username === "string" && typeof r.image_url_360x270 === "string")
+          .map((r) => ({
+            username: String(r.username),
+            displayName: humanize(String(r.username)),
+            thumbnail: String(r.image_url_360x270),
+            age: typeof r.age === "number" && r.age > 0 ? r.age : null,
+            viewers: typeof r.num_users === "number" ? r.num_users : 0,
+            isHd: Boolean(r.is_hd),
+          }));
+      }
+
+      lastErr = new Error(`upstream ${res.status}`);
+      if (res.status < 500) break;
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  throw lastErr;
+}
+
 export async function GET(request: Request) {
   void request;
 
@@ -63,37 +117,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const params = new URLSearchParams({
-      wm: WM,
-      client_ip: "request_ip",
-      gender: "f",
-      region: "southamerica",
-      hd: "true",
-      limit: String(FETCH_LIMIT),
-      format: "json",
-    });
-
-    const res = await fetch(`${CHATURBATE_API}?${params}`, {
-      headers: { "User-Agent": "Uzeed/1.0" },
-      signal: AbortSignal.timeout(5000),
-      cache: "no-store",
-    });
-
-    if (!res.ok) throw new Error(`API ${res.status}`);
-
-    const data = await res.json();
-    const results: any[] = Array.isArray(data?.results) ? data.results : [];
-
-    const fresh: Cam[] = results
-      .filter((r) => r && typeof r.username === "string" && typeof r.image_url_360x270 === "string")
-      .map((r) => ({
-        username: String(r.username),
-        displayName: humanize(String(r.username)),
-        thumbnail: String(r.image_url_360x270),
-        age: typeof r.age === "number" && r.age > 0 ? r.age : null,
-        viewers: typeof r.num_users === "number" ? r.num_users : 0,
-        isHd: Boolean(r.is_hd),
-      }));
+    const fresh = await fetchCams();
 
     pool = fresh;
     const visible = rotateSlice(pool, rotationOffset, VISIBLE_COUNT);
@@ -105,7 +129,8 @@ export async function GET(request: Request) {
       { headers: NO_CACHE_HEADERS },
     );
   } catch (error) {
-    console.error("live-feed error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn(`live-feed upstream unavailable: ${msg}`);
 
     if (cache) {
       return NextResponse.json(
