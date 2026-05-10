@@ -45,14 +45,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "es_CL",
-    url: "https://uzeed.cl",
+    url: "/",
     siteName: "UZEED: Escorts y experiencias únicas para adultos",
     title: "UZEED: Escorts y experiencias únicas para adultos",
     description:
       "Encuentra las mejores escorts, acompañantes y profesionales en Santiago, Las Condes y Viña del Mar. Perfiles verificados y disponibilidad hoy.",
     images: [
       {
-        url: "https://uzeed.cl/brand/isotipo-new.png",
+        url: "/brand/isotipo-new.png",
         width: 720,
         height: 720,
         alt: "UZEED - Escorts y Profesionales en Chile",
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     title: "UZEED: Escorts y experiencias únicas para adultos",
     description:
       "Encuentra las mejores escorts, acompañantes y profesionales en Santiago y todo Chile. Perfiles verificados y disponibilidad hoy.",
-    images: ["https://uzeed.cl/brand/isotipo-new.png"],
+    images: ["/brand/isotipo-new.png"],
   },
 };
 
@@ -131,9 +131,9 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeBreadcrumbJsonLd) }}
       />
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
-        <h1 className="text-xl font-bold text-white/80 mb-3">
+        <h2 className="text-xl font-bold text-white/80 mb-3">
           Escorts y Acompañantes Verificadas en Chile — UZEED
-        </h1>
+        </h2>
         <p className="mb-4">
           UZEED es la plataforma líder para encontrar escorts y acompañantes verificadas
           en Chile. Cada perfil cuenta con fotos reales, verificación de identidad y contacto

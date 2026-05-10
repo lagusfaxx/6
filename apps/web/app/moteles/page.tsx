@@ -12,9 +12,15 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Moteles y Hoteles por Hora en Chile | UZEED",
     description: "Los mejores moteles y hoteles por hora en Santiago y todo Chile. Precios y disponibilidad.",
-    url: "https://uzeed.cl/moteles",
+    url: "/moteles",
     type: "website",
-    images: [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Moteles Chile" }],
+    images: [{ url: "/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Moteles Chile" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Moteles y Hoteles por Hora en Chile | UZEED",
+    description: "Los mejores moteles y hoteles por hora en Santiago y todo Chile.",
+    images: ["/brand/isotipo-new.png"],
   },
 };
 

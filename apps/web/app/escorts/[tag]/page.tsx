@@ -16,15 +16,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: `${title} | UZEED`,
       description,
-      url: `https://uzeed.cl/escorts/${tag}`,
+      url: `/escorts/${tag}`,
       type: "website",
-      images: [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: `UZEED Escorts ${label}` }],
+      images: [{ url: "/brand/isotipo-new.png", width: 720, height: 720, alt: `UZEED Escorts ${label}` }],
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} | UZEED`,
       description,
-      images: ["https://uzeed.cl/brand/isotipo-new.png"],
+      images: ["/brand/isotipo-new.png"],
     },
   };
 }
@@ -77,9 +77,9 @@ export default async function EscortsTagPage({ params }: Props) {
       />
       {/* Server-rendered SEO text for long-tail indexing */}
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
-        <h1 className="text-xl font-bold text-white/80 mb-3">
+        <h2 className="text-xl font-bold text-white/80 mb-3">
           Escorts y Acompañantes {label} en Chile
-        </h1>
+        </h2>
         <p className="mb-4">
           Directorio de escorts y acompañantes {readableTag} verificadas en Chile. Encuentra
           perfiles con fotos reales en Santiago, Las Condes, Providencia, Viña del Mar

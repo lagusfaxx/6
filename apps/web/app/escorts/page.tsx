@@ -41,15 +41,15 @@ export const metadata: Metadata = {
     title: "Escorts y Putas en Chile - Verificadas Hoy | UZEED",
     description:
       "Escorts y acompañantes verificadas en Santiago y todo Chile. Fotos reales y contacto directo.",
-    url: "https://uzeed.cl/escorts",
+    url: "/escorts",
     type: "website",
-    images: [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Escorts Chile" }],
+    images: [{ url: "/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Escorts Chile" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Escorts y Putas en Chile | UZEED",
     description: "Escorts verificadas con fotos reales en Santiago y todo Chile.",
-    images: ["https://uzeed.cl/brand/isotipo-new.png"],
+    images: ["/brand/isotipo-new.png"],
   },
 };
 

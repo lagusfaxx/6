@@ -10,9 +10,15 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Hospedajes y Alojamientos en Chile | UZEED",
     description: "Hospedajes y alojamientos discretos en Santiago y todo Chile.",
-    url: "https://uzeed.cl/hospedaje",
+    url: "/hospedaje",
     type: "website",
-    images: [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Hospedajes" }],
+    images: [{ url: "/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Hospedajes" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hospedajes y Alojamientos en Chile | UZEED",
+    description: "Hospedajes discretos en Santiago y todo Chile.",
+    images: ["/brand/isotipo-new.png"],
   },
 };
 

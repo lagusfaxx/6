@@ -1,10 +1,17 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import CrearContrasenaClient from "./CrearContrasenaClient";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Crear contraseña — UZEED",
+export const metadata: Metadata = {
+  title: "Crear contraseña | UZEED",
+  description: "Crea una nueva contraseña para tu cuenta UZEED.",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false },
+  },
 };
 
 export default function CrearContrasenaPage() {

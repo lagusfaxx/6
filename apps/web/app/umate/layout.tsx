@@ -5,7 +5,27 @@ import UmateMobileNav from "./_components/UmateMobileNav";
 export const metadata: Metadata = {
   title: "U-Mate — Descubre creadoras y contenido exclusivo",
   description:
-    "U-Mate es una plataforma de suscripción para descubrir creadoras, desbloquear contenido premium y conectar con su comunidad.",
+    "U-Mate es una plataforma de suscripción para descubrir creadoras, desbloquear contenido premium y conectar con su comunidad en UZEED Chile.",
+  alternates: { canonical: "/umate" },
+  openGraph: {
+    title: "U-Mate — Descubre creadoras y contenido exclusivo",
+    description:
+      "Plataforma de suscripción para creadoras y contenido premium en UZEED Chile.",
+    url: "/umate",
+    type: "website",
+    images: [
+      {
+        url: "/brand/Umate.png",
+        alt: "U-Mate by UZEED",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "U-Mate — Descubre creadoras y contenido exclusivo",
+    description: "Plataforma de suscripción para creadoras en UZEED Chile.",
+    images: ["/brand/Umate.png"],
+  },
   icons: {
     icon: "/brand/umate-icon.svg",
     shortcut: "/brand/umate-icon.svg",

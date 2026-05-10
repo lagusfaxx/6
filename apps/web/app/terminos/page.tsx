@@ -1,7 +1,35 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
 import { FileText } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Términos y Condiciones | UZEED",
+  description:
+    "Términos y condiciones de uso de UZEED, plataforma de directorio de servicios para adultos en Chile. Restricciones, responsabilidades y políticas.",
+  alternates: { canonical: "/terminos" },
+  openGraph: {
+    title: "Términos y Condiciones | UZEED",
+    description:
+      "Términos y condiciones de uso de la plataforma UZEED Chile.",
+    url: "/terminos",
+    type: "article",
+    images: [
+      {
+        url: "/brand/isotipo-new.png",
+        width: 720,
+        height: 720,
+        alt: "UZEED - Términos y Condiciones",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Términos y Condiciones | UZEED",
+    description: "Términos y condiciones de uso de UZEED Chile.",
+    images: ["/brand/isotipo-new.png"],
+  },
+  robots: { index: true, follow: true },
+};
 
 export default function TerminosPage() {
   return (

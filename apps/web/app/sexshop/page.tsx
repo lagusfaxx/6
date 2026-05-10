@@ -12,9 +12,15 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Sex Shop en Chile | UZEED",
     description: "Juguetes sexuales, lencería y accesorios para adultos con envío discreto.",
-    url: "https://uzeed.cl/sexshop",
+    url: "/sexshop",
     type: "website",
-    images: [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Sex Shop" }],
+    images: [{ url: "/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Sex Shop" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sex Shop en Chile | UZEED",
+    description: "Juguetes sexuales, lencería y accesorios con envío discreto.",
+    images: ["/brand/isotipo-new.png"],
   },
 };
 

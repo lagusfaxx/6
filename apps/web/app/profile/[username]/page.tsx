@@ -13,8 +13,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: `${displayName} - Escort en Chile | UZEED`,
       description: `Perfil verificado de ${displayName}. Fotos reales, servicios y contacto directo.`,
-      url: `https://uzeed.cl/profile/${username}`,
+      url: `/profile/${username}`,
       type: "profile",
+      images: [
+        {
+          url: "/brand/isotipo-new.png",
+          width: 720,
+          height: 720,
+          alt: `${displayName} en UZEED`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${displayName} - Escort en Chile | UZEED`,
+      description: `Perfil verificado de ${displayName}. Fotos reales y contacto directo.`,
+      images: ["/brand/isotipo-new.png"],
     },
     robots: { index: true, follow: true },
   };

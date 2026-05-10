@@ -10,8 +10,22 @@ export const metadata: Metadata = {
     title: "Únete a UZEED — La plataforma para creadoras en Chile",
     description:
       "Perfil verificado, contacto directo con clientes, control de tu agenda y tus tarifas. Regístrate gratis y publica en minutos.",
-    url: "https://uzeed.cl/creadoras",
+    url: "/creadoras",
     type: "website",
+    images: [
+      {
+        url: "/brand/isotipo-new.png",
+        width: 720,
+        height: 720,
+        alt: "Únete a UZEED — Creadoras",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Únete a UZEED — Creadoras en Chile",
+    description: "Regístrate gratis y publica tu perfil en minutos.",
+    images: ["/brand/isotipo-new.png"],
   },
   robots: { index: false, follow: false },
 };

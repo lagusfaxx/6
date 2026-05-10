@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'es_CL',
-    url: 'https://uzeed.cl',
+    url: '/',
     siteName: 'UZEED: Escorts y experiencias únicas para adultos',
     title: 'UZEED: Escorts, Acompañantes y Profesionales en Chile',
     description: 'Encuentra escorts, acompañantes y profesionales verificados en Santiago, Las Condes y Viña del Mar. Fotos reales, contacto directo y disponibilidad hoy.',

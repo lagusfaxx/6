@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const images = p.avatarUrl
     ? [{ url: p.avatarUrl, width: 400, height: 400, alt: `${name} - ${category} en ${city}` }]
-    : [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED" }];
+    : [{ url: "/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED" }];
 
   return {
     title,
@@ -79,7 +79,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       description,
-      url: `https://uzeed.cl/profesional/${id}`,
+      url: `/profesional/${id}`,
       type: "profile",
       images,
     },

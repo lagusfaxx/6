@@ -171,9 +171,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Se mantienen solo las landing pages por tag y por ciudad por separado.
 
   // ── Contenido dinámico ──
-  add("/live", "always", 0.85);
+  // /live 302-redirects to live.uzeed.cl whitelabel — excluded from sitemap
+  // /hot 301-redirects to /premium — excluded from sitemap
   add("/foro", "hourly", 0.85);
-  // /hot redirects to /premium — excluded from sitemap
 
   // ── Registro (indexable para captar profesionales) ──
   add("/register", "weekly", 0.7);

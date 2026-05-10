@@ -145,9 +145,10 @@ export default function SeoContent({ variant }: SeoContentProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      {/* Visually hidden but crawlable SEO text at bottom of page */}
+      {/* Crawlable SEO text at bottom of page. Uses h2 to avoid double-h1
+          conflict with DirectoryPage's main heading. */}
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
-        <h1 className="text-xl font-bold text-white/80 mb-3">{data.heading}</h1>
+        <h2 className="text-xl font-bold text-white/80 mb-3">{data.heading}</h2>
         <p className="mb-4">{data.intro}</p>
         {data.sections.map((s, i) => (
           <div key={i} className="mb-4">

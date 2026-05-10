@@ -12,9 +12,15 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Masajistas Eróticas en Chile | UZEED",
     description: "Masajistas eróticas verificadas en Santiago y todo Chile. Masajes tántricos, nuru y sensuales.",
-    url: "https://uzeed.cl/masajistas",
+    url: "/masajistas",
     type: "website",
-    images: [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Masajistas Chile" }],
+    images: [{ url: "/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Masajistas Chile" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Masajistas Eróticas en Chile | UZEED",
+    description: "Masajistas eróticas verificadas en Santiago y todo Chile.",
+    images: ["/brand/isotipo-new.png"],
   },
 };
 

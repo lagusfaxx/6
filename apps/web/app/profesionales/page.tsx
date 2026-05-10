@@ -11,9 +11,15 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Profesionales y Acompañantes en Chile | UZEED",
     description: "Profesionales y acompañantes verificadas en Santiago y todo Chile.",
-    url: "https://uzeed.cl/profesionales",
+    url: "/profesionales",
     type: "website",
-    images: [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Profesionales" }],
+    images: [{ url: "/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Profesionales" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Profesionales y Acompañantes en Chile | UZEED",
+    description: "Profesionales y acompañantes verificadas en Chile.",
+    images: ["/brand/isotipo-new.png"],
   },
 };
 

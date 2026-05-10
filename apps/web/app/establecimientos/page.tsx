@@ -11,9 +11,15 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Establecimientos para Adultos en Chile | UZEED",
     description: "Establecimientos para adultos en Santiago y todo Chile. Moteles, saunas y más.",
-    url: "https://uzeed.cl/establecimientos",
+    url: "/establecimientos",
     type: "website",
-    images: [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Establecimientos" }],
+    images: [{ url: "/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Establecimientos" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Establecimientos para Adultos en Chile | UZEED",
+    description: "Moteles, saunas y más en Santiago y todo Chile.",
+    images: ["/brand/isotipo-new.png"],
   },
 };
 
