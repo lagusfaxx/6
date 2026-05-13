@@ -44,6 +44,7 @@ export default function LocationEditor({
               setField("profileLatitude", String(selection.latitude));
               setField("profileLongitude", String(selection.longitude));
               setField("profileLocationVerified", true);
+              setField("lastProfileGeocoded", selection.placeName);
             }}
             placeholder="Busca y selecciona tu direccion"
             required

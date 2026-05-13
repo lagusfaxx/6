@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { extractMapboxLocation } from "../lib/mapboxFeature";
 
 type Suggestion = {
   id: string;
@@ -8,6 +9,7 @@ type Suggestion = {
   latitude: number;
   longitude: number;
   city: string | null;
+  isCommuneLevel: boolean;
 };
 
 type Props = {
@@ -19,16 +21,6 @@ type Props = {
   onChange: (value: string) => void;
   onSelect: (suggestion: Suggestion) => void;
 };
-
-function extractCity(
-  context: Array<{ id?: string; text?: string }> | undefined,
-) {
-  if (!Array.isArray(context)) return null;
-  const place = context.find((item) =>
-    String(item.id || "").startsWith("place."),
-  );
-  return place?.text ? String(place.text) : null;
-}
 
 export default function MapboxAddressAutocomplete({
   label,
@@ -70,12 +62,15 @@ export default function MapboxAddressAutocomplete({
               feature.center.length < 2
             )
               return null;
+            const loc = extractMapboxLocation(feature);
+            if (loc.latitude == null || loc.longitude == null) return null;
             return {
               id: String(feature.id),
               placeName: String(feature.place_name || ""),
-              longitude: Number(feature.center[0]),
-              latitude: Number(feature.center[1]),
-              city: extractCity(feature.context),
+              longitude: loc.longitude,
+              latitude: loc.latitude,
+              city: loc.city,
+              isCommuneLevel: loc.isCommuneLevel,
             } satisfies Suggestion;
           })
           .filter(Boolean);

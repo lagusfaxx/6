@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { asyncHandler } from "../lib/asyncHandler";
 import { findCategoryByRef } from "../lib/categories";
 import { obfuscateLocation } from "../lib/locationPrivacy";
+import { extractCommuneFromAddress } from "../lib/mapboxFeature";
 import { parseAndNormalizeTags } from "../lib/tags";
 import {
   compareProfessionalLevelDesc,
@@ -200,6 +201,7 @@ directoryRouter.get(
       bio: string | null;
       birthdate: Date | null;
       city: string | null;
+      address: string | null;
       serviceCategory: string | null;
       serviceDescription: string | null;
       services: Array<{
@@ -234,6 +236,7 @@ directoryRouter.get(
           bio: true,
           birthdate: true,
           city: true,
+          address: true,
           serviceCategory: true,
           serviceDescription: true,
           services: {
@@ -280,6 +283,7 @@ directoryRouter.get(
             bio: true,
             birthdate: true,
             city: true,
+            address: true,
             serviceCategory: true,
             serviceDescription: true,
             services: {
@@ -349,6 +353,10 @@ directoryRouter.get(
         areaRadius,
       );
 
+      const locality =
+        (u.city && u.city.trim()) ||
+        extractCommuneFromAddress(u.address) ||
+        null;
       return {
         id: u.id,
         name: u.displayName || u.username,
@@ -357,7 +365,7 @@ directoryRouter.get(
         distance,
         latitude: obfuscated.latitude,
         longitude: obfuscated.longitude,
-        locality: u.city || null,
+        locality,
         approxAreaM: areaRadius,
         isActive: u.isActive,
         tier: u.tier,
@@ -570,6 +578,7 @@ directoryRouter.get(
         acceptsIncalls: true,
         acceptsOutcalls: true,
         city: true,
+        address: true,
         phone: true,
         serviceCategory: true,
         completedServices: true,
@@ -712,7 +721,10 @@ directoryRouter.get(
         age: resolveAge(u.birthdate, u.bio),
         gender: u.gender,
         serviceSummary: u.serviceDescription || u.serviceCategory || null,
-        city: u.city,
+        city:
+          (u.city && String(u.city).trim()) ||
+          extractCommuneFromAddress(u.address) ||
+          null,
         heightCm: u.heightCm,
         weightKg: u.weightKg,
         measurements: u.measurements,
