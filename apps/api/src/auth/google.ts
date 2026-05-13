@@ -212,6 +212,18 @@ googleAuthRouter.get(
       })
       .catch(() => undefined);
 
+    // Re-read to capture 2FA enrolment status. If this admin has TOTP
+    // enrolled, we hold the session in `twoFactorPending` so admin routes
+    // refuse to authorize until /auth/2fa/verify is called.
+    const fullUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true, email: true, twoFactorEnabled: true },
+    });
+    const isAdmin =
+      (fullUser?.role || "").toUpperCase() === "ADMIN" ||
+      fullUser?.email === config.adminEmail;
+    const requires2FA = Boolean(isAdmin && fullUser?.twoFactorEnabled);
+
     // Regenerate session to prevent session fixation, then attach userId.
     await new Promise<void>((resolve, reject) => {
       req.session.regenerate((err) => {
@@ -221,8 +233,20 @@ googleAuthRouter.get(
     });
     req.session.userId = user.id;
     req.session.role = user.role as "USER" | "ADMIN";
+    (req.session as any).twoFactorPending = requires2FA;
     await persistSession(req);
 
+    // Admins with TOTP enabled need to clear the challenge before they can
+    // hit /admin/*. Send them to the dedicated verify page; everyone else
+    // continues to the requested `next` path.
+    if (requires2FA) {
+      return res.redirect(
+        buildFrontendRedirect(`/login?next=${encodeURIComponent(next)}`),
+      );
+    }
+    if (isAdmin && !fullUser?.twoFactorEnabled) {
+      return res.redirect(buildFrontendRedirect("/admin/2fa/setup"));
+    }
     return res.redirect(buildFrontendRedirect(next));
   }),
 );

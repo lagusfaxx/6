@@ -229,13 +229,13 @@ export default function TwoFactorSetupPage() {
                 cada acción crítica del panel.
               </p>
             </div>
-            <Link
+            <a
               href="/admin"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 px-5 py-2.5 text-sm font-medium text-white transition"
             >
               Ir al dashboard
               <ExternalLink className="h-3.5 w-3.5" />
-            </Link>
+            </a>
           </div>
         )}
       </div>

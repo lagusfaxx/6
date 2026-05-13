@@ -183,6 +183,21 @@ export default function AdminIndex() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
   const isAdmin = (user?.role ?? "").toUpperCase() === "ADMIN";
+  const twoFactorPending = Boolean(user?.twoFactorPending);
+  const twoFactorEnabled = Boolean(user?.twoFactorEnabled);
+
+  // Bounce admins who still owe the TOTP challenge (e.g. logged in via
+  // Google OAuth) to /login, which auto-shows the verify form. Admins
+  // without 2FA enrolled go to setup so they cannot use destructive
+  // actions without enrolling first.
+  useEffect(() => {
+    if (loading || !isAdmin) return;
+    if (twoFactorPending) {
+      window.location.replace("/login?next=/admin");
+    } else if (!twoFactorEnabled) {
+      window.location.replace("/admin/2fa/setup");
+    }
+  }, [loading, isAdmin, twoFactorPending, twoFactorEnabled]);
 
   const [metrics, setMetrics] = useState<MetricBundle>(emptyMetrics);
   const [activity, setActivity] = useState<ActivityItem[]>([]);

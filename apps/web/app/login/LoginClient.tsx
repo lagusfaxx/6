@@ -45,6 +45,30 @@ export default function LoginClient() {
     }
   }, [searchParams]);
 
+  // If we land here already authenticated but with a pending TOTP challenge
+  // (typical Google-OAuth-login of an enrolled admin), jump straight to the
+  // verify step. Otherwise leave the credentials form alone so regular users
+  // can log in normally.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch<{ user: { twoFactorPending?: boolean } | null }>(
+          "/auth/me",
+        );
+        if (cancelled) return;
+        if (res.user && res.user.twoFactorPending) {
+          setStage("totp");
+        }
+      } catch {
+        /* not logged in — stay on credentials */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function onGoogleClick() {
     setGoogleLoading(true);
     setError(null);
