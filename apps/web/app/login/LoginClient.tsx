@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, LogIn, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, LogIn, ArrowLeft, ShieldCheck } from "lucide-react";
 import { apiFetch, friendlyErrorMessage, getApiBase, safeRedirect } from "../../lib/api";
 
 const GOOGLE_OAUTH_ERRORS: Record<string, string> = {
@@ -17,6 +17,14 @@ const GOOGLE_OAUTH_ERRORS: Record<string, string> = {
   google_unavailable: "El inicio con Google no está disponible por ahora.",
 };
 
+type LoginResponse = {
+  user?: { role?: string };
+  requires2FA?: boolean;
+  requires2FASetup?: boolean;
+};
+
+type Stage = "credentials" | "totp";
+
 export default function LoginClient() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -26,12 +34,40 @@ export default function LoginClient() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [stage, setStage] = useState<Stage>("credentials");
+  const [totpCode, setTotpCode] = useState("");
+  const [postLoginAction, setPostLoginAction] = useState<"redirect" | "setup">("redirect");
+
   useEffect(() => {
     const oauthError = searchParams.get("oauth_error");
     if (oauthError) {
       setError(GOOGLE_OAUTH_ERRORS[oauthError] || "No pudimos iniciar sesión con Google.");
     }
   }, [searchParams]);
+
+  // If we land here already authenticated but with a pending TOTP challenge
+  // (typical Google-OAuth-login of an enrolled admin), jump straight to the
+  // verify step. Otherwise leave the credentials form alone so regular users
+  // can log in normally.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch<{ user: { twoFactorPending?: boolean } | null }>(
+          "/auth/me",
+        );
+        if (cancelled) return;
+        if (res.user && res.user.twoFactorPending) {
+          setStage("totp");
+        }
+      } catch {
+        /* not logged in — stay on credentials */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function onGoogleClick() {
     setGoogleLoading(true);
@@ -41,23 +77,57 @@ export default function LoginClient() {
     window.location.href = url;
   }
 
+  function redirectAfterLogin() {
+    const next = searchParams.get("next");
+    window.location.replace(safeRedirect(next));
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      await apiFetch("/auth/login", {
+      const res = await apiFetch<LoginResponse>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      const next = searchParams.get("next");
-      window.location.replace(safeRedirect(next));
+      if (res.requires2FA) {
+        setStage("totp");
+        setPostLoginAction("redirect");
+      } else if (res.requires2FASetup) {
+        // Admin without 2FA enrolled — force them through setup before
+        // anything else.
+        window.location.replace("/admin/2fa/setup");
+      } else {
+        redirectAfterLogin();
+      }
     } catch (err: any) {
       if (err?.status === 401) {
         setError("Correo o contraseña incorrectos.");
       } else {
         setError(friendlyErrorMessage(err) || "Error al iniciar sesión");
       }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onTotpSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      await apiFetch("/auth/2fa/verify", {
+        method: "POST",
+        body: JSON.stringify({ code: totpCode.replace(/\s+/g, "") }),
+      });
+      if (postLoginAction === "setup") {
+        window.location.replace("/admin/2fa/setup");
+      } else {
+        redirectAfterLogin();
+      }
+    } catch (err: any) {
+      setError(friendlyErrorMessage(err) || "Código inválido");
     } finally {
       setLoading(false);
     }
@@ -86,6 +156,66 @@ export default function LoginClient() {
         <div className="relative rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
 
+          {stage === "totp" && (
+            <form onSubmit={onTotpSubmit} className="px-8 py-8 grid gap-5">
+              <div className="flex flex-col items-center text-center gap-2">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-fuchsia-500/15">
+                  <ShieldCheck className="h-6 w-6 text-fuchsia-300" />
+                </div>
+                <h2 className="text-lg font-semibold text-white">Verificación en dos pasos</h2>
+                <p className="text-xs text-white/55 max-w-sm">
+                  Ingresa el código de 6 dígitos que aparece en tu app Google Authenticator.
+                </p>
+              </div>
+
+              <input
+                className="input text-center tracking-[0.4em] text-lg"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="000000"
+                maxLength={6}
+                autoFocus
+                required
+              />
+
+              {error && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {error}
+                </div>
+              )}
+
+              <button
+                disabled={loading || totpCode.length !== 6}
+                className="btn-primary w-full py-3.5 text-base flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4" />
+                    Verificar
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStage("credentials");
+                  setTotpCode("");
+                  setError(null);
+                }}
+                className="text-xs text-white/40 hover:text-white/70 transition"
+              >
+                Cancelar y volver
+              </button>
+            </form>
+          )}
+
+          {stage === "credentials" && (
+          <>
           {/* Google sign-in */}
           <div className="px-8 pt-8">
             <button
@@ -208,6 +338,8 @@ export default function LoginClient() {
               Crear cuenta
             </Link>
           </div>
+          </>
+          )}
         </div>
 
         {/* Back to home */}

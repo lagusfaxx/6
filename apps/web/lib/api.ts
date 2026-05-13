@@ -168,6 +168,18 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       body = { error: `HTTP_${res.status}` };
     }
     const msg = (body && (body.error || body.message)) || `HTTP_${res.status}`;
+    // Admin sessions with TOTP enrolled need to clear the challenge before
+    // any /admin/* call succeeds. Bounce them to /login once — the login
+    // page auto-detects the pending challenge and shows the TOTP form.
+    if (
+      typeof window !== "undefined" &&
+      res.status === 401 &&
+      (body?.error === "TWO_FACTOR_PENDING") &&
+      !window.location.pathname.startsWith("/login")
+    ) {
+      const next = window.location.pathname + window.location.search;
+      window.location.replace(`/login?next=${encodeURIComponent(next)}`);
+    }
     throw new ApiHttpError(msg, res.status, body);
   }
   return (await res.json()) as T;

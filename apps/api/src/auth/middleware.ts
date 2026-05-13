@@ -157,6 +157,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
 /**
  * Admin guard: requiere sesión + que el usuario sea ADMIN (por email o por role).
+ *
+ * Además bloquea cualquier endpoint /admin/* cuando el admin tiene 2FA habilitado
+ * pero todavía no resolvió el challenge en esta sesión (`twoFactorPending`).
+ * Las rutas para resolver el challenge están en /auth/2fa/* y no pasan por aquí.
  */
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   // Primero valida sesión / carga (req as any).user
@@ -171,6 +175,13 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
 
     if (!isAdminByEmail && !isAdminByRole) {
       return res.status(403).json({ error: "FORBIDDEN" });
+    }
+
+    if ((req.session as any)?.twoFactorPending) {
+      return res.status(401).json({
+        error: "TWO_FACTOR_PENDING",
+        message: "Verifica tu código de doble factor para continuar.",
+      });
     }
 
     return next();

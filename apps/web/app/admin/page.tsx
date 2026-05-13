@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import useMe from "../../hooks/useMe";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, getApiBase } from "../../lib/api";
 import { connectRealtime } from "../../lib/realtime";
 import {
   Activity,
@@ -18,14 +18,19 @@ import {
   CircleDollarSign,
   Clock,
   CreditCard,
+  Download,
+  FileSpreadsheet,
   LayoutGrid,
   ListChecks,
   MapPin,
+  MessageSquare,
+  PieChart,
   Shield,
   ShieldCheck,
   Store,
   Tag,
   Trash2,
+  TrendingDown,
   TrendingUp,
   User,
   UserCheck,
@@ -33,6 +38,9 @@ import {
   Star,
   Mail,
   Sparkles,
+  Video,
+  Heart,
+  Phone,
 } from "lucide-react";
 
 type MetricBundle = {
@@ -41,6 +49,69 @@ type MetricBundle = {
   pendingDeposits: number;
   pendingWithdrawals: number;
   pendingReports: number;
+};
+
+type OverviewData = {
+  users: {
+    total: number;
+    professionals: number;
+    establishments: number;
+    shops: number;
+    clients: number;
+    newToday: number;
+    newYesterday: number;
+    newThisWeek: number;
+    newThisMonth: number;
+    activeToday: number;
+    activeThisWeek: number;
+    activeProfessionalsToday: number;
+    inactiveProfessionals48h: number;
+    growthVsYesterdayPct: number | null;
+    growthVsPrevWeekPct: number | null;
+  };
+  backlog: {
+    pendingVerifications: number;
+    pendingDeposits: number;
+    pendingWithdrawals: number;
+    pendingProfessionalDocs: number;
+  };
+  revenue: {
+    todayClp: number;
+    weekClp: number;
+    monthClp: number;
+    paidIntentsMonth: number;
+    tokenDepositsApprovedMonth: number;
+    byPurposeMonth: { purpose: string; amountClp: number; count: number }[];
+  };
+  engagement: {
+    messagesWeek: number;
+    messagesPrevWeek: number;
+    messagesGrowthPct: number | null;
+    videocallsWeek: number;
+    serviceRequestsWeek: number;
+    serviceRequestsCompletedWeek: number;
+    favoritesWeek: number;
+    whatsappClicksWeek: number;
+    profileViewsWeek: number;
+    umateActiveSubs: number;
+  };
+  topCities: { city: string | null; count: number }[];
+  topProfessionalsByViews: {
+    id: string;
+    username: string;
+    displayName: string | null;
+    city: string | null;
+    tier: string | null;
+    profileViews: number;
+    completedServices: number;
+  }[];
+  topProfessionalsByEarnings: {
+    id?: string;
+    username?: string;
+    displayName?: string | null;
+    profileType?: string;
+    totalEarnedTokens: number;
+  }[];
 };
 
 type ActivityItem = {
@@ -95,6 +166,7 @@ const NAV_ITEMS = [
   { href: "/admin/privacy-requests", label: "Privacidad", icon: Trash2 },
   { href: "/admin/weekly-highlights", label: "Correo Semanal", icon: Mail },
   { href: "/admin/umate-promo", label: "Promo Umate", icon: Sparkles },
+  { href: "/admin/2fa/setup", label: "Doble factor", icon: ShieldCheck },
 ];
 
 function timeAgo(iso: string): string {
@@ -111,10 +183,27 @@ export default function AdminIndex() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
   const isAdmin = (user?.role ?? "").toUpperCase() === "ADMIN";
+  const twoFactorPending = Boolean(user?.twoFactorPending);
+  const twoFactorEnabled = Boolean(user?.twoFactorEnabled);
+
+  // Bounce admins who still owe the TOTP challenge (e.g. logged in via
+  // Google OAuth) to /login, which auto-shows the verify form. Admins
+  // without 2FA enrolled go to setup so they cannot use destructive
+  // actions without enrolling first.
+  useEffect(() => {
+    if (loading || !isAdmin) return;
+    if (twoFactorPending) {
+      window.location.replace("/login?next=/admin");
+    } else if (!twoFactorEnabled) {
+      window.location.replace("/admin/2fa/setup");
+    }
+  }, [loading, isAdmin, twoFactorPending, twoFactorEnabled]);
 
   const [metrics, setMetrics] = useState<MetricBundle>(emptyMetrics);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [overview, setOverview] = useState<OverviewData | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.readAt).length,
@@ -141,7 +230,18 @@ export default function AdminIndex() {
       }
     };
 
+    const loadOverview = async () => {
+      try {
+        const data = await apiFetch<OverviewData>("/admin/overview");
+        if (!mounted) return;
+        setOverview(data);
+      } catch {
+        if (!mounted) return;
+      }
+    };
+
     load();
+    loadOverview();
     const disconnect = connectRealtime((event) => {
       if (event.type !== "admin_event" || !event.data) return;
       const payload = event.data as any;
@@ -182,6 +282,26 @@ export default function AdminIndex() {
 
     return () => { mounted = false; disconnect(); };
   }, [isAdmin]);
+
+  async function downloadProfessionals(profileType: string) {
+    setExporting(true);
+    try {
+      const base = getApiBase();
+      // The browser will use the existing session cookie. We hit the endpoint
+      // in a hidden anchor instead of fetch() so the file dialog opens
+      // natively with the right name.
+      const url = `${base}/admin/exports/professionals.csv?profileType=${encodeURIComponent(profileType)}`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.rel = "noopener";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      setTimeout(() => setExporting(false), 1200);
+    }
+  }
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-[#0a0b14] text-white/50">Cargando...</div>;
   if (!user) return <div className="flex h-screen items-center justify-center bg-[#0a0b14] text-white/50">Inicia sesion.</div>;
@@ -290,6 +410,178 @@ export default function AdminIndex() {
               <KPICard icon={ArrowUpFromLine} label="Retiros" value={metrics.pendingWithdrawals} accent="blue" badge="pendiente" />
               <KPICard icon={AlertTriangle} label="Reportes" value={metrics.pendingReports} accent="red" badge="pendiente" />
             </div>
+
+            {/* ── Resumen ejecutivo (overview) ── */}
+            {overview && (
+              <section className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold">Resumen ejecutivo</h2>
+                    <p className="text-[11px] text-white/35">Métricas actualizadas de uso, ingresos y crecimiento</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => downloadProfessionals("PROFESSIONAL")}
+                      disabled={exporting}
+                      className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.07] px-3 py-1.5 text-xs font-medium text-emerald-200 hover:bg-emerald-500/[0.12] transition disabled:opacity-50"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                      Exportar profesionales (CSV)
+                    </button>
+                    <button
+                      onClick={() => downloadProfessionals("ALL")}
+                      disabled={exporting}
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs text-white/70 hover:bg-white/[0.08] transition disabled:opacity-50"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Todos los negocios
+                    </button>
+                  </div>
+                </div>
+
+                {/* Composition + Growth */}
+                <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+                  <OverviewKPI
+                    icon={Users}
+                    label="Profesionales"
+                    value={overview.users.professionals}
+                    sub={`${overview.users.activeProfessionalsToday} activas hoy`}
+                    accent="fuchsia"
+                  />
+                  <OverviewKPI
+                    icon={Store}
+                    label="Establecimientos + Tiendas"
+                    value={overview.users.establishments + overview.users.shops}
+                    sub={`${overview.users.establishments} hosp. · ${overview.users.shops} tiendas`}
+                    accent="cyan"
+                  />
+                  <OverviewKPI
+                    icon={User}
+                    label="Clientes"
+                    value={overview.users.clients}
+                    sub={`${overview.users.newThisMonth} nuevos este mes`}
+                    accent="blue"
+                  />
+                  <OverviewKPI
+                    icon={TrendingUp}
+                    label="Nuevos hoy"
+                    value={overview.users.newToday}
+                    sub={formatDelta(overview.users.growthVsYesterdayPct, "vs ayer")}
+                    accent={(overview.users.growthVsYesterdayPct || 0) >= 0 ? "emerald" : "red"}
+                  />
+                </div>
+
+                {/* Revenue */}
+                <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+                  <OverviewKPI
+                    icon={CircleDollarSign}
+                    label="Ingresos hoy"
+                    value={overview.revenue.todayClp}
+                    money
+                    accent="emerald"
+                  />
+                  <OverviewKPI
+                    icon={CircleDollarSign}
+                    label="Ingresos 7 días"
+                    value={overview.revenue.weekClp}
+                    money
+                    accent="emerald"
+                  />
+                  <OverviewKPI
+                    icon={CircleDollarSign}
+                    label="Ingresos 30 días"
+                    value={overview.revenue.monthClp}
+                    money
+                    accent="emerald"
+                    sub={`${overview.revenue.paidIntentsMonth} pagos · ${overview.revenue.tokenDepositsApprovedMonth} cargas`}
+                  />
+                  <OverviewKPI
+                    icon={Sparkles}
+                    label="U-Mate activas"
+                    value={overview.engagement.umateActiveSubs}
+                    accent="violet"
+                    sub={`${overview.engagement.profileViewsWeek} vistas/sem`}
+                  />
+                </div>
+
+                {/* Engagement */}
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                  <MiniMetric icon={MessageSquare} label="Mensajes 7d" value={overview.engagement.messagesWeek} delta={overview.engagement.messagesGrowthPct} color="blue" />
+                  <MiniMetric icon={Video} label="Videollamadas 7d" value={overview.engagement.videocallsWeek} color="fuchsia" />
+                  <MiniMetric icon={Users} label="Encuentros 7d" value={overview.engagement.serviceRequestsWeek} sub={`${overview.engagement.serviceRequestsCompletedWeek} cerrados`} color="violet" />
+                  <MiniMetric icon={Heart} label="Favoritos 7d" value={overview.engagement.favoritesWeek} color="pink" />
+                  <MiniMetric icon={Phone} label="WhatsApp 7d" value={overview.engagement.whatsappClicksWeek} color="emerald" />
+                  <MiniMetric icon={Users} label="Nuevos 7d" value={overview.users.newThisWeek} delta={overview.users.growthVsPrevWeekPct} color="amber" />
+                </div>
+
+                {/* Top performers + cities */}
+                <div className="grid gap-4 lg:grid-cols-3">
+                  <RankCard
+                    title="Profesionales más vistas"
+                    icon={TrendingUp}
+                    rows={overview.topProfessionalsByViews.slice(0, 8).map((p) => ({
+                      label: p.displayName || p.username,
+                      sub: [p.city || "", p.tier || ""].filter(Boolean).join(" · "),
+                      value: `${p.profileViews.toLocaleString("es-CL")} vistas`,
+                    }))}
+                    emptyText="Sin datos todavía"
+                  />
+                  <RankCard
+                    title="Top ingresos en tokens"
+                    icon={CircleDollarSign}
+                    rows={overview.topProfessionalsByEarnings
+                      .filter((w) => (w.totalEarnedTokens || 0) > 0)
+                      .slice(0, 8)
+                      .map((w) => ({
+                        label: w.displayName || w.username || "—",
+                        sub: w.profileType || "",
+                        value: `${(w.totalEarnedTokens || 0).toLocaleString("es-CL")} tk`,
+                      }))}
+                    emptyText="Aún no hay tokens generados"
+                  />
+                  <RankCard
+                    title="Ciudades con más profesionales"
+                    icon={MapPin}
+                    rows={overview.topCities.slice(0, 8).map((c) => ({
+                      label: c.city || "Sin ciudad",
+                      sub: "",
+                      value: `${c.count}`,
+                    }))}
+                    emptyText="Sin datos geográficos"
+                  />
+                </div>
+
+                {/* Health / backlog */}
+                <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+                  <OverviewKPI
+                    icon={ShieldCheck}
+                    label="Inactivas 48h+"
+                    value={overview.users.inactiveProfessionals48h}
+                    sub={`de ${overview.users.professionals} profesionales`}
+                    accent="amber"
+                  />
+                  <OverviewKPI
+                    icon={ListChecks}
+                    label="Docs por revisar"
+                    value={overview.backlog.pendingProfessionalDocs}
+                    accent="violet"
+                  />
+                  <OverviewKPI
+                    icon={UserCheck}
+                    label="Verificaciones pend."
+                    value={overview.backlog.pendingVerifications}
+                    accent="amber"
+                  />
+                  <OverviewKPI
+                    icon={ArrowDownToLine}
+                    label="Cobros pendientes"
+                    value={overview.backlog.pendingDeposits + overview.backlog.pendingWithdrawals}
+                    sub={`${overview.backlog.pendingDeposits} dep. · ${overview.backlog.pendingWithdrawals} ret.`}
+                    accent="blue"
+                  />
+                </div>
+              </section>
+            )}
 
             {/* ── Quick Actions Grid ── */}
             <div>
@@ -463,4 +755,134 @@ function NotifIcon({ type }: { type: string }) {
   if (type === "content_reported") return <Shield className="h-3.5 w-3.5 text-red-400/60" />;
   if (type === "deletion_requested") return <Trash2 className="h-3.5 w-3.5 text-red-400/60" />;
   return <Bell className="h-3.5 w-3.5 text-white/30" />;
+}
+
+function OverviewKPI({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  accent,
+  money,
+}: {
+  icon: any;
+  label: string;
+  value: number;
+  sub?: string;
+  accent: string;
+  money?: boolean;
+}) {
+  const colors: Record<string, { bg: string; text: string; icon: string }> = {
+    fuchsia: { bg: "border-fuchsia-500/15 bg-fuchsia-500/[0.06]", text: "text-fuchsia-200", icon: "text-fuchsia-400/70" },
+    violet: { bg: "border-violet-500/15 bg-violet-500/[0.06]", text: "text-violet-200", icon: "text-violet-400/70" },
+    blue: { bg: "border-blue-500/15 bg-blue-500/[0.06]", text: "text-blue-200", icon: "text-blue-400/70" },
+    emerald: { bg: "border-emerald-500/15 bg-emerald-500/[0.06]", text: "text-emerald-200", icon: "text-emerald-400/70" },
+    amber: { bg: "border-amber-500/15 bg-amber-500/[0.06]", text: "text-amber-200", icon: "text-amber-400/70" },
+    cyan: { bg: "border-cyan-500/15 bg-cyan-500/[0.06]", text: "text-cyan-200", icon: "text-cyan-400/70" },
+    red: { bg: "border-red-500/15 bg-red-500/[0.06]", text: "text-red-200", icon: "text-red-400/70" },
+  };
+  const c = colors[accent] || colors.fuchsia;
+  const display = money
+    ? `$${(value || 0).toLocaleString("es-CL")}`
+    : (value || 0).toLocaleString("es-CL");
+  return (
+    <div className={`rounded-xl border ${c.bg} p-3 sm:p-4`}>
+      <Icon className={`h-4 w-4 ${c.icon} mb-2`} />
+      <p className={`text-xl sm:text-2xl font-bold tabular-nums ${c.text}`}>{display}</p>
+      <p className="text-[11px] text-white/45 mt-0.5 truncate">{label}</p>
+      {sub && <p className="text-[10px] text-white/30 mt-0.5 truncate">{sub}</p>}
+    </div>
+  );
+}
+
+function MiniMetric({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  delta,
+  color,
+}: {
+  icon: any;
+  label: string;
+  value: number;
+  sub?: string;
+  delta?: number | null;
+  color: string;
+}) {
+  const colorMap: Record<string, string> = {
+    blue: "text-blue-400/70",
+    fuchsia: "text-fuchsia-400/70",
+    violet: "text-violet-400/70",
+    pink: "text-pink-400/70",
+    emerald: "text-emerald-400/70",
+    amber: "text-amber-400/70",
+  };
+  const showDelta = typeof delta === "number" && Number.isFinite(delta);
+  const deltaPositive = (delta || 0) >= 0;
+  return (
+    <div className="flex flex-col gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3">
+      <div className="flex items-center gap-2">
+        <Icon className={`h-3.5 w-3.5 ${colorMap[color] || "text-white/30"}`} />
+        <span className="text-[11px] text-white/45 truncate">{label}</span>
+      </div>
+      <div className="flex items-end justify-between gap-2">
+        <span className="text-lg font-bold tabular-nums">{value.toLocaleString("es-CL")}</span>
+        {showDelta && (
+          <span
+            className={`flex items-center gap-0.5 text-[10px] font-semibold ${
+              deltaPositive ? "text-emerald-300" : "text-red-300"
+            }`}
+          >
+            {deltaPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            {Math.round(Math.abs(delta!))}%
+          </span>
+        )}
+      </div>
+      {sub && <p className="text-[10px] text-white/30 truncate">{sub}</p>}
+    </div>
+  );
+}
+
+function RankCard({
+  title,
+  icon: Icon,
+  rows,
+  emptyText,
+}: {
+  title: string;
+  icon: any;
+  rows: { label: string; sub?: string; value: string }[];
+  emptyText: string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-3">
+        <Icon className="h-3.5 w-3.5 text-fuchsia-400/60" />
+        <h3 className="text-sm font-semibold">{title}</h3>
+      </div>
+      {rows.length === 0 ? (
+        <div className="px-4 py-8 text-center text-xs text-white/30">{emptyText}</div>
+      ) : (
+        <ul className="divide-y divide-white/[0.04]">
+          {rows.map((row, idx) => (
+            <li key={`${row.label}-${idx}`} className="flex items-center gap-3 px-4 py-2.5">
+              <span className="w-5 text-center text-[11px] font-semibold text-white/30 tabular-nums">{idx + 1}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] text-white/80 truncate">{row.label}</p>
+                {row.sub && <p className="text-[10px] text-white/30 truncate">{row.sub}</p>}
+              </div>
+              <span className="text-xs font-semibold text-white/70 tabular-nums">{row.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function formatDelta(pct: number | null | undefined, suffix: string): string {
+  if (pct === null || pct === undefined || !Number.isFinite(pct)) return "vs ayer: —";
+  const rounded = Math.round(pct);
+  return `${rounded >= 0 ? "+" : ""}${rounded}% ${suffix}`;
 }
