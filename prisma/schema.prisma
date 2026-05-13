@@ -445,6 +445,10 @@ model User {
   adminQualityScore   Float?
   passwordSetToken          String?
   passwordSetTokenExpiresAt DateTime?
+  twoFactorSecret           String?
+  twoFactorEnabled          Boolean           @default(false)
+  twoFactorEnrolledAt       DateTime?
+  twoFactorLastUsedStep     BigInt?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 

@@ -18,6 +18,7 @@ import { sendSetPasswordEmail, consumeVerifiedEmail } from "./verification";
 import { createFlowPayment } from "../khipu/client";
 import { createProfessionalUser, InsufficientGalleryPhotosError } from "./createProfessional";
 import { googleAuthRouter } from "./google";
+import { twoFactorRouter } from "./twoFactor";
 import {
   createProfessionalForumThread,
   geocodeAddress,
@@ -37,6 +38,9 @@ export const authRouter = Router();
 // Google OAuth (public, no password). Mounted before other routes so the
 // /auth/google/* paths don't get caught by anything else.
 authRouter.use(googleAuthRouter);
+
+// Two-factor authentication endpoints (TOTP / Google Authenticator).
+authRouter.use(twoFactorRouter);
 
 function persistSession(req: any): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -669,6 +673,17 @@ authRouter.post(
 
     req.session.userId = user.id;
     req.session.role = user.role;
+
+    // 2FA enforcement for admins: if the account is an admin (by role or by
+    // configured admin email) and has TOTP enrolled, hold the session in a
+    // "pending" state. requireAdmin will refuse to authorize admin routes
+    // until POST /auth/2fa/verify clears the flag.
+    const isAdmin =
+      (user.role || "").toUpperCase() === "ADMIN" || user.email === config.adminEmail;
+    const requires2FA = isAdmin && (user as any).twoFactorEnabled === true;
+    const requires2FASetup = isAdmin && !((user as any).twoFactorEnabled === true);
+    (req.session as any).twoFactorPending = requires2FA;
+
     await persistSession(req);
 
     await prisma.user.update({
@@ -689,6 +704,8 @@ authRouter.post(
         membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null,
         isVerified: (user as any).isVerified ?? true,
       },
+      requires2FA,
+      requires2FASetup,
     });
   }),
 );
@@ -775,6 +792,7 @@ authRouter.get(
       allowFreeMessages: true,
       birthdate: true,
       isVerified: true,
+      twoFactorEnabled: true,
     };
     const extendedSelect = {
       ...baseSelect,
@@ -831,6 +849,7 @@ authRouter.get(
         shopTrialEndsAt: user.shopTrialEndsAt?.toISOString() || null,
         subscriptionActive,
         requiresPayment,
+        twoFactorPending: Boolean((req.session as any).twoFactorPending),
       },
     });
   }),

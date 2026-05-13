@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import MfaConfirmDialog from "../../../components/MfaConfirmDialog";
 import {
   ArrowLeft,
   Trash2,
@@ -78,6 +79,7 @@ export default function AdminBannersPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   async function loadBanners() {
@@ -234,16 +236,17 @@ export default function AdminBannersPage() {
     }
   }
 
-  async function remove(id: string) {
-    if (!confirm("¿Eliminar este banner permanentemente?")) return;
+  async function remove(id: string, mfaCode: string) {
     setBusy(true);
     setError(null);
     try {
-      await apiFetch(`/admin/banners/${id}`, { method: "DELETE" });
+      await apiFetch(`/admin/banners/${id}`, {
+        method: "DELETE",
+        headers: { "x-2fa-code": mfaCode },
+      });
       setSuccess("Banner eliminado.");
+      setRemoveTarget(null);
       await loadBanners();
-    } catch {
-      setError("No se pudo eliminar.");
     } finally {
       setBusy(false);
     }
@@ -381,7 +384,7 @@ export default function AdminBannersPage() {
         <div className="mt-6">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/70"><Eye className="h-4 w-4 text-emerald-400" /> Activos ({activeBanners.length})</h3>
           <div className="space-y-3">
-            {activeBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={remove} onReplaceProfile={replaceProfile} onUpdateTier={updateTier} />)}
+            {activeBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={(id) => setRemoveTarget(id)} onReplaceProfile={replaceProfile} onUpdateTier={updateTier} />)}
           </div>
         </div>
       )}
@@ -390,10 +393,22 @@ export default function AdminBannersPage() {
         <div className="mt-6">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/70"><EyeOff className="h-4 w-4 text-white/30" /> Desactivados ({inactiveBanners.length})</h3>
           <div className="space-y-3">
-            {inactiveBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={remove} onReplaceProfile={replaceProfile} onUpdateTier={updateTier} />)}
+            {inactiveBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={(id) => setRemoveTarget(id)} onReplaceProfile={replaceProfile} onUpdateTier={updateTier} />)}
           </div>
         </div>
       )}
+
+      <MfaConfirmDialog
+        open={removeTarget !== null}
+        title="Eliminar banner"
+        description="Ingresa el código de Google Authenticator para confirmar la eliminación."
+        confirmLabel="Eliminar"
+        destructive
+        onCancel={() => setRemoveTarget(null)}
+        onConfirm={async (code) => {
+          if (removeTarget) await remove(removeTarget, code);
+        }}
+      />
     </div>
   );
 }

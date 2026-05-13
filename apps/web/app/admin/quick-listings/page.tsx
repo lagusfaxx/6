@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import MfaConfirmDialog from "../../../components/MfaConfirmDialog";
 import {
   ArrowLeft,
   Plus,
@@ -63,6 +64,8 @@ export default function AdminQuickListingsPage() {
   const [uploading, setUploading] = useState<string | null>(null);
   const [urlInputOpen, setUrlInputOpen] = useState<string | null>(null);
   const [urlInputValue, setUrlInputValue] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deletePhotoTarget, setDeletePhotoTarget] = useState<{ id: string; url: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetId = useRef<string | null>(null);
 
@@ -173,15 +176,16 @@ export default function AdminQuickListingsPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Eliminar este listado?")) return;
+  async function handleDelete(id: string, mfaCode: string) {
     setBusy(true);
     try {
-      await apiFetch(`/admin/quick-listings/${id}`, { method: "DELETE" });
+      await apiFetch(`/admin/quick-listings/${id}`, {
+        method: "DELETE",
+        headers: { "x-2fa-code": mfaCode },
+      });
       setSuccess("Eliminado");
+      setDeleteTarget(null);
       await loadData();
-    } catch {
-      setError("Error al eliminar");
     } finally {
       setBusy(false);
     }
@@ -235,16 +239,16 @@ export default function AdminQuickListingsPage() {
     }
   }
 
-  async function handleDeletePhoto(id: string, url: string) {
+  async function handleDeletePhoto(id: string, url: string, mfaCode: string) {
     setUploading(id);
     try {
       await apiFetch(`/admin/quick-listings/${id}/gallery`, {
         method: "DELETE",
+        headers: { "x-2fa-code": mfaCode },
         body: JSON.stringify({ url }),
       });
+      setDeletePhotoTarget(null);
       await loadData();
-    } catch {
-      setError("Error al eliminar foto");
     } finally {
       setUploading(null);
     }
@@ -501,7 +505,7 @@ export default function AdminQuickListingsPage() {
                     <Pencil className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => handleDelete(item.id)}
+                    onClick={() => setDeleteTarget(item.id)}
                     className="rounded-lg border border-red-500/20 p-2 text-red-400 hover:bg-red-500/10"
                     title="Eliminar"
                   >
@@ -549,7 +553,7 @@ export default function AdminQuickListingsPage() {
                       />
                       <button
                         type="button"
-                        onClick={() => handleDeletePhoto(item.id, url)}
+                        onClick={() => setDeletePhotoTarget({ id: item.id, url })}
                         className="absolute right-0.5 top-0.5 hidden rounded-full bg-black/70 p-0.5 text-red-400 hover:text-red-300 group-hover:block"
                         title="Eliminar foto"
                       >
@@ -563,6 +567,32 @@ export default function AdminQuickListingsPage() {
           ))}
         </div>
       )}
+
+      <MfaConfirmDialog
+        open={deleteTarget !== null}
+        title="Eliminar listado"
+        description="Acción permanente. Ingresa el código de Google Authenticator para confirmar."
+        confirmLabel="Eliminar"
+        destructive
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={async (code) => {
+          if (deleteTarget) await handleDelete(deleteTarget, code);
+        }}
+      />
+
+      <MfaConfirmDialog
+        open={deletePhotoTarget !== null}
+        title="Eliminar foto del listado"
+        description="Ingresa el código de Google Authenticator para eliminar la foto."
+        confirmLabel="Eliminar foto"
+        destructive
+        onCancel={() => setDeletePhotoTarget(null)}
+        onConfirm={async (code) => {
+          if (deletePhotoTarget) {
+            await handleDeletePhoto(deletePhotoTarget.id, deletePhotoTarget.url, code);
+          }
+        }}
+      />
     </div>
   );
 }

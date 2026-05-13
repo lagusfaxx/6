@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { cachedApiFetch } from "../lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { apiFetch, cachedApiFetch } from "../lib/api";
 
 type MeUser = {
   id: string;
@@ -17,11 +17,24 @@ type MeUser = {
   preferenceGender?: string | null;
   address?: string | null;
   birthdate?: string | null;
+  twoFactorEnabled?: boolean;
+  twoFactorPending?: boolean;
 };
 
 export default function useMe() {
   const [me, setMe] = useState<{ user: MeUser } | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const r = await apiFetch<{ user: MeUser }>("/auth/me");
+      setMe(r);
+      return r;
+    } catch {
+      setMe(null);
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -43,5 +56,5 @@ export default function useMe() {
     };
   }, []);
 
-  return { me, loading };
+  return { me, loading, refresh };
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch } from "../../../lib/api";
 import Avatar from "../../../components/Avatar";
+import MfaConfirmDialog from "../../../components/MfaConfirmDialog";
 import {
   ArrowLeft,
   Search,
@@ -18,7 +19,6 @@ import {
   Eye,
   Shield,
   Loader2,
-  AlertTriangle,
 } from "lucide-react";
 
 type Profile = {
@@ -137,16 +137,17 @@ export default function AdminProfilesPage() {
     }
   }
 
-  async function deleteProfile(id: string) {
+  async function deleteProfile(id: string, mfaCode: string) {
     setBusy(id);
     setError(null);
     try {
-      await apiFetch(`/admin/profiles/${id}`, { method: "DELETE" });
+      await apiFetch(`/admin/profiles/${id}`, {
+        method: "DELETE",
+        headers: { "x-2fa-code": mfaCode },
+      });
       setSuccess("Perfil eliminado permanentemente.");
       setDeleteConfirm(null);
       await loadProfiles();
-    } catch {
-      setError("No se pudo eliminar el perfil.");
     } finally {
       setBusy(null);
     }
@@ -476,31 +477,6 @@ export default function AdminProfilesPage() {
                 </button>
               </div>
 
-              {/* Delete confirmation */}
-              {deleteConfirm === p.id && (
-                <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3">
-                  <div className="flex items-center gap-2 text-sm text-red-200">
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
-                    <span>¿Eliminar permanentemente a <strong>{p.displayName || p.username}</strong>? Esta acción no se puede deshacer.</span>
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      disabled={busy === p.id}
-                      onClick={() => deleteProfile(p.id)}
-                      className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-                    >
-                      {busy === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                      Sí, eliminar
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirm(null)}
-                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 transition"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           ))
         )}
@@ -532,6 +508,20 @@ export default function AdminProfilesPage() {
           </div>
         </div>
       )}
+
+      <MfaConfirmDialog
+        open={deleteConfirm !== null}
+        title="Eliminar perfil"
+        description="Esta acción es permanente. Ingresa tu código de Google Authenticator para confirmar la eliminación."
+        confirmLabel="Eliminar definitivamente"
+        destructive
+        onCancel={() => setDeleteConfirm(null)}
+        onConfirm={async (code) => {
+          if (deleteConfirm) {
+            await deleteProfile(deleteConfirm, code);
+          }
+        }}
+      />
     </div>
   );
 }

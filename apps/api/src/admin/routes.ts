@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db";
 import { requireAdmin } from "../auth/middleware";
+import { requireFresh2FA } from "../auth/twoFactor";
 import { CreatePostSchema } from "@uzeed/shared";
 import multer from "multer";
 import path from "path";
@@ -296,6 +297,7 @@ adminRouter.put(
 
 adminRouter.delete(
   "/posts/:id",
+  requireFresh2FA,
   asyncHandler(async (req, res) => {
     await prisma.post.delete({ where: { id: req.params.id } });
     return res.json({ ok: true });
@@ -505,6 +507,7 @@ adminRouter.put(
 
 adminRouter.delete(
   "/profiles/:id",
+  requireFresh2FA,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const user = await prisma.user.findUnique({ where: { id } });
@@ -1002,6 +1005,7 @@ adminRouter.put(
 
 adminRouter.delete(
   "/banners/:id",
+  requireFresh2FA,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     await prisma.banner.delete({ where: { id } });
@@ -1160,6 +1164,7 @@ adminRouter.put(
 
 adminRouter.delete(
   "/quick-listings/:id",
+  requireFresh2FA,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     await prisma.establishment.delete({ where: { id } });
@@ -1188,6 +1193,7 @@ adminRouter.post(
 
 adminRouter.delete(
   "/quick-listings/:id/gallery",
+  requireFresh2FA,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { url } = req.body ?? {};
@@ -1427,6 +1433,7 @@ adminRouter.put(
 
 adminRouter.delete(
   "/quick-professionals/:id",
+  requireFresh2FA,
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const user = await prisma.user.findUnique({ where: { id }, select: { adminManaged: true } });
@@ -1701,6 +1708,7 @@ adminRouter.post(
 
 adminRouter.delete(
   "/quick-professionals/:id/media/:mediaId",
+  requireFresh2FA,
   asyncHandler(async (req, res) => {
     const { id, mediaId } = req.params;
 
