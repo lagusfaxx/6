@@ -17,6 +17,7 @@ import {
   type DashboardFormContextValue,
 } from "../../../hooks/useDashboardForm";
 import StudioLayout from "./_components/StudioLayout";
+import { extractMapboxLocation } from "../../../lib/mapboxFeature";
 
 /* ─── Utilities ─── */
 
@@ -347,18 +348,14 @@ export default function DashboardServicesClient() {
         const data = await res.json();
         const feature = data?.features?.[0];
         if (!feature?.center) throw new Error("NO_RESULTS");
-        const contexts: Array<{ id: string; text: string }> =
-          feature.context || [];
-        const locality =
-          contexts.find((c) => c.id.includes("neighborhood"))?.text ||
-          contexts.find((c) => c.id.includes("locality"))?.text ||
-          contexts.find((c) => c.id.includes("place"))?.text ||
-          "";
+        const loc = extractMapboxLocation(feature);
+        if (loc.latitude == null || loc.longitude == null)
+          throw new Error("NO_RESULTS");
         setMany({
-          serviceLongitude: String(feature.center[0]),
-          serviceLatitude: String(feature.center[1]),
+          serviceLongitude: String(loc.longitude),
+          serviceLatitude: String(loc.latitude),
           serviceAddress: feature.place_name || state.serviceAddress,
-          serviceLocality: locality,
+          serviceLocality: loc.city || "",
           serviceVerified: true,
           geocodeError: null,
           lastGeocoded: addressQuery,
@@ -407,18 +404,14 @@ export default function DashboardServicesClient() {
         const data = await res.json();
         const feature = data?.features?.[0];
         if (!feature?.center) throw new Error("NO_RESULTS");
-        const contexts: Array<{ id: string; text: string }> =
-          feature.context || [];
-        const locality =
-          contexts.find((c) => c.id.includes("neighborhood"))?.text ||
-          contexts.find((c) => c.id.includes("locality"))?.text ||
-          contexts.find((c) => c.id.includes("place"))?.text ||
-          "";
+        const loc = extractMapboxLocation(feature);
+        if (loc.latitude == null || loc.longitude == null)
+          throw new Error("NO_RESULTS");
         setMany({
-          profileLongitude: String(feature.center[0]),
-          profileLatitude: String(feature.center[1]),
+          profileLongitude: String(loc.longitude),
+          profileLatitude: String(loc.latitude),
           address: feature.place_name || state.address,
-          city: locality || state.city,
+          city: loc.city || state.city,
           profileLocationVerified: true,
           profileGeocodeError: null,
           lastProfileGeocoded: addressQuery,

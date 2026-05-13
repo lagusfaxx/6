@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
+import { extractMapboxLocation } from "../../../lib/mapboxFeature";
 
 type Dashboard = { profile: any; rooms: any[]; promotions: any[]; bookings: any[] };
 type TabKey = "overview" | "profile" | "location" | "rooms" | "promos" | "bookings";
@@ -190,7 +191,10 @@ export default function MotelDashboardPage() {
       const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(profileDraft.address)}.json?access_token=${token}&limit=1&language=es`);
       const first = (await res.json())?.features?.[0];
       if (first?.center?.length) {
-        setProfileDraft((prev) => ({ ...prev, longitude: String(first.center[0]), latitude: String(first.center[1]), address: first.place_name || prev.address }));
+        const loc = extractMapboxLocation(first);
+        if (loc.latitude != null && loc.longitude != null) {
+          setProfileDraft((prev) => ({ ...prev, longitude: String(loc.longitude), latitude: String(loc.latitude), address: first.place_name || prev.address }));
+        }
       }
     } finally {
       setGeocodeBusy(false);

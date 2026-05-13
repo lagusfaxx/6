@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import useMe from "../../../hooks/useMe";
 import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
+import { extractMapboxLocation } from "../../../lib/mapboxFeature";
 
 /* ── Types ── */
 type ProductMedia = { id: string; url: string; pos: number };
@@ -223,16 +224,12 @@ export default function ShopDashboardClient() {
       const data = await res.json();
       const feature = data?.features?.[0];
       if (!feature?.center) throw new Error("NO_RESULTS");
-      const contexts: Array<{ id: string; text: string }> = feature.context || [];
-      const loc =
-        contexts.find((c) => c.id.includes("neighborhood"))?.text ||
-        contexts.find((c) => c.id.includes("locality"))?.text ||
-        contexts.find((c) => c.id.includes("place"))?.text ||
-        "";
-      setLongitude(String(feature.center[0]));
-      setLatitude(String(feature.center[1]));
+      const result = extractMapboxLocation(feature);
+      if (result.latitude == null || result.longitude == null) throw new Error("NO_RESULTS");
+      setLongitude(String(result.longitude));
+      setLatitude(String(result.latitude));
       setAddress(feature.place_name || q);
-      if (loc) setCity(loc);
+      if (result.city) setCity(result.city);
       setLocationVerified(true);
     } catch {
       setGeocodeError("No se encontró la dirección.");

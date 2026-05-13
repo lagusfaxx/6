@@ -1,4 +1,5 @@
 import { prisma } from "../db";
+import { extractMapboxLocation } from "../lib/mapboxFeature";
 
 function normalizeForumCategoryInput(value: string | null | undefined) {
   return String(value || "")
@@ -97,17 +98,12 @@ export async function geocodeAddress(address: string) {
     const payload = await response.json();
     const first = payload?.features?.[0];
     if (!first?.center || first.center.length < 2) return null;
-    const city = Array.isArray(first.context)
-      ? String(
-          first.context.find((c: any) =>
-            String(c.id || "").startsWith("place."),
-          )?.text || "",
-        ).trim() || null
-      : null;
+    const loc = extractMapboxLocation(first);
+    if (loc.latitude == null || loc.longitude == null) return null;
     return {
-      longitude: Number(first.center[0]),
-      latitude: Number(first.center[1]),
-      city,
+      longitude: loc.longitude,
+      latitude: loc.latitude,
+      city: loc.city,
     };
   } catch {
     return null;
