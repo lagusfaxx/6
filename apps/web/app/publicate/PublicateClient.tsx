@@ -147,7 +147,7 @@ export default function PublicateClient() {
   const isStep2Valid =
     data.profileTags.length >= 1 &&
     data.serviceTags.length >= 1 &&
-    Number(data.baseRate) > 0 &&
+    Number(data.baseRate) >= 1000 &&
     data.address.trim().length >= 6 &&
     data.latitude !== null &&
     data.longitude !== null &&
@@ -434,7 +434,8 @@ export default function PublicateClient() {
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Tarifa base (CLP) *</label>
-                <input type="number" className={inputClass} placeholder="Ej: 50000" min={0} value={data.baseRate} onChange={(e) => update({ baseRate: e.target.value })} />
+                <input type="number" className={inputClass} placeholder="Ej: 50000" min={1000} step={1000} value={data.baseRate} onChange={(e) => update({ baseRate: e.target.value })} />
+                <p className="mt-1 text-[10px] text-white/35">Mínimo $1.000 CLP. Recuerda usar el monto completo (ej: 40000, no 40).</p>
               </div>
               <div>
                 <label className={labelClass}>Duración mín. (min)</label>
