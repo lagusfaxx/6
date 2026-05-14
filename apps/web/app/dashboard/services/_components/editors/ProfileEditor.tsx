@@ -170,7 +170,7 @@ export default function ProfileEditor() {
         <SectionHeader icon={DollarSign} title="Tarifas y disponibilidad" subtitle="Precios y horarios" />
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <FloatingInput label="Tarifa base (CLP)" value={state.baseRate} onChange={(v) => setField("baseRate", v)} type="number" min="0" />
+            <FloatingInput label="Tarifa base (CLP)" value={state.baseRate} onChange={(v) => setField("baseRate", v)} type="number" min="1000" hint="Mínimo $1.000 (recuerda el monto completo, ej: 40000)." />
             <FloatingInput label="Duración mínima (min)" value={state.minDurationMinutes} onChange={(v) => setField("minDurationMinutes", v)} type="number" min="0" />
           </div>
 

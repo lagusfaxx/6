@@ -627,6 +627,26 @@ async function updateProfile(req: any, res: any) {
       safeBirthdate = parsed;
     }
   }
+
+  const MIN_BASE_RATE = 1000;
+  if (
+    baseRate !== undefined &&
+    baseRate !== null &&
+    baseRate !== ""
+  ) {
+    const parsedBaseRate = Number(baseRate);
+    if (
+      Number.isFinite(parsedBaseRate) &&
+      parsedBaseRate > 0 &&
+      parsedBaseRate < MIN_BASE_RATE
+    ) {
+      return res.status(400).json({
+        error: "BASE_RATE_TOO_LOW",
+        message: `La tarifa base mínima es $${MIN_BASE_RATE.toLocaleString("es-CL")} CLP.`,
+      });
+    }
+  }
+
   const baseData: Record<string, unknown> = {
     displayName: displayName ?? undefined,
     bio: bio ?? undefined,

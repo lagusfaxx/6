@@ -111,7 +111,11 @@ export const quickRegisterSchema = z.object({
   birthYear: z.string().optional(),
   profileTags: z.string().optional(),
   serviceTags: z.string().optional(),
-  baseRate: z.number().int().min(0).optional(),
+  baseRate: z
+    .number()
+    .int()
+    .min(1000, "La tarifa base mínima es $1.000 CLP.")
+    .optional(),
   minDurationMinutes: z.number().int().min(0).optional(),
   acceptsIncalls: z.boolean().optional(),
   acceptsOutcalls: z.boolean().optional(),
