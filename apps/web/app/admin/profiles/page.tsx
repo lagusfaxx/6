@@ -19,6 +19,9 @@ import {
   Eye,
   Shield,
   Loader2,
+  DollarSign,
+  Check,
+  Pencil,
 } from "lucide-react";
 
 type Profile = {
@@ -40,6 +43,7 @@ type Profile = {
   membershipExpiresAt: string | null;
   completedServices: number;
   profileViews: number;
+  baseRate: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -75,6 +79,8 @@ export default function AdminProfilesPage() {
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [rateEditing, setRateEditing] = useState<string | null>(null);
+  const [rateInput, setRateInput] = useState("");
 
   const loadProfiles = useCallback(async () => {
     setError(null);
@@ -194,6 +200,63 @@ export default function AdminProfilesPage() {
     } catch {
       setProfiles(prevProfiles);
       setError("No se pudo actualizar el tier del perfil.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function startEditingRate(profile: Profile) {
+    setRateEditing(profile.id);
+    setRateInput(profile.baseRate != null ? String(profile.baseRate) : "");
+    setError(null);
+  }
+
+  function cancelEditingRate() {
+    setRateEditing(null);
+    setRateInput("");
+  }
+
+  async function saveBaseRate(profile: Profile) {
+    const trimmed = rateInput.trim();
+    let nextRate: number | null;
+    if (trimmed === "") {
+      nextRate = null;
+    } else {
+      const digits = trimmed.replace(/[^\d]/g, "");
+      const parsed = Number(digits);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 10000000) {
+        setError("La tarifa debe ser un número entre 0 y 10.000.000 CLP.");
+        return;
+      }
+      nextRate = Math.round(parsed);
+    }
+
+    if (nextRate === (profile.baseRate ?? null)) {
+      cancelEditingRate();
+      return;
+    }
+
+    setBusy(profile.id);
+    setError(null);
+    const prevProfiles = [...profiles];
+    setProfiles((prev) =>
+      prev.map((pr) => (pr.id === profile.id ? { ...pr, baseRate: nextRate } : pr)),
+    );
+    try {
+      await apiFetch(`/admin/profiles/${profile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ baseRate: nextRate }),
+      });
+      setSuccess(
+        nextRate != null
+          ? `Tarifa de ${profile.displayName || profile.username} actualizada a $${nextRate.toLocaleString("es-CL")}.`
+          : `Tarifa de ${profile.displayName || profile.username} eliminada.`,
+      );
+      cancelEditingRate();
+      await loadProfiles();
+    } catch {
+      setProfiles(prevProfiles);
+      setError("No se pudo actualizar la tarifa del perfil.");
     } finally {
       setBusy(null);
     }
@@ -476,6 +539,96 @@ export default function AdminProfilesPage() {
                   Premium
                 </button>
               </div>
+
+              {(p.profileType === "PROFESSIONAL" || p.profileType === "ESTABLISHMENT" || p.profileType === "SHOP") && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] uppercase tracking-wide text-white/40 flex items-center gap-1">
+                    <DollarSign className="h-3 w-3" />
+                    Tarifa:
+                  </span>
+                  {rateEditing === p.id ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        saveBaseRate(p);
+                      }}
+                      className="flex items-center gap-1.5"
+                    >
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-white/40">$</span>
+                        <input
+                          autoFocus
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9.]*"
+                          value={rateInput}
+                          onChange={(e) => setRateInput(e.target.value)}
+                          placeholder="40000"
+                          className="w-32 rounded-lg border border-white/10 bg-black/30 pl-5 pr-2 py-1.5 text-[11px] outline-none focus:border-fuchsia-500/30 transition"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={busy === p.id}
+                        className="flex h-7 items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2 text-[11px] font-medium text-emerald-200 hover:bg-emerald-500/25 transition disabled:opacity-50"
+                        title="Guardar"
+                      >
+                        {busy === p.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Check className="h-3 w-3" />
+                        )}
+                        Guardar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEditingRate}
+                        disabled={busy === p.id}
+                        className="flex h-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-2 text-[11px] text-white/60 hover:bg-white/10 transition disabled:opacity-50"
+                        title="Cancelar"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      <span className="text-[10px] text-white/40">
+                        {rateInput.trim() === ""
+                          ? "Vacío = sin tarifa"
+                          : `$${Number(rateInput.replace(/[^\d]/g, "") || "0").toLocaleString("es-CL")} CLP`}
+                      </span>
+                    </form>
+                  ) : (
+                    <>
+                      <span
+                        className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium ${
+                          p.baseRate == null
+                            ? "border-white/10 bg-white/5 text-white/40"
+                            : p.baseRate < 1000
+                              ? "border-red-500/30 bg-red-500/10 text-red-200"
+                              : "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
+                        }`}
+                      >
+                        {p.baseRate == null
+                          ? "Sin tarifa"
+                          : `$${p.baseRate.toLocaleString("es-CL")} CLP`}
+                      </span>
+                      {p.baseRate != null && p.baseRate > 0 && p.baseRate < 1000 && (
+                        <span className="text-[10px] text-red-300">
+                          Valor sospechoso (¿faltan ceros?)
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        disabled={busy === p.id}
+                        onClick={() => startEditingRate(p)}
+                        className="flex h-7 items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 text-[11px] text-white/70 hover:bg-white/10 transition disabled:opacity-50"
+                        title="Editar tarifa"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Editar
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
 
             </div>
           ))
