@@ -374,6 +374,7 @@ adminRouter.get(
           membershipExpiresAt: true,
           completedServices: true,
           profileViews: true,
+          baseRate: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -447,7 +448,8 @@ adminRouter.put(
   "/profiles/:id",
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { isActive, tier, role, membershipExpiresAt } = req.body ?? {};
+    const { isActive, tier, role, membershipExpiresAt, baseRate } =
+      req.body ?? {};
 
     const data: any = {};
     if (isActive !== undefined) data.isActive = Boolean(isActive);
@@ -457,6 +459,20 @@ adminRouter.put(
       data.membershipExpiresAt = membershipExpiresAt
         ? new Date(membershipExpiresAt)
         : null;
+    }
+    if (baseRate !== undefined) {
+      if (baseRate === null || baseRate === "") {
+        data.baseRate = null;
+      } else {
+        const parsed = Number(baseRate);
+        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 10000000) {
+          return res.status(400).json({
+            error: "VALIDATION",
+            message: "La tarifa debe ser un número entre 0 y 10.000.000 CLP.",
+          });
+        }
+        data.baseRate = Math.round(parsed);
+      }
     }
 
     const updated = await prisma.user.update({
@@ -470,6 +486,7 @@ adminRouter.put(
         tier: true,
         role: true,
         membershipExpiresAt: true,
+        baseRate: true,
       },
     });
     return res.json({ profile: updated });
