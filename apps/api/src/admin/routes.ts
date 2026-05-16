@@ -369,6 +369,8 @@ adminRouter.get(
           city: true,
           isVerified: true,
           profileTags: true,
+          serviceTags: true,
+          primaryCategory: true,
           tier: true,
           role: true,
           membershipExpiresAt: true,
@@ -418,6 +420,36 @@ adminRouter.put(
       where: { id },
       data: { profileTags: nextTags },
       select: { id: true, username: true, profileTags: true },
+    });
+
+    return res.json({ profile: updated });
+  }),
+);
+
+const ADMIN_CONTROLLED_SERVICE_TAGS = new Set(["despedidas"]);
+
+adminRouter.put(
+  "/profiles/:id/service-tags",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { despedidas } = req.body ?? {};
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, serviceTags: true },
+    });
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const current = Array.isArray(user.serviceTags) ? user.serviceTags : [];
+    const baseTags = current.filter((tag) => !ADMIN_CONTROLLED_SERVICE_TAGS.has(tag));
+
+    const nextTags = [...baseTags];
+    if (despedidas === true) nextTags.push("despedidas");
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { serviceTags: nextTags },
+      select: { id: true, username: true, serviceTags: true },
     });
 
     return res.json({ profile: updated });

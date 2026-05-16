@@ -37,6 +37,8 @@ type Profile = {
   role: string;
   isVerified: boolean;
   profileTags: string[];
+  serviceTags: string[];
+  primaryCategory: string | null;
   membershipExpiresAt: string | null;
   completedServices: number;
   profileViews: number;
@@ -57,6 +59,7 @@ const PAGE_SIZE = 30;
 
 
 const hasLabel = (profile: Profile, label: string) => (profile.profileTags ?? []).includes(label);
+const hasServiceTag = (profile: Profile, tag: string) => (profile.serviceTags ?? []).includes(tag);
 
 export default function AdminProfilesPage() {
   const { me, loading } = useMe();
@@ -169,6 +172,33 @@ export default function AdminProfilesPage() {
       await loadProfiles();
     } catch {
       setError("No se pudo actualizar la etiqueta del perfil.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function updateServiceTag(profile: Profile, tag: "despedidas", value: boolean) {
+    setBusy(profile.id);
+    setError(null);
+    const prevProfiles = [...profiles];
+    setProfiles((prev) => prev.map((pr) => {
+      if (pr.id !== profile.id) return pr;
+      const current = pr.serviceTags ?? [];
+      const next = value ? [...new Set([...current, tag])] : current.filter((t) => t !== tag);
+      return { ...pr, serviceTags: next };
+    }));
+    try {
+      await apiFetch(`/admin/profiles/${profile.id}/service-tags`, {
+        method: "PUT",
+        body: JSON.stringify({
+          despedidas: tag === "despedidas" ? value : hasServiceTag(profile, "despedidas"),
+        }),
+      });
+      setSuccess(`Categoría ${tag} ${value ? "agregada" : "removida"} en ${profile.displayName || profile.username}.`);
+      await loadProfiles();
+    } catch {
+      setProfiles(prevProfiles);
+      setError("No se pudo actualizar la categoría del perfil.");
     } finally {
       setBusy(null);
     }
@@ -335,6 +365,9 @@ export default function AdminProfilesPage() {
                     {hasLabel(p, "profesional con examenes") && (
                       <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-200">Profesional con exámenes</span>
                     )}
+                    {hasServiceTag(p, "despedidas") && (
+                      <span className="rounded bg-pink-500/20 px-1.5 py-0.5 text-[10px] font-medium text-pink-200">Despedidas</span>
+                    )}
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40 flex-wrap">
                     <span>@{p.username}</span>
@@ -474,6 +507,22 @@ export default function AdminProfilesPage() {
                   }`}
                 >
                   Premium
+                </button>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] uppercase tracking-wide text-white/40">Categorías de servicio:</span>
+                <button
+                  disabled={busy === p.id}
+                  onClick={() => updateServiceTag(p, "despedidas", !hasServiceTag(p, "despedidas"))}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
+                    hasServiceTag(p, "despedidas")
+                      ? "border-pink-400/40 bg-pink-500/15 text-pink-200"
+                      : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                  title="Aparecerá en la sección Despedidas. Compatible con otras categorías (escort, masajes, etc.)"
+                >
+                  Despedidas
                 </button>
               </div>
 
