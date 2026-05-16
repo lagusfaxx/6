@@ -498,3 +498,46 @@ export async function sendWeeklyHighlightsEmail(
 ) {
   await send(to, subject, html);
 }
+
+/* ─── Generic email campaign ─── */
+
+/**
+ * Wraps an admin-authored HTML body in the standard UZEED template.
+ * The body is inserted verbatim (admin-only feature, HTML trusted).
+ * Images uploaded by the admin must be referenced by absolute URL so
+ * email clients can fetch them from outside the user's browser session.
+ */
+export function generateCampaignEmailHtml(opts: {
+  title: string;
+  bodyHtml: string;
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
+  headerImageUrl?: string | null;
+}): string {
+  const headerImage = opts.headerImageUrl
+    ? `<tr><td align="center" style="padding:0 30px 16px;">
+        <img src="${opts.headerImageUrl}" alt="" style="display:block;max-width:100%;height:auto;border-radius:16px;border:1px solid rgba(255,255,255,0.08);" />
+      </td></tr>`
+    : "";
+
+  const bodyRow = `<tr><td style="padding:8px 30px 20px;">
+    <div style="font-size:14px;color:rgba(255,255,255,0.72);line-height:1.6;">
+      ${opts.bodyHtml}
+    </div>
+  </td></tr>`;
+
+  const cta =
+    opts.ctaLabel && opts.ctaUrl && /^https?:\/\//i.test(opts.ctaUrl)
+      ? ctaButton(esc(opts.ctaLabel), opts.ctaUrl)
+      : "";
+
+  return wrapEmail(esc(opts.title), [headerImage, bodyRow, cta].join(""));
+}
+
+export async function sendCampaignEmail(
+  to: string,
+  subject: string,
+  html: string,
+) {
+  await send(to, subject, html);
+}

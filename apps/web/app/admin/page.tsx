@@ -165,7 +165,7 @@ const NAV_ITEMS = [
   { href: "/admin/moderation", label: "Moderacion", icon: Shield },
   { href: "/admin/privacy-requests", label: "Privacidad", icon: Trash2 },
   { href: "/admin/weekly-highlights", label: "Correo Semanal", icon: Mail },
-  { href: "/admin/umate-promo", label: "Promo Umate", icon: Sparkles },
+  { href: "/admin/umate-promo", label: "Campanas Email", icon: Mail },
   { href: "/admin/2fa/setup", label: "Doble factor", icon: ShieldCheck },
 ];
 
@@ -597,7 +597,7 @@ export default function AdminIndex() {
                 <QuickAction href="/admin/pricing" icon={Tag} label="Precios" desc="Planes y reglas" accent="violet" />
                 <QuickAction href="/admin/quick-listings" icon={Store} label="Listados" desc="Externos" accent="cyan" />
                 <QuickAction href="/admin/weekly-highlights" icon={Mail} label="Correo Semanal" desc="Destacadas" accent="pink" />
-                <QuickAction href="/admin/umate-promo" icon={Sparkles} label="Promo Umate" desc="Campana de invitacion" accent="fuchsia" />
+                <QuickAction href="/admin/umate-promo" icon={Mail} label="Campanas Email" desc="Correos masivos con imagenes" accent="fuchsia" />
               </div>
             </div>
 
