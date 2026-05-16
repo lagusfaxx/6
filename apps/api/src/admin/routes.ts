@@ -1752,3 +1752,211 @@ adminRouter.delete(
     return res.json({ ok: true });
   }),
 );
+
+/* ══════════════════════════════════════════════════════════════
+   EMAIL CAMPAIGNS (Mass mail with images, test, target audience)
+   ══════════════════════════════════════════════════════════════ */
+
+const PROFESSIONAL_TYPES = ["PROFESSIONAL", "CREATOR", "ESTABLISHMENT", "SHOP"] as const;
+const CLIENT_TYPES = ["CLIENT", "VIEWER"] as const;
+
+function audienceWhere(audience: string): any | null {
+  if (audience === "professionals")
+    return { profileType: { in: [...PROFESSIONAL_TYPES] } };
+  if (audience === "clients")
+    return { profileType: { in: [...CLIENT_TYPES] } };
+  if (audience === "all")
+    return { profileType: { in: [...PROFESSIONAL_TYPES, ...CLIENT_TYPES] } };
+  return null;
+}
+
+/**
+ * Upload an image to the public uploads folder, returning an absolute URL
+ * the admin can drop into the campaign HTML. Email clients fetch images
+ * from the absolute URL — the `/uploads` static handler is CORS/CORP-open
+ * and has no auth, so receivers can render them from their inbox.
+ */
+adminRouter.post(
+  "/email-campaign/upload-image",
+  upload.single("file"),
+  asyncHandler(async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "NO_FILE" });
+    const mime = (req.file.mimetype || "").toLowerCase();
+    if (!mime.startsWith("image/")) {
+      return res.status(400).json({ error: "INVALID_FILE_TYPE" });
+    }
+
+    // Keep the original format (JPEG/PNG/GIF) for maximum compatibility with
+    // older email clients that don't render WebP. Only optimize if input is
+    // already WebP-friendly or huge.
+    let finalName = req.file.filename;
+    const mimeLower = mime;
+    const shouldOptimize =
+      mimeLower === "image/webp" ||
+      (req.file.size && req.file.size > 2 * 1024 * 1024);
+    if (shouldOptimize) {
+      try {
+        const optimizedName = await optimizeUploadedImage(req.file, "gallery");
+        if (optimizedName) finalName = optimizedName;
+      } catch (err) {
+        console.warn("[email-campaign] optimize failed, using original", err);
+      }
+    }
+
+    const relativeUrl = storageProvider.publicUrl(finalName);
+    const absoluteUrl = /^https?:\/\//i.test(relativeUrl)
+      ? relativeUrl
+      : `${config.apiUrl.replace(/\/$/, "")}${relativeUrl}`;
+
+    return res.json({ url: absoluteUrl });
+  }),
+);
+
+adminRouter.get(
+  "/email-campaign/audience-counts",
+  asyncHandler(async (_req, res) => {
+    const [professionals, clients] = await Promise.all([
+      prisma.user.count({
+        where: {
+          isActive: true,
+          profileType: { in: [...PROFESSIONAL_TYPES] },
+          NOT: { email: { contains: "@placeholder.uzeed.cl" } },
+        } as any,
+      }),
+      prisma.user.count({
+        where: {
+          isActive: true,
+          profileType: { in: [...CLIENT_TYPES] },
+          NOT: { email: { contains: "@placeholder.uzeed.cl" } },
+        } as any,
+      }),
+    ]);
+    return res.json({ professionals, clients, all: professionals + clients });
+  }),
+);
+
+adminRouter.post(
+  "/email-campaign/preview",
+  asyncHandler(async (req, res) => {
+    const {
+      title,
+      bodyHtml,
+      ctaLabel,
+      ctaUrl,
+      headerImageUrl,
+    } = (req.body ?? {}) as Record<string, string | undefined>;
+
+    if (!title || !bodyHtml) {
+      return res.status(400).json({ error: "title y bodyHtml requeridos" });
+    }
+    if (title.length > 200) {
+      return res.status(400).json({ error: "title demasiado largo" });
+    }
+    if (bodyHtml.length > 100_000) {
+      return res.status(400).json({ error: "bodyHtml demasiado largo" });
+    }
+
+    const { generateCampaignEmailHtml } = await import("../lib/notificationEmail");
+    const html = generateCampaignEmailHtml({
+      title,
+      bodyHtml,
+      ctaLabel: ctaLabel || null,
+      ctaUrl: ctaUrl || null,
+      headerImageUrl: headerImageUrl || null,
+    });
+    return res.json({ html });
+  }),
+);
+
+adminRouter.post(
+  "/email-campaign/send",
+  asyncHandler(async (req, res) => {
+    const {
+      title,
+      subject,
+      bodyHtml,
+      ctaLabel,
+      ctaUrl,
+      headerImageUrl,
+      audience,
+      testEmail,
+    } = (req.body ?? {}) as Record<string, string | undefined>;
+
+    if (!title || !bodyHtml || !subject) {
+      return res.status(400).json({ error: "subject, title y bodyHtml requeridos" });
+    }
+    if (subject.length > 200 || title.length > 200) {
+      return res.status(400).json({ error: "Asunto o titulo demasiado largo" });
+    }
+    if (bodyHtml.length > 100_000) {
+      return res.status(400).json({ error: "Contenido demasiado largo" });
+    }
+
+    const { generateCampaignEmailHtml, sendCampaignEmail } = await import(
+      "../lib/notificationEmail"
+    );
+    const html = generateCampaignEmailHtml({
+      title,
+      bodyHtml,
+      ctaLabel: ctaLabel || null,
+      ctaUrl: ctaUrl || null,
+      headerImageUrl: headerImageUrl || null,
+    });
+
+    // Test mode: deliver a single copy to the provided address and stop.
+    if (testEmail) {
+      const trimmed = testEmail.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+        return res.status(400).json({ error: "testEmail invalido" });
+      }
+      try {
+        await sendCampaignEmail(trimmed, subject, html);
+        return res.json({ ok: true, mode: "test", sentTo: trimmed });
+      } catch (err) {
+        console.error("[email-campaign] test send failed", err);
+        return res.status(500).json({ error: "Error enviando prueba" });
+      }
+    }
+
+    const where = audienceWhere(String(audience || ""));
+    if (!where) {
+      return res
+        .status(400)
+        .json({ error: "audience debe ser 'professionals', 'clients' o 'all'" });
+    }
+
+    const recipients = await prisma.user.findMany({
+      where: {
+        ...where,
+        isActive: true,
+        NOT: { email: { contains: "@placeholder.uzeed.cl" } },
+      },
+      select: { email: true },
+    });
+
+    let sent = 0;
+    let failed = 0;
+    for (const r of recipients) {
+      if (!r.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email)) {
+        failed++;
+        continue;
+      }
+      try {
+        await sendCampaignEmail(r.email, subject, html);
+        sent++;
+      } catch (err) {
+        console.error("[email-campaign] send failed", r.email, err);
+        failed++;
+      }
+    }
+
+    return res.json({
+      ok: true,
+      mode: "campaign",
+      audience,
+      total: recipients.length,
+      sent,
+      failed,
+    });
+  }),
+);
