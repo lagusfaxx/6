@@ -582,7 +582,7 @@ function MapboxMapComponent({
   }
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden isolate">
       <div ref={containerRef} className={className} style={{ height }} />
       <button
         type="button"
