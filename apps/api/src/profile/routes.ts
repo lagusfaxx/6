@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import path from "path";
+import fs from "node:fs/promises";
 import { prisma } from "../db";
 import { Prisma } from "@prisma/client";
 import { requireAuth } from "../auth/middleware";
@@ -10,7 +11,7 @@ import { isBusinessPlanActive } from "../lib/subscriptions";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 import { parseAndNormalizeTags } from "../lib/tags";
-import { optimizeUploadedImage } from "../lib/imageOptimizer";
+import { optimizeUploadedImage, ImageOptimizationError } from "../lib/imageOptimizer";
 import { obfuscateLocation } from "../lib/locationPrivacy";
 import { emitAdminEvent } from "../lib/adminEvents";
 import {
@@ -61,6 +62,55 @@ const uploadMedia = multer({
   storage,
   limits: { fileSize: 100 * 1024 * 1024 },
 });
+
+/**
+ * Translate the low-level errors thrown by validateUploadedFile and the
+ * image optimizer into a stable error code + Spanish message the FE can
+ * show as-is. Keeps every upload endpoint consistent and avoids 500s that
+ * the FE would otherwise silently swallow.
+ */
+function describeUploadFailure(err: unknown): { code: string; message: string } {
+  const raw =
+    err instanceof ImageOptimizationError
+      ? err.code
+      : err instanceof Error
+        ? err.message
+        : String(err);
+  switch (raw) {
+    case "FILE_TOO_LARGE":
+      return {
+        code: "FILE_TOO_LARGE",
+        message:
+          "El archivo supera el tamaño permitido (10 MB para imágenes, 100 MB para videos).",
+      };
+    case "INVALID_FILE_TYPE":
+      return {
+        code: "INVALID_FILE_TYPE",
+        message: "Formato no permitido. Usa JPG, PNG, WebP o MP4/MOV.",
+      };
+    case "UNSUPPORTED_VIDEO_FORMAT":
+      return {
+        code: "UNSUPPORTED_VIDEO_FORMAT",
+        message: "El video debe estar en MP4 o MOV.",
+      };
+    case "IMAGE_OPTIMIZATION_FAILED":
+      return {
+        code: "IMAGE_OPTIMIZATION_FAILED",
+        message:
+          "No pudimos procesar esta imagen. Si la tomaste con un iPhone, conviértela a JPG/PNG antes de subirla.",
+      };
+    default:
+      return {
+        code: "UPLOAD_FAILED",
+        message: "No se pudo subir este archivo.",
+      };
+  }
+}
+
+async function discardUploadedFile(file: Express.Multer.File | undefined) {
+  if (!file?.path) return;
+  await fs.unlink(file.path).catch(() => {});
+}
 
 const AVAILABLE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -746,8 +796,21 @@ profileRouter.post(
   uploadImage.single("file"),
   asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "NO_FILE" });
-    await validateUploadedFile(req.file, "image");
-    const optimizedFilename = await optimizeUploadedImage(req.file, "avatar");
+    let optimizedFilename: string;
+    try {
+      await validateUploadedFile(req.file, "image");
+      optimizedFilename = await optimizeUploadedImage(req.file, "avatar");
+    } catch (err) {
+      await discardUploadedFile(req.file);
+      const failure = describeUploadFailure(err);
+      console.error("[profile/avatar] upload failed", {
+        userId: req.session.userId,
+        originalname: req.file.originalname,
+        code: failure.code,
+        error: err,
+      });
+      return res.status(400).json({ error: failure.code, message: failure.message });
+    }
     const url = storageProvider.publicUrl(optimizedFilename);
     const user = await prisma.user.update({
       where: { id: req.session.userId! },
@@ -763,8 +826,21 @@ profileRouter.post(
   uploadImage.single("file"),
   asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "NO_FILE" });
-    await validateUploadedFile(req.file, "image");
-    const optimizedFilename = await optimizeUploadedImage(req.file, "cover");
+    let optimizedFilename: string;
+    try {
+      await validateUploadedFile(req.file, "image");
+      optimizedFilename = await optimizeUploadedImage(req.file, "cover");
+    } catch (err) {
+      await discardUploadedFile(req.file);
+      const failure = describeUploadFailure(err);
+      console.error("[profile/cover] upload failed", {
+        userId: req.session.userId,
+        originalname: req.file.originalname,
+        code: failure.code,
+        error: err,
+      });
+      return res.status(400).json({ error: failure.code, message: failure.message });
+    }
     const url = storageProvider.publicUrl(optimizedFilename);
     const parseCoverPos = (raw: unknown) => {
       const parsed = Number(raw);
@@ -836,20 +912,52 @@ profileRouter.post(
       lockedImageBudget = Math.max(0, MIN_PROFESSIONAL_GALLERY_PHOTOS - existingImages);
     }
 
-    const media = [];
+    // Process each file independently so a single bad photo (e.g. iPhone
+    // HEIC the server can't decode, oversized file) doesn't drop the whole
+    // batch. Previously one bad file made the FE see a 500 and the user
+    // believed all photos "disappeared" — the others were either lost or
+    // partially saved depending on order.
+    const media: Awaited<ReturnType<typeof prisma.profileMedia.create>>[] = [];
+    const failures: { originalname: string; code: string; message: string }[] = [];
+
     for (const file of files) {
-      const { type } = await validateUploadedFile(file, "image-or-video");
-      const finalFilename = type === "IMAGE" ? await optimizeUploadedImage(file, "gallery") : file.filename;
-      const url = storageProvider.publicUrl(finalFilename);
-      const isLocked = type === "IMAGE" && lockedImageBudget > 0;
-      if (isLocked) lockedImageBudget--;
-      media.push(
-        await prisma.profileMedia.create({
+      try {
+        const { type } = await validateUploadedFile(file, "image-or-video");
+        const finalFilename =
+          type === "IMAGE" ? await optimizeUploadedImage(file, "gallery") : file.filename;
+        const url = storageProvider.publicUrl(finalFilename);
+        const isLocked = type === "IMAGE" && lockedImageBudget > 0;
+        const record = await prisma.profileMedia.create({
           data: { ownerId: req.session.userId!, type, url, isLocked },
-        }),
-      );
+        });
+        if (isLocked) lockedImageBudget--;
+        media.push(record);
+      } catch (err) {
+        await discardUploadedFile(file);
+        const failure = describeUploadFailure(err);
+        failures.push({
+          originalname: file.originalname,
+          code: failure.code,
+          message: failure.message,
+        });
+        console.error("[profile/media] file failed", {
+          userId: req.session.userId,
+          originalname: file.originalname,
+          code: failure.code,
+          error: err,
+        });
+      }
     }
-    return res.json({ media });
+
+    if (media.length === 0) {
+      return res.status(400).json({
+        error: "ALL_FILES_FAILED",
+        message: failures[0]?.message || "Ninguna foto pudo procesarse.",
+        failures,
+      });
+    }
+
+    return res.json({ media, failures });
   }),
 );
 

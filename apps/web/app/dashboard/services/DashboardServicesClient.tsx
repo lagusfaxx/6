@@ -712,11 +712,34 @@ export default function DashboardServicesClient() {
             body: formData,
           },
         );
-        if (!res.ok) throw new Error("UPLOAD_FAILED");
-        showToast("Media agregada (fotos/videos).");
+        const body = await res.json().catch(() => null);
+        if (!res.ok) {
+          const message =
+            body?.message ||
+            (Array.isArray(body?.failures) ? body.failures[0]?.message : null) ||
+            "No se pudo subir la galería.";
+          throw new Error(message);
+        }
+        // Backend returns 200 even when some files failed — surface the
+        // partial-failure case so professionals don't think the missing
+        // photos "got deleted" without a reason.
+        const failures = Array.isArray(body?.failures) ? body.failures : [];
+        const succeeded = Array.isArray(body?.media) ? body.media.length : 0;
+        if (failures.length) {
+          const first =
+            failures[0]?.message || "Algunas fotos no se pudieron procesar.";
+          const detail =
+            failures.length === 1
+              ? first
+              : `${failures.length} fotos no se pudieron procesar (${succeeded} sí). ${first}`;
+          setField("error", detail);
+          showToast(detail, "error");
+        } else {
+          showToast("Media agregada (fotos/videos).");
+        }
         await loadPanel(user.id);
-      } catch {
-        setField("error", "No se pudo subir la galería.");
+      } catch (err: any) {
+        setField("error", err?.message || "No se pudo subir la galería.");
       } finally {
         setField("busy", false);
       }

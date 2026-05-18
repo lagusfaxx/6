@@ -16,11 +16,20 @@ export const IMAGE_SIZES = {
 
 export type ImageUseCase = keyof typeof IMAGE_SIZES;
 
+export class ImageOptimizationError extends Error {
+  code = "IMAGE_OPTIMIZATION_FAILED" as const;
+  constructor(public reason: string) {
+    super(`Image optimization failed: ${reason}`);
+  }
+}
+
 /**
  * Converts and resizes an image to WebP format.
  * Writes the .webp file next to the original and returns the new filename.
- * If the input is already WebP and within size limits, it's just resized.
- * Videos are returned as-is.
+ * Videos are returned as-is. If sharp cannot decode the image (e.g. HEIC on
+ * a build without libheif, corrupt input) we throw — returning the original
+ * filename used to leave records pointing to URLs the browser can't render,
+ * which made photos "disappear" from professional profiles.
  */
 export async function optimizeImage(
   filePath: string,
@@ -41,28 +50,36 @@ export async function optimizeImage(
   const webpPath = path.join(dir, webpFilename);
 
   try {
-    await sharp(filePath)
+    await sharp(filePath, { failOn: "none" })
+      // Honor EXIF orientation so portrait iPhone photos aren't sideways.
+      .rotate()
       .resize(dims.width, dims.height, {
         fit: "inside",
         withoutEnlargement: true,
       })
       .webp({ quality: QUALITY.webp })
       .toFile(webpPath);
-
-    // Remove original if it's a different file
-    if (webpPath !== filePath) {
-      await fs.unlink(filePath).catch(() => {});
-    }
-
-    return { optimizedPath: webpPath, filename: webpFilename };
-  } catch {
-    // If sharp fails (corrupt image, unsupported format), return original
-    return { optimizedPath: filePath, filename: path.basename(filePath) };
+  } catch (err) {
+    // Sharp couldn't decode the input (HEIC without libheif support,
+    // corrupt file, unrecognized format). Clean up any partial webp output
+    // and signal the caller so the original is removed and the user gets
+    // an actionable error instead of an unrenderable URL in their profile.
+    await fs.unlink(webpPath).catch(() => {});
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new ImageOptimizationError(reason);
   }
+
+  if (webpPath !== filePath) {
+    await fs.unlink(filePath).catch(() => {});
+  }
+
+  return { optimizedPath: webpPath, filename: webpFilename };
 }
 
 /**
  * Optimizes a multer file in-place. Returns the new filename for URL generation.
+ * Throws ImageOptimizationError if sharp cannot decode the image — callers
+ * should treat this as an unprocessable file and surface a user-facing error.
  */
 export async function optimizeUploadedImage(
   file: Express.Multer.File,
