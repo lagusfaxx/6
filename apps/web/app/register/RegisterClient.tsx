@@ -118,6 +118,9 @@ export default function RegisterClient() {
   // without re-triggering registration (which would 409 on EMAIL_IN_USE).
   const [accountCreated, setAccountCreated] = useState(false);
   const [retryingUpload, setRetryingUpload] = useState(false);
+  // Avatar is set from galleryFiles[0] but lives on the User row, not in
+  // ProfileMedia, so we track it separately to avoid re-uploading on retry.
+  const [avatarSet, setAvatarSet] = useState(false);
   const [googlePending, setGooglePending] = useState<{
     email: string;
     displayName: string;
@@ -212,19 +215,64 @@ export default function RegisterClient() {
   async function uploadProfessionalPhotos() {
     if (!isProfessional || galleryFiles.length === 0) return;
 
-    const avatarForm = new FormData();
-    avatarForm.append("file", galleryFiles[0]);
-    await postFormOrThrow("/profile/avatar", avatarForm);
+    // Avatar lives outside ProfileMedia (it's a column on User), so a retry
+    // shouldn't re-upload it once it's set. If the avatar attempt fails
+    // (e.g. HEIC that sharp can't decode) we log and continue — the gallery
+    // upload is what really matters and the user can set the avatar from
+    // the dashboard later. Throwing here would block the whole retry.
+    if (!avatarSet) {
+      try {
+        const avatarForm = new FormData();
+        avatarForm.append("file", galleryFiles[0]);
+        await postFormOrThrow("/profile/avatar", avatarForm);
+        setAvatarSet(true);
+      } catch (err) {
+        console.warn("[register] avatar upload failed, continuing with gallery", err);
+      }
+    }
 
     const mediaForm = new FormData();
     for (const file of galleryFiles) {
       mediaForm.append("files", file);
     }
     const mediaRes = await postFormOrThrow("/profile/media", mediaForm);
-    // Backend now returns { media, failures } — surface partial failures so
-    // the professional knows some photos didn't make it instead of seeing a
-    // gallery with fewer items than they uploaded.
-    const failures = Array.isArray(mediaRes?.failures) ? mediaRes.failures : [];
+    const failures: { index?: number; originalname?: string; message?: string }[] = Array.isArray(
+      mediaRes?.failures,
+    )
+      ? mediaRes.failures
+      : [];
+
+    // Prune successful files from local state so a retry only re-sends the
+    // ones that actually failed — otherwise the same photo gets uploaded
+    // twice and shows up as a duplicate in the gallery.
+    const failedIndices = new Set<number>();
+    for (const f of failures) {
+      if (typeof f?.index === "number") failedIndices.add(f.index);
+    }
+    if (failedIndices.size === 0 && failures.length > 0) {
+      // Server didn't include indices: fall back to matching by name.
+      const failedNames = new Set(
+        failures.map((f) => f?.originalname).filter((n): n is string => !!n),
+      );
+      galleryFiles.forEach((file, idx) => {
+        if (failedNames.has(file.name)) failedIndices.add(idx);
+      });
+    }
+    if (failedIndices.size !== galleryFiles.length) {
+      const remainingFiles: File[] = [];
+      const remainingPreviews: string[] = [];
+      galleryFiles.forEach((file, idx) => {
+        if (failedIndices.has(idx)) {
+          remainingFiles.push(file);
+          remainingPreviews.push(galleryPreviews[idx]);
+        } else {
+          URL.revokeObjectURL(galleryPreviews[idx]);
+        }
+      });
+      setGalleryFiles(remainingFiles);
+      setGalleryPreviews(remainingPreviews);
+    }
+
     if (failures.length) {
       const first = failures[0]?.message || "Algunas fotos no se pudieron procesar.";
       throw new Error(
@@ -737,15 +785,23 @@ export default function RegisterClient() {
               {galleryPreviews.length > 0 && (
                 <div className="mt-5">
                   <p className="text-xs uppercase tracking-wider text-white/40 mb-2">
-                    Fotos seleccionadas ({galleryPreviews.length})
+                    Fotos pendientes de subir ({galleryPreviews.length})
                   </p>
                   <div className="grid grid-cols-3 gap-2">
                     {galleryPreviews.map((src, i) => (
                       <div
                         key={i}
-                        className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-white/5"
+                        className="group relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-white/5"
                       >
                         <img src={src} alt="" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeGalleryItem(i)}
+                          className="absolute top-1 right-1 inline-flex items-center justify-center h-6 w-6 rounded-full bg-black/70 text-white/80 text-xs hover:bg-black/90 transition"
+                          aria-label="Quitar foto"
+                        >
+                          ×
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -756,9 +812,10 @@ export default function RegisterClient() {
                 <button
                   type="button"
                   onClick={() => galleryInputRef.current?.click()}
-                  className="rounded-xl border border-white/15 bg-white/[0.04] py-3 text-sm font-medium text-white/85 hover:bg-white/[0.08] transition"
+                  disabled={galleryFiles.length >= MAX_PHOTOS}
+                  className="rounded-xl border border-white/15 bg-white/[0.04] py-3 text-sm font-medium text-white/85 hover:bg-white/[0.08] transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Cambiar fotos seleccionadas
+                  Agregar fotos
                 </button>
                 <input
                   ref={galleryInputRef}
@@ -766,17 +823,12 @@ export default function RegisterClient() {
                   accept="image/*"
                   multiple
                   className="hidden"
-                  onChange={(e) => {
-                    galleryPreviews.forEach((url) => URL.revokeObjectURL(url));
-                    setGalleryFiles([]);
-                    setGalleryPreviews([]);
-                    handleGalleryAdd(e);
-                  }}
+                  onChange={handleGalleryAdd}
                 />
                 <button
                   type="button"
                   onClick={retryPhotoUpload}
-                  disabled={retryingUpload || galleryFiles.length < MIN_PHOTOS}
+                  disabled={retryingUpload || galleryFiles.length === 0}
                   className="rounded-2xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] bg-left hover:bg-right font-semibold text-white py-3.5 text-base flex items-center justify-center gap-2 shadow-[0_15px_40px_rgba(168,85,247,0.35)] transition-[background-position,transform] duration-500 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {retryingUpload ? (
@@ -786,8 +838,12 @@ export default function RegisterClient() {
                     </span>
                   ) : (
                     <>
-                      Reintentar subir fotos
-                      <ArrowRight className="h-4 w-4" />
+                      {galleryFiles.length === 0
+                        ? "No hay fotos para reintentar"
+                        : galleryFiles.length === 1
+                          ? "Reintentar subir 1 foto"
+                          : `Reintentar subir ${galleryFiles.length} fotos`}
+                      {galleryFiles.length > 0 && <ArrowRight className="h-4 w-4" />}
                     </>
                   )}
                 </button>

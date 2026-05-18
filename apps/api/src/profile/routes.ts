@@ -918,9 +918,10 @@ profileRouter.post(
     // believed all photos "disappeared" — the others were either lost or
     // partially saved depending on order.
     const media: Awaited<ReturnType<typeof prisma.profileMedia.create>>[] = [];
-    const failures: { originalname: string; code: string; message: string }[] = [];
+    const failures: { index: number; originalname: string; code: string; message: string }[] = [];
 
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       try {
         const { type } = await validateUploadedFile(file, "image-or-video");
         const finalFilename =
@@ -936,6 +937,7 @@ profileRouter.post(
         await discardUploadedFile(file);
         const failure = describeUploadFailure(err);
         failures.push({
+          index: i,
           originalname: file.originalname,
           code: failure.code,
           message: failure.message,
