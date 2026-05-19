@@ -199,9 +199,22 @@ export default function UpgradeToProfessionalPage() {
       body: mediaForm,
       credentials: "include",
     });
+    const body = await res.json().catch(() => null);
     if (!res.ok) {
-      const body = await res.json().catch(() => null);
       throw new Error(body?.message || "No se pudieron subir las fotos.");
+    }
+    // /profile/media returns 200 even on partial success, with details in
+    // body.failures. Surface them so we don't silently drop a HEIC the
+    // server couldn't decode and then confuse the user with "need 3 photos"
+    // from the upgrade endpoint.
+    const failures = Array.isArray(body?.failures) ? body.failures : [];
+    if (failures.length) {
+      const first = failures[0]?.message || "Algunas fotos no se pudieron procesar.";
+      throw new Error(
+        failures.length === 1
+          ? first
+          : `${failures.length} fotos no se pudieron procesar. ${first}`,
+      );
     }
   }
 

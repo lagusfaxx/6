@@ -97,9 +97,9 @@ export default function RegisterClient() {
     googleMode &&
     (googleInitialType === "PROFESSIONAL" || googleInitialType === "CLIENT");
 
-  const [step, setStep] = useState<"choose" | "form" | "verify" | "pending">(
-    isGoogleFlow ? "form" : "choose",
-  );
+  const [step, setStep] = useState<
+    "choose" | "form" | "verify" | "pending" | "photos-failed"
+  >(isGoogleFlow ? "form" : "choose");
   const [profileType, setProfileType] = useState<ProfileType | null>(
     isGoogleFlow ? googleInitialType : null,
   );
@@ -112,6 +112,15 @@ export default function RegisterClient() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  // Once /auth/register succeeds the account is alive even if photo uploads
+  // afterwards fail. We track this so the user can retry just the uploads
+  // (instead of being silently dropped on /pending with an empty gallery)
+  // without re-triggering registration (which would 409 on EMAIL_IN_USE).
+  const [accountCreated, setAccountCreated] = useState(false);
+  const [retryingUpload, setRetryingUpload] = useState(false);
+  // Avatar is set from galleryFiles[0] but lives on the User row, not in
+  // ProfileMedia, so we track it separately to avoid re-uploading on retry.
+  const [avatarSet, setAvatarSet] = useState(false);
   const [googlePending, setGooglePending] = useState<{
     email: string;
     displayName: string;
@@ -175,27 +184,103 @@ export default function RegisterClient() {
 
   const termsType = isBusinessProfile ? "business" : "client";
 
-  async function uploadProfessionalPhotos() {
-    if (!isProfessional || galleryFiles.length === 0) return;
+  // Posts FormData and surfaces server errors instead of swallowing them.
+  // The professional photo upload used to use raw `fetch` without an
+  // `res.ok` check — when /profile/media returned 4xx/5xx (HEIC the server
+  // can't decode, oversized file, etc.) the user was redirected to /pending
+  // believing their photos had uploaded, and the gallery was silently empty.
+  async function postFormOrThrow(path: string, formData: FormData) {
     const base = getApiBase();
-
-    const avatarForm = new FormData();
-    avatarForm.append("file", galleryFiles[0]);
-    await fetch(`${base}/profile/avatar`, {
+    const res = await fetch(`${base}${path}`, {
       method: "POST",
-      body: avatarForm,
+      body: formData,
       credentials: "include",
     });
+    if (!res.ok) {
+      let body: any = null;
+      try {
+        body = await res.json();
+      } catch {
+        /* body may not be JSON for some errors */
+      }
+      const message =
+        body?.message ||
+        (Array.isArray(body?.failures) ? body.failures[0]?.message : null) ||
+        `No se pudieron subir las fotos (HTTP ${res.status}).`;
+      throw new Error(message);
+    }
+    return res.json().catch(() => ({}));
+  }
+
+  async function uploadProfessionalPhotos() {
+    if (!isProfessional || galleryFiles.length === 0) return;
+
+    // Avatar lives outside ProfileMedia (it's a column on User), so a retry
+    // shouldn't re-upload it once it's set. If the avatar attempt fails
+    // (e.g. HEIC that sharp can't decode) we log and continue — the gallery
+    // upload is what really matters and the user can set the avatar from
+    // the dashboard later. Throwing here would block the whole retry.
+    if (!avatarSet) {
+      try {
+        const avatarForm = new FormData();
+        avatarForm.append("file", galleryFiles[0]);
+        await postFormOrThrow("/profile/avatar", avatarForm);
+        setAvatarSet(true);
+      } catch (err) {
+        console.warn("[register] avatar upload failed, continuing with gallery", err);
+      }
+    }
 
     const mediaForm = new FormData();
     for (const file of galleryFiles) {
       mediaForm.append("files", file);
     }
-    await fetch(`${base}/profile/media`, {
-      method: "POST",
-      body: mediaForm,
-      credentials: "include",
-    });
+    const mediaRes = await postFormOrThrow("/profile/media", mediaForm);
+    const failures: { index?: number; originalname?: string; message?: string }[] = Array.isArray(
+      mediaRes?.failures,
+    )
+      ? mediaRes.failures
+      : [];
+
+    // Prune successful files from local state so a retry only re-sends the
+    // ones that actually failed — otherwise the same photo gets uploaded
+    // twice and shows up as a duplicate in the gallery.
+    const failedIndices = new Set<number>();
+    for (const f of failures) {
+      if (typeof f?.index === "number") failedIndices.add(f.index);
+    }
+    if (failedIndices.size === 0 && failures.length > 0) {
+      // Server didn't include indices: fall back to matching by name.
+      const failedNames = new Set(
+        failures.map((f) => f?.originalname).filter((n): n is string => !!n),
+      );
+      galleryFiles.forEach((file, idx) => {
+        if (failedNames.has(file.name)) failedIndices.add(idx);
+      });
+    }
+    if (failedIndices.size !== galleryFiles.length) {
+      const remainingFiles: File[] = [];
+      const remainingPreviews: string[] = [];
+      galleryFiles.forEach((file, idx) => {
+        if (failedIndices.has(idx)) {
+          remainingFiles.push(file);
+          remainingPreviews.push(galleryPreviews[idx]);
+        } else {
+          URL.revokeObjectURL(galleryPreviews[idx]);
+        }
+      });
+      setGalleryFiles(remainingFiles);
+      setGalleryPreviews(remainingPreviews);
+    }
+
+    if (failures.length) {
+      const first = failures[0]?.message || "Algunas fotos no se pudieron procesar.";
+      throw new Error(
+        failures.length === 1
+          ? first
+          : `${failures.length} fotos no se pudieron procesar. ${first}`,
+      );
+    }
   }
 
   // Google flow: the session already has a pendingGoogleSignup. Create the
@@ -210,22 +295,36 @@ export default function RegisterClient() {
         method: "POST",
         body: JSON.stringify(rest),
       });
-
-      await uploadProfessionalPhotos();
-
-      if (isBusinessProfile) {
-        setStep("pending");
-      } else {
-        window.location.replace("/");
-      }
+      setAccountCreated(true);
     } catch (err: any) {
       const msg =
         err?.body?.message ||
         friendlyErrorMessage(err) ||
         "Error al crear la cuenta.";
       setRegisterError(msg);
-    } finally {
       setRegistering(false);
+      return;
+    }
+
+    if (isProfessional && galleryFiles.length > 0) {
+      try {
+        await uploadProfessionalPhotos();
+      } catch (err: any) {
+        // Account is already created; only the photos failed. Show the
+        // retry screen so the user can fix and resubmit — bouncing to
+        // /pending would leave the gallery empty.
+        setRegisterError(err?.message || "No se pudieron subir las fotos.");
+        setStep("photos-failed");
+        setRegistering(false);
+        return;
+      }
+    }
+
+    setRegistering(false);
+    if (isBusinessProfile) {
+      setStep("pending");
+    } else {
+      window.location.replace("/");
     }
   }
 
@@ -234,49 +333,74 @@ export default function RegisterClient() {
     if (!pendingFormData) return;
     setRegistering(true);
     setRegisterError(null);
-    try {
-      await apiFetch("/auth/register", {
-        method: "POST",
-        body: JSON.stringify(pendingFormData),
-      });
-      // Register auto-creates the session, no separate login needed
 
-      // For professionals, upload the photos collected in the "photos" step
-      if (isProfessional && galleryFiles.length > 0) {
-        const base = getApiBase();
-
-        // Upload first photo as avatar
-        const avatarForm = new FormData();
-        avatarForm.append("file", galleryFiles[0]);
-        await fetch(`${base}/profile/avatar`, {
+    if (!accountCreated) {
+      try {
+        await apiFetch("/auth/register", {
           method: "POST",
-          body: avatarForm,
-          credentials: "include",
+          body: JSON.stringify(pendingFormData),
         });
-
-        // Upload all photos as gallery media
-        const mediaForm = new FormData();
-        for (const file of galleryFiles) {
-          mediaForm.append("files", file);
-        }
-        await fetch(`${base}/profile/media`, {
-          method: "POST",
-          body: mediaForm,
-          credentials: "include",
-        });
+        // Register auto-creates the session, no separate login needed.
+        setAccountCreated(true);
+      } catch (err: any) {
+        const msg =
+          err?.body?.message || friendlyErrorMessage(err) || "Error al crear la cuenta.";
+        setRegisterError(msg);
+        setStep("form");
+        setRegistering(false);
+        return;
       }
+    }
 
+    if (isProfessional && galleryFiles.length > 0) {
+      try {
+        await uploadProfessionalPhotos();
+      } catch (err: any) {
+        // Account exists but photos failed. Switch to the retry screen so
+        // the user can re-attach photos that work (e.g. JPG instead of HEIC)
+        // without re-triggering /auth/register (which would 409 EMAIL_IN_USE).
+        setRegisterError(err?.message || "No se pudieron subir las fotos.");
+        setStep("photos-failed");
+        setRegistering(false);
+        return;
+      }
+    }
+
+    setRegistering(false);
+    if (isBusinessProfile) {
+      setStep("pending");
+    } else {
+      window.location.replace("/");
+    }
+  }
+
+  // Retry just the photo upload step after the account already exists.
+  async function retryPhotoUpload() {
+    if (!accountCreated) return;
+    setRetryingUpload(true);
+    setRegisterError(null);
+    try {
+      await uploadProfessionalPhotos();
+      setRetryingUpload(false);
       if (isBusinessProfile) {
         setStep("pending");
       } else {
         window.location.replace("/");
       }
     } catch (err: any) {
-      const msg = err?.body?.message || friendlyErrorMessage(err) || "Error al crear la cuenta.";
-      setRegisterError(msg);
-      setStep("form");
-    } finally {
-      setRegistering(false);
+      setRegisterError(err?.message || "No se pudieron subir las fotos.");
+      setRetryingUpload(false);
+    }
+  }
+
+  // Skip the upload retry: the account exists, the user can finish in the
+  // dashboard. Sends professionals to /pending and clients home.
+  function skipPhotoUpload() {
+    if (!accountCreated) return;
+    if (isBusinessProfile) {
+      setStep("pending");
+    } else {
+      window.location.replace("/");
     }
   }
 
@@ -641,6 +765,96 @@ export default function RegisterClient() {
                   }}
                 />
               )}
+            </div>
+          ) : step === "photos-failed" ? (
+            <div className="relative p-6 sm:p-8">
+              <div className="rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-500/10 to-rose-500/5 p-6">
+                <h2 className="text-xl font-bold text-red-100">
+                  Tu cuenta fue creada — faltan las fotos
+                </h2>
+                <p className="mt-2 text-sm text-white/70 leading-relaxed">
+                  {registerError ||
+                    "Algunas fotos no se pudieron subir. Vuelve a intentar o súbelas desde tu panel."}
+                </p>
+                <p className="mt-3 text-xs text-white/50">
+                  Tip: si tomaste las fotos con un iPhone, conviértelas a JPG o PNG antes de
+                  reintentar. El formato HEIC suele dar problemas.
+                </p>
+              </div>
+
+              {galleryPreviews.length > 0 && (
+                <div className="mt-5">
+                  <p className="text-xs uppercase tracking-wider text-white/40 mb-2">
+                    Fotos pendientes de subir ({galleryPreviews.length})
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {galleryPreviews.map((src, i) => (
+                      <div
+                        key={i}
+                        className="group relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-white/5"
+                      >
+                        <img src={src} alt="" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeGalleryItem(i)}
+                          className="absolute top-1 right-1 inline-flex items-center justify-center h-6 w-6 rounded-full bg-black/70 text-white/80 text-xs hover:bg-black/90 transition"
+                          aria-label="Quitar foto"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-5 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={galleryFiles.length >= MAX_PHOTOS}
+                  className="rounded-xl border border-white/15 bg-white/[0.04] py-3 text-sm font-medium text-white/85 hover:bg-white/[0.08] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Agregar fotos
+                </button>
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleGalleryAdd}
+                />
+                <button
+                  type="button"
+                  onClick={retryPhotoUpload}
+                  disabled={retryingUpload || galleryFiles.length === 0}
+                  className="rounded-2xl bg-gradient-to-r from-fuchsia-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] bg-left hover:bg-right font-semibold text-white py-3.5 text-base flex items-center justify-center gap-2 shadow-[0_15px_40px_rgba(168,85,247,0.35)] transition-[background-position,transform] duration-500 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {retryingUpload ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      Reintentando...
+                    </span>
+                  ) : (
+                    <>
+                      {galleryFiles.length === 0
+                        ? "No hay fotos para reintentar"
+                        : galleryFiles.length === 1
+                          ? "Reintentar subir 1 foto"
+                          : `Reintentar subir ${galleryFiles.length} fotos`}
+                      {galleryFiles.length > 0 && <ArrowRight className="h-4 w-4" />}
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={skipPhotoUpload}
+                  className="text-sm text-white/55 hover:text-white/80 underline-offset-4 hover:underline transition py-2"
+                >
+                  Continuar sin fotos (puedo subirlas más tarde desde mi panel)
+                </button>
+              </div>
             </div>
           ) : step === "pending" ? (
             <div className="relative p-6 sm:p-8">
