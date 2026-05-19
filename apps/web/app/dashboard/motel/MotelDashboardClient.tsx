@@ -221,9 +221,26 @@ export default function MotelDashboardPage() {
       const fd = new FormData();
       Array.from(files).forEach((f) => fd.append("files", f));
       const res = await fetch(`${getApiBase()}/profile/media`, { method: "POST", credentials: "include", body: fd });
-      const payload = await res.json();
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.message || "No se pudieron subir las fotos.");
+      }
       const urls = (payload?.media || []).map((m: any) => String(m.url)).filter(Boolean);
       setRoomForm((f: any) => ({ ...f, photoUrls: [...(f.photoUrls || []), ...urls] }));
+      // /profile/media returns 200 on partial success — let the host know
+      // which files were rejected so they aren't surprised by a "missing"
+      // photo silently dropped on the server.
+      const failures = Array.isArray(payload?.failures) ? payload.failures : [];
+      if (failures.length) {
+        const first = failures[0]?.message || "Algunas fotos no se pudieron procesar.";
+        setError(
+          failures.length === 1
+            ? first
+            : `${failures.length} fotos no se pudieron procesar. ${first}`,
+        );
+      }
+    } catch (err: any) {
+      setError(err?.message || "No se pudieron subir las fotos.");
     } finally {
       setUploadingAsset(null);
     }
