@@ -97,7 +97,7 @@ function describeUploadFailure(err: unknown): { code: string; message: string } 
       return {
         code: "IMAGE_OPTIMIZATION_FAILED",
         message:
-          "No pudimos procesar esta imagen. Si la tomaste con un iPhone, conviértela a JPG/PNG antes de subirla.",
+          "No pudimos procesar esta imagen. Verifica que no esté dañada e inténtalo de nuevo.",
       };
     default:
       return {
