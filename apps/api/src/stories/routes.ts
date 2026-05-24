@@ -391,8 +391,10 @@ storiesRouter.delete(
 );
 
 /* ─── POST /stories/home-featured ─────────────────────────────
-   Returns active stories marked by admin as "showInHome" for the
-   given user ids. Used by the home grid to rotate cover media.
+   Returns stories marked by admin as "showInHome" for the given
+   user ids. Used by the home grid to rotate cover media. Admin
+   curation overrides the story TTL: an approved story keeps rotating
+   even after it stopped appearing in the regular stories feed.
    Body: { userIds: string[] }   Response: { [userId]: { mediaUrl, mediaType }[] }
    Safe by design: any failure returns an empty map so the home keeps
    working with plain covers.
@@ -409,14 +411,12 @@ storiesRouter.post(
       .slice(0, 50);
     if (userIds.length === 0) return res.json({ byUser: {} });
 
-    const now = new Date();
     let rows: any[] = [];
     try {
       rows = await prisma.story.findMany({
         where: {
           userId: { in: userIds },
           showInHome: true,
-          expiresAt: { gt: now },
         },
         orderBy: { createdAt: "desc" },
         select: { id: true, userId: true, mediaUrl: true, mediaType: true },

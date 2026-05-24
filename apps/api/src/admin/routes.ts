@@ -1971,17 +1971,20 @@ adminRouter.get(
   asyncHandler(async (req, res) => {
     const now = new Date();
     const filter = String(req.query.filter || "all"); // "all" | "approved" | "pending"
+    const range = String(req.query.range || "all"); // "all" | "active" | "expired"
 
-    const where: any = { expiresAt: { gt: now } };
+    const where: any = {};
     if (filter === "approved") where.showInHome = true;
     else if (filter === "pending") where.showInHome = false;
+    if (range === "active") where.expiresAt = { gt: now };
+    else if (range === "expired") where.expiresAt = { lte: now };
 
     let stories: any[] = [];
     try {
       stories = await prisma.story.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        take: 200,
+        take: 500,
         select: {
           id: true,
           mediaUrl: true,
@@ -2020,6 +2023,7 @@ adminRouter.get(
         showInHome: s.showInHome,
         createdAt: s.createdAt.toISOString(),
         expiresAt: s.expiresAt.toISOString(),
+        expired: s.expiresAt.getTime() <= now.getTime(),
         likeCount: s.likeCount ?? 0,
         user: {
           id: s.user.id,
