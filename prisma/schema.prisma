@@ -918,19 +918,21 @@ model MotelPromotion {
 
 
 model Story {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @db.Uuid
-  mediaUrl  String
-  mediaType MediaType @default(IMAGE)
-  expiresAt DateTime
-  createdAt DateTime  @default(now())
-  likeCount Int       @default(0)
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  mediaUrl   String
+  mediaType  MediaType @default(IMAGE)
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  likeCount  Int       @default(0)
+  showInHome Boolean   @default(false)
 
   user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   likes StoryLike[]
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([showInHome, expiresAt])
 }
 
 model StoryLike {

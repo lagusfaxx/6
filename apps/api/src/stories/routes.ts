@@ -389,3 +389,58 @@ storiesRouter.delete(
     return res.json({ ok: true });
   }),
 );
+
+/* ─── POST /stories/home-featured ─────────────────────────────
+   Returns active stories marked by admin as "showInHome" for the
+   given user ids. Used by the home grid to rotate cover media.
+   Body: { userIds: string[] }   Response: { [userId]: { mediaUrl, mediaType }[] }
+   Safe by design: any failure returns an empty map so the home keeps
+   working with plain covers.
+   ─────────────────────────────────────────────────────────── */
+storiesRouter.post(
+  "/stories/home-featured",
+  asyncHandler(async (req, res) => {
+    const ids: unknown = req.body?.userIds;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.json({ byUser: {} });
+    }
+    const userIds = ids
+      .filter((v): v is string => typeof v === "string" && v.length > 0)
+      .slice(0, 50);
+    if (userIds.length === 0) return res.json({ byUser: {} });
+
+    const now = new Date();
+    let rows: any[] = [];
+    try {
+      rows = await prisma.story.findMany({
+        where: {
+          userId: { in: userIds },
+          showInHome: true,
+          expiresAt: { gt: now },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, userId: true, mediaUrl: true, mediaType: true },
+        take: 200,
+      });
+    } catch (err) {
+      // Column/table not migrated yet — degrade gracefully.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError ||
+        err instanceof Prisma.PrismaClientValidationError
+      ) {
+        return res.json({ byUser: {} });
+      }
+      throw err;
+    }
+
+    const byUser: Record<string, { id: string; mediaUrl: string; mediaType: string }[]> = {};
+    for (const r of rows) {
+      const list = byUser[r.userId] || (byUser[r.userId] = []);
+      // Cap per user so a single profile can't dominate the response payload.
+      if (list.length < 5) {
+        list.push({ id: r.id, mediaUrl: r.mediaUrl, mediaType: r.mediaType });
+      }
+    }
+    return res.json({ byUser });
+  }),
+);
