@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db";
+import { Prisma } from "@prisma/client";
 import { requireAdmin } from "../auth/middleware";
 import { requireFresh2FA } from "../auth/twoFactor";
 import { CreatePostSchema } from "@uzeed/shared";
@@ -1958,5 +1959,106 @@ adminRouter.post(
       sent,
       failed,
     });
+  }),
+);
+
+/* ─── Admin: Stories curated for home rotation ──────────────────
+   List active stories with their showInHome flag, and let admins
+   toggle which ones rotate on the home grid.
+   ─────────────────────────────────────────────────────────────── */
+adminRouter.get(
+  "/home-stories",
+  asyncHandler(async (req, res) => {
+    const now = new Date();
+    const filter = String(req.query.filter || "all"); // "all" | "approved" | "pending"
+
+    const where: any = { expiresAt: { gt: now } };
+    if (filter === "approved") where.showInHome = true;
+    else if (filter === "pending") where.showInHome = false;
+
+    let stories: any[] = [];
+    try {
+      stories = await prisma.story.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        select: {
+          id: true,
+          mediaUrl: true,
+          mediaType: true,
+          showInHome: true,
+          createdAt: true,
+          expiresAt: true,
+          likeCount: true,
+          user: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+              avatarUrl: true,
+              tier: true,
+              profileType: true,
+            },
+          },
+        },
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError ||
+        err instanceof Prisma.PrismaClientValidationError
+      ) {
+        return res.json({ stories: [] });
+      }
+      throw err;
+    }
+
+    return res.json({
+      stories: stories.map((s) => ({
+        id: s.id,
+        mediaUrl: s.mediaUrl,
+        mediaType: s.mediaType,
+        showInHome: s.showInHome,
+        createdAt: s.createdAt.toISOString(),
+        expiresAt: s.expiresAt.toISOString(),
+        likeCount: s.likeCount ?? 0,
+        user: {
+          id: s.user.id,
+          username: s.user.username,
+          displayName: s.user.displayName || s.user.username,
+          avatarUrl: s.user.avatarUrl,
+          tier: s.user.tier,
+          profileType: s.user.profileType,
+        },
+      })),
+    });
+  }),
+);
+
+adminRouter.patch(
+  "/home-stories/:id",
+  asyncHandler(async (req, res) => {
+    const showInHome = Boolean(req.body?.showInHome);
+    try {
+      const updated = await prisma.story.update({
+        where: { id: req.params.id },
+        data: { showInHome },
+        select: { id: true, showInHome: true },
+      });
+      return res.json(updated);
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2025"
+      ) {
+        return res.status(404).json({ error: "NOT_FOUND" });
+      }
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError ||
+        err instanceof Prisma.PrismaClientValidationError
+      ) {
+        return res.status(503).json({ error: "SHOW_IN_HOME_NOT_READY" });
+      }
+      throw err;
+    }
   }),
 );

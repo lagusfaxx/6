@@ -158,6 +158,7 @@ const NAV_ITEMS = [
   { href: "/admin/deposits", label: "Depositos", icon: ArrowDownToLine },
   { href: "/admin/withdrawals", label: "Retiros", icon: ArrowUpFromLine },
   { href: "/admin/banners", label: "Banners", icon: BookImage },
+  { href: "/admin/home-stories", label: "Historias Home", icon: Video },
   { href: "/admin/pricing", label: "Precios", icon: Tag },
   { href: "/admin/quick-listings", label: "Listados", icon: Store },
   { href: "/admin/quick-professionals", label: "Profesionales", icon: UserCheck },
@@ -594,6 +595,7 @@ export default function AdminIndex() {
                 <QuickAction href="/admin/deposits" icon={CircleDollarSign} label="Depositos" desc={`${metrics.pendingDeposits} pendientes`} accent="emerald" />
                 <QuickAction href="/admin/withdrawals" icon={CreditCard} label="Retiros" desc={`${metrics.pendingWithdrawals} pendientes`} accent="blue" />
                 <QuickAction href="/admin/banners" icon={BookImage} label="Banners" desc="Promociones" accent="pink" />
+                <QuickAction href="/admin/home-stories" icon={Video} label="Historias Home" desc="Rotar en Destacadas" accent="fuchsia" />
                 <QuickAction href="/admin/pricing" icon={Tag} label="Precios" desc="Planes y reglas" accent="violet" />
                 <QuickAction href="/admin/quick-listings" icon={Store} label="Listados" desc="Externos" accent="cyan" />
                 <QuickAction href="/admin/weekly-highlights" icon={Mail} label="Correo Semanal" desc="Destacadas" accent="pink" />

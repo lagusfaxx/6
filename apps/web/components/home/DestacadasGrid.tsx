@@ -1,34 +1,51 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { Crown } from "lucide-react";
-import { resolveMediaUrl } from "../../lib/api";
+import { apiFetch } from "../../lib/api";
+import DestacadaCard, {
+  type DestacadaCardProfile,
+  type FeaturedStoryMedia,
+} from "./DestacadaCard";
 
-export type DestacadaProfile = {
-  id: string;
-  displayName: string;
-  avatarUrl?: string | null;
-  coverUrl?: string | null;
-  availableNow?: boolean;
-};
+export type DestacadaProfile = DestacadaCardProfile;
 
 type Props = {
   profiles: DestacadaProfile[];
   title?: string;
 };
 
-function profileImage(p: DestacadaProfile) {
-  return (
-    resolveMediaUrl(p.coverUrl) ??
-    resolveMediaUrl(p.avatarUrl) ??
-    "/brand/isotipo-new.png"
-  );
-}
+type FeaturedResponse = {
+  byUser: Record<string, FeaturedStoryMedia[]>;
+};
 
 export default function DestacadasGrid({
   profiles,
   title = "Destacadas",
 }: Props) {
+  const userIds = useMemo(() => profiles.map((p) => p.id), [profiles]);
+  const [byUser, setByUser] = useState<Record<string, FeaturedStoryMedia[]>>({});
+
+  useEffect(() => {
+    if (userIds.length === 0) {
+      setByUser({});
+      return;
+    }
+    const controller = new AbortController();
+    apiFetch<FeaturedResponse>("/stories/home-featured", {
+      method: "POST",
+      body: JSON.stringify({ userIds }),
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (res && res.byUser) setByUser(res.byUser);
+      })
+      .catch(() => {
+        // Silent: the grid keeps showing plain covers if anything goes wrong
+      });
+    return () => controller.abort();
+  }, [userIds.join(",")]);
+
   if (!profiles.length) return null;
 
   return (
@@ -39,34 +56,11 @@ export default function DestacadasGrid({
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {profiles.map((p) => (
-          <Link
+          <DestacadaCard
             key={p.id}
-            href={`/profesional/${p.id}`}
-            className="group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0a14]"
-          >
-            <div className="relative aspect-[3/4] overflow-hidden">
-              <img
-                src={profileImage(p)}
-                alt={p.displayName}
-                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                loading="lazy"
-                decoding="async"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src =
-                    "/brand/isotipo-new.png";
-                }}
-              />
-              {p.availableNow && (
-                <span className="absolute left-2.5 top-2.5 inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(0,0,0,0.45)]" />
-              )}
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-10 text-center">
-                <h3 className="truncate text-base font-extrabold uppercase tracking-wide text-white">
-                  {p.displayName}
-                </h3>
-              </div>
-            </div>
-          </Link>
+            profile={p}
+            stories={byUser[p.id] || []}
+          />
         ))}
       </div>
     </section>
