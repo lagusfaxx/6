@@ -1,6 +1,21 @@
 import sharp from "sharp";
 import path from "node:path";
 import fs from "node:fs/promises";
+import heicConvert from "heic-convert";
+
+const HEIC_EXTS = new Set([".heic", ".heif"]);
+
+async function readDecodableImage(filePath: string): Promise<Buffer> {
+  const raw = await fs.readFile(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  if (!HEIC_EXTS.has(ext)) return raw;
+  // The prebuilt sharp binary on linux-x64 ships libheif but no HEVC decoder
+  // (libde265), so any iPhone HEIC blows up with "Support for this compression
+  // format has not been built in". heic-convert is a pure-JS HEIC→JPEG decoder
+  // that lets us hand sharp something it can actually read.
+  const jpeg = await heicConvert({ buffer: raw, format: "JPEG", quality: 0.92 });
+  return Buffer.from(jpeg);
+}
 
 /** Quality settings per use case */
 const QUALITY = { webp: 80, avif: 65 } as const;
@@ -26,8 +41,9 @@ export class ImageOptimizationError extends Error {
 /**
  * Converts and resizes an image to WebP format.
  * Writes the .webp file next to the original and returns the new filename.
- * Videos are returned as-is. If sharp cannot decode the image (e.g. HEIC on
- * a build without libheif, corrupt input) we throw — returning the original
+ * Videos are returned as-is. iPhone HEIC files are decoded to JPEG in JS first
+ * because the prebuilt sharp binary has no HEVC decoder. If decoding still
+ * fails (corrupt input, unrecognized format) we throw — returning the original
  * filename used to leave records pointing to URLs the browser can't render,
  * which made photos "disappear" from professional profiles.
  */
@@ -50,7 +66,8 @@ export async function optimizeImage(
   const webpPath = path.join(dir, webpFilename);
 
   try {
-    await sharp(filePath, { failOn: "none" })
+    const input = await readDecodableImage(filePath);
+    await sharp(input, { failOn: "none" })
       // Honor EXIF orientation so portrait iPhone photos aren't sideways.
       .rotate()
       .resize(dims.width, dims.height, {
@@ -60,10 +77,10 @@ export async function optimizeImage(
       .webp({ quality: QUALITY.webp })
       .toFile(webpPath);
   } catch (err) {
-    // Sharp couldn't decode the input (HEIC without libheif support,
-    // corrupt file, unrecognized format). Clean up any partial webp output
-    // and signal the caller so the original is removed and the user gets
-    // an actionable error instead of an unrenderable URL in their profile.
+    // Couldn't decode the input (corrupt file, unrecognized format, or HEIC
+    // that even heic-convert rejects). Clean up any partial webp output and
+    // signal the caller so the original is removed and the user gets an
+    // actionable error instead of an unrenderable URL in their profile.
     await fs.unlink(webpPath).catch(() => {});
     const reason = err instanceof Error ? err.message : String(err);
     throw new ImageOptimizationError(reason);
