@@ -39,6 +39,8 @@ import {
   Palette,
   Languages,
   Play,
+  Share2,
+  Check,
 } from "lucide-react";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
 import StatusBadgeIcon from "../../../components/StatusBadgeIcon";
@@ -250,6 +252,7 @@ export default function ProfileDetailView({
   const [surveyError, setSurveyError] = useState<string | null>(null);
   const [surveySuccess, setSurveySuccess] = useState(false);
   const [hasVideocall, setHasVideocall] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const { me } = useMe();
 
   useEffect(() => {
@@ -615,6 +618,42 @@ export default function ProfileDetailView({
       }
     } catch {
       setFavorite((prev) => !prev);
+    }
+  }
+
+  async function handleShare(source: string) {
+    if (!professional) return;
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const title = `Perfil de ${professional.name} en Uzeed`;
+    const text = `Mira el perfil de ${professional.name} en Uzeed.cl`;
+    trackAction("profile_share", professional.id, {
+      source,
+      displayName: professional.name,
+    });
+    try {
+      if (typeof navigator !== "undefined" && (navigator as any).share) {
+        await (navigator as any).share({ title, text, url });
+        return;
+      }
+      if (
+        typeof navigator !== "undefined" &&
+        navigator.clipboard?.writeText
+      ) {
+        await navigator.clipboard.writeText(url);
+        setShareFeedback("Enlace copiado");
+        setTimeout(() => setShareFeedback(null), 2200);
+        return;
+      }
+    } catch (err: any) {
+      if (err?.name === "AbortError") return;
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareFeedback("Enlace copiado");
+        setTimeout(() => setShareFeedback(null), 2200);
+      } catch {
+        setShareFeedback("No se pudo compartir");
+        setTimeout(() => setShareFeedback(null), 2200);
+      }
     }
   }
 
@@ -1445,6 +1484,15 @@ export default function ProfileDetailView({
                     {favorite ? "Guardado" : "Favorito"}
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleShare("profile_detail_sidebar")}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/25 bg-violet-500/10 py-2.5 text-xs font-semibold text-violet-100 transition hover:bg-violet-500/20"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  Compartir perfil
+                </button>
               </div>
               </div>
             </div>
@@ -1541,14 +1589,25 @@ export default function ProfileDetailView({
             {priceLabel}
             <span className="ml-1.5 text-xs font-normal text-white/40">{durationLabel}</span>
           </div>
-          <button
-            onClick={toggleFavorite}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] transition hover:bg-white/[0.08]"
-          >
-            <Heart
-              className={`h-4 w-4 ${favorite ? "fill-red-500 text-red-500" : "text-white/50"}`}
-            />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => handleShare("profile_detail_sticky")}
+              aria-label="Compartir perfil"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:bg-violet-500/15 hover:text-violet-200"
+            >
+              <Share2 className="h-4 w-4" />
+            </button>
+            <button
+              onClick={toggleFavorite}
+              aria-label={favorite ? "Quitar de favoritos" : "Guardar favorito"}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] transition hover:bg-white/[0.08]"
+            >
+              <Heart
+                className={`h-4 w-4 ${favorite ? "fill-red-500 text-red-500" : "text-white/50"}`}
+              />
+            </button>
+          </div>
         </div>
         {/* Main CTA */}
         <button
@@ -1726,6 +1785,25 @@ export default function ProfileDetailView({
                 </>
               )}
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Share feedback toast */}
+      <AnimatePresence>
+        {shareFeedback && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-28 left-1/2 z-[60] -translate-x-1/2 md:bottom-8"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-2 rounded-full border border-violet-400/30 bg-[#1a0d2b]/95 px-4 py-2.5 text-sm font-medium text-violet-100 shadow-[0_8px_24px_rgba(168,85,247,0.35)] backdrop-blur-xl">
+              <Check className="h-4 w-4 text-emerald-300" />
+              {shareFeedback}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
