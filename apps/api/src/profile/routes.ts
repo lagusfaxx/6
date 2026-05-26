@@ -697,11 +697,30 @@ async function updateProfile(req: any, res: any) {
     }
   }
 
+  // `phone ?? undefined` let an empty string through (?? only catches null/undefined),
+  // silently wiping a professional's number. Enforce a valid number like registration.
+  let phoneUpdate: string | null | undefined = undefined;
+  if (phone !== undefined) {
+    const trimmedPhone = String(phone ?? "").trim();
+    if (me.profileType === "PROFESSIONAL") {
+      if (!PROFESSIONAL_PHONE_REGEX.test(trimmedPhone)) {
+        return res.status(400).json({
+          error: "PHONE_INVALID",
+          message:
+            "Ingresa un número válido con código de país (+56, +57, +58 o +51).",
+        });
+      }
+      phoneUpdate = trimmedPhone;
+    } else {
+      phoneUpdate = trimmedPhone === "" ? null : trimmedPhone;
+    }
+  }
+
   const baseData: Record<string, unknown> = {
     displayName: displayName ?? undefined,
     bio: bio ?? undefined,
     address: address ?? undefined,
-    phone: phone ?? undefined,
+    phone: phoneUpdate,
     preferenceGender: safePreference,
     gender: safeGender,
     username: username ?? undefined,
