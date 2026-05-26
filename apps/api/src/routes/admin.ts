@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { prisma } from "../lib/prisma";
 import { requireAdmin } from "../lib/auth";
+import { requireFresh2FA } from "../auth/twoFactor";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { env } from "../lib/env";
 import path from "node:path";
@@ -237,8 +238,31 @@ adminRouter.put("/admin/profiles/:id", requireAdmin, asyncHandler(async (req, re
   res.json({ profile: updated });
 }));
 
+// Update profile labels/tags
+adminRouter.put("/admin/profiles/:id/labels", requireAdmin, requireFresh2FA, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { premium, verified, exams } = req.body ?? {};
+
+  const profileTags: string[] = [];
+  if (premium) profileTags.push("premium");
+  if (verified) profileTags.push("verificada");
+  if (exams) profileTags.push("profesional con examenes");
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { profileTags },
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      profileTags: true,
+    },
+  });
+  res.json({ profile: updated });
+}));
+
 // Delete profile permanently
-adminRouter.delete("/admin/profiles/:id", requireAdmin, asyncHandler(async (req, res) => {
+adminRouter.delete("/admin/profiles/:id", requireAdmin, requireFresh2FA, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) return res.status(404).json({ error: "NOT_FOUND" });
