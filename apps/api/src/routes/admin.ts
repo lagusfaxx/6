@@ -195,6 +195,16 @@ adminRouter.get("/admin/profiles/:id/media-videos", requireAdmin, asyncHandler(a
   res.json({ media });
 }));
 
+adminRouter.get("/admin/profiles/:id/media-photos", requireAdmin, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const media = await prisma.profileMedia.findMany({
+    where: { ownerId: id, type: "IMAGE" },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, url: true, type: true, createdAt: true, isLocked: true },
+  });
+  res.json({ media });
+}));
+
 // Toggle profile active status
 adminRouter.put("/admin/profiles/:id/toggle", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;

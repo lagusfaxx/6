@@ -22,6 +22,8 @@ import {
   DollarSign,
   Check,
   Pencil,
+  Download,
+  Image as ImageIcon,
 } from "lucide-react";
 
 type Profile = {
@@ -46,6 +48,14 @@ type Profile = {
   baseRate: number | null;
   createdAt: string;
   updatedAt: string;
+};
+
+type ProfilePhoto = {
+  id: string;
+  url: string;
+  type: "IMAGE" | "VIDEO";
+  createdAt: string;
+  isLocked: boolean;
 };
 
 const PROFILE_TYPES = [
@@ -81,6 +91,9 @@ export default function AdminProfilesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [rateEditing, setRateEditing] = useState<string | null>(null);
   const [rateInput, setRateInput] = useState("");
+  const [mediaModal, setMediaModal] = useState<{ profileId: string; displayName: string } | null>(null);
+  const [mediaPhotos, setMediaPhotos] = useState<ProfilePhoto[]>([]);
+  const [loadingMedia, setLoadingMedia] = useState(false);
 
   const loadProfiles = useCallback(async () => {
     setError(null);
@@ -102,6 +115,27 @@ export default function AdminProfilesPage() {
       setLoadingProfiles(false);
     }
   }, [page, searchQuery, profileTypeFilter, activeFilter]);
+
+  async function loadProfilePhotos(profileId: string) {
+    setLoadingMedia(true);
+    try {
+      const res = await apiFetch<{ media: ProfilePhoto[] }>(`/admin/profiles/${profileId}/media-photos`);
+      setMediaPhotos(res?.media ?? []);
+    } catch {
+      setError("No se pudieron cargar las fotos.");
+    } finally {
+      setLoadingMedia(false);
+    }
+  }
+
+  function downloadPhoto(url: string, filename: string) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   useEffect(() => {
     if (!loading && isAdmin) loadProfiles();
@@ -428,6 +462,17 @@ export default function AdminProfilesPage() {
                   </Link>
                   <button
                     disabled={busy === p.id}
+                    onClick={() => {
+                      setMediaModal({ profileId: p.id, displayName: p.displayName || p.username });
+                      loadProfilePhotos(p.id);
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 transition"
+                    title="Descargar fotos"
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    disabled={busy === p.id}
                     onClick={() => toggleProfile(p)}
                     className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium transition disabled:opacity-50 ${
                       p.isActive
@@ -675,6 +720,78 @@ export default function AdminProfilesPage() {
           }
         }}
       />
+
+      {/* Media Download Modal */}
+      {mediaModal && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/85 p-4 backdrop-blur-md">
+          <div
+            className="w-full max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-[#1a0e28]/95 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">
+                Fotos de {mediaModal.displayName}
+              </h3>
+              <button
+                onClick={() => setMediaModal(null)}
+                className="text-white/40 hover:text-white/70"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {loadingMedia ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-fuchsia-400" />
+              </div>
+            ) : mediaPhotos.length === 0 ? (
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center">
+                <ImageIcon className="mx-auto h-10 w-10 text-white/20 mb-3" />
+                <div className="text-sm text-white/50">No hay fotos disponibles.</div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                  {mediaPhotos.map((photo) => (
+                    <div
+                      key={photo.id}
+                      className="relative group overflow-hidden rounded-xl border border-white/[0.06]"
+                    >
+                      <img
+                        src={photo.url}
+                        alt="Foto del perfil"
+                        className="aspect-square w-full object-cover"
+                      />
+                      <button
+                        onClick={() => {
+                          const ext = photo.url.split(".").pop() || "jpg";
+                          const filename = `${mediaModal.displayName}-${photo.id}.${ext}`;
+                          downloadPhoto(photo.url, filename);
+                        }}
+                        className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
+                        title="Descargar"
+                      >
+                        <Download className="h-5 w-5 text-white" />
+                      </button>
+                      {photo.isLocked && (
+                        <div className="absolute bottom-1 right-1 rounded-full bg-black/70 px-2 py-1 text-[10px] text-white/80">
+                          Registro
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setMediaModal(null)}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-medium text-white/60 transition hover:bg-white/10"
+                >
+                  Cerrar
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
