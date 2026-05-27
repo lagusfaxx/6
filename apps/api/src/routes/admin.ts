@@ -2,14 +2,10 @@ import { Router } from "express";
 import multer from "multer";
 import { prisma } from "../lib/prisma";
 import { requireAdmin } from "../lib/auth";
-import { requireFresh2FA as requireFresh2FAMiddleware } from "../auth/twoFactor";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { env } from "../lib/env";
 import path from "node:path";
 import { asyncHandler } from "../lib/asyncHandler";
-
-// Wrap the async middleware properly
-const requireFresh2FA = asyncHandler(requireFresh2FAMiddleware);
 
 export const adminRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -242,7 +238,7 @@ adminRouter.put("/admin/profiles/:id", requireAdmin, asyncHandler(async (req, re
 }));
 
 // Update profile labels/tags
-adminRouter.put("/admin/profiles/:id/labels", requireAdmin, requireFresh2FA, asyncHandler(async (req, res) => {
+adminRouter.put("/admin/profiles/:id/labels", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { premium, verified, exams } = req.body ?? {};
 
@@ -265,7 +261,7 @@ adminRouter.put("/admin/profiles/:id/labels", requireAdmin, requireFresh2FA, asy
 }));
 
 // Delete profile permanently
-adminRouter.delete("/admin/profiles/:id", requireAdmin, requireFresh2FA, asyncHandler(async (req, res) => {
+adminRouter.delete("/admin/profiles/:id", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) return res.status(404).json({ error: "NOT_FOUND" });
