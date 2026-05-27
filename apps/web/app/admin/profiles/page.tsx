@@ -143,17 +143,18 @@ export default function AdminProfilesPage() {
     }
   }
 
-  async function deleteProfile(id: string, mfaCode: string) {
+  async function deleteProfile(id: string) {
     setBusy(id);
     setError(null);
     try {
       await apiFetch(`/admin/profiles/${id}`, {
         method: "DELETE",
-        headers: { "x-2fa-code": mfaCode },
       });
       setSuccess("Perfil eliminado permanentemente.");
       setDeleteConfirm(null);
       await loadProfiles();
+    } catch (err) {
+      setError("No se pudo eliminar el perfil.");
     } finally {
       setBusy(null);
     }
@@ -669,9 +670,9 @@ export default function AdminProfilesPage() {
         confirmLabel="Eliminar definitivamente"
         destructive
         onCancel={() => setDeleteConfirm(null)}
-        onConfirm={async (code) => {
+        onConfirm={async () => {
           if (deleteConfirm) {
-            await deleteProfile(deleteConfirm, code);
+            await deleteProfile(deleteConfirm);
           }
         }}
       />
