@@ -858,12 +858,6 @@ export default function ProfileDetailView({
                     {professional.completedServices} servicios
                   </span>
                 )}
-                {(professional.profileViews ?? 0) > 0 && (
-                  <span className="flex items-center gap-1">
-                    <Eye className="h-3.5 w-3.5" />
-                    {professional.profileViews} vistas
-                  </span>
-                )}
               </div>
             </div>
           </div>
