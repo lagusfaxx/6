@@ -2,11 +2,14 @@ import { Router } from "express";
 import multer from "multer";
 import { prisma } from "../lib/prisma";
 import { requireAdmin } from "../lib/auth";
-import { requireFresh2FA } from "../auth/twoFactor";
+import { requireFresh2FA as requireFresh2FAMiddleware } from "../auth/twoFactor";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { env } from "../lib/env";
 import path from "node:path";
 import { asyncHandler } from "../lib/asyncHandler";
+
+// Wrap the async middleware properly
+const requireFresh2FA = asyncHandler(requireFresh2FAMiddleware);
 
 export const adminRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
