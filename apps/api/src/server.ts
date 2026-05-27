@@ -38,7 +38,8 @@ app.use(
       if (allowedOrigins.includes(origin)) return callback(null, true);
       return callback(new Error("CORS_NOT_ALLOWED"));
     },
-    credentials: true
+    credentials: true,
+    allowedHeaders: ["Content-Type", "x-2fa-code"]
   })
 );
 
