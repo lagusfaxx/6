@@ -112,6 +112,7 @@ function MapboxMapComponent({
   const userHasInteractedRef = useRef(false);
   const [mapInitialized, setMapInitialized] = useState(false);
   const [mapIdle, setMapIdle] = useState(false);
+  const [mapStyleLoaded, setMapStyleLoaded] = useState(false);
   const [recenterFlag, setRecenterFlag] = useState(0);
   const centerChangeHandlerRef = useRef(onCenterChange);
   const onMarkerSelectRef = useRef(onMarkerSelect);
@@ -172,6 +173,12 @@ function MapboxMapComponent({
       );
       mapRef.current = map;
       setMapInitialized(true);
+
+      // Track when style loads
+      map.on("load", () => {
+        setMapStyleLoaded(true);
+      });
+
       map.on("movestart", () => setMapIdle(false));
       map.on("zoomstart", () => setMapIdle(false));
       map.on("dragstart", () => {
@@ -195,6 +202,13 @@ function MapboxMapComponent({
         }
       });
       map.on("click", () => onMarkerDeselectRef.current?.());
+
+      // Handle style errors
+      map.on("error", (e) => {
+        console.warn("Mapbox error:", e);
+        // Keep the map visible with fallback styling
+        setMapStyleLoaded(true);
+      });
     })();
 
     return () => {
@@ -583,7 +597,22 @@ function MapboxMapComponent({
 
   return (
     <div className="relative overflow-hidden isolate">
-      <div ref={containerRef} className={className} style={{ height }} />
+      <div
+        ref={containerRef}
+        className={`bg-slate-950 ${className || ""}`}
+        style={{
+          height,
+          backgroundColor: "#0f172a",
+        }}
+      />
+      {!mapStyleLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-slate-900/70 to-slate-950/80 backdrop-blur-sm">
+          <div className="text-center">
+            <div className="mx-auto mb-3 h-8 w-8 rounded-full border-2 border-fuchsia-500/30 border-t-fuchsia-500 animate-spin" />
+            <p className="text-sm text-white/50">Cargando mapa...</p>
+          </div>
+        </div>
+      )}
       <button
         type="button"
         className="uzeed-map-recenter-btn"
