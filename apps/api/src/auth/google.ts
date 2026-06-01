@@ -1,5 +1,7 @@
 import { Router } from "express";
 import crypto from "crypto";
+import path from "node:path";
+import multer from "multer";
 import { z } from "zod";
 import { prisma } from "../db";
 import { Prisma, ProfileType } from "@prisma/client";
@@ -9,8 +11,44 @@ import { emitAdminEvent } from "../lib/adminEvents";
 import { Genders, PreferenceGenders } from "@uzeed/shared";
 import { createProfessionalForumThread } from "./registerHelpers";
 import { redeemReferralCode } from "../referral/redeem";
+import { LocalStorageProvider } from "../storage/localStorageProvider";
+import { validateUploadedFile } from "../lib/uploads";
+import { optimizeUploadedImage } from "../lib/imageOptimizer";
+import { MIN_PROFESSIONAL_GALLERY_PHOTOS } from "./createProfessional";
 
 export const googleAuthRouter = Router();
+
+// Photos for a Google professional signup are uploaded in the same request as
+// the form (multipart), so the server can enforce the gallery minimum BEFORE
+// creating the account. This mirrors the quick-register flow.
+const googleSignupStorage = new LocalStorageProvider({
+  baseDir: config.storageDir,
+  publicPathPrefix: `${config.apiUrl.replace(/\/$/, "")}/uploads`,
+});
+
+const googleSignupDisk = multer.diskStorage({
+  destination: async (_req, _file, cb) => {
+    await googleSignupStorage.ensureBaseDir();
+    cb(null, config.storageDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || "";
+    const safeBase = path
+      .basename(file.originalname, ext)
+      .replace(/[^a-zA-Z0-9_-]/g, "");
+    cb(null, `${Date.now()}-${safeBase}${ext}`);
+  },
+});
+
+const googleSignupUpload = multer({
+  storage: googleSignupDisk,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = (file.mimetype || "").toLowerCase().startsWith("image/");
+    if (!ok) return cb(new Error("INVALID_FILE_TYPE"));
+    return cb(null, true);
+  },
+});
 
 const GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -335,6 +373,9 @@ async function finalizeGoogleSession(
 
 googleAuthRouter.post(
   "/google/complete",
+  // Optional gallery upload — only professionals send files. Multer ignores
+  // non-multipart (JSON) requests, so the CLIENT path keeps working unchanged.
+  googleSignupUpload.array("gallery", 6),
   asyncHandler(async (req, res) => {
     const pending = req.session.pendingGoogleSignup;
     if (!pending) {
@@ -412,9 +453,22 @@ googleAuthRouter.post(
     }
 
     // ─── PROFESSIONAL: validate full form payload ───
+    // Fields arrive as strings when sent as multipart (gallery present), so we
+    // coerce the numeric/boolean ones before validation. JSON payloads (numbers
+    // and booleans already) pass through these coercions unchanged.
     const parsed = professionalCompleteSchema.safeParse({
       ...req.body,
       profileType: "PROFESSIONAL",
+      latitude:
+        req.body?.latitude != null && req.body.latitude !== ""
+          ? Number(req.body.latitude)
+          : undefined,
+      longitude:
+        req.body?.longitude != null && req.body.longitude !== ""
+          ? Number(req.body.longitude)
+          : undefined,
+      acceptTerms:
+        req.body?.acceptTerms === true || req.body?.acceptTerms === "true",
     });
     if (!parsed.success) {
       return res
@@ -422,6 +476,41 @@ googleAuthRouter.post(
         .json({ error: "VALIDATION", details: parsed.error.flatten() });
     }
     const data = parsed.data;
+
+    // Enforce the gallery minimum BEFORE creating the account. The Google flow
+    // previously created the professional first and uploaded photos in a
+    // separate request, so a dropped upload (or a payload with no photos) left
+    // a professional with 0 photos and only the Google letter-avatar. We now
+    // require the gallery up front, exactly like quick-register.
+    const galleryFiles = (req.files as Express.Multer.File[]) ?? [];
+    const galleryUrls: string[] = [];
+    let galleryUploadFailures = 0;
+    for (const gFile of galleryFiles) {
+      try {
+        await validateUploadedFile(gFile, "image");
+        const optimized = await optimizeUploadedImage(gFile, "gallery");
+        galleryUrls.push(googleSignupStorage.publicUrl(optimized));
+      } catch (err) {
+        galleryUploadFailures++;
+        console.error("[auth/google] gallery upload failed", {
+          email: pending.email,
+          error: err,
+        });
+      }
+    }
+    if (galleryUrls.length < MIN_PROFESSIONAL_GALLERY_PHOTOS) {
+      console.warn("[auth/google] insufficient photos", {
+        email: pending.email,
+        incoming: galleryFiles.length,
+        accepted: galleryUrls.length,
+        failures: galleryUploadFailures,
+      });
+      const message =
+        galleryUploadFailures > 0
+          ? `Algunas de tus fotos no se pudieron procesar. Debes subir al menos ${MIN_PROFESSIONAL_GALLERY_PHOTOS} fotos válidas para registrarte. Intenta de nuevo con otras imágenes (JPG o PNG funcionan mejor).`
+          : `Debes subir al menos ${MIN_PROFESSIONAL_GALLERY_PHOTOS} fotos para registrarte como profesional.`;
+      return res.status(400).json({ error: "INSUFFICIENT_PHOTOS", message });
+    }
 
     // Age check (same rules as /auth/register)
     const parsedBirthdate = new Date(data.birthdate);
@@ -504,7 +593,9 @@ googleAuthRouter.post(
           lastSeen: new Date(),
           role: "USER",
           isVerified: false,
-          avatarUrl: pending.avatarUrl,
+          // Use the first real gallery photo as the avatar instead of the
+          // Google letter-avatar.
+          avatarUrl: galleryUrls[0],
         },
         select: {
           id: true,
@@ -546,6 +637,22 @@ googleAuthRouter.post(
         error: "CREATE_FAILED",
         message: "No pudimos crear la cuenta. Intenta de nuevo.",
       });
+    }
+
+    // Persist the validated gallery and lock the registration photos so the
+    // professional can't later drop below the required minimum.
+    for (const url of galleryUrls) {
+      try {
+        await prisma.profileMedia.create({
+          data: { ownerId: user.id, type: "IMAGE", url, isLocked: true },
+        });
+      } catch (err) {
+        console.error("[auth/google] gallery media create failed", {
+          userId: user.id,
+          url,
+          error: err,
+        });
+      }
     }
 
     await createProfessionalForumThread({

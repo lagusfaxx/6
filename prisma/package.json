@@ -19,6 +19,7 @@
     "clean:test": "node scripts/clean-test-profiles.js",
     "seed:umate": "node scripts/seed-umate-creators.js",
     "clean:umate": "node scripts/clean-umate-creators.js",
-    "forum:backfill:professionals": "node scripts/backfill-professional-forum-threads.js"
+    "forum:backfill:professionals": "node scripts/backfill-professional-forum-threads.js",
+    "professionals:deactivate-incomplete": "node scripts/deactivate-incomplete-professionals.js"
   }
 }

@@ -284,17 +284,40 @@ export default function RegisterClient() {
   }
 
   // Google flow: the session already has a pendingGoogleSignup. Create the
-  // account via /auth/google/complete (no password, no email verification),
-  // then upload photos and land on the pending screen for professionals.
+  // account via /auth/google/complete (no password, no email verification).
+  // Professionals send their gallery in the SAME request (multipart) so the
+  // server enforces the 3-photo minimum before the account is created — a
+  // separate upload could fail and leave a professional with an empty gallery.
   async function createAccountFromGoogle(data: RegisterFormData) {
     setRegistering(true);
     setRegisterError(null);
+
+    // Hard client-side gate so professionals can't submit without the gallery
+    // (the server enforces this too).
+    if (isProfessional && galleryFiles.length < 3) {
+      setRegisterError(
+        "Debes subir al menos 3 fotos para registrarte como profesional.",
+      );
+      setRegistering(false);
+      return;
+    }
+
     try {
       const { password: _omitPassword, email: _omitEmail, ...rest } = data;
-      await apiFetch("/auth/google/complete", {
-        method: "POST",
-        body: JSON.stringify(rest),
-      });
+      if (isProfessional) {
+        const fd = new FormData();
+        for (const [key, value] of Object.entries(rest)) {
+          if (value === undefined || value === null) continue;
+          fd.append(key, String(value));
+        }
+        for (const file of galleryFiles) fd.append("gallery", file);
+        await apiFetch("/auth/google/complete", { method: "POST", body: fd });
+      } else {
+        await apiFetch("/auth/google/complete", {
+          method: "POST",
+          body: JSON.stringify(rest),
+        });
+      }
       setAccountCreated(true);
     } catch (err: any) {
       const msg =
@@ -304,20 +327,6 @@ export default function RegisterClient() {
       setRegisterError(msg);
       setRegistering(false);
       return;
-    }
-
-    if (isProfessional && galleryFiles.length > 0) {
-      try {
-        await uploadProfessionalPhotos();
-      } catch (err: any) {
-        // Account is already created; only the photos failed. Show the
-        // retry screen so the user can fix and resubmit — bouncing to
-        // /pending would leave the gallery empty.
-        setRegisterError(err?.message || "No se pudieron subir las fotos.");
-        setStep("photos-failed");
-        setRegistering(false);
-        return;
-      }
     }
 
     setRegistering(false);
