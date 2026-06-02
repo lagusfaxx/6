@@ -283,49 +283,58 @@ export default function RegisterClient() {
     }
   }
 
-  // Google flow: the session already has a pendingGoogleSignup. Create the
-  // account via /auth/google/complete (no password, no email verification),
-  // then upload photos and land on the pending screen for professionals.
+  // Google flow (professional): the session already holds a pendingGoogleSignup.
+  // We send the form fields AND the gallery photos in a single multipart request
+  // to /auth/google/complete, so the server enforces the 3-photo minimum
+  // atomically — the account is only created once enough valid photos are
+  // accepted, and the Google avatar is never used as a stand-in photo. There is
+  // no separate upload step (and therefore no "account created without photos"
+  // state) for this flow.
   async function createAccountFromGoogle(data: RegisterFormData) {
     setRegistering(true);
     setRegisterError(null);
-    try {
-      const { password: _omitPassword, email: _omitEmail, ...rest } = data;
-      await apiFetch("/auth/google/complete", {
-        method: "POST",
-        body: JSON.stringify(rest),
-      });
-      setAccountCreated(true);
-    } catch (err: any) {
-      const msg =
-        err?.body?.message ||
-        friendlyErrorMessage(err) ||
-        "Error al crear la cuenta.";
-      setRegisterError(msg);
+
+    if (galleryFiles.length < MIN_PHOTOS) {
+      setRegisterError(`Debes subir al menos ${MIN_PHOTOS} fotos para continuar.`);
       setRegistering(false);
       return;
     }
 
-    if (isProfessional && galleryFiles.length > 0) {
-      try {
-        await uploadProfessionalPhotos();
-      } catch (err: any) {
-        // Account is already created; only the photos failed. Show the
-        // retry screen so the user can fix and resubmit — bouncing to
-        // /pending would leave the gallery empty.
-        setRegisterError(err?.message || "No se pudieron subir las fotos.");
-        setStep("photos-failed");
-        setRegistering(false);
-        return;
-      }
+    const form = new FormData();
+    form.append("profileType", "PROFESSIONAL");
+    form.append("displayName", data.displayName);
+    form.append("phone", data.phone);
+    form.append("gender", data.gender ?? "");
+    form.append("address", data.address ?? "");
+    form.append("latitude", String(data.latitude ?? ""));
+    form.append("longitude", String(data.longitude ?? ""));
+    form.append("acceptTerms", String(data.acceptTerms));
+    if (data.preferenceGender) form.append("preferenceGender", data.preferenceGender);
+    if (data.birthdate) form.append("birthdate", data.birthdate);
+    if (data.primaryCategory) form.append("primaryCategory", data.primaryCategory);
+    if (data.city) form.append("city", data.city);
+    if (data.bio) form.append("bio", data.bio);
+    if (data.referralCode) form.append("referralCode", data.referralCode);
+    for (const file of galleryFiles) form.append("gallery", file);
+
+    try {
+      // apiFetch detects the FormData body and skips the JSON Content-Type so
+      // the browser sets the multipart boundary; credentials are included so
+      // the pending Google session cookie travels with the request.
+      await apiFetch("/auth/google/complete", { method: "POST", body: form });
+    } catch (err: any) {
+      setRegisterError(
+        err?.body?.message ||
+          friendlyErrorMessage(err) ||
+          "No pudimos crear tu cuenta. Intenta de nuevo.",
+      );
+      setRegistering(false);
+      return;
     }
 
+    setAccountCreated(true);
     setRegistering(false);
-    if (isBusinessProfile) {
-      setStep("pending");
-    } else {
-      window.location.replace("/");
-    }
+    setStep("pending");
   }
 
   // After email verified, create the account (and upload photos for professionals)
