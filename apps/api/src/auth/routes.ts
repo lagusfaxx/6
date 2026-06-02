@@ -270,6 +270,14 @@ authRouter.post(
           isOnline: true,
           lastSeen: new Date(),
           role: "USER",
+          // Business profiles (PROFESSIONAL/ESTABLISHMENT/SHOP) start hidden
+          // AND unverified: they must clear admin verification — which enforces
+          // the gallery photo minimum — before they become publicly visible,
+          // mirroring quick-register, Google signup and convert-to-professional.
+          // Without isActive:false they defaulted to true and leaked into the
+          // public directory with no photos (photos are a separate upload step
+          // the user can skip or abandon).
+          isActive: !isBusinessProfile,
           isVerified: !isBusinessProfile,
         },
         select: {

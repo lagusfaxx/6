@@ -3,6 +3,7 @@ import { prisma } from "../db";
 import { Prisma } from "@prisma/client";
 import { requireAdmin } from "../auth/middleware";
 import { requireFresh2FA } from "../auth/twoFactor";
+import { MIN_PROFESSIONAL_GALLERY_PHOTOS } from "../auth/createProfessional";
 import { CreatePostSchema } from "@uzeed/shared";
 import multer from "multer";
 import path from "path";
@@ -616,6 +617,24 @@ adminRouter.put(
       select: { isVerified: true, profileType: true },
     });
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+    // Publish gate: approving sets isActive:true, so this is the last line of
+    // defense ensuring no professional ever goes live with an incomplete
+    // gallery — matching the signup paths (quick-register / Google /
+    // convert-to-professional), which all enforce the same minimum.
+    if (user.profileType === "PROFESSIONAL") {
+      const galleryCount = await prisma.profileMedia.count({
+        where: { ownerId: id, type: "IMAGE" },
+      });
+      if (galleryCount < MIN_PROFESSIONAL_GALLERY_PHOTOS) {
+        return res.status(400).json({
+          error: "INSUFFICIENT_PHOTOS",
+          message: `No se puede publicar: este profesional tiene ${galleryCount} foto(s) y se requieren al menos ${MIN_PROFESSIONAL_GALLERY_PHOTOS}. Pídele que complete su galería antes de aprobar.`,
+          required: MIN_PROFESSIONAL_GALLERY_PHOTOS,
+          current: galleryCount,
+        });
+      }
+    }
 
     const updated = await prisma.user.update({
       where: { id },
