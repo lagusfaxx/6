@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import DirectoryPage from "../../../components/DirectoryPage";
+import { jsonLdHtml } from "../../../lib/jsonLd";
 
 type Props = { params: Promise<{ tag: string }> };
 
@@ -65,7 +66,7 @@ export default async function EscortsTagPage({ params }: Props) {
       {/* Breadcrumb structured data for rich results */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml({
           "@context": "https://schema.org",
           "@type": "BreadcrumbList",
           itemListElement: [

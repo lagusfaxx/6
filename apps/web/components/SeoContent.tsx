@@ -4,6 +4,8 @@
  * DirectoryPage handles the interactive listings.
  */
 
+import { jsonLdHtml } from "../lib/jsonLd";
+
 type SeoContentProps = {
   variant: "escorts" | "masajistas" | "moteles" | "hospedaje" | "establecimientos" | "profesionales" | "sexshop";
 };
@@ -138,12 +140,12 @@ export default function SeoContent({ variant }: SeoContentProps) {
       {faqJsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(faqJsonLd) }}
         />
       )}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(breadcrumbJsonLd) }}
       />
       {/* Visually hidden but crawlable SEO text at bottom of page */}
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ProfileDetailView from "../_components/ProfileDetailView";
+import { jsonLdHtml } from "../../../lib/jsonLd";
 
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
 
@@ -123,7 +124,7 @@ export default async function ProfessionalDetailPage({ params }: Props) {
       {jsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
         />
       )}
       {p && (

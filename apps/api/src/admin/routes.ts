@@ -9,6 +9,7 @@ import path from "path";
 import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { asyncHandler } from "../lib/asyncHandler";
+import { assertPublicHttpUrl, UnsafeUrlError } from "../lib/ssrf";
 import { optimizeImage, optimizeUploadedImage } from "../lib/imageOptimizer";
 
 export const adminRouter = Router();
@@ -1237,14 +1238,10 @@ adminRouter.post(
       return res.status(400).json({ error: "Se requiere imageUrl" });
     }
 
-    let parsed: URL;
     try {
-      parsed = new URL(imageUrl);
-    } catch {
-      return res.status(400).json({ error: "URL invalida" });
-    }
-    if (!["http:", "https:"].includes(parsed.protocol)) {
-      return res.status(400).json({ error: "Solo URLs http/https" });
+      await assertPublicHttpUrl(imageUrl);
+    } catch (err) {
+      return res.status(400).json({ error: err instanceof UnsafeUrlError ? err.message : "URL invalida" });
     }
 
     const listing = await prisma.establishment.findUnique({ where: { id }, select: { galleryUrls: true } });
@@ -1507,15 +1504,10 @@ adminRouter.post(
       return res.status(400).json({ error: "Se requiere imageUrl" });
     }
 
-    // Validate it looks like a URL
-    let parsed: URL;
     try {
-      parsed = new URL(imageUrl);
-    } catch {
-      return res.status(400).json({ error: "URL invalida" });
-    }
-    if (!["http:", "https:"].includes(parsed.protocol)) {
-      return res.status(400).json({ error: "Solo URLs http/https" });
+      await assertPublicHttpUrl(imageUrl);
+    } catch (err) {
+      return res.status(400).json({ error: err instanceof UnsafeUrlError ? err.message : "URL invalida" });
     }
 
     const user = await prisma.user.findUnique({ where: { id }, select: { id: true, avatarUrl: true } });
