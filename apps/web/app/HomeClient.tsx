@@ -376,15 +376,12 @@ function HeroCounters() {
       style={{ animationDelay: "320ms", animationFillMode: "both" }}
     >
       {counters.map((c, i) => (
-        <div key={i} className="flex items-center gap-x-3 sm:gap-x-5">
-          {i > 0 && <span className="hidden h-3.5 w-px bg-white/[0.12] sm:block" aria-hidden />}
-          <div className="group/stat flex cursor-default items-center gap-1.5">
-            <c.icon className="h-3.5 w-3.5 text-[#d4b483]/70 transition-colors duration-150 group-hover/stat:text-[#d4b483]" />
-            <span className="uz-font-display text-[15px] tabular-nums text-white/90">
-              {c.value}{c.suffix}
-            </span>
-            <span className="text-[11px] tracking-wide text-white/40">{c.label}</span>
-          </div>
+        <div key={i} className="group/stat flex cursor-default items-center gap-1.5">
+          <c.icon className="h-3.5 w-3.5 text-fuchsia-400/70 transition-colors duration-150 group-hover/stat:text-fuchsia-400" />
+          <span className="text-sm font-bold tabular-nums tracking-tight text-white/90">
+            {c.value}{c.suffix}
+          </span>
+          <span className="text-[11px] text-white/40">{c.label}</span>
         </div>
       ))}
     </div>
@@ -415,7 +412,7 @@ function VideollamadasBanner() {
     <section className="mb-8">
       <Link
         href="/videocall"
-        className="uz-glass-luxe uz-gold-hover group relative flex items-center gap-4 overflow-hidden rounded-2xl px-5 py-4"
+        className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-indigo-400/25 bg-gradient-to-r from-indigo-600/20 via-blue-600/15 to-violet-600/10 px-5 py-4 backdrop-blur-sm transition-all hover:border-indigo-400/40 hover:shadow-[0_8px_32px_rgba(99,102,241,0.18)]"
       >
         {/* subtle inner glow */}
         <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/[0.07] to-transparent" />
@@ -764,36 +761,31 @@ export default function HomeClient() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
-      {/* ═══ HERO — Luxury editorial (serif display + champagne accents) ═══ */}
-      <section className="relative flex items-center justify-center overflow-hidden px-4 pt-7 pb-7 md:pt-14 md:pb-10">
+      {/* ═══ HERO — Premium immersive (compacto en mobile y desktop) ═══ */}
+      <section className="relative flex items-center justify-center overflow-hidden px-4 pt-4 pb-4 md:pt-8 md:pb-6">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
         {/* Static ambient orbs — no animation to reduce rendering cost */}
         <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[120px]" />
         <div className="pointer-events-none absolute right-[8%] top-[18%] -z-10 h-[300px] w-[300px] rounded-full bg-fuchsia-500/[0.06] blur-[100px]" />
-        <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 h-[250px] w-[250px] rounded-full bg-[#d4b483]/[0.04] blur-[80px]" />
+        <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 h-[250px] w-[250px] rounded-full bg-indigo-500/[0.05] blur-[80px]" />
         {/* Noise texture overlay for premium texture */}
         <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
 
         <div className="relative mx-auto w-full max-w-3xl text-center">
-          {/* Kicker */}
-          <p className="uz-kicker animate-float-up" style={{ animationFillMode: "both" }}>
-            La plataforma premium de Chile
-          </p>
-
-          <h1 className="uz-font-display mt-3 text-[1.7rem] leading-[1.14] sm:text-[2.4rem] md:text-[2.8rem] animate-float-up" style={{ animationDelay: "80ms", animationFillMode: "both" }}>
-            <span className="bg-gradient-to-b from-white via-white/95 to-white/55 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
+          <h1 className="text-[1.25rem] font-extrabold leading-[1.1] tracking-tight sm:text-[1.75rem] md:text-[2rem] animate-float-up" style={{ animationFillMode: "both" }}>
+            <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
           </h1>
 
-          <h2 className="mx-auto mt-2.5 max-w-xl text-[11px] font-medium leading-relaxed tracking-wide text-white/45 sm:mt-3 sm:text-[13px] animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
+          <h2 className="mx-auto mt-1.5 max-w-xl text-[11px] font-medium leading-snug text-white/45 sm:mt-2 sm:text-[13px] animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
             Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Discreto, verificado y premium.
           </h2>
 
           {/* CTA primario + contadores en la misma fila (mobile y desktop) */}
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2.5 animate-float-up sm:mt-6 sm:gap-x-6" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 animate-float-up sm:mt-4 sm:gap-x-6" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
             <Link
-              href="/services"
-              className="uzeed-hero-cta group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-bold ring-1 ring-white/15 transition-all duration-300 hover:scale-[1.03] hover:ring-[#d4b483]/40 hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)]"
+              href="/servicios"
+              className="uzeed-hero-cta group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)]"
             >
               Explorar ahora
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
@@ -813,7 +805,7 @@ export default function HomeClient() {
                 router.push(resolved.href);
               }
             }}
-            className="uz-glass-luxe relative mx-auto mt-5 flex w-full max-w-xl items-center gap-2.5 rounded-2xl px-4 py-2 focus-within:border-[#d4b483]/35 focus-within:shadow-[0_0_28px_rgba(212,180,131,0.10)] transition animate-float-up sm:mt-6"
+            className="relative mx-auto mt-3 flex w-full max-w-xl items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 backdrop-blur-md focus-within:border-fuchsia-500/40 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_24px_rgba(217,70,239,0.12)] transition animate-float-up sm:mt-4"
             style={{ animationDelay: "300ms", animationFillMode: "both" }}
           >
             <SearchIcon className="h-4 w-4 shrink-0 text-white/40" aria-hidden />
@@ -827,14 +819,14 @@ export default function HomeClient() {
             />
             <button
               type="submit"
-              className="shrink-0 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3.5 py-1.5 text-xs font-semibold text-white ring-1 ring-white/10 transition hover:brightness-110"
+              className="shrink-0 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110"
             >
               Buscar
             </button>
           </form>
 
           {/* Chips de filtros rápidos */}
-          <div className="scrollbar-none mt-3.5 -mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
+          <div className="scrollbar-none mt-2.5 -mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
             {[
               { label: "Cerca de ti", href: "/cerca", icon: Navigation, iconColor: "text-emerald-400" },
               { label: "Disponible ahora", href: "/escorts?availableNow=true", icon: Zap, iconColor: "text-amber-400" },
@@ -845,7 +837,7 @@ export default function HomeClient() {
               <Link
                 key={c.label}
                 href={c.href}
-                className="uz-gold-hover group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.03] px-3.5 py-1.5 text-[11px] font-medium tracking-wide text-white/70 backdrop-blur-sm hover:bg-white/[0.06] hover:text-white"
+                className="group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium text-white/70 backdrop-blur-sm transition hover:border-fuchsia-500/25 hover:bg-white/[0.06] hover:text-white"
               >
                 <c.icon className={`h-3 w-3 ${c.iconColor}`} aria-hidden />
                 {c.label}
@@ -854,15 +846,15 @@ export default function HomeClient() {
           </div>
 
           {/* Link compacto para descargar app */}
-          <div className="mt-4">
+          <div className="mt-3">
             <InstallAppButton compact />
           </div>
         </div>
       </section>
 
-      {/* Section divider - champagne hairline */}
+      {/* Section divider - premium gradient */}
       <div className="relative mx-auto max-w-5xl px-4">
-        <div className="uz-divider-luxe" />
+        <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/20 to-transparent" />
       </div>
 
       {/* Main content */}
@@ -899,18 +891,11 @@ export default function HomeClient() {
         {/* ═══ BANNERS PUBLICITARIOS ═══ */}
         {/* Stable wrapper prevents CLS: reserves space until we know if banners exist */}
         {!bannersLoaded ? (
-          <div className="mb-8 2xl:hidden">
-            <div className="mb-2 h-[15px] w-28 animate-pulse rounded bg-white/[0.04]" />
-            <div className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-[240px] w-[150px] shrink-0 animate-pulse rounded-xl border border-white/[0.05] bg-white/[0.025]" />
-              ))}
-            </div>
-          </div>
+          <div className="mb-8 2xl:hidden min-h-[60px]" />
         ) : horizontalBanners.length > 0 && (
           <section className="mb-8 2xl:hidden">
             <div className="mb-2 flex items-center gap-2">
-              <span className="uz-kicker inline-flex items-center gap-1.5 opacity-70">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
                 <Zap className="h-3 w-3" /> Promocionado
               </span>
             </div>
@@ -930,23 +915,23 @@ export default function HomeClient() {
 
         {/* ═══ CATEGORÍAS — Premium quick navigation ═══ */}
         <section className="mb-8">
-          {/* Mobile: luxury glass grid */}
+          {/* Mobile: premium grid with glassmorphism */}
           <div className="grid grid-cols-4 gap-2.5 sm:hidden">
             {[
-              { label: "Escorts", href: "/escorts", icon: Sparkles, iconColor: "text-fuchsia-400" },
-              { label: "Masajistas", href: "/masajistas", icon: Hand, iconColor: "text-violet-400" },
-              { label: "Moteles", href: "/moteles", icon: Hotel, iconColor: "text-amber-400" },
-              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, iconColor: "text-rose-400" },
+              { label: "Escorts", href: "/escorts", icon: Sparkles, gradient: "from-fuchsia-600/15 to-pink-600/10", borderColor: "border-fuchsia-500/20", iconColor: "text-fuchsia-400" },
+              { label: "Masajistas", href: "/masajistas", icon: Hand, gradient: "from-violet-600/15 to-purple-600/10", borderColor: "border-violet-500/20", iconColor: "text-violet-400" },
+              { label: "Moteles", href: "/moteles", icon: Hotel, gradient: "from-amber-600/15 to-orange-600/10", borderColor: "border-amber-500/20", iconColor: "text-amber-400" },
+              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, gradient: "from-rose-600/15 to-red-600/10", borderColor: "border-rose-500/20", iconColor: "text-rose-400" },
             ].map((cat) => (
               <Link
                 key={cat.href}
                 href={cat.href}
-                className="uzeed-category-card uz-glass-luxe uz-gold-hover group flex flex-col items-center gap-2 rounded-2xl px-2 py-3.5"
+                className={`uzeed-category-card group flex flex-col items-center gap-2 rounded-2xl border ${cat.borderColor} bg-gradient-to-br ${cat.gradient} px-2 py-3.5 backdrop-blur-sm`}
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.09] bg-white/[0.04]">
-                  <cat.icon className={`h-[17px] w-[17px] ${cat.iconColor} transition-transform duration-300 group-hover:scale-110`} />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
+                  <cat.icon className={`h-[18px] w-[18px] ${cat.iconColor} transition-transform duration-300 group-hover:scale-110`} />
                 </div>
-                <span className="text-[10px] font-semibold tracking-wide text-white/70 text-center leading-tight">{cat.label}</span>
+                <span className="text-[10px] font-semibold text-white/70 text-center leading-tight">{cat.label}</span>
               </Link>
             ))}
           </div>
@@ -977,22 +962,22 @@ export default function HomeClient() {
         {!isAuthed && (
           <Link
             href="/empezar"
-            className="uz-glass-luxe uz-gold-hover group mb-6 flex items-center justify-between rounded-2xl px-5 py-4"
+            className="group mb-6 flex items-center justify-between rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.06] px-5 py-4 transition-all hover:bg-fuchsia-500/[0.10] hover:border-fuchsia-500/30"
           >
             <div>
               <span className="text-sm font-semibold text-white">
-                ¿Ofreces servicios? <span className="text-[#d4b483]">Publícate aquí</span>
+                ¿Ofreces servicios? <span className="text-fuchsia-400">Publícate aquí</span>
               </span>
-              <p className="mt-0.5 text-[11px] tracking-wide text-white/40">Crea tu perfil en minutos, sin registro</p>
+              <p className="mt-0.5 text-[11px] text-white/40">Crea tu perfil en minutos, sin registro</p>
             </div>
-            <span className="shrink-0 rounded-lg border border-[#d4b483]/25 bg-[#d4b483]/[0.08] px-3.5 py-1.5 text-xs font-semibold text-[#d4b483] transition-colors group-hover:bg-[#d4b483]/[0.15]">
+            <span className="shrink-0 rounded-lg bg-fuchsia-500/20 px-3 py-1.5 text-xs font-semibold text-fuchsia-300 transition-colors group-hover:bg-fuchsia-500/30">
               Empezar
             </span>
           </Link>
         )}
 
         {/* Section gradient divider */}
-        <div className="uz-divider-luxe mb-6 opacity-60" />
+        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.08] to-transparent" />
 
         {/* ═══ HOME FEED — secciones inmediatas + scroll infinito ═══ */}
         <HomeFeed
@@ -1013,8 +998,9 @@ export default function HomeClient() {
         {recentPros.length > 0 && (
           <section key={`trending-${locationKey}`} className="mb-10 uzeed-below-fold">
             <div className="mb-4">
-              <p className="uz-kicker">Tendencias</p>
-              <h2 className="uz-font-display mt-1 text-2xl">Las más buscadas</h2>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xl font-bold tracking-tight">Las más buscadas</h2>
+              </div>
             </div>
             <div className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3">
               {[...recentPros].sort((a, b) => b.profileViews - a.profileViews).slice(0, 6).map((p) => (
@@ -1051,15 +1037,12 @@ export default function HomeClient() {
         {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}
         {liveStreams.length > 0 && (
           <section key={`live-${locationKey}`} className="mb-10">
-            <div className="mb-4">
-              <p className="uz-kicker">Streaming</p>
-              <div className="mt-1 flex items-center gap-2.5">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
-                </span>
-                <h2 className="uz-font-display text-2xl">En Vivo Ahora</h2>
-              </div>
+            <div className="mb-4 flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+              </span>
+              <h2 className="text-xl font-bold">En Vivo Ahora</h2>
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
               {liveStreams.map((s: any) => (
@@ -1091,15 +1074,12 @@ export default function HomeClient() {
         {/* ═══ CREADORAS U-MATE ═══ */}
         {umateCreators.length > 0 && (
           <section key={`umate-${locationKey}`} className="mb-10 uzeed-below-fold">
-            <div className="mb-4 flex items-end justify-between">
-              <div>
-                <p className="uz-kicker">Contenido exclusivo</p>
-                <div className="mt-1 flex items-center gap-2.5">
-                  <h2 className="uz-font-display text-2xl">Creadoras U-Mate</h2>
-                  <span className="rounded-full border border-[#00aff0]/20 bg-[#00aff0]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#00aff0]">
-                    Exclusivo
-                  </span>
-                </div>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xl font-bold tracking-tight">Creadoras U-Mate</h2>
+                <span className="rounded-full border border-[#00aff0]/20 bg-[#00aff0]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#00aff0]">
+                  Exclusivo
+                </span>
               </div>
               <Link
                 href="/umate/creators"
@@ -1156,13 +1136,12 @@ export default function HomeClient() {
         )}
 
         {/* ═══ CTA — Registration (guests only) ═══ */}
-        {!isAuthed && <div className="uz-divider-luxe mb-6 opacity-60" />}
+        {!isAuthed && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/10 to-transparent" />}
         {!isAuthed && (
-          <section className="relative overflow-hidden rounded-3xl border border-[#d4b483]/[0.14] bg-gradient-to-br from-fuchsia-600/[0.05] via-violet-600/[0.03] to-transparent p-8 text-center md:p-12 shadow-[0_0_80px_rgba(168,85,247,0.04)] uzeed-below-fold">
+          <section className="relative overflow-hidden rounded-3xl border border-fuchsia-500/10 bg-gradient-to-br from-fuchsia-600/[0.06] via-violet-600/[0.03] to-transparent p-8 text-center md:p-12 shadow-[0_0_80px_rgba(168,85,247,0.04)] uzeed-below-fold">
             <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/[0.08] blur-[100px]" />
-            <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[250px] w-[250px] rounded-full bg-[#d4b483]/[0.05] blur-[80px]" />
-            <p className="uz-kicker">Únete a UZEED</p>
-            <h2 className="uz-font-display mt-2 text-2xl md:text-3xl">¿Listo para explorar?</h2>
+            <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[250px] w-[250px] rounded-full bg-violet-600/[0.06] blur-[80px]" />
+            <h2 className="text-xl font-extrabold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
             <p className="mx-auto mt-3 max-w-md text-sm text-white/40 leading-relaxed">Crea tu cuenta gratis y descubre lo mejor cerca de ti.</p>
             <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link href="/register?type=CLIENT" className="uzeed-cta-btn uzeed-hero-cta group inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-7 py-3.5 text-sm font-bold shadow-[0_12px_40px_rgba(168,85,247,0.2)] sm:w-auto">

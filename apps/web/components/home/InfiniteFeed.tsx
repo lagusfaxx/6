@@ -180,7 +180,7 @@ export default function InfiniteFeed({
 
   return (
     <section className="mb-12">
-      <h2 className="uz-font-display mb-4 text-2xl">{resolvedTitle}</h2>
+      <h2 className="mb-4 text-2xl font-extrabold tracking-tight">{resolvedTitle}</h2>
 
       {error && (
         <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">

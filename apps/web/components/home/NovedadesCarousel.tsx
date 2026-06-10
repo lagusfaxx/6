@@ -48,10 +48,7 @@ export default function NovedadesCarousel({
   return (
     <section className="mb-8">
       <div className="mb-3 flex items-end justify-between gap-3">
-        <div>
-          <p className="uz-kicker">Recién llegadas</p>
-          <h2 className="uz-font-display mt-1 text-2xl">Novedades</h2>
-        </div>
+        <h2 className="text-2xl font-extrabold tracking-tight">Novedades</h2>
         <div className="hidden gap-2 sm:flex">
           <button
             type="button"
