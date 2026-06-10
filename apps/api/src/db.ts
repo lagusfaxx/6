@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { sendPushToUsers } from "./notifications/push";
+import { maybeNotifyByWhatsApp } from "./notifications/whatsapp";
 import { sendToUser } from "./realtime/sse";
 import { invalidateUserCache } from "./auth/userCache";
 
@@ -58,6 +59,10 @@ prisma.$use(async (params, next) => {
         }).catch((err) => {
           console.error("[push-middleware] sendPush failed for create:", err?.message || err);
         });
+
+        // WhatsApp para profesionales (PWA sin push instalado). El módulo
+        // decide internamente si corresponde (tipo, cooldown, offline, phone).
+        maybeNotifyByWhatsApp(prisma as any, userId, data?.type, payloadData).catch(() => {});
       }
     }
 
@@ -68,6 +73,7 @@ prisma.$use(async (params, next) => {
           .filter((item: any) => item?.userId)
           .map((item: any) => {
             const payloadData = (item?.data && typeof item.data === "object") ? item.data : {};
+            maybeNotifyByWhatsApp(prisma as any, item.userId, item?.type, payloadData).catch(() => {});
             return sendPushToUsers(prisma as any, [item.userId], {
               title: payloadData.title || "UZEED",
               body: payloadData.body || "Tienes una nueva notificación",

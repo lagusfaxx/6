@@ -1,10 +1,42 @@
 import { Router } from "express";
 import { prisma } from "../db";
-import { requireAuth } from "../auth/middleware";
+import { requireAdmin, requireAuth } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { removePushSubscription, savePushSubscription, sendPushToUsers } from "./push";
+import { isWhatsAppConfigured, sendWhatsAppTemplate } from "./whatsapp";
 
 export const notificationsRouter = Router();
+
+/* ── Bot de WhatsApp: diagnóstico y prueba (solo admin) ── */
+
+notificationsRouter.get("/notifications/whatsapp/status", requireAdmin, asyncHandler(async (_req, res) => {
+  return res.json({
+    configured: isWhatsAppConfigured(),
+    template: process.env.WHATSAPP_TEMPLATE_NAME || "uzeed_notificacion",
+    language: process.env.WHATSAPP_TEMPLATE_LANG || "es",
+  });
+}));
+
+notificationsRouter.post("/notifications/whatsapp/test", requireAdmin, asyncHandler(async (req, res) => {
+  if (!isWhatsAppConfigured()) {
+    return res.status(503).json({ ok: false, error: "WHATSAPP_NOT_CONFIGURED" });
+  }
+  let phone = String(req.body?.phone || "").trim();
+  if (!phone) {
+    const me = await prisma.user.findUnique({
+      where: { id: req.session.userId! },
+      select: { phone: true },
+    });
+    phone = me?.phone || "";
+  }
+  if (!phone) return res.status(400).json({ ok: false, error: "PHONE_REQUIRED" });
+
+  const result = await sendWhatsAppTemplate(phone, [
+    "Prueba",
+    "el bot de avisos de UZEED está funcionando correctamente",
+  ]);
+  return res.status(result.ok ? 200 : 502).json(result);
+}));
 
 
 notificationsRouter.post("/notifications/push/subscribe", requireAuth, asyncHandler(async (req, res) => {
