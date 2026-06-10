@@ -48,6 +48,8 @@ type MapboxMapProps = {
   onCenterChange?: (center: { lat: number; lng: number }) => void;
   autoCenterOnDataChange?: boolean;
   showMarkersForArea?: boolean;
+  /** Opacidad del relleno de las áreas por perfil (default 0.18). */
+  areaFillOpacity?: number;
   renderHtmlMarkers?: boolean;
   onMarkerSelect?: (marker: MapMarker) => void;
   onMarkerDeselect?: () => void;
@@ -102,6 +104,7 @@ function MapboxMapComponent({
   onCenterChange,
   autoCenterOnDataChange = true,
   showMarkersForArea = true,
+  areaFillOpacity = 0.18,
   renderHtmlMarkers = true,
   onMarkerSelect,
   onMarkerDeselect,
@@ -441,8 +444,8 @@ function MapboxMapComponent({
           type: "fill",
           source: sourceId,
           paint: {
-            "fill-color": "rgba(168,85,247,0.18)",
-            "fill-outline-color": "rgba(168,85,247,0.35)",
+            "fill-color": `rgba(168,85,247,${areaFillOpacity})`,
+            "fill-outline-color": `rgba(168,85,247,${Math.min(1, areaFillOpacity * 2)})`,
           },
         });
       } else {
@@ -454,7 +457,7 @@ function MapboxMapComponent({
     } else {
       update();
     }
-  }, [displayMarkers, mapIdle, showMarkersForArea]);
+  }, [displayMarkers, mapIdle, showMarkersForArea, areaFillOpacity]);
 
   useEffect(() => {
     const map = mapRef.current;

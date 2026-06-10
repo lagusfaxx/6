@@ -73,6 +73,56 @@ function formatDistance(distance: number | null | undefined) {
   return `${distance.toFixed(1)} km`;
 }
 
+function tierOrder(level?: string) {
+  if (level === "DIAMOND") return 0;
+  if (level === "GOLD") return 1;
+  return 2;
+}
+
+function cardTierClass(level: string | undefined, isFocused: boolean) {
+  if (isFocused) return "border-fuchsia-500/60 bg-[#16101f]/95 shadow-[0_8px_32px_rgba(217,70,239,0.25)]";
+  if (level === "DIAMOND") return "border-cyan-400/40 bg-[#0c0c14]/90 shadow-[0_8px_24px_rgba(34,211,238,0.18)]";
+  if (level === "GOLD") return "border-amber-400/40 bg-[#0c0c14]/90 shadow-[0_8px_24px_rgba(251,191,36,0.16)]";
+  return "border-white/10 bg-[#0c0c14]/90 shadow-[0_8px_24px_rgba(0,0,0,0.45)]";
+}
+
+/* Despliega en anillos los pins que caen casi en el mismo punto para que no se tapen.
+   Solo mueve la posición visual (displayLat/Lng); el área real usa realLat/Lng. */
+function spreadOverlapping<T extends { lat: number; lng: number }>(
+  items: T[],
+): (T & { displayLat: number; displayLng: number })[] {
+  const CELL = 0.0014; // ~150 m
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = `${Math.round(item.lat / CELL)}:${Math.round(item.lng / CELL)}`;
+    const group = groups.get(key);
+    if (group) group.push(item);
+    else groups.set(key, [item]);
+  }
+  const result: (T & { displayLat: number; displayLng: number })[] = [];
+  groups.forEach((group) => {
+    if (group.length === 1) {
+      const m = group[0];
+      result.push({ ...m, displayLat: m.lat, displayLng: m.lng });
+      return;
+    }
+    const perRing = 6;
+    group.forEach((m, i) => {
+      const ring = Math.floor(i / perRing);
+      const countInRing = Math.min(perRing, group.length - ring * perRing);
+      const idxInRing = i % perRing;
+      const radius = 0.0011 * (ring + 1); // ~120 m por anillo
+      const angle = (2 * Math.PI * idxInRing) / countInRing + ring * 0.6;
+      result.push({
+        ...m,
+        displayLat: m.lat + radius * Math.cos(angle),
+        displayLng: m.lng + (radius * Math.sin(angle)) / Math.max(0.2, Math.cos((m.lat * Math.PI) / 180)),
+      });
+    });
+  });
+  return result;
+}
+
 /* ── Tarjeta horizontal del carrusel: presionable completa, abre el modal ── */
 const NearbyCard = memo(function NearbyCard({
   profile,
@@ -93,11 +143,7 @@ const NearbyCard = memo(function NearbyCard({
     <button
       type="button"
       onClick={() => onPreview(profile)}
-      className={`w-[270px] rounded-2xl border p-2.5 text-left backdrop-blur-2xl transition-all duration-300 active:scale-[0.98] ${
-        isFocused
-          ? "border-fuchsia-500/60 bg-[#16101f]/95 shadow-[0_8px_32px_rgba(217,70,239,0.25)]"
-          : "border-white/10 bg-[#0c0c14]/90 shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
-      }`}
+      className={`w-[270px] rounded-2xl border p-2.5 text-left backdrop-blur-2xl transition-all duration-300 active:scale-[0.98] ${cardTierClass(profile.userLevel, isFocused)}`}
     >
       <div className="flex items-center gap-3">
         <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-xl bg-[#0a0a10]">
@@ -127,14 +173,16 @@ const NearbyCard = memo(function NearbyCard({
 
           <div className="mt-1.5 flex items-baseline gap-1.5">
             {distanceLabel ? (
-              <span className="inline-flex items-center gap-1 text-base font-extrabold tabular-nums text-fuchsia-300">
-                <MapPin className="h-3.5 w-3.5 text-fuchsia-400/80" />
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-base font-extrabold tabular-nums text-fuchsia-300">
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-fuchsia-400/80" />
                 {distanceLabel}
               </span>
             ) : (
-              <span className="text-[11px] text-white/35">Sin distancia</span>
+              <span className="shrink-0 whitespace-nowrap text-[11px] text-white/35">Sin distancia</span>
             )}
-            {profile.city && <span className="truncate text-[11px] text-white/35">· {profile.city}</span>}
+            {profile.city && (
+              <span className="min-w-0 truncate text-[11px] text-white/35">· {profile.city}</span>
+            )}
           </div>
 
           <div className="mt-1 flex items-center gap-1.5 text-[10px] text-white/40">
@@ -217,47 +265,51 @@ export default function CercaPage() {
       });
   }, [effectiveLocWithFallback]);
 
-  /* La promesa de la página: lo más cercano primero, dentro del radio */
+  /* Dentro del radio: rangos altos (Diamond/Gold) primero, luego por cercanía */
   const nearby = useMemo(
     () =>
       profiles
         .filter((p) => p.distance != null && Number.isFinite(p.distance) && p.distance <= radiusKm)
-        .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9)),
+        .sort((a, b) => {
+          const tierDiff = tierOrder(a.userLevel) - tierOrder(b.userLevel);
+          if (tierDiff !== 0) return tierDiff;
+          return (a.distance ?? 1e9) - (b.distance ?? 1e9);
+        }),
     [profiles, radiusKm],
   );
   const cards = useMemo(() => nearby.slice(0, MAX_CARDS), [nearby]);
 
   const nextRadius = RADIUS_OPTIONS.find((r) => r > radiusKm) ?? null;
 
-  const markers = useMemo(
-    () =>
-      nearby
-        .filter((p) => Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude)))
-        .map((p) => ({
-          id: p.id,
-          name: p.displayName || p.username,
-          lat: Number(p.latitude),
-          lng: Number(p.longitude),
-          realLat: Number(p.realLatitude ?? p.latitude),
-          realLng: Number(p.realLongitude ?? p.longitude),
-          subtitle: p.serviceCategory || p.city || "Perfil",
-          username: p.username,
-          href: ownerHref(p),
-          avatarUrl: p.avatarUrl,
-          age: p.age ?? null,
-          heightCm: p.heightCm ?? null,
-          hairColor: p.hairColor ?? null,
-          weightKg: p.weightKg ?? null,
-          coverUrl: p.coverUrl,
-          serviceValue: p.baseRate ?? null,
-          level: p.userLevel ?? null,
-          lastSeen: p.lastSeen ?? null,
-          tier: p.availableNow ? "online" : "offline",
-          galleryUrls: p.galleryUrls ?? [],
-          areaRadiusM: 500,
-        })),
-    [nearby],
-  );
+  const markers = useMemo(() => {
+    /* nearby ya viene con Diamond/Gold primero: quedan en el anillo interior al desplegar */
+    const base = nearby
+      .filter((p) => Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude)))
+      .map((p) => ({
+        id: p.id,
+        name: p.displayName || p.username,
+        lat: Number(p.latitude),
+        lng: Number(p.longitude),
+        realLat: Number(p.realLatitude ?? p.latitude),
+        realLng: Number(p.realLongitude ?? p.longitude),
+        subtitle: p.serviceCategory || p.city || "Perfil",
+        username: p.username,
+        href: ownerHref(p),
+        avatarUrl: p.avatarUrl,
+        age: p.age ?? null,
+        heightCm: p.heightCm ?? null,
+        hairColor: p.hairColor ?? null,
+        weightKg: p.weightKg ?? null,
+        coverUrl: p.coverUrl,
+        serviceValue: p.baseRate ?? null,
+        level: p.userLevel ?? null,
+        lastSeen: p.lastSeen ?? null,
+        tier: p.availableNow ? "online" : "offline",
+        galleryUrls: p.galleryUrls ?? [],
+        areaRadiusM: 400,
+      }));
+    return spreadOverlapping(base);
+  }, [nearby]);
 
   /* Mapa → carrusel: clic en pin centra la tarjeta */
   const handleMarkerSelect = useCallback((marker: MapMarker) => {
@@ -321,6 +373,7 @@ export default function CercaPage() {
           rangeKm={radiusKm}
           autoCenterOnDataChange
           showMarkersForArea
+          areaFillOpacity={0.07}
           renderHtmlMarkers
           focusMarkerId={focusedId}
           onMarkerSelect={handleMarkerSelect}
