@@ -50,12 +50,9 @@ export default function DestacadasGrid({
 
   return (
     <section className="mb-8">
-      <div className="mb-3">
-        <p className="uz-kicker">Selección premium</p>
-        <div className="mt-1 flex items-center gap-2">
-          <Crown className="h-5 w-5 text-[#d4b483]" />
-          <h2 className="uz-font-display text-2xl">{title}</h2>
-        </div>
+      <div className="mb-3 flex items-center gap-2">
+        <Crown className="h-5 w-5 text-amber-400" />
+        <h2 className="text-2xl font-extrabold tracking-tight">{title}</h2>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {profiles.map((p) => (
