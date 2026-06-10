@@ -78,13 +78,16 @@ export default function LiveCamsSection() {
 
   return (
     <section className="mb-8">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="relative flex h-3 w-3">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
-          </span>
-          <h2 className="text-xl font-bold tracking-tight">Cams en Vivo</h2>
+      <div className="mb-4 flex items-end justify-between">
+        <div>
+          <p className="uz-kicker">Streaming</p>
+          <div className="mt-1 flex items-center gap-2.5">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+            </span>
+            <h2 className="uz-font-display text-2xl">Cams en Vivo</h2>
+          </div>
         </div>
         <Link
           href="/live"
