@@ -5,8 +5,6 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
-import useMe from "../../hooks/useMe";
-import { trackAction } from "../../hooks/useAnalytics";
 import type { MapMarker } from "../../components/MapboxMap";
 import UserLevelBadge from "../../components/UserLevelBadge";
 import {
@@ -15,10 +13,6 @@ import {
   Users,
   Building2,
   ShoppingBag,
-  MessageCircle,
-  Phone,
-  Eye,
-  ExternalLink,
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
@@ -66,12 +60,6 @@ const RADIUS_OPTIONS = [1, 5, 10, 25, 50] as const;
 const DEFAULT_RADIUS_KM = 10;
 const MAX_CARDS = 40;
 
-function formatWhatsAppUrl(phone: string) {
-  const cleaned = phone.replace(/[^0-9+]/g, "");
-  const num = cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
-  return `https://wa.me/${num}`;
-}
-
 function ownerHref(profile: ProfileResult) {
   if (profile.externalOnly && profile.websiteUrl) return profile.websiteUrl;
   if (profile.profileType === "ESTABLISHMENT") return `/hospedaje/${profile.id}`;
@@ -85,38 +73,34 @@ function formatDistance(distance: number | null | undefined) {
   return `${distance.toFixed(1)} km`;
 }
 
-/* ── Tarjeta horizontal del carrusel ── */
+/* ── Tarjeta horizontal del carrusel: presionable completa, abre el modal ── */
 const NearbyCard = memo(function NearbyCard({
   profile,
   isFocused,
   onPreview,
-  isAuthed,
 }: {
   profile: ProfileResult;
   isFocused: boolean;
   onPreview: (p: ProfileResult) => void;
-  isAuthed: boolean;
 }) {
   const img = resolveMediaUrl(profile.avatarUrl) ?? resolveMediaUrl(profile.coverUrl);
-  const chatHref = isAuthed
-    ? `/chat/${profile.userId || profile.id}`
-    : `/login?next=${encodeURIComponent(`/chat/${profile.userId || profile.id}`)}`;
   const distanceLabel = formatDistance(profile.distance);
+  const typeLabel =
+    profile.profileType === "ESTABLISHMENT" ? "Motel" : profile.profileType === "SHOP" ? "Sex Shop" : null;
+  const TypeIcon = profile.profileType === "ESTABLISHMENT" ? Building2 : ShoppingBag;
 
   return (
-    <div
-      className={`w-[290px] rounded-2xl border p-2.5 backdrop-blur-2xl transition-all duration-300 ${
+    <button
+      type="button"
+      onClick={() => onPreview(profile)}
+      className={`w-[270px] rounded-2xl border p-2.5 text-left backdrop-blur-2xl transition-all duration-300 active:scale-[0.98] ${
         isFocused
           ? "border-fuchsia-500/60 bg-[#16101f]/95 shadow-[0_8px_32px_rgba(217,70,239,0.25)]"
           : "border-white/10 bg-[#0c0c14]/90 shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
       }`}
     >
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={() => onPreview(profile)}
-          className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-xl bg-[#0a0a10]"
-        >
+      <div className="flex items-center gap-3">
+        <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-xl bg-[#0a0a10]">
           {img ? (
             <img src={img} alt={profile.displayName || profile.username} className="h-full w-full object-cover" />
           ) : (
@@ -130,22 +114,18 @@ const NearbyCard = memo(function NearbyCard({
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full border border-black/40 bg-emerald-400" />
             </span>
           )}
-        </button>
+        </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => onPreview(profile)}
-              className="min-w-0 truncate text-left text-[13px] font-bold tracking-tight"
-            >
+            <span className="min-w-0 truncate text-[13px] font-bold tracking-tight">
               {profile.displayName || profile.username}
               {profile.age ? <span className="font-normal text-white/50">, {profile.age}</span> : null}
-            </button>
+            </span>
             <UserLevelBadge level={profile.userLevel} className="shrink-0 px-1.5 py-0.5 text-[8px]" />
           </div>
 
-          <div className="mt-1 flex items-baseline gap-1.5">
+          <div className="mt-1.5 flex items-baseline gap-1.5">
             {distanceLabel ? (
               <span className="inline-flex items-center gap-1 text-base font-extrabold tabular-nums text-fuchsia-300">
                 <MapPin className="h-3.5 w-3.5 text-fuchsia-400/80" />
@@ -157,61 +137,22 @@ const NearbyCard = memo(function NearbyCard({
             {profile.city && <span className="truncate text-[11px] text-white/35">· {profile.city}</span>}
           </div>
 
-          <div className="mt-2 flex gap-1.5">
-            {profile.externalOnly && profile.websiteUrl ? (
-              <a
-                href={profile.websiteUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-amber-500/90 to-orange-500/90 py-1.5 text-[11px] font-semibold transition-all hover:brightness-110"
-              >
-                <ExternalLink className="h-3 w-3" /> Web
-              </a>
-            ) : profile.profileType === "ESTABLISHMENT" ? (
-              <Link
-                href={ownerHref(profile)}
-                className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-amber-500/90 to-orange-500/90 py-1.5 text-[11px] font-semibold transition-all hover:brightness-110"
-              >
-                <Building2 className="h-3 w-3" /> Reservar
-              </Link>
-            ) : profile.profileType === "SHOP" ? (
-              <Link
-                href={ownerHref(profile)}
-                className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-rose-500/90 to-pink-500/90 py-1.5 text-[11px] font-semibold transition-all hover:brightness-110"
-              >
-                <ShoppingBag className="h-3 w-3" /> Tienda
-              </Link>
+          <div className="mt-1 flex items-center gap-1.5 text-[10px] text-white/40">
+            {typeLabel ? (
+              <span className="inline-flex items-center gap-1">
+                <TypeIcon className="h-2.5 w-2.5" /> {typeLabel}
+              </span>
+            ) : profile.availableNow ? (
+              <span className="font-medium text-emerald-300/80">Online ahora</span>
             ) : (
-              <Link
-                href={chatHref}
-                className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-1.5 text-[11px] font-semibold transition-all hover:brightness-110"
-              >
-                <MessageCircle className="h-3 w-3" /> Mensaje
-              </Link>
+              <span>Toca para ver más</span>
             )}
-            {profile.profileType === "PROFESSIONAL" && profile.phone && (
-              <a
-                href={formatWhatsAppUrl(profile.phone)}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => trackAction("whatsapp_click", profile.id, { source: "cerca_card", displayName: profile.displayName })}
-                className="flex items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/[0.08] px-2.5 py-1.5 text-emerald-300 transition-all hover:bg-emerald-500/15"
-                title="WhatsApp"
-              >
-                <Phone className="h-3 w-3" />
-              </a>
-            )}
-            <Link
-              href={ownerHref(profile)}
-              className="flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-white/55 transition-all hover:bg-white/[0.08] hover:text-white/80"
-              title="Ver perfil"
-            >
-              <Eye className="h-3 w-3" />
-            </Link>
           </div>
         </div>
+
+        <ChevronRight className={`h-4 w-4 shrink-0 transition-colors ${isFocused ? "text-fuchsia-400" : "text-white/25"}`} />
       </div>
-    </div>
+    </button>
   );
 });
 
@@ -219,8 +160,6 @@ const NearbyCard = memo(function NearbyCard({
 export default function CercaPage() {
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
-  const { me } = useMe();
-  const isAuthed = Boolean(me?.user?.id);
 
   const [profiles, setProfiles] = useState<ProfileResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -372,7 +311,7 @@ export default function CercaPage() {
   }, []);
 
   return (
-    <div className="relative h-[calc(100svh_-_76px)] w-full overflow-hidden md:h-[calc(100svh_-_90px)] [&_.uzeed-map-recenter-btn]:bottom-[calc(13rem_+_env(safe-area-inset-bottom))] md:[&_.uzeed-map-recenter-btn]:bottom-44">
+    <div className="relative h-[calc(100svh_-_76px)] w-full overflow-hidden md:h-[calc(100svh_-_90px)] [&_.uzeed-map-recenter-btn]:bottom-[calc(12.5rem_+_env(safe-area-inset-bottom))] md:[&_.uzeed-map-recenter-btn]:bottom-36">
       {/* ── Mapa a pantalla completa ── */}
       <div className="absolute inset-0">
         <MapboxMap
@@ -490,7 +429,7 @@ export default function CercaPage() {
         {loading && cards.length === 0 ? (
           <div className="scrollbar-none flex gap-3 overflow-x-auto px-4 pb-1">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-[118px] w-[290px] shrink-0 animate-pulse rounded-2xl border border-white/[0.06] bg-[#0c0c14]/80 backdrop-blur-xl" />
+              <div key={i} className="h-[108px] w-[270px] shrink-0 animate-pulse rounded-2xl border border-white/[0.06] bg-[#0c0c14]/80 backdrop-blur-xl" />
             ))}
           </div>
         ) : cards.length > 0 ? (
@@ -514,7 +453,6 @@ export default function CercaPage() {
                     profile={p}
                     isFocused={focusedId === p.id}
                     onPreview={setPreviewProfile}
-                    isAuthed={isAuthed}
                   />
                 </div>
               ))}
