@@ -20,12 +20,17 @@ notificationsRouter.get("/notifications/whatsapp/status", requireAdmin, asyncHan
 }));
 
 /* QR de vinculación de Baileys. Abrir en el navegador con sesión admin y
-   escanear desde WhatsApp (Dispositivos vinculados) del chip del bot. */
-notificationsRouter.get("/notifications/whatsapp/qr", requireAdmin, asyncHandler(async (_req, res) => {
+   escanear desde WhatsApp (Dispositivos vinculados) del chip del bot.
+   Con ?format=json devuelve { dataUrl } para incrustarlo en el panel. */
+notificationsRouter.get("/notifications/whatsapp/qr", requireAdmin, asyncHandler(async (req, res) => {
   const dataUrl = await getBaileysQrDataUrl();
   if (!dataUrl) {
     const status = getBaileysStatus();
     return res.status(404).json({ error: "NO_QR_PENDING", status });
+  }
+  if (req.query.format === "json") {
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ dataUrl });
   }
   const img = Buffer.from(dataUrl.split(",")[1], "base64");
   res.setHeader("Content-Type", "image/png");
