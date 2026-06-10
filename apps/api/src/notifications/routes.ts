@@ -3,18 +3,40 @@ import { prisma } from "../db";
 import { requireAdmin, requireAuth } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { removePushSubscription, savePushSubscription, sendPushToUsers } from "./push";
-import { isWhatsAppConfigured, sendWhatsAppTemplate } from "./whatsapp";
+import { getWhatsAppProvider, isWhatsAppConfigured, sendWhatsAppNotification } from "./whatsapp";
+import { getBaileysQrDataUrl, getBaileysStatus, logoutBaileys } from "./whatsappBaileys";
 
 export const notificationsRouter = Router();
 
-/* ── Bot de WhatsApp: diagnóstico y prueba (solo admin) ── */
+/* ── Bot de WhatsApp: diagnóstico, vinculación y prueba (solo admin) ── */
 
 notificationsRouter.get("/notifications/whatsapp/status", requireAdmin, asyncHandler(async (_req, res) => {
   return res.json({
     configured: isWhatsAppConfigured(),
-    template: process.env.WHATSAPP_TEMPLATE_NAME || "uzeed_notificacion",
-    language: process.env.WHATSAPP_TEMPLATE_LANG || "es",
+    provider: getWhatsAppProvider(),
+    baileys: getBaileysStatus(),
+    cloudTemplate: process.env.WHATSAPP_TEMPLATE_NAME || "uzeed_notificacion",
   });
+}));
+
+/* QR de vinculación de Baileys. Abrir en el navegador con sesión admin y
+   escanear desde WhatsApp (Dispositivos vinculados) del chip del bot. */
+notificationsRouter.get("/notifications/whatsapp/qr", requireAdmin, asyncHandler(async (_req, res) => {
+  const dataUrl = await getBaileysQrDataUrl();
+  if (!dataUrl) {
+    const status = getBaileysStatus();
+    return res.status(404).json({ error: "NO_QR_PENDING", status });
+  }
+  const img = Buffer.from(dataUrl.split(",")[1], "base64");
+  res.setHeader("Content-Type", "image/png");
+  res.setHeader("Cache-Control", "no-store");
+  return res.send(img);
+}));
+
+/* Desvincula el número actual (borra la sesión) para conectar otro chip. */
+notificationsRouter.post("/notifications/whatsapp/logout", requireAdmin, asyncHandler(async (_req, res) => {
+  await logoutBaileys();
+  return res.json({ ok: true, status: getBaileysStatus() });
 }));
 
 notificationsRouter.post("/notifications/whatsapp/test", requireAdmin, asyncHandler(async (req, res) => {
@@ -31,10 +53,11 @@ notificationsRouter.post("/notifications/whatsapp/test", requireAdmin, asyncHand
   }
   if (!phone) return res.status(400).json({ ok: false, error: "PHONE_REQUIRED" });
 
-  const result = await sendWhatsAppTemplate(phone, [
+  const result = await sendWhatsAppNotification(
+    phone,
     "Prueba",
     "el bot de avisos de UZEED está funcionando correctamente",
-  ]);
+  );
   return res.status(result.ok ? 200 : 502).json(result);
 }));
 

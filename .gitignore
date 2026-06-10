@@ -11,3 +11,6 @@ uploads
 
 # Local seed manifests (state of reversible seed runs)
 prisma/scripts/.umate-seed-manifest.json
+
+# WhatsApp bot (Baileys) session credentials — never commit
+.wa-session/

@@ -1,14 +1,17 @@
 import type { PrismaClient } from "@prisma/client";
+import { isBaileysEnabled, sendBaileysText } from "./whatsappBaileys";
 
 /**
- * Bot de avisos por WhatsApp (WhatsApp Business Cloud API de Meta).
+ * Bot de avisos por WhatsApp con dos proveedores:
+ *
+ * - "baileys" (gratis): número normal de WhatsApp vía protocolo web, se
+ *   activa con WHATSAPP_PROVIDER=baileys y vinculando el QR. Envía texto
+ *   libre sin plantillas. Ver whatsappBaileys.ts.
+ * - "cloud" (oficial Meta): se activa con WHATSAPP_TOKEN +
+ *   WHATSAPP_PHONE_NUMBER_ID. Envía plantillas aprobadas.
  *
  * Problema que resuelve: al ser una PWA, muchas profesionales no tienen
- * push activo y no se enteran cuando les escriben. Este módulo les envía
- * una plantilla de WhatsApp cuando reciben mensajes u otra actividad
- * importante en la app.
- *
- * Se activa solo si existen WHATSAPP_TOKEN y WHATSAPP_PHONE_NUMBER_ID.
+ * push activo y no se enteran cuando les escriben.
  * Setup completo: docs/WHATSAPP_BOT.md
  */
 
@@ -16,9 +19,18 @@ const GRAPH_VERSION = process.env.WHATSAPP_GRAPH_VERSION || "v21.0";
 const TEMPLATE_NAME = process.env.WHATSAPP_TEMPLATE_NAME || "uzeed_notificacion";
 const TEMPLATE_LANG = process.env.WHATSAPP_TEMPLATE_LANG || "es";
 const MESSAGE_COOLDOWN_MIN = Number(process.env.WHATSAPP_MESSAGE_COOLDOWN_MIN || 30);
+const CHAT_URL = process.env.WHATSAPP_NOTIFY_URL || "https://uzeed.cl/chats";
+
+export type WhatsAppProvider = "baileys" | "cloud" | null;
+
+export function getWhatsAppProvider(): WhatsAppProvider {
+  if (isBaileysEnabled()) return "baileys";
+  if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) return "cloud";
+  return null;
+}
 
 export function isWhatsAppConfigured(): boolean {
-  return Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID);
+  return getWhatsAppProvider() !== null;
 }
 
 /**
@@ -55,7 +67,9 @@ export async function sendWhatsAppTemplate(
   phone: string,
   params: [name: string, info: string],
 ): Promise<SendResult> {
-  if (!isWhatsAppConfigured()) return { ok: false, error: "WHATSAPP_NOT_CONFIGURED" };
+  if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
+    return { ok: false, error: "CLOUD_API_NOT_CONFIGURED" };
+  }
   const to = normalizePhoneForWhatsApp(phone);
   if (!to) return { ok: false, error: "INVALID_PHONE" };
 
@@ -99,6 +113,28 @@ export async function sendWhatsAppTemplate(
     console.error("[whatsapp] send error:", err?.message || err);
     return { ok: false, error: err?.message || "NETWORK_ERROR" };
   }
+}
+
+/**
+ * Envío unificado: usa el proveedor activo. Con Baileys va como texto
+ * libre; con la Cloud API va como plantilla aprobada.
+ */
+export async function sendWhatsAppNotification(
+  phone: string,
+  name: string,
+  info: string,
+): Promise<SendResult> {
+  const provider = getWhatsAppProvider();
+  if (!provider) return { ok: false, error: "WHATSAPP_NOT_CONFIGURED" };
+
+  if (provider === "baileys") {
+    const to = normalizePhoneForWhatsApp(phone);
+    if (!to) return { ok: false, error: "INVALID_PHONE" };
+    const text = `Hola ${sanitizeParam(name, 60)} 👋 Tienes novedades en UZEED: ${sanitizeParam(info)}.\n\nEntra ahora para responder y no perder al cliente:\n${CHAT_URL}`;
+    return sendBaileysText(to, text);
+  }
+
+  return sendWhatsAppTemplate(phone, [name, info]);
 }
 
 /* ── Qué notificaciones se avisan por WhatsApp y con qué texto ── */
@@ -203,7 +239,7 @@ export async function maybeNotifyByWhatsApp(
     if (rule.onlyIfOffline && isActiveInApp(user.isOnline, user.lastSeen)) return;
 
     const name = user.displayName || user.username || "";
-    const result = await sendWhatsAppTemplate(user.phone, [name, rule.info(payload)]);
+    const result = await sendWhatsAppNotification(user.phone, name, rule.info(payload));
     if (result.ok) {
       markSent(key);
       console.log(`[whatsapp] notified user=${userId} type=${type} msg=${result.messageId}`);
