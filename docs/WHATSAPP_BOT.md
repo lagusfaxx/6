@@ -68,6 +68,18 @@ chip nuevo, `logout`, escanear QR de nuevo.
    `/notifications/whatsapp/status`) y la sesión sobrevive reinicios si
    `WHATSAPP_SESSION_DIR` está en un volumen persistente.
 
+### ⚠️ Importante: volumen persistente (o re-escanearás el QR en cada deploy)
+
+Por defecto la sesión queda en `/app/.wa-session`, **dentro del contenedor**:
+cada deploy o reinicio crea un contenedor nuevo y la borra, obligando a
+escanear el QR otra vez. Para que la sesión sobreviva:
+
+1. En Coolify: tu app del API → **Storages** → *Add* → Volume Mount.
+   - Destination path: `/data`
+2. Agrega la variable de entorno: `WHATSAPP_SESSION_DIR=/data/wa-session`
+3. Redeploy y escanea el QR **una última vez**. Desde ahí la sesión persiste
+   entre deploys y reinicios.
+
 ### Mantenimiento
 
 - `GET /notifications/whatsapp/status` — estado de conexión (admin).

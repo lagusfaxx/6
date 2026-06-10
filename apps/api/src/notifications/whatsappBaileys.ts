@@ -157,6 +157,16 @@ export async function getBaileysQrDataUrl(): Promise<string | null> {
   return QRCode.toDataURL(state.qr, { margin: 1, width: 320 });
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      const t = setTimeout(() => reject(new Error(label)), ms);
+      (t as any).unref?.();
+    }),
+  ]);
+}
+
 /** Envía texto libre. `to` debe venir ya normalizado (solo dígitos con país). */
 export async function sendBaileysText(to: string, text: string): Promise<{ ok: boolean; error?: string }> {
   if (!isBaileysEnabled()) return { ok: false, error: "BAILEYS_DISABLED" };
@@ -165,11 +175,28 @@ export async function sendBaileysText(to: string, text: string): Promise<{ ok: b
     return { ok: false, error: `NOT_CONNECTED_${state.status.toUpperCase()}` };
   }
   try {
-    await sock.sendMessage(`${to}@s.whatsapp.net`, { text });
+    // Verificar que el número exista en WhatsApp: evita envíos colgados o
+    // errores raros de Baileys con números inexistentes/mal escritos.
+    let jid = `${to}@s.whatsapp.net`;
+    try {
+      const checks = await withTimeout(sock.onWhatsApp(to), 10_000, "CHECK_TIMEOUT");
+      const entry = Array.isArray(checks) ? checks[0] : null;
+      if (entry && entry.exists === false) {
+        return { ok: false, error: "NUMERO_SIN_WHATSAPP" };
+      }
+      if (entry?.jid) jid = entry.jid;
+    } catch {
+      // Si la verificación falla/expira seguimos con el JID directo
+    }
+    await withTimeout(sock.sendMessage(jid, { text }), 20_000, "SEND_TIMEOUT");
     return { ok: true };
   } catch (err: any) {
-    console.error("[whatsapp:baileys] send error:", err?.message || err);
-    return { ok: false, error: err?.message || "SEND_FAILED" };
+    const msg = err?.message || "SEND_FAILED";
+    console.error("[whatsapp:baileys] send error:", msg);
+    if (msg === "SEND_TIMEOUT") {
+      return { ok: false, error: "TIMEOUT: el envío no respondió en 20s — revisa la conexión del bot" };
+    }
+    return { ok: false, error: msg };
   }
 }
 
