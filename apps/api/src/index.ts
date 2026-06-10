@@ -55,6 +55,7 @@ import { adminReferralRouter } from "./referral/adminRoutes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 import { startWorker } from "./worker";
+import { initBaileys } from "./notifications/whatsappBaileys";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -287,6 +288,7 @@ async function boot() {
   app.listen(config.port, () => {
     console.log(`[api] listening on :${config.port}`);
     startWorker();
+    initBaileys();
   });
 }
 
