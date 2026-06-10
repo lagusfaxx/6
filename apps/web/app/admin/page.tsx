@@ -28,6 +28,7 @@ import {
   Shield,
   ShieldCheck,
   Store,
+  MessageCircle,
   Tag,
   Trash2,
   TrendingDown,
@@ -600,6 +601,7 @@ export default function AdminIndex() {
                 <QuickAction href="/admin/quick-listings" icon={Store} label="Listados" desc="Externos" accent="cyan" />
                 <QuickAction href="/admin/weekly-highlights" icon={Mail} label="Correo Semanal" desc="Destacadas" accent="pink" />
                 <QuickAction href="/admin/umate-promo" icon={Mail} label="Campanas Email" desc="Correos masivos con imagenes" accent="fuchsia" />
+                <QuickAction href="/admin/whatsapp" icon={MessageCircle} label="Bot WhatsApp" desc="Avisos a profesionales" accent="emerald" />
               </div>
             </div>
 
