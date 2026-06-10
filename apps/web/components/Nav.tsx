@@ -34,7 +34,7 @@ const LIVE_EXTERNAL_URL = "https://live.uzeed.cl/south-american-cams/female/";
 
 const clientItems: NavItem[] = [
   { href: "/", label: "Inicio", icon: Home, protected: false },
-  { href: "/servicios", label: "Cerca tuyo", icon: MapPin, protected: false },
+  { href: "/cerca", label: "Cerca tuyo", icon: MapPin, protected: false },
   { href: "/videocall", label: "Videollamadas", icon: Video, protected: false },
   { href: LIVE_EXTERNAL_URL, label: "En Vivo", icon: Radio, protected: false },
   { href: "/favoritos", label: "Favoritos", icon: Heart, protected: true },
@@ -53,7 +53,7 @@ const motelItems: NavItem[] = [
 const mobileClientItems: NavItem[] = [
   { href: "/", label: "Inicio", icon: Home, protected: false },
   { href: LIVE_EXTERNAL_URL, label: "En Vivo", icon: Radio, protected: false },
-  { href: "/servicios", label: "Cerca", icon: MapPin, protected: false },
+  { href: "/cerca", label: "Cerca", icon: MapPin, protected: false },
   { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
   { href: "/cuenta", label: "Cuenta", icon: User, protected: false },
 ];

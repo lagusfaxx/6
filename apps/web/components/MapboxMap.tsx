@@ -39,6 +39,8 @@ type MapboxMapProps = {
   markers: MapMarker[];
   userLocation?: [number, number] | null;
   height?: number;
+  /** Ocupa el 100% del alto del contenedor padre (ignora `height`). */
+  fill?: boolean;
   className?: string;
   focusMarkerId?: string | null;
   onMarkerFocus?: (id: string) => void;
@@ -92,6 +94,7 @@ function MapboxMapComponent({
   markers,
   userLocation,
   height = 380,
+  fill = false,
   className,
   focusMarkerId,
   onMarkerFocus,
@@ -574,7 +577,7 @@ function MapboxMapComponent({
     return (
       <div
         className={`rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70 ${className || ""}`}
-        style={{ height }}
+        style={{ height: fill ? "100%" : height }}
       >
         Configura NEXT_PUBLIC_MAPBOX_TOKEN para ver el mapa.
       </div>
@@ -582,8 +585,8 @@ function MapboxMapComponent({
   }
 
   return (
-    <div className="relative overflow-hidden isolate">
-      <div ref={containerRef} className={className} style={{ height }} />
+    <div className={`relative overflow-hidden isolate ${fill ? "h-full" : ""}`}>
+      <div ref={containerRef} className={className} style={{ height: fill ? "100%" : height }} />
       <button
         type="button"
         className="uzeed-map-recenter-btn"
