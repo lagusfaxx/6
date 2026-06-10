@@ -264,14 +264,21 @@ body::after {
   box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.35);
 }
 
+/* Rangos altos: pins más grandes y siempre por encima de los demás */
 .uzeed-map-marker--level-gold {
+  width: 40px;
+  height: 40px;
   border-color: rgba(253, 224, 71, 0.95);
-  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.35);
+  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.4), 0 0 14px rgba(250, 204, 21, 0.35);
+  z-index: 45;
 }
 
 .uzeed-map-marker--level-diamond {
+  width: 44px;
+  height: 44px;
   border-color: rgba(125, 211, 252, 0.95);
-  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.45), 0 0 16px rgba(56, 189, 248, 0.4);
+  z-index: 50;
 }
 
 .uzeed-map-marker--incognito {

@@ -583,7 +583,7 @@ export default function HomeClient() {
     return () => {
       controller.abort();
     };
-  }, [location]);
+  }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const controller = new AbortController();
@@ -627,7 +627,7 @@ export default function HomeClient() {
       }
     });
     return () => { controller.abort(); };
-  }, [location]);
+  }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Fetch U-Mate creators & live streams (deferred — below the fold) ──
   useEffect(() => {
@@ -645,7 +645,7 @@ export default function HomeClient() {
     }, 2000);
 
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [location]);
+  }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const horizontalBanners = useMemo(
     () => banners.filter((b) => (b.position || "").toUpperCase() === "INLINE" || (b.position || "").toUpperCase() === "HORIZONTAL"),
@@ -828,7 +828,7 @@ export default function HomeClient() {
           {/* Chips de filtros rápidos */}
           <div className="scrollbar-none mt-2.5 -mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
             {[
-              { label: "Cerca (2km)", href: "/servicios", icon: Navigation, iconColor: "text-emerald-400" },
+              { label: "Cerca de ti", href: "/cerca", icon: Navigation, iconColor: "text-emerald-400" },
               { label: "Disponible ahora", href: "/escorts?availableNow=true", icon: Zap, iconColor: "text-amber-400" },
               { label: "Videollamada", href: "/videocall", icon: Video, iconColor: "text-blue-400" },
               { label: "Verificadas", href: "/escorts", icon: ShieldCheck, iconColor: "text-fuchsia-400" },
@@ -944,7 +944,7 @@ export default function HomeClient() {
               { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, iconColor: "text-rose-400" },
               { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, iconColor: "text-cyan-400" },
               { label: "Videollamadas", href: "/videocall", icon: Video, iconColor: "text-blue-400" },
-              { label: "Cerca tuyo", href: "/servicios", icon: Navigation, iconColor: "text-emerald-400" },
+              { label: "Cerca tuyo", href: "/cerca", icon: Navigation, iconColor: "text-emerald-400" },
             ].map((cat) => (
               <Link
                 key={cat.href}

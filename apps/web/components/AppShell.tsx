@@ -127,7 +127,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <TopHeader />
             {deferredReady && <PushNotificationsManager />}
             {deferredReady && <PresenceHeartbeat />}
-            {deferredReady && <SocialProofToast />}
+            {deferredReady && !isCercaRoute && <SocialProofToast />}
             {!isHome && !isCercaRoute && <BackButton />}
             {/* Reduced pt since we removed the category chips row from mobile header */}
             <main
