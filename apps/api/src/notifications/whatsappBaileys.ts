@@ -54,12 +54,18 @@ const silentLogger: any = {
 
 async function connect(): Promise<void> {
   if (state.starting) return;
+  if (state.sock && state.status === "connected") return;
   state.starting = true;
   state.status = "starting";
   try {
     const baileys = await import("@whiskeysockets/baileys");
     const makeWASocket = baileys.default;
     const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = baileys;
+
+    // Nunca debe haber dos sockets vivos con las mismas credenciales:
+    // WhatsApp los expulsa mutuamente y entran en guerra de reconexión.
+    try { state.sock?.end?.(undefined); } catch {}
+    state.sock = null;
 
     fs.mkdirSync(SESSION_DIR, { recursive: true });
     const { state: authState, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
@@ -82,9 +88,16 @@ async function connect(): Promise<void> {
     });
     state.sock = sock;
 
-    sock.ev.on("creds.update", saveCreds);
+    sock.ev.on("creds.update", () => {
+      if (state.sock !== sock) return; // socket reemplazado: no pisar credenciales
+      saveCreds();
+    });
 
     sock.ev.on("connection.update", (update: any) => {
+      // Ignorar eventos de sockets ya reemplazados — sus cierres tardíos
+      // disparaban reconexiones duplicadas (bucle "conectado" cada 5s).
+      if (state.sock !== sock) return;
+
       const { connection, lastDisconnect, qr } = update;
       if (qr) {
         state.qr = qr;
@@ -125,13 +138,18 @@ async function connect(): Promise<void> {
   }
 }
 
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
 function scheduleReconnect() {
   if (!isBaileysEnabled()) return;
+  if (reconnectTimer) return; // ya hay una reconexión en cola
   state.reconnectAttempts += 1;
   const delay = Math.min(60_000, 2_000 * 2 ** Math.min(state.reconnectAttempts, 5));
-  setTimeout(() => {
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
     connect().catch(() => {});
-  }, delay).unref?.();
+  }, delay);
+  (reconnectTimer as any).unref?.();
 }
 
 /** Llamar una vez en el boot del API. No-op si el provider no es baileys. */
