@@ -26,8 +26,19 @@ type WaStatus = {
     connectedAs: string | null;
     hasPendingQr: boolean;
     lastError: string | null;
+    sessionDir?: string;
   };
 };
+
+function humanError(error?: string): string {
+  if (!error) return "error desconocido";
+  if (error === "NUMERO_SIN_WHATSAPP") return "ese número no tiene WhatsApp (revisa que esté bien escrito)";
+  if (error === "INVALID_PHONE") return "número inválido — usa formato +56 9 XXXX XXXX";
+  if (error.startsWith("NOT_CONNECTED")) return "el bot no está conectado — escanea el QR primero";
+  if (error.startsWith("TIMEOUT")) return error;
+  if (error === "Failed to fetch") return "se perdió la conexión con el servidor (¿se está reiniciando?). Espera unos segundos y reintenta";
+  return error;
+}
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   connected: { label: "Conectado", color: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10" },
@@ -188,6 +199,15 @@ export default function AdminWhatsAppPage() {
             El bot está apagado. Configura <code className="text-amber-100">WHATSAPP_PROVIDER=baileys</code> en el servidor del API y reinícialo. Guía completa en <code className="text-amber-100">docs/WHATSAPP_BOT.md</code>.
           </p>
         )}
+
+        {status?.provider === "baileys" && b?.sessionDir && (
+          <p className="mt-3 rounded-xl border border-sky-500/15 bg-sky-500/[0.05] p-3 text-[11px] leading-relaxed text-sky-200/80">
+            La sesión se guarda en <code className="text-sky-100">{b.sessionDir}</code>. Si esa carpeta no está en un
+            <strong className="text-sky-100"> volumen persistente</strong>, cada deploy/reinicio del API borra la sesión y
+            habrá que escanear el QR de nuevo. Solución: monta un volumen (ej. <code className="text-sky-100">/data</code>) y
+            configura <code className="text-sky-100">WHATSAPP_SESSION_DIR=/data/wa-session</code>.
+          </p>
+        )}
       </section>
 
       {/* ── QR de vinculación ── */}
@@ -233,7 +253,7 @@ export default function AdminWhatsAppPage() {
         {testResult && (
           <p className={`mt-3 flex items-center gap-1.5 text-xs ${testResult.ok ? "text-emerald-300" : "text-rose-300"}`}>
             {testResult.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-            {testResult.ok ? "Enviado — revisa el WhatsApp de ese número." : `No se pudo enviar: ${testResult.error || "error desconocido"}`}
+            {testResult.ok ? "Enviado — revisa el WhatsApp de ese número." : `No se pudo enviar: ${humanError(testResult.error)}`}
           </p>
         )}
       </section>
