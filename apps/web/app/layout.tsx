@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import "./globals.css";
 import AppShell from '../components/AppShell';
+import AgeGate from '../components/AgeGate';
 
 export const metadata: Metadata = {
   title: {
@@ -151,6 +152,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen text-white antialiased">
+        <AgeGate />
         <AppShell>{children}</AppShell>
         {/* Google tag (gtag.js) — deferred with afterInteractive to avoid blocking FCP/LCP */}
         <Script
