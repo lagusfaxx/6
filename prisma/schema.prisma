@@ -470,6 +470,7 @@ model User {
   receivedProfileReviews   ProfileReviewSurvey[] @relation("ProfileReviewsReceived")
   givenProfileReviews      ProfileReviewSurvey[] @relation("ProfileReviewsGiven")
   notifications            Notification[]
+  identityVerifications    IdentityVerification[]
   category                 Category?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   favorites                Favorite[]            @relation("FavoritesByUser")
   favoritedBy              Favorite[]            @relation("FavoritesForProfessional")
@@ -1557,6 +1558,40 @@ model ProfessionalDocument {
 
   user     User  @relation("ProfessionalDocuments", fields: [userId], references: [id], onDelete: Cascade)
   reviewer User? @relation("ProfessionalDocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum IdentityVerificationStatus {
+  PENDING      // sesión creada, el usuario aún no completa
+  IN_PROGRESS  // el usuario empezó el flujo en Didit
+  IN_REVIEW    // Didit la dejó en revisión manual
+  APPROVED     // identidad verificada y mayor de edad
+  DECLINED     // rechazada por Didit (o menor de edad)
+  EXPIRED      // sesión vencida sin completar
+}
+
+// Verificación de identidad automatizada (KYC) vía proveedor externo (Didit):
+// escaneo de documento + prueba de vida (liveness) + comparación facial.
+// El documento/biometría NUNCA se guarda aquí; solo el resultado y datos
+// mínimos extraídos del documento (edad, tipo de doc) para la decisión.
+model IdentityVerification {
+  id          String                     @id @default(uuid()) @db.Uuid
+  userId      String                     @db.Uuid
+  provider    String                     @default("didit")
+  sessionId   String                     @unique // id de sesión en el proveedor
+  status      IdentityVerificationStatus @default(PENDING)
+  decision    String?                    // decisión cruda del proveedor (Approved/Declined/...)
+  isAdult     Boolean?                   // edad >= 18 extraída del documento
+  documentType String?                   // tipo de documento detectado
+  rejectReason String?                   // motivo si fue rechazada
+  payload     Json?                      // último payload/decisión completo del proveedor
+  reviewedAt  DateTime?                  // cuándo se resolvió (approved/declined)
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])

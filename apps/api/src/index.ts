@@ -25,6 +25,7 @@ import { adminOverviewRouter } from "./admin/overview";
 import { plansRouter } from "./khipu/plans";
 import { profileRouter } from "./profile/routes";
 import { professionalDocsRouter } from "./profile/professionalDocuments";
+import { verificationRouter } from "./verification/routes";
 import { servicesRouter } from "./services/routes";
 import { directoryRouter } from "./directory/routes";
 import { messagesRouter } from "./messages/routes";
@@ -113,9 +114,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// JSON body parser
+// JSON body parser. Guarda el cuerpo crudo en req.rawBody para validar
+// firmas HMAC de webhooks (p. ej. Didit) sobre el body sin parsear.
 app.use((req, res, next) => {
-  express.json({ limit: "2mb" })(req, res, next);
+  express.json({
+    limit: "2mb",
+    verify: (r: any, _res, buf) => {
+      r.rawBody = buf;
+    },
+  })(req, res, next);
 });
 
 // Flow webhooks (and some third-party callbacks) arrive as application/x-www-form-urlencoded.
@@ -227,6 +234,7 @@ app.use("/", adminTokensRouter);
 app.use("/", plansRouter);
 app.use("/", profileRouter);
 app.use("/", professionalDocsRouter);
+app.use("/", verificationRouter);
 app.use("/", directoryRouter);
 app.use("/", servicesRouter);
 app.use("/", motelRouter);
