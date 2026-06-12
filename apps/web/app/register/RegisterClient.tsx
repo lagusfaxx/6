@@ -6,6 +6,7 @@ import AuthForm, { type RegisterFormData } from "../../components/AuthForm";
 import ProfessionalRegisterForm from "../../components/ProfessionalRegisterForm";
 import TermsModal from "../../components/TermsModal";
 import EmailVerification from "../../components/EmailVerification";
+import IdentityVerificationStep from "../../components/IdentityVerificationStep";
 import Link from "next/link";
 import { apiFetch, getApiBase, friendlyErrorMessage } from "../../lib/api";
 import {
@@ -13,8 +14,6 @@ import {
   Building2,
   ShoppingBag,
   User,
-  Clock,
-  Phone,
   CheckCircle2,
   ArrowLeft,
   ArrowRight,
@@ -867,20 +866,7 @@ export default function RegisterClient() {
             </div>
           ) : step === "pending" ? (
             <div className="relative p-6 sm:p-8">
-              <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-orange-500/5 p-6 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400/30 to-orange-500/20 border border-amber-400/30">
-                  <Clock className="h-8 w-8 text-amber-300" />
-                </div>
-                <h2 className="text-xl font-bold text-amber-100">Registro recibido</h2>
-                <p className="mt-2 text-sm text-white/70 leading-relaxed max-w-sm mx-auto">
-                  Tu perfil ha sido creado exitosamente. Para aparecer en la plataforma, un
-                  administrador verificará tu cuenta mediante una llamada telefónica.
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/60">
-                  <Phone className="h-3.5 w-3.5" />
-                  <span>Verificación telefónica manual</span>
-                </div>
-              </div>
+              <IdentityVerificationStep />
 
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <h3 className="text-sm font-semibold text-white/90 mb-3 flex items-center gap-2">
