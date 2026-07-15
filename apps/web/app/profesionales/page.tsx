@@ -4,7 +4,7 @@ import ProfessionalsClient from "./ProfessionalsClient";
 import SeoContent from "../../components/SeoContent";
 
 export const metadata: Metadata = {
-  title: "Profesionales y Acompañantes en Chile | UZEED",
+  title: "Profesionales y Acompañantes en Chile",
   description:
     "Directorio de profesionales y acompañantes en Chile. Perfiles verificados con fotos reales y disponibilidad inmediata en UZEED.",
   alternates: { canonical: "/profesionales" },

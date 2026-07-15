@@ -47,13 +47,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const p = await fetchProfessional(id);
 
   if (!p) {
-    return { title: "Perfil no encontrado | UZEED" };
+    return { title: "Perfil no encontrado" };
   }
 
   const name = p.displayName || p.username || "Profesional";
   const city = p.city || "Chile";
   const category = p.serviceCategory || "Escort";
-  const title = `${name} — ${category} en ${city} | UZEED`;
+  // Sin sufijo "| UZEED": el template del layout (%s | UZEED) ya lo añade al
+  // <title>. Para og/twitter usamos brandedTitle porque ahí el template no aplica.
+  const title = `${name} — ${category} en ${city}`;
+  const brandedTitle = `${title} | UZEED`;
   const descParts = [
     `Perfil verificado de ${name}, ${category.toLowerCase()} en ${city}.`,
     p.bio ? p.bio.slice(0, 120) : null,
@@ -77,7 +80,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ],
     alternates: { canonical: `/profesional/${id}` },
     openGraph: {
-      title,
+      title: brandedTitle,
       description,
       url: `https://uzeed.cl/profesional/${id}`,
       type: "profile",
@@ -85,7 +88,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title,
+      title: brandedTitle,
       description,
       images: images.map((i) => i.url),
     },

@@ -4,7 +4,7 @@ import DirectoryPage from "../../components/DirectoryPage";
 import SeoContent from "../../components/SeoContent";
 
 export const metadata: Metadata = {
-  title: "Moteles y Hoteles por Hora en Chile | UZEED",
+  title: "Moteles y Hoteles por Hora en Chile",
   description:
     "Encuentra los mejores moteles y hoteles por hora en Santiago, Las Condes y Viña del Mar. Precios, fotos reales y disponibilidad inmediata en UZEED.",
   keywords: ["moteles chile", "moteles santiago", "hoteles por hora santiago", "moteles las condes"],

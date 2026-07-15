@@ -74,6 +74,7 @@ type Props = {
   categorySlug: string;    // 'escort' | 'masajes' | 'motel' | 'sexshop' | …
   title: string;
   tag?: string;            // tag from [tag] route param → added to profileTags filter
+  city?: { name: string; lat: number; lng: number }; // city landing → filters results by location
 };
 
 /* ─── ProfileCard ────────────────────────────────────────── */
@@ -225,7 +226,7 @@ function ProfileCard({
 }
 
 /* ─── Main ───────────────────────────────────────────────── */
-export default function DirectoryPage({ entityType = "professional", categorySlug, title, tag }: Props) {
+export default function DirectoryPage({ entityType = "professional", categorySlug, title, tag, city }: Props) {
   const searchParams = useSearchParams();
   const locationCtx = useContext(LocationFilterContext);
 
@@ -254,9 +255,17 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
   const [total, setTotal] = useState(0);
   const [rateLimitMsg, setRateLimitMsg] = useState<string | null>(null);
 
-  /* ── location from context ── */
-  const effectiveLoc = locationCtx?.effectiveLocation ?? null;
-  const locationLabel = locationCtx?.state.mode === "city"
+  /* ── location: a `city` landing prop wins over the user's stored context
+     so /escorts/santiago always returns Santiago results and stays self-
+     canonical. Memoized so the coord array keeps a stable identity and does
+     not retrigger the fetch effect on every render. ── */
+  const effectiveLoc = useMemo<[number, number] | null>(
+    () => (city ? [city.lat, city.lng] : locationCtx?.effectiveLocation ?? null),
+    [city?.lat, city?.lng, locationCtx?.effectiveLocation],
+  );
+  const locationLabel = city
+    ? city.name
+    : locationCtx?.state.mode === "city"
     ? locationCtx.state.selectedCity?.name ?? null
     : effectiveLoc ? "Mi ubicación" : null;
 

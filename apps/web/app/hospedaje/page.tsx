@@ -3,7 +3,7 @@ import LodgingClient from "./LodgingClient";
 import SeoContent from "../../components/SeoContent";
 
 export const metadata: Metadata = {
-  title: "Hospedajes y Alojamientos en Chile | UZEED",
+  title: "Hospedajes y Alojamientos en Chile",
   description:
     "Encuentra hospedajes, cabañas y alojamientos discretos en Santiago y todo Chile. Precios, fotos reales y disponibilidad en UZEED.",
   alternates: { canonical: "/hospedaje" },

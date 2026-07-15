@@ -4,7 +4,7 @@ import EstablishmentsClient from "./EstablishmentsClient";
 import SeoContent from "../../components/SeoContent";
 
 export const metadata: Metadata = {
-  title: "Establecimientos para Adultos en Chile | UZEED",
+  title: "Establecimientos para Adultos en Chile",
   description:
     "Encuentra establecimientos para adultos en Santiago y todo Chile. Moteles, saunas, cabarets y más con fotos y ubicación en UZEED.",
   alternates: { canonical: "/establecimientos" },

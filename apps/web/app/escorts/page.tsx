@@ -33,7 +33,7 @@ async function fetchTopProfiles(): Promise<ProfileSummary[]> {
 }
 
 export const metadata: Metadata = {
-  title: "Escorts y Putas en Chile - Verificadas Hoy | UZEED",
+  title: "Escorts y Putas en Chile - Verificadas Hoy",
   description:
     "Escorts y putas verificadas en Santiago, Las Condes, Viña del Mar y todo Chile. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy.",
   alternates: { canonical: "/escorts" },

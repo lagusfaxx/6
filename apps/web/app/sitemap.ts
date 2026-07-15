@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { CITY_LANDINGS } from "../lib/cities";
 
 type ProfessionalItem = {
   id?: string | null;
@@ -113,16 +114,6 @@ const ESCORT_TAGS = [
   "disponible-hoy", "24-horas", "domicilio",
 ];
 
-// Ciudades principales para landing pages geo-segmentadas
-const CITIES = [
-  "santiago", "vina-del-mar", "valparaiso", "concepcion",
-  "antofagasta", "temuco", "rancagua", "la-serena",
-  "arica", "iquique", "puerto-montt", "talca",
-  "chillan", "osorno", "punta-arenas", "copiapo",
-  "calama", "los-angeles", "curico", "providencia", "las-condes",
-  "nunoa", "maipu", "puente-alto", "san-bernardo",
-];
-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getWebBaseUrl();
   const now = new Date();
@@ -159,10 +150,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // ── Landing pages por ciudad (geo-targeting SEO) ──
-  // Solo escorts por ciudad (las más buscadas). Masajistas/moteles por ciudad
-  // generaban URLs de bajo valor que Google no indexaba.
-  for (const city of CITIES) {
-    add(`/escorts?city=${encodeURIComponent(city)}`, "daily", 0.8);
+  // URLs LIMPIAS e indexables (/escorts/{ciudad}) con canonical propio y
+  // resultados filtrados por ubicación. Antes se emitían como ?city= que
+  // Google canonicalizaba a /escorts (duplicado) y no indexaba.
+  for (const city of CITY_LANDINGS) {
+    add(`/escorts/${city.slug}`, "daily", 0.8);
   }
 
   // ── Combinaciones tag + ciudad top eliminadas ──
