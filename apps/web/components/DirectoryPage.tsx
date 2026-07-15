@@ -7,6 +7,7 @@ import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, Spar
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
+import { profileHref } from "../lib/profileUrl";
 import StatusBadgeIcon from "./StatusBadgeIcon";
 import UserLevelBadge from "./UserLevelBadge";
 import type { MapMarker } from "./MapboxMap";
@@ -98,7 +99,7 @@ function ProfileCard({
   } else if (entityType === "shop") {
     href = `/sexshop/${p.username || p.id}`;
   } else {
-    href = `/profesional/${p.id}`;
+    href = profileHref(p.id, p.displayName || p.username, p.city);
   }
   const avatarSrc = p.avatarUrl ? resolveMediaUrl(p.avatarUrl) : null;
   const coverSrc  = p.coverUrl  ? resolveMediaUrl(p.coverUrl)  : null;
@@ -361,7 +362,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
               ? (categorySlug === "motel" ? `/hospedaje/${p.id}` : `/establecimiento/${p.id}`)
               : entityType === "shop"
                 ? `/sexshop/${p.username || p.id}`
-                : `/profesional/${p.id}`,
+                : profileHref(p.id, p.displayName || p.username, p.city),
           avatarUrl: p.avatarUrl,
           coverUrl: p.coverUrl,
           age: p.age,

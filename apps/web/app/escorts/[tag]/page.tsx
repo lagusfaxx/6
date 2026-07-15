@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import DirectoryPage from "../../../components/DirectoryPage";
+import DirectorySeoLinks from "../../../components/DirectorySeoLinks";
 import { getCity } from "../../../lib/cities";
 
 type Props = { params: Promise<{ tag: string }> };
@@ -107,6 +108,12 @@ export default async function EscortsTagPage({ params }: Props) {
             Valparaíso y Concepción desde UZEED.
           </p>
         </section>
+        {/* Perfiles renderizados en servidor para indexación */}
+        <DirectorySeoLinks
+          heading={`Escorts Destacadas en ${city.name}`}
+          lat={city.lat}
+          lng={city.lng}
+        />
       </>
     );
   }
@@ -169,6 +176,14 @@ export default async function EscortsTagPage({ params }: Props) {
           exactamente lo que buscas. Todos los perfiles son verificados con fotos reales.
         </p>
       </section>
+      {/* Perfiles renderizados en servidor para indexación (excepto maduras,
+          que se resuelve por un parámetro distinto en el listado). */}
+      {!isMaduras && (
+        <DirectorySeoLinks
+          heading={`Escorts ${label} Destacadas`}
+          tag={tag}
+        />
+      )}
     </>
   );
 }

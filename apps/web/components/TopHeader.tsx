@@ -538,12 +538,13 @@ export default function TopHeader() {
                 <button onClick={() => handleNavLink("/")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
                   <Home className="h-4 w-4 text-white/40" /> Inicio
                 </button>
-                <button onClick={() => handleNavLink("/servicios")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                <button onClick={() => handleNavLink("/services")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
                   <Search className="h-4 w-4 text-white/40" /> Cerca tuyo
                 </button>
                 <a
                   href="https://live.uzeed.cl/south-american-cams/female/"
                   onClick={() => setHamburgerOpen(false)}
+                  rel="noopener noreferrer sponsored"
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition"
                 >
                   <Radio className="h-4 w-4 text-red-400/80" />

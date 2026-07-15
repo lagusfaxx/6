@@ -103,7 +103,7 @@ export default function AccountPage() {
   if (!canManageProfile) {
     quickActions.push(
       { label: "Mi perfil", description: "Foto y nombre", href: "/cuenta/perfil", icon: Edit3, color: "text-violet-400" },
-      { label: "Explorar", description: "Descubre cerca tuyo", href: "/servicios", icon: Sparkles, color: "text-fuchsia-400" },
+      { label: "Explorar", description: "Descubre cerca tuyo", href: "/services", icon: Sparkles, color: "text-fuchsia-400" },
       { label: "Mensajes", description: "Conversaciones", href: "/chats", icon: MessageSquare, color: "text-blue-400" },
       { label: "Favoritos", description: "Perfiles guardados", href: "/favoritos", icon: Heart, color: "text-rose-400" },
     );
@@ -177,7 +177,7 @@ export default function AccountPage() {
                         <Edit3 className="h-3.5 w-3.5" />
                         Editar perfil
                       </Link>
-                      <Link href="/servicios" className="btn-primary text-xs px-4 py-2">
+                      <Link href="/services" className="btn-primary text-xs px-4 py-2">
                         Explorar servicios
                       </Link>
                     </>

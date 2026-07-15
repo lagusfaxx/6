@@ -225,7 +225,7 @@ export default function FavoritesPage() {
               <p className="text-sm font-medium text-white/60">No tienes favoritos aún</p>
               <p className="mt-1 text-xs text-white/40">Toca el corazón en el perfil de un profesional para agregarlo.</p>
               <Link
-                href="/servicios"
+                href="/services"
                 className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600/20 to-violet-600/20 border border-fuchsia-500/30 px-4 py-2 text-xs text-fuchsia-200 transition hover:brightness-110"
               >
                 <Sparkles className="h-3.5 w-3.5" />

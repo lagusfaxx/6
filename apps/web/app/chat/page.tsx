@@ -353,7 +353,7 @@ export default function ChatInboxPage() {
           </p>
           {!search && filter === "all" && (
             <Link
-              href="/servicios"
+              href="/services"
               className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-3 text-xs font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(168,85,247,0.25)]"
             >
               <Sparkles className="h-3.5 w-3.5" />

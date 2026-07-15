@@ -1,11 +1,17 @@
 import type { MetadataRoute } from "next";
 import { CITY_LANDINGS } from "../lib/cities";
+import { profileHref } from "../lib/profileUrl";
 
 type ProfessionalItem = {
   id?: string | null;
+  name?: string | null;
   username?: string | null;
+  displayName?: string | null;
+  locality?: string | null;
+  city?: string | null;
   profile?: {
     username?: string | null;
+    displayName?: string | null;
   } | null;
   lastSeen?: string | null;
 };
@@ -59,16 +65,23 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
-async function getPublicProfessionalIds(): Promise<string[]> {
+async function getPublicProfessionalPaths(): Promise<string[]> {
   const data = await fetchJson<ProfessionalsResponse>(
     `${getApiBaseUrl()}/professionals`,
   );
   if (!data) return [];
   const items = Array.isArray(data.professionals) ? data.professionals : [];
-  const ids = items
-    .map((item) => item.id || null)
-    .filter((id): id is string => Boolean(id && id.trim()));
-  return Array.from(new Set(ids));
+  const paths = new Map<string, string>();
+  for (const item of items) {
+    const id = item.id?.trim();
+    if (!id) continue;
+    const name =
+      item.name || item.displayName || item.profile?.displayName || item.profile?.username || item.username || null;
+    const city = item.locality || item.city || null;
+    // URL con slug semántico (nombre-ciudad); cae a la UUID si no hay slug.
+    paths.set(id, profileHref(id, name, city));
+  }
+  return Array.from(paths.values());
 }
 
 async function getForumCategorySlugs(): Promise<string[]> {
@@ -177,14 +190,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   add("/privacidad", "yearly", 0.3);
 
   // ── Perfiles públicos dinámicos ──
-  const [professionalIds, forumSlugs, establishmentIds] = await Promise.all([
-    getPublicProfessionalIds(),
+  const [professionalPaths, forumSlugs, establishmentIds] = await Promise.all([
+    getPublicProfessionalPaths(),
     getForumCategorySlugs(),
     getEstablishmentIds(),
   ]);
 
-  for (const id of professionalIds.slice(0, 5000)) {
-    add(`/profesional/${encodeURIComponent(id)}`, "daily", 0.7);
+  // URLs con slug semántico (/profesional/{id}/{nombre-ciudad}); ya vienen
+  // codificadas desde profileHref.
+  for (const path of professionalPaths.slice(0, 5000)) {
+    add(path, "daily", 0.7);
   }
 
   // ── Categorías del foro ──

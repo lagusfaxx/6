@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import ProfileDetailView from "../_components/ProfileDetailView";
+import { permanentRedirect } from "next/navigation";
+import ProfileDetailView from "../../_components/ProfileDetailView";
+import { profileSlug } from "../../../../lib/profileUrl";
 
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
 
@@ -40,7 +42,7 @@ async function fetchProfessional(id: string): Promise<ProfessionalData | null> {
   }
 }
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string; slug?: string[] }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -52,6 +54,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const name = p.displayName || p.username || "Profesional";
   const city = p.city || "Chile";
+  // URL canónica con slug semántico (nombre-ciudad). Si no hay slug computable
+  // cae a la UUID sola.
+  const slug = profileSlug(p.displayName || p.username, p.city);
+  const canonicalPath = slug ? `/profesional/${id}/${slug}` : `/profesional/${id}`;
   const category = p.serviceCategory || "Escort";
   // Sin sufijo "| UZEED": el template del layout (%s | UZEED) ya lo añade al
   // <title>. Para og/twitter usamos brandedTitle porque ahí el template no aplica.
@@ -78,11 +84,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       `acompañante ${city.toLowerCase()}`,
       `escorts verificadas ${city.toLowerCase()}`,
     ],
-    alternates: { canonical: `/profesional/${id}` },
+    alternates: { canonical: canonicalPath },
     openGraph: {
       title: brandedTitle,
       description,
-      url: `https://uzeed.cl/profesional/${id}`,
+      url: `https://uzeed.cl${canonicalPath}`,
       type: "profile",
       images,
     },
@@ -96,12 +102,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ProfessionalDetailPage({ params }: Props) {
-  const { id } = await params;
+  const { id, slug } = await params;
   const p = await fetchProfessional(id);
 
   const name = p?.displayName || p?.username || "";
   const city = p?.city || "Chile";
   const category = p?.serviceCategory || "Escort";
+
+  // Canonicalización: si visitan la UUID desnuda (/profesional/{id}) y existe
+  // un slug computable, redirige 308 a la URL semántica. Solo redirige cuando
+  // NO viene slug en la ruta → nunca puede entrar en bucle aunque el slug
+  // guardado difiera del recalculado.
+  const desiredSlug = profileSlug(p?.displayName || p?.username, p?.city);
+  if (p && desiredSlug && (!slug || slug.length === 0)) {
+    permanentRedirect(`/profesional/${id}/${desiredSlug}`);
+  }
+
+  const canonicalUrl = desiredSlug
+    ? `https://uzeed.cl/profesional/${id}/${desiredSlug}`
+    : `https://uzeed.cl/profesional/${id}`;
 
   // JSON-LD structured data for Google
   const jsonLd = p
@@ -113,7 +132,7 @@ export default async function ProfessionalDetailPage({ params }: Props) {
         address: { "@type": "PostalAddress", addressLocality: city, addressCountry: "CL" },
         ...(p.avatarUrl ? { image: p.avatarUrl } : {}),
         ...(p.bio ? { description: p.bio.slice(0, 300) } : {}),
-        url: `https://uzeed.cl/profesional/${id}`,
+        url: canonicalUrl,
       }
     : null;
 

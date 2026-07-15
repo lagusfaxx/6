@@ -46,7 +46,7 @@ export default function RateProfessionalPage() {
         }).catch(() => {});
       }
       setSubmitted(true);
-      setTimeout(() => router.push("/servicios"), 1500);
+      setTimeout(() => router.push("/services"), 1500);
     } finally {
       setSaving(false);
     }
