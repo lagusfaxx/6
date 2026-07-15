@@ -523,6 +523,137 @@ adminRouter.put(
   }),
 );
 
+/* ── Admin gallery management (works on ANY profile) ──────────────
+   Lets an admin curate the photos a professional uploads: choose which
+   one appears on the home card (cover), swap the avatar, add missing
+   photos, or remove ones that "contaminate" the grid. Admin has full
+   control here and can override the min-3 / locked-registration rules
+   that constrain the professional themselves. */
+
+// List a profile's photos for the admin media modal.
+adminRouter.get(
+  "/profiles/:id/media-photos",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const media = await prisma.profileMedia.findMany({
+      where: { ownerId: id, type: "IMAGE" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, url: true, type: true, isLocked: true, createdAt: true },
+    });
+    return res.json({ media });
+  }),
+);
+
+// Set the home-card cover from an existing gallery photo. The home/directory
+// cards render `coverUrl` (falling back to the avatar), so this directly
+// decides which photo the public sees on the card.
+adminRouter.put(
+  "/profiles/:id/cover",
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { mediaId } = req.body ?? {};
+    if (!mediaId || typeof mediaId !== "string") {
+      return res.status(400).json({ error: "VALIDATION", message: "mediaId required" });
+    }
+
+    const media = await prisma.profileMedia.findUnique({
+      where: { id: mediaId },
+      select: { id: true, url: true, type: true, ownerId: true },
+    });
+    if (!media || media.ownerId !== id) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Media no pertenece al perfil" });
+    }
+    if (media.type !== "IMAGE") {
+      return res.status(400).json({ error: "VALIDATION", message: "Solo imagenes pueden ser portada" });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { coverUrl: media.url, coverPositionX: 50, coverPositionY: 50 },
+      select: { id: true, username: true, coverUrl: true },
+    });
+    return res.json({ profile: updated });
+  }),
+);
+
+// Upload one or more photos to a profile's gallery (images only).
+adminRouter.post(
+  "/profiles/:id/media",
+  upload.array("files", 12),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const files = (req.files as Express.Multer.File[]) ?? [];
+    if (!files.length) return res.status(400).json({ error: "NO_FILES" });
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, avatarUrl: true },
+    });
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const created: Awaited<ReturnType<typeof prisma.profileMedia.create>>[] = [];
+    for (const file of files) {
+      const mime = (file.mimetype || "").toLowerCase();
+      if (!mime.startsWith("image/")) continue;
+      const finalFilename = await optimizeUploadedImage(file, "gallery");
+      const url = storageProvider.publicUrl(finalFilename);
+      const record = await prisma.profileMedia.create({
+        data: { ownerId: id, type: "IMAGE", url },
+      });
+      created.push(record);
+    }
+
+    if (created.length === 0) {
+      return res.status(400).json({ error: "NO_IMAGES", message: "Sube al menos una imagen." });
+    }
+
+    // Give the profile an avatar if it had none.
+    if (!user.avatarUrl) {
+      await prisma.user.update({ where: { id }, data: { avatarUrl: created[0].url } });
+    }
+
+    return res.json({ media: created });
+  }),
+);
+
+// Delete a photo from any profile. Admin has full control (including locked
+// registration photos). If the removed photo was in use as the avatar or the
+// home cover, reassign/clear it so the card doesn't break.
+adminRouter.delete(
+  "/profiles/:id/media/:mediaId",
+  asyncHandler(async (req, res) => {
+    const { id, mediaId } = req.params;
+
+    const media = await prisma.profileMedia.findFirst({
+      where: { id: mediaId, ownerId: id },
+    });
+    if (!media) return res.status(404).json({ error: "NOT_FOUND" });
+
+    await prisma.profileMedia.delete({ where: { id: mediaId } });
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { avatarUrl: true, coverUrl: true },
+    });
+    const patch: { avatarUrl?: string | null; coverUrl?: string | null } = {};
+    if (user?.avatarUrl === media.url) {
+      const next = await prisma.profileMedia.findFirst({
+        where: { ownerId: id, type: "IMAGE" },
+        orderBy: { createdAt: "asc" },
+      });
+      patch.avatarUrl = next?.url ?? null;
+    }
+    if (user?.coverUrl === media.url) {
+      patch.coverUrl = null;
+    }
+    if (Object.keys(patch).length > 0) {
+      await prisma.user.update({ where: { id }, data: patch });
+    }
+
+    return res.json({ ok: true });
+  }),
+);
+
 adminRouter.delete(
   "/profiles/:id",
   requireFresh2FA,

@@ -24,6 +24,9 @@ import {
   Pencil,
   Download,
   Image as ImageIcon,
+  Star,
+  UserRound,
+  Upload,
 } from "lucide-react";
 
 type Profile = {
@@ -91,9 +94,16 @@ export default function AdminProfilesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [rateEditing, setRateEditing] = useState<string | null>(null);
   const [rateInput, setRateInput] = useState("");
-  const [mediaModal, setMediaModal] = useState<{ profileId: string; displayName: string } | null>(null);
+  const [mediaModal, setMediaModal] = useState<{
+    profileId: string;
+    displayName: string;
+    avatarUrl: string | null;
+    coverUrl: string | null;
+  } | null>(null);
   const [mediaPhotos, setMediaPhotos] = useState<ProfilePhoto[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState<string | null>(null);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
 
   const loadProfiles = useCallback(async () => {
     setError(null);
@@ -135,6 +145,86 @@ export default function AdminProfilesPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
+  async function setAsCover(photo: ProfilePhoto) {
+    if (!mediaModal) return;
+    setMediaBusy(photo.id);
+    setError(null);
+    try {
+      await apiFetch(`/admin/profiles/${mediaModal.profileId}/cover`, {
+        method: "PUT",
+        body: JSON.stringify({ mediaId: photo.id }),
+      });
+      setMediaModal((m) => (m ? { ...m, coverUrl: photo.url } : m));
+      setProfiles((prev) =>
+        prev.map((pr) => (pr.id === mediaModal.profileId ? { ...pr, coverUrl: photo.url } : pr)),
+      );
+      setSuccess("Foto de portada del home actualizada.");
+    } catch {
+      setError("No se pudo fijar la portada.");
+    } finally {
+      setMediaBusy(null);
+    }
+  }
+
+  async function setAsAvatar(photo: ProfilePhoto) {
+    if (!mediaModal) return;
+    setMediaBusy(photo.id);
+    setError(null);
+    try {
+      await apiFetch(`/admin/profiles/${mediaModal.profileId}/avatar`, {
+        method: "PUT",
+        body: JSON.stringify({ mediaId: photo.id }),
+      });
+      setMediaModal((m) => (m ? { ...m, avatarUrl: photo.url } : m));
+      setProfiles((prev) =>
+        prev.map((pr) => (pr.id === mediaModal.profileId ? { ...pr, avatarUrl: photo.url } : pr)),
+      );
+      setSuccess("Avatar actualizado.");
+    } catch {
+      setError("No se pudo fijar el avatar.");
+    } finally {
+      setMediaBusy(null);
+    }
+  }
+
+  async function deletePhoto(photo: ProfilePhoto) {
+    if (!mediaModal) return;
+    if (!window.confirm("¿Eliminar esta foto del perfil? Esta acción no se puede deshacer.")) return;
+    setMediaBusy(photo.id);
+    setError(null);
+    try {
+      await apiFetch(`/admin/profiles/${mediaModal.profileId}/media/${photo.id}`, {
+        method: "DELETE",
+      });
+      setMediaPhotos((prev) => prev.filter((ph) => ph.id !== photo.id));
+      setSuccess("Foto eliminada.");
+    } catch {
+      setError("No se pudo eliminar la foto.");
+    } finally {
+      setMediaBusy(null);
+    }
+  }
+
+  async function uploadPhotos(files: FileList | null) {
+    if (!mediaModal || !files || files.length === 0) return;
+    setUploadingMedia(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      Array.from(files).forEach((f) => form.append("files", f));
+      await apiFetch(`/admin/profiles/${mediaModal.profileId}/media`, {
+        method: "POST",
+        body: form,
+      });
+      await loadProfilePhotos(mediaModal.profileId);
+      setSuccess("Fotos subidas.");
+    } catch {
+      setError("No se pudieron subir las fotos.");
+    } finally {
+      setUploadingMedia(false);
+    }
   }
 
   useEffect(() => {
@@ -463,11 +553,16 @@ export default function AdminProfilesPage() {
                   <button
                     disabled={busy === p.id}
                     onClick={() => {
-                      setMediaModal({ profileId: p.id, displayName: p.displayName || p.username });
+                      setMediaModal({
+                        profileId: p.id,
+                        displayName: p.displayName || p.username,
+                        avatarUrl: p.avatarUrl,
+                        coverUrl: p.coverUrl,
+                      });
                       loadProfilePhotos(p.id);
                     }}
                     className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 transition"
-                    title="Descargar fotos"
+                    title="Gestionar fotos"
                   >
                     <ImageIcon className="h-3.5 w-3.5" />
                   </button>
@@ -728,7 +823,7 @@ export default function AdminProfilesPage() {
             className="w-full max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl border border-white/10 bg-gradient-to-b from-white/10 to-[#1a0e28]/95 p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-1">
               <h3 className="text-lg font-semibold text-white">
                 Fotos de {mediaModal.displayName}
               </h3>
@@ -739,6 +834,34 @@ export default function AdminProfilesPage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
+            <p className="text-xs text-white/40 mb-4">
+              La foto marcada como <span className="text-fuchsia-300">Portada</span> es la que se muestra en la tarjeta del home.
+            </p>
+
+            {/* Uploader */}
+            <label
+              className={`mb-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.03] py-3 text-xs font-medium text-white/60 transition hover:bg-white/[0.06] ${
+                uploadingMedia ? "pointer-events-none opacity-60" : ""
+              }`}
+            >
+              {uploadingMedia ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {uploadingMedia ? "Subiendo…" : "Subir fotos"}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                disabled={uploadingMedia}
+                onChange={(e) => {
+                  void uploadPhotos(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </label>
 
             {loadingMedia ? (
               <div className="flex items-center justify-center py-12">
@@ -752,34 +875,96 @@ export default function AdminProfilesPage() {
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                  {mediaPhotos.map((photo) => (
-                    <div
-                      key={photo.id}
-                      className="relative group overflow-hidden rounded-xl border border-white/[0.06]"
-                    >
-                      <img
-                        src={photo.url}
-                        alt="Foto del perfil"
-                        className="aspect-square w-full object-cover"
-                      />
-                      <button
-                        onClick={() => {
-                          const ext = photo.url.split(".").pop() || "jpg";
-                          const filename = `${mediaModal.displayName}-${photo.id}.${ext}`;
-                          downloadPhoto(photo.url, filename);
-                        }}
-                        className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
-                        title="Descargar"
+                  {mediaPhotos.map((photo) => {
+                    const isCover = mediaModal.coverUrl === photo.url;
+                    const isAvatar = mediaModal.avatarUrl === photo.url;
+                    const rowBusy = mediaBusy === photo.id;
+                    return (
+                      <div
+                        key={photo.id}
+                        className={`relative overflow-hidden rounded-xl border ${
+                          isCover ? "border-fuchsia-500/60 ring-1 ring-fuchsia-500/40" : "border-white/[0.06]"
+                        }`}
                       >
-                        <Download className="h-5 w-5 text-white" />
-                      </button>
-                      {photo.isLocked && (
-                        <div className="absolute bottom-1 right-1 rounded-full bg-black/70 px-2 py-1 text-[10px] text-white/80">
-                          Registro
+                        <img
+                          src={photo.url}
+                          alt="Foto del perfil"
+                          className="aspect-square w-full object-cover"
+                        />
+
+                        {/* Status badges */}
+                        <div className="absolute top-1 left-1 flex flex-col gap-1">
+                          {isCover && (
+                            <span className="rounded-full bg-fuchsia-600/90 px-2 py-0.5 text-[10px] font-semibold text-white">
+                              Portada
+                            </span>
+                          )}
+                          {isAvatar && (
+                            <span className="rounded-full bg-indigo-600/90 px-2 py-0.5 text-[10px] font-semibold text-white">
+                              Avatar
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        {photo.isLocked && (
+                          <div className="absolute top-1 right-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] text-white/80">
+                            Registro
+                          </div>
+                        )}
+
+                        {/* Action bar */}
+                        <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-black/70 p-1.5 backdrop-blur-sm">
+                          {rowBusy ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-white" />
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => setAsCover(photo)}
+                                disabled={isCover}
+                                className={`flex h-7 w-7 items-center justify-center rounded-md transition disabled:opacity-40 ${
+                                  isCover
+                                    ? "bg-fuchsia-600 text-white"
+                                    : "bg-white/10 text-white/70 hover:bg-fuchsia-600/70 hover:text-white"
+                                }`}
+                                title="Usar como portada del home"
+                              >
+                                <Star className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setAsAvatar(photo)}
+                                disabled={isAvatar}
+                                className={`flex h-7 w-7 items-center justify-center rounded-md transition disabled:opacity-40 ${
+                                  isAvatar
+                                    ? "bg-indigo-600 text-white"
+                                    : "bg-white/10 text-white/70 hover:bg-indigo-600/70 hover:text-white"
+                                }`}
+                                title="Usar como avatar"
+                              >
+                                <UserRound className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const ext = photo.url.split(".").pop() || "jpg";
+                                  const filename = `${mediaModal.displayName}-${photo.id}.${ext}`;
+                                  downloadPhoto(photo.url, filename);
+                                }}
+                                className="flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white"
+                                title="Descargar"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => deletePhoto(photo)}
+                                className="flex h-7 w-7 items-center justify-center rounded-md bg-red-500/20 text-red-300 transition hover:bg-red-500/40 hover:text-white"
+                                title="Eliminar foto"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 <button
                   onClick={() => setMediaModal(null)}
