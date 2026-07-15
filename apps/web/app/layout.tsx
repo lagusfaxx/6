@@ -68,8 +68,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: '/favicon.ico', sizes: 'any' },
       { url: '/brand/isotipo-new.png', sizes: '720x720', type: 'image/png' }
     ],
+    shortcut: [{ url: '/favicon.ico' }],
     apple: [{ url: '/brand/isotipo-new.png', sizes: '720x720', type: 'image/png' }]
   },
   other: {
