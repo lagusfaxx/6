@@ -137,6 +137,22 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // Favicon must stay cacheable — the global no-store rule above would
+        // otherwise apply and Google prefers a stable, cacheable favicon.
+        // This rule is defined last so its Cache-Control wins for /favicon.ico.
+        source: '/favicon.ico',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=604800, stale-while-revalidate=86400',
+          },
+          {
+            key: 'Content-Type',
+            value: 'image/x-icon',
+          },
+        ],
+      },
     ];
   },
 
