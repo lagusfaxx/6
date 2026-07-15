@@ -13,12 +13,12 @@ const footerLinks = {
     { label: "Videollamadas", href: "/videocall" },
   ],
   "Ciudades": [
-    { label: "Escorts en Santiago", href: "/escorts?city=santiago" },
-    { label: "Escorts en Viña del Mar", href: "/escorts?city=vina-del-mar" },
-    { label: "Escorts en Valparaíso", href: "/escorts?city=valparaiso" },
-    { label: "Escorts en Concepción", href: "/escorts?city=concepcion" },
-    { label: "Escorts en Antofagasta", href: "/escorts?city=antofagasta" },
-    { label: "Escorts en Temuco", href: "/escorts?city=temuco" },
+    { label: "Escorts en Santiago", href: "/escorts/santiago" },
+    { label: "Escorts en Viña del Mar", href: "/escorts/vina-del-mar" },
+    { label: "Escorts en Valparaíso", href: "/escorts/valparaiso" },
+    { label: "Escorts en Concepción", href: "/escorts/concepcion" },
+    { label: "Escorts en Antofagasta", href: "/escorts/antofagasta" },
+    { label: "Escorts en Temuco", href: "/escorts/temuco" },
   ],
   "Cuenta": [
     { label: "Iniciar sesión", href: "/login" },

@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 // Post-OAuth continuation page — not a public landing page, keep it out of the index.
 export const metadata: Metadata = {
-  title: "Elige tu tipo de cuenta | UZEED",
+  title: "Elige tu tipo de cuenta",
   robots: { index: false, follow: false },
 };
 

@@ -76,6 +76,9 @@ export const metadata: Metadata = {
   },
   other: {
     'google-site-verification': 'google73ed8440237def39',
+    // Clasificación explícita para contenido adulto: coherente con SafeSearch
+    // y recomendada por Google para este tipo de sitios.
+    rating: 'adult',
   },
 };
 
@@ -83,8 +86,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   minimumScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // Permitir zoom por accesibilidad/UX móvil (antes bloqueado con
+  // maximumScale:1 / userScalable:false).
+  maximumScale: 5,
+  userScalable: true,
   themeColor: '#111827'
 };
 

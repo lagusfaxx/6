@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import DirectoryPage from "../../components/DirectoryPage";
 import SeoContent from "../../components/SeoContent";
+import { profileHref } from "../../lib/profileUrl";
 
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
 
@@ -33,7 +34,7 @@ async function fetchTopProfiles(): Promise<ProfileSummary[]> {
 }
 
 export const metadata: Metadata = {
-  title: "Escorts y Putas en Chile - Verificadas Hoy | UZEED",
+  title: "Escorts y Putas en Chile - Verificadas Hoy",
   description:
     "Escorts y putas verificadas en Santiago, Las Condes, Viña del Mar y todo Chile. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy.",
   alternates: { canonical: "/escorts" },
@@ -76,7 +77,7 @@ export default async function EscortsPage() {
             {profiles.map((p) => (
               <li key={p.id}>
                 <Link
-                  href={`/profesional/${p.id}`}
+                  href={profileHref(p.id, p.displayName || p.username, p.city)}
                   className="inline-block rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm text-white/60 hover:text-fuchsia-300 hover:border-fuchsia-500/30 transition"
                 >
                   {p.displayName || p.username}{p.city ? ` — ${p.city}` : ""}

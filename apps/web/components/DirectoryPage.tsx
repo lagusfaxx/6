@@ -7,6 +7,7 @@ import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, Spar
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
+import { profileHref } from "../lib/profileUrl";
 import StatusBadgeIcon from "./StatusBadgeIcon";
 import UserLevelBadge from "./UserLevelBadge";
 import type { MapMarker } from "./MapboxMap";
@@ -74,6 +75,7 @@ type Props = {
   categorySlug: string;    // 'escort' | 'masajes' | 'motel' | 'sexshop' | …
   title: string;
   tag?: string;            // tag from [tag] route param → added to profileTags filter
+  city?: { name: string; lat: number; lng: number }; // city landing → filters results by location
 };
 
 /* ─── ProfileCard ────────────────────────────────────────── */
@@ -97,7 +99,7 @@ function ProfileCard({
   } else if (entityType === "shop") {
     href = `/sexshop/${p.username || p.id}`;
   } else {
-    href = `/profesional/${p.id}`;
+    href = profileHref(p.id, p.displayName || p.username, p.city);
   }
   const avatarSrc = p.avatarUrl ? resolveMediaUrl(p.avatarUrl) : null;
   const coverSrc  = p.coverUrl  ? resolveMediaUrl(p.coverUrl)  : null;
@@ -225,7 +227,7 @@ function ProfileCard({
 }
 
 /* ─── Main ───────────────────────────────────────────────── */
-export default function DirectoryPage({ entityType = "professional", categorySlug, title, tag }: Props) {
+export default function DirectoryPage({ entityType = "professional", categorySlug, title, tag, city }: Props) {
   const searchParams = useSearchParams();
   const locationCtx = useContext(LocationFilterContext);
 
@@ -254,9 +256,17 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
   const [total, setTotal] = useState(0);
   const [rateLimitMsg, setRateLimitMsg] = useState<string | null>(null);
 
-  /* ── location from context ── */
-  const effectiveLoc = locationCtx?.effectiveLocation ?? null;
-  const locationLabel = locationCtx?.state.mode === "city"
+  /* ── location: a `city` landing prop wins over the user's stored context
+     so /escorts/santiago always returns Santiago results and stays self-
+     canonical. Memoized so the coord array keeps a stable identity and does
+     not retrigger the fetch effect on every render. ── */
+  const effectiveLoc = useMemo<[number, number] | null>(
+    () => (city ? [city.lat, city.lng] : locationCtx?.effectiveLocation ?? null),
+    [city?.lat, city?.lng, locationCtx?.effectiveLocation],
+  );
+  const locationLabel = city
+    ? city.name
+    : locationCtx?.state.mode === "city"
     ? locationCtx.state.selectedCity?.name ?? null
     : effectiveLoc ? "Mi ubicación" : null;
 
@@ -352,7 +362,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
               ? (categorySlug === "motel" ? `/hospedaje/${p.id}` : `/establecimiento/${p.id}`)
               : entityType === "shop"
                 ? `/sexshop/${p.username || p.id}`
-                : `/profesional/${p.id}`,
+                : profileHref(p.id, p.displayName || p.username, p.city),
           avatarUrl: p.avatarUrl,
           coverUrl: p.coverUrl,
           age: p.age,

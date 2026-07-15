@@ -4,7 +4,7 @@ import DirectoryPage from "../../components/DirectoryPage";
 import SeoContent from "../../components/SeoContent";
 
 export const metadata: Metadata = {
-  title: "Sex Shop en Chile - Juguetes y Accesorios para Adultos | UZEED",
+  title: "Sex Shop en Chile - Juguetes y Accesorios para Adultos",
   description:
     "Compra juguetes sexuales, lencería y accesorios para adultos en Chile. Envío discreto y precios accesibles en UZEED.",
   keywords: ["sexshop chile", "sex shop santiago", "juguetes sexuales chile", "tienda erótica chile"],

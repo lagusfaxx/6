@@ -4,7 +4,7 @@ import DirectoryPage from "../../components/DirectoryPage";
 import SeoContent from "../../components/SeoContent";
 
 export const metadata: Metadata = {
-  title: "Masajistas Eróticas en Chile - Masajes Sensuales | UZEED",
+  title: "Masajistas Eróticas en Chile - Masajes Sensuales",
   description:
     "Encuentra masajistas eróticas y sensuales en Santiago, Las Condes y Viña del Mar. Masajes tántricos, nuru y relajantes con profesionales verificadas en UZEED.",
   keywords: ["masajistas chile", "masajes eróticos santiago", "masajistas sensuales", "masaje tántrico chile", "masajistas las condes", "masaje nuru santiago"],

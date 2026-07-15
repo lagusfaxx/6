@@ -164,6 +164,15 @@ const nextConfig = {
 
   async redirects() {
     return [
+      // ── City param → clean indexable URL (301) ──
+      // /escorts?city=santiago was inert (never filtered) and canonicalized
+      // to /escorts. Consolidate its link equity into /escorts/santiago.
+      {
+        source: "/escorts",
+        has: [{ type: "query", key: "city", value: "(?<city>[^&]+)" }],
+        destination: "/escorts/:city",
+        permanent: true,
+      },
       // ── Consolidate duplicate routes → single canonical URL ──
       { source: "/servicios", destination: "/services", permanent: true },
       { source: "/chats", destination: "/chat", permanent: true },
