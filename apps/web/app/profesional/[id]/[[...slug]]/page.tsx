@@ -1,193 +1,50 @@
 import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
+import {
+  fetchProfileById,
+  buildProfileMetadata,
+  canonicalProfilePath,
+} from "../../../../lib/profileServer";
+import ProfileServerView from "../../../../components/ProfileServerView";
 import ProfileDetailView from "../../_components/ProfileDetailView";
-import { profileSlug } from "../../../../lib/profileUrl";
-
-const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
-
-function apiBase(): string {
-  return DEFAULT_API.replace(/\/+$/, "");
-}
-
-type ProfessionalData = {
-  id: string;
-  username?: string;
-  displayName?: string | null;
-  // El endpoint individual /professionals/{id} devuelve el nombre en `name` y
-  // la categoría en `category` (no displayName/serviceCategory). Se incluyen
-  // como fallback para que el slug, el título y los datos estructurados usen el
-  // nombre real.
-  name?: string | null;
-  category?: string | null;
-  description?: string | null;
-  serviceSummary?: string | null;
-  avatarUrl?: string | null;
-  coverUrl?: string | null;
-  city?: string | null;
-  bio?: string | null;
-  serviceDescription?: string | null;
-  serviceCategory?: string | null;
-  heightCm?: number | null;
-  age?: number | null;
-  hairColor?: string | null;
-  baseRate?: number | null;
-  profileTags?: string[];
-  serviceTags?: string[];
-  isActive?: boolean;
-};
-
-/** Resuelve el nombre visible del perfil sea cual sea la forma del endpoint. */
-function resolveName(p: ProfessionalData): string {
-  return (p.displayName || p.username || p.name || "").trim();
-}
-
-/** Resuelve la categoría del perfil sea cual sea la forma del endpoint. */
-function resolveCategory(p: ProfessionalData): string {
-  return (p.serviceCategory || p.category || "").trim();
-}
-
-/** Resuelve la descripción del perfil sea cual sea la forma del endpoint. */
-function resolveBio(p: ProfessionalData): string | null {
-  return p.bio || p.description || null;
-}
-
-async function fetchProfessional(id: string): Promise<ProfessionalData | null> {
-  try {
-    const res = await fetch(`${apiBase()}/professionals/${encodeURIComponent(id)}`, {
-      next: { revalidate: 300 }, // Cache 5 min
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.professional ?? data ?? null;
-  } catch {
-    return null;
-  }
-}
 
 type Props = { params: Promise<{ id: string; slug?: string[] }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const p = await fetchProfessional(id);
-
-  if (!p) {
-    return { title: "Perfil no encontrado" };
-  }
-
-  const resolvedName = resolveName(p);
-  const name = resolvedName || "Profesional";
-  const city = p.city || "Chile";
-  // URL canónica con slug semántico (nombre-ciudad). Si no hay slug computable
-  // cae a la UUID sola.
-  const slug = profileSlug(resolvedName, p.city);
-  const canonicalPath = slug ? `/profesional/${id}/${slug}` : `/profesional/${id}`;
-  const category = resolveCategory(p) || "Escort";
-  // Sin sufijo "| UZEED": el template del layout (%s | UZEED) ya lo añade al
-  // <title>. Para og/twitter usamos brandedTitle porque ahí el template no aplica.
-  const title = `${name} — ${category} en ${city}`;
-  const brandedTitle = `${title} | UZEED`;
-  const bio = resolveBio(p);
-  const descParts = [
-    `Perfil verificado de ${name}, ${category.toLowerCase()} en ${city}.`,
-    bio ? bio.slice(0, 120) : null,
-    "Fotos reales, contacto directo y disponibilidad en UZEED.",
-  ].filter(Boolean);
-  const description = descParts.join(" ").slice(0, 300);
-
-  const images = p.avatarUrl
-    ? [{ url: p.avatarUrl, width: 400, height: 400, alt: `${name} - ${category} en ${city}` }]
-    : [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED" }];
-
-  return {
-    title,
-    description,
-    keywords: [
-      `${category.toLowerCase()} ${city.toLowerCase()}`,
-      `escort ${city.toLowerCase()}`,
-      `${name.toLowerCase()} escort`,
-      `acompañante ${city.toLowerCase()}`,
-      `escorts verificadas ${city.toLowerCase()}`,
-    ],
-    alternates: { canonical: canonicalPath },
-    openGraph: {
-      title: brandedTitle,
-      description,
-      url: `https://uzeed.cl${canonicalPath}`,
-      type: "profile",
-      images,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: brandedTitle,
-      description,
-      images: images.map((i) => i.url),
-    },
-  };
+  const p = await fetchProfileById(id);
+  if (!p) return { title: "Perfil no encontrado" };
+  return buildProfileMetadata(p, canonicalProfilePath(p));
 }
 
 export default async function ProfessionalDetailPage({ params }: Props) {
   const { id, slug } = await params;
-  const p = await fetchProfessional(id);
+  const p = await fetchProfileById(id);
 
-  const name = p ? resolveName(p) : "";
-  const city = p?.city || "Chile";
-  const category = (p ? resolveCategory(p) : "") || "Escort";
-  const bio = p ? resolveBio(p) : null;
-
-  // Canonicalización: si visitan la UUID desnuda (/profesional/{id}) y existe
-  // un slug computable, redirige 308 a la URL semántica. Solo redirige cuando
-  // NO viene slug en la ruta → nunca puede entrar en bucle aunque el slug
-  // guardado difiera del recalculado.
-  const desiredSlug = profileSlug(name, p?.city);
-  if (p && desiredSlug && (!slug || slug.length === 0)) {
-    permanentRedirect(`/profesional/${id}/${desiredSlug}`);
+  if (p) {
+    const canonical = canonicalProfilePath(p);
+    // Si existe una URL limpia por username (/escort/{username}), redirige 301.
+    // Si el username no es URL-safe, canonical cae a /profesional/{id}/{slug};
+    // en ese caso solo redirige la UUID desnuda a la versión con slug (loop-safe:
+    // no redirige si ya hay slug en la ruta).
+    const isLegacyCanonical = canonical.startsWith("/profesional/");
+    if (!isLegacyCanonical) {
+      permanentRedirect(canonical);
+    }
+    if (isLegacyCanonical && canonical !== `/profesional/${id}` && (!slug || slug.length === 0)) {
+      permanentRedirect(canonical);
+    }
   }
 
-  const canonicalUrl = desiredSlug
-    ? `https://uzeed.cl/profesional/${id}/${desiredSlug}`
+  const canonicalUrl = p
+    ? `https://uzeed.cl${canonicalProfilePath(p)}`
     : `https://uzeed.cl/profesional/${id}`;
 
-  // JSON-LD structured data for Google
-  const jsonLd = p
-    ? {
-        "@context": "https://schema.org",
-        "@type": "Person",
-        name: name || undefined,
-        jobTitle: category,
-        address: { "@type": "PostalAddress", addressLocality: city, addressCountry: "CL" },
-        ...(p.avatarUrl ? { image: p.avatarUrl } : {}),
-        ...(bio ? { description: bio.slice(0, 300) } : {}),
-        url: canonicalUrl,
-      }
-    : null;
+  // Si la API no resuelve el perfil, renderiza igualmente el componente
+  // interactivo por id (hace su propia carga y muestra su estado).
+  if (!p) {
+    return <ProfileDetailView id={id} />;
+  }
 
-  return (
-    <>
-      {/* Client-side interactive component */}
-      <ProfileDetailView id={id} />
-
-      {/* Server-rendered SEO content (visible to Google, hidden visually via CSS) */}
-      {jsonLd && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-      )}
-      {p && (
-        <section className="sr-only">
-          <h1>{name} — {category} en {city}</h1>
-          {bio && <p>{bio}</p>}
-          {(p.serviceDescription || p.serviceSummary) && (
-            <p>{p.serviceDescription || p.serviceSummary}</p>
-          )}
-          {p.heightCm && <p>Altura: {p.heightCm} cm</p>}
-          {p.hairColor && <p>Cabello: {p.hairColor}</p>}
-          {p.serviceTags && p.serviceTags.length > 0 && (
-            <p>Servicios: {p.serviceTags.join(", ")}</p>
-          )}
-        </section>
-      )}
-    </>
-  );
+  return <ProfileServerView profile={p} canonicalUrl={canonicalUrl} />;
 }
