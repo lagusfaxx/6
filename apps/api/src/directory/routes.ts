@@ -708,6 +708,10 @@ directoryRouter.get(
       professional: {
         id: u.id,
         name: u.displayName || u.username,
+        // Expuesto para que el front construya la URL limpia por username
+        // (/escort/{username}) y redirija las URLs antiguas /profesional/{id}.
+        username: u.username,
+        serviceCategory: u.serviceCategory,
         avatarUrl: u.avatarUrl,
         coverUrl: u.coverUrl,
         coverPositionX: u.coverPositionX ?? 50,
