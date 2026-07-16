@@ -431,6 +431,63 @@ directoryRouter.get(
   }),
 );
 
+// Resuelve un profesional por username para las URLs limpias públicas
+// (/escort/{username}, /masajista/{username}). A diferencia de /profiles/:username
+// (perfiles de suscripción), NO aplica candado de plan/membresía: cualquier
+// profesional público debe ser resoluble, igual que /professionals/:id.
+directoryRouter.get(
+  "/professionals/by-username/:username",
+  asyncHandler(async (req, res) => {
+    const username = String(req.params.username || "").trim();
+    if (!username) return res.status(404).json({ error: "not_found" });
+    const u = await prisma.user.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        city: true,
+        address: true,
+        serviceCategory: true,
+        serviceDescription: true,
+        bio: true,
+        avatarUrl: true,
+        heightCm: true,
+        hairColor: true,
+        serviceTags: true,
+        profileType: true,
+        isVerified: true,
+      },
+    });
+    // Mismo criterio de visibilidad que /professionals/:id: profesional verificado.
+    // (El filtro por suscripción/plan sigue desactivado en el directorio — ver
+    // "DEV: subscription filter removed during development" en este archivo.)
+    if (!u || u.profileType !== "PROFESSIONAL" || !u.isVerified) {
+      return res.status(404).json({ error: "not_found" });
+    }
+    return res.json({
+      professional: {
+        id: u.id,
+        username: u.username,
+        name: u.displayName || u.username,
+        displayName: u.displayName,
+        city:
+          (u.city && String(u.city).trim()) ||
+          extractCommuneFromAddress(u.address) ||
+          null,
+        serviceCategory: u.serviceCategory,
+        bio: u.bio,
+        description: u.bio,
+        serviceDescription: u.serviceDescription,
+        avatarUrl: u.avatarUrl,
+        heightCm: u.heightCm,
+        hairColor: u.hairColor,
+        serviceTags: u.serviceTags,
+      },
+    });
+  }),
+);
+
 directoryRouter.get(
   "/professionals/recent",
   asyncHandler(async (req, res) => {

@@ -78,10 +78,20 @@ async function fetchJson(path: string): Promise<any | null> {
   }
 }
 
-/** Resuelve un perfil por username (rutas limpias). */
+/**
+ * Resuelve un perfil por username (rutas limpias). Usa el endpoint del
+ * directorio SIN candado de plan (/professionals/by-username); si aún no está
+ * desplegado, cae a /profiles/:username (que sí gatilla PLAN_EXPIRED, pero al
+ * menos resuelve los perfiles con plan activo). Así ningún orden de despliegue
+ * empeora el estado actual.
+ */
 export async function fetchProfileByUsername(username: string): Promise<ProfileRecord | null> {
-  const data = await fetchJson(`/profiles/${encodeURIComponent(username)}`);
-  return normalize(data?.profile ?? data ?? null);
+  const primary = await fetchJson(`/professionals/by-username/${encodeURIComponent(username)}`);
+  const primaryRecord = normalize(primary?.professional ?? primary ?? null);
+  if (primaryRecord) return primaryRecord;
+
+  const fallback = await fetchJson(`/profiles/${encodeURIComponent(username)}`);
+  return normalize(fallback?.profile ?? fallback ?? null);
 }
 
 /** Resuelve un perfil por id (ruta legacy /profesional/{id}). */
