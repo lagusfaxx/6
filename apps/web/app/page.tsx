@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import HomeClient from "./HomeClient";
-import { cleanProfileHref } from "../lib/profileUrl";
+import { profileHref } from "../lib/profileUrl";
 
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
 
@@ -207,7 +207,7 @@ export default async function HomePage() {
             {profiles.map((p) => (
               <li key={p.id}>
                 <Link
-                  href={cleanProfileHref({ id: p.id, username: p.username, name: p.displayName || p.username, city: p.city })}
+                  href={profileHref(p.id, p.displayName || p.username, p.city)}
                   className="inline-block rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm text-white/60 hover:text-fuchsia-300 hover:border-fuchsia-500/30 transition"
                 >
                   {p.displayName || p.username}{p.city ? ` — ${p.city}` : ""}

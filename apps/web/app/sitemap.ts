@@ -1,13 +1,12 @@
 import type { MetadataRoute } from "next";
 import { CITY_LANDINGS } from "../lib/cities";
-import { cleanProfileHref } from "../lib/profileUrl";
+import { profileHref } from "../lib/profileUrl";
 
 type ProfessionalItem = {
   id?: string | null;
   name?: string | null;
   username?: string | null;
   displayName?: string | null;
-  serviceCategory?: string | null;
   locality?: string | null;
   city?: string | null;
   profile?: {
@@ -79,10 +78,8 @@ async function getPublicProfessionalPaths(): Promise<string[]> {
     const name =
       item.name || item.displayName || item.profile?.displayName || item.profile?.username || item.username || null;
     const city = item.locality || item.city || null;
-    const username = item.profile?.username || item.username || null;
-    // URL limpia por username (/escort/{username}); cae a /profesional/{id}/{slug}
-    // si el username no es URL-safe.
-    paths.set(id, cleanProfileHref({ id, username, serviceCategory: item.serviceCategory, name, city }));
+    // URL con slug semántico (nombre-ciudad); cae a la UUID si no hay slug.
+    paths.set(id, profileHref(id, name, city));
   }
   return Array.from(paths.values());
 }

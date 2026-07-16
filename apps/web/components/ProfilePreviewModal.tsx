@@ -6,7 +6,7 @@ import { X, MapPin, ChevronLeft, ChevronRight, MessageCircle, Eye, Tag, Loader2,
 import { useEffect, useState } from "react";
 import UserLevelBadge from "./UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
-import { cleanProfileHref } from "../lib/profileUrl";
+import { profileHref as buildProfileHref } from "../lib/profileUrl";
 import StatusBadgeIcon from "./StatusBadgeIcon";
 import useMe from "../hooks/useMe";
 import { trackAction } from "../hooks/useAnalytics";
@@ -150,7 +150,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
     ? `/hospedaje/${profile.id}`
     : isShop
       ? `/sexshop/${profile.username}`
-      : cleanProfileHref({ id: profile.id, username: profile.username, serviceCategory: fullProfile?.serviceCategory || profile.serviceCategory, name: profile.displayName || profile.username, city: fullProfile?.city });
+      : buildProfileHref(profile.id, profile.displayName || profile.username, fullProfile?.city);
 
   const userLevel = fullProfile?.userLevel || profile.userLevel;
   const tierGlow =
