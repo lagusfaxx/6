@@ -58,11 +58,26 @@ type MapboxMapProps = {
 // Mapbox usa orden [lng, lat]
 const DEFAULT_CENTER: [number, number] = [-70.66, -33.45];
 
+/* Tipo local del polígono para no depender del namespace global `GeoJSON`
+   (@types/geojson), cuya resolución ambiental no es fiable en el entorno de
+   build de producción. Estructuralmente equivale a GeoJSON.Feature<Polygon>,
+   así que sigue siendo compatible con las fuentes GeoJSON de Mapbox. */
+type CirclePolygonFeature = {
+  type: "Feature";
+  geometry: { type: "Polygon"; coordinates: number[][][] };
+  properties: Record<string, unknown>;
+};
+
+type CirclePolygonFeatureCollection = {
+  type: "FeatureCollection";
+  features: CirclePolygonFeature[];
+};
+
 function circleFeature(
   lat: number,
   lng: number,
   radiusM: number,
-): GeoJSON.Feature<GeoJSON.Polygon> {
+): CirclePolygonFeature {
   const steps = 64;
   const earth = 111320;
   const coords = [];
@@ -425,7 +440,7 @@ function MapboxMapComponent({
     }
 
     const update = () => {
-      const data: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
+      const data: CirclePolygonFeatureCollection = {
         type: "FeatureCollection",
         features: displayMarkers
           .filter((m) => (m.areaRadiusM ?? 0) > 0)
@@ -508,7 +523,7 @@ function MapboxMapComponent({
     const update = () => {
       const sourceId = "uzeed-user-range";
       const radiusM = Math.max(1, rangeKm) * 1000;
-      const data: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
+      const data: CirclePolygonFeatureCollection = {
         type: "FeatureCollection",
         features: [circleFeature(userLocation[0], userLocation[1], radiusM)],
       };
