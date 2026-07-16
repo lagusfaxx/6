@@ -456,9 +456,13 @@ directoryRouter.get(
         hairColor: true,
         serviceTags: true,
         profileType: true,
+        isVerified: true,
       },
     });
-    if (!u || u.profileType !== "PROFESSIONAL") {
+    // Mismo criterio de visibilidad que /professionals/:id: profesional verificado.
+    // (El filtro por suscripción/plan sigue desactivado en el directorio — ver
+    // "DEV: subscription filter removed during development" en este archivo.)
+    if (!u || u.profileType !== "PROFESSIONAL" || !u.isVerified) {
       return res.status(404).json({ error: "not_found" });
     }
     return res.json({
