@@ -13,6 +13,14 @@ type ProfessionalData = {
   id: string;
   username?: string;
   displayName?: string | null;
+  // El endpoint individual /professionals/{id} devuelve el nombre en `name` y
+  // la categoría en `category` (no displayName/serviceCategory). Se incluyen
+  // como fallback para que el slug, el título y los datos estructurados usen el
+  // nombre real.
+  name?: string | null;
+  category?: string | null;
+  description?: string | null;
+  serviceSummary?: string | null;
   avatarUrl?: string | null;
   coverUrl?: string | null;
   city?: string | null;
@@ -27,6 +35,21 @@ type ProfessionalData = {
   serviceTags?: string[];
   isActive?: boolean;
 };
+
+/** Resuelve el nombre visible del perfil sea cual sea la forma del endpoint. */
+function resolveName(p: ProfessionalData): string {
+  return (p.displayName || p.username || p.name || "").trim();
+}
+
+/** Resuelve la categoría del perfil sea cual sea la forma del endpoint. */
+function resolveCategory(p: ProfessionalData): string {
+  return (p.serviceCategory || p.category || "").trim();
+}
+
+/** Resuelve la descripción del perfil sea cual sea la forma del endpoint. */
+function resolveBio(p: ProfessionalData): string | null {
+  return p.bio || p.description || null;
+}
 
 async function fetchProfessional(id: string): Promise<ProfessionalData | null> {
   try {
@@ -52,20 +75,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Perfil no encontrado" };
   }
 
-  const name = p.displayName || p.username || "Profesional";
+  const resolvedName = resolveName(p);
+  const name = resolvedName || "Profesional";
   const city = p.city || "Chile";
   // URL canónica con slug semántico (nombre-ciudad). Si no hay slug computable
   // cae a la UUID sola.
-  const slug = profileSlug(p.displayName || p.username, p.city);
+  const slug = profileSlug(resolvedName, p.city);
   const canonicalPath = slug ? `/profesional/${id}/${slug}` : `/profesional/${id}`;
-  const category = p.serviceCategory || "Escort";
+  const category = resolveCategory(p) || "Escort";
   // Sin sufijo "| UZEED": el template del layout (%s | UZEED) ya lo añade al
   // <title>. Para og/twitter usamos brandedTitle porque ahí el template no aplica.
   const title = `${name} — ${category} en ${city}`;
   const brandedTitle = `${title} | UZEED`;
+  const bio = resolveBio(p);
   const descParts = [
     `Perfil verificado de ${name}, ${category.toLowerCase()} en ${city}.`,
-    p.bio ? p.bio.slice(0, 120) : null,
+    bio ? bio.slice(0, 120) : null,
     "Fotos reales, contacto directo y disponibilidad en UZEED.",
   ].filter(Boolean);
   const description = descParts.join(" ").slice(0, 300);
@@ -105,15 +130,16 @@ export default async function ProfessionalDetailPage({ params }: Props) {
   const { id, slug } = await params;
   const p = await fetchProfessional(id);
 
-  const name = p?.displayName || p?.username || "";
+  const name = p ? resolveName(p) : "";
   const city = p?.city || "Chile";
-  const category = p?.serviceCategory || "Escort";
+  const category = (p ? resolveCategory(p) : "") || "Escort";
+  const bio = p ? resolveBio(p) : null;
 
   // Canonicalización: si visitan la UUID desnuda (/profesional/{id}) y existe
   // un slug computable, redirige 308 a la URL semántica. Solo redirige cuando
   // NO viene slug en la ruta → nunca puede entrar en bucle aunque el slug
   // guardado difiera del recalculado.
-  const desiredSlug = profileSlug(p?.displayName || p?.username, p?.city);
+  const desiredSlug = profileSlug(name, p?.city);
   if (p && desiredSlug && (!slug || slug.length === 0)) {
     permanentRedirect(`/profesional/${id}/${desiredSlug}`);
   }
@@ -127,11 +153,11 @@ export default async function ProfessionalDetailPage({ params }: Props) {
     ? {
         "@context": "https://schema.org",
         "@type": "Person",
-        name: p.displayName || p.username,
+        name: name || undefined,
         jobTitle: category,
         address: { "@type": "PostalAddress", addressLocality: city, addressCountry: "CL" },
         ...(p.avatarUrl ? { image: p.avatarUrl } : {}),
-        ...(p.bio ? { description: p.bio.slice(0, 300) } : {}),
+        ...(bio ? { description: bio.slice(0, 300) } : {}),
         url: canonicalUrl,
       }
     : null;
@@ -151,8 +177,10 @@ export default async function ProfessionalDetailPage({ params }: Props) {
       {p && (
         <section className="sr-only">
           <h1>{name} — {category} en {city}</h1>
-          {p.bio && <p>{p.bio}</p>}
-          {p.serviceDescription && <p>{p.serviceDescription}</p>}
+          {bio && <p>{bio}</p>}
+          {(p.serviceDescription || p.serviceSummary) && (
+            <p>{p.serviceDescription || p.serviceSummary}</p>
+          )}
           {p.heightCm && <p>Altura: {p.heightCm} cm</p>}
           {p.hairColor && <p>Cabello: {p.hairColor}</p>}
           {p.serviceTags && p.serviceTags.length > 0 && (
