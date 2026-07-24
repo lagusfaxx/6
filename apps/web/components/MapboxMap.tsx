@@ -483,8 +483,8 @@ function MapboxMapComponent({
     const handleMapClick = (event: mapboxgl.MapMouseEvent) => {
       const feature = map
         .queryRenderedFeatures(event.point, { layers: [layerId] })
-        .find((item) => item.properties?.id);
-      const markerId = feature?.properties?.id;
+        .find((item) => (item as { properties?: { id?: string } }).properties?.id);
+      const markerId = (feature as { properties?: { id?: string } } | undefined)?.properties?.id;
       if (!markerId) return;
       const target = displayMarkers.find((marker) => marker.id === markerId);
       if (!target) return;
