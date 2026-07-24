@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../db";
 import { requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
+import { config } from "../config";
 
 export const adminOverviewRouter = Router();
 
@@ -282,6 +283,134 @@ adminOverviewRouter.get(
         totalSpentTokens: w.totalSpent,
         balanceTokens: w.balance,
       })),
+    });
+  }),
+);
+
+/**
+ * Profiles whose free trial expired without an active membership, with the
+ * potential revenue each one represents (monthly membership price) and an
+ * estimate of the revenue lost since the trial ended.
+ * Query params: q (search by name/username/email), limit (default 200, max 500).
+ */
+adminOverviewRouter.get(
+  "/expired-trials",
+  asyncHandler(async (req, res) => {
+    const now = new Date();
+    const monthlyPriceClp = config.membershipPriceClp;
+    const q = String(req.query.q || "").trim();
+    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
+
+    const baseWhere = {
+      profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as any },
+      shopTrialEndsAt: { lt: now },
+      OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lt: now } }],
+      ...(q
+        ? {
+            AND: [
+              {
+                OR: [
+                  { username: { contains: q, mode: "insensitive" as const } },
+                  { displayName: { contains: q, mode: "insensitive" as const } },
+                  { email: { contains: q, mode: "insensitive" as const } },
+                ],
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, profiles] = await Promise.all([
+      prisma.user.count({ where: baseWhere }),
+      prisma.user.findMany({
+        where: baseWhere,
+        orderBy: { shopTrialEndsAt: "desc" },
+        take: limit,
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          email: true,
+          phone: true,
+          city: true,
+          profileType: true,
+          avatarUrl: true,
+          isActive: true,
+          shopTrialEndsAt: true,
+          membershipExpiresAt: true,
+          lastSeen: true,
+          profileViews: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    const ids = profiles.map((p) => p.id);
+    const [messagesByProfile, favoritesByProfile, whatsappByProfile] = ids.length
+      ? await Promise.all([
+          prisma.message.groupBy({
+            by: ["toId"],
+            where: { toId: { in: ids } },
+            _count: { id: true },
+          }),
+          prisma.favorite.groupBy({
+            by: ["professionalId"],
+            where: { professionalId: { in: ids } },
+            _count: { id: true },
+          }),
+          prisma.userAction.groupBy({
+            by: ["targetId"],
+            where: { action: "whatsapp_click", targetId: { in: ids } },
+            _count: { id: true },
+          }),
+        ])
+      : [[], [], []];
+
+    const messagesMap = new Map(messagesByProfile.map((r) => [r.toId, r._count.id]));
+    const favoritesMap = new Map(favoritesByProfile.map((r) => [r.professionalId, r._count.id]));
+    const whatsappMap = new Map(whatsappByProfile.map((r) => [r.targetId, r._count.id]));
+
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    const items = profiles.map((p) => {
+      const expiredAt = p.shopTrialEndsAt!;
+      const daysExpired = Math.max(Math.floor((now.getTime() - expiredAt.getTime()) / MS_PER_DAY), 0);
+      // Months elapsed since the trial ended (capped at 12 to keep the estimate sane)
+      const monthsExpired = Math.min(Math.floor(daysExpired / 30), 12);
+      return {
+        id: p.id,
+        username: p.username,
+        displayName: p.displayName,
+        email: p.email,
+        phone: p.phone,
+        city: p.city,
+        profileType: p.profileType,
+        avatarUrl: p.avatarUrl,
+        isActive: p.isActive,
+        createdAt: p.createdAt.toISOString(),
+        trialEndedAt: expiredAt.toISOString(),
+        daysExpired,
+        lastSeen: p.lastSeen ? p.lastSeen.toISOString() : null,
+        profileViews: p.profileViews,
+        messagesReceived: messagesMap.get(p.id) || 0,
+        favoritesReceived: favoritesMap.get(p.id) || 0,
+        whatsappClicks: whatsappMap.get(p.id) || 0,
+        potentialMonthlyClp: monthlyPriceClp,
+        estimatedLostClp: monthsExpired * monthlyPriceClp,
+      };
+    });
+
+    const listedLostClp = items.reduce((acc, i) => acc + i.estimatedLostClp, 0);
+
+    res.json({
+      generatedAt: now.toISOString(),
+      monthlyPriceClp,
+      summary: {
+        total,
+        listed: items.length,
+        potentialMonthlyClp: total * monthlyPriceClp,
+        estimatedLostClpListed: listedLostClp,
+      },
+      items,
     });
   }),
 );

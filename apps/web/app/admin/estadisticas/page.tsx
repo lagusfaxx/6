@@ -11,6 +11,7 @@ import {
   ArrowUpFromLine,
   BarChart3,
   BookImage,
+  Clock,
   Eye,
   Globe,
   Heart,
@@ -69,6 +70,23 @@ type Analytics = {
     cities: { city: string; count: number }[];
     countries: { country: string; count: number }[];
   };
+  messaging?: {
+    topProfessionals: {
+      profileId: string;
+      displayName: string;
+      username: string | null;
+      city: string | null;
+      messages: number;
+      uniqueSenders: number;
+    }[];
+    topClients: {
+      userId: string;
+      displayName: string;
+      username: string | null;
+      profilesContacted: number;
+      messages: number;
+    }[];
+  };
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -104,6 +122,7 @@ const NAV_ITEMS = [
   { href: "/admin/estadisticas", label: "Estadisticas", icon: BarChart3 },
   { href: "/admin/verification", label: "Verificaciones", icon: UserCheck },
   { href: "/admin/profiles", label: "Perfiles", icon: Users },
+  { href: "/admin/expired-trials", label: "Pruebas caducadas", icon: Clock },
   { href: "/admin/deposits", label: "Depositos", icon: ArrowDownToLine },
   { href: "/admin/withdrawals", label: "Retiros", icon: ArrowUpFromLine },
   { href: "/admin/banners", label: "Banners", icon: BookImage },
@@ -376,6 +395,36 @@ export default function AdminEstadisticas() {
                   />
                 </div>
 
+                {/* ── Messaging Rankings ── */}
+                <div>
+                  <SectionHeader icon={MessageSquare} label="Mensajeria" />
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <RankingCard
+                      title="Profesionales con mas mensajes recibidos"
+                      icon={MessageSquare}
+                      items={(data.messaging?.topProfessionals ?? []).map((p) => ({
+                        label: `${p.displayName}${p.city ? ` · ${p.city}` : ""}`,
+                        value: p.messages,
+                        sub: `${p.uniqueSenders} contactos`,
+                        href: `/profesional/${p.profileId}`,
+                      }))}
+                      color="blue"
+                      emptyText="Sin mensajes en el periodo"
+                    />
+                    <RankingCard
+                      title="Clientes que contactaron mas perfiles"
+                      icon={Users}
+                      items={(data.messaging?.topClients ?? []).map((c) => ({
+                        label: c.displayName,
+                        value: c.profilesContacted,
+                        sub: `${c.messages} mensajes`,
+                      }))}
+                      color="violet"
+                      emptyText="Sin mensajes de clientes en el periodo"
+                    />
+                  </div>
+                </div>
+
                 {/* ── WhatsApp + Locations ── */}
                 <div className="grid gap-4 lg:grid-cols-3">
                   {/* WhatsApp */}
@@ -621,7 +670,7 @@ function HealthCard({ label, value, total, color, desc }: {
 function RankingCard({ title, icon: Icon, items, color, emptyText }: {
   title: string;
   icon: any;
-  items: { label: string; value: number; icon?: any }[];
+  items: { label: string; value: number; icon?: any; sub?: string; href?: string }[];
   color: string;
   emptyText: string;
 }) {
@@ -651,7 +700,7 @@ function RankingCard({ title, icon: Icon, items, color, emptyText }: {
           <div className="space-y-0.5">
             {items.slice(0, 8).map((item, i) => {
               const ItemIcon = item.icon;
-              return (
+              const row = (
                 <div key={`${item.label}-${i}`} className="group relative rounded-lg overflow-hidden hover:bg-white/[0.02] transition-colors">
                   <div
                     className={`absolute inset-0 ${c.bar} transition-all`}
@@ -662,10 +711,20 @@ function RankingCard({ title, icon: Icon, items, color, emptyText }: {
                       {i + 1}
                     </span>
                     {ItemIcon && <ItemIcon className="h-3 w-3 shrink-0 text-white/25" />}
-                    <span className="text-[12px] text-white/70 truncate flex-1">{item.label}</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-[12px] text-white/70 truncate">{item.label}</span>
+                      {item.sub && <span className="block text-[10px] text-white/30 truncate">{item.sub}</span>}
+                    </div>
                     <span className="text-[12px] font-semibold text-white/50 tabular-nums">{item.value.toLocaleString("es-CL")}</span>
                   </div>
                 </div>
+              );
+              return item.href ? (
+                <Link key={`${item.label}-${i}`} href={item.href} className="block">
+                  {row}
+                </Link>
+              ) : (
+                row
               );
             })}
           </div>
