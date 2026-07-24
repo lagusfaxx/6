@@ -153,6 +153,7 @@ const notificationFallback: Record<string, { title: string; url: string }> = {
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutGrid },
   { href: "/admin/estadisticas", label: "Estadisticas", icon: BarChart3 },
+  { href: "/admin/expired-trials", label: "Pruebas caducadas", icon: Clock },
   { href: "/admin/verification", label: "Verificaciones", icon: UserCheck },
   { href: "/admin/profiles", label: "Perfiles", icon: Users },
   { href: "/admin/rating", label: "Catador", icon: Star },
@@ -590,6 +591,7 @@ export default function AdminIndex() {
               <h2 className="text-[11px] font-semibold uppercase tracking-widest text-white/30 mb-3">Acceso rapido</h2>
               <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
                 <QuickAction href="/admin/estadisticas" icon={BarChart3} label="Estadisticas" desc="Metricas y graficos" accent="fuchsia" />
+                <QuickAction href="/admin/expired-trials" icon={Clock} label="Pruebas caducadas" desc="Ganancia potencial" accent="amber" />
                 <QuickAction href="/admin/verification" icon={BadgeCheck} label="Verificaciones" desc={`${metrics.pendingVerifications} pendientes`} accent="amber" />
                 <QuickAction href="/admin/profiles" icon={Users} label="Perfiles" desc="Gestion de usuarios" accent="violet" />
                 <QuickAction href="/admin/rating" icon={Star} label="Catador" desc="Calificar perfiles" accent="amber" />

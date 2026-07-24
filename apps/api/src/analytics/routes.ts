@@ -141,6 +141,9 @@ analyticsRouter.get(
       // Profile stats
       profilesWithoutPhotos,
       inactiveProfiles,
+      // Messaging rankings
+      topMessagedProfessionals,
+      topContactingClients,
     ] = await Promise.all([
       // Total page views in period
       prisma.pageView.count({ where: { createdAt: { gte: periodStart } } }),
@@ -247,7 +250,50 @@ analyticsRouter.get(
           ],
         },
       }),
+      // Professionals ranked by messages received in period
+      prisma.$queryRawUnsafe<{ id: string; messages: bigint; senders: bigint }[]>(
+        `SELECT m."toId" AS id,
+                COUNT(*)::bigint AS messages,
+                COUNT(DISTINCT m."fromId")::bigint AS senders
+         FROM "Message" m
+         JOIN "User" u ON u.id = m."toId"
+         WHERE m."createdAt" >= $1
+           AND u."profileType" IN ('PROFESSIONAL', 'ESTABLISHMENT', 'SHOP')
+         GROUP BY m."toId"
+         ORDER BY messages DESC
+         LIMIT 10`,
+        periodStart,
+      ),
+      // Clients ranked by distinct professional profiles contacted in period
+      prisma.$queryRawUnsafe<{ id: string; profiles: bigint; messages: bigint }[]>(
+        `SELECT m."fromId" AS id,
+                COUNT(DISTINCT m."toId")::bigint AS profiles,
+                COUNT(*)::bigint AS messages
+         FROM "Message" m
+         JOIN "User" c ON c.id = m."fromId"
+         JOIN "User" p ON p.id = m."toId"
+         WHERE m."createdAt" >= $1
+           AND c."profileType" IN ('CLIENT', 'VIEWER')
+           AND p."profileType" IN ('PROFESSIONAL', 'ESTABLISHMENT', 'SHOP')
+         GROUP BY m."fromId"
+         ORDER BY profiles DESC, messages DESC
+         LIMIT 10`,
+        periodStart,
+      ),
     ]);
+
+    // Resolve display names for messaging rankings in one query
+    const messagingUserIds = [
+      ...topMessagedProfessionals.map((r) => r.id),
+      ...topContactingClients.map((r) => r.id),
+    ];
+    const messagingUsers = messagingUserIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: messagingUserIds } },
+          select: { id: true, displayName: true, username: true, city: true, profileType: true },
+        })
+      : [];
+    const messagingUserMap = new Map(messagingUsers.map((u) => [u.id, u]));
 
     res.json({
       period,
@@ -297,6 +343,29 @@ analyticsRouter.get(
       locations: {
         cities: topCities.map((c) => ({ city: c.city, count: c._count.id })),
         countries: topCountries.map((c) => ({ country: c.country, count: c._count.id })),
+      },
+      messaging: {
+        topProfessionals: topMessagedProfessionals.map((r) => {
+          const u = messagingUserMap.get(r.id);
+          return {
+            profileId: r.id,
+            displayName: u?.displayName || u?.username || r.id,
+            username: u?.username || null,
+            city: u?.city || null,
+            messages: Number(r.messages),
+            uniqueSenders: Number(r.senders),
+          };
+        }),
+        topClients: topContactingClients.map((r) => {
+          const u = messagingUserMap.get(r.id);
+          return {
+            userId: r.id,
+            displayName: u?.displayName || u?.username || r.id,
+            username: u?.username || null,
+            profilesContacted: Number(r.profiles),
+            messages: Number(r.messages),
+          };
+        }),
       },
     });
   }),
