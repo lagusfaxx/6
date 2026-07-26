@@ -102,6 +102,10 @@ async function connect(): Promise<void> {
       if (qr) {
         state.qr = qr;
         state.status = "waiting_qr";
+        // Si llegó un QR el socket habla con WhatsApp: resetear el backoff
+        // para que el reinicio post-escaneo sea inmediato y no expire la
+        // vinculación en el teléfono.
+        state.reconnectAttempts = 0;
         console.log("[whatsapp:baileys] QR listo — escanéalo desde /notifications/whatsapp/qr");
       }
       if (connection === "open") {
@@ -122,6 +126,18 @@ async function connect(): Promise<void> {
           try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
           console.warn("[whatsapp:baileys] sesión cerrada (logged out). Vincula de nuevo con el QR.");
           scheduleReconnect();
+        } else if (code === DisconnectReason.restartRequired) {
+          // 515 "Stream Errored (restart required)": WhatsApp lo envía justo
+          // después de escanear el QR y la vinculación se completa recién en
+          // el socket nuevo. Reconectar de inmediato — con el backoff normal
+          // el teléfono expira la vinculación y el QR queda en timeout.
+          state.reconnectAttempts = 0;
+          if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+          }
+          console.log("[whatsapp:baileys] restart required (post-QR): reconectando de inmediato");
+          connect().catch(() => {});
         } else {
           state.lastError = (lastDisconnect?.error as any)?.message || `close_${code}`;
           scheduleReconnect();
