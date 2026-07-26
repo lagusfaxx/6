@@ -10,6 +10,7 @@ import { config } from "../config";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { asyncHandler } from "../lib/asyncHandler";
 import { optimizeImage, optimizeUploadedImage } from "../lib/imageOptimizer";
+import { isUUID } from "../lib/validators";
 
 export const adminRouter = Router();
 
@@ -2064,5 +2065,172 @@ adminRouter.patch(
       }
       throw err;
     }
+  }),
+);
+
+/* ══════════════════════════════════════════════════════════════
+   CHAT MODERATION
+   Permite a los administradores revisar las conversaciones entre
+   clientes y profesionales para detectar mal uso de la mensajería
+   (estafas, acoso, intentos de desintermediación, etc.).
+   Solo lectura: no expone acciones de escritura sobre mensajes.
+   ══════════════════════════════════════════════════════════════ */
+
+const CHAT_USER_SELECT = {
+  id: true,
+  username: true,
+  displayName: true,
+  email: true,
+  avatarUrl: true,
+  profileType: true,
+  city: true,
+} as const;
+
+adminRouter.get(
+  "/chats",
+  asyncHandler(async (req, res) => {
+    const { q, limit, offset } = req.query as Record<string, string | undefined>;
+    const take = Math.min(parseInt(limit || "30", 10) || 30, 100);
+    const skip = parseInt(offset || "0", 10) || 0;
+
+    // Con búsqueda: resolver primero los usuarios que coinciden y filtrar
+    // las conversaciones donde participa alguno de ellos.
+    let filterIds: string[] | null = null;
+    if (q && q.trim()) {
+      const matched = await prisma.user.findMany({
+        where: {
+          OR: [
+            { displayName: { contains: q, mode: "insensitive" } },
+            { username: { contains: q, mode: "insensitive" } },
+            { email: { contains: q, mode: "insensitive" } },
+          ],
+        },
+        select: { id: true },
+        take: 200,
+      });
+      filterIds = matched.map((u) => u.id);
+      if (filterIds.length === 0) {
+        return res.json({ conversations: [], total: 0 });
+      }
+    }
+
+    const filterSql = filterIds
+      ? Prisma.sql`WHERE "fromId" = ANY(${filterIds}::uuid[]) OR "toId" = ANY(${filterIds}::uuid[])`
+      : Prisma.empty;
+
+    // Mensajes agrupados por par de usuarios (sin importar dirección).
+    const pairs: Array<{
+      userAId: string;
+      userBId: string;
+      messageCount: number;
+      lastMessageAt: Date;
+    }> = await prisma.$queryRaw`
+      SELECT LEAST("fromId", "toId")::text     AS "userAId",
+             GREATEST("fromId", "toId")::text  AS "userBId",
+             COUNT(*)::int                     AS "messageCount",
+             MAX("createdAt")                  AS "lastMessageAt"
+      FROM "Message"
+      ${filterSql}
+      GROUP BY 1, 2
+      ORDER BY "lastMessageAt" DESC
+      LIMIT ${take} OFFSET ${skip}`;
+
+    const totalRows: Array<{ count: number }> = await prisma.$queryRaw`
+      SELECT COUNT(*)::int AS count FROM (
+        SELECT 1 FROM "Message"
+        ${filterSql}
+        GROUP BY LEAST("fromId", "toId"), GREATEST("fromId", "toId")
+      ) pairs`;
+    const total = totalRows[0]?.count ?? 0;
+
+    const userIds = Array.from(
+      new Set(pairs.flatMap((p) => [p.userAId, p.userBId])),
+    );
+    const [users, lastMessages] = await Promise.all([
+      userIds.length
+        ? prisma.user.findMany({
+            where: { id: { in: userIds } },
+            select: CHAT_USER_SELECT,
+          })
+        : Promise.resolve([]),
+      Promise.all(
+        pairs.map((p) =>
+          prisma.message.findFirst({
+            where: {
+              OR: [
+                { fromId: p.userAId, toId: p.userBId },
+                { fromId: p.userBId, toId: p.userAId },
+              ],
+            },
+            orderBy: { createdAt: "desc" },
+            select: { body: true, fromId: true, createdAt: true },
+          }),
+        ),
+      ),
+    ]);
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    return res.json({
+      conversations: pairs.map((p, i) => ({
+        userA: userMap.get(p.userAId) ?? { id: p.userAId },
+        userB: userMap.get(p.userBId) ?? { id: p.userBId },
+        messageCount: p.messageCount,
+        lastMessageAt: p.lastMessageAt,
+        lastMessage: lastMessages[i],
+      })),
+      total,
+    });
+  }),
+);
+
+adminRouter.get(
+  "/chats/:userAId/:userBId",
+  asyncHandler(async (req, res) => {
+    const { userAId, userBId } = req.params;
+    if (!isUUID(userAId) || !isUUID(userBId)) {
+      return res.status(400).json({ error: "INVALID_USER_ID" });
+    }
+    const take = Math.min(
+      parseInt(String(req.query.limit || "200"), 10) || 200,
+      500,
+    );
+    const skip = parseInt(String(req.query.offset || "0"), 10) || 0;
+
+    const [userA, userB] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userAId }, select: CHAT_USER_SELECT }),
+      prisma.user.findUnique({ where: { id: userBId }, select: CHAT_USER_SELECT }),
+    ]);
+    if (!userA || !userB) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const where = {
+      OR: [
+        { fromId: userAId, toId: userBId },
+        { fromId: userBId, toId: userAId },
+      ],
+    };
+    const [messagesDesc, total] = await Promise.all([
+      prisma.message.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take,
+        skip,
+        select: {
+          id: true,
+          fromId: true,
+          toId: true,
+          body: true,
+          createdAt: true,
+          readAt: true,
+        },
+      }),
+      prisma.message.count({ where }),
+    ]);
+
+    return res.json({
+      userA,
+      userB,
+      messages: messagesDesc.reverse(),
+      total,
+    });
   }),
 );
