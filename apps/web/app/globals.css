@@ -48,16 +48,19 @@ body::before {
   /* Removed filter to reduce compositing cost on mobile — saves ~100ms paint */
 }
 
-/* Soft galaxy overlays */
+/* Velo de fondo.
+   Antes eran tres radiales saturados (violeta 0.30 / rosa 0.22 / azul 0.12) que
+   teñían de morado cada página y se comían el contraste del contenido. Se bajan
+   a un tinte de marca apenas perceptible y se sube el velo oscuro: el fondo deja
+   de competir con las fotos de los perfiles, que es lo que el usuario mira. */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(1200px 800px at 20% 10%, rgba(168, 85, 247, 0.30), transparent 60%),
-    radial-gradient(900px 700px at 80% 25%, rgba(236, 72, 153, 0.22), transparent 60%),
-    radial-gradient(900px 900px at 50% 90%, rgba(59, 130, 246, 0.12), transparent 60%),
-    linear-gradient(180deg, rgba(7, 8, 22, 0.10), rgba(7, 8, 22, 0.75));
+    radial-gradient(1100px 750px at 20% 8%, rgba(168, 85, 247, 0.10), transparent 62%),
+    radial-gradient(900px 700px at 82% 22%, rgba(236, 72, 153, 0.06), transparent 62%),
+    linear-gradient(180deg, rgba(7, 8, 22, 0.55), rgba(7, 8, 22, 0.9));
   z-index: -1;
 }
 

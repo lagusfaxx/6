@@ -70,9 +70,11 @@ export default function AgeGate() {
 
       {/* Tarjeta */}
       <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-[#0d0b16]/90 p-7 text-center shadow-[0_24px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:p-9">
-        <h1 id="age-gate-title" className="text-2xl font-extrabold tracking-tight text-white sm:text-[1.7rem]">
+        {/* h2, no h1: el título del modal no debe competir con el h1 real de
+            cada página — dos h1 en el DOM confunden la jerarquía para Google. */}
+        <h2 id="age-gate-title" className="text-2xl font-extrabold tracking-tight text-white sm:text-[1.7rem]">
           ¿Tienes más de 18 años?
-        </h1>
+        </h2>
         <p className="mx-auto mt-2.5 max-w-xs text-xs leading-relaxed text-white/45">
           Este sitio contiene contenido para adultos. Al continuar confirmas que
           eres mayor de edad y aceptas nuestros{" "}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
+import { formatDistance, spreadOverlapping, tierOrder } from "../../lib/mapMarkers";
 import type { MapMarker } from "../../components/MapboxMap";
 import UserLevelBadge from "../../components/UserLevelBadge";
 import {
@@ -67,60 +68,11 @@ function ownerHref(profile: ProfileResult) {
   return `/profesional/${profile.id}`;
 }
 
-function formatDistance(distance: number | null | undefined) {
-  if (distance == null || !Number.isFinite(distance)) return null;
-  if (distance < 1) return `${Math.round(distance * 1000)} m`;
-  return `${distance.toFixed(1)} km`;
-}
-
-function tierOrder(level?: string) {
-  if (level === "DIAMOND") return 0;
-  if (level === "GOLD") return 1;
-  return 2;
-}
-
 function cardTierClass(level: string | undefined, isFocused: boolean) {
   if (isFocused) return "border-fuchsia-500/60 bg-[#16101f]/95 shadow-[0_8px_32px_rgba(217,70,239,0.25)]";
   if (level === "DIAMOND") return "border-cyan-400/40 bg-[#0c0c14]/90 shadow-[0_8px_24px_rgba(34,211,238,0.18)]";
   if (level === "GOLD") return "border-amber-400/40 bg-[#0c0c14]/90 shadow-[0_8px_24px_rgba(251,191,36,0.16)]";
   return "border-white/10 bg-[#0c0c14]/90 shadow-[0_8px_24px_rgba(0,0,0,0.45)]";
-}
-
-/* Despliega en anillos los pins que caen casi en el mismo punto para que no se tapen.
-   Solo mueve la posición visual (displayLat/Lng); el área real usa realLat/Lng. */
-function spreadOverlapping<T extends { lat: number; lng: number }>(
-  items: T[],
-): (T & { displayLat: number; displayLng: number })[] {
-  const CELL = 0.0014; // ~150 m
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = `${Math.round(item.lat / CELL)}:${Math.round(item.lng / CELL)}`;
-    const group = groups.get(key);
-    if (group) group.push(item);
-    else groups.set(key, [item]);
-  }
-  const result: (T & { displayLat: number; displayLng: number })[] = [];
-  groups.forEach((group) => {
-    if (group.length === 1) {
-      const m = group[0];
-      result.push({ ...m, displayLat: m.lat, displayLng: m.lng });
-      return;
-    }
-    const perRing = 6;
-    group.forEach((m, i) => {
-      const ring = Math.floor(i / perRing);
-      const countInRing = Math.min(perRing, group.length - ring * perRing);
-      const idxInRing = i % perRing;
-      const radius = 0.0011 * (ring + 1); // ~120 m por anillo
-      const angle = (2 * Math.PI * idxInRing) / countInRing + ring * 0.6;
-      result.push({
-        ...m,
-        displayLat: m.lat + radius * Math.cos(angle),
-        displayLng: m.lng + (radius * Math.sin(angle)) / Math.max(0.2, Math.cos((m.lat * Math.PI) / 180)),
-      });
-    });
-  });
-  return result;
 }
 
 /* ── Tarjeta horizontal del carrusel: presionable completa, abre el modal ── */
