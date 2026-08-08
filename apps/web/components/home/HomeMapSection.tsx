@@ -54,6 +54,7 @@ type NearbyProfile = {
 
 const RADIUS_OPTIONS = [5, 10, 25] as const;
 const DEFAULT_RADIUS_KM = 10;
+const MAX_RADIUS_KM = RADIUS_OPTIONS[RADIUS_OPTIONS.length - 1];
 const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
 
 function ownerHref(p: NearbyProfile) {
@@ -75,13 +76,16 @@ export default function HomeMapSection() {
   const [visible, setVisible] = useState(false);
   const [profiles, setProfiles] = useState<NearbyProfile[]>([]);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [radiusKm, setRadiusKm] = useState<number>(DEFAULT_RADIUS_KM);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<NearbyProfile | null>(null);
   const fetchRef = useRef(0);
 
   const hasToken = Boolean(process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
-  const usingGps = Boolean(effectiveLoc);
+  /* Ojo: sin ubicación el mapa cae a Santiago. En ese caso NO se puede hablar
+     de cercanía — para alguien en Concepción sería falso. */
+  const hasLocation = Boolean(effectiveLoc);
   const locationLabel =
     locationCtx?.state.mode === "city"
       ? locationCtx.state.selectedCity?.name ?? null
@@ -115,10 +119,16 @@ export default function HomeMapSection() {
     if (!visible || !hasToken) return;
     const myFetch = ++fetchRef.current;
     setLoading(true);
+    setFailed(false);
     const qp = new URLSearchParams();
     qp.set("types", "PROFESSIONAL,ESTABLISHMENT,SHOP");
     qp.set("lat", String(center[0]));
     qp.set("lng", String(center[1]));
+    /* Acotar en el servidor al radio más amplio que ofrece la sección. /cerca
+       se trae el catálogo entero (take: 300 + establecimientos) y filtra en el
+       cliente; en el home eso sería una descarga grande en cada visita. Con el
+       tope pedido una sola vez, los chips siguen filtrando sin refetch. */
+    qp.set("rangeKm", String(MAX_RADIUS_KM));
 
     apiFetch<{ profiles: NearbyProfile[] }>(`/services?${qp.toString()}`)
       .then((res) => {
@@ -127,7 +137,7 @@ export default function HomeMapSection() {
       })
       .catch(() => {
         if (myFetch !== fetchRef.current) return;
-        setProfiles((current) => current);
+        setFailed(true);
       })
       .finally(() => {
         if (myFetch === fetchRef.current) setLoading(false);
@@ -197,6 +207,27 @@ export default function HomeMapSection() {
   if (!hasToken) return null;
 
   const closest = nearby.slice(0, 6);
+  const connected =
+    availableCount > 0
+      ? ` · ${availableCount} conectada${availableCount === 1 ? "" : "s"} ahora`
+      : "";
+
+  let statusText: string;
+  if (failed) {
+    statusText = "No pudimos cargar los perfiles del mapa. Reintenta en unos segundos.";
+  } else if (loading && !nearby.length) {
+    statusText = "Buscando perfiles…";
+  } else if (!hasLocation) {
+    // Fallback a Santiago: se dice cuál es la referencia en vez de fingir cercanía.
+    statusText =
+      nearby.length > 0
+        ? `${nearby.length} perfil${nearby.length === 1 ? "" : "es"} en Santiago${connected}. Activa tu ubicación para ver los de tu zona.`
+        : "Activa tu ubicación para ver quién está cerca tuyo.";
+  } else if (nearby.length > 0) {
+    statusText = `${nearby.length} perfil${nearby.length === 1 ? "" : "es"} a menos de ${radiusKm} km${connected}`;
+  } else {
+    statusText = `Sin perfiles a menos de ${radiusKm} km`;
+  }
 
   return (
     <section ref={sectionRef} className="mb-10" aria-labelledby="home-map-title">
@@ -214,15 +245,7 @@ export default function HomeMapSection() {
             <span className="sm:hidden">Ampliar</span>
           </Link>
         </div>
-        <p className="mt-0.5 text-xs text-white/40">
-          {loading && !nearby.length
-            ? "Buscando perfiles a tu alrededor…"
-            : nearby.length > 0
-              ? `${nearby.length} perfil${nearby.length === 1 ? "" : "es"} a menos de ${radiusKm} km${
-                  availableCount > 0 ? ` · ${availableCount} conectada${availableCount === 1 ? "" : "s"} ahora` : ""
-                }`
-              : `Sin perfiles a menos de ${radiusKm} km`}
-        </p>
+        <p className="mt-0.5 text-xs text-white/40">{statusText}</p>
       </div>
 
       {/* Radio + ubicación */}
@@ -242,7 +265,7 @@ export default function HomeMapSection() {
             {r} km
           </button>
         ))}
-        {usingGps ? (
+        {hasLocation ? (
           <span className="ml-1 inline-flex items-center gap-1 text-[11px] text-white/35">
             <MapPin className="h-3 w-3 text-fuchsia-400/70" />
             desde {locationLabel}
@@ -317,7 +340,9 @@ export default function HomeMapSection() {
                       {p.displayName || p.username}
                     </div>
                     <div className="mt-0.5 truncate text-[10px] text-white/40">
-                      {dist ? `a ${dist}` : p.city || "Chile"}
+                      {/* Sin ubicación real la distancia se mide desde Santiago:
+                          se muestra la comuna en su lugar. */}
+                      {hasLocation && dist ? `a ${dist}` : p.city || "Chile"}
                     </div>
                   </div>
                 </Link>

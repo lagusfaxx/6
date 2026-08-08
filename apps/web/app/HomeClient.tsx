@@ -352,8 +352,9 @@ function HeroCounters() {
       .catch((err) => console.warn("[HeroCounters] failed to load platform stats", err));
   }, []);
 
-  // Sin datos todavía no se reserva ni se pinta nada: evita el salto de layout.
-  if (!stats) return <div className="mt-3 h-4" aria-hidden />;
+  // min-h y no h fija: con cifras de 4-5 dígitos la línea envuelve en mobile y
+  // una altura fija la recortaba encima del buscador.
+  if (!stats) return <div className="mt-3 min-h-4" aria-hidden />;
 
   const parts: string[] = [];
   if (stats.professionals > 0) {
@@ -362,10 +363,10 @@ function HeroCounters() {
   if (stats.whatsappClicks > 0) {
     parts.push(`${stats.whatsappClicks.toLocaleString("es-CL")} contactos por WhatsApp`);
   }
-  parts.push(`${CITY_LANDINGS.length} comunas con página propia`);
+  if (!parts.length) return <div className="mt-3 min-h-4" aria-hidden />;
 
   return (
-    <p className="mt-3 h-4 text-[11px] leading-4 text-white/35">{parts.join(" · ")}</p>
+    <p className="mt-3 min-h-4 text-[11px] leading-4 text-white/35">{parts.join(" · ")}</p>
   );
 }
 
@@ -760,14 +761,14 @@ export default function HomeClient() {
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
             <Link
               href="/cerca"
-              className="group inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-fuchsia-500"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-fuchsia-500"
             >
               <Navigation className="h-4 w-4" />
               Ver quién está cerca
             </Link>
             <Link
               href="/services"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/12 px-5 py-2.5 text-sm font-semibold text-white/70 transition hover:border-white/30 hover:text-white"
+              className="group inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-5 py-2.5 text-sm font-semibold text-white/70 transition hover:border-white/30 hover:text-white"
             >
               Ver todos los perfiles
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
