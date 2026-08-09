@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import HomeClient from "./HomeClient";
 import { cleanProfileHref } from "../lib/profileUrl";
+import { CITY_LANDINGS } from "../lib/cities";
 
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
 
@@ -75,34 +76,34 @@ const homeFaqJsonLd = {
   mainEntity: [
     {
       "@type": "Question",
-      name: "¿Cómo encuentro escorts y acompañantes cerca de mí?",
+      name: "¿Cómo veo quién está cerca de mí?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Activa tu ubicación en UZEED para ver perfiles cercanos ordenados por distancia. También puedes buscar por ciudad o comuna específica.",
+        text: "El mapa del inicio y la página Cerca piden tu ubicación y muestran los perfiles dentro del radio que elijas, entre 1 y 50 km. Si prefieres no dar tu GPS, puedes elegir la comuna a mano y funciona igual.",
       },
     },
     {
       "@type": "Question",
-      name: "¿Las escorts de UZEED son verificadas?",
+      name: "¿Qué significa que un perfil esté verificado?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Sí, UZEED verifica la identidad de cada profesional. Los perfiles verificados muestran una insignia que garantiza fotos reales y perfil auténtico.",
+        text: "Que UZEED comprobó la identidad de la persona y que las fotos publicadas son suyas. Esos perfiles llevan una insignia visible. Los que además subieron exámenes de salud vigentes aparecen en la sección \"Escorts con exámenes\".",
       },
     },
     {
       "@type": "Question",
-      name: "¿Hay escorts disponibles las 24 horas?",
+      name: "¿Cómo sé quién atiende ahora mismo?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Sí, muchas escorts ofrecen disponibilidad 24/7. Filtra por \"disponible ahora\" para ver solo las que atienden en este momento.",
+        text: "El punto verde marca a quienes están conectadas en ese momento. El filtro \"Disponible ahora\" deja solo esos perfiles, y el mapa los muestra con el mismo indicador sobre cada pin.",
       },
     },
     {
       "@type": "Question",
-      name: "¿UZEED funciona en todo Chile?",
+      name: "¿Se paga por usar UZEED?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Sí, tenemos cobertura en más de 20 ciudades incluyendo Santiago, Viña del Mar, Valparaíso, Concepción, Antofagasta y Temuco.",
+        text: "No para quien busca: ver perfiles, usar el mapa y escribir por chat es gratis. Quien quiera publicarse crea su perfil en minutos y arranca con un periodo de prueba sin costo.",
       },
     },
   ],
@@ -131,70 +132,81 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeBreadcrumbJsonLd) }}
       />
-      <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
-        <h1 className="text-xl font-bold text-white/80 mb-3">
-          Escorts y Acompañantes Verificadas en Chile — UZEED
-        </h1>
+      {/* Enlaces a las landings de comuna. Es el bloque con más peso SEO del
+          home: reparte autoridad a las 25 páginas /escorts/{comuna}, que son
+          las que compiten por las búsquedas geolocalizadas. */}
+      <nav className="mx-auto max-w-4xl px-4 pt-10" aria-label="Escorts por ciudad">
+        <h2 className="mb-3 text-base font-semibold text-white/75">Escorts por ciudad</h2>
+        <ul className="flex flex-wrap gap-1.5">
+          {CITY_LANDINGS.map((city) => (
+            <li key={city.slug}>
+              <Link
+                href={`/escorts/${city.slug}`}
+                className="inline-block rounded-lg border border-white/[0.08] px-2.5 py-1 text-[13px] text-white/55 transition hover:border-fuchsia-500/30 hover:text-fuchsia-300"
+              >
+                Escorts en {city.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <section className="mx-auto max-w-4xl px-4 pb-12 pt-8 text-sm leading-relaxed text-white/55">
+        <h2 className="mb-3 text-base font-semibold text-white/75">
+          Cómo funciona UZEED
+        </h2>
         <p className="mb-4">
-          UZEED es la plataforma líder para encontrar escorts y acompañantes verificadas
-          en Chile. Cada perfil cuenta con fotos reales, verificación de identidad y contacto
-          directo por WhatsApp. Explora perfiles disponibles hoy en Santiago, Viña del Mar,
-          Concepción y más de 20 ciudades del país.
+          UZEED reúne escorts, acompañantes y masajistas de Chile en un solo directorio.
+          Cada perfil se verifica antes de publicarse, muestra sus propias fotos y se
+          contacta directo por WhatsApp o por el chat interno. El mapa de cercanía
+          ordena los perfiles por distancia real, así que puedes ver en segundos quién
+          está a pocas cuadras y conectada en ese momento.
+        </p>
+        <p className="mb-4">
+          Además de escorts y acompañantes hay masajistas (tántrico, nuru y descontracturante),
+          moteles con tarifas al día, hospedajes discretos y sex shops con despacho a
+          todo el país. Todo se filtra por comuna, servicio, disponibilidad y rango de precio.
         </p>
 
-        <h3 className="text-base font-semibold text-white/70 mb-1">
-          Escorts en Santiago y Regiones
-        </h3>
-        <p className="mb-4">
-          Encuentra escorts disponibles hoy en Santiago Centro, Las Condes, Providencia y toda
-          la Región Metropolitana. También hay perfiles activos en Viña del Mar, Valparaíso,
-          Concepción, Antofagasta y Temuco. Filtra por ubicación, servicios y disponibilidad.
-        </p>
-
-        <h3 className="text-base font-semibold text-white/70 mb-1">
-          Más servicios en UZEED
-        </h3>
-        <p className="mb-4">
-          Además de escorts y acompañantes, puedes encontrar masajistas eróticas con
-          especialidad en masajes tántricos y nuru, moteles con precios actualizados,
-          hospedajes discretos y sex shops con envío a todo Chile.
-        </p>
-
-        <h3 className="text-base font-semibold text-white/70 mb-3">Preguntas Frecuentes</h3>
-        <details className="mb-3 group">
+        <h2 className="mb-3 mt-8 text-base font-semibold text-white/75">Preguntas frecuentes</h2>
+        <details className="group mb-3">
           <summary className="cursor-pointer font-medium text-white/70 group-open:text-fuchsia-300">
-            ¿Cómo encuentro escorts y acompañantes cerca de mí?
+            ¿Cómo veo quién está cerca de mí?
           </summary>
           <p className="mt-1 pl-4 text-white/50">
-            Activa tu ubicación en UZEED para ver perfiles cercanos ordenados por distancia.
-            También puedes buscar por ciudad o comuna específica.
+            El mapa del inicio y la página Cerca piden tu ubicación y muestran los perfiles
+            dentro del radio que elijas, entre 1 y 50 km. Si prefieres no dar tu GPS, puedes
+            elegir la comuna a mano y funciona igual.
           </p>
         </details>
-        <details className="mb-3 group">
+        <details className="group mb-3">
           <summary className="cursor-pointer font-medium text-white/70 group-open:text-fuchsia-300">
-            ¿Las escorts de UZEED son verificadas?
+            ¿Qué significa que un perfil esté verificado?
           </summary>
           <p className="mt-1 pl-4 text-white/50">
-            Sí, UZEED verifica la identidad de cada profesional. Los perfiles verificados
-            muestran una insignia que garantiza fotos reales y perfil auténtico.
+            Que UZEED comprobó la identidad de la persona y que las fotos publicadas son
+            suyas. Esos perfiles llevan una insignia visible. Los que además subieron
+            exámenes de salud vigentes aparecen en la sección &quot;Escorts con exámenes&quot;.
           </p>
         </details>
-        <details className="mb-3 group">
+        <details className="group mb-3">
           <summary className="cursor-pointer font-medium text-white/70 group-open:text-fuchsia-300">
-            ¿Hay escorts disponibles las 24 horas?
+            ¿Cómo sé quién atiende ahora mismo?
           </summary>
           <p className="mt-1 pl-4 text-white/50">
-            Sí, muchas escorts ofrecen disponibilidad 24/7. Filtra por &quot;disponible ahora&quot;
-            para ver solo las que atienden en este momento.
+            El punto verde marca a quienes están conectadas en ese momento. El filtro
+            &quot;Disponible ahora&quot; deja solo esos perfiles, y el mapa los muestra con el
+            mismo indicador sobre cada pin.
           </p>
         </details>
-        <details className="mb-3 group">
+        <details className="group mb-3">
           <summary className="cursor-pointer font-medium text-white/70 group-open:text-fuchsia-300">
-            ¿UZEED funciona en todo Chile?
+            ¿Se paga por usar UZEED?
           </summary>
           <p className="mt-1 pl-4 text-white/50">
-            Sí, tenemos cobertura en más de 20 ciudades incluyendo Santiago, Viña del Mar,
-            Valparaíso, Concepción, Antofagasta y Temuco.
+            No para quien busca: ver perfiles, usar el mapa y escribir por chat es gratis.
+            Quien quiera publicarse crea su perfil en minutos y arranca con un periodo de
+            prueba sin costo.
           </p>
         </details>
       </section>
@@ -202,7 +214,7 @@ export default async function HomePage() {
       {/* Server-rendered profile links for Google crawlability */}
       {profiles.length > 0 && (
         <nav className="max-w-4xl mx-auto px-4 pb-12" aria-label="Escorts destacadas">
-          <h3 className="text-base font-semibold text-white/70 mb-2">Escorts Destacadas</h3>
+          <h2 className="mb-2 text-base font-semibold text-white/75">Perfiles destacados</h2>
           <ul className="flex flex-wrap gap-2">
             {profiles.map((p) => (
               <li key={p.id}>

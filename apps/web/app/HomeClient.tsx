@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { CHILEAN_CITIES, LocationFilterContext } from "../hooks/useLocationFilter";
+import { CITY_LANDINGS } from "../lib/cities";
 import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../components/DirectoryPage";
 import useMe from "../hooks/useMe";
 import { hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
@@ -15,6 +16,7 @@ const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
 const HomeFeed = dynamic(() => import("../components/home/HomeFeed"), { ssr: false });
 const LiveCamsSection = dynamic(() => import("../components/home/LiveCamsSection"), { ssr: false });
+const HomeMapSection = dynamic(() => import("../components/home/HomeMapSection"), { ssr: false });
 
 import {
   buildChatHref,
@@ -339,9 +341,10 @@ function getPlatformStats() {
   return _platformStatsPromise;
 }
 
+/* Cifras reales de /stats/platform. Sin inflar y sin animación de conteo:
+   un número que sube solo delata plantilla y no aporta nada al cliente. */
 function HeroCounters() {
   const [stats, setStats] = useState<{ professionals: number; whatsappClicks: number } | null>(null);
-  const [animate, setAnimate] = useState(false);
 
   useEffect(() => {
     getPlatformStats()
@@ -349,42 +352,21 @@ function HeroCounters() {
       .catch((err) => console.warn("[HeroCounters] failed to load platform stats", err));
   }, []);
 
-  useEffect(() => {
-    // Small delay so the counter animation is visible after page paint
-    const timer = setTimeout(() => setAnimate(true), 300);
-    return () => clearTimeout(timer);
-  }, []);
+  // min-h y no h fija: con cifras de 4-5 dígitos la línea envuelve en mobile y
+  // una altura fija la recortaba encima del buscador.
+  if (!stats) return <div className="mt-3 min-h-4" aria-hidden />;
 
-  // Apply 50% margin above real values, rounded to nearest 10
-  const prosTarget = stats ? Math.ceil((stats.professionals * 1.5) / 10) * 10 : 0;
-  const contactsTarget = stats ? Math.ceil((stats.whatsappClicks * 1.5) / 10) * 10 : 0;
-  const comunasFixed = 300;
-
-  const prosCount = useAnimatedCounter(prosTarget, 2000, animate && prosTarget > 0);
-  const contactsCount = useAnimatedCounter(contactsTarget, 2000, animate && contactsTarget > 0);
-  const comunasCount = useAnimatedCounter(comunasFixed, 2000, animate);
-
-  const counters = [
-    { value: prosCount, suffix: "+", label: "profesionales", icon: Users },
-    { value: contactsCount, suffix: "+", label: "contactos exitosos", icon: Sparkles },
-    { value: comunasCount, suffix: "+", label: "comunas", icon: MapPin },
-  ];
+  const parts: string[] = [];
+  if (stats.professionals > 0) {
+    parts.push(`${stats.professionals.toLocaleString("es-CL")} perfiles publicados`);
+  }
+  if (stats.whatsappClicks > 0) {
+    parts.push(`${stats.whatsappClicks.toLocaleString("es-CL")} contactos por WhatsApp`);
+  }
+  if (!parts.length) return <div className="mt-3 min-h-4" aria-hidden />;
 
   return (
-    <div
-      className={`flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:gap-x-5 ${animate ? "animate-float-up" : "opacity-0"}`}
-      style={{ animationDelay: "320ms", animationFillMode: "both" }}
-    >
-      {counters.map((c, i) => (
-        <div key={i} className="group/stat flex cursor-default items-center gap-1.5">
-          <c.icon className="h-3.5 w-3.5 text-fuchsia-400/70 transition-colors duration-150 group-hover/stat:text-fuchsia-400" />
-          <span className="text-sm font-bold tabular-nums tracking-tight text-white/90">
-            {c.value}{c.suffix}
-          </span>
-          <span className="text-[11px] text-white/40">{c.label}</span>
-        </div>
-      ))}
-    </div>
+    <p className="mt-3 min-h-4 text-[11px] leading-4 text-white/35">{parts.join(" · ")}</p>
   );
 }
 
@@ -424,10 +406,10 @@ function VideollamadasBanner() {
           <h3 className="text-sm font-bold text-white">Videollamadas privadas</h3>
           {loaded && count > 0 && (
             <p className="mt-0.5 text-xs font-medium text-indigo-300/90">
-              +{animatedCount} profesionales disponibles
+              {animatedCount} profesionales las ofrecen
             </p>
           )}
-          <p className="mt-0.5 text-xs text-white/45">Conecta al instante por videollamada. Inmediata, privada y segura.</p>
+          <p className="mt-0.5 text-xs text-white/45">Sin salir de casa y sin entregar tu número.</p>
         </div>
         <ChevronRight className="relative h-5 w-5 shrink-0 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-white/60" />
       </Link>
@@ -751,7 +733,7 @@ export default function HomeClient() {
               <span className="truncate">{profile?.city || profile?.category}</span>
             </div>
           )}
-          <div className="mt-1.5 flex items-center justify-center gap-0.5 rounded-md bg-gradient-to-r from-fuchsia-600 to-violet-600 px-2 py-1 text-[9px] font-bold text-white">
+          <div className="mt-1.5 flex items-center justify-center gap-0.5 rounded-md bg-fuchsia-600 px-2 py-1 text-[9px] font-bold text-white">
             Ver perfil <ArrowRight className="h-2.5 w-2.5" />
           </div>
         </div>
@@ -761,37 +743,39 @@ export default function HomeClient() {
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
-      {/* ═══ HERO — Premium immersive (compacto en mobile y desktop) ═══ */}
-      <section className="relative flex items-center justify-center overflow-hidden px-4 pt-4 pb-4 md:pt-8 md:pb-6">
+      {/* ═══ HERO ═══ */}
+      <section className="relative flex items-center justify-center px-4 pt-5 pb-4 md:pt-9 md:pb-6">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-[#050510]/60 to-[#0a0a12]" />
-        {/* Static ambient orbs — no animation to reduce rendering cost */}
-        <div className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/[0.10] blur-[120px]" />
-        <div className="pointer-events-none absolute right-[8%] top-[18%] -z-10 h-[300px] w-[300px] rounded-full bg-fuchsia-500/[0.06] blur-[100px]" />
-        <div className="pointer-events-none absolute left-[12%] bottom-[8%] -z-10 h-[250px] w-[250px] rounded-full bg-indigo-500/[0.05] blur-[80px]" />
-        {/* Noise texture overlay for premium texture */}
-        <div className="pointer-events-none absolute inset-0 -z-[5] opacity-[0.012]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px" }} />
 
         <div className="relative mx-auto w-full max-w-3xl text-center">
-          <h1 className="text-[1.25rem] font-extrabold leading-[1.1] tracking-tight sm:text-[1.75rem] md:text-[2rem] animate-float-up" style={{ animationFillMode: "both" }}>
-            <span className="bg-gradient-to-b from-white via-white/95 to-white/60 bg-clip-text text-transparent">Escorts, masajes y experiencias reales cerca de ti</span>
+          <h1 className="text-[1.35rem] font-extrabold leading-[1.15] tracking-tight text-white sm:text-[1.9rem] md:text-[2.15rem]">
+            Escorts y masajistas cerca tuyo
           </h1>
 
-          <h2 className="mx-auto mt-1.5 max-w-xl text-[11px] font-medium leading-snug text-white/45 sm:mt-2 sm:text-[13px] animate-float-up" style={{ animationDelay: "160ms", animationFillMode: "both" }}>
-            Las mejores Escorts y Acompañantes en Santiago, Las Condes y regiones. Discreto, verificado y premium.
-          </h2>
+          <p className="mx-auto mt-2 max-w-lg text-[12.5px] leading-snug text-white/50 sm:text-sm">
+            Mira en el mapa quién está a pocos kilómetros y conectada ahora mismo.
+            Perfiles verificados en Santiago, Viña del Mar y otras {CITY_LANDINGS.length - 2} comunas.
+          </p>
 
-          {/* CTA primario + contadores en la misma fila (mobile y desktop) */}
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 animate-float-up sm:mt-4 sm:gap-x-6" style={{ animationDelay: "240ms", animationFillMode: "both" }}>
+          {/* CTA primario: el mapa, que es la ruta más corta al contacto */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+            <Link
+              href="/cerca"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-fuchsia-500"
+            >
+              <Navigation className="h-4 w-4" />
+              Ver quién está cerca
+            </Link>
             <Link
               href="/services"
-              className="uzeed-hero-cta group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-bold transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_16px_48px_rgba(168,85,247,0.35)]"
+              className="group inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-5 py-2.5 text-sm font-semibold text-white/70 transition hover:border-white/30 hover:text-white"
             >
-              Explorar ahora
-              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              Ver todos los perfiles
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
-            <HeroCounters />
           </div>
+
+          <HeroCounters />
 
           {/* Buscador dentro del hero */}
           <form
@@ -805,21 +789,21 @@ export default function HomeClient() {
                 router.push(resolved.href);
               }
             }}
-            className="relative mx-auto mt-3 flex w-full max-w-xl items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 backdrop-blur-md focus-within:border-fuchsia-500/40 focus-within:bg-white/[0.06] focus-within:shadow-[0_0_24px_rgba(217,70,239,0.12)] transition animate-float-up sm:mt-4"
-            style={{ animationDelay: "300ms", animationFillMode: "both" }}
+            className="relative mx-auto mt-4 flex w-full max-w-xl items-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.04] px-3 py-1.5 transition focus-within:border-fuchsia-500/50 focus-within:bg-white/[0.06]"
+            role="search"
           >
             <SearchIcon className="h-4 w-4 shrink-0 text-white/40" aria-hidden />
             <input
               type="search"
               value={heroQuery}
               onChange={(e) => setHeroQuery(e.target.value)}
-              placeholder="Buscar por nombre, zona o servicio"
+              placeholder="Nombre, comuna o servicio"
               aria-label="Buscar"
               className="w-full bg-transparent text-sm text-white placeholder:text-white/35 outline-none"
             />
             <button
               type="submit"
-              className="shrink-0 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110"
+              className="shrink-0 rounded-lg bg-fuchsia-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-fuchsia-500"
             >
               Buscar
             </button>
@@ -852,9 +836,8 @@ export default function HomeClient() {
         </div>
       </section>
 
-      {/* Section divider - premium gradient */}
       <div className="relative mx-auto max-w-5xl px-4">
-        <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/20 to-transparent" />
+        <div className="h-px bg-white/[0.07]" />
       </div>
 
       {/* Main content */}
@@ -958,17 +941,20 @@ export default function HomeClient() {
           </div>
         </section>
 
+        {/* ═══ MAPA DE CERCANÍA — el atajo al contacto ═══ */}
+        <HomeMapSection />
+
         {/* ═══ CTA PUBLÍCATE ═══ */}
         {!isAuthed && (
           <Link
             href="/empezar"
-            className="group mb-6 flex items-center justify-between rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.06] px-5 py-4 transition-all hover:bg-fuchsia-500/[0.10] hover:border-fuchsia-500/30"
+            className="group mb-6 flex items-center justify-between rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.06] px-5 py-4 transition-colors hover:border-fuchsia-500/35 hover:bg-fuchsia-500/[0.10]"
           >
             <div>
               <span className="text-sm font-semibold text-white">
                 ¿Ofreces servicios? <span className="text-fuchsia-400">Publícate aquí</span>
               </span>
-              <p className="mt-0.5 text-[11px] text-white/40">Crea tu perfil en minutos, sin registro</p>
+              <p className="mt-0.5 text-[11px] text-white/40">Perfil listo en minutos, sin registro previo</p>
             </div>
             <span className="shrink-0 rounded-lg bg-fuchsia-500/20 px-3 py-1.5 text-xs font-semibold text-fuchsia-300 transition-colors group-hover:bg-fuchsia-500/30">
               Empezar
@@ -976,8 +962,7 @@ export default function HomeClient() {
           </Link>
         )}
 
-        {/* Section gradient divider */}
-        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/[0.08] to-transparent" />
+        <div className="mb-6 h-px bg-white/[0.06]" />
 
         {/* ═══ HOME FEED — secciones inmediatas + scroll infinito ═══ */}
         <HomeFeed
@@ -1136,22 +1121,32 @@ export default function HomeClient() {
         )}
 
         {/* ═══ CTA — Registration (guests only) ═══ */}
-        {!isAuthed && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-fuchsia-500/10 to-transparent" />}
+        {!isAuthed && <div className="mb-6 h-px bg-white/[0.06]" />}
         {!isAuthed && (
-          <section className="relative overflow-hidden rounded-3xl border border-fuchsia-500/10 bg-gradient-to-br from-fuchsia-600/[0.06] via-violet-600/[0.03] to-transparent p-8 text-center md:p-12 shadow-[0_0_80px_rgba(168,85,247,0.04)] uzeed-below-fold">
-            <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/[0.08] blur-[100px]" />
-            <div className="pointer-events-none absolute right-0 top-0 -z-10 h-[250px] w-[250px] rounded-full bg-violet-600/[0.06] blur-[80px]" />
-            <h2 className="text-xl font-extrabold tracking-tight md:text-2xl">¿Listo para explorar?</h2>
-            <p className="mx-auto mt-3 max-w-md text-sm text-white/40 leading-relaxed">Crea tu cuenta gratis y descubre lo mejor cerca de ti.</p>
-            <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Link href="/register?type=CLIENT" className="uzeed-cta-btn uzeed-hero-cta group inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-7 py-3.5 text-sm font-bold shadow-[0_12px_40px_rgba(168,85,247,0.2)] sm:w-auto">
-                Registro Cliente <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+          <section className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 md:p-8 uzeed-below-fold">
+            <h2 className="text-lg font-bold tracking-tight md:text-xl">Crea tu cuenta gratis</h2>
+            <p className="mt-1.5 max-w-lg text-sm leading-relaxed text-white/45">
+              Guarda tus favoritas, escribe por chat interno sin dar tu número y
+              recupera tus búsquedas cuando vuelvas.
+            </p>
+            <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
+              <Link
+                href="/register?type=CLIENT"
+                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-fuchsia-500"
+              >
+                Soy cliente <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
-              <Link href="/register?type=PROFESSIONAL" className="uzeed-cta-btn group inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-pink-600 to-fuchsia-600 px-7 py-3.5 text-sm font-bold shadow-[0_12px_40px_rgba(236,72,153,0.2)] sm:w-auto">
-                Registro Profesional — {TRIAL_TEXT} <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              <Link
+                href="/register?type=PROFESSIONAL"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-fuchsia-500/35 px-6 py-3 text-sm font-semibold text-fuchsia-200 transition hover:border-fuchsia-400/60 hover:text-white"
+              >
+                Quiero publicarme — {TRIAL_TEXT}
               </Link>
-              <Link href="/register?type=ESTABLISHMENT" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-7 py-3.5 text-sm font-semibold text-white/60 transition-all duration-200 hover:bg-white/[0.08] hover:text-white/80 sm:w-auto">
-                Registro Comercio
+              <Link
+                href="/register?type=ESTABLISHMENT"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.10] px-6 py-3 text-sm font-semibold text-white/55 transition hover:border-white/25 hover:text-white/85"
+              >
+                Tengo un local
               </Link>
             </div>
           </section>
