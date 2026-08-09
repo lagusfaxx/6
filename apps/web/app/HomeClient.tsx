@@ -4,13 +4,11 @@ import { startTransition, useContext, useEffect, useMemo, useState } from "react
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
+import { apiFetch, resolveMediaUrl } from "../lib/api";
 import { CHILEAN_CITIES, LocationFilterContext } from "../hooks/useLocationFilter";
 import { CITY_LANDINGS } from "../lib/cities";
 import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../components/DirectoryPage";
 import useMe from "../hooks/useMe";
-import { hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
-import StatusBadgeIcon from "../components/StatusBadgeIcon";
 
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
@@ -27,15 +25,12 @@ import {
   ArrowRight,
   BadgeCheck,
   ChevronRight,
-  Crown,
   Download,
   Hand,
   Hotel,
   MapPin,
   Navigation,
-  PartyPopper,
   Search as SearchIcon,
-  ShieldCheck,
   ShoppingBag,
   Sparkles,
   Users,
@@ -161,31 +156,6 @@ type RecentProfessional = {
   galleryUrls?: string[];
 };
 
-type DiscoverProfile = {
-  id: string;
-  username: string;
-  displayName: string;
-  age: number | null;
-  avatarUrl: string | null;
-  coverUrl: string | null;
-  lat: number | null;
-  lng: number | null;
-  distanceKm: number | null;
-  availableNow: boolean;
-  isActive: boolean;
-  profileType?: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP" | "CREATOR";
-  userLevel: UserLevel;
-  completedServices: number;
-  profileViews: number;
-  lastSeen?: string | null;
-  lastActiveAt?: string | null;
-  bio?: string | null;
-  serviceCategory?: string | null;
-  profileTags?: string[];
-  serviceTags?: string[];
-  galleryUrls?: string[];
-};
-
 type UmateCreatorCard = {
   id: string;
   displayName: string;
@@ -196,15 +166,6 @@ type UmateCreatorCard = {
   monthlyPriceCLP: number;
   user: { username: string; isVerified: boolean };
 };
-
-/* ── Badge helpers (mirrors /servicios logic) ── */
-
-function hasExamsBadge(p: { profileTags?: string[] }) {
-  return (p.profileTags || []).some((t) => {
-    const n = String(t || "").trim().toLowerCase();
-    return n === "profesional con examenes" || n === "profesional con exámenes";
-  });
-}
 
 /* ── Install App Button ── */
 function InstallAppButton({ compact = false }: { compact?: boolean }) {
@@ -417,16 +378,6 @@ function VideollamadasBanner() {
   );
 }
 
-/* ── Helpers ── */
-
-function resolveProfileImage(profile: DiscoverProfile | RecentProfessional) {
-  return (
-    resolveMediaUrl((profile as any).coverUrl) ??
-    resolveMediaUrl(profile.avatarUrl) ??
-    "/brand/isotipo-new.png"
-  );
-}
-
 /* ── Page ── */
 
 const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
@@ -438,13 +389,9 @@ export default function HomeClient() {
   const [bannersLoaded, setBannersLoaded] = useState(false);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
   const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
-  const [discoverSections, setDiscoverSections] = useState<
-    Record<string, DiscoverProfile[]>
-  >({});
   const locationCtx = useContext(LocationFilterContext);
   const location = locationCtx?.effectiveLocation ?? SANTIAGO_FALLBACK;
   const locationKey = `${location[0]}-${location[1]}`;
-  const [error, setError] = useState<string | null>(null);
   const [recentLoading, setRecentLoading] = useState(true);
   const { me } = useMe();
   const [previewProfile, setPreviewProfile] = useState<any>(null);
@@ -567,50 +514,6 @@ export default function HomeClient() {
     };
   }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const loadSections = async () => {
-      const sections = [
-        { key: "available", query: { sort: "availableNow", limit: "6" } },
-        { key: "near", query: { sort: "near", limit: "8" } },
-        { key: "new", query: { sort: "new", limit: "8" } },
-      ];
-      const next: Record<string, DiscoverProfile[]> = {};
-      setError(null);
-      await Promise.all(
-        sections.map(async (section) => {
-          const qp = new URLSearchParams(
-            section.query as Record<string, string>,
-          );
-          if (location) {
-            qp.set("lat", String(location[0]));
-            qp.set("lng", String(location[1]));
-          }
-          qp.set("gender", "FEMALE");
-          const res = await apiFetch<{ profiles: DiscoverProfile[] }>(
-            `/profiles/discover?${qp.toString()}`,
-            { signal: controller.signal },
-          ).catch((err) => {
-            // On any error, preserve existing data (return null to skip update)
-            if (err?.name === "AbortError") return null;
-            if (isRateLimitError(err)) return null;
-            return null;
-          });
-          if (res) next[section.key] = res.profiles || [];
-        }),
-      );
-      if (!controller.signal.aborted) {
-        setDiscoverSections((prev) => ({ ...prev, ...next }));
-      }
-    };
-    loadSections().catch(() => {
-      if (!controller.signal.aborted) {
-        setError("No se pudieron cargar las secciones destacadas.");
-      }
-    });
-    return () => { controller.abort(); };
-  }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // ── Fetch U-Mate creators & live streams (deferred — below the fold) ──
   useEffect(() => {
     const controller = new AbortController();
@@ -648,51 +551,6 @@ export default function HomeClient() {
     const sorted = [...recentPros].sort((a, b) => b.profileViews - a.profileViews);
     return sorted.slice(0, 6);
   }, [recentPros]);
-
-  const rawAvailableProfiles = discoverSections["available"] || [];
-  // Fallback: when no profiles have availableNow=true, show recent pros so the section never feels empty
-  const availableProfiles = useMemo(() => {
-    if (rawAvailableProfiles.length > 0) return rawAvailableProfiles;
-    return recentPros.slice(0, 6).map((p): DiscoverProfile => ({
-      id: p.id,
-      username: p.name,
-      displayName: p.name,
-      age: p.age,
-      avatarUrl: p.avatarUrl,
-      coverUrl: p.coverUrl ?? null,
-      lat: null,
-      lng: null,
-      distanceKm: p.distance,
-      availableNow: true,
-      isActive: true,
-      userLevel: p.userLevel,
-      completedServices: p.completedServices,
-      profileViews: p.profileViews,
-      lastSeen: p.lastSeen ?? null,
-      bio: p.bio ?? null,
-      serviceCategory: p.serviceCategory ?? null,
-      profileTags: p.profileTags,
-      serviceTags: p.serviceTags,
-      galleryUrls: p.galleryUrls,
-    }));
-  }, [rawAvailableProfiles, recentPros]);
-  // Prefetch first visible profile images using idle time
-  useEffect(() => {
-    if (typeof requestIdleCallback !== "function") return;
-    const id = requestIdleCallback(() => {
-      const first4 = availableProfiles.slice(0, 4);
-      for (const p of first4) {
-        const src = resolveProfileImage(p);
-        if (src && src !== "/brand/isotipo-new.png") {
-          const img = new Image();
-          img.src = src;
-        }
-      }
-    }, { timeout: 4000 });
-    return () => cancelIdleCallback(id);
-  }, [availableProfiles]);
-
-  const newProfiles = discoverSections["new"] || [];
 
   const bannerHref = (banner: Banner) => {
     const profileId = (banner.linkUrl || "").startsWith("profile:") ? (banner.linkUrl || "").slice("profile:".length) : "";
@@ -809,25 +667,33 @@ export default function HomeClient() {
             </button>
           </form>
 
-          {/* Chips de filtros rápidos */}
-          <div className="scrollbar-none mt-2.5 -mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
+          {/* Categorías — qué busca el cliente. Antes esto convivía con una
+              segunda fila casi idéntica más abajo y con un chip "Verificadas"
+              que apuntaba a /escorts sin filtro, porque la verificación no es
+              filtrable: se muestra como insignia en cada tarjeta. Los filtros
+              por estado (disponible, nuevas, exámenes) viven ahora sobre el
+              grid, que es donde se usan. */}
+          <nav
+            aria-label="Categorías"
+            className="scrollbar-none -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0"
+          >
             {[
-              { label: "Cerca de ti", href: "/cerca", icon: Navigation, iconColor: "text-emerald-400" },
-              { label: "Disponible ahora", href: "/escorts?availableNow=true", icon: Zap, iconColor: "text-amber-400" },
-              { label: "Videollamada", href: "/videocall", icon: Video, iconColor: "text-blue-400" },
-              { label: "Verificadas", href: "/escorts", icon: ShieldCheck, iconColor: "text-fuchsia-400" },
-              { label: "Premium", href: "/premium", icon: Crown, iconColor: "text-amber-300" },
+              { label: "Escorts", href: "/escorts", icon: Sparkles },
+              { label: "Masajistas", href: "/masajistas", icon: Hand },
+              { label: "Moteles", href: "/moteles", icon: Hotel },
+              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag },
+              { label: "Videollamadas", href: "/videocall", icon: Video },
             ].map((c) => (
               <Link
-                key={c.label}
+                key={c.href}
                 href={c.href}
-                className="group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium text-white/70 backdrop-blur-sm transition hover:border-fuchsia-500/25 hover:bg-white/[0.06] hover:text-white"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.10] px-3.5 py-1.5 text-xs font-medium text-white/70 transition hover:border-fuchsia-500/35 hover:text-white"
               >
-                <c.icon className={`h-3 w-3 ${c.iconColor}`} aria-hidden />
+                <c.icon className="h-3.5 w-3.5 text-white/40" aria-hidden />
                 {c.label}
               </Link>
             ))}
-          </div>
+          </nav>
 
           {/* Link compacto para descargar app */}
           <div className="mt-3">
@@ -862,10 +728,6 @@ export default function HomeClient() {
           </div>
         )}
 
-        {error && (
-          <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>
-        )}
-
         {/* ═══ STORIES ═══ */}
         <section className="mb-6">
           <Stories />
@@ -896,51 +758,6 @@ export default function HomeClient() {
           </section>
         )}
 
-        {/* ═══ CATEGORÍAS — Premium quick navigation ═══ */}
-        <section className="mb-8">
-          {/* Mobile: premium grid with glassmorphism */}
-          <div className="grid grid-cols-4 gap-2.5 sm:hidden">
-            {[
-              { label: "Escorts", href: "/escorts", icon: Sparkles, gradient: "from-fuchsia-600/15 to-pink-600/10", borderColor: "border-fuchsia-500/20", iconColor: "text-fuchsia-400" },
-              { label: "Masajistas", href: "/masajistas", icon: Hand, gradient: "from-violet-600/15 to-purple-600/10", borderColor: "border-violet-500/20", iconColor: "text-violet-400" },
-              { label: "Moteles", href: "/moteles", icon: Hotel, gradient: "from-amber-600/15 to-orange-600/10", borderColor: "border-amber-500/20", iconColor: "text-amber-400" },
-              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, gradient: "from-rose-600/15 to-red-600/10", borderColor: "border-rose-500/20", iconColor: "text-rose-400" },
-            ].map((cat) => (
-              <Link
-                key={cat.href}
-                href={cat.href}
-                className={`uzeed-category-card group flex flex-col items-center gap-2 rounded-2xl border ${cat.borderColor} bg-gradient-to-br ${cat.gradient} px-2 py-3.5 backdrop-blur-sm`}
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
-                  <cat.icon className={`h-[18px] w-[18px] ${cat.iconColor} transition-transform duration-300 group-hover:scale-110`} />
-                </div>
-                <span className="text-[10px] font-semibold text-white/70 text-center leading-tight">{cat.label}</span>
-              </Link>
-            ))}
-          </div>
-          {/* Desktop: premium horizontal pills */}
-          <div className="hidden sm:flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
-            {[
-              { label: "Escorts", href: "/escorts", icon: Sparkles, iconColor: "text-fuchsia-400" },
-              { label: "Masajistas", href: "/masajistas", icon: Hand, iconColor: "text-violet-400" },
-              { label: "Moteles", href: "/moteles", icon: Hotel, iconColor: "text-amber-400" },
-              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag, iconColor: "text-rose-400" },
-              { label: "Despedidas", href: "/escorts?serviceTags=despedidas", icon: PartyPopper, iconColor: "text-cyan-400" },
-              { label: "Videollamadas", href: "/videocall", icon: Video, iconColor: "text-blue-400" },
-              { label: "Cerca tuyo", href: "/cerca", icon: Navigation, iconColor: "text-emerald-400" },
-            ].map((cat) => (
-              <Link
-                key={cat.href}
-                href={cat.href}
-                className="uzeed-category-card group flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-5 py-3 backdrop-blur-sm"
-              >
-                <cat.icon className={`h-4 w-4 ${cat.iconColor} transition-transform duration-300 group-hover:scale-110`} />
-                <span className="text-sm font-medium text-white/65 group-hover:text-white/85 transition-colors duration-200">{cat.label}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-
         {/* ═══ MAPA DE CERCANÍA — el atajo al contacto ═══ */}
         <HomeMapSection />
 
@@ -964,59 +781,8 @@ export default function HomeClient() {
 
         <div className="mb-6 h-px bg-white/[0.06]" />
 
-        {/* ═══ HOME FEED — secciones inmediatas + scroll infinito ═══ */}
-        <HomeFeed
-          newProfiles={newProfiles}
-          availableProfiles={availableProfiles}
-          examProfiles={recentPros.filter(hasExamsBadge)}
-          centroProfiles={recentPros}
-          destacadasProfiles={featuredCarouselProfiles}
-        />
-
-        {/* ═══ CAMS EN VIVO ═══ */}
-        <LiveCamsSection />
-
-        {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
-        <VideollamadasBanner />
-
-        {/* ═══ TENDENCIAS ═══ */}
-        {recentPros.length > 0 && (
-          <section key={`trending-${locationKey}`} className="mb-10 uzeed-below-fold">
-            <div className="mb-4">
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-xl font-bold tracking-tight">Las más buscadas</h2>
-              </div>
-            </div>
-            <div className="grid gap-2.5 md:grid-cols-2 lg:grid-cols-3">
-              {[...recentPros].sort((a, b) => b.profileViews - a.profileViews).slice(0, 6).map((p) => (
-                <Link key={`trend-${p.id}`} href={`/profesional/${p.id}`} className="group flex items-center gap-3.5 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5 transition-all duration-300 hover:-translate-y-1 hover:border-fuchsia-500/20 hover:bg-white/[0.05] hover:shadow-[0_12px_32px_rgba(168,85,247,0.08)]">
-                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-white/[0.04] to-transparent">
-                    {p.avatarUrl ? (
-                      <img src={resolveMediaUrl(p.avatarUrl) ?? undefined} alt={p.name} className="h-full w-full object-cover transition-transform duration-400 group-hover:scale-110" loading="lazy" decoding="async" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center"><img src="/brand/isotipo-new.png" alt="" className="h-7 w-7 opacity-20" /></div>
-                    )}
-                    {p.availableNow && (
-                      <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-400 border-2 border-[#0e0e12]" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1 truncate text-sm font-bold">
-                      {p.name}
-                      {hasPremiumBadge(p.profileTags) && <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />}
-                      {hasVerifiedBadge(p.profileTags) && <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />}
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-white/35">
-                      {p.age && <span className="tabular-nums">{p.age} años</span>}
-                      {p.distance != null && <span className="flex items-center gap-0.5 tabular-nums"><MapPin className="h-3 w-3 text-fuchsia-400/50" />{p.distance.toFixed(1)} km</span>}
-                    </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-white/15 transition-all duration-200 group-hover:text-fuchsia-400 group-hover:translate-x-0.5" />
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* ═══ FEED — filtros + destacadas + grid infinito ═══ */}
+        <HomeFeed destacadasProfiles={featuredCarouselProfiles} />
 
         {/* ═══ EN VIVO AHORA ═══ */}
         {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}
@@ -1055,6 +821,12 @@ export default function HomeClient() {
             </div>
           </section>
         )}
+
+        {/* ═══ CAMS EN VIVO ═══ */}
+        <LiveCamsSection />
+
+        {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
+        <VideollamadasBanner />
 
         {/* ═══ CREADORAS U-MATE ═══ */}
         {umateCreators.length > 0 && (
