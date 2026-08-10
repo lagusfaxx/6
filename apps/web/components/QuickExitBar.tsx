@@ -17,7 +17,8 @@ import { useDiscreet } from "./DiscreetProvider";
  *    botón desaparecía al hacer scroll, que es justo cuando hace falta.
  *  - Con texto y no solo un ícono: sus evaluadores no sabían para qué servía
  *    un ícono suelto hasta apretarlo.
- *  - z-index alto para que ningún banner lo tape (falló en 22 sitios).
+ *  - Queda por encima del contenido gracias al z-50 de la cabecera, así no lo
+ *    tapa ningún banner (falló en 22 de los sitios evaluados).
  *  - Usa location.replace, la única implementación que cumplía todos sus
  *    criterios de seguridad: no deja la página en el historial ni accesible
  *    con el botón atrás.
