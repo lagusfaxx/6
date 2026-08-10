@@ -240,9 +240,15 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
   );
   const [maduras, setMaduras] = useState(searchParams.get("maduras") === "true");
   const [availableNow, setAvailableNow] = useState(searchParams.get("availableNow") === "true");
-  const [sort, setSort] = useState<"featured" | "near" | "new" | "availableNow">(
-    searchParams.get("availableNow") === "true" ? "availableNow" : "featured",
-  );
+  /* El orden se toma de la URL. Antes solo se miraba availableNow, así que un
+     enlace como /escorts?sort=new caía en "featured" sin avisar: el filtro
+     parecía aplicarse y en realidad no hacía nada. */
+  const [sort, setSort] = useState<"featured" | "near" | "new" | "availableNow">(() => {
+    if (searchParams.get("availableNow") === "true") return "availableNow";
+    const fromUrl = searchParams.get("sort");
+    if (fromUrl === "near" || fromUrl === "new" || fromUrl === "availableNow") return fromUrl;
+    return "featured";
+  });
   const [genderFilter, setGenderFilter] = useState(searchParams.get("gender") || "");
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState(searchParams.get("q") || "");

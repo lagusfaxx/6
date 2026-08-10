@@ -17,6 +17,8 @@ const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewMo
 const HomeFeed = dynamic(() => import("../components/home/HomeFeed"), { ssr: false });
 const LiveCamsSection = dynamic(() => import("../components/home/LiveCamsSection"), { ssr: false });
 const HomeMapSection = dynamic(() => import("../components/home/HomeMapSection"), { ssr: false });
+const NovedadesCarousel = dynamic(() => import("../components/home/NovedadesCarousel"), { ssr: false });
+const DestacadasGrid = dynamic(() => import("../components/home/DestacadasGrid"), { ssr: false });
 
 import {
   buildChatHref,
@@ -156,6 +158,16 @@ type RecentProfessional = {
   profileTags?: string[];
   serviceTags?: string[];
   galleryUrls?: string[];
+};
+
+/* Solo lo que la tarjeta de novedades necesita. */
+type NewProfile = {
+  id: string;
+  displayName: string;
+  city?: string | null;
+  avatarUrl?: string | null;
+  coverUrl?: string | null;
+  availableNow?: boolean;
 };
 
 type UmateCreatorCard = {
@@ -361,6 +373,7 @@ export default function HomeClient() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [bannersLoaded, setBannersLoaded] = useState(false);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
+  const [newProfiles, setNewProfiles] = useState<NewProfile[]>([]);
   const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
   const locationCtx = useContext(LocationFilterContext);
   const location = locationCtx?.effectiveLocation ?? SANTIAGO_FALLBACK;
@@ -488,6 +501,26 @@ export default function HomeClient() {
     };
   }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* Perfiles recién publicados para la sección bajo el mapa. Es una sola
+     consulta: al quitar la sección se habían eliminado las tres de
+     /profiles/discover, y solo hace falta esta. */
+  useEffect(() => {
+    const controller = new AbortController();
+    const qp = new URLSearchParams({ sort: "new", limit: "12", gender: "FEMALE" });
+    qp.set("lat", String(location[0]));
+    qp.set("lng", String(location[1]));
+
+    apiFetch<{ profiles: NewProfile[] }>(`/profiles/discover?${qp.toString()}`, {
+      signal: controller.signal,
+    })
+      .then((res) => setNewProfiles(res?.profiles ?? []))
+      .catch(() => {
+        /* silenciado: sin datos la sección simplemente no se muestra */
+      });
+
+    return () => controller.abort();
+  }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Fetch U-Mate creators & live streams (deferred — below the fold) ──
   useEffect(() => {
     const controller = new AbortController();
@@ -525,6 +558,33 @@ export default function HomeClient() {
     const sorted = [...recentPros].sort((a, b) => b.profileViews - a.profileViews);
     return sorted.slice(0, 6);
   }, [recentPros]);
+
+  /* Seis para la fila compacta sobre el mapa: más no caben sin que la fila
+     empiece a competir con el mapa por la primera pantalla. */
+  const destacadasCompact = useMemo(
+    () =>
+      featuredCarouselProfiles.slice(0, 6).map((p) => ({
+        id: p.id,
+        displayName: p.name,
+        avatarUrl: p.avatarUrl ?? null,
+        coverUrl: p.coverUrl ?? null,
+        availableNow: !!p.availableNow,
+      })),
+    [featuredCarouselProfiles],
+  );
+
+  const novedades = useMemo(
+    () =>
+      newProfiles.slice(0, 12).map((p) => ({
+        id: p.id,
+        displayName: p.displayName,
+        city: p.city ?? null,
+        avatarUrl: p.avatarUrl ?? null,
+        coverUrl: p.coverUrl ?? null,
+        availableNow: !!p.availableNow,
+      })),
+    [newProfiles],
+  );
 
   const bannerHref = (banner: Banner) => {
     const profileId = (banner.linkUrl || "").startsWith("profile:") ? (banner.linkUrl || "").slice("profile:".length) : "";
@@ -738,8 +798,33 @@ export default function HomeClient() {
           </section>
         )}
 
-        {/* ═══ MAPA DE CERCANÍA — el atajo al contacto ═══ */}
-        <HomeMapSection />
+        {/* ═══ DESTACADAS (compacta) — va sobre el mapa, en fila y pequeña,
+             para que el mapa siga entrando en pantalla al abrir el home ═══ */}
+        {featuredCarouselProfiles.length > 0 && (
+          <DestacadasGrid profiles={destacadasCompact} compact />
+        )}
+
+        {/* ═══ MAPA DE CERCANÍA — el atajo al contacto ═══
+             A sangre completa: se sale del max-w y del padding del contenedor
+             para ocupar todo el ancho de la pantalla. */}
+        {/* Ancho completo anulando el padding de los DOS ancestros que lo
+            aportan: el <main> de AppShell y este contenedor, 16px cada uno.
+            No se usa w-screen porque en escritorio hay una barra lateral de
+            240px: centrar contra el viewport metía la sección debajo de ella
+            y cortaba el título y los chips de radio. Así el mapa llega al
+            borde en móvil y ocupa todo el área de contenido en escritorio. */}
+        <div className="-mx-8 mb-6">
+          <HomeMapSection fullBleed />
+        </div>
+
+        {/* ═══ NUEVAS — justo bajo el mapa ═══ */}
+        {novedades.length > 0 && (
+          <NovedadesCarousel
+            profiles={novedades}
+            ctaHref="/escorts?sort=new"
+            ctaLabel="Ver todas las nuevas"
+          />
+        )}
 
         {/* ═══ CTA PUBLÍCATE ═══ */}
         {!isAuthed && (
