@@ -16,7 +16,7 @@ import {
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
   TrendingUp, Zap, Shield, ShieldCheck, Wallet, Video, RefreshCw,
-  Gift, Copy, Check, VenetianMask, ArrowRight, Bell,
+  Gift, Copy, Check, VenetianMask, ArrowRight,
 } from "lucide-react";
 
 type QuickAction = {
@@ -243,14 +243,8 @@ export default function AccountPage() {
             </div>
           )}
 
-          {/* ── Notificaciones ── */}
-          <div className="border-t border-white/[0.06] px-6 py-5">
-            <h2 className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/30">
-              <Bell className="h-3.5 w-3.5 text-fuchsia-400/60" />
-              Notificaciones
-            </h2>
-            <EmailNotificationsToggle />
-          </div>
+          {/* ── Notificaciones (se oculta sola si la cuenta no es elegible) ── */}
+          <EmailNotificationsToggle />
 
           {/* ── Subscription ── */}
           {requiresPayment && !statusLoading && subscriptionStatus && (

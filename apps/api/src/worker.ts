@@ -13,6 +13,7 @@ import {
   sendUnreadMessagesEmail,
 } from "./lib/notificationEmail";
 import { buildUnsubscribeUrl } from "./lib/emailPrefsToken";
+import { EMAIL_NOTIFIABLE_PROFILE_TYPES } from "./lib/emailEligibility";
 import { sendInAppAndPush } from "./lib/sendReminder";
 import { randomBytes } from "crypto";
 import { calculateReferralPayout } from "./referral/payout";
@@ -798,6 +799,9 @@ async function unreadMessageEmailTick() {
         id: { in: [...byRecipient.keys()] },
         isActive: true,
         emailOnNewMessage: true,
+        // Solo perfiles publicados. Un cliente puede haberse registrado para
+        // estar de incógnito: escribirle al correo lo expondría.
+        profileType: { in: [...EMAIL_NOTIFIABLE_PROFILE_TYPES] },
       },
       select: { id: true, email: true, displayName: true },
     });

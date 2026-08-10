@@ -6,6 +6,7 @@ import { removePushSubscription, savePushSubscription, sendPushToUsers } from ".
 import { getWhatsAppProvider, isWhatsAppConfigured, sendWhatsAppNotification } from "./whatsapp";
 import { getBaileysQrDataUrl, getBaileysStatus, logoutBaileys } from "./whatsappBaileys";
 import { verifyEmailPrefsToken } from "../lib/emailPrefsToken";
+import { canReceiveMessageEmails } from "../lib/emailEligibility";
 
 export const notificationsRouter = Router();
 
@@ -124,10 +125,16 @@ notificationsRouter.get("/notifications/email/preferences", requireAuth, asyncHa
   const userId = req.session.userId!;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { emailOnNewMessage: true },
+    select: { emailOnNewMessage: true, profileType: true },
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
-  return res.json({ emailOnNewMessage: user.emailOnNewMessage });
+  const eligible = canReceiveMessageEmails(user.profileType);
+  // A quien no es elegible se le informa false, no su valor guardado: la
+  // interfaz no debe prometer un aviso que el worker nunca va a mandar.
+  return res.json({
+    eligible,
+    emailOnNewMessage: eligible && user.emailOnNewMessage,
+  });
 }));
 
 notificationsRouter.patch("/notifications/email/preferences", requireAuth, asyncHandler(async (req, res) => {
@@ -136,12 +143,25 @@ notificationsRouter.patch("/notifications/email/preferences", requireAuth, async
   if (typeof value !== "boolean") {
     return res.status(400).json({ error: "INVALID_VALUE" });
   }
+  const current = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { profileType: true },
+  });
+  if (!current) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+  // Segunda barrera además del filtro del worker: una cuenta de cliente no
+  // puede activarse los avisos ni llamando a la API a mano. Apagarlos sí se
+  // permite siempre.
+  if (value && !canReceiveMessageEmails(current.profileType)) {
+    return res.status(403).json({ error: "NOT_ELIGIBLE" });
+  }
+
   const user = await prisma.user.update({
     where: { id: userId },
     data: { emailOnNewMessage: value },
     select: { emailOnNewMessage: true },
   });
-  return res.json({ emailOnNewMessage: user.emailOnNewMessage });
+  return res.json({ eligible: true, emailOnNewMessage: user.emailOnNewMessage });
 }));
 
 /**
