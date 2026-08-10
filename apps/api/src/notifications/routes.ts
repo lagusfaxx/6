@@ -5,6 +5,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { removePushSubscription, savePushSubscription, sendPushToUsers } from "./push";
 import { getWhatsAppProvider, isWhatsAppConfigured, sendWhatsAppNotification } from "./whatsapp";
 import { getBaileysQrDataUrl, getBaileysStatus, logoutBaileys } from "./whatsappBaileys";
+import { verifyEmailPrefsToken } from "../lib/emailPrefsToken";
 
 export const notificationsRouter = Router();
 
@@ -115,6 +116,52 @@ notificationsRouter.post("/notifications/push/test", requireAuth, asyncHandler(a
 
   // Return real delivery attempt information so iOS failures are visible.
   return res.json({ ok: true, ...result });
+}));
+
+/* ── Preferencias de correo ── */
+
+notificationsRouter.get("/notifications/email/preferences", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { emailOnNewMessage: true },
+  });
+  if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+  return res.json({ emailOnNewMessage: user.emailOnNewMessage });
+}));
+
+notificationsRouter.patch("/notifications/email/preferences", requireAuth, asyncHandler(async (req, res) => {
+  const userId = req.session.userId!;
+  const value = req.body?.emailOnNewMessage;
+  if (typeof value !== "boolean") {
+    return res.status(400).json({ error: "INVALID_VALUE" });
+  }
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { emailOnNewMessage: value },
+    select: { emailOnNewMessage: true },
+  });
+  return res.json({ emailOnNewMessage: user.emailOnNewMessage });
+}));
+
+/**
+ * Baja desde el enlace del correo. Es pública a propósito: quien abre el
+ * enlace puede no tener sesión en ese dispositivo. La autorización es la
+ * firma HMAC del token, que solo se puede generar con SESSION_SECRET.
+ */
+notificationsRouter.post("/notifications/email/unsubscribe", asyncHandler(async (req, res) => {
+  const userId = String(req.body?.uid || "");
+  const token = String(req.body?.token || "");
+  if (!verifyEmailPrefsToken(userId, token)) {
+    return res.status(403).json({ error: "INVALID_TOKEN" });
+  }
+  // updateMany en vez de update: un id válido pero inexistente no debe
+  // devolver 500 ni revelar si la cuenta existe.
+  await prisma.user.updateMany({
+    where: { id: userId },
+    data: { emailOnNewMessage: false },
+  });
+  return res.json({ ok: true });
 }));
 
 notificationsRouter.get("/notifications", requireAuth, asyncHandler(async (req, res) => {

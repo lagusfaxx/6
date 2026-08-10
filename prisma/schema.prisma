@@ -434,6 +434,9 @@ model User {
   shopTrialEndsAt     DateTime?
   termsAcceptedAt     DateTime?
   allowFreeMessages   Boolean           @default(false)
+  /// Aviso por correo de mensajes sin leer. Se puede desactivar desde la
+  /// cuenta o con el enlace de baja que va en cada correo.
+  emailOnNewMessage   Boolean           @default(true)
   role                Role              @default(USER)
   membershipExpiresAt DateTime?
   flowCustomerId      String?           @unique
@@ -708,6 +711,8 @@ model Message {
   @@index([fromId])
   @@index([toId])
   @@index([createdAt])
+  // Barrido del worker de avisos por correo: mensajes sin leer por destinatario.
+  @@index([toId, readAt, createdAt])
 }
 
 model ServiceRating {
