@@ -10,7 +10,9 @@ import {
   sendVideocallConfigReminder,
   sendReferralCampaignEmail,
   sendGoldRenewalEmail,
+  sendUnreadMessagesEmail,
 } from "./lib/notificationEmail";
+import { buildUnsubscribeUrl } from "./lib/emailPrefsToken";
 import { sendInAppAndPush } from "./lib/sendReminder";
 import { randomBytes } from "crypto";
 import { calculateReferralPayout } from "./referral/payout";
@@ -704,6 +706,14 @@ export function startWorker() {
     tick().catch((e) => console.error("[worker] tick error", e));
   });
 
+  // Avisos de mensajes sin leer: cada 5 minutos. El aviso pierde valor si
+  // llega una hora tarde, así que no puede ir en el tick horario.
+  cron.schedule("*/5 * * * *", () => {
+    unreadMessageEmailTick().catch((e) =>
+      console.error("[worker] unread message email tick error", e),
+    );
+  });
+
   // U-Mate: expire subscriptions and move pending→available every hour
   cron.schedule("15 * * * *", () => {
     umateSubscriptionTick().catch((e) => console.error("[worker] umate tick error", e));
@@ -713,6 +723,139 @@ export function startWorker() {
   setTimeout(() => {
     tick().catch((e) => console.error("[worker] initial tick error", e));
   }, 10_000);
+}
+
+/* ─── Avisos por correo de mensajes sin leer ─── */
+
+/* Margen antes de avisar: si el destinatario está con el chat abierto lo lee
+   en el momento y el correo sobra. Solo se avisa de lo que siguió sin leer. */
+const UNREAD_GRACE_MINUTES = 3;
+/* Un correo por persona como máximo cada media hora, por muchos mensajes que
+   le lleguen: si no, una conversación activa dispara una avalancha. */
+const UNREAD_EMAIL_COOLDOWN_MINUTES = 30;
+/* Nunca se avisa de conversaciones viejas: si lleva días sin leer, un correo
+   no lo va a cambiar y parece spam. */
+const UNREAD_MAX_AGE_HOURS = 48;
+const UNREAD_REMINDER_TYPE = "unread_messages_email";
+
+let unreadTickRunning = false;
+
+async function unreadMessageEmailTick() {
+  // El cron corre cada 5 min; una pasada lenta no debe solaparse con la siguiente.
+  if (unreadTickRunning) {
+    console.log("[worker/unread-email] pasada anterior en curso, se omite");
+    return;
+  }
+  unreadTickRunning = true;
+  try {
+    const now = Date.now();
+    const readyBefore = new Date(now - UNREAD_GRACE_MINUTES * 60_000);
+    const notOlderThan = new Date(now - UNREAD_MAX_AGE_HOURS * 3_600_000);
+
+    const pending = await prisma.message.findMany({
+      where: {
+        readAt: null,
+        createdAt: { lt: readyBefore, gt: notOlderThan },
+      },
+      select: {
+        toId: true,
+        fromId: true,
+        createdAt: true,
+        from: { select: { displayName: true, username: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!pending.length) return;
+
+    // Agrupar por destinatario y, dentro de cada uno, por remitente. La clave
+    // es el id y no el nombre: dos personas distintas pueden llamarse igual.
+    const byRecipient = new Map<
+      string,
+      { total: number; senders: Map<string, { name: string; count: number }>; newest: Date }
+    >();
+    for (const m of pending) {
+      const entry = byRecipient.get(m.toId) ?? {
+        total: 0,
+        senders: new Map<string, { name: string; count: number }>(),
+        newest: m.createdAt,
+      };
+      entry.total += 1;
+      const sender = entry.senders.get(m.fromId);
+      if (sender) {
+        sender.count += 1;
+      } else {
+        entry.senders.set(m.fromId, {
+          name: m.from?.displayName || m.from?.username || "Alguien",
+          count: 1,
+        });
+      }
+      if (m.createdAt > entry.newest) entry.newest = m.createdAt;
+      byRecipient.set(m.toId, entry);
+    }
+
+    const recipients = await prisma.user.findMany({
+      where: {
+        id: { in: [...byRecipient.keys()] },
+        isActive: true,
+        emailOnNewMessage: true,
+      },
+      select: { id: true, email: true, displayName: true },
+    });
+
+    // Un solo query para saber cuándo se avisó por última vez a cada uno.
+    const logs = await prisma.reminderLog.findMany({
+      where: {
+        userId: { in: recipients.map((r) => r.id) },
+        type: UNREAD_REMINDER_TYPE,
+      },
+      select: { userId: true, createdAt: true },
+    });
+    const lastSentByUser = new Map(logs.map((l) => [l.userId, l.createdAt]));
+
+    let sent = 0;
+    for (const user of recipients) {
+      const entry = byRecipient.get(user.id);
+      if (!entry || !user.email) continue;
+
+      const lastSent = lastSentByUser.get(user.id);
+      if (lastSent) {
+        const cooldownOver =
+          now - lastSent.getTime() >= UNREAD_EMAIL_COOLDOWN_MINUTES * 60_000;
+        if (!cooldownOver) continue;
+        // Dentro del cooldown ya se avisó de estos mensajes: solo se vuelve a
+        // avisar si llegó algo nuevo después del último correo.
+        if (entry.newest <= lastSent) continue;
+      }
+
+      // Se marca antes de enviar: si el envío falla, se prefiere perder un
+      // aviso a arriesgar un bucle de reenvíos cada 5 minutos.
+      await prisma.reminderLog.upsert({
+        where: { userId_type: { userId: user.id, type: UNREAD_REMINDER_TYPE } },
+        update: { createdAt: new Date() },
+        create: { userId: user.id, type: UNREAD_REMINDER_TYPE },
+      });
+
+      const senders = [...entry.senders.values()]
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      try {
+        await sendUnreadMessagesEmail(user.email, {
+          displayName: user.displayName,
+          senders,
+          totalMessages: entry.total,
+          unsubscribeUrl: buildUnsubscribeUrl(user.id),
+        });
+        sent += 1;
+      } catch (err) {
+        console.error("[worker/unread-email] envío fallido", { userId: user.id, err });
+      }
+    }
+
+    if (sent > 0) console.log(`[worker/unread-email] ${sent} avisos enviados`);
+  } finally {
+    unreadTickRunning = false;
+  }
 }
 
 /* ─── U-Mate subscription expiry & balance release ─── */

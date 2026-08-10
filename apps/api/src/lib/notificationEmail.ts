@@ -86,6 +86,60 @@ async function send(to: string, subject: string, html: string) {
   }
 }
 
+/* ─── Aviso de mensajes sin leer ─── */
+
+/**
+ * Resumen de mensajes sin leer.
+ *
+ * A propósito NO incluye el texto de los mensajes: el correo puede quedar
+ * visible en un dispositivo compartido o en una notificación de escritorio,
+ * y en este rubro el contenido de una conversación es sensible. Se envía
+ * quién escribió y cuántos mensajes hay; el contenido se lee en el chat.
+ */
+export async function sendUnreadMessagesEmail(
+  email: string,
+  data: {
+    displayName: string | null;
+    senders: { name: string; count: number }[];
+    totalMessages: number;
+    unsubscribeUrl: string;
+  },
+) {
+  const name = esc(data.displayName || "");
+  const greeting = name ? `Hola ${name}, tienes` : "Tienes";
+  const plural = data.totalMessages === 1 ? "mensaje sin leer" : "mensajes sin leer";
+  const from =
+    data.senders.length === 1
+      ? `de <strong>${esc(data.senders[0].name)}</strong>`
+      : `de <strong>${data.senders.length} personas</strong>`;
+
+  const senderRows = data.senders
+    .map((s) => row(esc(s.name), `${s.count} ${s.count === 1 ? "mensaje" : "mensajes"}`))
+    .join("");
+
+  const html = wrapEmail(
+    data.totalMessages === 1 ? "Tienes un mensaje nuevo" : "Tienes mensajes nuevos",
+    [
+      paragraph(`${greeting} <strong>${data.totalMessages}</strong> ${plural} ${from} en UZEED.`),
+      senderRows,
+      ctaButton("Leer mensajes", `${config.appUrl}/chats`),
+      `<tr><td align="center" style="padding:0 30px 20px;">
+        <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.35);line-height:1.5;">
+          ¿No quieres estos avisos?
+          <a href="${data.unsubscribeUrl}" style="color:rgba(255,255,255,0.55);text-decoration:underline;">Darte de baja</a>
+        </p>
+      </td></tr>`,
+    ].join(""),
+  );
+
+  const subject =
+    data.senders.length === 1
+      ? `${data.senders[0].name} te escribió — UZEED`
+      : `Tienes ${data.totalMessages} mensajes sin leer — UZEED`;
+
+  await send(email, subject, html);
+}
+
 /* ─── Reminder: profile has no photos after 5 hours ─── */
 
 export async function sendNoPhotoReminder(email: string, displayName: string | null) {
