@@ -857,19 +857,100 @@ input[type="datetime-local"].input::-webkit-datetime-edit {
   transform: scale(1.06);
 }
 
-/* ── Modo discreto: blur thumbnails y stories hasta hover/tap ── */
-html.discreet .uzeed-card-img,
-html.discreet .uzeed-discreet-blur {
-  filter: blur(14px) saturate(0.85);
-  transition: filter 200ms ease;
+/* ══ Modo discreto ══
+   Antes esto difuminaba solo .uzeed-card-img, que se usa en dos componentes:
+   el grid principal del home y las tarjetas del directorio quedaban a la
+   vista, así que el modo no ocultaba casi nada.
+
+   Ahora el disfraz cubre las tres cosas que delatan de un vistazo: las fotos,
+   la paleta (el morado saturado es reconocible a distancia) y el fondo. Los
+   textos de marca y de categorías los cambian los componentes vía
+   DiscreetProvider, porque el CSS no debe reescribir contenido. */
+
+/* 1. Fotos. Se difumina todo <img> dentro de superficies de contenido en vez
+      de depender de que cada tarjeta recuerde poner una clase. Se excluye la
+      marca y los íconos, que no delatan nada. */
+html.discreet img:not(.uzeed-no-blur) {
+  filter: blur(16px) saturate(0.6);
+  transition: filter 160ms ease;
 }
-html.discreet .uzeed-card-img:hover,
-html.discreet .uzeed-card-img:active,
-html.discreet .uzeed-card-img:focus-visible,
-html.discreet .uzeed-discreet-blur:hover,
-html.discreet .uzeed-discreet-blur:active,
-html.discreet .uzeed-discreet-blur:focus-visible {
+/* Al tocar o pasar el cursor se revela solo esa foto: así se sigue usando la
+   app con normalidad sin descubrir la pantalla entera. */
+html.discreet img:not(.uzeed-no-blur):hover,
+html.discreet img:not(.uzeed-no-blur):active,
+html.discreet img:not(.uzeed-no-blur):focus-visible {
   filter: none;
+}
+/* El isotipo no se difumina: se oculta. Difuminado seguiría siendo una mancha
+   morada reconocible, y el nombre neutro se sostiene solo.
+   Se cubren las dos formas del src porque next/image reescribe la ruta a
+   /_next/image?url=%2Fbrand%2F... y un selector con "/brand/" no la alcanza. */
+html.discreet img[src*="/brand/"],
+html.discreet img[src*="%2Fbrand%2F"] {
+  display: none !important;
+}
+/* Vídeo de banners: mismo criterio. */
+html.discreet video {
+  filter: blur(18px) saturate(0.6);
+}
+
+/* 2. Paleta. El fucsia/violeta es la firma visual de la app; en discreto pasa
+      a gris azulado neutro, que es lo que se espera de un marketplace. */
+html.discreet body::after {
+  background:
+    radial-gradient(1100px 750px at 20% 8%, rgba(148, 163, 184, 0.10), transparent 62%),
+    linear-gradient(180deg, rgba(15, 18, 24, 0.6), rgba(15, 18, 24, 0.92)) !important;
+}
+html.discreet body::before {
+  opacity: 0.12 !important;
+}
+/* Neutraliza los acentos de marca sin tener que editar cada componente. */
+html.discreet .uzeed-hero-cta,
+html.discreet .uzeed-cta-btn,
+html.discreet .bg-fuchsia-600,
+html.discreet .bg-fuchsia-500 {
+  background: #4b5563 !important;
+  box-shadow: none !important;
+}
+html.discreet .text-fuchsia-400,
+html.discreet .text-fuchsia-300,
+html.discreet .text-fuchsia-200 {
+  color: #cbd5e1 !important;
+}
+html.discreet .border-fuchsia-500\/20,
+html.discreet .border-fuchsia-500\/25,
+html.discreet .border-fuchsia-500\/30,
+html.discreet .border-fuchsia-500\/35 {
+  border-color: rgba(148, 163, 184, 0.25) !important;
+}
+
+/* 2b. Los gradientes fucsia→violeta son el resto de la firma visual: cabecera,
+       chip de ubicación, nav inferior activo, botones. Se aplanan a gris. */
+html.discreet [class*="from-fuchsia"],
+html.discreet [class*="from-violet"],
+html.discreet [class*="via-fuchsia"],
+html.discreet [class*="to-violet"],
+html.discreet [class*="to-fuchsia"] {
+  background-image: none !important;
+  background-color: rgba(100, 116, 139, 0.18) !important;
+}
+/* Las sombras de color delatan igual que el relleno. Se excluyen las <img>:
+   ahí `filter` es el desenfoque, y anularlo destaparía la foto. */
+html.discreet :not(img)[class*="shadow-[0_0"],
+html.discreet :not(img)[class*="drop-shadow-[0_"] {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+/* 3. El punto verde de "conectada" y los badges rojos de "en vivo" llaman la
+      atención de lejos: en discreto se apagan a gris. */
+html.discreet .bg-emerald-400,
+html.discreet .bg-red-500,
+html.discreet .bg-red-600\/90 {
+  background: #64748b !important;
+}
+html.discreet .animate-ping {
+  animation: none !important;
 }
 
 /* Card gradient overlays */
