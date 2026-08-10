@@ -35,6 +35,9 @@ import {
 } from "lucide-react";
 import Avatar from "./Avatar";
 import useMe from "../hooks/useMe";
+import { useDiscreet } from "./DiscreetProvider";
+import QuickExitBar from "./QuickExitBar";
+import { DISCREET_BRAND, discreetLabel } from "../lib/discreet";
 import { apiFetch } from "../lib/api";
 import { connectRealtime } from "../lib/realtime";
 import { CHILEAN_CITIES, LocationFilterContext } from "../hooks/useLocationFilter";
@@ -124,24 +127,10 @@ export default function TopHeader() {
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
-  const [discreet, setDiscreet] = useState(false);
-
-  /* ── Modo discreto: hidrata desde localStorage + sincroniza <html> ── */
-  useEffect(() => {
-    const enabled = typeof window !== "undefined" && window.localStorage.getItem("uzeed:discreet") === "1";
-    setDiscreet(enabled);
-    if (enabled) document.documentElement.classList.add("discreet");
-  }, []);
-  const toggleDiscreet = () => {
-    setDiscreet((prev) => {
-      const next = !prev;
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("uzeed:discreet", next ? "1" : "0");
-        document.documentElement.classList.toggle("discreet", next);
-      }
-      return next;
-    });
-  };
+  /* El modo discreto vive en DiscreetProvider: además de la clase en <html>
+     cambia título, favicon, color de barra y la URL visible, y se sincroniza
+     entre pestañas. */
+  const { discreet, toggle: toggleDiscreet } = useDiscreet();
 
   const panelRef    = useRef<HTMLDivElement | null>(null);
   const locationRef = useRef<HTMLDivElement | null>(null);
@@ -287,7 +276,7 @@ export default function TopHeader() {
                     className="h-8 w-8 shrink-0 object-contain drop-shadow-[0_4px_12px_rgba(168,85,247,0.4)] md:h-12 md:w-12"
                   />
                   <span className="text-xl font-bold leading-none tracking-tight text-white drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)] md:text-3xl">
-                    Uzeed
+                    {discreet ? DISCREET_BRAND.name : "Uzeed"}
                   </span>
                 </Link>
               </div>
@@ -300,7 +289,7 @@ export default function TopHeader() {
                     href={item.route}
                     className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${isCategoryActive(item.route) ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25" : "text-white/60 hover:bg-white/10 hover:text-white/90"}`}
                   >
-                    {item.label}
+                    {discreetLabel(item.route, item.label, discreet)}
                   </Link>
                 ))}
               </nav>
@@ -311,17 +300,20 @@ export default function TopHeader() {
                 <button
                   type="button"
                   onClick={toggleDiscreet}
-                  title={discreet ? "Desactivar modo discreto" : "Activar modo discreto"}
                   aria-pressed={discreet}
                   aria-label={discreet ? "Desactivar modo discreto" : "Activar modo discreto"}
-                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition md:h-10 md:w-10 ${
+                  className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-[11px] font-semibold transition md:h-10 md:px-3 md:text-xs ${
                     discreet
-                      ? "border-fuchsia-500/35 bg-fuchsia-500/15 text-fuchsia-200 shadow-[0_0_12px_rgba(217,70,239,0.25)]"
+                      ? "border-slate-400/30 bg-slate-500/20 text-slate-200"
                       : "border-white/10 bg-white/[0.06] text-white hover:bg-white/10"
                   }`}
                 >
-                  {discreet ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {discreet ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <span className="hidden sm:inline">Discreto</span>
                 </button>
+                {/* Salida rápida: vive dentro de la cabecera fija, así cumple
+                    "siempre visible al hacer scroll" sin tapar nada. */}
+                <QuickExitBar />
                 {/* Location chip */}
                 <div className="relative min-w-0" ref={locationRef}>
                   <button
@@ -484,8 +476,8 @@ export default function TopHeader() {
 
             <div className="relative flex items-center justify-between border-b border-white/[0.08] px-4 py-4">
               <div className="flex items-center gap-2">
-                <Image src="/brand/isotipo-new.png" alt="UZEED" width={40} height={40} className="h-10 w-10 object-contain drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)]" />
-                <span className="text-xl font-bold text-white tracking-tight">Uzeed</span>
+                <Image src="/brand/isotipo-new.png" alt="" width={40} height={40} className="h-10 w-10 object-contain drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)]" />
+                <span className="text-xl font-bold text-white tracking-tight">{discreet ? DISCREET_BRAND.name : "Uzeed"}</span>
               </div>
               <button
                 type="button"
@@ -524,7 +516,7 @@ export default function TopHeader() {
                         className={`flex flex-col items-center gap-1 rounded-xl py-2.5 text-[10px] transition-all ${isActive ? "bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20" : "text-white/60 hover:bg-white/[0.06] border border-transparent"}`}
                       >
                         <Icon className={`h-4 w-4 ${isActive ? "text-fuchsia-400" : "text-fuchsia-400/60"}`} />
-                        {item.label}
+                        {discreetLabel(item.route, item.label, discreet)}
                       </button>
                     );
                   })}

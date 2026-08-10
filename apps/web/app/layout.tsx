@@ -3,6 +3,7 @@ import Script from 'next/script';
 import "./globals.css";
 import AppShell from '../components/AppShell';
 import AgeGate from '../components/AgeGate';
+import DiscreetProvider from '../components/DiscreetProvider';
 
 export const metadata: Metadata = {
   title: {
@@ -160,7 +161,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen text-white antialiased">
         <AgeGate />
-        <AppShell>{children}</AppShell>
+        <DiscreetProvider>
+          <AppShell>{children}</AppShell>
+        </DiscreetProvider>
         {/* Google tag (gtag.js) — deferred with afterInteractive to avoid blocking FCP/LCP */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=AW-18052031619"

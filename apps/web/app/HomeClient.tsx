@@ -9,6 +9,8 @@ import { CHILEAN_CITIES, LocationFilterContext } from "../hooks/useLocationFilte
 import { CITY_LANDINGS } from "../lib/cities";
 import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../components/DirectoryPage";
 import useMe from "../hooks/useMe";
+import { useDiscreet } from "../components/DiscreetProvider";
+import { DISCREET_BRAND, discreetLabel } from "../lib/discreet";
 
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
@@ -365,6 +367,7 @@ export default function HomeClient() {
   const locationKey = `${location[0]}-${location[1]}`;
   const [recentLoading, setRecentLoading] = useState(true);
   const { me } = useMe();
+  const { discreet } = useDiscreet();
   const [previewProfile, setPreviewProfile] = useState<any>(null);
   const isAuthed = Boolean(me?.user?.id);
 
@@ -577,13 +580,21 @@ export default function HomeClient() {
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
 
         <div className="relative mx-auto w-full max-w-3xl text-center">
+          {/* En modo discreto el titular es lo primero que delata a un metro de
+              distancia, así que cambia junto con el resto del disfraz. */}
           <h1 className="text-[1.35rem] font-extrabold leading-[1.15] tracking-tight text-white sm:text-[1.9rem] md:text-[2.15rem]">
-            Escorts y masajistas cerca tuyo
+            {discreet ? DISCREET_BRAND.tagline : "Escorts y masajistas cerca tuyo"}
           </h1>
 
           <p className="mx-auto mt-2 max-w-lg text-[12.5px] leading-snug text-white/50 sm:text-sm">
-            Mira en el mapa quién está a pocos kilómetros y conectada ahora mismo.
-            Perfiles verificados en Santiago, Viña del Mar y otras {CITY_LANDINGS.length - 2} comunas.
+            {discreet ? (
+              <>Mira en el mapa qué hay disponible cerca de ti, en {CITY_LANDINGS.length} comunas.</>
+            ) : (
+              <>
+                Mira en el mapa quién está a pocos kilómetros y conectada ahora mismo.
+                Perfiles verificados en Santiago, Viña del Mar y otras {CITY_LANDINGS.length - 2} comunas.
+              </>
+            )}
           </p>
 
           {/* CTA primario: el mapa, que es la ruta más corta al contacto */}
@@ -659,7 +670,7 @@ export default function HomeClient() {
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.10] px-3.5 py-1.5 text-xs font-medium text-white/70 transition hover:border-fuchsia-500/35 hover:text-white"
               >
                 <c.icon className="h-3.5 w-3.5 text-white/40" aria-hidden />
-                {c.label}
+                {discreetLabel(c.href, c.label, discreet)}
               </Link>
             ))}
           </nav>
