@@ -64,7 +64,16 @@ function ownerHref(p: NearbyProfile) {
   return `/profesional/${p.id}`;
 }
 
-export default function HomeMapSection() {
+type Props = {
+  /**
+   * A sangre: el mapa ocupa todo el ancho de la pantalla, sin bordes ni
+   * esquinas redondeadas, y más alto. La cabecera y los controles conservan
+   * su padding para no quedar pegados al borde.
+   */
+  fullBleed?: boolean;
+};
+
+export default function HomeMapSection({ fullBleed = false }: Props) {
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
   const center = useMemo<[number, number]>(
@@ -230,8 +239,8 @@ export default function HomeMapSection() {
   }
 
   return (
-    <section ref={sectionRef} className="mb-10" aria-labelledby="home-map-title">
-      <div className="mb-3">
+    <section ref={sectionRef} className={fullBleed ? "mb-0" : "mb-10"} aria-labelledby="home-map-title">
+      <div className={fullBleed ? "mb-3 px-8" : "mb-3"}>
         <div className="flex items-center justify-between gap-3">
           <h2 id="home-map-title" className="min-w-0 truncate text-lg font-bold tracking-tight sm:text-xl">
             Quién está cerca ahora
@@ -249,7 +258,7 @@ export default function HomeMapSection() {
       </div>
 
       {/* Radio + ubicación */}
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+      <div className={`mb-3 flex flex-wrap items-center gap-1.5 ${fullBleed ? "px-8" : ""}`}>
         {RADIUS_OPTIONS.map((r) => (
           <button
             key={r}
@@ -282,7 +291,13 @@ export default function HomeMapSection() {
         )}
       </div>
 
-      <div className="relative h-[340px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a12] sm:h-[420px]">
+      <div
+        className={
+          fullBleed
+            ? "relative h-[62svh] min-h-[380px] overflow-hidden border-y border-white/10 bg-[#0a0a12] sm:h-[68svh]"
+            : "relative h-[340px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a12] sm:h-[420px]"
+        }
+      >
         {visible ? (
           <MapboxMap
             userLocation={center}

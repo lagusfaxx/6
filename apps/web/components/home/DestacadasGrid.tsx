@@ -13,6 +13,12 @@ export type DestacadaProfile = DestacadaCardProfile;
 type Props = {
   profiles: DestacadaProfile[];
   title?: string;
+  /**
+   * Versión reducida para ir sobre el mapa: fila horizontal de tarjetas
+   * chicas en vez de grilla. El objetivo de esa posición es que el mapa
+   * quede a la vista al entrar, así que esta sección no puede ocupar alto.
+   */
+  compact?: boolean;
 };
 
 type FeaturedResponse = {
@@ -22,6 +28,7 @@ type FeaturedResponse = {
 export default function DestacadasGrid({
   profiles,
   title = "Destacadas",
+  compact = false,
 }: Props) {
   const userIds = useMemo(() => profiles.map((p) => p.id), [profiles]);
   const [byUser, setByUser] = useState<Record<string, FeaturedStoryMedia[]>>({});
@@ -47,6 +54,24 @@ export default function DestacadasGrid({
   }, [userIds.join(",")]);
 
   if (!profiles.length) return null;
+
+  if (compact) {
+    return (
+      <section className="mb-4">
+        <div className="mb-2 flex items-center gap-1.5">
+          <Crown className="h-4 w-4 text-amber-400" />
+          <h2 className="text-sm font-bold tracking-tight">{title}</h2>
+        </div>
+        <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+          {profiles.map((p) => (
+            <div key={p.id} className="w-[104px] shrink-0 sm:w-[120px]">
+              <DestacadaCard profile={p} stories={byUser[p.id] || []} />
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="mb-8">
