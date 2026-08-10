@@ -302,35 +302,6 @@ function getPlatformStats() {
   return _platformStatsPromise;
 }
 
-/* Cifras reales de /stats/platform. Sin inflar y sin animación de conteo:
-   un número que sube solo delata plantilla y no aporta nada al cliente. */
-function HeroCounters() {
-  const [stats, setStats] = useState<{ professionals: number; whatsappClicks: number } | null>(null);
-
-  useEffect(() => {
-    getPlatformStats()
-      .then((res) => setStats(res))
-      .catch((err) => console.warn("[HeroCounters] failed to load platform stats", err));
-  }, []);
-
-  // min-h y no h fija: con cifras de 4-5 dígitos la línea envuelve en mobile y
-  // una altura fija la recortaba encima del buscador.
-  if (!stats) return <div className="mt-3 min-h-4" aria-hidden />;
-
-  const parts: string[] = [];
-  if (stats.professionals > 0) {
-    parts.push(`${stats.professionals.toLocaleString("es-CL")} perfiles publicados`);
-  }
-  if (stats.whatsappClicks > 0) {
-    parts.push(`${stats.whatsappClicks.toLocaleString("es-CL")} contactos por WhatsApp`);
-  }
-  if (!parts.length) return <div className="mt-3 min-h-4" aria-hidden />;
-
-  return (
-    <p className="mt-3 min-h-4 text-[11px] leading-4 text-white/35">{parts.join(" · ")}</p>
-  );
-}
-
 /* ── Videollamadas CTA Banner ── */
 
 function VideollamadasBanner() {
@@ -632,8 +603,6 @@ export default function HomeClient() {
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
-
-          <HeroCounters />
 
           {/* Buscador dentro del hero */}
           <form
