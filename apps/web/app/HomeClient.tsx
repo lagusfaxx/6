@@ -866,8 +866,8 @@ export default function HomeClient() {
 
         <div className="mb-6 h-px bg-white/[0.06]" />
 
-        {/* ═══ FEED — filtros + destacadas + grid infinito ═══ */}
-        <HomeFeed destacadasProfiles={featuredCarouselProfiles} />
+        {/* ═══ FEED — filtros + grid infinito ═══ */}
+        <HomeFeed />
 
         {/* ═══ EN VIVO AHORA ═══ */}
         {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}

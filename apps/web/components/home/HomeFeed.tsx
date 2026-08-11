@@ -11,30 +11,19 @@
  * scroll, no swipe, y de un carrusel prácticamente solo se ve la primera
  * lámina. Un grid vertical denso de fotos es lo que se escanea bien.
  *
- * Así que el cuerpo queda en tres piezas: una barra de filtros con lo que
- * decide la compra en este rubro (disponibilidad, novedad, exámenes, formato),
- * las destacadas, y el grid infinito. Las secciones que se quitaron no
- * desaparecen como función: cada una es ahora un filtro que lleva al listado
- * completo, con más opciones de las que tenía la sección plegable.
+ * Así que el cuerpo queda en dos piezas: una barra de filtros con lo que
+ * decide la compra en este rubro (disponibilidad, novedad, exámenes, formato)
+ * y el grid infinito. Las secciones que se quitaron no desaparecen como
+ * función: cada una es ahora un filtro que lleva al listado completo, con más
+ * opciones de las que tenía la sección plegable.
+ *
+ * Destacadas ya no se renderiza aquí: vive sobre el mapa, en HomeClient, en
+ * versión compacta. Tenerla en los dos sitios la duplicaba en pantalla.
  */
 
 import Link from "next/link";
 import { Clock, ShieldCheck, Sparkles, Star, Video } from "lucide-react";
-import DestacadasGrid, { type DestacadaProfile } from "./DestacadasGrid";
 import InfiniteFeed from "./InfiniteFeed";
-
-type AnyProfile = {
-  id: string;
-  displayName?: string | null;
-  name?: string | null;
-  avatarUrl?: string | null;
-  coverUrl?: string | null;
-  availableNow?: boolean;
-};
-
-type Props = {
-  destacadasProfiles: AnyProfile[];
-};
 
 /* Filtros por estado del perfil, no por categoría: la categoría ya vive en el
    hero. Cada uno apunta a un listado que ya existe. */
@@ -46,19 +35,7 @@ const FEED_FILTERS = [
   { label: "Premium", href: "/premium", icon: Star },
 ];
 
-function toDestacada(p: AnyProfile): DestacadaProfile {
-  return {
-    id: p.id,
-    displayName: p.displayName || p.name || "Perfil",
-    avatarUrl: p.avatarUrl ?? null,
-    coverUrl: p.coverUrl ?? null,
-    availableNow: !!p.availableNow,
-  };
-}
-
-export default function HomeFeed({ destacadasProfiles }: Props) {
-  const destacadas = destacadasProfiles.slice(0, 6).map(toDestacada);
-
+export default function HomeFeed() {
   return (
     <>
       <nav
@@ -76,8 +53,6 @@ export default function HomeFeed({ destacadasProfiles }: Props) {
           </Link>
         ))}
       </nav>
-
-      {destacadas.length > 0 && <DestacadasGrid profiles={destacadas} />}
 
       <InfiniteFeed categorySlug="escort,masajes" />
     </>
