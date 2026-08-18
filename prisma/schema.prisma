@@ -437,10 +437,6 @@ model User {
   /// Aviso por correo de mensajes sin leer. Se puede desactivar desde la
   /// cuenta o con el enlace de baja que va en cada correo.
   emailOnNewMessage   Boolean           @default(true)
-  /// Permiso para anunciar el perfil en la cuenta de X de UZEED cuando se
-  /// publica. Se puede desactivar desde /cuenta; si está apagado, el aviso
-  /// encolado se descarta sin publicar.
-  promoteOnX          Boolean           @default(true)
   role                Role              @default(USER)
   membershipExpiresAt DateTime?
   flowCustomerId      String?           @unique
@@ -1590,7 +1586,7 @@ enum SocialPostKind {
 enum SocialPostStatus {
   PENDING
   POSTED
-  /// Descartada sin publicar (perfil borrado, sin consentimiento, caducada)
+  /// Descartada sin publicar (perfil borrado, ya no profesional, caducada)
   SKIPPED
   /// Agotó los reintentos por errores de la API
   FAILED

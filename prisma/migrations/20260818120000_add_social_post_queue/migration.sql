@@ -4,11 +4,6 @@
 -- cuando el perfil ya está activo. Así una caída de X nunca rompe un alta y
 -- cada intento queda auditable.
 
--- Consentimiento del perfil. Por defecto activado: el anuncio solo usa datos
--- que ya son públicos en la ficha. Se apaga desde /cuenta.
-ALTER TABLE "User"
-  ADD COLUMN IF NOT EXISTS "promoteOnX" BOOLEAN NOT NULL DEFAULT true;
-
 DO $$ BEGIN
   CREATE TYPE "SocialNetwork" AS ENUM ('X');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;

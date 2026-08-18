@@ -149,7 +149,7 @@ async function fetchAvatar(url: string): Promise<{ bytes: Buffer; mimeType: stri
   }
 }
 
-type SkipReason = "perfil eliminado" | "sin consentimiento" | "ya no es profesional" | "caducado";
+type SkipReason = "perfil eliminado" | "ya no es profesional" | "caducado";
 
 /**
  * Publica los anuncios pendientes que ya vencieron.
@@ -180,7 +180,6 @@ export async function publishPendingSocialPosts(): Promise<void> {
           avatarUrl: true,
           isActive: true,
           profileType: true,
-          promoteOnX: true,
         },
       },
     },
@@ -192,7 +191,6 @@ export async function publishPendingSocialPosts(): Promise<void> {
 
     let skip: SkipReason | null = null;
     if (!user) skip = "perfil eliminado";
-    else if (!user.promoteOnX) skip = "sin consentimiento";
     else if (user.profileType !== "PROFESSIONAL") skip = "ya no es profesional";
     else if (expired) skip = "caducado";
 
