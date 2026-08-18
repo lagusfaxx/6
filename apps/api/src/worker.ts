@@ -15,6 +15,7 @@ import {
 import { buildUnsubscribeUrl } from "./lib/emailPrefsToken";
 import { sendInAppAndPush } from "./lib/sendReminder";
 import { randomBytes } from "crypto";
+import { publishPendingSocialPosts } from "./social/newProfessionalPost";
 import { calculateReferralPayout } from "./referral/payout";
 import { validatePendingRedemptions } from "./referral/redeem";
 
@@ -711,6 +712,15 @@ export function startWorker() {
   cron.schedule("*/5 * * * *", () => {
     unreadMessageEmailTick().catch((e) =>
       console.error("[worker] unread message email tick error", e),
+    );
+  });
+
+  // Anuncios en X de los perfiles nuevos: cada 10 minutos. No va en el tick
+  // horario porque el anuncio ya espera su margen tras el registro y no tiene
+  // sentido sumarle hasta una hora más.
+  cron.schedule("*/10 * * * *", () => {
+    publishPendingSocialPosts().catch((e) =>
+      console.error("[worker] social post tick error", e),
     );
   });
 

@@ -437,6 +437,10 @@ model User {
   /// Aviso por correo de mensajes sin leer. Se puede desactivar desde la
   /// cuenta o con el enlace de baja que va en cada correo.
   emailOnNewMessage   Boolean           @default(true)
+  /// Permiso para anunciar el perfil en la cuenta de X de UZEED cuando se
+  /// publica. Se puede desactivar desde /cuenta; si está apagado, el aviso
+  /// encolado se descarta sin publicar.
+  promoteOnX          Boolean           @default(true)
   role                Role              @default(USER)
   membershipExpiresAt DateTime?
   flowCustomerId      String?           @unique
@@ -512,6 +516,9 @@ model User {
 
   // Professional accreditation documents (e.g. "profesional con examenes")
   professionalDocuments     ProfessionalDocument[] @relation("ProfessionalDocuments")
+
+  // Cola de publicaciones en redes sociales generadas por este perfil
+  socialPosts               SocialPost[]           @relation("SocialPostTarget")
   professionalDocsReviewed  ProfessionalDocument[] @relation("ProfessionalDocumentReviewer")
 }
 
@@ -1565,4 +1572,57 @@ model ProfessionalDocument {
 
   @@index([userId])
   @@index([status])
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ██  REDES SOCIALES  —  Cola de publicaciones automáticas (X)
+// ══════════════════════════════════════════════════════════════════════
+
+enum SocialNetwork {
+  X
+}
+
+enum SocialPostKind {
+  /// Anuncio de un perfil profesional recién publicado
+  NEW_PROFESSIONAL
+}
+
+enum SocialPostStatus {
+  PENDING
+  POSTED
+  /// Descartada sin publicar (perfil borrado, sin consentimiento, caducada)
+  SKIPPED
+  /// Agotó los reintentos por errores de la API
+  FAILED
+}
+
+/// Cola de publicaciones automáticas en redes.
+///
+/// El registro se encola en el alta y el worker lo publica más tarde, cuando el
+/// perfil ya está activo y con fotos. Pasar por la base de datos —en vez de
+/// llamar a la API de X en el propio registro— evita que una caída de X rompa
+/// un alta y deja el intento auditable.
+model SocialPost {
+  id          String           @id @default(uuid()) @db.Uuid
+  network     SocialNetwork    @default(X)
+  kind        SocialPostKind
+  /// Perfil anunciado. Se borra la fila si se borra el perfil.
+  userId      String           @db.Uuid
+  status      SocialPostStatus @default(PENDING)
+  /// No se publica antes de esta fecha: da margen a completar la ficha.
+  scheduledAt DateTime
+  attempts    Int              @default(0)
+  text        String?
+  /// ID del tweet publicado, para poder enlazarlo o borrarlo después
+  externalId  String?
+  lastError   String?
+  postedAt    DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user User @relation("SocialPostTarget", fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Un solo anuncio por perfil y tipo: si el alta se reintenta, no se duplica.
+  @@unique([network, kind, userId])
+  @@index([status, scheduledAt])
 }

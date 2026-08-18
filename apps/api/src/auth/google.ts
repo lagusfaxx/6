@@ -15,6 +15,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { MIN_PROFESSIONAL_GALLERY_PHOTOS } from "./createProfessional";
+import { enqueueNewProfessionalPost } from "../social/newProfessionalPost";
 
 export const googleAuthRouter = Router();
 
@@ -669,6 +670,9 @@ googleAuthRouter.post(
       type: "profile_verification_requested",
       user: user.username || null,
     }).catch(() => {});
+
+    // Anuncio en X del perfil nuevo, igual que en el alta por formulario.
+    await enqueueNewProfessionalPost(user.id);
 
     if (data.referralCode) {
       try {

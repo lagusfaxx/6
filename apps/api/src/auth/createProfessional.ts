@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { config } from "../config";
 import { sendSetPasswordEmail } from "./verification";
+import { enqueueNewProfessionalPost } from "../social/newProfessionalPost";
 
 /**
  * Thrown by createProfessionalUser when the target email is already in use.
@@ -223,6 +224,10 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
   await sendSetPasswordEmail(email, passwordSetToken).catch((err) => {
     console.error("[createProfessional] password email failed", { email, error: err });
   });
+
+  // Anuncio en X. Solo se encola: el worker lo publica cuando el perfil ya
+  // está activo, y un fallo aquí no puede romper el alta.
+  await enqueueNewProfessionalPost(user.id);
 
   return { user, resolvedCategoryId, resolvedCategoryName, username };
 }

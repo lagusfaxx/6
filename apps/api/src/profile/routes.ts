@@ -19,6 +19,7 @@ import {
   geocodeAddress,
 } from "../auth/registerHelpers";
 import { MIN_PROFESSIONAL_GALLERY_PHOTOS } from "../auth/createProfessional";
+import { enqueueNewProfessionalPost } from "../social/newProfessionalPost";
 
 const ADMIN_ONLY_PROFILE_TAGS = new Set(["premium", "verificada", "profesional con examenes"]);
 import {
@@ -1285,6 +1286,10 @@ profileRouter.post(
       user: updated.username || null,
     }).catch(() => {});
 
+    // Pasar de cliente a profesional también es un perfil nuevo en el
+    // directorio: se anuncia en X igual que un alta desde cero.
+    await enqueueNewProfessionalPost(updated.id);
+
     return res.json({
       ok: true,
       user: {
@@ -1292,5 +1297,72 @@ profileRouter.post(
         shopTrialEndsAt: updated.shopTrialEndsAt?.toISOString() || null,
       },
     });
+  }),
+);
+
+/* ── Difusión del perfil en X ── */
+
+/**
+ * Estado del anuncio en X del propio perfil. Se devuelve también si ya se
+ * publicó, para que la cuenta pueda explicar por qué apagar el permiso ya no
+ * retira un post que salió.
+ */
+profileRouter.get(
+  "/profile/social-preferences",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const userId = req.session.userId!;
+    const [user, post] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { promoteOnX: true, profileType: true },
+      }),
+      prisma.socialPost.findUnique({
+        where: {
+          network_kind_userId: {
+            network: "X",
+            kind: "NEW_PROFESSIONAL",
+            userId,
+          },
+        },
+        select: { status: true, postedAt: true },
+      }),
+    ]);
+    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    return res.json({
+      promoteOnX: user.promoteOnX,
+      isProfessional: user.profileType === "PROFESSIONAL",
+      posted: post?.status === "POSTED",
+      postedAt: post?.postedAt?.toISOString() || null,
+    });
+  }),
+);
+
+profileRouter.patch(
+  "/profile/social-preferences",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const userId = req.session.userId!;
+    const value = req.body?.promoteOnX;
+    if (typeof value !== "boolean") {
+      return res.status(400).json({ error: "INVALID_VALUE" });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { promoteOnX: value },
+      select: { promoteOnX: true },
+    });
+
+    // Apagarlo tiene que frenar el anuncio que aún no ha salido. El que ya se
+    // publicó no se toca desde aquí: borrarlo de X es una gestión aparte.
+    if (!value) {
+      await prisma.socialPost.updateMany({
+        where: { userId, status: "PENDING" },
+        data: { status: "SKIPPED", lastError: "SIN_CONSENTIMIENTO" },
+      });
+    }
+
+    return res.json({ promoteOnX: user.promoteOnX });
   }),
 );

@@ -9,6 +9,7 @@ import useSubscriptionStatus from "../../hooks/useSubscriptionStatus";
 import { apiFetch } from "../../lib/api";
 import Avatar from "../../components/Avatar";
 import EmailNotificationsToggle from "../../components/EmailNotificationsToggle";
+import XPromotionToggle from "../../components/XPromotionToggle";
 import { Badge } from "../../components/ui/badge";
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -249,7 +250,11 @@ export default function AccountPage() {
               <Bell className="h-3.5 w-3.5 text-fuchsia-400/60" />
               Notificaciones
             </h2>
-            <EmailNotificationsToggle />
+            <div className="space-y-2">
+              <EmailNotificationsToggle />
+              {/* Solo se pinta en perfiles profesionales; en clientes se oculta solo. */}
+              <XPromotionToggle />
+            </div>
           </div>
 
           {/* ── Subscription ── */}

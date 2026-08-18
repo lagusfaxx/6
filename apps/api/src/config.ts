@@ -51,6 +51,22 @@ export const config = {
     from: process.env.SMTP_FROM
   },
   resendApiKey: requiredInProd("RESEND_API_KEY"),
+  /**
+   * Cuenta de X donde se anuncian los perfiles nuevos. Son credenciales de la
+   * app de UZEED (OAuth 1.0a de usuario). Sin ellas, o con X_AUTOPOST=off, la
+   * cola se sigue llenando pero no se publica nada.
+   */
+  x: {
+    enabled: (process.env.X_AUTOPOST ?? "on").toLowerCase() !== "off",
+    apiKey: process.env.X_API_KEY || "",
+    apiSecret: process.env.X_API_SECRET || "",
+    accessToken: process.env.X_ACCESS_TOKEN || "",
+    accessSecret: process.env.X_ACCESS_SECRET || "",
+    /** Minutos de margen entre el registro y el anuncio. */
+    delayMinutes: Number(process.env.X_AUTOPOST_DELAY_MINUTES || 30),
+    /** Publicaciones por pasada del worker, para no gastar la cuota de golpe. */
+    batchSize: Number(process.env.X_AUTOPOST_BATCH || 3),
+  },
   googleOAuth: {
     clientId: process.env.GOOGLE_OAUTH_CLIENT_ID || "",
     clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET || "",
