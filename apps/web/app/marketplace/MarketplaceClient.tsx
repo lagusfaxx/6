@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ShoppingBag, Search, Sparkles, ShieldCheck, Truck, Zap, Store,
+  Search, ShieldCheck, Truck, Zap, Store,
   Star, ArrowRight, PackageOpen, Filter, X, BadgeCheck, Camera,
 } from "lucide-react";
 
 import useMe from "../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import {
-  DELIVERY_LABEL, PRODUCT_TYPE_EMOJI, PRODUCT_TYPE_LABEL, formatClp,
+  PRODUCT_TYPE_EMOJI, formatClp,
   type MarketConfig, type MarketProduct, type MarketProductType,
 } from "../../lib/marketplace";
 
@@ -99,61 +99,34 @@ export default function MarketplaceClient() {
     router.replace(`/marketplace${params.toString() ? `?${params}` : ""}`, { scroll: false });
   };
 
-  const heroStats = useMemo(
-    () => [
-      { icon: ShieldCheck, label: "Pago protegido", value: `Se libera al confirmar${config ? ` o a los ${config.holdDays} días` : ""}` },
-      { icon: Zap, label: "Entrega automática", value: "Fotos y videos al instante" },
-      { icon: Truck, label: "Envíos a todo Chile", value: "Tarifa según tu región" },
-    ],
-    [config],
-  );
-
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-4 sm:py-10">
-      {/* ── Hero ── */}
-      <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-fuchsia-600/20 via-violet-600/10 to-transparent p-6 sm:p-10">
-        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-fuchsia-500/20 blur-3xl" />
-        <div className="relative">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-fuchsia-200">
-            <ShoppingBag className="h-3.5 w-3.5" /> Marketplace
-          </span>
-          <h1 className="mt-3 max-w-2xl text-2xl font-bold leading-tight text-white sm:text-4xl">
-            Compra directo a la profesional, sin salir de UZEED
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-white/60 sm:text-base">
-            Packs de fotos, videos, ropa y artículos personales. Pagas dentro de la plataforma, el dinero queda retenido
-            hasta que confirmas que recibiste, y el contenido digital te llega protegido en tu cuenta.
+    <div className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-4 sm:py-8">
+      {/* ── Cabecera de la tienda ──
+         Sin discurso de venta: quien entra viene a mirar productos, así que el
+         buscador y el catálogo tienen que quedar arriba. */}
+      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-b border-white/[0.07] pb-4">
+        <div>
+          <h1 className="text-xl font-semibold text-white sm:text-2xl">Marketplace</h1>
+          <p className="mt-1 text-sm text-white/45">
+            Packs, videos, ropa y artículos que venden las profesionales.
           </p>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            {heroStats.map((stat) => (
-              <div key={stat.label} className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                <div className="flex items-center gap-2 text-xs font-semibold text-white">
-                  <stat.icon className="h-4 w-4 text-fuchsia-300" />
-                  {stat.label}
-                </div>
-                <p className="mt-1 text-[11px] text-white/50">{stat.value}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Link
-              href="/marketplace/compras"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.12]"
-            >
-              <PackageOpen className="h-4 w-4" /> Mis compras
-            </Link>
-            <Link
-              href="/marketplace/vender"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/20 transition hover:brightness-110"
-            >
-              <Store className="h-4 w-4" />
-              {isProfessional ? "Vender mis artículos" : "Quiero vender"}
-            </Link>
-          </div>
         </div>
-      </section>
+        <div className="flex gap-2">
+          <Link
+            href="/marketplace/compras"
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-white/60 transition hover:bg-white/[0.06] hover:text-white"
+          >
+            <PackageOpen className="h-4 w-4" /> Mis compras
+          </Link>
+          <Link
+            href="/marketplace/vender"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2 text-sm font-medium text-fuchsia-200 transition hover:bg-fuchsia-500/20"
+          >
+            <Store className="h-4 w-4" />
+            {isProfessional ? "Mi tienda" : "Vender"}
+          </Link>
+        </div>
+      </header>
 
       {/* ── Buscador y filtros ── */}
       <section className="mt-6 space-y-3">
@@ -182,7 +155,7 @@ export default function MarketplaceClient() {
         </div>
 
         {showFilters && (
-          <div className="flex flex-wrap gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+          <div className="flex flex-wrap gap-2">
             {SORTS.map((option) => (
               <button
                 key={option.value}
@@ -214,6 +187,17 @@ export default function MarketplaceClient() {
             </button>
           ))}
         </div>
+
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/30">
+          <span className="flex items-center gap-1">
+            <ShieldCheck className="h-3 w-3" />
+            Pago retenido hasta que confirmas{config ? ` o ${config.holdDays} días` : ""}
+          </span>
+          <span aria-hidden>·</span>
+          <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> Fotos y videos al instante</span>
+          <span aria-hidden>·</span>
+          <span className="flex items-center gap-1"><Truck className="h-3 w-3" /> Envíos a todo Chile</span>
+        </p>
       </section>
 
       {/* ── Catálogo ── */}
@@ -223,14 +207,14 @@ export default function MarketplaceClient() {
         )}
 
         {loading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="aspect-[3/4] animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+              <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-white/[0.04]" />
             ))}
           </div>
         ) : products.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-10 text-center">
-            <Camera className="mx-auto mb-3 h-8 w-8 text-white/25" />
+          <div className="py-16 text-center">
+            <Camera className="mx-auto mb-3 h-8 w-8 text-white/20" />
             <p className="text-sm text-white/60">Todavía no hay artículos publicados con esos filtros.</p>
             <Link href="/marketplace/vender" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-fuchsia-300">
               Publica el primero <ArrowRight className="h-4 w-4" />
@@ -239,7 +223,7 @@ export default function MarketplaceClient() {
         ) : (
           <>
             <p className="mb-3 text-xs text-white/40">{total} artículo{total === 1 ? "" : "s"} disponibles</p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 lg:grid-cols-4">
               {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
@@ -248,60 +232,46 @@ export default function MarketplaceClient() {
         )}
       </section>
 
-      {/* ── Tiendas ── */}
+      {/* ── Tiendas ──
+         Fila que se desliza, como los destacados de cualquier tienda: ocupa
+         poco y no corta la página en dos. */}
       {sellers.length > 0 && (
         <section className="mt-10">
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-white">
-            <Sparkles className="h-5 w-5 text-fuchsia-300" /> Tiendas destacadas
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <h2 className="mb-3 text-sm font-semibold text-white/70">Tiendas con más ventas</h2>
+          <div className="-mx-3 flex gap-5 overflow-x-auto px-3 pb-2 sm:mx-0 sm:px-0">
             {sellers.map((seller) => (
               <Link
                 key={seller.id}
                 href={`/marketplace/tienda/${seller.user.username}`}
-                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:bg-white/[0.05]"
+                className="group w-20 shrink-0 text-center"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={resolveMediaUrl(seller.user.avatarUrl) || "/brand/isotipo-new.png"}
                   alt=""
-                  className="h-12 w-12 rounded-xl object-cover"
+                  className="h-20 w-20 rounded-full object-cover ring-1 ring-white/10 transition group-hover:ring-fuchsia-400/50"
                 />
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1 truncate text-sm font-semibold text-white">
-                    {seller.storeName || seller.user.displayName || seller.user.username}
-                    {seller.user.isVerified && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-sky-400" />}
-                  </p>
-                  <p className="truncate text-[11px] text-white/45">
-                    {seller.tagline || `${seller.productCount} artículo${seller.productCount === 1 ? "" : "s"}`}
-                  </p>
-                </div>
-                <ArrowRight className="h-4 w-4 shrink-0 text-white/30" />
+                <p className="mt-1.5 flex items-center justify-center gap-0.5 truncate text-[11px] text-white/70">
+                  <span className="truncate">{seller.storeName || seller.user.displayName || seller.user.username}</span>
+                  {seller.user.isVerified && <BadgeCheck className="h-3 w-3 shrink-0 text-sky-400" />}
+                </p>
+                <p className="truncate text-[10px] text-white/30">{seller.productCount} artículos</p>
               </Link>
             ))}
           </div>
         </section>
       )}
 
-      {/* ── Cómo funciona ── */}
-      <section className="mt-10 rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-8">
-        <h2 className="text-lg font-bold text-white">Cómo funciona</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          {[
-            { step: "1", title: "Eliges y pagas", text: "Compras en la plataforma con la pasarela o por transferencia. Nada de acuerdos por fuera." },
-            { step: "2", title: "Recibes tu pedido", text: "El contenido digital llega al instante y protegido; lo físico se envía o se coordina contigo." },
-            { step: "3", title: "Confirmas la entrega", text: `Marcas "recibido" y recién ahí se libera el pago a la vendedora${config ? `, o solo a los ${config.holdDays} días` : ""}.` },
-          ].map((item) => (
-            <div key={item.step} className="rounded-2xl border border-white/[0.07] bg-black/20 p-4">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-fuchsia-500/20 text-sm font-bold text-fuchsia-200">
-                {item.step}
-              </span>
-              <p className="mt-2 text-sm font-semibold text-white">{item.title}</p>
-              <p className="mt-1 text-xs leading-relaxed text-white/50">{item.text}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Nota de cierre: lo justo para explicar el resguardo del pago, en texto
+         corrido. El detalle completo vive en el centro de ayuda. */}
+      <p className="mt-10 border-t border-white/[0.07] pt-5 text-xs leading-relaxed text-white/35">
+        Pagas dentro de UZEED y el dinero queda retenido hasta que marcas el pedido como recibido
+        {config ? `, o pasados ${config.holdDays} días` : ""}. Lo digital llega al instante y protegido; lo físico se
+        envía o se coordina por el chat del pedido.{" "}
+        <Link href="/ayuda/marketplace" className="text-white/55 underline underline-offset-2 hover:text-white">
+          Cómo funciona
+        </Link>
+      </p>
     </div>
   );
 }
@@ -312,41 +282,35 @@ function ProductCard({ product }: { product: MarketProduct }) {
   return (
     <Link
       href={`/marketplace/producto/${product.id}`}
-      className="group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] transition hover:border-fuchsia-500/30 hover:bg-white/[0.05]"
+      className="group"
     >
-      <div className="relative aspect-[3/4] overflow-hidden bg-black/40">
+      <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-black/40">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={cover} alt={product.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
         ) : (
           <div className="flex h-full items-center justify-center text-3xl">{PRODUCT_TYPE_EMOJI[product.type]}</div>
         )}
-        <span className="absolute left-2 top-2 rounded-lg bg-black/70 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur">
-          {PRODUCT_TYPE_EMOJI[product.type]} {PRODUCT_TYPE_LABEL[product.type]}
-        </span>
         {product.autoDeliver && product.deliveryMethods.includes("DIGITAL") && (
-          <span className="absolute right-2 top-2 flex items-center gap-1 rounded-lg bg-emerald-500/85 px-2 py-1 text-[10px] font-bold text-white">
-            <Zap className="h-3 w-3" /> Al instante
+          <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white/85 backdrop-blur">
+            <Zap className="h-2.5 w-2.5 text-emerald-300" /> Al instante
           </span>
         )}
       </div>
 
-      <div className="p-3">
-        <p className="truncate text-sm font-semibold text-white">{product.title}</p>
-        <p className="mt-0.5 truncate text-[11px] text-white/45">
+      <div className="pt-2">
+        <p className="truncate text-sm font-medium text-white">{product.title}</p>
+        <p className="mt-0.5 truncate text-[11px] text-white/40">
           {product.seller?.storeName || product.seller?.displayName || product.seller?.username}
         </p>
-        <div className="mt-2 flex items-center justify-between">
-          <span className="text-base font-bold text-fuchsia-300">{formatClp(product.priceClp)}</span>
+        <div className="mt-1 flex items-center justify-between">
+          <span className="text-sm font-semibold text-white">{formatClp(product.priceClp)}</span>
           {product.ratingCount > 0 && (
             <span className="flex items-center gap-1 text-[11px] text-amber-300">
               <Star className="h-3 w-3 fill-amber-300" /> {product.ratingAvg?.toFixed(1)}
             </span>
           )}
         </div>
-        <p className="mt-1 truncate text-[10px] text-white/35">
-          {product.deliveryMethods.map((m) => DELIVERY_LABEL[m]).join(" · ")}
-        </p>
       </div>
     </Link>
   );
