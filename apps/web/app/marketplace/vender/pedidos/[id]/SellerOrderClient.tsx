@@ -88,10 +88,10 @@ export default function SellerOrderClient({ orderId }: { orderId: string }) {
         <ArrowLeft className="h-4 w-4" /> Mis pedidos
       </Link>
 
-      <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-5">
-        <div className="flex items-start justify-between gap-3">
+      <div>
+        <div className="flex items-start justify-between gap-3 border-b border-white/[0.07] pb-4">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold text-white">{order.productTitle}</h1>
+            <h1 className="truncate text-xl font-semibold text-white">{order.productTitle}</h1>
             <p className="text-xs text-white/40">{order.code} · {formatDate(order.createdAt)}</p>
           </div>
           <span className={`shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${status.className}`}>{status.label}</span>
@@ -105,7 +105,7 @@ export default function SellerOrderClient({ orderId }: { orderId: string }) {
         </div>
 
         {order.buyer && (
-          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+          <div className="mt-4 flex items-center gap-3 border-t border-white/[0.07] pt-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={resolveMediaUrl(order.buyer.avatarUrl) || "/brand/isotipo-new.png"} alt="" className="h-10 w-10 rounded-xl object-cover" />
             <div className="min-w-0">
@@ -116,7 +116,7 @@ export default function SellerOrderClient({ orderId }: { orderId: string }) {
         )}
 
         {order.deliveryMethod === "SHIPPING" && order.shipAddress && (
-          <div className="mt-4 rounded-2xl border border-sky-500/20 bg-sky-500/[0.06] p-3 text-sm text-sky-100/85">
+          <div className="mt-4 rounded-xl border border-sky-500/20 bg-sky-500/[0.07] p-3 text-sm text-sky-100/85">
             <p className="flex items-center gap-1.5 font-semibold text-sky-100"><Truck className="h-4 w-4" /> Dónde entregar</p>
             <p className="mt-1">{order.shipName} · {order.shipPhone}</p>
             <p>{order.shipAddress}{order.shipCity ? `, ${order.shipCity}` : ""}</p>
@@ -125,7 +125,7 @@ export default function SellerOrderClient({ orderId }: { orderId: string }) {
         )}
 
         {order.deliveryMethod === "MEET" && (
-          <p className="mt-4 flex items-start gap-2 rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/[0.06] p-3 text-sm text-fuchsia-100/85">
+          <p className="mt-4 flex items-start gap-2 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.07] p-3 text-sm text-fuchsia-100/85">
             <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
             Entrega acordada: ponte de acuerdo con la clienta por el chat de abajo.
           </p>
@@ -166,8 +166,8 @@ export default function SellerOrderClient({ orderId }: { orderId: string }) {
         )}
       </div>
 
-      <section className="mt-4 rounded-3xl border border-white/10 bg-white/[0.02] p-5">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
+      <section className="mt-8 border-t border-white/[0.07] pt-6">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/70">
           <MessageCircle className="h-4 w-4 text-fuchsia-300" /> Chat con la clienta
         </h2>
         <div className="max-h-80 space-y-2 overflow-y-auto">

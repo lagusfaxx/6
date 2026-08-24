@@ -32,23 +32,23 @@ export default function PurchasesPage() {
         <ArrowLeft className="h-4 w-4" /> Marketplace
       </Link>
 
-      <h1 className="flex items-center gap-2 text-2xl font-bold text-white">
-        <PackageOpen className="h-6 w-6 text-fuchsia-300" /> Mis compras
-      </h1>
-      <p className="mt-1 text-sm text-white/50">
-        Aquí ves tu contenido, coordinas las entregas y confirmas la recepción para liberar el pago.
-      </p>
+      <header className="border-b border-white/[0.07] pb-4">
+        <h1 className="text-xl font-semibold text-white sm:text-2xl">Mis compras</h1>
+        <p className="mt-1 text-sm text-white/45">
+          Tu contenido, las entregas por coordinar y los pagos por confirmar.
+        </p>
+      </header>
 
       {error && <p className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</p>}
 
-      <div className="mt-6 space-y-3">
+      <div className="mt-2 divide-y divide-white/[0.06]">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+            <div key={i} className="my-3 h-20 animate-pulse rounded-xl bg-white/[0.04]" />
           ))
         ) : orders.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-10 text-center">
-            <ShoppingBag className="mx-auto mb-3 h-8 w-8 text-white/25" />
+          <div className="py-16 text-center">
+            <ShoppingBag className="mx-auto mb-3 h-8 w-8 text-white/20" />
             <p className="text-sm text-white/60">Todavía no compraste nada en el marketplace.</p>
             <Link href="/marketplace" className="mt-4 inline-block text-sm font-semibold text-fuchsia-300">Ver artículos</Link>
           </div>
@@ -60,7 +60,7 @@ export default function PurchasesPage() {
               <Link
                 key={order.id}
                 href={`/marketplace/compras/${order.id}`}
-                className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:bg-white/[0.05]"
+                className="flex gap-3 py-3 transition hover:bg-white/[0.02]"
               >
                 <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-black/40">
                   {cover ? (

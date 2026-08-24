@@ -162,10 +162,10 @@ export default function PurchaseDetailClient({ orderId }: { orderId: string }) {
         <ArrowLeft className="h-4 w-4" /> Mis compras
       </Link>
 
-      <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-5">
-        <div className="flex items-start justify-between gap-3">
+      <div>
+        <div className="flex items-start justify-between gap-3 border-b border-white/[0.07] pb-4">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold text-white">{order.productTitle}</h1>
+            <h1 className="truncate text-xl font-semibold text-white">{order.productTitle}</h1>
             <p className="mt-0.5 text-xs text-white/40">{order.code} · {formatDate(order.createdAt)}</p>
           </div>
           <span className={`shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${status.className}`}>{status.label}</span>
@@ -196,7 +196,7 @@ export default function PurchaseDetailClient({ orderId }: { orderId: string }) {
         {order.seller && (
           <Link
             href={`/marketplace/tienda/${order.seller.username}`}
-            className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3"
+            className="mt-4 flex items-center gap-3 border-t border-white/[0.07] pt-4 transition hover:opacity-80"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={resolveMediaUrl(order.seller.avatarUrl) || "/brand/isotipo-new.png"} alt="" className="h-10 w-10 rounded-xl object-cover" />
@@ -210,8 +210,8 @@ export default function PurchaseDetailClient({ orderId }: { orderId: string }) {
 
       {/* ── Pago pendiente ── */}
       {["PENDING_PAYMENT", "PAYMENT_REVIEW"].includes(order.status) && (
-        <section className="mt-4 rounded-3xl border border-amber-500/25 bg-amber-500/[0.06] p-5">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-amber-100">
+        <section className="mt-8 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-100">
             <Clock className="h-4 w-4" />
             {order.status === "PAYMENT_REVIEW" ? "Estamos validando tu transferencia" : "Falta completar el pago"}
           </h2>
@@ -268,8 +268,8 @@ export default function PurchaseDetailClient({ orderId }: { orderId: string }) {
 
       {/* ── Contenido comprado ── */}
       {assets.length > 0 && (
-        <section className="mt-4 rounded-3xl border border-white/10 bg-white/[0.02] p-5">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
+        <section className="mt-8">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/70">
             <ShieldCheck className="h-4 w-4 text-emerald-300" /> Tu contenido
           </h2>
           <ProtectedGallery assets={assets} watermark={watermark} onRefreshUrls={refreshAssets} />
@@ -278,8 +278,8 @@ export default function PurchaseDetailClient({ orderId }: { orderId: string }) {
 
       {/* ── Confirmar recepción ── */}
       {canConfirm && (
-        <section className="mt-4 rounded-3xl border border-emerald-500/25 bg-emerald-500/[0.06] p-5">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-emerald-100">
+        <section className="mt-8 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] p-4">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-emerald-100">
             <CheckCircle2 className="h-4 w-4" /> Confirmar recepción
           </h2>
           <p className="mt-1 text-xs text-emerald-100/70">
@@ -301,8 +301,8 @@ export default function PurchaseDetailClient({ orderId }: { orderId: string }) {
       {order.status === "COMPLETED" && !data.review && <ReviewBox orderId={order.id} onDone={load} />}
 
       {/* ── Chat del pedido ── */}
-      <section className="mt-4 rounded-3xl border border-white/10 bg-white/[0.02] p-5">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
+      <section className="mt-8 border-t border-white/[0.07] pt-6">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/70">
           <MessageCircle className="h-4 w-4 text-fuchsia-300" /> Chat del pedido
         </h2>
         {order.deliveryMethod === "MEET" && (
@@ -370,8 +370,8 @@ function ReviewBox({ orderId, onDone }: { orderId: string; onDone: () => void })
   };
 
   return (
-    <section className="mt-4 rounded-3xl border border-white/10 bg-white/[0.02] p-5">
-      <h2 className="text-sm font-bold text-white">¿Cómo te fue?</h2>
+    <section className="mt-8 border-t border-white/[0.07] pt-6">
+      <h2 className="text-sm font-semibold text-white/70">¿Cómo te fue?</h2>
       <div className="mt-2 flex gap-1">
         {Array.from({ length: 5 }).map((_, i) => (
           <button key={i} type="button" onClick={() => setRating(i + 1)} aria-label={`${i + 1} estrellas`}>

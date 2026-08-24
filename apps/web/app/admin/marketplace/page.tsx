@@ -10,6 +10,7 @@ import {
 
 import { apiFetch, friendlyErrorMessage, resolveMediaUrl } from "../../../lib/api";
 import ProtectedGallery from "../../../components/marketplace/ProtectedGallery";
+import { StatRow } from "../../../components/marketplace/ui";
 import {
   ORDER_STATUS_UI, DELIVERY_LABEL, formatClp, formatDate,
   type MarketOrderAsset, type MarketOrderStatus,
@@ -111,27 +112,22 @@ export default function AdminMarketplacePage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-4 sm:py-8">
-      <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/15">
-          <ShoppingBag className="h-5 w-5 text-fuchsia-300" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-white">Marketplace</h1>
-          <p className="text-xs text-white/40">Pedidos, comisiones, envíos y contenido vendido</p>
-        </div>
-      </div>
+      <header className="border-b border-white/[0.07] pb-4">
+        <h1 className="text-xl font-semibold text-white sm:text-2xl">Marketplace</h1>
+        <p className="mt-1 text-sm text-white/45">Pedidos, comisiones, envíos y contenido vendido</p>
+      </header>
 
-      <nav className="mt-5 flex gap-2 overflow-x-auto pb-1">
+      <nav className="-mb-px mt-5 flex gap-5 overflow-x-auto border-b border-white/[0.07]">
         {TABS.map((item) => (
           <button
             key={item.key}
             type="button"
             onClick={() => setTab(item.key)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition ${
-              tab === item.key ? "bg-fuchsia-500/20 text-fuchsia-200" : "bg-white/[0.04] text-white/55 hover:bg-white/[0.08]"
+            className={`shrink-0 border-b-2 pb-2.5 text-sm transition ${
+              tab === item.key ? "border-fuchsia-400 text-white" : "border-transparent text-white/45 hover:text-white/75"
             }`}
           >
-            <item.icon className="h-3.5 w-3.5" /> {item.label}
+            {item.label}
           </button>
         ))}
       </nav>
@@ -159,28 +155,32 @@ function OverviewTab({ overview }: { overview: Overview | null }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric icon={DollarSign} label="Vendido (bruto)" value={formatClp(metrics.grossClp)} accent="fuchsia" />
-        <Metric icon={Percent} label="Comisión UZEED" value={formatClp(metrics.commissionClp)} accent="emerald" />
-        <Metric icon={Clock} label="Retenido" value={formatClp(metrics.heldClp)} accent="amber" />
-        <Metric icon={Package} label="Pedidos pagados" value={String(metrics.paidOrders)} accent="violet" />
-      </div>
+      <StatRow
+        items={[
+          { label: "Vendido (bruto)", value: formatClp(metrics.grossClp) },
+          { label: "Comisión UZEED", value: formatClp(metrics.commissionClp), accent: "positive" },
+          { label: "Retenido", value: formatClp(metrics.heldClp) },
+          { label: "Pedidos pagados", value: String(metrics.paidOrders) },
+        ]}
+      />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Metric icon={Users} label="Tiendas" value={String(metrics.sellers)} accent="violet" />
-        <Metric icon={ShoppingBag} label="Artículos activos" value={String(metrics.products)} accent="fuchsia" />
-        <Metric icon={Banknote} label="Retiros pendientes" value={String(metrics.pendingWithdrawals)} accent="amber" />
-      </div>
+      <StatRow
+        items={[
+          { label: "Tiendas", value: String(metrics.sellers) },
+          { label: "Artículos activos", value: String(metrics.products) },
+          { label: "Retiros pendientes", value: String(metrics.pendingWithdrawals), accent: metrics.pendingWithdrawals ? undefined : "muted" },
+        ]}
+      />
 
       {metrics.pendingTransfers > 0 && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.07] p-4 text-sm text-amber-100">
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4 text-sm text-amber-100">
           Hay {metrics.pendingTransfers} transferencia(s) esperando validación en la pestaña Pedidos.
         </div>
       )}
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <h2 className="text-sm font-bold text-white">Pedidos por estado</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
+      <div>
+        <h2 className="text-sm font-semibold text-white/70">Pedidos por estado</h2>
+        <div className="mt-2 flex flex-wrap gap-2">
           {Object.entries(metrics.byStatus).map(([status, count]) => (
             <span key={status} className={`rounded-lg border px-2.5 py-1 text-[11px] ${ORDER_STATUS_UI[status as MarketOrderStatus]?.className || "border-white/10 text-white/60"}`}>
               {ORDER_STATUS_UI[status as MarketOrderStatus]?.label || status}: {count}
@@ -251,12 +251,12 @@ function OrdersTab({
       {loading ? (
         <p className="text-sm text-white/45">Cargando pedidos...</p>
       ) : orders.length === 0 ? (
-        <p className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-white/50">Sin pedidos en este estado.</p>
+        <p className="py-14 text-center text-sm text-white/45">Sin pedidos en este estado.</p>
       ) : (
         orders.map((order) => {
           const ui = ORDER_STATUS_UI[order.status];
           return (
-            <div key={order.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+            <div key={order.id} className="border-b border-white/[0.06] py-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-white">{order.productTitle}</p>
@@ -462,8 +462,8 @@ function ShippingTab({ onError, onNotice }: { onError: (v: string | null) => voi
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <h2 className="text-sm font-bold text-white">Agregar región</h2>
+      <div>
+        <h2 className="text-sm font-semibold text-white/70">Agregar región</h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-4">
           <input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="Región" className={inputClass} />
           <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Precio CLP" type="number" className={inputClass} />
@@ -476,7 +476,7 @@ function ShippingTab({ onError, onNotice }: { onError: (v: string | null) => voi
 
       <div className="space-y-2">
         {rates.map((rate) => (
-          <div key={rate.id} className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+          <div key={rate.id} className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] py-3">
             <span className="min-w-[140px] flex-1 text-sm text-white">{rate.region}</span>
             <input
               type="number"
@@ -565,10 +565,10 @@ function WithdrawalsTab({
       </div>
 
       {withdrawals.length === 0 ? (
-        <p className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-white/50">Sin retiros en este estado.</p>
+        <p className="py-14 text-center text-sm text-white/45">Sin retiros en este estado.</p>
       ) : (
         withdrawals.map((withdrawal) => (
-          <div key={withdrawal.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+          <div key={withdrawal.id} className="border-b border-white/[0.06] py-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-white">{formatClp(withdrawal.amountClp)}</p>
@@ -646,7 +646,7 @@ function SellersTab({ onError, onNotice }: { onError: (v: string | null) => void
   return (
     <div className="space-y-2">
       {sellers.map((seller) => (
-        <div key={seller.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+        <div key={seller.id} className="flex items-center gap-3 border-b border-white/[0.06] py-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={resolveMediaUrl(seller.user?.avatarUrl) || "/brand/isotipo-new.png"} alt="" className="h-10 w-10 rounded-xl object-cover" />
           <div className="min-w-0 flex-1">
@@ -697,8 +697,8 @@ function SettingsTab({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <h2 className="text-sm font-bold text-white">Reglas del marketplace</h2>
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-white/70">Reglas del marketplace</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <NumberField label="Comisión UZEED (%)" value={form.commissionPercent} onChange={(v) => update({ commissionPercent: v })} />
           <NumberField label="Días de retención del pago" value={form.holdDays} onChange={(v) => update({ holdDays: v })} />
@@ -712,8 +712,8 @@ function SettingsTab({
         </div>
       </div>
 
-      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <h2 className="text-sm font-bold text-white">Datos de transferencia de UZEED</h2>
+      <div className="space-y-3 border-t border-white/[0.07] pt-6">
+        <h2 className="text-sm font-semibold text-white/70">Datos de transferencia de UZEED</h2>
         <p className="text-xs text-white/45">Son los datos que ve la clienta cuando elige pagar por transferencia.</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField label="Banco" value={form.bankName} onChange={(v) => update({ bankName: v })} />

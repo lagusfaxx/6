@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import useMe from "../../../hooks/useMe";
+import { StatRow } from "../../../components/marketplace/ui";
 import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import {
   DELIVERY_LABEL, ORDER_STATUS_UI, PRODUCT_TYPE_LABEL, formatClp, formatDate,
@@ -143,40 +144,44 @@ export default function SellerDashboardClient() {
         <ArrowLeft className="h-4 w-4" /> Marketplace
       </Link>
 
-      <header className="rounded-3xl border border-white/10 bg-gradient-to-br from-fuchsia-600/15 via-violet-600/10 to-transparent p-5">
-        <div className="flex items-center gap-3">
+      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-b border-white/[0.07] pb-4">
+        <div className="flex min-w-0 items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={resolveMediaUrl(me.user.avatarUrl) || "/brand/isotipo-new.png"} alt="" className="h-12 w-12 rounded-2xl object-cover" />
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold text-white">{seller.storeName || me.user.displayName || me.user.username}</h1>
-            <p className="truncate text-xs text-white/45">{seller.tagline || "Tu tienda en el marketplace de UZEED"}</p>
+          <img src={resolveMediaUrl(me.user.avatarUrl) || "/brand/isotipo-new.png"} alt="" className="h-11 w-11 rounded-xl object-cover" />
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold text-white sm:text-2xl">
+              {seller.storeName || me.user.displayName || me.user.username}
+            </h1>
+            <p className="truncate text-sm text-white/45">{seller.tagline || "Tu tienda en el marketplace"}</p>
           </div>
-          <Link
-            href={`/marketplace/tienda/${me.user.username}`}
-            className="hidden shrink-0 rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2 text-xs font-semibold text-white sm:block"
-          >
-            Ver mi vitrina
-          </Link>
         </div>
-
-        {seller.isBanned && (
-          <p className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">
-            Tu tienda está suspendida. Escríbenos para revisarlo.
-          </p>
-        )}
+        <Link
+          href={`/marketplace/tienda/${me.user.username}`}
+          className="rounded-lg px-3 py-2 text-sm text-white/55 transition hover:bg-white/[0.06] hover:text-white"
+        >
+          Ver mi vitrina
+        </Link>
       </header>
 
-      <nav className="mt-4 flex gap-2 overflow-x-auto pb-1">
+      {seller.isBanned && (
+        <p className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">
+          Tu tienda está suspendida. Escríbenos para revisarlo.
+        </p>
+      )}
+
+      <nav className="-mb-px mt-5 flex gap-5 overflow-x-auto border-b border-white/[0.07]">
         {TABS.map((item) => (
           <button
             key={item.key}
             type="button"
             onClick={() => setTab(item.key)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition ${
-              tab === item.key ? "bg-fuchsia-500/20 text-fuchsia-200" : "bg-white/[0.04] text-white/55 hover:bg-white/[0.08]"
+            className={`shrink-0 border-b-2 pb-2.5 text-sm transition ${
+              tab === item.key
+                ? "border-fuchsia-400 text-white"
+                : "border-transparent text-white/45 hover:text-white/75"
             }`}
           >
-            <item.icon className="h-3.5 w-3.5" /> {item.label}
+            {item.label}
           </button>
         ))}
       </nav>
@@ -246,14 +251,11 @@ function Onboarding({ state, onDone }: { state: SellerState; onDone: () => void 
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-10">
-      <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-fuchsia-600/15 to-transparent p-6">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-fuchsia-200">
-          <Store className="h-3.5 w-3.5" /> Abrir mi tienda
-        </span>
-        <h1 className="mt-3 text-2xl font-bold text-white">Vende lo tuyo, cobra seguro</h1>
-        <p className="mt-2 text-sm text-white/60">
-          Publica packs de fotos, videos, ropa o lo que quieras ofrecer. Tus clientes pagan dentro de UZEED y el contenido
-          digital se entrega solo, al instante.
+      <div>
+        <h1 className="text-2xl font-semibold text-white">Abre tu tienda</h1>
+        <p className="mt-2 text-sm text-white/50">
+          Publica packs de fotos, videos, ropa o lo que quieras ofrecer. Te pagan dentro de UZEED y el contenido digital
+          se entrega solo.
         </p>
 
         <ul className="mt-4 space-y-2 text-sm text-white/65">
@@ -303,17 +305,19 @@ function Overview({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard icon={Wallet} label="Disponible" value={formatClp(earnings?.balance.availableClp)} accent="emerald" />
-        <StatCard icon={Clock} label="Retenido" value={formatClp(earnings?.balance.heldClp)} accent="amber" />
-        <StatCard icon={TrendingUp} label="Ventas" value={String(seller.totalSales)} accent="fuchsia" />
-      </div>
+      <StatRow
+        items={[
+          { label: "Disponible", value: formatClp(earnings?.balance.availableClp), accent: "positive" },
+          { label: "Retenido", value: formatClp(earnings?.balance.heldClp), hint: `se libera a los ${state.holdDays} días` },
+          { label: "Ventas", value: String(seller.totalSales) },
+        ]}
+      />
 
       {bankMissing && (
         <button
           type="button"
           onClick={() => onGo("config")}
-          className="flex w-full items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/[0.07] p-4 text-left"
+          className="flex w-full items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4 text-left"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
           <div>
@@ -324,14 +328,14 @@ function Overview({
       )}
 
       {pending.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-white">Pedidos por atender</h2>
-            <button type="button" onClick={() => onGo("pedidos")} className="text-xs font-semibold text-fuchsia-300">Ver todos</button>
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white/70">Pedidos por atender</h2>
+            <button type="button" onClick={() => onGo("pedidos")} className="text-xs text-fuchsia-300">Ver todos</button>
           </div>
-          <div className="mt-3 space-y-2">
+          <div className="divide-y divide-white/[0.06]">
             {pending.slice(0, 3).map((order) => (
-              <div key={order.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.03] p-3">
+              <div key={order.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm text-white">{order.productTitle}</p>
                   <p className="text-[11px] text-white/40">{order.code} · {DELIVERY_LABEL[order.deliveryMethod]}</p>
@@ -343,10 +347,10 @@ function Overview({
         </div>
       )}
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+      <div className="border-t border-white/[0.07] pt-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-white">Tus artículos</h2>
-          <button type="button" onClick={() => onGo("productos")} className="text-xs font-semibold text-fuchsia-300">Administrar</button>
+          <h2 className="text-sm font-semibold text-white/70">Tus artículos</h2>
+          <button type="button" onClick={() => onGo("productos")} className="text-xs text-fuchsia-300">Administrar</button>
         </div>
         <p className="mt-1 text-xs text-white/45">
           {products.length === 0
@@ -355,14 +359,11 @@ function Overview({
         </p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <h2 className="text-sm font-bold text-white">Cómo cobras</h2>
-        <ul className="mt-2 space-y-1.5 text-xs text-white/55">
-          <li>• UZEED cobra {state.commissionPercent}% de comisión por venta; el envío se te paga íntegro.</li>
-          <li>• El dinero queda retenido hasta que la clienta confirma o pasan {state.holdDays} días.</li>
-          <li>• Cuando se libera, lo pides a retiro y lo transferimos a tu cuenta.</li>
-        </ul>
-      </div>
+      <p className="border-t border-white/[0.07] pt-5 text-xs leading-relaxed text-white/35">
+        UZEED cobra {state.commissionPercent}% de comisión por venta y el envío se te paga íntegro. El dinero queda
+        retenido hasta que la clienta confirma o pasan {state.holdDays} días; cuando se libera lo pides a retiro y lo
+        transferimos a tu cuenta.
+      </p>
     </div>
   );
 }
@@ -403,9 +404,7 @@ function ProductsTab({
       )}
 
       {products.length === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-white/50">
-          Todavía no publicaste artículos.
-        </div>
+        <p className="py-14 text-center text-sm text-white/45">Todavía no publicaste artículos.</p>
       ) : (
         products.map((product) => (
           <ProductRow
@@ -633,8 +632,8 @@ function ProductRow({
   const needsAssets = product.deliveryMethods.includes("DIGITAL") && (product.assetCount ?? 0) === 0;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02]">
-      <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 p-3 text-left">
+    <div className="border-b border-white/[0.06]">
+      <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 py-3 text-left">
         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-black/40">
           {product.coverUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -657,7 +656,7 @@ function ProductRow({
       </button>
 
       {expanded && (
-        <div className="space-y-3 border-t border-white/[0.06] p-3">
+        <div className="space-y-3 pb-4">
           <div className="grid gap-2 sm:grid-cols-2">
             <input ref={previewRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { if (e.target.files?.length) uploadFiles(e.target.files, "media"); e.target.value = ""; }} />
             <button
@@ -729,15 +728,15 @@ function OrdersTab({
   };
 
   if (orders.length === 0) {
-    return <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-white/50">Todavía no tienes ventas.</div>;
+    return <p className="py-14 text-center text-sm text-white/45">Todavía no tienes ventas.</p>;
   }
 
   return (
-    <div className="space-y-3">
+    <div>
       {orders.map((order) => {
         const status = ORDER_STATUS_UI[order.status];
         return (
-          <div key={order.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+          <div key={order.id} className="border-b border-white/[0.06] py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white">{order.productTitle}</p>
@@ -856,15 +855,17 @@ function EarningsTab({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <StatCard icon={Wallet} label="Disponible para retirar" value={formatClp(earnings.balance.availableClp)} accent="emerald" />
-        <StatCard icon={Clock} label={`Retenido (${earnings.holdDays} días)`} value={formatClp(earnings.balance.heldClp)} accent="amber" />
-        <StatCard icon={TrendingUp} label="Total liberado" value={formatClp(earnings.balance.releasedClp)} accent="fuchsia" />
-        <StatCard icon={Banknote} label="Ya retirado" value={formatClp(earnings.balance.withdrawnClp)} accent="violet" />
-      </div>
+      <StatRow
+        items={[
+          { label: "Disponible para retirar", value: formatClp(earnings.balance.availableClp), accent: "positive" },
+          { label: `Retenido (${earnings.holdDays} días)`, value: formatClp(earnings.balance.heldClp) },
+          { label: "Total liberado", value: formatClp(earnings.balance.releasedClp) },
+          { label: "Ya retirado", value: formatClp(earnings.balance.withdrawnClp), accent: "muted" },
+        ]}
+      />
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <h2 className="text-sm font-bold text-white">Solicitar retiro</h2>
+      <div>
+        <h2 className="text-sm font-semibold text-white/70">Solicitar retiro</h2>
         {!bankReady ? (
           <p className="mt-2 text-xs text-amber-200">Carga tus datos bancarios en "Mi tienda" para poder retirar.</p>
         ) : (
@@ -895,7 +896,7 @@ function EarningsTab({
         {earnings.withdrawals.length > 0 && (
           <div className="mt-4 space-y-1.5">
             {earnings.withdrawals.map((withdrawal) => (
-              <div key={withdrawal.id} className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2 text-xs">
+              <div key={withdrawal.id} className="flex items-center justify-between border-t border-white/[0.06] py-2 text-xs">
                 <span className="text-white/60">{formatDate(withdrawal.createdAt)}</span>
                 <span className="text-white">{formatClp(withdrawal.amountClp)}</span>
                 <span className="text-white/45">{withdrawal.status}</span>
@@ -905,14 +906,14 @@ function EarningsTab({
         )}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <h2 className="text-sm font-bold text-white">Movimientos</h2>
-        <div className="mt-3 space-y-1.5">
+      <div className="border-t border-white/[0.07] pt-5">
+        <h2 className="text-sm font-semibold text-white/70">Movimientos</h2>
+        <div className="mt-1 divide-y divide-white/[0.06]">
           {earnings.ledger.length === 0 ? (
             <p className="text-xs text-white/40">Todavía no hay movimientos.</p>
           ) : (
             earnings.ledger.map((entry) => (
-              <div key={entry.id} className="flex items-center justify-between gap-3 rounded-lg bg-white/[0.03] px-3 py-2">
+              <div key={entry.id} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-xs text-white">{entry.description || entry.type}</p>
                   <p className="text-[10px] text-white/35">{formatDate(entry.createdAt)}</p>
@@ -991,8 +992,8 @@ function SettingsTab({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Store className="h-4 w-4 text-fuchsia-300" /> Mi tienda</h2>
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-white/70">Mi tienda</h2>
         <Input label="Nombre de la tienda" value={storeName} onChange={setStoreName} />
         <Input label="Frase corta" value={tagline} onChange={setTagline} />
         <TextArea label="Descripción" value={bio} onChange={setBio} rows={3} />
@@ -1008,8 +1009,8 @@ function SettingsTab({
         </button>
       </div>
 
-      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Building2 className="h-4 w-4 text-emerald-300" /> Dónde te transferimos</h2>
+      <div className="space-y-3 border-t border-white/[0.07] pt-6">
+        <h2 className="text-sm font-semibold text-white/70">Dónde te transferimos</h2>
         <p className="text-xs text-white/45">Estos datos los usa administración para pagarte lo que retires. No se muestran a los clientes.</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label="Banco" value={bankName} onChange={setBankName} />
