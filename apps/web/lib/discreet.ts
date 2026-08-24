@@ -60,7 +60,7 @@ export const DISCREET_LABELS: Record<string, string> = {
   "/masajistas": "Bienestar",
   "/moteles": "Alojamiento",
   "/sexshop": "Tienda",
-  "/videocall": "Videollamadas",
+  "/marketplace": "Tienda personal",
   "/premium": "Destacados",
   "/cerca": "Cerca",
   "/services": "Todo",

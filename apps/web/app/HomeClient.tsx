@@ -38,7 +38,6 @@ import {
   ShoppingBag,
   Sparkles,
   Users,
-  Video,
   X,
   Zap,
 } from "lucide-react";
@@ -58,7 +57,7 @@ const CATEGORY_ALIASES: Array<{ keywords: string[]; href: string }> = [
   { keywords: ["masajista", "masajistas", "masaje", "masajes"], href: "/masajistas" },
   { keywords: ["motel", "moteles"], href: "/moteles" },
   { keywords: ["sexshop", "sex shop", "sexo shop", "juguete", "juguetes"], href: "/sexshop" },
-  { keywords: ["videollamada", "videollamadas", "video llamada", "videocall", "cam"], href: "/videocall" },
+  { keywords: ["marketplace", "market", "tienda", "packs", "pack de fotos", "comprar"], href: "/marketplace" },
   { keywords: ["premium", "gold", "platino", "diamante", "diamond"], href: "/premium" },
   { keywords: ["live", "lives", "en vivo"], href: "https://live.uzeed.cl/south-american-cams/female/" },
   { keywords: ["foro", "comunidad"], href: "/foro" },
@@ -281,81 +280,25 @@ function InstallAppButton({ compact = false }: { compact?: boolean }) {
   );
 }
 
-/* ── Animated Hero Counters ── */
+/* ── Marketplace CTA Banner ── */
 
-function useAnimatedCounter(target: number, duration: number, start: boolean) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    if (!start || target <= 0) return;
-    let raf: number;
-    const startTime = performance.now();
-    const tick = (now: number) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      // ease-out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Math.round(eased * target));
-      if (progress < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, duration, start]);
-  return value;
-}
-
-/* ── Shared platform stats cache — avoids duplicate /stats/platform fetches ── */
-let _platformStatsPromise: Promise<any> | null = null;
-function getPlatformStats() {
-  if (!_platformStatsPromise) {
-    _platformStatsPromise = apiFetch<{ professionals: number; services: number; videocallProfessionals: number; whatsappClicks: number }>("/stats/platform")
-      .catch((err) => {
-        _platformStatsPromise = null;
-        throw err;
-      });
-  }
-  return _platformStatsPromise;
-}
-
-/* ── Videollamadas CTA Banner ── */
-
-function VideollamadasBanner() {
-  const [count, setCount] = useState(0);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    getPlatformStats()
-      .then((res: any) => {
-        setCount(res.videocallProfessionals ?? 0);
-        setLoaded(true);
-      })
-      .catch((err: any) => {
-        console.warn("[VideollamadasBanner] failed to load stats", err);
-        setLoaded(true);
-      });
-  }, []);
-
-  const animatedCount = useAnimatedCounter(count, 1500, loaded && count > 0);
-
+function MarketplaceBanner() {
   return (
     <section className="mb-8">
       <Link
-        href="/videocall"
-        className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-indigo-400/25 bg-gradient-to-r from-indigo-600/20 via-blue-600/15 to-violet-600/10 px-5 py-4 backdrop-blur-sm transition-all hover:border-indigo-400/40 hover:shadow-[0_8px_32px_rgba(99,102,241,0.18)]"
+        href="/marketplace"
+        className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-fuchsia-400/25 bg-gradient-to-r from-fuchsia-600/20 via-violet-600/15 to-blue-600/10 px-5 py-4 backdrop-blur-sm transition-all hover:border-fuchsia-400/40 hover:shadow-[0_8px_32px_rgba(217,70,239,0.18)]"
       >
         {/* subtle inner glow */}
-        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/[0.07] to-transparent" />
+        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-fuchsia-500/[0.07] to-transparent" />
 
-        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
-          <Video className="h-6 w-6 text-white" />
+        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-violet-600 shadow-lg shadow-fuchsia-500/30">
+          <ShoppingBag className="h-6 w-6 text-white" />
         </div>
-        <div className="relative flex-1 min-w-0">
-          <h3 className="text-sm font-bold text-white">Videollamadas privadas</h3>
-          {loaded && count > 0 && (
-            <p className="mt-0.5 text-xs font-medium text-indigo-300/90">
-              {animatedCount} profesionales las ofrecen
-            </p>
-          )}
-          <p className="mt-0.5 text-xs text-white/45">Sin salir de casa y sin entregar tu número.</p>
+        <div className="relative min-w-0 flex-1">
+          <h3 className="text-sm font-bold text-white">Marketplace</h3>
+          <p className="mt-0.5 text-xs font-medium text-fuchsia-300/90">Packs de fotos, videos y artículos personales</p>
+          <p className="mt-0.5 text-xs text-white/45">Pago protegido y entrega dentro de UZEED.</p>
         </div>
         <ChevronRight className="relative h-5 w-5 shrink-0 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-white/60" />
       </Link>
@@ -722,7 +665,7 @@ export default function HomeClient() {
               { label: "Masajistas", href: "/masajistas", icon: Hand },
               { label: "Moteles", href: "/moteles", icon: Hotel },
               { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag },
-              { label: "Videollamadas", href: "/videocall", icon: Video },
+              { label: "Marketplace", href: "/marketplace", icon: ShoppingBag },
             ].map((c) => (
               <Link
                 key={c.href}
@@ -891,7 +834,7 @@ export default function HomeClient() {
         <LiveCamsSection />
 
         {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
-        <VideollamadasBanner />
+        <MarketplaceBanner />
 
         {/* ═══ CREADORAS U-MATE ═══ */}
         {umateCreators.length > 0 && (

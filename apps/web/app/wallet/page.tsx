@@ -8,7 +8,7 @@ import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import {
   Wallet, Upload, ArrowDownCircle, ArrowUpCircle, History,
   Coins, CheckCircle2, Clock, Send, TrendingUp, TrendingDown,
-  CreditCard, Eye, EyeOff, Copy, ChevronRight, Video,
+  CreditCard, Eye, EyeOff, Copy, ChevronRight, ShoppingBag,
   ArrowRight, RefreshCw, AlertCircle, Shield, Banknote,
   Zap, Building2,
 } from "lucide-react";
@@ -66,7 +66,7 @@ const statusLabels: Record<string, string> = {
 const txTypeIcons: Record<string, { icon: typeof Coins; color: string }> = {
   DEPOSIT: { icon: ArrowDownCircle, color: "text-emerald-400 bg-emerald-500/15" },
   VIDEOCALL_HOLD: { icon: Clock, color: "text-amber-400 bg-amber-500/15" },
-  VIDEOCALL_RELEASE: { icon: Video, color: "text-violet-400 bg-violet-500/15" },
+  VIDEOCALL_RELEASE: { icon: CheckCircle2, color: "text-violet-400 bg-violet-500/15" },
   VIDEOCALL_REFUND: { icon: RefreshCw, color: "text-blue-400 bg-blue-500/15" },
   VIDEOCALL_COMMISSION: { icon: Shield, color: "text-fuchsia-400 bg-fuchsia-500/15" },
   WITHDRAWAL: { icon: ArrowUpCircle, color: "text-orange-400 bg-orange-500/15" },
@@ -333,13 +333,13 @@ export default function WalletPage() {
             <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
               {/* Quick links */}
               <div className="grid grid-cols-2 gap-3">
-                <Link href="/videocall" className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 transition hover:bg-white/[0.06]">
+                <Link href="/marketplace" className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 transition hover:bg-white/[0.06]">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/15">
-                    <Video className="h-5 w-5 text-violet-300" />
+                    <ShoppingBag className="h-5 w-5 text-violet-300" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold">Videollamadas</p>
-                    <p className="text-[10px] text-white/30">Agendar llamada</p>
+                    <p className="text-xs font-semibold">Marketplace</p>
+                    <p className="text-[10px] text-white/30">Comprar y vender</p>
                   </div>
                 </Link>
                 <button

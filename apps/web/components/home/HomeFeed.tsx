@@ -19,7 +19,7 @@
  */
 
 import Link from "next/link";
-import { Clock, ShieldCheck, Sparkles, Star, Video } from "lucide-react";
+import { Clock, ShieldCheck, ShoppingBag, Sparkles, Star } from "lucide-react";
 import DestacadasGrid, { type DestacadaProfile } from "./DestacadasGrid";
 import InfiniteFeed from "./InfiniteFeed";
 
@@ -42,7 +42,7 @@ const FEED_FILTERS = [
   { label: "Disponible ahora", href: "/escorts?availableNow=true", icon: Sparkles },
   { label: "Nuevas", href: "/escorts?sort=new", icon: Clock },
   { label: "Con exámenes", href: "/escorts?profileTags=profesional+con+examenes", icon: ShieldCheck },
-  { label: "Videollamada", href: "/videocall", icon: Video },
+  { label: "Marketplace", href: "/marketplace", icon: ShoppingBag },
   { label: "Premium", href: "/premium", icon: Star },
 ];
 

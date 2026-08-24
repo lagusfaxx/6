@@ -20,7 +20,6 @@ import {
   Building2,
   ShoppingBag,
   PartyPopper,
-  Video,
   Radio,
   LayoutDashboard,
   Camera,
@@ -65,8 +64,8 @@ function notificationLabel(item: NotificationItem): string {
     case "BOOKING_UPDATE":              return "Actualización de reserva";
     case "REMINDER_NO_PHOTO":           return "¡Sube tu primera foto!";
     case "REMINDER_INACTIVE":           return "Te extrañamos en UZEED";
-    case "REMINDER_VIDEOCALL_CONFIG":   return "Configura tus videollamadas";
-    case "VIDEOCALL_BOOKED":            return "Nueva videollamada agendada";
+    case "REMINDER_VIDEOCALL_CONFIG":   return "Configura tu tienda del marketplace";
+    case "VIDEOCALL_BOOKED":            return "Nueva venta en el marketplace";
     case "SERVICE_REQUEST_NEW":         return "Nueva solicitud de encuentro";
     default:                            return "Nueva notificación";
   }
@@ -92,8 +91,8 @@ function notificationUrl(item: NotificationItem): string | null {
     case "BOOKING_UPDATE":              return "/dashboard/motel";
     case "REMINDER_NO_PHOTO":           return "/dashboard/services";
     case "REMINDER_INACTIVE":           return "/";
-    case "REMINDER_VIDEOCALL_CONFIG":   return "/videocall";
-    case "VIDEOCALL_BOOKED":            return "/videocall";
+    case "REMINDER_VIDEOCALL_CONFIG":   return "/marketplace/vender";
+    case "VIDEOCALL_BOOKED":            return "/marketplace/vender?tab=pedidos";
     case "SERVICE_REQUEST_NEW":         return "/dashboard/services";
     default:                            return null;
   }
@@ -112,7 +111,7 @@ const MEGA_MENU = [
   { label: "Moteles", route: "/moteles", icon: Building2 },
   { label: "Sex Shop", route: "/sexshop", icon: ShoppingBag },
   { label: "Despedidas", route: "/escorts?serviceTags=despedidas", icon: PartyPopper },
-  { label: "Videollamadas", route: "/videocall", icon: Video },
+  { label: "Marketplace", route: "/marketplace", icon: ShoppingBag },
   { label: "Premium", route: "/premium", icon: Crown },
 ] as const;
 

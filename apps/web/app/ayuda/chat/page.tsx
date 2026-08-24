@@ -92,7 +92,7 @@ export default function AyudaChatPage() {
 
       <RelatedLinks
         links={[
-          { href: "/ayuda/videollamadas", label: "Videollamadas" },
+          { href: "/ayuda/marketplace", label: "Marketplace" },
           { href: "/ayuda/seguridad", label: "Seguridad" },
           { href: "/ayuda/servicios", label: "Servicios" },
           { href: "/ayuda/cuenta", label: "Cuenta y perfil" },

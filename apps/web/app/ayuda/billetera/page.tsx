@@ -125,7 +125,7 @@ export default function AyudaBilleteraPage() {
       <RelatedLinks
         links={[
           { href: "/ayuda/tokens", label: "Cómo funcionan los tokens" },
-          { href: "/ayuda/videollamadas", label: "Pagar una videollamada" },
+          { href: "/ayuda/marketplace", label: "Comprar en el marketplace" },
           { href: "/ayuda/tiers", label: "Tiers y planes" },
           { href: "/ayuda/seguridad", label: "Seguridad" },
         ]}

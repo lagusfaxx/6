@@ -17,6 +17,7 @@ import { sendInAppAndPush } from "./lib/sendReminder";
 import { randomBytes } from "crypto";
 import { calculateReferralPayout } from "./referral/payout";
 import { validatePendingRedemptions } from "./referral/redeem";
+import { releaseExpiredHolds } from "./market/orders";
 
 function cryptoSuffix(len: number): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -656,6 +657,15 @@ async function tickReferralCycles() {
   }
 }
 
+/* ─── Marketplace: liberar pagos retenidos vencidos ─── */
+/* Si la clienta nunca marca "recibido", la vendedora igual cobra pasados los
+   días de retención configurados en el panel. */
+
+async function tickMarketAutoRelease() {
+  const released = await releaseExpiredHolds();
+  if (released > 0) console.log(`[worker/market] ${released} pago(s) liberados automáticamente`);
+}
+
 /* ─── Main tick: runs all checks independently ─── */
 
 async function tick() {
@@ -680,6 +690,7 @@ async function tick() {
       { name: "referralWelcomeEmail", fn: tickReferralWelcomeEmail },
       { name: "referralValidation", fn: tickReferralValidation },
       { name: "referralCycles", fn: tickReferralCycles },
+      { name: "marketAutoRelease", fn: tickMarketAutoRelease },
     ];
 
     for (const task of tasks) {

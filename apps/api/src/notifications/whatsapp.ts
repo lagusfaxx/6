@@ -167,6 +167,11 @@ const RULES: Record<string, NotifRule> = {
     onlyIfOffline: false,
     info: (p) => (typeof p?.title === "string" && p.title ? p.title : "tienes una actualización de reserva"),
   },
+  MARKET_NEW_ORDER: {
+    cooldownMin: 0,
+    onlyIfOffline: false,
+    info: () => "vendiste un artículo en el marketplace",
+  },
   SERVICE_PUBLISHED: {
     cooldownMin: 5,
     onlyIfOffline: false,

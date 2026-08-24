@@ -112,7 +112,7 @@ export default function AyudaLivePage() {
 
       <RelatedLinks
         links={[
-          { href: "/ayuda/videollamadas", label: "Videollamadas" },
+          { href: "/ayuda/marketplace", label: "Marketplace" },
           { href: "/ayuda/tokens", label: "Tokens" },
           { href: "/ayuda/billetera", label: "Billetera" },
           { href: "/ayuda/seguridad", label: "Seguridad" },
