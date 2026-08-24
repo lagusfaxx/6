@@ -4,6 +4,7 @@ import { requireAuth, requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 import { prisma } from "../db";
+import { confirmOrderPaid, rejectOrderPayment } from "../market/orders";
 import {
   createProfessionalUser,
   EmailInUseError,
@@ -581,6 +582,19 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
             data: { status: "FAILED", providerPaymentId: token },
           });
           console.log("[flow webhook] payment marked as FAILED", { intentId: failedIntent.id, flowStatus });
+
+          // El pedido del marketplace queda como rechazado para que la clienta
+          // pueda reintentar el pago desde su compra.
+          if (failedIntent.purpose === "MARKETPLACE_ORDER") {
+            try {
+              const notes = JSON.parse(failedIntent.notes || "{}");
+              if (notes.marketOrderId) {
+                await rejectOrderPayment(String(notes.marketOrderId), "La pasarela rechazó el pago");
+              }
+            } catch (err) {
+              console.error("[flow webhook] MARKETPLACE_ORDER reject failed", err);
+            }
+          }
         }
 
         // Check if this is a PendingGoldRegistration that failed
@@ -761,6 +775,26 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
       });
 
       console.log("[flow webhook] token purchase completed", { userId: intent.subscriberId, intentId: intent.id, token });
+    } else if (intent.purpose === "MARKETPLACE_ORDER") {
+      // ── Compra en el marketplace ──
+      const notes = JSON.parse(intent.notes || "{}");
+      const marketOrderId = notes.marketOrderId;
+
+      await prisma.paymentIntent.update({
+        where: { id: intent.id },
+        data: { status: "PAID", paidAt: new Date(), providerPaymentId: token },
+      });
+
+      if (!marketOrderId) {
+        console.error("[flow webhook] MARKETPLACE_ORDER missing marketOrderId in notes", { intentId: intent.id });
+        return res.status(200).send("OK");
+      }
+
+      // Retiene el dinero, entrega el contenido digital si corresponde y avisa
+      // a las dos partes. Es idempotente ante reenvíos de la pasarela.
+      await confirmOrderPaid(marketOrderId, { providerPaymentId: token, source: "flow" });
+
+      console.log("[flow webhook] MARKETPLACE_ORDER paid", { intentId: intent.id, marketOrderId, token });
     } else if (intent.purpose === "UMATE_PLAN") {
       // ── U-Mate plan subscription ──
       const notes = JSON.parse(intent.notes || "{}");

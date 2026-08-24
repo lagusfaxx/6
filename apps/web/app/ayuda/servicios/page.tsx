@@ -94,7 +94,7 @@ export default function AyudaServiciosPage() {
         links={[
           { href: "/ayuda/cuenta", label: "Cuenta y perfil" },
           { href: "/ayuda/chat", label: "Chat y mensajes" },
-          { href: "/ayuda/videollamadas", label: "Videollamadas" },
+          { href: "/ayuda/marketplace", label: "Marketplace" },
           { href: "/ayuda/seguridad", label: "Seguridad" },
         ]}
       />

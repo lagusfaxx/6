@@ -94,6 +94,13 @@ enum NotificationType {
   ADMIN_EVENT
   TRANSFER_REJECTED
   STORY_LIKE
+  MARKET_NEW_ORDER
+  MARKET_ORDER_PAID
+  MARKET_ORDER_DELIVERED
+  MARKET_ORDER_COMPLETED
+  MARKET_PAYOUT_RELEASED
+  MARKET_ORDER_MESSAGE
+  MARKET_ORDER_CANCELLED
 }
 
 enum PaymentIntentPurpose {
@@ -103,6 +110,7 @@ enum PaymentIntentPurpose {
   TOKEN_PURCHASE
   UMATE_PLAN
   PUBLICATE_GOLD
+  MARKETPLACE_ORDER
 }
 
 enum PaymentIntentStatus {
@@ -513,6 +521,16 @@ model User {
   // Professional accreditation documents (e.g. "profesional con examenes")
   professionalDocuments     ProfessionalDocument[] @relation("ProfessionalDocuments")
   professionalDocsReviewed  ProfessionalDocument[] @relation("ProfessionalDocumentReviewer")
+
+  // Marketplace
+  marketSeller           MarketSeller?        @relation("MarketSellerUser")
+  marketProducts         MarketProduct[]      @relation("MarketProductsByUser")
+  marketPurchases        MarketOrder[]        @relation("MarketPurchases")
+  marketSales            MarketOrder[]        @relation("MarketSales")
+  marketOrderMessages    MarketOrderMessage[] @relation("MarketOrderMessages")
+  marketLedger           MarketLedgerEntry[]  @relation("MarketLedger")
+  marketWithdrawals      MarketWithdrawal[]   @relation("MarketWithdrawals")
+  marketReviews          MarketReview[]       @relation("MarketReviews")
 }
 
 model PushSubscription {
@@ -1565,4 +1583,362 @@ model ProfessionalDocument {
 
   @@index([userId])
   @@index([status])
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Marketplace — las profesionales venden artículos propios (fotos, videos,
+// ropa, fetiches) a sus clientes dentro de UZEED. Reemplaza la sección de
+// videollamadas. El dinero queda retenido hasta que el cliente confirma la
+// recepción (o pasan `holdDays` días desde el pago) y UZEED cobra comisión.
+// ══════════════════════════════════════════════════════════════════════
+
+enum MarketProductType {
+  PHOTO_SET
+  VIDEO
+  CLOTHING
+  FETISH
+  CUSTOM
+  OTHER
+}
+
+enum MarketDeliveryMethod {
+  DIGITAL   // entrega dentro del ecosistema (automática si autoDeliver)
+  MEET      // se acuerda la entrega con la clienta
+  SHIPPING  // envío a domicilio, tarifa por región
+}
+
+enum MarketOrderStatus {
+  PENDING_PAYMENT  // pedido creado, esperando pasarela / transferencia
+  PAYMENT_REVIEW   // comprobante de transferencia en revisión
+  PAID             // pagado: fondos retenidos en UZEED
+  PREPARING        // la vendedora aceptó y prepara el pedido
+  DELIVERED        // entregado / enviado por la vendedora
+  COMPLETED        // cliente confirmó recepción o se liberó por tiempo
+  CANCELLED
+  REJECTED         // pago rechazado por la pasarela o por admin
+  REFUNDED
+  DISPUTED
+}
+
+enum MarketPayoutStatus {
+  HELD      // retenido hasta confirmación del cliente
+  RELEASED  // disponible para retiro de la vendedora
+  PAID      // transferido por admin
+  CANCELLED
+}
+
+enum MarketLedgerType {
+  SALE
+  COMMISSION
+  RELEASE
+  REFUND
+  WITHDRAWAL
+  ADJUSTMENT
+}
+
+enum MarketWithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+/// Configuración global del marketplace (fila única, id = "default").
+model MarketSettings {
+  id                 String   @id @default("default")
+  isEnabled          Boolean  @default(true)
+  commissionPercent  Float    @default(15)   // comisión UZEED por venta
+  holdDays           Int      @default(4)    // días de retención tras el pago
+  minPriceClp        Int      @default(1000)
+  maxPriceClp        Int      @default(2000000)
+  gatewayEnabled     Boolean  @default(true) // pagar con Flow
+  transferEnabled    Boolean  @default(true) // pagar por transferencia
+  // Datos bancarios de UZEED para las transferencias de los clientes
+  bankName           String?
+  bankAccountType    String?
+  bankAccountNumber  String?
+  bankHolderName     String?
+  bankHolderRut      String?
+  bankEmail          String?
+  transferNote       String?
+  updatedAt          DateTime @updatedAt
+  createdAt          DateTime @default(now())
+}
+
+/// Tarifa de envío por región, configurable desde el panel admin.
+model MarketShippingRate {
+  id        String   @id @default(uuid()) @db.Uuid
+  region    String   @unique
+  priceClp  Int      @default(0)
+  etaText   String?  // "2 a 4 días hábiles"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders MarketOrder[]
+}
+
+/// Ficha de vendedora dentro del marketplace (una por profesional).
+model MarketSeller {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @db.Uuid
+  storeName         String?
+  tagline           String?
+  bio               String?
+  region            String?
+  isActive          Boolean  @default(true)
+  isBanned          Boolean  @default(false)
+  acceptsShipping   Boolean  @default(true)
+  acceptsMeet       Boolean  @default(true)
+  autoDeliverDigital Boolean @default(true) // entrega automática al confirmarse el pago
+  // Datos para recibir los pagos liberados
+  bankName          String?
+  bankAccountType   String?
+  bankAccountNumber String?
+  bankHolderName    String?
+  bankHolderRut     String?
+  bankEmail         String?
+  totalSales        Int      @default(0)
+  totalEarnedClp    Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user        User                 @relation("MarketSellerUser", fields: [userId], references: [id], onDelete: Cascade)
+  products    MarketProduct[]
+  withdrawals MarketWithdrawal[]
+
+  @@index([isActive])
+}
+
+model MarketProduct {
+  id              String            @id @default(uuid()) @db.Uuid
+  sellerId        String            @db.Uuid
+  userId          String            @db.Uuid
+  title           String
+  description     String?
+  priceClp        Int
+  type            MarketProductType @default(PHOTO_SET)
+  /// Métodos de entrega aceptados para este artículo.
+  deliveryMethods MarketDeliveryMethod[] @default([])
+  /// Entrega automática del contenido digital al confirmarse el pago.
+  autoDeliver     Boolean           @default(true)
+  stock           Int?              // null = ilimitado (contenido digital)
+  isActive        Boolean           @default(true)
+  isHidden        Boolean           @default(false) // ocultado por admin
+  tags            String[]          @default([])
+  coverUrl        String?           // portada pública (preview)
+  viewCount       Int               @default(0)
+  salesCount      Int               @default(0)
+  ratingAvg       Float?
+  ratingCount     Int               @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  seller  MarketSeller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  user    User                 @relation("MarketProductsByUser", fields: [userId], references: [id], onDelete: Cascade)
+  media   MarketProductMedia[]
+  assets  MarketProductAsset[]
+  orders  MarketOrder[]
+  reviews MarketReview[]
+
+  @@index([sellerId])
+  @@index([userId])
+  @@index([isActive, createdAt])
+  @@index([type])
+}
+
+/// Previews públicos del artículo (con marca de agua o censurados).
+model MarketProductMedia {
+  id        String    @id @default(uuid()) @db.Uuid
+  productId String    @db.Uuid
+  url       String
+  thumbnailUrl String?
+  type      MediaType @default(IMAGE)
+  pos       Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  product MarketProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+/// Archivos reales que recibe el comprador. Viven en almacenamiento privado
+/// (private://) y solo se sirven con URL firmada a quien pagó.
+model MarketProductAsset {
+  id           String    @id @default(uuid()) @db.Uuid
+  productId    String    @db.Uuid
+  url          String    // private://market-assets/...
+  thumbnailUrl String?
+  type         MediaType @default(IMAGE)
+  sizeBytes    Int       @default(0)
+  pos          Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  product MarketProduct     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  copies  MarketOrderAsset[]
+
+  @@index([productId])
+}
+
+model MarketOrder {
+  id             String               @id @default(uuid()) @db.Uuid
+  code           String               @unique // referencia corta para la clienta
+  buyerId        String               @db.Uuid
+  sellerId       String               @db.Uuid // userId de la profesional
+  productId      String?              @db.Uuid
+  productTitle   String
+  unitPriceClp   Int
+  quantity       Int                  @default(1)
+  itemTotalClp   Int
+  shippingClp    Int                  @default(0)
+  totalClp       Int
+  commissionClp  Int                  @default(0)
+  sellerNetClp   Int                  @default(0)
+  commissionPercent Float             @default(0)
+
+  deliveryMethod MarketDeliveryMethod @default(DIGITAL)
+  shippingRateId String?              @db.Uuid
+  shippingRegion String?
+  shipAddress    String?
+  shipCity       String?
+  shipName       String?
+  shipPhone      String?
+  shipNotes      String?
+  trackingCode   String?
+
+  status         MarketOrderStatus    @default(PENDING_PAYMENT)
+  paymentMethod  PaymentMethod        @default(FLOW)
+  paymentIntentId String?             @db.Uuid
+  transferReceiptUrl String?
+  transferNote   String?
+  paidAt         DateTime?
+  autoReleaseAt  DateTime?
+  deliveredAt    DateTime?
+  buyerConfirmedAt DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  payoutStatus   MarketPayoutStatus   @default(HELD)
+  payoutPaidAt   DateTime?
+  autoDelivered  Boolean              @default(false)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  buyer        User                @relation("MarketPurchases", fields: [buyerId], references: [id], onDelete: Cascade)
+  seller       User                @relation("MarketSales", fields: [sellerId], references: [id], onDelete: Cascade)
+  product      MarketProduct?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  shippingRate MarketShippingRate? @relation(fields: [shippingRateId], references: [id], onDelete: SetNull)
+  assets       MarketOrderAsset[]
+  events       MarketOrderEvent[]
+  messages     MarketOrderMessage[]
+  ledger       MarketLedgerEntry[]
+  review       MarketReview?
+
+  @@index([buyerId, createdAt])
+  @@index([sellerId, createdAt])
+  @@index([status])
+  @@index([autoReleaseAt])
+}
+
+/// Copia del archivo entregado en un pedido concreto: si la vendedora cambia
+/// el producto después, la compradora conserva lo que compró.
+model MarketOrderAsset {
+  id           String    @id @default(uuid()) @db.Uuid
+  orderId      String    @db.Uuid
+  assetId      String?   @db.Uuid
+  url          String
+  thumbnailUrl String?
+  type         MediaType @default(IMAGE)
+  viewedAt     DateTime?
+  createdAt    DateTime  @default(now())
+
+  order MarketOrder         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  asset MarketProductAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+/// Bitácora del pedido: qué pasó, cuándo y quién lo hizo. Visible para admin.
+model MarketOrderEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  orderId   String   @db.Uuid
+  actorId   String?  @db.Uuid
+  type      String   // ORDER_CREATED, PAYMENT_CONFIRMED, AUTO_DELIVERED, ...
+  note      String?
+  data      Json?
+  createdAt DateTime @default(now())
+
+  order MarketOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+/// Chat del pedido entre compradora y vendedora (admin puede leerlo).
+model MarketOrderMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  orderId   String   @db.Uuid
+  senderId  String   @db.Uuid
+  body      String
+  imageUrl  String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  order  MarketOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sender User        @relation("MarketOrderMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+/// Movimientos de dinero del marketplace (en CLP).
+model MarketLedgerEntry {
+  id           String           @id @default(uuid()) @db.Uuid
+  userId       String           @db.Uuid
+  orderId      String?          @db.Uuid
+  type         MarketLedgerType
+  amountClp    Int              // positivo entra, negativo sale
+  description  String?
+  createdAt    DateTime         @default(now())
+
+  user  User         @relation("MarketLedger", fields: [userId], references: [id], onDelete: Cascade)
+  order MarketOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([orderId])
+}
+
+model MarketWithdrawal {
+  id          String                 @id @default(uuid()) @db.Uuid
+  sellerId    String                 @db.Uuid
+  userId      String                 @db.Uuid
+  amountClp   Int
+  status      MarketWithdrawalStatus @default(PENDING)
+  bankSnapshot Json?
+  adminNote   String?
+  reviewedBy  String?                @db.Uuid
+  reviewedAt  DateTime?
+  paidAt      DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  seller MarketSeller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  user   User         @relation("MarketWithdrawals", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model MarketReview {
+  id        String   @id @default(uuid()) @db.Uuid
+  orderId   String   @unique @db.Uuid
+  productId String   @db.Uuid
+  buyerId   String   @db.Uuid
+  rating    Int      @default(5)
+  comment   String?
+  createdAt DateTime @default(now())
+
+  order   MarketOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product MarketProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  buyer   User          @relation("MarketReviews", fields: [buyerId], references: [id], onDelete: Cascade)
+
+  @@index([productId, createdAt])
 }

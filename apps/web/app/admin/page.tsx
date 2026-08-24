@@ -6,6 +6,7 @@ import useMe from "../../hooks/useMe";
 import { apiFetch, getApiBase } from "../../lib/api";
 import { connectRealtime } from "../../lib/realtime";
 import {
+  ShoppingBag,
   Activity,
   AlertTriangle,
   ArrowDownToLine,
@@ -591,6 +592,7 @@ export default function AdminIndex() {
             <div>
               <h2 className="text-[11px] font-semibold uppercase tracking-widest text-white/30 mb-3">Acceso rapido</h2>
               <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                <QuickAction href="/admin/marketplace" icon={ShoppingBag} label="Marketplace" desc="Pedidos, comisiones y envios" accent="fuchsia" />
                 <QuickAction href="/admin/estadisticas" icon={BarChart3} label="Estadisticas" desc="Metricas y graficos" accent="fuchsia" />
                 <QuickAction href="/admin/expired-trials" icon={Clock} label="Pruebas caducadas" desc="Ganancia potencial" accent="amber" />
                 <QuickAction href="/admin/verification" icon={BadgeCheck} label="Verificaciones" desc={`${metrics.pendingVerifications} pendientes`} accent="amber" />

@@ -11,6 +11,8 @@ export default function robots(): MetadataRoute.Robots {
         "/chat",
         "/chats",
         "/wallet",
+        "/marketplace/compras",
+        "/marketplace/vender",
         "/videocall",
         "/cuenta",
         "/favoritos",

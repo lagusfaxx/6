@@ -29,7 +29,7 @@ import {
   MessageSquare,
   Award,
   Sparkles,
-  Video,
+  ShoppingBag,
   Zap,
   Gem,
   Phone,
@@ -56,6 +56,8 @@ type ForumComment = {
 
 type Professional = {
   id: string;
+  /** Se usa para las URLs limpias y para enlazar su tienda del marketplace. */
+  username?: string | null;
   name: string;
   avatarUrl: string | null;
   coverUrl?: string | null;
@@ -251,7 +253,7 @@ export default function ProfileDetailView({
   const [surveySubmitting, setSurveySubmitting] = useState(false);
   const [surveyError, setSurveyError] = useState<string | null>(null);
   const [surveySuccess, setSurveySuccess] = useState(false);
-  const [hasVideocall, setHasVideocall] = useState(false);
+  const [hasStore, setHasStore] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const { me } = useMe();
 
@@ -328,16 +330,16 @@ export default function ProfileDetailView({
       .catch(() => setFavorite(false));
   }, [me?.user?.profileType, professional]);
 
-  // Check if professional has videocall enabled
+  // ¿Tiene tienda con artículos publicados en el marketplace?
   useEffect(() => {
-    if (!professional?.id) {
-      setHasVideocall(false);
+    if (!professional?.username) {
+      setHasStore(false);
       return;
     }
-    apiFetch(`/videocall/config/${professional.id}`)
-      .then(() => setHasVideocall(true))
-      .catch(() => setHasVideocall(false));
-  }, [professional?.id]);
+    apiFetch<{ products: unknown[] }>(`/market/sellers/${encodeURIComponent(professional.username)}`)
+      .then((res) => setHasStore((res.products?.length || 0) > 0))
+      .catch(() => setHasStore(false));
+  }, [professional?.username]);
 
   // Lock body scroll while survey modal is open
   useEffect(() => {
@@ -1443,13 +1445,13 @@ export default function ProfileDetailView({
 
                 {/* Secondary actions — compact icon row */}
                 <div className="flex gap-2 pt-1">
-                  {hasVideocall && (
+                  {hasStore && (
                     <Link
-                      href={`/videocall?professional=${professional.id}`}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600/90 to-violet-600/90 py-2.5 text-xs font-bold text-white transition-all hover:brightness-110"
+                      href={`/marketplace/tienda/${professional.username ?? ""}`}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2.5 text-xs font-bold text-white transition-all hover:brightness-110"
                     >
-                      <Video className="h-3.5 w-3.5" />
-                      Video
+                      <ShoppingBag className="h-3.5 w-3.5" />
+                      Tienda
                     </Link>
                   )}
                   {professional.phone && (
@@ -1612,13 +1614,13 @@ export default function ProfileDetailView({
         </button>
         {/* Secondary actions */}
         <div className="flex gap-2">
-          {hasVideocall && (
+          {hasStore && (
             <Link
-              href={`/videocall?professional=${professional.id}`}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600/90 to-violet-600/90 py-2 text-xs font-bold text-white"
+              href={`/marketplace/tienda/${professional.username ?? ""}`}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2 text-xs font-bold text-white"
             >
-              <Video className="h-3.5 w-3.5" />
-              Video
+              <ShoppingBag className="h-3.5 w-3.5" />
+              Tienda
             </Link>
           )}
           {professional.phone && (

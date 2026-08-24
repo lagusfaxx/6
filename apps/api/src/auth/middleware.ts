@@ -50,6 +50,10 @@ const PUBLIC_PREFIXES = [
   "/umate/suggested",   // ✅ U-Mate suggested creators (public)
   "/umate/posts",       // ✅ U-Mate post comments (public GET)
   "/umate/media",       // ✅ U-Mate signed premium media (HMAC token is the auth)
+  "/market/config",     // ✅ reglas y tarifas públicas del marketplace
+  "/market/products",   // ✅ catálogo público del marketplace
+  "/market/sellers",    // ✅ vitrinas públicas de las vendedoras
+  "/market/media",      // ✅ contenido comprado (la firma HMAC es la autorización)
   "/notifications/email/unsubscribe", // ✅ baja desde el enlace del correo (el HMAC es la autorización)
 ];
 

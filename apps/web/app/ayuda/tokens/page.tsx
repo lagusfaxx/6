@@ -96,7 +96,7 @@ export default function AyudaTokensPage() {
       <RelatedLinks
         links={[
           { href: "/ayuda/billetera", label: "Billetera" },
-          { href: "/ayuda/videollamadas", label: "Videollamadas" },
+          { href: "/ayuda/marketplace", label: "Marketplace" },
           { href: "/ayuda/live", label: "Transmisiones en vivo" },
           { href: "/ayuda/tiers", label: "Tiers y planes" },
         ]}

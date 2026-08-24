@@ -5,6 +5,7 @@ import {
   Wallet,
   Coins,
   Radio,
+  ShoppingBag,
   Video,
   Crown,
   MessageCircle,
@@ -46,10 +47,10 @@ const TOPICS: Topic[] = [
     accent: "from-rose-500/20 to-red-500/10",
   },
   {
-    href: "/ayuda/videollamadas",
-    title: "Videollamadas",
-    description: "Agenda sesiones privadas 1 a 1 pagadas con tokens.",
-    icon: Video,
+    href: "/ayuda/marketplace",
+    title: "Marketplace",
+    description: "Compra y vende packs, videos y artículos con pago protegido.",
+    icon: ShoppingBag,
     accent: "from-sky-500/20 to-indigo-500/10",
   },
   {
