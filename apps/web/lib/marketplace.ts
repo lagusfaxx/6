@@ -90,6 +90,9 @@ export type MarketOrder = {
   cancelledAt: string | null;
   cancelReason: string | null;
   autoDelivered: boolean;
+  disputedAt: string | null;
+  disputeReason: string | null;
+  disputeResolution: string | null;
   createdAt: string;
   assetCount: number;
   product: { id: string; coverUrl: string | null; type: MarketProductType } | null;
@@ -165,7 +168,7 @@ export const ORDER_STATUS_UI: Record<MarketOrderStatus, { label: string; classNa
   CANCELLED: { label: "Cancelado", className: "border-white/15 bg-white/5 text-white/50" },
   REJECTED: { label: "Pago rechazado", className: "border-rose-500/30 bg-rose-500/10 text-rose-200" },
   REFUNDED: { label: "Reembolsado", className: "border-rose-500/30 bg-rose-500/10 text-rose-200" },
-  DISPUTED: { label: "En revisión", className: "border-orange-500/30 bg-orange-500/10 text-orange-200" },
+  DISPUTED: { label: "Reclamo abierto", className: "border-orange-500/30 bg-orange-500/10 text-orange-200" },
 };
 
 export function formatClp(value: number | null | undefined): string {

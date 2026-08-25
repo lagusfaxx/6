@@ -65,6 +65,8 @@ type AdminOrder = {
   shippingRegion: string | null;
   createdAt: string;
   payoutStatus: string;
+  disputeReason: string | null;
+  disputedAt: string | null;
   buyer: { id: string; username: string; displayName: string | null; email: string } | null;
   seller: { id: string; username: string; displayName: string | null; email: string } | null;
   _count?: { assets: number; messages: number };
@@ -82,6 +84,7 @@ const TABS: Array<{ key: Tab; label: string; icon: typeof Store }> = [
 ];
 
 const ORDER_FILTERS: Array<{ value: string; label: string }> = [
+  { value: "DISPUTED", label: "Reclamos" },
   { value: "PAYMENT_REVIEW", label: "Transferencias por validar" },
   { value: "PAID", label: "Pagados" },
   { value: "DELIVERED", label: "Entregados" },
@@ -171,6 +174,12 @@ function OverviewTab({ overview }: { overview: Overview | null }) {
           { label: "Retiros pendientes", value: String(metrics.pendingWithdrawals), accent: metrics.pendingWithdrawals ? undefined : "muted" },
         ]}
       />
+
+      {(metrics.byStatus.DISPUTED || 0) > 0 && (
+        <div className="rounded-xl border border-orange-500/30 bg-orange-500/[0.07] p-4 text-sm text-orange-100">
+          Hay {metrics.byStatus.DISPUTED} reclamo(s) con el pago retenido esperando tu decisión, en la pestaña Pedidos.
+        </div>
+      )}
 
       {metrics.pendingTransfers > 0 && (
         <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-4 text-sm text-amber-100">
@@ -276,6 +285,16 @@ function OrdersTab({
                 <Detail label="Vendedora" value={formatClp(order.sellerNetClp)} />
               </div>
 
+              {order.status === "DISPUTED" && (
+                <div className="mt-3 rounded-lg border border-orange-500/25 bg-orange-500/[0.07] p-3 text-xs text-orange-100/85">
+                  <p className="font-semibold text-orange-100">Motivo del reclamo</p>
+                  <p className="mt-0.5">{order.disputeReason || "Sin detalle"}</p>
+                  <p className="mt-1 text-orange-100/55">
+                    Abierto el {formatDate(order.disputedAt)} · el pago está congelado hasta que decidas.
+                  </p>
+                </div>
+              )}
+
               {order.transferReceiptUrl && (
                 <a
                   href={resolveMediaUrl(order.transferReceiptUrl) || "#"}
@@ -306,10 +325,10 @@ function OrdersTab({
                     </button>
                   </>
                 )}
-                {order.payoutStatus === "HELD" && ["PAID", "PREPARING", "DELIVERED"].includes(order.status) && (
+                {order.payoutStatus === "HELD" && ["PAID", "PREPARING", "DELIVERED", "DISPUTED"].includes(order.status) && (
                   <>
                     <button type="button" disabled={busy} onClick={() => act(order.id, "release")} className="rounded-xl bg-white/[0.06] px-3 py-2 text-xs font-semibold text-white">
-                      Liberar pago
+                      {order.status === "DISPUTED" ? "Dar la razón a la vendedora" : "Liberar pago"}
                     </button>
                     <button
                       type="button"
@@ -320,7 +339,7 @@ function OrdersTab({
                       }}
                       className="rounded-xl bg-rose-500/15 px-3 py-2 text-xs font-semibold text-rose-200"
                     >
-                      Reembolsar
+                      {order.status === "DISPUTED" ? "Reembolsar a la clienta" : "Reembolsar"}
                     </button>
                   </>
                 )}

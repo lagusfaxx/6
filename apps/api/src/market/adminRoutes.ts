@@ -257,7 +257,13 @@ marketAdminRouter.post("/admin/market/orders/:id/refund", requireAdmin, asyncHan
   const updated = await prisma.$transaction(async (tx) => {
     const result = await tx.marketOrder.update({
       where: { id: order.id },
-      data: { status: "REFUNDED", payoutStatus: "CANCELLED", cancelledAt: new Date(), cancelReason: reason },
+      data: {
+        status: "REFUNDED",
+        payoutStatus: "CANCELLED",
+        cancelledAt: new Date(),
+        cancelReason: reason,
+        disputeResolution: order.status === "DISPUTED" ? `Resuelto a favor de la clienta: ${reason}` : order.disputeResolution,
+      },
     });
     await tx.marketLedgerEntry.create({
       data: {

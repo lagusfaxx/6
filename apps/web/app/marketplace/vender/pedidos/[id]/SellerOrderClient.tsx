@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Clock, MapPin, MessageCircle, Send, Truck, Zap } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Clock, MapPin, MessageCircle, Send, Truck, Zap } from "lucide-react";
 
 import useMe from "../../../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage, resolveMediaUrl } from "../../../../../lib/api";
@@ -129,6 +129,19 @@ export default function SellerOrderClient({ orderId }: { orderId: string }) {
             <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
             Entrega acordada: ponte de acuerdo con la clienta por el chat de abajo.
           </p>
+        )}
+
+        {order.status === "DISPUTED" && (
+          <div className="mt-4 rounded-xl border border-orange-500/30 bg-orange-500/[0.07] p-3 text-sm text-orange-100/85">
+            <p className="flex items-center gap-1.5 font-semibold text-orange-100">
+              <AlertTriangle className="h-4 w-4" /> La clienta abrió un reclamo
+            </p>
+            {order.disputeReason && <p className="mt-1">{order.disputeReason}</p>}
+            <p className="mt-1 text-xs text-orange-100/60">
+              El pago queda retenido hasta que administración resuelva. Responde por el chat con lo que tengas:
+              comprobante de envío, seguimiento o lo que hayan acordado.
+            </p>
+          </div>
         )}
 
         {order.shipNotes && <p className="mt-3 text-sm text-white/55">Nota de la clienta: {order.shipNotes}</p>}

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, CheckCircle2, Clock, CreditCard, MapPin, MessageCircle, Send,
-  ShieldCheck, Star, Truck, Upload, Zap,
+  AlertTriangle, ArrowLeft, CheckCircle2, Clock, CreditCard, MapPin, MessageCircle,
+  Send, ShieldCheck, Star, Truck, Upload, Zap,
 } from "lucide-react";
 
 import useMe from "../../../../hooks/useMe";
@@ -42,6 +42,8 @@ export default function PurchaseDetailClient({ orderId }: { orderId: string }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
+  const [disputeOpen, setDisputeOpen] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
   const receiptRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(async () => {
@@ -276,7 +278,25 @@ export default function PurchaseDetailClient({ orderId }: { orderId: string }) {
         </section>
       )}
 
-      {/* ── Confirmar recepción ── */}
+      {/* ── Reclamo abierto ── */}
+      {order.status === "DISPUTED" && (
+        <section className="mt-8 rounded-xl border border-orange-500/30 bg-orange-500/[0.07] p-4">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-orange-100">
+            <AlertTriangle className="h-4 w-4" /> Reclamo en revisión
+          </h2>
+          <p className="mt-1 text-xs text-orange-100/75">
+            Tu pago sigue retenido: no se le entrega a la vendedora hasta que revisemos el caso. Te avisamos apenas haya
+            una decisión, y puedes aportar detalles por el chat de abajo.
+          </p>
+          {order.disputeReason && (
+            <p className="mt-2 border-t border-orange-500/20 pt-2 text-xs text-orange-100/60">
+              Lo que nos contaste: {order.disputeReason}
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* ── Confirmar recepción o reclamar ── */}
       {canConfirm && (
         <section className="mt-8 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] p-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-emerald-100">
@@ -294,6 +314,50 @@ export default function PurchaseDetailClient({ orderId }: { orderId: string }) {
           >
             Recibí mi pedido
           </button>
+
+          {!disputeOpen ? (
+            <button
+              type="button"
+              onClick={() => setDisputeOpen(true)}
+              className="mt-2 w-full rounded-xl border border-white/10 px-4 py-2.5 text-xs text-white/55 transition hover:bg-white/[0.05] hover:text-white"
+            >
+              No recibí mi pedido
+            </button>
+          ) : (
+            <div className="mt-3 border-t border-emerald-500/20 pt-3">
+              <p className="text-xs text-white/60">
+                Cuéntanos qué pasó. Mientras revisamos, el dinero queda retenido y deja de liberarse solo.
+              </p>
+              <textarea
+                value={disputeReason}
+                onChange={(e) => setDisputeReason(e.target.value)}
+                rows={3}
+                placeholder="Ej: pasaron los días acordados y nunca llegó, o llegó algo distinto a lo que compré"
+                className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder-white/25 outline-none focus:border-orange-400/40"
+              />
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setDisputeOpen(false); setDisputeReason(""); }}
+                  className="flex-1 rounded-xl border border-white/10 px-3 py-2.5 text-xs text-white/55"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || disputeReason.trim().length < 10}
+                  onClick={async () => {
+                    await act("/dispute", { reason: disputeReason.trim() });
+                    setDisputeOpen(false);
+                    setDisputeReason("");
+                  }}
+                  className="flex-1 rounded-xl bg-orange-500/85 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-40"
+                >
+                  Abrir reclamo
+                </button>
+              </div>
+            </div>
+          )}
         </section>
       )}
 

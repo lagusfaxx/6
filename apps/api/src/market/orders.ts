@@ -240,7 +240,9 @@ export async function releaseOrderPayout(orderId: string, reason: "buyer_confirm
   });
   if (!order) return null;
   if (order.payoutStatus !== "HELD") return order;
-  if (!["PAID", "PREPARING", "DELIVERED"].includes(order.status)) return order;
+  // DISPUTED entra porque administración puede resolver un reclamo a favor de
+  // la vendedora; el resto de los estados ya no tiene dinero retenido.
+  if (!["PAID", "PREPARING", "DELIVERED", "DISPUTED"].includes(order.status)) return order;
 
   const now = new Date();
   const updated = await prisma.$transaction(async (tx) => {
@@ -251,6 +253,8 @@ export async function releaseOrderPayout(orderId: string, reason: "buyer_confirm
         payoutStatus: "RELEASED",
         completedAt: now,
         buyerConfirmedAt: reason === "buyer_confirmed" ? now : order.buyerConfirmedAt,
+        disputeResolution:
+          order.status === "DISPUTED" ? "Resuelto a favor de la vendedora" : order.disputeResolution,
       },
     });
 
@@ -344,6 +348,8 @@ export async function releaseExpiredHolds(): Promise<number> {
   const due = await prisma.marketOrder.findMany({
     where: {
       payoutStatus: "HELD",
+      // DISPUTED queda fuera a propósito: si hay un reclamo abierto, el dinero
+      // no se mueve hasta que administración lo resuelve.
       status: { in: ["PAID", "PREPARING", "DELIVERED"] },
       autoReleaseAt: { lte: new Date() },
     },
@@ -371,4 +377,84 @@ export function signOrderAssets(assets: Array<{ id: string; type: string; thumbn
     url: buildOrderAssetUrl(asset.id, "asset"),
     thumbnailUrl: asset.thumbnailUrl ? buildOrderAssetUrl(asset.id, "thumb") : null,
   }));
+}
+
+
+/**
+ * Avisa a la compradora antes de que el pago se libere solo. Sin esto, quien
+ * no se dio cuenta de que el pedido nunca llegó se entera cuando ya no hay
+ * dinero retenido que reclamar.
+ */
+export async function warnUpcomingReleases(hoursAhead = 24): Promise<number> {
+  const limit = new Date(Date.now() + hoursAhead * 60 * 60 * 1000);
+  const soon = await prisma.marketOrder.findMany({
+    where: {
+      payoutStatus: "HELD",
+      status: { in: ["PAID", "PREPARING", "DELIVERED"] },
+      releaseWarnedAt: null,
+      autoReleaseAt: { lte: limit, gt: new Date() },
+    },
+    select: { id: true, code: true, buyerId: true, productTitle: true, autoReleaseAt: true },
+    take: 200,
+  });
+
+  for (const order of soon) {
+    await prisma.marketOrder.update({ where: { id: order.id }, data: { releaseWarnedAt: new Date() } });
+    await notifyMarket(order.buyerId, "MARKET_ORDER_COMPLETED", {
+      title: `¿Recibiste tu pedido ${order.code}?`,
+      body: "Mañana liberamos el pago a la vendedora. Si no te llegó, abre un reclamo desde tu compra.",
+      url: orderUrl(order.id, false),
+      orderId: order.id,
+      orderCode: order.code,
+    });
+  }
+  return soon.length;
+}
+
+/**
+ * La compradora reclama: el pedido no llegó o no es lo que compró. El dinero
+ * sigue retenido —ahora sin fecha de liberación— hasta que administración
+ * decide a quién le asiste la razón.
+ */
+export async function openDispute(orderId: string, buyerId: string, reason: string) {
+  const order = await prisma.marketOrder.findUnique({
+    where: { id: orderId },
+    include: { seller: { select: { id: true, displayName: true, username: true, email: true } } },
+  });
+  if (!order || order.buyerId !== buyerId) return { error: "NOT_FOUND" as const };
+  if (order.payoutStatus !== "HELD") {
+    return { error: "ALREADY_RELEASED" as const };
+  }
+  if (!["PAID", "PREPARING", "DELIVERED"].includes(order.status)) {
+    return { error: "INVALID_STATE" as const };
+  }
+
+  const updated = await prisma.marketOrder.update({
+    where: { id: order.id },
+    data: { status: "DISPUTED", disputedAt: new Date(), disputeReason: reason },
+  });
+
+  await logOrderEvent(order.id, "DISPUTE_OPENED", { actorId: buyerId, note: reason });
+
+  await notifyMarket(order.sellerId, "MARKET_ORDER_CANCELLED", {
+    title: `Reclamo en el pedido ${order.code}`,
+    body: "La clienta dice que no recibió lo que compró. Responde por el chat del pedido.",
+    url: orderUrl(order.id, true),
+    orderId: order.id,
+    orderCode: order.code,
+  });
+
+  // Administración tiene que verlo: el dinero queda congelado hasta que resuelva.
+  const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+  for (const admin of admins) {
+    await notifyMarket(admin.id, "ADMIN_EVENT", {
+      title: `Reclamo en el marketplace — ${order.code}`,
+      body: reason.slice(0, 140),
+      url: "/admin/marketplace?tab=pedidos",
+      orderId: order.id,
+      orderCode: order.code,
+    });
+  }
+
+  return { order: updated };
 }
