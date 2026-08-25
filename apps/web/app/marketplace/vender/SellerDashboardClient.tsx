@@ -803,6 +803,12 @@ function OrdersTab({
               </Link>
             </div>
 
+            {order.status === "DISPUTED" && (
+              <p className="mt-2 rounded-lg border border-orange-500/25 bg-orange-500/[0.07] p-2.5 text-[11px] text-orange-100/80">
+                La clienta abrió un reclamo{order.disputeReason ? `: ${order.disputeReason}` : ""}. El pago queda retenido
+                hasta que administración resuelva; responde por el chat del pedido.
+              </p>
+            )}
             {order.status === "DELIVERED" && (
               <p className="mt-2 flex items-center gap-1.5 text-[11px] text-white/40">
                 <Clock className="h-3 w-3" /> Esperando que la clienta confirme para liberar tu pago.

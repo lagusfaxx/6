@@ -59,6 +59,19 @@ export default function AyudaMarketplacePage() {
         retención configurado. Si algo sale mal, escríbenos antes de confirmar.
       </Callout>
 
+      <Section title="¿Y si el pedido no llega?">
+        <p>
+          Desde tu compra puedes abrir un reclamo mientras el pago siga retenido. Al hacerlo el dinero deja de liberarse
+          solo: queda congelado hasta que administración revise el caso y decida. Avisamos a la vendedora para que
+          responda por el chat del pedido con lo que tenga —comprobante de envío, seguimiento o lo acordado— y resolvemos
+          reembolsando a la clienta o liberando el pago a la vendedora.
+        </p>
+        <p>
+          Un día antes de que venza el plazo de retención te avisamos, para que alcances a reclamar si el pedido nunca
+          llegó. Si el pago ya se liberó, escríbenos igual y lo revisamos con la vendedora.
+        </p>
+      </Section>
+
       <Section title="Contenido digital protegido">
         <BulletList
           items={[

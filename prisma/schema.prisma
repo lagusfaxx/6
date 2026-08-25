@@ -1818,6 +1818,14 @@ model MarketOrder {
   completedAt    DateTime?
   cancelledAt    DateTime?
   cancelReason   String?
+  /// Reclamo de la compradora: congela la liberación hasta que administración
+  /// decide. Mientras `status` sea DISPUTED el barrido automático no lo toca.
+  disputedAt        DateTime?
+  disputeReason     String?
+  disputeResolution String?
+  /// Aviso previo a la liberación automática, para que la clienta alcance a
+  /// reclamar si el pedido nunca llegó.
+  releaseWarnedAt   DateTime?
   payoutStatus   MarketPayoutStatus   @default(HELD)
   payoutPaidAt   DateTime?
   autoDelivered  Boolean              @default(false)

@@ -34,6 +34,7 @@ import {
   generateOrderCode,
   getSellerBalance,
   logOrderEvent,
+  openDispute,
   releaseOrderPayout,
   signOrderAssets,
 } from "./orders";
@@ -206,6 +207,9 @@ function orderCard(order: any, viewer: "buyer" | "seller" | "admin") {
     cancelledAt: order.cancelledAt,
     cancelReason: order.cancelReason,
     autoDelivered: order.autoDelivered,
+    disputedAt: order.disputedAt,
+    disputeReason: order.disputeReason,
+    disputeResolution: order.disputeResolution,
     createdAt: order.createdAt,
     assetCount: order._count?.assets ?? (order.assets?.length ?? 0),
     product: order.product ? { id: order.product.id, coverUrl: order.product.coverUrl, type: order.product.type } : null,
@@ -786,11 +790,39 @@ marketRouter.post("/market/orders/:id/confirm", requireAuth, orderLimiter, async
   const buyerId = userId(req);
   const order = await prisma.marketOrder.findUnique({ where: { id: String(req.params.id) } });
   if (!order || order.buyerId !== buyerId) return res.status(404).json({ error: "NOT_FOUND" });
+  if (order.status === "DISPUTED") {
+    return res.status(400).json({
+      error: "DISPUTE_OPEN",
+      message: "Tienes un reclamo abierto en este pedido. Lo resuelve administración.",
+    });
+  }
   if (!["PAID", "PREPARING", "DELIVERED"].includes(order.status)) return res.status(400).json({ error: "INVALID_STATE" });
 
   const updated = await releaseOrderPayout(order.id, "buyer_confirmed");
   await logOrderEvent(order.id, "BUYER_CONFIRMED", { actorId: buyerId, note: "La clienta confirmó la recepción" });
   return res.json({ order: orderCard(updated, "buyer") });
+}));
+
+/** POST /market/orders/:id/dispute — "no me llegó": abre un reclamo.
+ *  El dinero sigue retenido y deja de tener fecha de liberación automática. */
+marketRouter.post("/market/orders/:id/dispute", requireAuth, orderLimiter, asyncHandler(async (req, res) => {
+  const buyerId = userId(req);
+  const reason = str(req.body?.reason, 1000);
+  if (!reason) return res.status(400).json({ error: "REASON_REQUIRED", message: "Cuéntanos qué pasó con tu pedido." });
+
+  const result = await openDispute(String(req.params.id), buyerId, reason);
+  if ("error" in result) {
+    if (result.error === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
+    if (result.error === "ALREADY_RELEASED") {
+      return res.status(400).json({
+        error: "ALREADY_RELEASED",
+        message: "El pago de este pedido ya se liberó. Escríbenos y lo revisamos con la vendedora.",
+      });
+    }
+    return res.status(400).json({ error: "INVALID_STATE" });
+  }
+
+  return res.json({ order: orderCard(result.order, "buyer") });
 }));
 
 /** POST /market/orders/:id/cancel — cancelar antes de pagar. */

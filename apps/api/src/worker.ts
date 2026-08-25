@@ -17,7 +17,7 @@ import { sendInAppAndPush } from "./lib/sendReminder";
 import { randomBytes } from "crypto";
 import { calculateReferralPayout } from "./referral/payout";
 import { validatePendingRedemptions } from "./referral/redeem";
-import { releaseExpiredHolds } from "./market/orders";
+import { releaseExpiredHolds, warnUpcomingReleases } from "./market/orders";
 
 function cryptoSuffix(len: number): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -662,6 +662,11 @@ async function tickReferralCycles() {
    días de retención configurados en el panel. */
 
 async function tickMarketAutoRelease() {
+  // Primero el aviso: quien no recibió su pedido tiene que enterarse antes de
+  // que el dinero deje de estar retenido, no después.
+  const warned = await warnUpcomingReleases();
+  if (warned > 0) console.log(`[worker/market] ${warned} aviso(s) de liberación próxima`);
+
   const released = await releaseExpiredHolds();
   if (released > 0) console.log(`[worker/market] ${released} pago(s) liberados automáticamente`);
 }
