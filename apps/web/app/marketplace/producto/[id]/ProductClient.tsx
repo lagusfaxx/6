@@ -75,14 +75,14 @@ export default function ProductClient({ productId }: { productId: string }) {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-3 py-6 sm:px-4 sm:py-10">
-      <Link href="/marketplace" className="mb-4 inline-flex items-center gap-1.5 text-sm text-white/50 transition hover:text-white">
+      <Link href="/marketplace" className="mb-4 inline-flex items-center gap-1.5 text-sm text-white/45 transition hover:text-white">
         <ArrowLeft className="h-4 w-4" /> Marketplace
       </Link>
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
         {/* ── Galería ── */}
         <div>
-          <div className="relative aspect-square overflow-hidden rounded-3xl border border-white/10 bg-black/40">
+          <div className="relative aspect-square overflow-hidden rounded-xl bg-black/40">
             {current ? (
               current.type === "VIDEO" ? (
                 <video src={resolveMediaUrl(current.url) || ""} controls playsInline className="h-full w-full object-contain" />
@@ -144,10 +144,8 @@ export default function ProductClient({ productId }: { productId: string }) {
         {/* ── Detalle y compra ── */}
         <div className="space-y-4">
           <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/60">
-              {PRODUCT_TYPE_EMOJI[product.type]} {PRODUCT_TYPE_LABEL[product.type]}
-            </span>
-            <h1 className="mt-2 text-2xl font-bold leading-tight text-white sm:text-3xl">{product.title}</h1>
+            <p className="text-xs text-white/40">{PRODUCT_TYPE_LABEL[product.type]}</p>
+            <h1 className="mt-1 text-2xl font-semibold leading-tight text-white sm:text-3xl">{product.title}</h1>
             <div className="mt-2 flex items-center gap-3">
               <span className="text-2xl font-bold text-fuchsia-300">{formatClp(product.priceClp)}</span>
               {product.ratingCount > 0 && (
@@ -166,7 +164,7 @@ export default function ProductClient({ productId }: { productId: string }) {
 
           <Link
             href={`/marketplace/tienda/${seller.username}`}
-            className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:bg-white/[0.05]"
+            className="flex items-center gap-3 border-y border-white/[0.07] py-3 transition hover:bg-white/[0.03]"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={resolveMediaUrl(seller.avatarUrl) || "/brand/isotipo-new.png"} alt="" className="h-11 w-11 rounded-xl object-cover" />
@@ -186,8 +184,8 @@ export default function ProductClient({ productId }: { productId: string }) {
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/70">{product.description}</p>
           )}
 
-          <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-white/40">Formas de entrega</p>
+          <div className="space-y-2.5">
+            <p className="text-xs text-white/40">Formas de entrega</p>
             {product.deliveryMethods.map((method) => (
               <div key={method} className="flex items-start gap-2.5">
                 {method === "DIGITAL" ? <Zap className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
@@ -199,14 +197,6 @@ export default function ProductClient({ productId }: { productId: string }) {
                 </div>
               </div>
             ))}
-          </div>
-
-          <div className="flex items-start gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
-            <p className="text-[11px] leading-relaxed text-emerald-100/80">
-              Tu pago queda retenido por UZEED y se libera cuando marcas el pedido como recibido, o automáticamente a los{" "}
-              {holdDays} días. Si algo sale mal, escríbenos antes de confirmar.
-            </p>
           </div>
 
           {product.stock !== null && (
@@ -239,16 +229,21 @@ export default function ProductClient({ productId }: { productId: string }) {
               <ShoppingBag className="h-4 w-4" /> Comprar {formatClp(product.priceClp)}
             </button>
           )}
+
+          <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-white/35">
+            <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            Tu pago queda retenido y se libera cuando marcas el pedido como recibido, o a los {holdDays} días.
+          </p>
         </div>
       </div>
 
       {/* ── Reseñas ── */}
       {reviews.length > 0 && (
         <section className="mt-10">
-          <h2 className="mb-3 text-lg font-bold text-white">Lo que dicen quienes compraron</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <h2 className="mb-1 text-sm font-semibold text-white/70">Lo que dicen quienes compraron</h2>
+          <div className="divide-y divide-white/[0.06]">
             {reviews.map((review) => (
-              <div key={review.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+              <div key={review.id} className="py-4">
                 <div className="flex items-center gap-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={resolveMediaUrl(review.buyer.avatarUrl) || "/brand/isotipo-new.png"} alt="" className="h-8 w-8 rounded-lg object-cover" />

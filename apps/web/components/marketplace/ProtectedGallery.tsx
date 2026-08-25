@@ -70,9 +70,9 @@ export default function ProtectedGallery({ assets, watermark, onRefreshUrls }: P
 
   if (!assets.length) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center">
-        <Lock className="mx-auto mb-2 h-6 w-6 text-white/30" />
-        <p className="text-sm text-white/50">Todavía no hay contenido entregado en este pedido.</p>
+      <div className="py-10 text-center">
+        <Lock className="mx-auto mb-2 h-6 w-6 text-white/20" />
+        <p className="text-sm text-white/45">Todavía no hay contenido entregado en este pedido.</p>
       </div>
     );
   }
