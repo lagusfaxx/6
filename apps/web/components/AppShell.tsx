@@ -12,6 +12,7 @@ import { ForumNotificationProvider } from "./ForumNotifications";
 import { ChatNotificationProvider } from "./ChatNotifications";
 import { usePageViewTracker } from "../hooks/useAnalytics";
 import ScrollToTop from "./ScrollToTop";
+import MarketplacePromo from "./marketplace/MarketplacePromo";
 
 /* Lazy-load non-critical shell components to reduce initial main-thread work */
 const PushNotificationsManager = dynamic(
@@ -137,6 +138,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   : "flex-1 px-4 pt-[76px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[90px] md:pb-6"
               }
             >
+              {!isCercaRoute && <MarketplacePromo />}
               {children}
             </main>
             {!isCercaRoute && <Footer />}
