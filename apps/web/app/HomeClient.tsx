@@ -280,32 +280,6 @@ function InstallAppButton({ compact = false }: { compact?: boolean }) {
   );
 }
 
-/* ── Marketplace CTA Banner ── */
-
-function MarketplaceBanner() {
-  return (
-    <section className="mb-8">
-      <Link
-        href="/marketplace"
-        className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-fuchsia-400/25 bg-gradient-to-r from-fuchsia-600/20 via-violet-600/15 to-blue-600/10 px-5 py-4 backdrop-blur-sm transition-all hover:border-fuchsia-400/40 hover:shadow-[0_8px_32px_rgba(217,70,239,0.18)]"
-      >
-        {/* subtle inner glow */}
-        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-fuchsia-500/[0.07] to-transparent" />
-
-        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-violet-600 shadow-lg shadow-fuchsia-500/30">
-          <ShoppingBag className="h-6 w-6 text-white" />
-        </div>
-        <div className="relative min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-white">Marketplace</h3>
-          <p className="mt-0.5 text-xs font-medium text-fuchsia-300/90">Packs de fotos, videos y artículos personales</p>
-          <p className="mt-0.5 text-xs text-white/45">Pago protegido y entrega dentro de UZEED.</p>
-        </div>
-        <ChevronRight className="relative h-5 w-5 shrink-0 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-white/60" />
-      </Link>
-    </section>
-  );
-}
-
 /* ── Page ── */
 
 const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
@@ -834,7 +808,6 @@ export default function HomeClient() {
         <LiveCamsSection />
 
         {/* ═══ VIDEOLLAMADAS CTA BANNER ═══ */}
-        <MarketplaceBanner />
 
         {/* ═══ CREADORAS U-MATE ═══ */}
         {umateCreators.length > 0 && (
