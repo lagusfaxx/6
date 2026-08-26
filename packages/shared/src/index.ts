@@ -44,6 +44,10 @@ export const registerInputSchema = z
     bio: z.string().max(1000).optional(),
     primaryCategory: z.string().max(120).optional(),
     referralCode: z.string().max(20).optional(),
+    // Respuesta automática: la profesional puede dejarla configurada desde el
+    // propio registro.
+    autoReplyEnabled: z.boolean().optional(),
+    autoReplyMessage: z.string().max(500).optional(),
   })
   .superRefine((data, ctx) => {
     const isBusiness = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(

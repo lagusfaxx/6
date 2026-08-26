@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { Prisma } from "@prisma/client";
 import { loginInputSchema, registerInputSchema, quickRegisterSchema } from "@uzeed/shared";
+import { autoReplyFields } from "../messages/autoReply";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 import { emitAdminEvent } from "../lib/adminEvents";
@@ -124,6 +125,8 @@ authRouter.post(
       bio,
       primaryCategory,
       referralCode,
+      autoReplyEnabled,
+      autoReplyMessage,
     } = parsed.data;
     const email = rawEmail.toLowerCase().trim();
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -271,6 +274,11 @@ authRouter.post(
           lastSeen: new Date(),
           role: "USER",
           isVerified: !isBusinessProfile,
+          // Respuesta automática configurada durante el registro (solo aplica
+          // a profesionales, que son las únicas que ven la pregunta).
+          ...(profileType === "PROFESSIONAL"
+            ? autoReplyFields(autoReplyEnabled, autoReplyMessage)
+            : {}),
         },
         select: {
           id: true,

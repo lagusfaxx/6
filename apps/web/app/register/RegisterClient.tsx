@@ -315,6 +315,10 @@ export default function RegisterClient() {
     if (data.city) form.append("city", data.city);
     if (data.bio) form.append("bio", data.bio);
     if (data.referralCode) form.append("referralCode", data.referralCode);
+    if (data.autoReplyEnabled && data.autoReplyMessage) {
+      form.append("autoReplyEnabled", "true");
+      form.append("autoReplyMessage", data.autoReplyMessage);
+    }
     for (const file of galleryFiles) form.append("gallery", file);
 
     try {

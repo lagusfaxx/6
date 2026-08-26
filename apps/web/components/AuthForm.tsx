@@ -65,6 +65,8 @@ export type RegisterFormData = {
   birthdate?: string;
   bio?: string;
   referralCode?: string;
+  autoReplyEnabled?: boolean;
+  autoReplyMessage?: string;
 };
 
 export default function AuthForm({
