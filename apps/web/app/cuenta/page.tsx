@@ -10,6 +10,7 @@ import { apiFetch } from "../../lib/api";
 import Avatar from "../../components/Avatar";
 import EmailNotificationsToggle from "../../components/EmailNotificationsToggle";
 import AutoReplySettings from "../../components/AutoReplySettings";
+import PhotoPermissionToggle from "../../components/PhotoPermissionToggle";
 import { Badge } from "../../components/ui/badge";
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -254,6 +255,7 @@ export default function AccountPage() {
               <EmailNotificationsToggle />
               {/* Solo las profesionales reciben clientes por chat. */}
               {isProfessional && <AutoReplySettings />}
+              {isProfessional && <PhotoPermissionToggle />}
             </div>
           </div>
 

@@ -16,6 +16,7 @@ import {
 } from "../../../lib/api";
 import { connectRealtime } from "../../../lib/realtime";
 import Avatar from "../../../components/Avatar";
+import PhotoPermissionToggle from "../../../components/PhotoPermissionToggle";
 import {
   ArrowLeft,
   MapPin,
@@ -25,6 +26,7 @@ import {
   AlertCircle,
   Hotel,
   DollarSign,
+  ImageOff,
 } from "lucide-react";
 
 type Message = {
@@ -58,6 +60,15 @@ type MotelBooking = {
   roomName?: string | null;
   establishmentAddress?: string | null;
   establishmentCity?: string | null;
+};
+
+type PhotoPermission = {
+  /** Si puedo mandarle fotos a la otra persona. */
+  canSend: boolean;
+  /** Mi propio permiso (solo lo usan las profesionales). */
+  mine: boolean;
+  /** Si a mí me corresponde el interruptor. */
+  available: boolean;
 };
 
 type MeResponse = {
@@ -115,6 +126,14 @@ export default function ChatPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Aviso pasajero sobre el envío (el `error` de arriba reemplaza el chat
+  // entero, y quedarse sin conversación por una foto rechazada sería peor).
+  const [notice, setNotice] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<PhotoPermission>({
+    canSend: false,
+    mine: false,
+    available: false,
+  });
 
   const [activeBooking, setActiveBooking] = useState<MotelBooking | null>(null);
   const [bookingBusy, setBookingBusy] = useState(false);
@@ -166,11 +185,14 @@ export default function ChatPage() {
   async function load() {
     const [meResp, msgResp] = await Promise.all([
       apiFetch<MeResponse>("/auth/me"),
-      apiFetch<{ messages: Message[]; other: ChatUser }>(`/messages/${userId}`),
+      apiFetch<{ messages: Message[]; other: ChatUser; photos?: PhotoPermission }>(
+        `/messages/${userId}`,
+      ),
     ]);
     setMe(meResp.user);
     setMessages(msgResp.messages);
     setOther(msgResp.other);
+    if (msgResp.photos) setPhotos(msgResp.photos);
     await loadBookingState(meResp.user);
   }
 
@@ -200,11 +222,14 @@ export default function ChatPage() {
 
   async function refreshConversationSilently() {
     try {
-      const msgResp = await apiFetch<{ messages: Message[]; other: ChatUser }>(
-        `/messages/${userId}`,
-      );
+      const msgResp = await apiFetch<{
+        messages: Message[];
+        other: ChatUser;
+        photos?: PhotoPermission;
+      }>(`/messages/${userId}`);
       setMessages(msgResp.messages);
       setOther(msgResp.other);
+      if (msgResp.photos) setPhotos(msgResp.photos);
       await loadBookingState(me);
     } catch {
       // silent polling
@@ -316,6 +341,13 @@ export default function ChatPage() {
   async function send(e: React.FormEvent) {
     e.preventDefault();
     if (!body.trim() && !attachment) return;
+    setNotice(null);
+    if (attachment && !photos.canSend) {
+      setAttachment(null);
+      setAttachmentPreview(null);
+      setNotice("Esta persona no tiene habilitado recibir fotos en el chat.");
+      return;
+    }
     try {
       if (attachment) {
         const form = new FormData();
@@ -326,6 +358,15 @@ export default function ChatPage() {
           body: form,
         });
         if (!res.ok) {
+          if (res.status === 403) {
+            setAttachment(null);
+            setAttachmentPreview(null);
+            setPhotos((prev) => ({ ...prev, canSend: false }));
+            setNotice(
+              "Esta persona no tiene habilitado recibir fotos en el chat.",
+            );
+            return;
+          }
           const t = await res.text().catch(() => "");
           throw new Error(`ATTACHMENT_FAILED ${res.status}: ${t}`);
         }
@@ -453,6 +494,19 @@ export default function ChatPage() {
         </div>
 
       </div>
+
+      {/* ── Fotos: la profesional decide aquí mismo si quiere recibirlas ── */}
+      {photos.available && (
+        <div className="shrink-0 border-b border-white/10 bg-white/[0.02] px-4 py-2">
+          <PhotoPermissionToggle
+            initial={photos.mine}
+            compact
+            onChange={(allowed) =>
+              setPhotos((prev) => ({ ...prev, mine: allowed }))
+            }
+          />
+        </div>
+      )}
 
       {/* ── Booking card ── */}
       {hasMotelBooking && (
@@ -693,31 +747,47 @@ export default function ChatPage() {
         </div>
       )}
 
+      {notice && (
+        <div className="shrink-0 border-t border-white/10 bg-amber-500/[0.06] px-4 py-2">
+          <p className="text-[11px] text-amber-200/80">{notice}</p>
+        </div>
+      )}
+
       {/* ── Input bar ── */}
       <form
         onSubmit={send}
         className="flex shrink-0 items-end gap-2 border-t border-white/10 bg-white/5 px-3 py-3"
       >
-        <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-white/40 transition hover:bg-white/10 hover:text-white/70">
-          <Paperclip className="h-4.5 w-4.5" />
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0] || null;
-              setAttachment(file);
-              if (!file) {
-                setAttachmentPreview(null);
-                return;
-              }
-              const reader = new FileReader();
-              reader.onload = () =>
-                setAttachmentPreview(String(reader.result || ""));
-              reader.readAsDataURL(file);
-            }}
-          />
-        </label>
+        {photos.canSend ? (
+          <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-white/40 transition hover:bg-white/10 hover:text-white/70">
+            <Paperclip className="h-4.5 w-4.5" />
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setAttachment(file);
+                if (!file) {
+                  setAttachmentPreview(null);
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onload = () =>
+                  setAttachmentPreview(String(reader.result || ""));
+                reader.readAsDataURL(file);
+              }}
+            />
+          </label>
+        ) : (
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/20"
+            title="Esta persona no tiene habilitado recibir fotos"
+            aria-label="Esta persona no tiene habilitado recibir fotos"
+          >
+            <ImageOff className="h-4.5 w-4.5" />
+          </span>
+        )}
         <input
           className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 outline-none transition focus:border-white/20 focus:ring-1 focus:ring-fuchsia-500/20"
           placeholder="Escribe un mensaje..."

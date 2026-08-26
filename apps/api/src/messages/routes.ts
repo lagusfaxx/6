@@ -12,6 +12,8 @@ import { validateUploadedFile } from "../lib/uploads";
 import { isUUID } from "../lib/validators";
 import { sendToUser, broadcast } from "../realtime/sse";
 import { scheduleAutoReply } from "./autoReply";
+import { canSendPhoto } from "./photoPermission";
+import { unlink } from "node:fs/promises";
 
 export const messagesRouter = Router();
 
@@ -131,10 +133,15 @@ messagesRouter.get("/messages/:userId", requireAuth, asyncHandler(async (req, re
       username: true,
       avatarUrl: true,
       profileType: true,
-      city: true
+      city: true,
+      allowChatPhotos: true
     }
   });
   if (!otherUser) return res.status(404).json({ error: "USER_NOT_FOUND" });
+  const meUser = await prisma.user.findUnique({
+    where: { id: me },
+    select: { profileType: true, allowChatPhotos: true }
+  });
 
   const messages = await prisma.message.findMany({
     where: {
@@ -150,7 +157,18 @@ messagesRouter.get("/messages/:userId", requireAuth, asyncHandler(async (req, re
     where: { fromId: other, toId: me, readAt: null },
     data: { readAt: new Date() }
   });
-  return res.json({ messages, other: otherUser });
+  // El chat necesita saber si el clip de adjuntar tiene sentido aquí: solo las
+  // profesionales bloquean fotos, y solo si no las habilitaron.
+  const { allowChatPhotos: otherAllowsPhotos, ...otherPublic } = otherUser;
+  return res.json({
+    messages,
+    other: otherPublic,
+    photos: {
+      canSend: otherUser.profileType === "PROFESSIONAL" ? otherAllowsPhotos : true,
+      mine: Boolean(meUser?.allowChatPhotos),
+      available: meUser?.profileType === "PROFESSIONAL"
+    }
+  });
 }));
 
 messagesRouter.post("/messages/:userId", requireAuth, messageLimiter, asyncHandler(async (req, res) => {
@@ -237,8 +255,21 @@ messagesRouter.post("/messages/:userId/attachment", requireAuth, messageLimiter,
   if (!allowed) return res.status(403).json({ error: "CHAT_NOT_ALLOWED" });
   const file = req.file;
   if (!file) return res.status(400).json({ error: "NO_FILE" });
+  // El archivo ya está en disco cuando llegamos aquí (multer corre antes), así
+  // que una foto rechazada se borra en vez de quedar guardada en el servidor.
+  const discard = () => unlink(file.path).catch(() => { /* ya no está */ });
+  if (!(await canSendPhoto(other))) {
+    await discard();
+    return res.status(403).json({
+      error: "PHOTOS_NOT_ALLOWED",
+      message: "Esta persona no tiene habilitado recibir fotos en el chat."
+    });
+  }
   const { type } = await validateUploadedFile(file, "image");
-  if (type !== "IMAGE") return res.status(400).json({ error: "INVALID_FILE_TYPE" });
+  if (type !== "IMAGE") {
+    await discard();
+    return res.status(400).json({ error: "INVALID_FILE_TYPE" });
+  }
   const url = storageProvider.publicUrl(file.filename);
   const message = await prisma.message.create({
     data: {

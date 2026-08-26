@@ -447,6 +447,9 @@ model User {
   /// y para la profesional el mensaje del cliente sigue sin leer.
   autoReplyEnabled    Boolean           @default(false)
   autoReplyMessage    String?
+  /// Fotos en el chat: la profesional decide si los clientes pueden enviarle
+  /// imágenes. Apagado por defecto — nadie recibe fotos que no pidió.
+  allowChatPhotos     Boolean           @default(false)
   /// Aviso por correo de mensajes sin leer. Se puede desactivar desde la
   /// cuenta o con el enlace de baja que va en cada correo.
   emailOnNewMessage   Boolean           @default(true)

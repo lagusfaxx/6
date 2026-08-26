@@ -22,6 +22,7 @@ import { apiFetch, friendlyErrorMessage, isAuthError } from "../../lib/api";
 import { connectRealtime } from "../../lib/realtime";
 import Avatar from "../../components/Avatar";
 import AutoReplySettings from "../../components/AutoReplySettings";
+import PhotoPermissionToggle from "../../components/PhotoPermissionToggle";
 import useMe from "../../hooks/useMe";
 
 type Conversation = {
@@ -292,6 +293,13 @@ export default function ChatInboxPage() {
               <span className="shrink-0 text-[11px] text-fuchsia-300/80">Configurar</span>
             </button>
           )}
+        </div>
+      )}
+
+      {/* Fotos en el chat — solo para profesionales */}
+      {isProfessionalAccount && (
+        <div className="mb-3">
+          <PhotoPermissionToggle />
         </div>
       )}
 
