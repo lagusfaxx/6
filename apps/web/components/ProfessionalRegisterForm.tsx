@@ -14,6 +14,7 @@ import {
   Gift,
   ImagePlus,
   X,
+  MessageSquare,
 } from "lucide-react";
 
 const phoneRegex =
@@ -108,6 +109,8 @@ export default function ProfessionalRegisterForm({
   const [longitude, setLongitude] = useState("");
   const [bio, setBio] = useState("");
   const [referralCode, setReferralCode] = useState("");
+  const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
+  const [autoReplyMessage, setAutoReplyMessage] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +149,8 @@ export default function ProfessionalRegisterForm({
         !longitude
       )
         return "Debes seleccionar una dirección válida desde el buscador de Mapbox.";
+      if (autoReplyEnabled && autoReplyMessage.trim().length < 5)
+        return "Escribe el mensaje automático que quieres enviar (mínimo 5 caracteres).";
       if (!finalTermsAccepted)
         return "Debes aceptar los términos y condiciones para continuar.";
     }
@@ -199,6 +204,8 @@ export default function ProfessionalRegisterForm({
       birthdate,
       bio: bio || undefined,
       referralCode: referralCode.trim() || undefined,
+      autoReplyEnabled: autoReplyEnabled && autoReplyMessage.trim().length > 0,
+      autoReplyMessage: autoReplyMessage.trim() || undefined,
     };
     onCollectData(formData);
   }
@@ -546,6 +553,43 @@ export default function ProfessionalRegisterForm({
             <p className="text-xs text-white/40">
               Si alguien te invitó, ingresa su código aquí.
             </p>
+          </div>
+
+          {/* Mensaje automático */}
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-5 w-5 rounded border-white/20 bg-white/5 accent-fuchsia-500"
+                checked={autoReplyEnabled}
+                onChange={(e) => setAutoReplyEnabled(e.target.checked)}
+              />
+              <span className="flex-1">
+                <span className="flex items-center gap-2 text-sm font-medium text-white/80">
+                  <MessageSquare className="h-4 w-4 text-fuchsia-300" />
+                  ¿Quieres un mensaje automático?
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-white/45">
+                  Se envía solo cuando un cliente te escribe por primera vez, para
+                  que nadie se quede esperando mientras no puedes responder.
+                </span>
+              </span>
+            </label>
+
+            {autoReplyEnabled && (
+              <div className="mt-3 grid gap-2">
+                <textarea
+                  className="input min-h-[90px]"
+                  value={autoReplyMessage}
+                  onChange={(e) => setAutoReplyMessage(e.target.value.slice(0, 500))}
+                  placeholder="Hola, gracias por escribirme. En un rato te respondo."
+                  maxLength={500}
+                />
+                <p className="text-[11px] text-white/35">
+                  {autoReplyMessage.length}/500 · Escríbelo con tus palabras.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">

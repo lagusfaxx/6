@@ -21,6 +21,8 @@ import {
 import { apiFetch, friendlyErrorMessage, isAuthError } from "../../lib/api";
 import { connectRealtime } from "../../lib/realtime";
 import Avatar from "../../components/Avatar";
+import AutoReplySettings from "../../components/AutoReplySettings";
+import useMe from "../../hooks/useMe";
 
 type Conversation = {
   other: {
@@ -89,6 +91,8 @@ export default function ChatInboxPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterTab>("all");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [autoReplyOpen, setAutoReplyOpen] = useState(false);
+  const { me } = useMe();
   const router = useRouter();
   const pathname = usePathname() || "/chats";
 
@@ -183,6 +187,9 @@ export default function ChatInboxPage() {
     return () => document.removeEventListener("click", handler);
   }, [activeMenu]);
 
+  const isProfessionalAccount =
+    (me?.user?.profileType || "").toUpperCase() === "PROFESSIONAL";
+
   const filtered = useMemo(() => {
     let result = conversations;
 
@@ -263,6 +270,30 @@ export default function ChatInboxPage() {
 
       {/* Gradient divider */}
       <div className="h-px bg-gradient-to-r from-transparent via-fuchsia-500/20 to-transparent mb-3" />
+
+      {/* Mensaje automático — solo para profesionales, aquí mismo donde chatean */}
+      {isProfessionalAccount && (
+        <div className="mb-3">
+          {autoReplyOpen ? (
+            <AutoReplySettings />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAutoReplyOpen(true)}
+              className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-left transition hover:bg-white/[0.05]"
+            >
+              <MessageCircle className="h-4 w-4 shrink-0 text-fuchsia-400/70" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-medium">Mensaje automático</span>
+                <span className="mt-0.5 block text-[11px] leading-tight text-white/40">
+                  Responde solo a quien te escriba mientras no estás.
+                </span>
+              </span>
+              <span className="shrink-0 text-[11px] text-fuchsia-300/80">Configurar</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div className="mb-3 flex gap-1 p-1 rounded-2xl bg-white/[0.02] border border-white/[0.05] overflow-x-auto scrollbar-hide">

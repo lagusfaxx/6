@@ -11,6 +11,7 @@ import { config } from "../config";
 import { validateUploadedFile } from "../lib/uploads";
 import { isUUID } from "../lib/validators";
 import { sendToUser, broadcast } from "../realtime/sse";
+import { scheduleAutoReply } from "./autoReply";
 
 export const messagesRouter = Router();
 
@@ -209,7 +210,7 @@ messagesRouter.post("/messages/:userId", requireAuth, messageLimiter, asyncHandl
   // Social proof broadcast — notify all connected users
   const recipient = await prisma.user.findUnique({
     where: { id: other },
-    select: { displayName: true, username: true, profileType: true },
+    select: { displayName: true, username: true, profileType: true, autoReplyEnabled: true },
   });
   if (recipient?.profileType === "PROFESSIONAL") {
     broadcast("social_proof", {
@@ -218,6 +219,9 @@ messagesRouter.post("/messages/:userId", requireAuth, messageLimiter, asyncHandl
       profileId: other,
       t: Date.now(),
     });
+    // Respuesta automática de la profesional, 20 segundos después. No marca
+    // como leído este mensaje: su alerta sigue existiendo.
+    if (recipient.autoReplyEnabled) scheduleAutoReply(other, me);
   }
 
   return res.json({ message });
@@ -262,7 +266,7 @@ messagesRouter.post("/messages/:userId/attachment", requireAuth, messageLimiter,
   // Social proof broadcast
   const attachRecipient = await prisma.user.findUnique({
     where: { id: other },
-    select: { displayName: true, username: true, profileType: true },
+    select: { displayName: true, username: true, profileType: true, autoReplyEnabled: true },
   });
   if (attachRecipient?.profileType === "PROFESSIONAL") {
     broadcast("social_proof", {
@@ -271,6 +275,7 @@ messagesRouter.post("/messages/:userId/attachment", requireAuth, messageLimiter,
       profileId: other,
       t: Date.now(),
     });
+    if (attachRecipient.autoReplyEnabled) scheduleAutoReply(other, me);
   }
 
   return res.json({ message });

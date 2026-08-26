@@ -442,6 +442,11 @@ model User {
   shopTrialEndsAt     DateTime?
   termsAcceptedAt     DateTime?
   allowFreeMessages   Boolean           @default(false)
+  /// Respuesta automática de la profesional: se envía sola 20 segundos después
+  /// del primer mensaje de un cliente. El cliente la ve como un mensaje normal
+  /// y para la profesional el mensaje del cliente sigue sin leer.
+  autoReplyEnabled    Boolean           @default(false)
+  autoReplyMessage    String?
   /// Aviso por correo de mensajes sin leer. Se puede desactivar desde la
   /// cuenta o con el enlace de baja que va en cada correo.
   emailOnNewMessage   Boolean           @default(true)
@@ -731,6 +736,20 @@ model Message {
   @@index([createdAt])
   // Barrido del worker de avisos por correo: mensajes sin leer por destinatario.
   @@index([toId, readAt, createdAt])
+}
+
+/// Control de envío de la respuesta automática: una por conversación cada
+/// 24 horas, para que un cliente que insiste no reciba el mismo texto varias
+/// veces seguidas. Vive aparte de Message a propósito: la fila del mensaje
+/// enviado tiene que ser indistinguible de uno escrito a mano.
+model AutoReplyLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  professionalId String   @db.Uuid
+  clientId       String   @db.Uuid
+  sentAt         DateTime @default(now())
+
+  @@unique([professionalId, clientId])
+  @@index([sentAt])
 }
 
 model ServiceRating {

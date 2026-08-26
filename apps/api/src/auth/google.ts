@@ -15,6 +15,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { MIN_PROFESSIONAL_GALLERY_PHOTOS } from "./createProfessional";
+import { autoReplyFields } from "../messages/autoReply";
 
 export const googleAuthRouter = Router();
 
@@ -284,6 +285,8 @@ const professionalCompleteSchema = z.object({
   longitude: z.number().finite(),
   bio: z.string().max(1000).optional(),
   referralCode: z.string().max(20).optional(),
+  autoReplyEnabled: z.boolean().optional(),
+  autoReplyMessage: z.string().max(500).optional(),
   acceptTerms: z.literal(true, {
     errorMap: () => ({ message: "Terms must be accepted" }),
   }),
@@ -465,6 +468,10 @@ googleAuthRouter.post(
       latitude: Number(b.latitude),
       longitude: Number(b.longitude),
       acceptTerms: b.acceptTerms === "true" || b.acceptTerms === true,
+      autoReplyEnabled:
+        b.autoReplyEnabled === undefined
+          ? undefined
+          : b.autoReplyEnabled === "true" || b.autoReplyEnabled === true,
     });
     if (!parsed.success) {
       return res
@@ -591,6 +598,7 @@ googleAuthRouter.post(
           lastSeen: new Date(),
           role: "USER",
           isVerified: false,
+          ...autoReplyFields(data.autoReplyEnabled, data.autoReplyMessage),
           // First validated gallery photo — never the Google avatar.
           avatarUrl: galleryUrls[0],
         },
