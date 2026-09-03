@@ -29,6 +29,9 @@ export default function FaceVerificationPage({ params }: { params: { token: stri
 
   const [link, setLink] = useState<LinkState | null>(null);
   const [loading, setLoading] = useState(true);
+  // Un enlace inválido y una API caída no son lo mismo: si se muestran igual,
+  // un problema de despliegue parece un enlace vencido y nadie lo detecta.
+  const [loadError, setLoadError] = useState<"NOT_FOUND" | "SERVER" | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState(false);
@@ -44,13 +47,25 @@ export default function FaceVerificationPage({ params }: { params: { token: stri
   const currentPose = poses[shots.length];
   const done = shots.length >= poses.length;
 
-  useEffect(() => {
+  const loadLink = useCallback(() => {
+    setLoading(true);
+    setLoadError(null);
     fetch(`${getApiBase()}/face-verification/${encodeURIComponent(token)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("NOT_FOUND"))))
+      .then(async (r) => {
+        if (r.ok) return r.json();
+        throw new Error(r.status === 404 ? "NOT_FOUND" : "SERVER");
+      })
       .then(setLink)
-      .catch(() => setLink(null))
+      .catch((e: Error) => {
+        setLink(null);
+        setLoadError(e.message === "NOT_FOUND" ? "NOT_FOUND" : "SERVER");
+      })
       .finally(() => setLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    loadLink();
+  }, [loadLink]);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -165,6 +180,28 @@ export default function FaceVerificationPage({ params }: { params: { token: stri
     );
   }
 
+  // Fallo de red o del servidor: se puede reintentar, no es culpa del enlace.
+  if (loadError === "SERVER") {
+    return (
+      <Shell>
+        <div className="text-center">
+          <X className="mx-auto h-10 w-10 text-amber-400" />
+          <h1 className="mt-3 text-lg font-bold">No pudimos abrir la verificación</h1>
+          <p className="mt-2 text-sm text-white/50">
+            Hubo un problema de conexión con el servidor. Inténtalo de nuevo en un momento.
+          </p>
+          <button
+            type="button"
+            onClick={loadLink}
+            className="mt-4 rounded-full border border-white/15 bg-white/[0.07] px-5 py-2.5 text-sm font-semibold text-white/85 transition hover:bg-white/[0.12]"
+          >
+            Reintentar
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
   if (!link || link.status === "EXPIRED") {
     return (
       <Shell>
@@ -172,7 +209,7 @@ export default function FaceVerificationPage({ params }: { params: { token: stri
           <X className="mx-auto h-10 w-10 text-red-400" />
           <h1 className="mt-3 text-lg font-bold">Enlace no válido</h1>
           <p className="mt-2 text-sm text-white/50">
-            Este enlace venció o ya no existe. Escríbele al equipo para que te envíe uno nuevo.
+            Este enlace venció o ya se usó. Escríbele al equipo para que te envíe uno nuevo.
           </p>
         </div>
       </Shell>
