@@ -37,25 +37,6 @@ type LiveStreamItem = {
 
 const STORY_DURATION_MS = 5000;
 
-/* Miniatura del perfil vecino, para que los botones de móvil digan a quién
-   lleva el salto y no sólo "hay algo más". */
-function GroupThumb({ group }: { group: StoryGroup | undefined }) {
-  if (!group) return null;
-  const src = resolveMediaUrl(group.avatarUrl);
-  return src ? (
-    <img
-      src={src}
-      alt={group.displayName}
-      className="h-7 w-7 rounded-full border border-white/40 object-cover"
-      decoding="async"
-    />
-  ) : (
-    <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/40 bg-fuchsia-600 text-[11px] font-bold text-white">
-      {group.displayName[0]?.toUpperCase()}
-    </span>
-  );
-}
-
 /* ─── StoryViewer ───────────────────────────────────────── */
 function StoryViewer({
   groups,
@@ -73,8 +54,6 @@ function StoryViewer({
   const [progress, setProgress] = useState(0);
   const [muted, setMuted] = useState(true);
   const [likePending, setLikePending] = useState(false);
-  // Aviso de "desliza" la primera vez que se abre el visor con más de un perfil.
-  const [hintVisible, setHintVisible] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const startTimeRef = useRef<number>(Date.now());
@@ -130,58 +109,6 @@ function StoryViewer({
     }
   }, [storyIdx, groupIdx, groups]);
 
-  /* Saltar de perfil en perfil. Las flechas laterales sólo se ven en
-     escritorio, así que en móvil esto es lo que mueven el deslizar y los
-     botones del borde. */
-  const goNextGroup = useCallback(() => {
-    if (groupIdx >= groups.length - 1) return;
-    setGroupIdx((g) => g + 1);
-    setStoryIdx(0);
-    setProgress(0);
-  }, [groupIdx, groups.length]);
-
-  const goPrevGroup = useCallback(() => {
-    if (groupIdx <= 0) return;
-    setGroupIdx((g) => g - 1);
-    setStoryIdx(0);
-    setProgress(0);
-  }, [groupIdx]);
-
-  /* Deslizar: horizontal cambia de perfil, hacia abajo cierra. Es el gesto que
-     la gente intenta en el móvil y hasta ahora no hacía nada, lo que daba la
-     sensación de que no había más historias. */
-  const touchRef = useRef<{ x: number; y: number } | null>(null);
-  // El navegador dispara un click después del gesto: sin esta marca, deslizar
-  // sobre una zona táctil cambiaba de perfil y además avanzaba una historia.
-  const swipeHandledRef = useRef(false);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const t = e.touches[0];
-    swipeHandledRef.current = false;
-    if (t) touchRef.current = { x: t.clientX, y: t.clientY };
-  }, []);
-
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      const start = touchRef.current;
-      touchRef.current = null;
-      const t = e.changedTouches[0];
-      if (!start || !t) return;
-      const dx = t.clientX - start.x;
-      const dy = t.clientY - start.y;
-      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) {
-        swipeHandledRef.current = true;
-        setHintVisible(false);
-        if (dx < 0) goNextGroup();
-        else goPrevGroup();
-      } else if (dy > 90 && Math.abs(dy) > Math.abs(dx)) {
-        swipeHandledRef.current = true;
-        onClose();
-      }
-    },
-    [goNextGroup, goPrevGroup, onClose],
-  );
-
   useEffect(() => {
     if (isVideo) return;
     setProgress(0);
@@ -215,24 +142,6 @@ function StoryViewer({
     };
   }, [storyIdx, groupIdx, isVideo, muted, goNext]);
 
-  const handleTap = useCallback(
-    (move: () => void) => () => {
-      if (swipeHandledRef.current) {
-        swipeHandledRef.current = false;
-        return;
-      }
-      move();
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (groups.length <= 1) return;
-    setHintVisible(true);
-    const t = setTimeout(() => setHintVisible(false), 3500);
-    return () => clearTimeout(t);
-  }, [groups.length]);
-
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -254,11 +163,7 @@ function StoryViewer({
         <X className="h-5 w-5" />
       </button>
 
-      <div
-        className="relative mx-auto h-[90vh] max-h-[700px] w-full max-w-sm overflow-hidden rounded-2xl bg-black shadow-2xl"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
+      <div className="relative mx-auto h-[90vh] max-h-[700px] w-full max-w-sm overflow-hidden rounded-2xl bg-black shadow-2xl">
         {/* Progress bars */}
         <div className="absolute top-2 left-2 right-2 z-20 flex gap-1">
           {group.stories.map((_, i) => (
@@ -291,9 +196,6 @@ function StoryViewer({
             <p className="text-sm font-semibold text-white">{group.displayName}</p>
             <p className="text-[10px] text-white/50">
               {new Date(story.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
-              {groups.length > 1 && (
-                <span className="text-white/40"> · perfil {groupIdx + 1} de {groups.length}</span>
-              )}
             </p>
           </div>
           {isVideo && (
@@ -328,40 +230,8 @@ function StoryViewer({
         )}
 
         {/* Tap zones */}
-        <button onClick={handleTap(goPrev)} className="absolute left-0 top-0 h-full w-1/3 z-10" aria-label="Anterior" />
-        <button onClick={handleTap(goNext)} className="absolute right-0 top-0 h-full w-1/3 z-10" aria-label="Siguiente" />
-
-        {/* Salto entre perfiles en móvil: las flechas de escritorio van fuera
-            del marco y en el teléfono no se ven, así que aquí van dentro y
-            muestran la foto del perfil que sigue para que se note que hay más. */}
-        {groupIdx > 0 && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setHintVisible(false); goPrevGroup(); }}
-            aria-label="Perfil anterior"
-            className="absolute left-1.5 top-1/2 z-30 flex -translate-y-1/2 items-center gap-1 rounded-full border border-white/25 bg-black/55 py-1 pl-1 pr-2 backdrop-blur sm:hidden"
-          >
-            <ChevronLeft className="h-4 w-4 text-white" />
-            <GroupThumb group={groups[groupIdx - 1]} />
-          </button>
-        )}
-        {groupIdx < groups.length - 1 && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setHintVisible(false); goNextGroup(); }}
-            aria-label="Siguiente perfil"
-            className="absolute right-1.5 top-1/2 z-30 flex -translate-y-1/2 items-center gap-1 rounded-full border border-white/25 bg-black/55 py-1 pl-2 pr-1 backdrop-blur sm:hidden"
-          >
-            <GroupThumb group={groups[groupIdx + 1]} />
-            <ChevronRight className="h-4 w-4 text-white" />
-          </button>
-        )}
-
-        {/* Aviso de deslizar: sin él, al abrir una historia parecía que no
-            había ninguna más. */}
-        {hintVisible && groups.length > 1 && (
-          <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/20 bg-black/65 px-3 py-1.5 text-[11px] font-medium text-white/85 backdrop-blur sm:hidden">
-            Desliza para ver más historias
-          </div>
-        )}
+        <button onClick={goPrev} className="absolute left-0 top-0 h-full w-1/3 z-10" aria-label="Anterior" />
+        <button onClick={goNext} className="absolute right-0 top-0 h-full w-1/3 z-10" aria-label="Siguiente" />
 
         {/* Bottom CTAs - Conversion focused */}
         <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/80 to-transparent">
@@ -402,7 +272,7 @@ function StoryViewer({
         {/* Desktop side arrows */}
         {groupIdx > 0 && (
           <button
-            onClick={(e) => { e.stopPropagation(); goPrevGroup(); }}
+            onClick={(e) => { e.stopPropagation(); setGroupIdx((g) => g - 1); setStoryIdx(0); setProgress(0); }}
             className="absolute -left-14 top-1/2 -translate-y-1/2 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -410,7 +280,7 @@ function StoryViewer({
         )}
         {groupIdx < groups.length - 1 && (
           <button
-            onClick={(e) => { e.stopPropagation(); goNextGroup(); }}
+            onClick={(e) => { e.stopPropagation(); setGroupIdx((g) => g + 1); setStoryIdx(0); setProgress(0); }}
             className="absolute -right-14 top-1/2 -translate-y-1/2 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition"
           >
             <ChevronRight className="h-5 w-5" />
