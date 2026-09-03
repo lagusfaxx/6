@@ -1107,7 +1107,14 @@ directoryRouter.get(
     /* ── build where clause ── */
     const where: Record<string, unknown> = {
       profileType: { in: profileTypeFilter },
-      // DEV: isActive, isVerified, subscription filters removed during development
+      // Los filtros de activo y verificado se habían quitado "durante el
+      // desarrollo" y nunca volvieron: por eso los perfiles pendientes de
+      // verificación aparecían en el inicio, y al abrirlos daban "Perfil no
+      // disponible" (el detalle sí exigía isVerified). Un perfil se publica
+      // cuando pasa la verificación, no antes.
+      isActive: true,
+      isVerified: true,
+      // DEV: subscription filter removed during development
     };
 
     if (genderFilter) where.gender = genderFilter;
