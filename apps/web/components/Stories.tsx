@@ -306,6 +306,26 @@ export default function Stories() {
   const [loading, setLoading] = useState(true);
   const [viewerGroupIdx, setViewerGroupIdx] = useState<number | null>(null);
 
+  /* La fila se desplaza a lo horizontal y en el teléfono no hay barra de
+     scroll: sin estas flechas no se ve que a la derecha hay más perfiles. */
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollHints = useCallback(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setCanScrollLeft(el.scrollLeft > 8);
+    setCanScrollRight(el.scrollLeft < max - 8);
+  }, []);
+
+  const scrollRow = useCallback((direction: 1 | -1) => {
+    const el = rowRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * Math.max(160, el.clientWidth * 0.75), behavior: "smooth" });
+  }, []);
+
   useEffect(() => {
     let done = 0;
     const checkDone = () => { done++; if (done >= 2) setLoading(false); };
@@ -320,6 +340,12 @@ export default function Stories() {
       .catch(() => setLiveStreams([]))
       .finally(checkDone);
   }, []);
+
+  useEffect(() => {
+    updateScrollHints();
+    window.addEventListener("resize", updateScrollHints);
+    return () => window.removeEventListener("resize", updateScrollHints);
+  }, [updateScrollHints, loading, groups.length, liveStreams.length]);
 
   const handleGoLive = () => {
     // Navigate to the live panel — the professional starts from there
@@ -386,101 +412,130 @@ export default function Stories() {
         </div>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-1">
-        {/* Go Live button for professionals — navigates to live panel */}
-        {isProfessional && (
-          <div className="flex-shrink-0 flex flex-col items-center gap-2">
-            <button
-              onClick={handleGoLive}
-              className="relative h-16 w-16 rounded-full border-2 border-dashed border-red-500/50 bg-red-500/5 flex items-center justify-center text-red-400 hover:border-red-400 hover:bg-red-500/10 transition hover:shadow-[0_0_20px_rgba(239,68,68,0.25)]"
-            >
-              <Radio className="h-6 w-6" />
-            </button>
-            <span className="text-[11px] text-red-300/60 font-medium">En vivo</span>
-          </div>
-        )}
+      <div className="relative">
+        <div
+          ref={rowRef}
+          onScroll={updateScrollHints}
+          className="flex gap-4 overflow-x-auto scrollbar-hide pb-1"
+        >
+          {/* Go Live button for professionals — navigates to live panel */}
+          {isProfessional && (
+            <div className="flex-shrink-0 flex flex-col items-center gap-2">
+              <button
+                onClick={handleGoLive}
+                className="relative h-16 w-16 rounded-full border-2 border-dashed border-red-500/50 bg-red-500/5 flex items-center justify-center text-red-400 hover:border-red-400 hover:bg-red-500/10 transition hover:shadow-[0_0_20px_rgba(239,68,68,0.25)]"
+              >
+                <Radio className="h-6 w-6" />
+              </button>
+              <span className="text-[11px] text-red-300/60 font-medium">En vivo</span>
+            </div>
+          )}
 
-        {/* Upload story button for professionals */}
-        {canUpload && (
-          <div className="flex-shrink-0 flex flex-col items-center gap-2">
+          {/* Upload story button for professionals */}
+          {canUpload && (
+            <div className="flex-shrink-0 flex flex-col items-center gap-2">
+              <Link
+                href="/dashboard/stories"
+                className="relative h-16 w-16 rounded-full border-2 border-dashed border-fuchsia-500/50 bg-fuchsia-500/5 flex items-center justify-center text-fuchsia-400 hover:border-fuchsia-400 hover:bg-fuchsia-500/10 transition hover:shadow-[0_0_20px_rgba(168,85,247,0.25)]"
+              >
+                <Plus className="h-6 w-6" />
+              </Link>
+              <span className="text-[11px] text-fuchsia-300/60 font-medium">Tu story</span>
+            </div>
+          )}
+
+          {/* Active live streams — shown first with red ring */}
+          {liveStreams.map((s) => (
             <Link
-              href="/dashboard/stories"
-              className="relative h-16 w-16 rounded-full border-2 border-dashed border-fuchsia-500/50 bg-fuchsia-500/5 flex items-center justify-center text-fuchsia-400 hover:border-fuchsia-400 hover:bg-fuchsia-500/10 transition hover:shadow-[0_0_20px_rgba(168,85,247,0.25)]"
+              key={`live-${s.id}`}
+              href={`/live/${s.id}`}
+              className="flex-shrink-0 flex flex-col items-center gap-2 group"
             >
-              <Plus className="h-6 w-6" />
-            </Link>
-            <span className="text-[11px] text-fuchsia-300/60 font-medium">Tu story</span>
-          </div>
-        )}
-
-        {/* Active live streams — shown first with red ring */}
-        {liveStreams.map((s) => (
-          <Link
-            key={`live-${s.id}`}
-            href={`/live/${s.id}`}
-            className="flex-shrink-0 flex flex-col items-center gap-2 group"
-          >
-            <div className="relative h-16 w-16 rounded-full p-[3px] bg-gradient-to-tr from-red-600 via-red-500 to-orange-500 group-hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-shadow">
-              <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
-                {s.host.avatarUrl ? (
-                  <img
-                    src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
-                    alt={s.host.displayName}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-red-700/50 to-orange-700/50">
-                    {s.host.displayName[0]?.toUpperCase()}
-                  </div>
-                )}
-              </div>
-              <span className="absolute bottom-0 right-0 flex items-center gap-0.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[8px] font-bold text-white shadow-lg border border-[#08090f]">
-                <span className="h-1 w-1 animate-pulse rounded-full bg-white" />
-                LIVE
-              </span>
-            </div>
-            <span className="max-w-[72px] truncate text-[11px] text-white/60 font-medium group-hover:text-white/80 transition">
-              {s.host.displayName.split(" ")[0]}
-            </span>
-          </Link>
-        ))}
-
-        {/* Stories */}
-        {groups.map((g, i) => (
-          <button
-            key={g.userId}
-            onClick={() => setViewerGroupIdx(i)}
-            className="flex-shrink-0 flex flex-col items-center gap-2 group"
-          >
-            <div className="relative h-16 w-16 rounded-full p-[3px] bg-gradient-to-tr from-fuchsia-600 via-violet-500 to-pink-500 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.5)] transition-shadow">
-              <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
-                {g.avatarUrl ? (
-                  <img
-                    src={resolveMediaUrl(g.avatarUrl) ?? undefined}
-                    alt={g.displayName}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-fuchsia-700/50 to-violet-700/50">
-                    {g.displayName[0]?.toUpperCase()}
-                  </div>
-                )}
-              </div>
-              {g.stories.some((s) => s.mediaType === "VIDEO") && (
-                <span className="absolute bottom-0 right-0 h-5 w-5 rounded-full bg-fuchsia-500 flex items-center justify-center text-[9px] text-white font-bold shadow-lg border border-[#08090f]">
-                  ▶
+              <div className="relative h-16 w-16 rounded-full p-[3px] bg-gradient-to-tr from-red-600 via-red-500 to-orange-500 group-hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-shadow">
+                <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
+                  {s.host.avatarUrl ? (
+                    <img
+                      src={resolveMediaUrl(s.host.avatarUrl) ?? undefined}
+                      alt={s.host.displayName}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-red-700/50 to-orange-700/50">
+                      {s.host.displayName[0]?.toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <span className="absolute bottom-0 right-0 flex items-center gap-0.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[8px] font-bold text-white shadow-lg border border-[#08090f]">
+                  <span className="h-1 w-1 animate-pulse rounded-full bg-white" />
+                  LIVE
                 </span>
-              )}
-            </div>
-            <span className="max-w-[72px] truncate text-[11px] text-white/60 font-medium group-hover:text-white/80 transition">
-              {g.displayName.split(" ")[0]}
-            </span>
+              </div>
+              <span className="max-w-[72px] truncate text-[11px] text-white/60 font-medium group-hover:text-white/80 transition">
+                {s.host.displayName.split(" ")[0]}
+              </span>
+            </Link>
+          ))}
+
+          {/* Stories */}
+          {groups.map((g, i) => (
+            <button
+              key={g.userId}
+              onClick={() => setViewerGroupIdx(i)}
+              className="flex-shrink-0 flex flex-col items-center gap-2 group"
+            >
+              <div className="relative h-16 w-16 rounded-full p-[3px] bg-gradient-to-tr from-fuchsia-600 via-violet-500 to-pink-500 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.5)] transition-shadow">
+                <div className="h-full w-full rounded-full overflow-hidden bg-[#111] border-2 border-[#08090f]">
+                  {g.avatarUrl ? (
+                    <img
+                      src={resolveMediaUrl(g.avatarUrl) ?? undefined}
+                      alt={g.displayName}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-fuchsia-700/50 to-violet-700/50">
+                      {g.displayName[0]?.toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                {g.stories.some((s) => s.mediaType === "VIDEO") && (
+                  <span className="absolute bottom-0 right-0 h-5 w-5 rounded-full bg-fuchsia-500 flex items-center justify-center text-[9px] text-white font-bold shadow-lg border border-[#08090f]">
+                    ▶
+                  </span>
+                )}
+              </div>
+              <span className="max-w-[72px] truncate text-[11px] text-white/60 font-medium group-hover:text-white/80 transition">
+                {g.displayName.split(" ")[0]}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Flechas de desplazamiento: aparecen sólo hacia el lado que queda por
+            recorrer, a la altura de las fotos. */}
+        {canScrollLeft && (
+          <button
+            type="button"
+            onClick={() => scrollRow(-1)}
+            aria-label="Ver perfiles anteriores"
+            className="absolute left-0 top-8 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/70 text-white shadow-lg backdrop-blur transition hover:bg-black/85"
+          >
+            <ChevronLeft className="h-4 w-4" />
           </button>
-        ))}
+        )}
+        {canScrollRight && (
+          <button
+            type="button"
+            onClick={() => scrollRow(1)}
+            aria-label="Ver más perfiles"
+            className="absolute right-0 top-8 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/70 text-white shadow-lg backdrop-blur transition hover:bg-black/85"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {viewerGroupIdx !== null && (
