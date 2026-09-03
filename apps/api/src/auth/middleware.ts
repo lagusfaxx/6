@@ -55,6 +55,7 @@ const PUBLIC_PREFIXES = [
   "/market/sellers",    // ✅ vitrinas públicas de las vendedoras
   "/market/media",      // ✅ contenido comprado (la firma HMAC es la autorización)
   "/notifications/email/unsubscribe", // ✅ baja desde el enlace del correo (el HMAC es la autorización)
+  "/face-verification", // ✅ enlace de verificación facial (el token del enlace es la autorización)
 ];
 
 /**
