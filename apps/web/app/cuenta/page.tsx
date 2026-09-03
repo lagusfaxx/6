@@ -96,7 +96,7 @@ export default function AccountPage() {
   }
   if (isProfessional) {
     quickActions.push(
-      { label: "Subir story", description: "Foto o video de 24h", href: "/dashboard/stories", icon: Camera, color: "text-pink-400" },
+      { label: "Subir historia", description: "Foto o video de 20 días", href: "/dashboard/stories?nueva=1", icon: Camera, color: "text-pink-400" },
       { label: "Ver mi perfil", description: "Como lo ven los clientes", href: publicProfileUrl, icon: Eye, color: "text-violet-400" },
       { label: "Marketplace", description: "Vende tus artículos", href: "/marketplace/vender", icon: ShoppingBag, color: "text-emerald-400" },
       { label: "Acreditar exámenes", description: "Sube documentos profesionales", href: "/cuenta/acreditacion", icon: ShieldCheck, color: "text-blue-400" },
@@ -356,7 +356,7 @@ export default function AccountPage() {
                       Sube stories, completa tu perfil y activa UMate.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      <Link href="/dashboard/stories" className="inline-flex items-center gap-1 rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/20 px-2.5 py-1 text-[11px] text-fuchsia-300 hover:bg-fuchsia-500/20 transition">
+                      <Link href="/dashboard/stories?nueva=1" className="inline-flex items-center gap-1 rounded-lg bg-fuchsia-500/10 border border-fuchsia-500/20 px-2.5 py-1 text-[11px] text-fuchsia-300 hover:bg-fuchsia-500/20 transition">
                         <Camera className="h-3 w-3" /> Story
                       </Link>
                       <Link href="/dashboard/services" className="inline-flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:bg-white/10 transition">

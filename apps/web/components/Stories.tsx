@@ -7,6 +7,7 @@ import { X, ChevronLeft, ChevronRight, Plus, Volume2, VolumeX, MessageCircle, Ra
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import useMe from "../hooks/useMe";
+import StoryComposer from "./StoryComposer";
 
 /* ─── Types ─────────────────────────────────────────────── */
 type StoryItem = {
@@ -305,6 +306,10 @@ export default function Stories() {
   const [liveStreams, setLiveStreams] = useState<LiveStreamItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewerGroupIdx, setViewerGroupIdx] = useState<number | null>(null);
+  // Publicar abre el composer encima del inicio: la profesional no sale de la
+  // pantalla en la que está ni pierde el scroll.
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [justPublished, setJustPublished] = useState<string | null>(null);
 
   /* La fila se desplaza a lo horizontal y en el teléfono no hay barra de
      scroll: sin estas flechas no se ve que a la derecha hay más perfiles. */
@@ -326,20 +331,31 @@ export default function Stories() {
     el.scrollBy({ left: direction * Math.max(160, el.clientWidth * 0.75), behavior: "smooth" });
   }, []);
 
+  const loadGroups = useCallback(
+    () =>
+      apiFetch<{ stories: StoryGroup[] }>("/stories/active")
+        .then((d) => setGroups(d.stories ?? []))
+        .catch(() => setGroups([])),
+    [],
+  );
+
   useEffect(() => {
     let done = 0;
     const checkDone = () => { done++; if (done >= 2) setLoading(false); };
 
-    apiFetch<{ stories: StoryGroup[] }>("/stories/active")
-      .then((d) => setGroups(d.stories ?? []))
-      .catch(() => setGroups([]))
-      .finally(checkDone);
+    loadGroups().finally(checkDone);
 
     apiFetch<{ streams: LiveStreamItem[] }>("/live/active")
       .then((d) => setLiveStreams(d.streams ?? []))
       .catch(() => setLiveStreams([]))
       .finally(checkDone);
-  }, []);
+  }, [loadGroups]);
+
+  useEffect(() => {
+    if (!justPublished) return;
+    const t = setTimeout(() => setJustPublished(null), 3000);
+    return () => clearTimeout(t);
+  }, [justPublished]);
 
   useEffect(() => {
     updateScrollHints();
@@ -402,12 +418,13 @@ export default function Stories() {
             </button>
           )}
           {isProfessional && (
-            <Link
-              href="/dashboard/stories"
+            <button
+              type="button"
+              onClick={() => setComposerOpen(true)}
               className="text-[11px] text-fuchsia-400 hover:text-fuchsia-300 transition font-medium"
             >
-              + Subir story
-            </Link>
+              + Subir historia
+            </button>
           )}
         </div>
       </div>
@@ -434,13 +451,15 @@ export default function Stories() {
           {/* Upload story button for professionals */}
           {canUpload && (
             <div className="flex-shrink-0 flex flex-col items-center gap-2">
-              <Link
-                href="/dashboard/stories"
+              <button
+                type="button"
+                onClick={() => setComposerOpen(true)}
+                aria-label="Subir historia"
                 className="relative h-16 w-16 rounded-full border-2 border-dashed border-fuchsia-500/50 bg-fuchsia-500/5 flex items-center justify-center text-fuchsia-400 hover:border-fuchsia-400 hover:bg-fuchsia-500/10 transition hover:shadow-[0_0_20px_rgba(168,85,247,0.25)]"
               >
                 <Plus className="h-6 w-6" />
-              </Link>
-              <span className="text-[11px] text-fuchsia-300/60 font-medium">Tu story</span>
+              </button>
+              <span className="text-[11px] text-fuchsia-300/60 font-medium">Tu historia</span>
             </div>
           )}
 
@@ -537,6 +556,21 @@ export default function Stories() {
           </button>
         )}
       </div>
+
+      <StoryComposer
+        open={composerOpen}
+        onClose={() => setComposerOpen(false)}
+        onPublished={(count) => {
+          setJustPublished(count === 1 ? "Historia publicada" : `${count} historias publicadas`);
+          loadGroups();
+        }}
+      />
+
+      {justPublished && (
+        <div className="fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-white/15 bg-black/85 px-4 py-2 text-xs font-medium text-white shadow-lg backdrop-blur">
+          {justPublished}
+        </div>
+      )}
 
       {viewerGroupIdx !== null && (
         <StoryViewer

@@ -83,7 +83,7 @@ export default function Nav() {
         { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, protected: true },
         { href: "/dashboard/services", label: "Editar perfil", icon: Edit3, protected: true },
         ...(isProfessional ? [
-          { href: "/dashboard/stories", label: "Subir story", icon: Camera, protected: true },
+          { href: "/dashboard/stories?nueva=1", label: "Subir historia", icon: Camera, protected: true },
         ] : []),
         { href: "/wallet", label: "Billetera", icon: Wallet, protected: true },
       ]

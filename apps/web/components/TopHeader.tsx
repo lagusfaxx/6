@@ -577,7 +577,7 @@ export default function TopHeader() {
                       <Settings className="h-4 w-4 text-white/40" /> Editar perfil
                     </button>
                     {isProfessional && (
-                      <button onClick={() => handleNavLink("/dashboard/stories")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                      <button onClick={() => handleNavLink("/dashboard/stories?nueva=1")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
                         <Camera className="h-4 w-4 text-white/40" /> Subir story
                       </button>
                     )}
