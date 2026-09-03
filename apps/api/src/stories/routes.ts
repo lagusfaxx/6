@@ -40,7 +40,13 @@ const uploadMedia = multer({
   },
 });
 
-const STORY_TTL_HOURS = 24 * 20; // 20 days
+export const STORY_TTL_HOURS = 24 * 20; // 20 days
+
+/** Fecha con la que la historia se muestra y se ordena: la renovación manda
+ *  sobre la creación para que una historia vieja renovada figure como nueva. */
+function effectiveDate(story: { createdAt: Date; renewedAt?: Date | null }): Date {
+  return story.renewedAt ?? story.createdAt;
+}
 
 /* ─── GET /stories/active ─────────────────────────────────────
    Returns active stories (not expired) for a city/area.
@@ -89,8 +95,14 @@ storiesRouter.get(
     let stories: any[] = [];
     try {
     stories = await prisma.story.findMany({
-      where: { expiresAt: { gt: now } },
-      orderBy: { createdAt: "desc" },
+      // Las historias ocultadas por el admin salen del feed sin borrarse.
+      where: { expiresAt: { gt: now }, isHidden: false },
+      // Una historia renovada desde el admin se ordena por su fecha de
+      // renovación, así vuelve a aparecer junto a las nuevas.
+      orderBy: [
+        { renewedAt: { sort: "desc", nulls: "last" } },
+        { createdAt: "desc" },
+      ],
       take: 100,
       select: {
         id: true,
@@ -98,6 +110,7 @@ storiesRouter.get(
         mediaType: true,
         expiresAt: true,
         createdAt: true,
+        renewedAt: true,
         likeCount: true,
         user: {
           select: {
@@ -169,13 +182,18 @@ storiesRouter.get(
       avatarUrl: user.avatarUrl,
       profileHref: user.profileType === "ESTABLISHMENT" ? `/hospedaje/${user.id}` : `/profesional/${user.id}`,
       stories: userStories
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        .sort(
+          (a, b) =>
+            effectiveDate(a).getTime() - effectiveDate(b).getTime(),
+        )
         .map((s) => ({
           id: s.id,
           mediaUrl: s.mediaUrl,
           mediaType: s.mediaType,
           expiresAt: s.expiresAt.toISOString(),
-          createdAt: s.createdAt.toISOString(),
+          createdAt: effectiveDate(s).toISOString(),
+          publishedAt: s.createdAt.toISOString(),
+          renewed: Boolean(s.renewedAt),
           likeCount: s.likeCount ?? 0,
           likedByMe: likedIds.has(s.id),
         })),
@@ -417,8 +435,12 @@ storiesRouter.post(
         where: {
           userId: { in: userIds },
           showInHome: true,
+          isHidden: false,
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [
+          { renewedAt: { sort: "desc", nulls: "last" } },
+          { createdAt: "desc" },
+        ],
         select: { id: true, userId: true, mediaUrl: true, mediaType: true },
         take: 200,
       });

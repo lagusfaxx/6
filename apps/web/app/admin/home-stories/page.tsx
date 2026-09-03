@@ -15,6 +15,9 @@ import {
   Search,
   ChevronDown,
   ChevronRight,
+  Eye,
+  EyeOff,
+  RefreshCw,
 } from "lucide-react";
 
 type HomeStory = {
@@ -22,7 +25,9 @@ type HomeStory = {
   mediaUrl: string;
   mediaType: "IMAGE" | "VIDEO";
   showInHome: boolean;
+  isHidden: boolean;
   createdAt: string;
+  renewedAt: string | null;
   expiresAt: string;
   expired: boolean;
   likeCount: number;
@@ -38,6 +43,7 @@ type HomeStory = {
 
 type FilterMode = "all" | "approved" | "pending";
 type RangeMode = "all" | "active" | "expired";
+type VisibilityMode = "all" | "visible" | "hidden";
 
 type ProfileGroup = {
   user: HomeStory["user"];
@@ -45,6 +51,11 @@ type ProfileGroup = {
   approved: number;
   hasActive: boolean;
 };
+
+/** Historias que tiene sentido renovar: las expiradas y las ocultas. */
+function renewableIds(stories: HomeStory[]): string[] {
+  return stories.filter((s) => s.expired || s.isHidden).map((s) => s.id);
+}
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -96,18 +107,24 @@ export default function AdminHomeStoriesPage() {
 
   const [filter, setFilter] = useState<FilterMode>("all");
   const [range, setRange] = useState<RangeMode>("all");
+  const [visibility, setVisibility] = useState<VisibilityMode>("all");
   const [search, setSearch] = useState("");
   const [stories, setStories] = useState<HomeStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [renewingId, setRenewingId] = useState<string | null>(null);
 
-  const load = (filterMode: FilterMode, rangeMode: RangeMode) => {
+  const load = (
+    filterMode: FilterMode,
+    rangeMode: RangeMode,
+    visibilityMode: VisibilityMode,
+  ) => {
     setLoading(true);
     setError(null);
     apiFetch<{ stories: HomeStory[] }>(
-      `/admin/home-stories?filter=${filterMode}&range=${rangeMode}`,
+      `/admin/home-stories?filter=${filterMode}&range=${rangeMode}&visibility=${visibilityMode}`,
     )
       .then((res) => setStories(res?.stories ?? []))
       .catch((e: any) => {
@@ -119,8 +136,8 @@ export default function AdminHomeStoriesPage() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    load(filter, range);
-  }, [isAdmin, filter, range]);
+    load(filter, range, visibility);
+  }, [isAdmin, filter, range, visibility]);
 
   const groups = useMemo(() => groupByUser(stories), [stories]);
 
@@ -162,6 +179,62 @@ export default function AdminHomeStoriesPage() {
     }
   }
 
+  async function toggleHidden(story: HomeStory) {
+    const next = !story.isHidden;
+    setUpdatingId(story.id);
+    setStories((prev) =>
+      prev.map((s) => (s.id === story.id ? { ...s, isHidden: next } : s)),
+    );
+    try {
+      await apiFetch(`/admin/home-stories/${story.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isHidden: next }),
+      });
+    } catch (e: any) {
+      setStories((prev) =>
+        prev.map((s) => (s.id === story.id ? { ...s, isHidden: !next } : s)),
+      );
+      setError(e?.message || "No se pudo ocultar la historia");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  /** Renueva historias antiguas: vuelven a circular como si fueran nuevas. */
+  async function renew(ids: string[], key: string) {
+    if (ids.length === 0) return;
+    setRenewingId(key);
+    setError(null);
+    try {
+      const res = await apiFetch<{ expiresAt: string; renewedAt: string }>(
+        ids.length === 1
+          ? `/admin/home-stories/${ids[0]}/renew`
+          : `/admin/home-stories/renew`,
+        ids.length === 1
+          ? { method: "POST", body: JSON.stringify({}) }
+          : { method: "POST", body: JSON.stringify({ ids }) },
+      );
+      const set = new Set(ids);
+      setStories((prev) =>
+        prev.map((s) =>
+          set.has(s.id)
+            ? {
+                ...s,
+                isHidden: false,
+                expired: false,
+                expiresAt: res?.expiresAt ?? s.expiresAt,
+                renewedAt: res?.renewedAt ?? new Date().toISOString(),
+              }
+            : s,
+        ),
+      );
+    } catch (e: any) {
+      setError(e?.message || "No se pudo renovar");
+    } finally {
+      setRenewingId(null);
+    }
+  }
+
   function toggleCollapse(userId: string) {
     setCollapsed((prev) => ({ ...prev, [userId]: !prev[userId] }));
   }
@@ -200,7 +273,9 @@ export default function AdminHomeStoriesPage() {
             <p className="mt-1 text-sm text-white/55">
               Aprueba historias para que roten sobre la foto de portada en
               Destacadas. Las aprobadas siguen rotando aunque la historia ya
-              haya expirado.
+              haya expirado. También puedes ocultar historias sin borrarlas y
+              renovar historias viejas para que vuelvan a aparecer junto a las
+              nuevas.
             </p>
           </div>
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.07] px-3 py-2 text-xs text-amber-200">
@@ -266,6 +341,26 @@ export default function AdminHomeStoriesPage() {
                   : mode === "active"
                     ? "Activas"
                     : "Expiradas"}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-white/40">Visibilidad:</span>
+            {(["all", "visible", "hidden"] as VisibilityMode[]).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setVisibility(mode)}
+                className={`rounded-full border px-3 py-1 text-xs transition ${
+                  visibility === mode
+                    ? "border-sky-400/40 bg-sky-500/15 text-sky-200"
+                    : "border-white/10 bg-white/[0.03] text-white/60 hover:bg-white/[0.06]"
+                }`}
+              >
+                {mode === "all"
+                  ? "Todas"
+                  : mode === "visible"
+                    ? "Visibles"
+                    : "Ocultas"}
               </button>
             ))}
           </div>
@@ -350,13 +445,32 @@ export default function AdminHomeStoriesPage() {
                         {g.stories.length === 1 ? "historia" : "historias"}
                       </div>
                     </div>
-                    <div className="text-right text-[11px]">
+                    <div className="flex items-center gap-2 text-right text-[11px]">
                       {g.approved > 0 ? (
                         <span className="rounded-full bg-fuchsia-500/15 px-2 py-1 font-semibold text-fuchsia-200">
                           {g.approved} en home
                         </span>
                       ) : (
                         <span className="text-white/30">Sin aprobadas</span>
+                      )}
+                      {renewableIds(g.stories).length > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            renew(renewableIds(g.stories), `user:${g.user.id}`);
+                          }}
+                          disabled={renewingId === `user:${g.user.id}`}
+                          title="Renovar las historias viejas u ocultas de este perfil"
+                          className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:opacity-50"
+                        >
+                          {renewingId === `user:${g.user.id}` ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3" />
+                          )}
+                          Renovar {renewableIds(g.stories).length}
+                        </button>
                       )}
                     </div>
                   </header>
@@ -370,9 +484,11 @@ export default function AdminHomeStoriesPage() {
                             <div
                               key={s.id}
                               className={`overflow-hidden rounded-xl border bg-[#0c0a14] transition ${
-                                s.showInHome
-                                  ? "border-fuchsia-400/40 shadow-[0_0_0_1px_rgba(232,121,249,0.15)]"
-                                  : "border-white/10"
+                                s.isHidden
+                                  ? "border-white/10 opacity-50"
+                                  : s.showInHome
+                                    ? "border-fuchsia-400/40 shadow-[0_0_0_1px_rgba(232,121,249,0.15)]"
+                                    : "border-white/10"
                               }`}
                             >
                               <div className="relative aspect-[3/4] bg-black/40">
@@ -407,6 +523,16 @@ export default function AdminHomeStoriesPage() {
                                 {s.expired && (
                                   <span className="absolute left-2 top-2 rounded-full bg-amber-500/80 px-2 py-0.5 text-[9px] font-bold uppercase text-black">
                                     Expirada
+                                  </span>
+                                )}
+                                {s.isHidden && (
+                                  <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/75 px-2 py-0.5 text-[9px] font-bold uppercase text-white/85">
+                                    <EyeOff className="h-2.5 w-2.5" /> Oculta
+                                  </span>
+                                )}
+                                {s.renewedAt && !s.expired && (
+                                  <span className="absolute bottom-2 right-2 rounded-full bg-emerald-500/80 px-2 py-0.5 text-[9px] font-bold uppercase text-black">
+                                    Renovada
                                   </span>
                                 )}
                               </div>
@@ -446,6 +572,42 @@ export default function AdminHomeStoriesPage() {
                                   )}
                                   {s.showInHome ? "En el home" : "Aprobar"}
                                 </button>
+                                <div className="mt-1.5 flex gap-1.5">
+                                  <button
+                                    onClick={() => toggleHidden(s)}
+                                    disabled={updatingId === s.id}
+                                    title={
+                                      s.isHidden
+                                        ? "Volver a mostrar la historia"
+                                        : "Ocultar la historia en toda la app"
+                                    }
+                                    className={`flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition disabled:opacity-50 ${
+                                      s.isHidden
+                                        ? "border-sky-400/40 bg-sky-500/15 text-sky-200 hover:bg-sky-500/20"
+                                        : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08]"
+                                    }`}
+                                  >
+                                    {s.isHidden ? (
+                                      <Eye className="h-3 w-3" />
+                                    ) : (
+                                      <EyeOff className="h-3 w-3" />
+                                    )}
+                                    {s.isHidden ? "Mostrar" : "Ocultar"}
+                                  </button>
+                                  <button
+                                    onClick={() => renew([s.id], s.id)}
+                                    disabled={renewingId === s.id}
+                                    title="Renovar: vuelve a circular como si fuera nueva"
+                                    className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2 py-1.5 text-[11px] font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:opacity-50"
+                                  >
+                                    {renewingId === s.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="h-3 w-3" />
+                                    )}
+                                    Renovar
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );

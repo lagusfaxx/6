@@ -970,6 +970,13 @@ model Story {
   createdAt  DateTime  @default(now())
   likeCount  Int       @default(0)
   showInHome Boolean   @default(false)
+  /// Oculta la historia en toda la app (feed de historias y rotación del home)
+  /// sin borrarla, para que el admin pueda revertirlo.
+  isHidden   Boolean   @default(false)
+  /// Fecha de la última renovación hecha desde el admin. Cuando está presente
+  /// la historia se ordena y se muestra como si se hubiera publicado en esa
+  /// fecha, manteniendo intacta la fecha real de creación.
+  renewedAt  DateTime?
 
   user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   likes StoryLike[]
@@ -977,6 +984,7 @@ model Story {
   @@index([userId])
   @@index([expiresAt])
   @@index([showInHome, expiresAt])
+  @@index([isHidden, expiresAt])
 }
 
 model StoryLike {

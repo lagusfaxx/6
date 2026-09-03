@@ -52,6 +52,7 @@ type QueueProfile = {
   coverUrl: string | null;
   profileType: string;
   city: string | null;
+  gender: "MALE" | "FEMALE" | "OTHER" | null;
   tier: string | null;
   bio: string | null;
   isVerified: boolean;
@@ -92,6 +93,16 @@ type RatingKey = (typeof RATING_DIMENSIONS)[number]["key"];
 
 const BATCH_SIZE = 20;
 
+// El home trata a los perfiles sin género como femeninos, así que corregir el
+// género desde aquí es lo que saca del inicio a un hombre registrado como mujer.
+const GENDERS = [
+  { value: "FEMALE", label: "Mujer" },
+  { value: "MALE", label: "Hombre" },
+  { value: "OTHER", label: "Otro" },
+] as const;
+
+type GenderValue = (typeof GENDERS)[number]["value"];
+
 export default function AdminRatingPage() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
@@ -127,6 +138,7 @@ export default function AdminRatingPage() {
   // Photo gallery
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [settingAvatar, setSettingAvatar] = useState(false);
+  const [savingGender, setSavingGender] = useState(false);
 
   // Swipe direction for animation
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
@@ -233,19 +245,48 @@ export default function AdminRatingPage() {
     setSettingAvatar(true);
     setError(null);
     try {
-      const res = await apiFetch<{ profile: { avatarUrl: string | null } }>(
+      // Se aplica también a la portada: las tarjetas del inicio muestran la
+      // portada y sólo usan el avatar cuando no hay ninguna, por eso cambiar
+      // sólo el avatar dejaba el perfil con la foto anterior.
+      const res = await apiFetch<{ profile: { avatarUrl: string | null; coverUrl: string | null } }>(
         `/admin/profiles/${currentProfile.id}/avatar`,
-        { method: "PUT", body: JSON.stringify({ mediaId: media.id }) },
+        { method: "PUT", body: JSON.stringify({ mediaId: media.id, applyToCover: true }) },
       );
       const newAvatar = res?.profile?.avatarUrl ?? media.url;
+      const newCover = res?.profile?.coverUrl ?? media.url;
       setProfiles((prev) =>
-        prev.map((p, i) => (i === currentIndex ? { ...p, avatarUrl: newAvatar } : p)),
+        prev.map((p, i) =>
+          i === currentIndex ? { ...p, avatarUrl: newAvatar, coverUrl: newCover } : p,
+        ),
       );
-      setSuccess("Foto de perfil actualizada");
+      setSuccess("Foto de perfil y portada actualizadas");
     } catch {
       setError("No se pudo actualizar la foto de perfil.");
     } finally {
       setSettingAvatar(false);
+    }
+  }
+
+  async function updateGender(gender: GenderValue) {
+    if (!currentProfile || savingGender) return;
+    if (currentProfile.gender === gender) return;
+    const previous = currentProfile.gender;
+    setSavingGender(true);
+    setError(null);
+    setProfiles((prev) => prev.map((p, i) => (i === currentIndex ? { ...p, gender } : p)));
+    try {
+      await apiFetch(`/admin/profiles/${currentProfile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ gender }),
+      });
+      setSuccess(
+        `Género actualizado a ${GENDERS.find((g) => g.value === gender)?.label ?? gender}`,
+      );
+    } catch {
+      setProfiles((prev) => prev.map((p, i) => (i === currentIndex ? { ...p, gender: previous } : p)));
+      setError("No se pudo actualizar el género.");
+    } finally {
+      setSavingGender(false);
     }
   }
 
@@ -422,12 +463,18 @@ export default function AdminRatingPage() {
                     {(() => {
                       const activeMedia = currentProfile.profileMedia[activePhotoIndex];
                       if (!activeMedia || activeMedia.type !== "IMAGE") return null;
-                      const isCurrentAvatar = currentProfile.avatarUrl === activeMedia.url;
+                      const isCurrentAvatar =
+                        currentProfile.avatarUrl === activeMedia.url &&
+                        currentProfile.coverUrl === activeMedia.url;
                       return (
                         <button
                           onClick={setAsAvatar}
                           disabled={settingAvatar || isCurrentAvatar}
-                          title={isCurrentAvatar ? "Ya es la foto de perfil" : "Usar como foto de perfil"}
+                          title={
+                            isCurrentAvatar
+                              ? "Ya es la foto principal"
+                              : "Usar como foto de perfil y portada"
+                          }
                           className={`absolute top-3 left-3 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium backdrop-blur-sm transition disabled:opacity-70 ${
                             isCurrentAvatar
                               ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 cursor-default"
@@ -441,7 +488,7 @@ export default function AdminRatingPage() {
                           ) : (
                             <UserCheck className="h-3.5 w-3.5" />
                           )}
-                          {isCurrentAvatar ? "Foto de perfil actual" : "Usar como foto de perfil"}
+                          {isCurrentAvatar ? "Foto principal actual" : "Usar como foto principal"}
                         </button>
                       );
                     })()}
@@ -534,6 +581,34 @@ export default function AdminRatingPage() {
                     ))}
                   </div>
                 )}
+
+                {/* Género — el inicio muestra como mujeres a los perfiles sin género */}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] uppercase tracking-wide text-white/40">Género:</span>
+                  {GENDERS.map((g) => {
+                    const active = currentProfile.gender === g.value;
+                    return (
+                      <button
+                        key={g.value}
+                        onClick={() => updateGender(g.value)}
+                        disabled={savingGender}
+                        className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition disabled:opacity-50 ${
+                          active
+                            ? "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200"
+                            : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                        }`}
+                      >
+                        {g.label}
+                      </button>
+                    );
+                  })}
+                  {savingGender && <Loader2 className="h-3.5 w-3.5 animate-spin text-white/40" />}
+                  {currentProfile.gender === null && (
+                    <span className="text-[10px] text-amber-300/80">
+                      Sin género: aparece como mujer en el inicio
+                    </span>
+                  )}
+                </div>
 
                 {/* Badges */}
                 <div className="mt-3 flex items-center gap-2">

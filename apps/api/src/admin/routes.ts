@@ -369,6 +369,7 @@ adminRouter.get(
           isOnline: true,
           lastSeen: true,
           city: true,
+          gender: true,
           isVerified: true,
           profileTags: true,
           tier: true,
@@ -390,6 +391,8 @@ adminRouter.get(
     return res.json({ profiles, total });
   }),
 );
+
+const ALLOWED_GENDERS = new Set(["MALE", "FEMALE", "OTHER"]);
 
 const ADMIN_CONTROLLED_LABELS = new Set([
   "premium",
@@ -450,11 +453,26 @@ adminRouter.put(
   "/profiles/:id",
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { isActive, tier, role, membershipExpiresAt, baseRate } =
+    const { isActive, tier, role, membershipExpiresAt, baseRate, gender } =
       req.body ?? {};
 
     const data: any = {};
     if (isActive !== undefined) data.isActive = Boolean(isActive);
+    if (gender !== undefined) {
+      // El género decide en qué listados aparece el perfil (el home trata a los
+      // perfiles sin género como femeninos), así que el admin puede corregirlo
+      // cuando alguien se registró con el género equivocado.
+      if (gender === null || gender === "") {
+        data.gender = null;
+      } else if (ALLOWED_GENDERS.has(String(gender).toUpperCase())) {
+        data.gender = String(gender).toUpperCase();
+      } else {
+        return res.status(400).json({
+          error: "VALIDATION",
+          message: "Género inválido. Usa MALE, FEMALE, OTHER o null.",
+        });
+      }
+    }
     if (tier !== undefined) data.tier = tier;
     if (role !== undefined) data.role = role;
     if (membershipExpiresAt !== undefined) {
@@ -487,6 +505,7 @@ adminRouter.put(
         isActive: true,
         tier: true,
         role: true,
+        gender: true,
         membershipExpiresAt: true,
         baseRate: true,
       },
@@ -515,10 +534,17 @@ adminRouter.put(
       return res.status(400).json({ error: "VALIDATION", message: "Solo imagenes pueden ser avatar" });
     }
 
+    // Las tarjetas del home muestran la portada y sólo caen al avatar cuando no
+    // hay portada: si sólo cambiáramos el avatar, el perfil seguiría mostrando
+    // la foto anterior. Por eso el admin puede aplicar la foto a ambas.
+    const applyToCover = req.body?.applyToCover !== false;
+
     const updated = await prisma.user.update({
       where: { id },
-      data: { avatarUrl: media.url },
-      select: { id: true, username: true, avatarUrl: true },
+      data: applyToCover
+        ? { avatarUrl: media.url, coverUrl: media.url, coverPositionX: null, coverPositionY: null }
+        : { avatarUrl: media.url },
+      select: { id: true, username: true, avatarUrl: true, coverUrl: true },
     });
     return res.json({ profile: updated });
   }),
@@ -760,6 +786,7 @@ adminRouter.get(
           coverUrl: true,
           profileType: true,
           city: true,
+          gender: true,
           tier: true,
           bio: true,
           isVerified: true,
@@ -1973,12 +2000,15 @@ adminRouter.get(
     const now = new Date();
     const filter = String(req.query.filter || "all"); // "all" | "approved" | "pending"
     const range = String(req.query.range || "all"); // "all" | "active" | "expired"
+    const visibility = String(req.query.visibility || "all"); // "all" | "visible" | "hidden"
 
     const where: any = {};
     if (filter === "approved") where.showInHome = true;
     else if (filter === "pending") where.showInHome = false;
     if (range === "active") where.expiresAt = { gt: now };
     else if (range === "expired") where.expiresAt = { lte: now };
+    if (visibility === "visible") where.isHidden = false;
+    else if (visibility === "hidden") where.isHidden = true;
 
     let stories: any[] = [];
     try {
@@ -1991,7 +2021,9 @@ adminRouter.get(
           mediaUrl: true,
           mediaType: true,
           showInHome: true,
+          isHidden: true,
           createdAt: true,
+          renewedAt: true,
           expiresAt: true,
           likeCount: true,
           user: {
@@ -2022,7 +2054,9 @@ adminRouter.get(
         mediaUrl: s.mediaUrl,
         mediaType: s.mediaType,
         showInHome: s.showInHome,
+        isHidden: Boolean(s.isHidden),
         createdAt: s.createdAt.toISOString(),
+        renewedAt: s.renewedAt ? s.renewedAt.toISOString() : null,
         expiresAt: s.expiresAt.toISOString(),
         expired: s.expiresAt.getTime() <= now.getTime(),
         likeCount: s.likeCount ?? 0,
@@ -2042,12 +2076,19 @@ adminRouter.get(
 adminRouter.patch(
   "/home-stories/:id",
   asyncHandler(async (req, res) => {
-    const showInHome = Boolean(req.body?.showInHome);
+    const data: any = {};
+    if (req.body?.showInHome !== undefined) data.showInHome = Boolean(req.body.showInHome);
+    // Ocultar no borra: la historia desaparece del feed y del home y se puede
+    // volver a mostrar cuando el admin quiera.
+    if (req.body?.isHidden !== undefined) data.isHidden = Boolean(req.body.isHidden);
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: "VALIDATION", message: "Nada que actualizar" });
+    }
     try {
       const updated = await prisma.story.update({
         where: { id: req.params.id },
-        data: { showInHome },
-        select: { id: true, showInHome: true },
+        data,
+        select: { id: true, showInHome: true, isHidden: true },
       });
       return res.json(updated);
     } catch (err) {
@@ -2062,6 +2103,69 @@ adminRouter.patch(
         err instanceof Prisma.PrismaClientValidationError
       ) {
         return res.status(503).json({ error: "SHOW_IN_HOME_NOT_READY" });
+      }
+      throw err;
+    }
+  }),
+);
+
+/* ─── Admin: renovar historias antiguas ─────────────────────────
+   Vuelve a poner en circulación historias ya expiradas (o a punto de
+   expirar): extiende la expiración y marca la fecha de renovación, con
+   la que la historia se ordena y se muestra como si fuera nueva. La fecha
+   real de publicación se conserva.
+   ─────────────────────────────────────────────────────────────── */
+const STORY_RENEW_DAYS = 20;
+
+async function renewStories(ids: string[]) {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + STORY_RENEW_DAYS * 24 * 60 * 60 * 1000);
+  const result = await prisma.story.updateMany({
+    where: { id: { in: ids } },
+    // Al renovar también se vuelve visible: renovar una historia oculta sin
+    // mostrarla no tendría ningún efecto.
+    data: { expiresAt, renewedAt: now, isHidden: false },
+  });
+  return { renewed: result.count, expiresAt: expiresAt.toISOString(), renewedAt: now.toISOString() };
+}
+
+adminRouter.post(
+  "/home-stories/renew",
+  asyncHandler(async (req, res) => {
+    const raw: unknown = req.body?.ids;
+    const ids = Array.isArray(raw)
+      ? raw.filter((v): v is string => typeof v === "string" && v.length > 0).slice(0, 200)
+      : [];
+    if (ids.length === 0) {
+      return res.status(400).json({ error: "VALIDATION", message: "ids requerido" });
+    }
+    try {
+      return res.json(await renewStories(ids));
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError ||
+        err instanceof Prisma.PrismaClientValidationError
+      ) {
+        return res.status(503).json({ error: "STORY_RENEW_NOT_READY" });
+      }
+      throw err;
+    }
+  }),
+);
+
+adminRouter.post(
+  "/home-stories/:id/renew",
+  asyncHandler(async (req, res) => {
+    try {
+      const result = await renewStories([req.params.id]);
+      if (result.renewed === 0) return res.status(404).json({ error: "NOT_FOUND" });
+      return res.json(result);
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError ||
+        err instanceof Prisma.PrismaClientValidationError
+      ) {
+        return res.status(503).json({ error: "STORY_RENEW_NOT_READY" });
       }
       throw err;
     }
