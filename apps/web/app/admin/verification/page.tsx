@@ -40,6 +40,20 @@ type PendingProfile = {
   address: string | null;
   bio: string | null;
   createdAt: string;
+  faceVerifications?: {
+    id: string;
+    status: "PENDING" | "SUBMITTED" | "APPROVED" | "REJECTED" | "EXPIRED";
+    createdAt: string;
+    expiresAt: string;
+  }[];
+};
+
+const FACE_STATE_LABEL: Record<string, { text: string; className: string }> = {
+  PENDING: { text: "Enlace enviado, sin fotos", className: "bg-amber-500/15 text-amber-200" },
+  SUBMITTED: { text: "Fotos por revisar", className: "bg-emerald-500/15 text-emerald-200" },
+  APPROVED: { text: "Verificación aprobada", className: "bg-emerald-500/15 text-emerald-200" },
+  REJECTED: { text: "Verificación rechazada", className: "bg-red-500/15 text-red-200" },
+  EXPIRED: { text: "Enlace vencido", className: "bg-white/10 text-white/50" },
 };
 
 type FaceShot = { id: string; url: string; pose: string };
@@ -435,7 +449,18 @@ export default function AdminVerificationPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-[11px] uppercase text-white/40 mb-1">Verificacion facial</div>
+                      <div className="mb-1 flex items-center gap-2">
+                      <span className="text-[11px] uppercase text-white/40">Verificacion facial</span>
+                      {p.faceVerifications?.[0] && (
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                            FACE_STATE_LABEL[p.faceVerifications[0].status]?.className ?? "bg-white/10 text-white/50"
+                          }`}
+                        >
+                          {FACE_STATE_LABEL[p.faceVerifications[0].status]?.text ?? p.faceVerifications[0].status}
+                        </span>
+                      )}
+                    </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           onClick={() => sendLink(p)}
@@ -460,6 +485,17 @@ export default function AdminVerificationPage() {
                           >
                             <Send className="h-3.5 w-3.5" />
                             Abrir WhatsApp
+                          </a>
+                        )}
+                        {links[p.id] && (
+                          <a
+                            href={links[p.id].url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex h-9 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-xs text-white/70 transition hover:bg-white/10"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Probar
                           </a>
                         )}
                         {links[p.id] && (

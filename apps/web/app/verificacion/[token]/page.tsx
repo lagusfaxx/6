@@ -231,6 +231,23 @@ export default function FaceVerificationPage({ params }: { params: { token: stri
     );
   }
 
+  // Un enlace ya revisado no sirve para volver a subir fotos: sin este caso
+  // caía en la pantalla de captura y ella intentaba en vano.
+  if (link.status === "REJECTED") {
+    return (
+      <Shell>
+        <div className="text-center">
+          <X className="mx-auto h-10 w-10 text-amber-400" />
+          <h1 className="mt-3 text-lg font-bold">Esta verificación fue rechazada</h1>
+          <p className="mt-2 text-sm text-white/50">
+            Este enlace ya no sirve. Escríbele al equipo para que te envíe uno nuevo y repetir
+            las fotos.
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
   if (link.status === "APPROVED") {
     return (
       <Shell>

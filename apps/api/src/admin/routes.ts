@@ -621,6 +621,13 @@ adminRouter.get(
           address: true,
           bio: true,
           createdAt: true,
+          // Última verificación facial: sin esto el admin opera a ciegas y no
+          // sabe si ya mandó un enlace, si está esperando fotos o si rechazó.
+          faceVerifications: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { id: true, status: true, createdAt: true, expiresAt: true },
+          },
         },
         orderBy: { createdAt: "desc" },
         take,
