@@ -101,6 +101,7 @@ enum NotificationType {
   MARKET_PAYOUT_RELEASED
   MARKET_ORDER_MESSAGE
   MARKET_ORDER_CANCELLED
+  PHONE_CHANGE_REVIEWED
 }
 
 enum PaymentIntentPurpose {
@@ -156,6 +157,13 @@ enum ProfessionalDocumentStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum PhoneChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 enum VideocallBookingStatus {
@@ -526,6 +534,8 @@ model User {
   // Professional accreditation documents (e.g. "profesional con examenes")
   professionalDocuments     ProfessionalDocument[] @relation("ProfessionalDocuments")
   professionalDocsReviewed  ProfessionalDocument[] @relation("ProfessionalDocumentReviewer")
+  phoneChangeRequests       PhoneChangeRequest[]   @relation("PhoneChangeRequests")
+  phoneChangesReviewed      PhoneChangeRequest[]   @relation("PhoneChangeReviewer")
 
   // Marketplace
   marketSeller           MarketSeller?        @relation("MarketSellerUser")
@@ -1610,6 +1620,30 @@ model ProfessionalDocument {
 
   @@index([userId])
   @@index([status])
+}
+
+/// Solicitud de cambio de teléfono de una profesional. El número de WhatsApp
+/// es su identidad de contacto: si lo cambia sola, la cuenta anterior queda
+/// abandonada contaminando la app, así que el cambio pasa por el admin.
+model PhoneChangeRequest {
+  id             String                   @id @default(uuid()) @db.Uuid
+  userId         String                   @db.Uuid
+  /// Número que tenía al pedir el cambio, para poder auditar y revertir.
+  currentPhone   String?
+  requestedPhone String
+  reason         String?
+  status         PhoneChangeRequestStatus @default(PENDING)
+  reviewedById   String?                  @db.Uuid
+  reviewedAt     DateTime?
+  adminNote      String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  user     User  @relation("PhoneChangeRequests", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("PhoneChangeReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status, createdAt])
 }
 
 // ══════════════════════════════════════════════════════════════════════

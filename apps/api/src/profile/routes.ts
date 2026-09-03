@@ -10,6 +10,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { isBusinessPlanActive } from "../lib/subscriptions";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
+import { PROFESSIONAL_PHONE_REGEX, samePhone } from "./phoneChange";
 import { parseAndNormalizeTags } from "../lib/tags";
 import { optimizeUploadedImage, ImageOptimizationError } from "../lib/imageOptimizer";
 import { obfuscateLocation } from "../lib/locationPrivacy";
@@ -603,7 +604,7 @@ async function updateProfile(req: any, res: any) {
       : undefined;
   const me = await prisma.user.findUnique({
     where: { id: req.session.userId! },
-    select: { profileType: true },
+    select: { profileType: true, phone: true },
   });
   if (!me) return res.status(404).json({ error: "NOT_FOUND" });
   if (me.profileType === "PROFESSIONAL" && bio !== undefined) {
@@ -708,6 +709,16 @@ async function updateProfile(req: any, res: any) {
           error: "PHONE_INVALID",
           message:
             "Ingresa un número válido con código de país (+56, +57, +58 o +51).",
+        });
+      }
+      // El número de WhatsApp es la vía de contacto del anuncio: cambiarlo por
+      // cuenta propia deja la cuenta anterior publicada con un número muerto.
+      // Una vez fijado sólo se cambia por solicitud revisada en el admin.
+      if (me.phone && !samePhone(trimmedPhone, me.phone)) {
+        return res.status(403).json({
+          error: "PHONE_LOCKED",
+          message:
+            "Tu número solo puede cambiarse con aprobación del equipo. Envía una solicitud desde tu perfil.",
         });
       }
       phoneUpdate = trimmedPhone;
@@ -1008,8 +1019,6 @@ profileRouter.delete(
 // Solo CLIENT puede convertirse — el resto (PROFESSIONAL, ESTABLISHMENT,
 // SHOP, VIEWER, CREATOR) tiene su propio flujo o no aplica.
 const UPGRADEABLE_TYPES = new Set(["CLIENT"]);
-const PROFESSIONAL_PHONE_REGEX =
-  /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
 const PROFESSIONAL_GENDERS = new Set(["MALE", "FEMALE", "OTHER"]);
 
 function addDays(base: Date, days: number): Date {
