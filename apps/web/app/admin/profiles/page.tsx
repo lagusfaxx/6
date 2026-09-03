@@ -38,6 +38,7 @@ type Profile = {
   isOnline: boolean;
   lastSeen: string | null;
   city: string | null;
+  gender: "MALE" | "FEMALE" | "OTHER" | null;
   tier: string | null;
   role: string;
   isVerified: boolean;
@@ -68,6 +69,16 @@ const PROFILE_TYPES = [
 ];
 
 const PAGE_SIZE = 30;
+
+// El inicio muestra como mujeres a los perfiles sin género, por eso se puede
+// corregir desde aquí cuando alguien se registró con el género equivocado.
+const GENDERS = [
+  { value: "FEMALE", label: "Mujer" },
+  { value: "MALE", label: "Hombre" },
+  { value: "OTHER", label: "Otro" },
+] as const;
+
+type GenderValue = (typeof GENDERS)[number]["value"];
 
 
 const hasLabel = (profile: Profile, label: string) => (profile.profileTags ?? []).includes(label);
@@ -234,6 +245,30 @@ export default function AdminProfilesPage() {
     } catch {
       setProfiles(prevProfiles);
       setError("No se pudo actualizar el tier del perfil.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function updateGender(profile: Profile, gender: GenderValue) {
+    if (profile.gender === gender) return;
+    setBusy(profile.id);
+    setError(null);
+    const prevProfiles = [...profiles];
+    setProfiles((prev) => prev.map((pr) => (pr.id === profile.id ? { ...pr, gender } : pr)));
+    try {
+      await apiFetch(`/admin/profiles/${profile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ gender }),
+      });
+      setSuccess(
+        `Género de ${profile.displayName || profile.username} actualizado a ${
+          GENDERS.find((g) => g.value === gender)?.label ?? gender
+        }.`,
+      );
+    } catch {
+      setProfiles(prevProfiles);
+      setError("No se pudo actualizar el género del perfil.");
     } finally {
       setBusy(null);
     }
@@ -583,6 +618,29 @@ export default function AdminProfilesPage() {
                 >
                   Premium
                 </button>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] uppercase tracking-wide text-white/40">Género:</span>
+                {GENDERS.map((g) => (
+                  <button
+                    key={g.value}
+                    disabled={busy === p.id}
+                    onClick={() => updateGender(p, g.value)}
+                    className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50 ${
+                      p.gender === g.value
+                        ? "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200"
+                        : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                    }`}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+                {p.gender == null && (
+                  <span className="text-[10px] text-amber-300/80">
+                    Sin género: aparece como mujer en el inicio
+                  </span>
+                )}
               </div>
 
               {(p.profileType === "PROFESSIONAL" || p.profileType === "ESTABLISHMENT" || p.profileType === "SHOP") && (
