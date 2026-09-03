@@ -99,7 +99,9 @@ export default function AdminVerificationPage() {
   const [loadingFace, setLoadingFace] = useState(false);
   const [faceStatus, setFaceStatus] = useState<"SUBMITTED" | "PENDING" | "APPROVED" | "REJECTED">("SUBMITTED");
   const [sendingLink, setSendingLink] = useState<string | null>(null);
-  const [links, setLinks] = useState<Record<string, { url: string; sent: boolean; error?: string }>>({});
+  const [links, setLinks] = useState<
+    Record<string, { url: string; waLink: string | null; sent: boolean; error?: string }>
+  >({});
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
 
   const loadProfiles = useCallback(async () => {
@@ -155,18 +157,27 @@ export default function AdminVerificationPage() {
     setSendingLink(p.id);
     setError(null);
     try {
-      const res = await apiFetch<{ url: string; whatsapp: { sent: boolean; error?: string } }>(
-        "/admin/face-verifications",
-        { method: "POST", body: JSON.stringify({ userId: p.id, send: true }) },
-      );
+      const res = await apiFetch<{
+        url: string;
+        waLink: string | null;
+        whatsapp: { sent: boolean; error?: string };
+      }>("/admin/face-verifications", {
+        method: "POST",
+        body: JSON.stringify({ userId: p.id, send: true }),
+      });
       setLinks((prev) => ({
         ...prev,
-        [p.id]: { url: res.url, sent: res.whatsapp?.sent, error: res.whatsapp?.error },
+        [p.id]: {
+          url: res.url,
+          waLink: res.waLink,
+          sent: res.whatsapp?.sent,
+          error: res.whatsapp?.error,
+        },
       }));
       setSuccess(
         res.whatsapp?.sent
           ? `Enlace enviado por WhatsApp a ${p.displayName || p.username}.`
-          : "Enlace creado. No se pudo enviar por WhatsApp: cópialo y mándalo a mano.",
+          : "Enlace creado. Envíaselo desde tu WhatsApp con el botón de abajo.",
       );
     } catch {
       setError("No se pudo crear el enlace de verificación.");
@@ -434,32 +445,59 @@ export default function AdminVerificationPage() {
                           {sendingLink === p.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            <Send className="h-3.5 w-3.5" />
+                            <ScanFace className="h-3.5 w-3.5" />
                           )}
-                          Enviar link por WhatsApp
+                          {links[p.id] ? "Crear otro enlace" : "Crear enlace de verificación"}
                         </button>
+                        {/* Sin bot de WhatsApp el envío lo hace el admin desde su
+                            propio WhatsApp: wa.me abre el chat con el mensaje listo. */}
+                        {links[p.id]?.waLink && (
+                          <a
+                            href={links[p.id].waLink!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/25"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            Abrir WhatsApp
+                          </a>
+                        )}
                         {links[p.id] && (
                           <button
                             onClick={() => navigator.clipboard?.writeText(links[p.id].url)}
                             className="flex h-9 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-xs text-white/70 transition hover:bg-white/10"
-                            title={links[p.id].url}
                           >
                             <Copy className="h-3.5 w-3.5" />
                             Copiar enlace
                           </button>
                         )}
                       </div>
-                      {links[p.id] && !links[p.id].sent && (
-                        <p className="mt-1.5 text-[11px] text-amber-300">
-                          No se pudo enviar por WhatsApp
-                          {links[p.id].error === "INVALID_PHONE"
-                            ? " (el número del perfil no es válido)"
-                            : ""}
-                          . Copia el enlace y envíaselo tú.
-                        </p>
+
+                      {links[p.id] && (
+                        <>
+                          <input
+                            readOnly
+                            value={links[p.id].url}
+                            onFocus={(e) => e.currentTarget.select()}
+                            className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[11px] text-white/60 outline-none"
+                          />
+                          {links[p.id].sent ? (
+                            <p className="mt-1.5 text-[11px] text-emerald-300">
+                              Enviado por el bot de WhatsApp.
+                            </p>
+                          ) : (
+                            <p className="mt-1.5 text-[11px] text-amber-300">
+                              {links[p.id].error === "INVALID_PHONE"
+                                ? "El número del perfil no es válido: copia el enlace y envíaselo por otra vía."
+                                : "Envío automático no disponible: usa “Abrir WhatsApp” o copia el enlace."}
+                            </p>
+                          )}
+                        </>
                       )}
+
                       <p className="mt-1.5 text-[11px] text-white/30">
-                        El enlace es personal, vence en 48 horas y solo sirve una vez.
+                        El enlace es personal, vence en 48 horas y solo sirve una vez. Crear uno
+                        nuevo anula el anterior.
                       </p>
                     </div>
                     <div className="flex gap-2 pt-1">

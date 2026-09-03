@@ -9,7 +9,7 @@ import { config } from "../config";
 import { requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { emitAdminEvent } from "../lib/adminEvents";
-import { normalizePhoneForWhatsApp } from "../notifications/whatsapp";
+import { isWhatsAppConfigured, normalizePhoneForWhatsApp } from "../notifications/whatsapp";
 import { sendBaileysText } from "../notifications/whatsappBaileys";
 
 /**
@@ -49,6 +49,15 @@ function publicUrlFor(filename: string): string {
 
 function verificationUrl(token: string): string {
   return `${config.appUrl.replace(/\/$/, "")}/verificacion/${token}`;
+}
+
+function verificationMessage(name: string, url: string): string {
+  return (
+    `Hola ${name} 👋 Somos el equipo de UZEED.\n\n` +
+    `Para publicar tu perfil necesitamos una verificación rápida: entra a este enlace y sigue los pasos, ` +
+    `son 3 fotos de tu cara y toma menos de un minuto.\n\n${url}\n\n` +
+    `El enlace es personal y vence en ${LINK_TTL_HOURS} horas. No lo compartas con nadie.`
+  );
 }
 
 const uploadShots = multer({
@@ -229,20 +238,19 @@ faceVerificationRouter.post(
     });
 
     const url = verificationUrl(token);
+    const name = user.displayName || user.username;
+    const to = normalizePhoneForWhatsApp(user.phone);
+    const message = verificationMessage(name, url);
+
     let whatsapp: { sent: boolean; error?: string } = { sent: false };
 
-    if (send) {
-      const to = normalizePhoneForWhatsApp(user.phone);
+    // El envío automático necesita el bot conectado. Sin él no se bloquea nada:
+    // el admin manda el enlace desde su propio WhatsApp con waLink.
+    if (send && isWhatsAppConfigured()) {
       if (!to) {
         whatsapp = { sent: false, error: "INVALID_PHONE" };
       } else {
-        const name = user.displayName || user.username;
-        const text =
-          `Hola ${name} 👋 Somos el equipo de UZEED.\n\n` +
-          `Para publicar tu perfil necesitamos una verificación rápida: entra a este enlace y sigue los pasos, ` +
-          `son 3 fotos de tu cara y toma menos de un minuto.\n\n${url}\n\n` +
-          `El enlace es personal y vence en ${LINK_TTL_HOURS} horas. No lo compartas con nadie.`;
-        const result = await sendBaileysText(to, text);
+        const result = await sendBaileysText(to, message);
         whatsapp = { sent: result.ok, error: result.error };
         if (result.ok) {
           await prisma.faceVerification.update({
@@ -251,13 +259,17 @@ faceVerificationRouter.post(
           });
         }
       }
+    } else if (send) {
+      whatsapp = { sent: false, error: "WHATSAPP_NOT_CONFIGURED" };
     }
 
     // La URL se devuelve una sola vez: después ya no es recuperable desde la
-    // base, así que el admin puede copiarla si el envío automático falló.
+    // base, así que el admin puede copiarla o abrirla en su propio WhatsApp.
     return res.status(201).json({
       id: created.id,
       url,
+      waLink: to ? `https://wa.me/${to}?text=${encodeURIComponent(message)}` : null,
+      phone: user.phone,
       expiresAt: created.expiresAt.toISOString(),
       whatsapp,
     });
