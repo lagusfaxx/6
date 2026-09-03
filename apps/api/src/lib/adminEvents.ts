@@ -9,7 +9,8 @@ export type AdminEventType =
   | "profile_verification_requested"
   | "content_reported"
   | "deletion_requested"
-  | "phone_change_requested";
+  | "phone_change_requested"
+  | "face_verification_submitted";
 
 type AdminEventInput = {
   type: AdminEventType;
@@ -52,6 +53,11 @@ const ADMIN_EVENT_CONFIG: Record<
     title: "Cambio de número solicitado",
     body: "Una profesional pidió cambiar su número de WhatsApp.",
     url: "/admin/phone-changes",
+  },
+  face_verification_submitted: {
+    title: "Verificación facial recibida",
+    body: "Una profesional envió sus fotos de verificación.",
+    url: "/admin/verification",
   },
 };
 

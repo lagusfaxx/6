@@ -689,6 +689,18 @@ adminRouter.put(
   }),
 );
 
+// La web ya pedía este endpoint desde el modal de fotos de /admin/profiles,
+// pero sólo existía el de videos: el modal fallaba siempre.
+adminRouter.get("/profiles/:id/media-photos", requireAdmin, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const media = await prisma.profileMedia.findMany({
+    where: { ownerId: id, type: "IMAGE" },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, url: true, type: true, createdAt: true, isLocked: true },
+  });
+  return res.json({ media });
+}));
+
 adminRouter.get("/profiles/:id/media-videos", requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const media = await prisma.profileMedia.findMany({
