@@ -101,6 +101,8 @@ enum NotificationType {
   MARKET_PAYOUT_RELEASED
   MARKET_ORDER_MESSAGE
   MARKET_ORDER_CANCELLED
+  PHONE_CHANGE_REVIEWED
+  FACE_VERIFICATION_REVIEWED
 }
 
 enum PaymentIntentPurpose {
@@ -156,6 +158,24 @@ enum ProfessionalDocumentStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum PhoneChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum FaceVerificationStatus {
+  /// Enlace creado y enviado, todavía sin fotos.
+  PENDING
+  /// La profesional ya envió sus capturas y esperan revisión.
+  SUBMITTED
+  APPROVED
+  REJECTED
+  /// El enlace venció antes de que enviara las fotos.
+  EXPIRED
 }
 
 enum VideocallBookingStatus {
@@ -526,6 +546,11 @@ model User {
   // Professional accreditation documents (e.g. "profesional con examenes")
   professionalDocuments     ProfessionalDocument[] @relation("ProfessionalDocuments")
   professionalDocsReviewed  ProfessionalDocument[] @relation("ProfessionalDocumentReviewer")
+  phoneChangeRequests       PhoneChangeRequest[]   @relation("PhoneChangeRequests")
+  phoneChangesReviewed      PhoneChangeRequest[]   @relation("PhoneChangeReviewer")
+  faceVerifications         FaceVerification[]     @relation("FaceVerifications")
+  faceVerificationsCreated  FaceVerification[]     @relation("FaceVerificationCreator")
+  faceVerificationsReviewed FaceVerification[]     @relation("FaceVerificationReviewer")
 
   // Marketplace
   marketSeller           MarketSeller?        @relation("MarketSellerUser")
@@ -1610,6 +1635,79 @@ model ProfessionalDocument {
 
   @@index([userId])
   @@index([status])
+}
+
+/// Solicitud de cambio de teléfono de una profesional. El número de WhatsApp
+/// es su identidad de contacto: si lo cambia sola, la cuenta anterior queda
+/// abandonada contaminando la app, así que el cambio pasa por el admin.
+model PhoneChangeRequest {
+  id             String                   @id @default(uuid()) @db.Uuid
+  userId         String                   @db.Uuid
+  /// Número que tenía al pedir el cambio, para poder auditar y revertir.
+  currentPhone   String?
+  requestedPhone String
+  reason         String?
+  status         PhoneChangeRequestStatus @default(PENDING)
+  reviewedById   String?                  @db.Uuid
+  reviewedAt     DateTime?
+  adminNote      String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  user     User  @relation("PhoneChangeRequests", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("PhoneChangeReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status, createdAt])
+}
+
+/// Verificación facial de un perfil pendiente. El admin crea un enlace único
+/// y firmado, se lo manda por WhatsApp, y en esa página la profesional se
+/// toma unas fotos que el admin compara con las de su galería antes de
+/// publicar el perfil.
+model FaceVerification {
+  id        String                 @id @default(uuid()) @db.Uuid
+  userId    String                 @db.Uuid
+  /// SHA-256 del token del enlace. El token en claro sólo existe en la URL
+  /// que se envía por WhatsApp: si se filtra la base, no sirve para entrar.
+  tokenHash String                 @unique
+  status    FaceVerificationStatus @default(PENDING)
+  expiresAt DateTime
+
+  sentAt      DateTime?
+  /// Número al que se envió el enlace, para saber a dónde fue a parar.
+  sentTo      String?
+  submittedAt DateTime?
+
+  reviewedAt   DateTime?
+  reviewedById String?   @db.Uuid
+  rejectReason String?
+
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User                   @relation("FaceVerifications", fields: [userId], references: [id], onDelete: Cascade)
+  creator User?                  @relation("FaceVerificationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  review  User?                  @relation("FaceVerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  shots   FaceVerificationShot[]
+
+  @@index([userId])
+  @@index([status, createdAt])
+}
+
+/// Cada captura de la verificación facial.
+model FaceVerificationShot {
+  id             String   @id @default(uuid()) @db.Uuid
+  verificationId String   @db.Uuid
+  url            String
+  /// FRONT | LEFT | RIGHT — la pose que se le pidió en pantalla.
+  pose           String
+  createdAt      DateTime @default(now())
+
+  verification FaceVerification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+
+  @@index([verificationId])
 }
 
 // ══════════════════════════════════════════════════════════════════════

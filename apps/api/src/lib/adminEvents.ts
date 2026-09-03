@@ -8,7 +8,9 @@ export type AdminEventType =
   | "withdrawal_requested"
   | "profile_verification_requested"
   | "content_reported"
-  | "deletion_requested";
+  | "deletion_requested"
+  | "phone_change_requested"
+  | "face_verification_submitted";
 
 type AdminEventInput = {
   type: AdminEventType;
@@ -46,6 +48,16 @@ const ADMIN_EVENT_CONFIG: Record<
     title: "Solicitud de eliminación",
     body: "Un usuario solicitó eliminar su cuenta o datos.",
     url: "/admin/privacy-requests",
+  },
+  phone_change_requested: {
+    title: "Cambio de número solicitado",
+    body: "Una profesional pidió cambiar su número de WhatsApp.",
+    url: "/admin/phone-changes",
+  },
+  face_verification_submitted: {
+    title: "Verificación facial recibida",
+    body: "Una profesional envió sus fotos de verificación.",
+    url: "/admin/verification",
   },
 };
 

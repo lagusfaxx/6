@@ -7,6 +7,7 @@ import EditorCard from "../EditorCard";
 import FloatingInput from "../FloatingInput";
 import FloatingTextarea from "../FloatingTextarea";
 import FloatingSelect from "../FloatingSelect";
+import PhoneField from "./PhoneField";
 import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../../../../../components/DirectoryPage";
 
 const PRIMARY_CATEGORY_OPTIONS = [
@@ -67,13 +68,7 @@ export default function ProfileEditor() {
             onChange={(v) => setField("displayName", v)}
             placeholder="Tu nombre o alias"
           />
-          <FloatingInput
-            label="Teléfono de contacto"
-            value={state.phone}
-            onChange={(v) => setField("phone", v)}
-            type="tel"
-            placeholder="+56 9 1234 5678"
-          />
+          <PhoneField value={state.phone} onChange={(v) => setField("phone", v)} />
           <FloatingSelect
             label="Categoría principal"
             value={state.primaryCategory}

@@ -659,10 +659,25 @@ directoryRouter.get(
         },
     };
 
+    // Un perfil pendiente no es público, pero el admin tiene que poder abrirlo
+    // para revisarlo: sin esta excepción "Ver perfil completo" respondía 404 y
+    // la página mostraba "Perfil no disponible".
+    let isAdminViewer = false;
+    if (req.session.userId) {
+      const viewer = await prisma.user.findUnique({
+        where: { id: req.session.userId },
+        select: { role: true },
+      });
+      isAdminViewer = viewer?.role === "ADMIN";
+    }
+    const detailWhere = isAdminViewer
+      ? { id, profileType: "PROFESSIONAL" as const }
+      : { id, profileType: "PROFESSIONAL" as const, isVerified: true };
+
     let u: any;
     try {
       u = await prisma.user.findUnique({
-        where: { id, profileType: "PROFESSIONAL", isVerified: true },
+        where: detailWhere,
         select: { ...baseDetailSelect, avgResponseMinutes: true },
       });
     } catch (err) {
@@ -671,7 +686,7 @@ directoryRouter.get(
         err instanceof Prisma.PrismaClientValidationError
       ) {
         u = await prisma.user.findUnique({
-          where: { id, profileType: "PROFESSIONAL", isVerified: true },
+          where: detailWhere,
           select: baseDetailSelect,
         });
       } else {
