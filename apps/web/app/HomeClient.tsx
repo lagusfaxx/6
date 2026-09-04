@@ -527,16 +527,11 @@ export default function HomeClient() {
     availableNow: !!p.availableNow,
   });
 
-  /* Cuatro por rango en la fila compacta sobre el mapa: son dos filas ahora,
-     así que cada una tiene que ocupar menos que la única de antes para que el
-     mapa siga entrando en la primera pantalla. */
+  /* Sobre el mapa va solo Diamond: es el rango más alto y una sola fila deja
+     el mapa a la vista al abrir el inicio. Gold vive en el feed, más abajo. */
   const diamondCompact = useMemo(
-    () => diamondProfiles.slice(0, 4).map(toCardProfile),
+    () => diamondProfiles.slice(0, 6).map(toCardProfile),
     [diamondProfiles],
-  );
-  const goldCompact = useMemo(
-    () => goldProfiles.slice(0, 4).map(toCardProfile),
-    [goldProfiles],
   );
 
   const novedades = useMemo(
@@ -784,14 +779,10 @@ export default function HomeClient() {
           </section>
         )}
 
-        {/* ═══ RANGOS (compactos) — van sobre el mapa, en fila y pequeños,
-             para que el mapa siga entrando en pantalla al abrir el home.
-             Diamond primero: es el plan más alto. ═══ */}
+        {/* ═══ DIAMOND (compacto) — sobre el mapa, en fila y pequeño, para que
+             el mapa siga entrando en pantalla al abrir el home ═══ */}
         {diamondCompact.length > 0 && (
           <DestacadasGrid profiles={diamondCompact} tier="DIAMOND" compact />
-        )}
-        {goldCompact.length > 0 && (
-          <DestacadasGrid profiles={goldCompact} tier="GOLD" compact />
         )}
         {!hasTieredProfiles && !recentLoading && (
           /* Sin perfiles de rango la zona quedaría vacía, así que se usa para
@@ -799,7 +790,7 @@ export default function HomeClient() {
              secciones tienen que hacer visible. */
           <Link
             href="/ayuda/tiers"
-            className="group mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-gradient-to-r from-cyan-500/[0.08] via-amber-500/[0.06] to-transparent px-4 py-3 transition hover:border-white/20"
+            className="group mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 transition hover:border-white/20"
           >
             <div className="min-w-0">
               <span className="text-sm font-bold text-white">
@@ -857,7 +848,7 @@ export default function HomeClient() {
         <div className="mb-6 h-px bg-white/[0.06]" />
 
         {/* ═══ FEED — filtros + destacadas + grid infinito ═══ */}
-        <HomeFeed diamondProfiles={diamondProfiles} goldProfiles={goldProfiles} />
+        <HomeFeed goldProfiles={goldProfiles} />
 
         {/* ═══ EN VIVO AHORA ═══ */}
         {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}

@@ -13,8 +13,8 @@
  *
  * Así que el cuerpo queda en tres piezas: una barra de filtros con lo que
  * decide la compra en este rubro (disponibilidad, novedad, exámenes, formato),
- * las secciones por rango (Diamond y luego Gold, que son planes distintos y
- * por eso van separadas), y el grid infinito. Las secciones que se quitaron no
+ * la sección Gold (Diamond va más arriba, sobre el mapa), y el grid
+ * infinito. Las secciones que se quitaron no
  * desaparecen como función: cada una es ahora un filtro que lleva al listado
  * completo, con más opciones de las que tenía la sección plegable.
  */
@@ -34,9 +34,7 @@ type AnyProfile = {
 };
 
 type Props = {
-  /** Perfiles del plan Diamond — van primero, es el rango más alto. */
-  diamondProfiles: AnyProfile[];
-  /** Perfiles del plan Gold — debajo de Diamond. */
+  /** Perfiles del plan Gold. Diamond va arriba del mapa, no aquí. */
   goldProfiles: AnyProfile[];
 };
 
@@ -60,8 +58,7 @@ function toDestacada(p: AnyProfile): DestacadaProfile {
   };
 }
 
-export default function HomeFeed({ diamondProfiles, goldProfiles }: Props) {
-  const diamond = diamondProfiles.slice(0, 10).map(toDestacada);
+export default function HomeFeed({ goldProfiles }: Props) {
   const gold = goldProfiles.slice(0, 10).map(toDestacada);
 
   return (
@@ -82,10 +79,8 @@ export default function HomeFeed({ diamondProfiles, goldProfiles }: Props) {
         ))}
       </nav>
 
-      {/* Los rangos van separados y en orden: Diamond y después Gold. Antes
-          era una sola grilla "Destacadas" que los mezclaba y no dejaba ver
-          que son dos planes distintos. */}
-      {diamond.length > 0 && <DestacadasGrid profiles={diamond} tier="DIAMOND" />}
+      {/* Cada rango aparece una sola vez: Diamond sobre el mapa y Gold aquí.
+          Repetirlos en las dos zonas mostraba a la misma persona dos veces. */}
       {gold.length > 0 && <DestacadasGrid profiles={gold} tier="GOLD" />}
 
       <InfiniteFeed categorySlug="escort,masajes" />
