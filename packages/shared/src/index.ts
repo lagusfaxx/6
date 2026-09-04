@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+/**
+ * Tope de largo del nombre público. Un nombre kilométrico rompe las tarjetas
+ * del inicio y los listados, que es donde se decide el contacto, así que se
+ * bloquea en el registro en vez de arreglarlo después a mano.
+ */
+export const DISPLAY_NAME_MAX_LENGTH = 20;
+export const DISPLAY_NAME_MIN_LENGTH = 2;
+
+const displayNameSchema = z
+  .string()
+  .trim()
+  .min(DISPLAY_NAME_MIN_LENGTH, `El nombre debe tener al menos ${DISPLAY_NAME_MIN_LENGTH} caracteres.`)
+  .max(DISPLAY_NAME_MAX_LENGTH, `El nombre no puede superar los ${DISPLAY_NAME_MAX_LENGTH} caracteres.`);
+
 export const Roles = z.enum(["USER", "ADMIN"]);
 export type Role = z.infer<typeof Roles>;
 
@@ -29,7 +43,7 @@ export const registerInputSchema = z
       ),
     email: z.string().email(),
     password: z.string().min(8).max(128),
-    displayName: z.string().min(2).max(50),
+    displayName: displayNameSchema,
     gender: Genders.optional(),
     profileType: ProfileTypes,
     preferenceGender: PreferenceGenders.optional(),
@@ -99,7 +113,7 @@ export const loginInputSchema = z.object({
 export type LoginInput = z.infer<typeof loginInputSchema>;
 
 export const quickRegisterSchema = z.object({
-  displayName: z.string().min(2).max(50),
+  displayName: displayNameSchema,
   primaryCategory: z.string().min(1),
   address: z.string().min(6),
   latitude: z.number().finite(),
