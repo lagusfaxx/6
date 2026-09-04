@@ -64,6 +64,8 @@ export default function InfiniteFeed({
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
   const selectedCity = locationCtx?.state.selectedCity ?? null;
+  const selectedCityName =
+    locationCtx?.state.mode === "city" ? selectedCity?.name ?? null : null;
 
   // If parent didn't pass a title, derive one from the active chip / location.
   const resolvedTitle = useMemo(() => {
@@ -110,6 +112,11 @@ export default function InfiniteFeed({
           // Wide radius so empty regions still show closest profiles.
           params.set("radiusKm", "2000");
         }
+        // Con una comuna elegida en el chip, la distancia se mide contra su
+        // centro: una vecina puede quedar más cerca de ese punto que un perfil
+        // del otro extremo de la misma comuna. El nombre le dice a la API que
+        // ponga primero los de la comuna y después el resto por cercanía.
+        if (selectedCityName) params.set("city", selectedCityName);
         const data = await apiFetch<SearchResponse>(
           `/directory/search?${params.toString()}`,
         );
@@ -146,7 +153,7 @@ export default function InfiniteFeed({
         inFlight.current = false;
       }
     },
-    [categorySlug, effectiveLoc, entityType, pageSize, seenIds],
+    [categorySlug, effectiveLoc, entityType, pageSize, seenIds, selectedCityName],
   );
 
   // Reset whenever location/category changes
@@ -157,7 +164,7 @@ export default function InfiniteFeed({
     void loadPage(0, true);
     // intentionally exclude loadPage to avoid re-running on its own re-creation
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categorySlug, entityType, effectiveLoc?.[0], effectiveLoc?.[1]]);
+  }, [categorySlug, entityType, effectiveLoc?.[0], effectiveLoc?.[1], selectedCityName]);
 
   // IntersectionObserver to trigger next page
   useEffect(() => {

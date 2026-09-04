@@ -275,6 +275,12 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
     : locationCtx?.state.mode === "city"
     ? locationCtx.state.selectedCity?.name ?? null
     : effectiveLoc ? "Mi ubicación" : null;
+  /* Comuna activa: la del landing, o la del chip cuando no hay landing. */
+  const selectedCityName = city
+    ? city.name
+    : locationCtx?.state.mode === "city"
+      ? locationCtx.state.selectedCity?.name ?? null
+      : null;
 
   /* ── fetch from real API ── */
   const fetchRef = useRef(0);
@@ -293,6 +299,10 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
         params.set("lng", String(effectiveLoc[1]));
         params.set("radiusKm", "100");
       }
+      // Con comuna elegida, la API pone primero los perfiles de esa comuna y
+      // después el resto por cercanía: medir contra el centro de la comuna
+      // dejaba perfiles de la comuna vecina por delante de los propios.
+      if (selectedCityName) params.set("city", selectedCityName);
       if (profileTagsFilter.length) params.set("profileTags", profileTagsFilter.join(","));
       if (serviceTagsFilter.length) params.set("serviceTags", serviceTagsFilter.join(","));
       if (maduras) params.set("maduras", "true");
@@ -317,7 +327,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
     } finally {
       if (myFetch === fetchRef.current) setLoading(false);
     }
-  }, [entityType, categorySlug, effectiveLoc, profileTagsFilter, serviceTagsFilter, maduras, availableNow, sort, genderFilter, urlQuery]);
+  }, [entityType, categorySlug, effectiveLoc, profileTagsFilter, serviceTagsFilter, maduras, availableNow, sort, genderFilter, urlQuery, selectedCityName]);
 
   useEffect(() => { fetchResults(); }, [fetchResults]);
 

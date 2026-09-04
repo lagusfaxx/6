@@ -115,6 +115,19 @@ function resolveSearch(raw: string): ResolvedSearch {
   return { href: `/escorts?q=${encodeURIComponent(raw.trim())}` };
 }
 
+/* La ciudad del perfil es texto libre ("Las Condes", "Las Condes, Santiago"),
+   así que se compara sin tildes y por contención en ambos sentidos. */
+function sameCityName(
+  profileCity: string | null | undefined,
+  selectedCity: string | null,
+): boolean {
+  if (!selectedCity) return false;
+  const a = normalizeQuery(String(profileCity ?? ""));
+  const b = normalizeQuery(selectedCity);
+  if (!a || !b) return false;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
 /* ── Types ── */
 
 type Banner = {
@@ -145,6 +158,7 @@ type RecentProfessional = {
   name: string;
   avatarUrl: string | null;
   coverUrl?: string | null;
+  city?: string | null;
   distance: number | null;
   age: number | null;
   isActive: boolean;
@@ -295,7 +309,14 @@ export default function HomeClient() {
   const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
   const locationCtx = useContext(LocationFilterContext);
   const location = locationCtx?.effectiveLocation ?? SANTIAGO_FALLBACK;
-  const locationKey = `${location[0]}-${location[1]}`;
+  /* Comuna elegida en el chip. Va aparte de las coordenadas: la distancia se
+     mide contra el centro de la comuna, así que sin el nombre la API no puede
+     poner los perfiles de la comuna por delante de los de la vecina. */
+  const selectedCityName =
+    locationCtx?.state.mode === "city"
+      ? locationCtx.state.selectedCity?.name ?? null
+      : null;
+  const locationKey = `${location[0]}-${location[1]}-${selectedCityName ?? ""}`;
   const [recentLoading, setRecentLoading] = useState(true);
   const { me } = useMe();
   const { discreet } = useDiscreet();
@@ -369,6 +390,9 @@ export default function HomeClient() {
     }
     params.set("limit", "30");
     params.set("gender", "FEMALE");
+    // Con comuna elegida en el chip, sus perfiles van primero: la distancia se
+    // mide contra el centro de la comuna y una vecina puede quedar más cerca.
+    if (selectedCityName) params.set("city", selectedCityName);
     const query = params.toString();
 
     const controller = new AbortController();
@@ -385,6 +409,7 @@ export default function HomeClient() {
             name: p.name || "Experiencia",
             avatarUrl: p.avatarUrl,
             coverUrl: p.coverUrl ?? null,
+            city: p.city ?? null,
             distance: typeof p.distance === "number" ? p.distance : null,
             age: typeof p.age === "number" ? p.age : null,
             isActive: Boolean(p.isActive),
@@ -404,8 +429,19 @@ export default function HomeClient() {
           }),
         );
 
-        // Sort by distance first — closest profiles always on top
-        mapped.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+        /* Los de la comuna elegida arriba y, dentro de ella, por cercanía;
+           después el resto por distancia real. Ordenar solo por distancia
+           metía perfiles de la comuna vecina por delante de los de la comuna
+           que la persona acababa de elegir en el chip. */
+        mapped.sort((a, b) => {
+          if (selectedCityName) {
+            const cityCmp =
+              Number(!sameCityName(a.city, selectedCityName)) -
+              Number(!sameCityName(b.city, selectedCityName));
+            if (cityCmp !== 0) return cityCmp;
+          }
+          return (a.distance ?? 1e9) - (b.distance ?? 1e9);
+        });
 
         setRecentPros(mapped);
       })
