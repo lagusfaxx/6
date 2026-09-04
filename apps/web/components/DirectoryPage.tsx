@@ -445,7 +445,9 @@ export default function DirectoryPage({
     <div className="-mx-4 -mt-4 min-h-screen text-white">
       {/* ── Sticky header ── */}
       <div className="sticky top-[60px] md:top-[68px] z-20 bg-[#0d0e1a]/95 backdrop-blur-xl border-b border-white/[0.06]">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+        {/* pl-12 en móvil: el botón flotante de "volver" del layout se apoya
+            justo encima de esta fila y tapaba el título. */}
+        <div className="max-w-7xl mx-auto pl-12 pr-4 py-3 flex items-center gap-3 sm:pl-4">
           {/* Title + count */}
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold truncate flex items-center gap-2">
@@ -527,7 +529,7 @@ export default function DirectoryPage({
 
         {/* ── Género: el filtro que más se usa, así que va siempre a la vista y
              en grande, no escondido dentro del panel de filtros ── */}
-        <div className="max-w-7xl mx-auto px-4 pb-3 flex flex-wrap items-center gap-2">
+        <div className="max-w-7xl mx-auto px-4 pb-3 space-y-2 sm:flex sm:items-center sm:gap-2 sm:space-y-0">
           <div className="relative flex w-full items-center sm:hidden">
             <Search className="absolute left-3 h-4 w-4 text-white/30" />
             <input
@@ -537,10 +539,13 @@ export default function DirectoryPage({
               className="h-9 w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-white placeholder-white/30 focus:border-fuchsia-500/50 focus:outline-none"
             />
           </div>
+          {/* En el teléfono ocupa su propia línea: compartiéndola con los chips
+              los tres botones se apretaban hasta quedar montados unos sobre
+              otros y con el texto cortado. */}
           <div
             role="group"
             aria-label="Género"
-            className="flex min-w-0 flex-1 gap-1.5 sm:max-w-md"
+            className="flex w-full gap-1.5 sm:min-w-0 sm:max-w-md sm:flex-1"
           >
             {GENDER_OPTIONS.map((g) => {
               const active = genderFilter === g.value;
@@ -550,7 +555,7 @@ export default function DirectoryPage({
                   type="button"
                   aria-pressed={active}
                   onClick={() => setGenderFilter(active ? "" : g.value)}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-bold transition ${
+                  className={`flex-1 whitespace-nowrap rounded-xl border px-2 py-2.5 text-sm font-bold transition ${
                     active
                       ? g.activeClass
                       : "border-white/10 bg-white/[0.03] text-white/50 hover:border-white/25 hover:text-white/80"
@@ -561,11 +566,11 @@ export default function DirectoryPage({
               );
             })}
           </div>
-          <div className="flex shrink-0 gap-1.5">
+          <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:shrink-0 sm:overflow-visible sm:px-0">
             <button
               type="button"
               onClick={() => setAvailableNow((v) => !v)}
-              className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+              className={`shrink-0 whitespace-nowrap rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
                 availableNow
                   ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-300"
                   : "border-white/10 bg-white/[0.03] text-white/50 hover:border-white/25 hover:text-white/80"
@@ -576,7 +581,7 @@ export default function DirectoryPage({
             <button
               type="button"
               onClick={() => setMaduras((v) => !v)}
-              className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+              className={`shrink-0 whitespace-nowrap rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
                 maduras
                   ? "border-amber-400/60 bg-amber-500/15 text-amber-300"
                   : "border-white/10 bg-white/[0.03] text-white/50 hover:border-white/25 hover:text-white/80"
