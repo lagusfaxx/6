@@ -326,7 +326,9 @@ export default function ChatInboxPage() {
       <div className="relative mb-3">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
         <input
-          className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.03] py-3 pl-11 pr-4 text-sm text-white placeholder-white/25 outline-none backdrop-blur-sm transition-all duration-200 focus:border-fuchsia-500/30 focus:bg-white/[0.05] focus:ring-1 focus:ring-fuchsia-500/15 focus:shadow-[0_0_20px_rgba(168,85,247,0.08)]"
+          /* 16px en móvil: por debajo de eso Safari en iPhone hace zoom al
+             enfocar y la lista queda descuadrada. */
+          className="w-full rounded-2xl border border-white/[0.07] bg-white/[0.03] py-3 pl-11 pr-4 text-base md:text-sm text-white placeholder-white/25 outline-none backdrop-blur-sm transition-all duration-200 focus:border-fuchsia-500/30 focus:bg-white/[0.05] focus:ring-1 focus:ring-fuchsia-500/15 focus:shadow-[0_0_20px_rgba(168,85,247,0.08)]"
           placeholder="Buscar por nombre o ciudad..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}

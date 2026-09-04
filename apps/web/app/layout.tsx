@@ -91,6 +91,9 @@ export const viewport: Viewport = {
   // maximumScale:1 / userScalable:false).
   maximumScale: 5,
   userScalable: true,
+  // Con el teclado abierto el viewport se encoge en vez de quedar tapado: es
+  // lo que mantiene fijo el campo de escritura del chat en el teléfono.
+  interactiveWidget: 'resizes-content',
   themeColor: '#111827'
 };
 

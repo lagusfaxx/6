@@ -378,7 +378,7 @@ export default function ChatPage() {
   /* ── Loading ── */
   if (loading) {
     return (
-      <div className="mx-auto flex h-[70vh] w-full max-w-3xl flex-col">
+      <div className="mx-auto flex h-[70vh] w-full max-w-3xl flex-col px-4 md:px-0">
         <div className="flex items-center gap-3 p-4">
           <div className="h-10 w-10 animate-pulse rounded-full bg-white/10" />
           <div className="space-y-2">
@@ -401,7 +401,7 @@ export default function ChatPage() {
 
   if (error) {
     return (
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-3xl px-4 md:px-0">
         <div className="flex items-center gap-3 p-4">
           <Link
             href="/chat"
@@ -422,7 +422,10 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-160px)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-[0_10px_30px_rgba(0,0,0,0.35)] md:h-[calc(100vh-160px)]">
+    /* En el teléfono la conversación ocupa la pantalla completa bajo la
+       cabecera: sin bordes redondeados ni márgenes, como cualquier app de
+       mensajería. En escritorio vuelve a ser la tarjeta centrada. */
+    <div className="flex h-[calc(100dvh-76px)] w-full flex-col overflow-hidden bg-white/[0.02] md:mx-auto md:h-[calc(100vh-160px)] md:max-w-3xl md:rounded-3xl md:border md:border-white/10 md:bg-white/5 md:shadow-[0_10px_30px_rgba(0,0,0,0.35)] md:backdrop-blur-2xl">
       {/* ── Header ── */}
       <div className="relative flex shrink-0 items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-3">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/15 to-transparent" />
@@ -696,7 +699,9 @@ export default function ChatPage() {
       {/* ── Input bar ── */}
       <form
         onSubmit={send}
-        className="flex shrink-0 items-end gap-2 border-t border-white/10 bg-white/5 px-3 py-3"
+        /* El hueco de abajo deja pasar la barra de navegación fija del móvil:
+           sin él, el campo quedaba escondido detrás de ella. */
+        className="flex shrink-0 items-end gap-2 border-t border-white/10 bg-white/5 px-3 pt-3 pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:pb-3"
       >
         <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-white/40 transition hover:bg-white/10 hover:text-white/70">
           <Paperclip className="h-4.5 w-4.5" />
@@ -719,7 +724,9 @@ export default function ChatPage() {
           />
         </label>
         <input
-          className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 outline-none transition focus:border-white/20 focus:ring-1 focus:ring-fuchsia-500/20"
+          /* 16px: por debajo de ese tamaño Safari en iPhone hace zoom al
+             enfocar el campo y deja la página descuadrada. */
+          className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-base text-white placeholder-white/35 outline-none transition focus:border-white/20 focus:ring-1 focus:ring-fuchsia-500/20 md:text-sm"
           placeholder="Escribe un mensaje..."
           value={body}
           onChange={(e) => setBody(e.target.value)}
