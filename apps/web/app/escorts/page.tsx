@@ -65,6 +65,8 @@ export default async function EscortsPage() {
           entityType="professional"
           categorySlug="escort"
           title="Escorts"
+          withMap={false}
+          defaultGender="FEMALE"
         />
       </Suspense>
       <SeoContent variant="escorts" />

@@ -78,6 +78,8 @@ export default async function EscortsTagPage({ params }: Props) {
             categorySlug="escort"
             title={`Escorts en ${city.name}`}
             city={{ name: city.name, lat: city.lat, lng: city.lng }}
+            withMap={false}
+            defaultGender="FEMALE"
           />
         </Suspense>
         <script
@@ -136,6 +138,7 @@ export default async function EscortsTagPage({ params }: Props) {
             entityType="professional"
             categorySlug="escort"
             title={`Escorts ${label}`}
+            withMap={false}
             // maduras is a search param, not a manual tag
           />
         ) : (
@@ -145,6 +148,7 @@ export default async function EscortsTagPage({ params }: Props) {
             categorySlug="escort"
             title={`Escorts ${label}`}
             tag={tag}
+            withMap={false}
           />
         )}
       </Suspense>

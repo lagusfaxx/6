@@ -76,7 +76,27 @@ type Props = {
   title: string;
   tag?: string;            // tag from [tag] route param → added to profileTags filter
   city?: { name: string; lat: number; lng: number }; // city landing → filters results by location
+  /**
+   * Mapa sobre la grilla. Los listados de personas viven de la foto y del
+   * scroll, y el mapa empujaba las tarjetas fuera de la primera pantalla; los
+   * de locales (moteles, tiendas) sí lo necesitan, por eso es una opción.
+   */
+  withMap?: boolean;
+  /**
+   * Género con el que se entra a la sección cuando la URL no dice otra cosa.
+   * El listado de escorts es mayoritariamente femenino: entrar sin filtro
+   * mezclaba todo y obligaba a filtrar en cada visita.
+   */
+  defaultGender?: GenderValue;
 };
+
+const GENDER_OPTIONS = [
+  { value: "FEMALE", label: "Mujeres", activeClass: "border-fuchsia-400/60 bg-fuchsia-500/15 text-fuchsia-200" },
+  { value: "MALE", label: "Hombres", activeClass: "border-blue-400/60 bg-blue-500/15 text-blue-200" },
+  { value: "OTHER", label: "Trans", activeClass: "border-violet-400/60 bg-violet-500/15 text-violet-200" },
+] as const;
+
+type GenderValue = (typeof GENDER_OPTIONS)[number]["value"];
 
 /* ─── ProfileCard ────────────────────────────────────────── */
 function ProfileCard({
@@ -227,7 +247,15 @@ function ProfileCard({
 }
 
 /* ─── Main ───────────────────────────────────────────────── */
-export default function DirectoryPage({ entityType = "professional", categorySlug, title, tag, city }: Props) {
+export default function DirectoryPage({
+  entityType = "professional",
+  categorySlug,
+  title,
+  tag,
+  city,
+  withMap = true,
+  defaultGender,
+}: Props) {
   const searchParams = useSearchParams();
   const locationCtx = useContext(LocationFilterContext);
 
@@ -249,7 +277,12 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
     if (fromUrl === "near" || fromUrl === "new" || fromUrl === "availableNow") return fromUrl;
     return "featured";
   });
-  const [genderFilter, setGenderFilter] = useState(searchParams.get("gender") || "");
+  /* La URL manda (el botón "Ellos" del inicio entra con ?gender=MALE); si no
+     dice nada, se entra con el género por defecto de la sección. No se guarda
+     entre visitas a propósito: cada entrada arranca igual. */
+  const [genderFilter, setGenderFilter] = useState(
+    searchParams.get("gender") || defaultGender || "",
+  );
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState(searchParams.get("q") || "");
   /* Query que pide el server-side search. Se captura UNA VEZ desde la URL
@@ -357,13 +390,16 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
     );
   }
 
-  const [showMap, setShowMap] = useState(true);
+  const [showMap, setShowMap] = useState(withMap);
   const [previewProfile, setPreviewProfile] = useState<DirectoryResult | null>(null);
 
   /* ── Map markers: only from current category's results ── */
   const mapMarkers = useMemo(
     () =>
-      displayed
+      // Sin mapa no hay marcadores que calcular en cada render.
+      !withMap
+        ? []
+        : displayed
         .filter((p) => Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude)))
         .map((p) => ({
           id: p.id,
@@ -387,13 +423,23 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
           tier: p.availableNow ? "online" as const : "offline" as const,
           areaRadiusM: 500,
         })),
-    [displayed, title],
+    [displayed, title, withMap],
   );
 
   const mapCenter: [number, number] | null = effectiveLoc;
 
+  /* El género por defecto no cuenta como filtro puesto: si contara, el botón
+     de filtros aparecería siempre con un "1" que nadie eligió. */
+  const genderIsCustom = genderFilter !== (defaultGender ?? "");
   const activeFilterCount = profileTagsFilter.length + serviceTagsFilter.length +
-    (maduras ? 1 : 0) + (availableNow ? 1 : 0) + (genderFilter ? 1 : 0);
+    (maduras ? 1 : 0) + (availableNow ? 1 : 0) + (genderIsCustom ? 1 : 0);
+  const clearFilters = () => {
+    setProfileTagsFilter([]);
+    setServiceTagsFilter([]);
+    setMaduras(false);
+    setAvailableNow(false);
+    setGenderFilter(defaultGender ?? "");
+  };
 
   return (
     <div className="-mx-4 -mt-4 min-h-screen text-white">
@@ -445,18 +491,20 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
           </div>
 
-          {/* Map toggle */}
-          <button
-            onClick={() => setShowMap((v) => !v)}
-            className={`h-9 px-3 rounded-xl border text-sm flex items-center gap-1.5 transition ${
-              showMap
-                ? "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300"
-                : "border-white/10 bg-white/5 text-white/50"
-            }`}
-          >
-            <MapIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Mapa</span>
-          </button>
+          {/* Map toggle — sólo donde la sección tiene mapa */}
+          {withMap && (
+            <button
+              onClick={() => setShowMap((v) => !v)}
+              className={`h-9 px-3 rounded-xl border text-sm flex items-center gap-1.5 transition ${
+                showMap
+                  ? "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300"
+                  : "border-white/10 bg-white/5 text-white/50"
+              }`}
+            >
+              <MapIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Mapa</span>
+            </button>
+          )}
 
           {/* Filters button */}
           <button
@@ -477,40 +525,71 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
           </button>
         </div>
 
+        {/* ── Género: el filtro que más se usa, así que va siempre a la vista y
+             en grande, no escondido dentro del panel de filtros ── */}
+        <div className="max-w-7xl mx-auto px-4 pb-3 flex flex-wrap items-center gap-2">
+          <div className="relative flex w-full items-center sm:hidden">
+            <Search className="absolute left-3 h-4 w-4 text-white/30" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar…"
+              className="h-9 w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-white placeholder-white/30 focus:border-fuchsia-500/50 focus:outline-none"
+            />
+          </div>
+          <div
+            role="group"
+            aria-label="Género"
+            className="flex min-w-0 flex-1 gap-1.5 sm:max-w-md"
+          >
+            {GENDER_OPTIONS.map((g) => {
+              const active = genderFilter === g.value;
+              return (
+                <button
+                  key={g.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setGenderFilter(active ? "" : g.value)}
+                  className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-bold transition ${
+                    active
+                      ? g.activeClass
+                      : "border-white/10 bg-white/[0.03] text-white/50 hover:border-white/25 hover:text-white/80"
+                  }`}
+                >
+                  {g.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex shrink-0 gap-1.5">
+            <button
+              type="button"
+              onClick={() => setAvailableNow((v) => !v)}
+              className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+                availableNow
+                  ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-300"
+                  : "border-white/10 bg-white/[0.03] text-white/50 hover:border-white/25 hover:text-white/80"
+              }`}
+            >
+              Disponible ahora
+            </button>
+            <button
+              type="button"
+              onClick={() => setMaduras((v) => !v)}
+              className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+                maduras
+                  ? "border-amber-400/60 bg-amber-500/15 text-amber-300"
+                  : "border-white/10 bg-white/[0.03] text-white/50 hover:border-white/25 hover:text-white/80"
+              }`}
+            >
+              Maduras 40+
+            </button>
+          </div>
+        </div>
+
         {/* ── Filter panel ── */}
         {showFilters && (
           <div className="border-t border-white/5 px-4 py-4 max-w-7xl mx-auto space-y-4">
-            {/* Quick filters */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setAvailableNow((v) => !v)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  availableNow ? "border-emerald-500 bg-emerald-500/10 text-emerald-400" : "border-white/10 text-white/50 hover:border-white/20"
-                }`}
-              >
-                🟢 Disponible ahora
-              </button>
-              <button
-                onClick={() => setMaduras((v) => !v)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  maduras ? "border-amber-500 bg-amber-500/10 text-amber-400" : "border-white/10 text-white/50 hover:border-white/20"
-                }`}
-              >
-                Maduras (40+)
-              </button>
-              {["FEMALE", "MALE", "OTHER"].map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setGenderFilter((v) => (v === g ? "" : g))}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                    genderFilter === g ? "border-violet-500 bg-violet-500/10 text-violet-300" : "border-white/10 text-white/50 hover:border-white/20"
-                  }`}
-                >
-                  {g === "FEMALE" ? "Mujeres" : g === "MALE" ? "Hombres" : "Trans"}
-                </button>
-              ))}
-            </div>
-
             {/* Profile tags */}
             <div>
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
@@ -558,13 +637,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
             {/* Clear */}
             {activeFilterCount > 0 && (
               <button
-                onClick={() => {
-                  setProfileTagsFilter([]);
-                  setServiceTagsFilter([]);
-                  setMaduras(false);
-                  setAvailableNow(false);
-                  setGenderFilter("");
-                }}
+                onClick={clearFilters}
                 className="flex items-center gap-1 text-xs text-white/40 hover:text-white/70 transition"
               >
                 <X className="h-3.5 w-3.5" /> Limpiar filtros
@@ -580,7 +653,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
       </div>
 
       {/* ── Map (filtered by current category only) ── */}
-      {showMap && !loading && mapMarkers.length > 0 && (
+      {withMap && showMap && !loading && mapMarkers.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 pt-4">
           <div className="overflow-hidden rounded-2xl border border-white/[0.08]">
             <MapboxMap
@@ -622,7 +695,7 @@ export default function DirectoryPage({ entityType = "professional", categorySlu
             <p className="text-white/50">No encontramos resultados con estos filtros.</p>
             {activeFilterCount > 0 && (
               <button
-                onClick={() => { setProfileTagsFilter([]); setServiceTagsFilter([]); setMaduras(false); setAvailableNow(false); setGenderFilter(""); }}
+                onClick={clearFilters}
                 className="mt-4 text-sm text-fuchsia-400 hover:text-fuchsia-300"
               >
                 Limpiar filtros
