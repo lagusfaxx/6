@@ -41,6 +41,28 @@ function normalizeCategoryText(value: string | null | undefined) {
     .toLowerCase();
 }
 
+/**
+ * ¿El perfil es de la comuna elegida en el chip?
+ *
+ * La distancia se mide contra el centro de la comuna, así que un perfil de la
+ * comuna vecina puede quedar más cerca de ese punto que uno del otro extremo
+ * de la propia comuna. Al elegir "Las Condes" lo esperable es ver Las Condes
+ * primero, y recién después el resto por cercanía real.
+ *
+ * La ciudad del perfil es texto libre ("Las Condes", "Las Condes, Santiago"),
+ * por eso se compara normalizado y por contención en ambos sentidos.
+ */
+function matchesSelectedCity(
+  profileCity: string | null | undefined,
+  selectedCity: string,
+): boolean {
+  if (!selectedCity) return false;
+  const a = normalizeCategoryText(profileCity);
+  const b = normalizeCategoryText(selectedCity);
+  if (!a || !b) return false;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
 const categoryAliases: Record<string, string[]> = {
   motel: ["moteles"],
   moteles: ["motel"],
@@ -501,6 +523,9 @@ directoryRouter.get(
       genderParam === "MALE" || genderParam === "FEMALE" || genderParam === "OTHER"
         ? (genderParam as "MALE" | "FEMALE" | "OTHER")
         : null;
+    /* Comuna del chip: ordena, no filtra (ver matchesSelectedCity). */
+    const selectedCity =
+      typeof req.query.city === "string" ? req.query.city.trim().slice(0, 80) : "";
 
     const users = await prisma.user.findMany({
       where: {
@@ -524,6 +549,7 @@ directoryRouter.get(
         birthdate: true,
         latitude: true,
         longitude: true,
+        city: true,
         createdAt: true,
         isActive: true,
         lastSeen: true,
@@ -560,6 +586,7 @@ directoryRouter.get(
           id: u.id,
           name: u.displayName || u.username,
           avatarUrl: u.avatarUrl,
+          city: u.city,
           distance,
           age: resolveAge(u.birthdate, u.bio),
           createdAt: u.createdAt.toISOString(),
@@ -572,6 +599,14 @@ directoryRouter.get(
       })
       .filter((u) => ["GOLD", "DIAMOND"].includes(u.userLevel))
       .sort((a, b) => {
+        // Con comuna elegida, la comuna manda sobre la distancia: el centro de
+        // la comuna deja perfiles vecinos más cerca que los de la propia.
+        if (selectedCity) {
+          const cityCmp =
+            Number(!matchesSelectedCity(a.city, selectedCity)) -
+            Number(!matchesSelectedCity(b.city, selectedCity));
+          if (cityCmp !== 0) return cityCmp;
+        }
         // Distance first — closest profiles always on top
         const distCmp = (a.distance ?? 1e9) - (b.distance ?? 1e9);
         if (Math.abs(distCmp) > 0.5) return distCmp;
@@ -1044,6 +1079,7 @@ directoryRouter.get(
      tier         : 'DIAMOND' | 'GOLD' | 'SILVER'
      gender       : 'MALE' | 'FEMALE' | 'OTHER'
      lat / lng / radiusKm
+     city         : comuna del chip — no filtra, prioriza en el orden
      limit        : default 48, max 120
      sort         : 'featured' | 'near' | 'new' | 'availableNow'
    ──────────────────────────────────────────────────────────── */
@@ -1067,6 +1103,11 @@ directoryRouter.get(
     const limit = Math.min(Number(req.query.limit) || 48, 120);
     const offset = Math.max(0, Math.min(Number(req.query.offset) || 0, 600));
     const sort = (req.query.sort as string) || "featured";
+    /* Comuna elegida en el chip de ubicación. No filtra: ordena. Los perfiles
+       de esa comuna van primero (entre ellos, por cercanía) y después el resto
+       por distancia real. */
+    const selectedCity =
+      typeof req.query.city === "string" ? req.query.city.trim().slice(0, 80) : "";
     /* Free-text search across displayName / username / city. Optional. */
     const qRaw = typeof req.query.q === "string" ? req.query.q : "";
     const q = qRaw.trim().slice(0, 80);
@@ -1226,6 +1267,35 @@ directoryRouter.get(
       }
     }
 
+    /* La muestra anterior se corta en unos cientos de perfiles sin un orden
+       garantizado, así que los de la comuna elegida podrían quedar fuera justo
+       cuando son los que tienen que ir primero. Se traen aparte y se suman. */
+    if (selectedCity) {
+      const baseWhere = hasNewColumns ? where : fallbackWhere;
+      try {
+        const cityUsers = await prisma.user.findMany({
+          where: {
+            ...baseWhere,
+            city: { contains: selectedCity, mode: "insensitive" as const },
+          } as any,
+          take: 200,
+          select: (hasNewColumns ? fullSelect : fallbackSelect) as any,
+        });
+        const known = new Set(users.map((u) => u.id));
+        for (const u of cityUsers) {
+          if (!known.has(u.id)) {
+            known.add(u.id);
+            users.push(u);
+          }
+        }
+      } catch (err) {
+        console.warn(
+          "[directory/search] city priority query failed:",
+          (err as Error).message?.slice(0, 120),
+        );
+      }
+    }
+
     /* ── enrich + compute derived fields ── */
     const AVAIL_MS = 5 * 60 * 1000;
     const enriched = users.map((u) => {
@@ -1292,7 +1362,13 @@ directoryRouter.get(
 
     /* ── sort ── */
     const LEVEL_ORDER: Record<string, number> = { DIAMOND: 0, GOLD: 1, SILVER: 2 };
+    /* La comuna elegida manda sobre cualquier criterio de orden: primero lo
+       que está dentro de ella, después el resto. */
+    const cityRank = (city: string | null | undefined) =>
+      selectedCity ? (matchesSelectedCity(city, selectedCity) ? 0 : 1) : 0;
     const sorted = [...filtered].sort((a, b) => {
+      const cityCmp = cityRank(a.city) - cityRank(b.city);
+      if (cityCmp !== 0) return cityCmp;
       if (sort === "near") {
         return (a.distance ?? 1e9) - (b.distance ?? 1e9);
       }
@@ -1366,7 +1442,15 @@ directoryRouter.get(
 
     const merged = [...sorted.map(({ createdAt, isMadura, ...r }) => r), ...quickResults];
     if (sort === "near") {
-      merged.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+      merged.sort((a, b) => {
+        const cityCmp = cityRank(a.city) - cityRank(b.city);
+        if (cityCmp !== 0) return cityCmp;
+        return (a.distance ?? 1e9) - (b.distance ?? 1e9);
+      });
+    } else if (selectedCity && quickResults.length) {
+      /* Los avisos rápidos se anexan al final: sin esto quedarían después de
+         los perfiles de otras comunas aunque sean de la comuna elegida. */
+      merged.sort((a, b) => cityRank(a.city) - cityRank(b.city));
     }
     const allResults = merged.slice(offset, offset + limit);
     const hasMore = offset + allResults.length < merged.length;
