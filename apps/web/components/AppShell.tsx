@@ -57,6 +57,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // /cerca: mapa inmersivo a pantalla completa — sin paddings del main ni footer
   const isCercaRoute = pathname === "/cerca";
 
+  /* Conversación abierta: en el teléfono tiene que ocupar la pantalla como
+     cualquier app de mensajería. Dentro del main con paddings quedaba como un
+     recuadro flotando en la página, con la lista de mensajes en una ventanita
+     y el resto del sitio asomando alrededor. */
+  const isChatThreadRoute = /^\/chats?\/[^/]+/.test(pathname);
+
   // Dashboard routes: hide main header/nav so the Creator Studio has its own layout
   const isDashboardRoute = pathname.startsWith("/dashboard");
 
@@ -128,20 +134,25 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <TopHeader />
             {deferredReady && <PushNotificationsManager />}
             {deferredReady && <PresenceHeartbeat />}
-            {deferredReady && !isCercaRoute && <SocialProofToast />}
-            {!isHome && !isCercaRoute && <BackButton />}
+            {deferredReady && !isCercaRoute && !isChatThreadRoute && <SocialProofToast />}
+            {/* La conversación tiene su propia flecha en la cabecera. */}
+            {!isHome && !isCercaRoute && !isChatThreadRoute && <BackButton />}
             {/* Reduced pt since we removed the category chips row from mobile header */}
             <main
               className={
                 isCercaRoute
                   ? "flex-1 pt-[76px] md:pt-[90px]"
-                  : "flex-1 px-4 pt-[76px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[90px] md:pb-6"
+                  : isChatThreadRoute
+                    ? /* Sin padding horizontal ni inferior: la conversación se
+                         encarga de su propio alto y del hueco de la barra. */
+                      "flex-1 pt-[76px] md:px-4 md:pt-[90px] md:pb-6"
+                    : "flex-1 px-4 pt-[76px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[90px] md:pb-6"
               }
             >
-              {!isCercaRoute && <MarketplacePromo />}
+              {!isCercaRoute && !isChatThreadRoute && <MarketplacePromo />}
               {children}
             </main>
-            {!isCercaRoute && <Footer />}
+            {!isCercaRoute && !isChatThreadRoute && <Footer />}
           </div>
         </div>
         </ChatNotificationProvider>
