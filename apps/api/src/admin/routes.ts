@@ -810,15 +810,28 @@ adminRouter.get(
     const offset = Number(req.query.offset) || 0;
     const profileType = req.query.profileType as string | undefined;
     const city = req.query.city as string | undefined;
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 80) : "";
     const unratedOnly = req.query.unratedOnly === "true";
 
     const where: any = {
       profileType: { in: profileType ? [profileType] : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
-      isActive: true,
     };
     if (city) where.city = { contains: city, mode: "insensitive" };
-    if (unratedOnly) {
-      where.adminRatingsReceived = { none: { adminId } };
+    if (q) {
+      /* Buscar es para llegar a un perfil concreto (normalmente a cambiarle la
+         foto que sale en el inicio), así que no se le aplican los filtros de
+         la cola: ni "sin calificar" ni el de activos, que son los que hacían
+         que el perfil buscado simplemente no apareciera. */
+      where.OR = [
+        { displayName: { contains: q, mode: "insensitive" } },
+        { username: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+      ];
+    } else {
+      where.isActive = true;
+      if (unratedOnly) {
+        where.adminRatingsReceived = { none: { adminId } };
+      }
     }
 
     const [profiles, total] = await Promise.all([
@@ -839,6 +852,7 @@ adminRouter.get(
           gender: true,
           tier: true,
           bio: true,
+          isActive: true,
           isVerified: true,
           profileTags: true,
           serviceTags: true,
@@ -846,8 +860,10 @@ adminRouter.get(
           completedServices: true,
           adminQualityScore: true,
           createdAt: true,
+          /* Antes eran seis: con más fotos publicadas, la que el admin quería
+             poner en el inicio no estaba entre las opciones. */
           profileMedia: {
-            take: 6,
+            take: 40,
             orderBy: { createdAt: "desc" },
             select: { id: true, url: true, type: true },
           },

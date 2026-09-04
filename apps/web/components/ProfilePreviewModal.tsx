@@ -263,13 +263,20 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
           <div className="absolute bottom-0 left-0 right-0 p-5 z-[5]">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-xl font-bold tracking-tight sm:text-2xl leading-tight">
                     {fullProfile?.displayName || profile.displayName || profile.username}
                     {(fullProfile?.age || profile.age) ? <span className="font-normal text-white/60">, {fullProfile?.age || profile.age}</span> : ""}
                   </h3>
                   {hasPremiumBadge(allProfileTags) && <StatusBadgeIcon type="premium" size="h-5 w-5" />}
-                  {hasVerifiedBadge(allProfileTags) && <StatusBadgeIcon type="verificada" size="h-5 w-5" />}
+                  {hasVerifiedBadge(allProfileTags) && (
+                    <StatusBadgeIcon
+                      type="verificada"
+                      size="h-3.5 w-3.5"
+                      showLabel
+                      className="px-2 py-0.5 text-[10px]"
+                    />
+                  )}
                 </div>
                 {(fullProfile?.serviceCategory || profile.serviceCategory) && (
                   <p className="mt-0.5 text-sm text-white/50 font-medium">{fullProfile?.serviceCategory || profile.serviceCategory}</p>

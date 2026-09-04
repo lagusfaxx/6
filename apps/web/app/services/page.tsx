@@ -330,7 +330,7 @@ const FeaturedCard = memo(function FeaturedCard({
             <div className="flex items-center gap-1.5 text-base font-bold leading-tight tracking-tight">
               {profile.displayName || profile.username}
               {hasPremiumBadge(profile.profileTags) && <StatusBadgeIcon type="premium" size="h-4 w-4" />}
-              {hasVerifiedBadge(profile.profileTags) && <StatusBadgeIcon type="verificada" size="h-4 w-4" />}
+              {hasVerifiedBadge(profile.profileTags) && <StatusBadgeIcon type="verificada" size="h-5 w-5" />}
               {profile.age ? <span className="text-white/50 font-normal text-sm">, {profile.age}</span> : ""}
             </div>
             <div className="mt-1 flex items-center gap-2 text-[11px] text-white/45">

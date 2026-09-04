@@ -26,6 +26,7 @@ import {
   Image as ImageIcon,
   UserCheck,
   Check,
+  Search,
 } from "lucide-react";
 
 /* ─── Types ─── */
@@ -55,6 +56,7 @@ type QueueProfile = {
   gender: "MALE" | "FEMALE" | "OTHER" | null;
   tier: string | null;
   bio: string | null;
+  isActive: boolean;
   isVerified: boolean;
   profileTags: string[];
   serviceTags: string[];
@@ -121,6 +123,11 @@ export default function AdminRatingPage() {
   const [profileTypeFilter, setProfileTypeFilter] = useState("");
   const [unratedOnly, setUnratedOnly] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  /* Búsqueda: sin esto, llegar a un perfil concreto era pasar de a uno por
+     toda la cola. `searchInput` es lo que se escribe y `search` lo aplicado. */
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Rating form
   const [ratings, setRatings] = useState<Record<RatingKey, number>>({
@@ -156,17 +163,28 @@ export default function AdminRatingPage() {
     } catch { /* ignore */ }
   }, []);
 
+  const buildParams = useCallback(
+    (offset: number) => {
+      const params = new URLSearchParams();
+      params.set("limit", String(BATCH_SIZE));
+      params.set("offset", String(offset));
+      if (profileTypeFilter) params.set("profileType", profileTypeFilter);
+      // Al buscar, la API ignora "sin calificar" y el filtro de activos: si no,
+      // el perfil buscado seguía sin aparecer.
+      if (search) params.set("q", search);
+      else if (unratedOnly) params.set("unratedOnly", "true");
+      return params;
+    },
+    [profileTypeFilter, search, unratedOnly],
+  );
+
   const loadQueue = useCallback(async () => {
     setError(null);
     setLoadingQueue(true);
     try {
-      const params = new URLSearchParams();
-      params.set("limit", String(BATCH_SIZE));
-      params.set("offset", "0");
-      if (profileTypeFilter) params.set("profileType", profileTypeFilter);
-      if (unratedOnly) params.set("unratedOnly", "true");
-
-      const res = await apiFetch<{ profiles: QueueProfile[]; total: number }>(`/admin/rating/queue?${params}`);
+      const res = await apiFetch<{ profiles: QueueProfile[]; total: number }>(
+        `/admin/rating/queue?${buildParams(0)}`,
+      );
       setProfiles(res?.profiles ?? []);
       setTotal(res?.total ?? 0);
       setCurrentIndex(0);
@@ -176,7 +194,34 @@ export default function AdminRatingPage() {
     } finally {
       setLoadingQueue(false);
     }
-  }, [profileTypeFilter, unratedOnly]);
+  }, [buildParams]);
+
+  /* Antes, al llegar al final del lote de 20 se recargaba la cola desde cero:
+     con el filtro de "sin calificar" apagado eso daba vueltas sobre los mismos
+     veinte perfiles y el resto no aparecía nunca. Ahora se pide el siguiente
+     tramo y se agrega al final. */
+  const loadMore = useCallback(async () => {
+    if (loadingMore || profiles.length >= total) return false;
+    setLoadingMore(true);
+    try {
+      const res = await apiFetch<{ profiles: QueueProfile[]; total: number }>(
+        `/admin/rating/queue?${buildParams(profiles.length)}`,
+      );
+      const incoming = res?.profiles ?? [];
+      if (!incoming.length) return false;
+      setProfiles((prev) => {
+        const known = new Set(prev.map((p) => p.id));
+        return [...prev, ...incoming.filter((p) => !known.has(p.id))];
+      });
+      setTotal(res?.total ?? total);
+      return true;
+    } catch {
+      setError("No se pudieron cargar más perfiles.");
+      return false;
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [buildParams, loadingMore, profiles.length, total]);
 
   useEffect(() => {
     if (!loading && isAdmin) {
@@ -298,13 +343,14 @@ export default function AdminRatingPage() {
     }, 300);
   }
 
-  function goToNext() {
+  async function goToNext() {
     if (currentIndex < profiles.length - 1) {
       setCurrentIndex((i) => i + 1);
-    } else {
-      // Reload queue
-      loadQueue();
+      return;
     }
+    const grew = await loadMore();
+    if (grew) setCurrentIndex((i) => i + 1);
+    else loadQueue();
   }
 
   function goToPrev() {
@@ -369,6 +415,50 @@ export default function AdminRatingPage() {
             <p className="text-[11px] text-white/40">Score promedio</p>
           </div>
         </div>
+      )}
+
+      {/* Buscador — la vía rápida para llegar al perfil al que hay que
+          cambiarle la foto del inicio, sin recorrer la cola de a uno. */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setSearch(searchInput.trim());
+        }}
+        className="mt-4 flex items-center gap-2"
+      >
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Buscar por nombre, usuario o email"
+            className="w-full rounded-xl border border-white/10 bg-black/30 py-2 pl-9 pr-3 text-sm outline-none transition focus:border-fuchsia-500/40"
+          />
+        </div>
+        <button
+          type="submit"
+          className="rounded-xl border border-fuchsia-500/30 bg-fuchsia-600/20 px-4 py-2 text-xs font-semibold text-fuchsia-200 transition hover:bg-fuchsia-600/30"
+        >
+          Buscar
+        </button>
+        {search && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchInput("");
+              setSearch("");
+            }}
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60 transition hover:bg-white/10"
+          >
+            Limpiar
+          </button>
+        )}
+      </form>
+      {search && (
+        <p className="mt-1.5 text-[11px] text-white/40">
+          Resultados para “{search}” — la búsqueda ignora los filtros de la cola
+          e incluye perfiles ya calificados e inactivos.
+        </p>
       )}
 
       {/* Filters */}
@@ -535,6 +625,54 @@ export default function AdminRatingPage() {
                   </div>
                 )}
 
+                {/* Tira de miniaturas: elegir la foto del inicio era ir de a
+                    una con las flechas. Aquí se ve todo el material y basta un
+                    clic para seleccionarla; el borde verde marca la que ya es
+                    la principal. */}
+                {currentProfile.profileMedia.length > 1 && (
+                  <div className="scrollbar-none flex gap-2 overflow-x-auto border-t border-white/[0.06] bg-black/20 px-3 py-2">
+                    {currentProfile.profileMedia.map((m, i) => {
+                      const isMain =
+                        currentProfile.avatarUrl === m.url ||
+                        currentProfile.coverUrl === m.url;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setActivePhotoIndex(i)}
+                          title={m.type === "IMAGE" ? "Ver foto" : "Video"}
+                          className={`relative h-16 w-12 shrink-0 overflow-hidden rounded-lg border transition ${
+                            i === activePhotoIndex
+                              ? "border-fuchsia-400 ring-1 ring-fuchsia-400/40"
+                              : isMain
+                                ? "border-emerald-400/60"
+                                : "border-white/10 hover:border-white/30"
+                          }`}
+                        >
+                          {m.type === "IMAGE" ? (
+                            <img
+                              src={resolveMediaUrl(m.url) ?? undefined}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center bg-black/40 text-[9px] font-bold text-white/50">
+                              VIDEO
+                            </span>
+                          )}
+                          {isMain && (
+                            <span className="absolute bottom-0 inset-x-0 bg-emerald-500/80 py-0.5 text-center text-[8px] font-bold text-black">
+                              ACTUAL
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Tier badge */}
                 {currentProfile.tier && (
                   <div className="absolute top-3 right-3 flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 text-xs font-bold backdrop-blur-sm">
@@ -550,7 +688,14 @@ export default function AdminRatingPage() {
                   <Avatar src={currentProfile.avatarUrl} alt={currentProfile.displayName || currentProfile.username} size={56} />
                   <div className="flex-1 min-w-0">
                     <h2 className="font-bold text-lg truncate">{currentProfile.displayName || currentProfile.username}</h2>
-                    <p className="text-xs text-white/40">@{currentProfile.username}</p>
+                    <p className="flex items-center gap-2 text-xs text-white/40">
+                      @{currentProfile.username}
+                      {!currentProfile.isActive && (
+                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+                          Inactivo
+                        </span>
+                      )}
+                    </p>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/50">
                       {currentProfile.city && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{currentProfile.city}</span>}
                       <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{currentProfile.profileViews} visitas</span>

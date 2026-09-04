@@ -7,31 +7,48 @@ type BadgeType = "premium" | "verificada" | "quality";
 
 const CONFIG: Record<
   BadgeType,
-  { label: string; tooltip: string; icon: typeof Crown; color: string; glow: string; idle: string }
+  {
+    label: string;
+    /** Texto de la píldora cuando se muestra con etiqueta. */
+    pillLabel: string;
+    tooltip: string;
+    icon: typeof Crown;
+    color: string;
+    glow: string;
+    idle: string;
+    /** Estilo de la píldora: borde y fondo del color de la insignia. */
+    pillClass: string;
+  }
 > = {
   premium: {
     label: "Premium",
+    pillLabel: "Premium",
     tooltip: "Profesional Premium — acceso a beneficios exclusivos",
     icon: Crown,
     color: "text-amber-300",
     glow: "shadow-amber-400/40",
     idle: "uzeed-badge-shimmer-gold",
+    pillClass: "border-amber-400/40 bg-amber-500/15 text-amber-200",
   },
   verificada: {
     label: "Verificada",
-    tooltip: "Identidad verificada por UZEED",
+    pillLabel: "Verificada por UZEED",
+    tooltip: "Perfil verificado por UZEED",
     icon: ShieldCheck,
     color: "text-emerald-300",
     glow: "shadow-emerald-400/40",
     idle: "uzeed-badge-shimmer-emerald",
+    pillClass: "border-emerald-400/40 bg-emerald-500/15 text-emerald-200",
   },
   quality: {
     label: "Calidad",
+    pillLabel: "Calidad",
     tooltip: "Perfil evaluado por calidad",
     icon: Star,
     color: "text-fuchsia-300",
     glow: "shadow-fuchsia-400/40",
     idle: "uzeed-badge-shimmer-fuchsia",
+    pillClass: "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200",
   },
 };
 
@@ -39,10 +56,23 @@ interface StatusBadgeIconProps {
   type: BadgeType;
   /** Icon size class, e.g. "h-3.5 w-3.5". Defaults to "h-3.5 w-3.5" */
   size?: string;
+  /**
+   * Muestra la insignia como píldora con texto en vez de sólo el icono. La
+   * verificación es el plus del perfil: donde hay espacio (ficha, vista
+   * previa) tiene que leerse sin depender de que alguien toque el icono.
+   */
+  showLabel?: boolean;
+  /** Clase extra para la píldora (tamaño de texto, márgenes). */
+  className?: string;
 }
 
-export default function StatusBadgeIcon({ type, size = "h-3.5 w-3.5" }: StatusBadgeIconProps) {
-  const { tooltip, icon: Icon, color, glow, idle } = CONFIG[type];
+export default function StatusBadgeIcon({
+  type,
+  size = "h-3.5 w-3.5",
+  showLabel = false,
+  className = "",
+}: StatusBadgeIconProps) {
+  const { tooltip, icon: Icon, color, glow, idle, pillLabel, pillClass } = CONFIG[type];
   const [showTooltip, setShowTooltip] = useState(false);
   const [tapped, setTapped] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -80,6 +110,22 @@ export default function StatusBadgeIcon({ type, size = "h-3.5 w-3.5" }: StatusBa
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
+
+  if (showLabel) {
+    return (
+      <span
+        title={tooltip}
+        className={[
+          "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wide",
+          pillClass,
+          className,
+        ].join(" ")}
+      >
+        <Icon className={[size, color].join(" ")} aria-hidden />
+        {pillLabel}
+      </span>
+    );
+  }
 
   return (
     <span className="relative inline-flex items-center">
