@@ -19,6 +19,8 @@ type Props = {
   pageSize?: number;
   excludeIds?: string[];
   emptyLabel?: string;
+  /** Género que lista el feed. El inicio lo cambia con el interruptor del hero. */
+  gender?: "FEMALE" | "MALE" | "OTHER";
 };
 
 type SearchResponse = {
@@ -60,6 +62,7 @@ export default function InfiniteFeed({
   pageSize = PAGE_SIZE_DEFAULT,
   excludeIds,
   emptyLabel = "Sin resultados por ahora.",
+  gender = "FEMALE",
 }: Props) {
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
@@ -70,10 +73,13 @@ export default function InfiniteFeed({
   // If parent didn't pass a title, derive one from the active chip / location.
   const resolvedTitle = useMemo(() => {
     if (title) return title;
-    if (selectedCity?.name) return `Escorts en ${selectedCity.name}`;
-    if (effectiveLoc) return "Escorts cerca de ti";
-    return "Escorts en todo Chile";
-  }, [title, selectedCity?.name, effectiveLoc]);
+    /* Con el interruptor en "Ellos" el título tiene que acompañar: decir
+       "Escorts" a secas mientras la grilla muestra hombres se lee como error. */
+    const noun = gender === "MALE" ? "Escorts hombres" : "Escorts";
+    if (selectedCity?.name) return `${noun} en ${selectedCity.name}`;
+    if (effectiveLoc) return `${noun} cerca de ti`;
+    return `${noun} en todo Chile`;
+  }, [title, selectedCity?.name, effectiveLoc, gender]);
 
   const [items, setItems] = useState<DirectoryResult[]>([]);
   const [offset, setOffset] = useState(0);
@@ -98,8 +104,8 @@ export default function InfiniteFeed({
         const params = new URLSearchParams({
           entityType,
           categorySlug,
-          // Home is female-only — male and trans are handled in their own pages.
-          gender: "FEMALE",
+          // Lo fija el interruptor Ellas/Ellos del inicio.
+          gender,
           // When a chip/GPS is active, sort by proximity so the user always
           // sees the nearest profiles even if their region has no listings.
           sort: effectiveLoc ? "near" : "featured",
@@ -153,7 +159,7 @@ export default function InfiniteFeed({
         inFlight.current = false;
       }
     },
-    [categorySlug, effectiveLoc, entityType, pageSize, seenIds, selectedCityName],
+    [categorySlug, effectiveLoc, entityType, pageSize, seenIds, selectedCityName, gender],
   );
 
   // Reset whenever location/category changes
@@ -164,7 +170,7 @@ export default function InfiniteFeed({
     void loadPage(0, true);
     // intentionally exclude loadPage to avoid re-running on its own re-creation
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categorySlug, entityType, effectiveLoc?.[0], effectiveLoc?.[1], selectedCityName]);
+  }, [categorySlug, entityType, effectiveLoc?.[0], effectiveLoc?.[1], selectedCityName, gender]);
 
   // IntersectionObserver to trigger next page
   useEffect(() => {

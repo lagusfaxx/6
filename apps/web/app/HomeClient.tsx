@@ -315,7 +315,12 @@ export default function HomeClient() {
     locationCtx?.state.mode === "city"
       ? locationCtx.state.selectedCity?.name ?? null
       : null;
-  const locationKey = `${location[0]}-${location[1]}-${selectedCityName ?? ""}`;
+  /* Ellas / Ellos: filtra el inicio en el sitio, sin cambiar de página ni de
+     URL. Arranca siempre en ellas (los perfiles sin género cuentan como tales)
+     y no se recuerda entre visitas, así que la portada que ve un visitante
+     nuevo —y la que indexa Google— es siempre la misma. */
+  const [homeGender, setHomeGender] = useState<"FEMALE" | "MALE">("FEMALE");
+  const locationKey = `${location[0]}-${location[1]}-${selectedCityName ?? ""}-${homeGender}`;
   const [recentLoading, setRecentLoading] = useState(true);
   const { me } = useMe();
   const { discreet } = useDiscreet();
@@ -388,7 +393,7 @@ export default function HomeClient() {
       params.set("lng", String(location[1]));
     }
     params.set("limit", "30");
-    params.set("gender", "FEMALE");
+    params.set("gender", homeGender);
     // Con comuna elegida en el chip, sus perfiles van primero: la distancia se
     // mide contra el centro de la comuna y una vecina puede quedar más cerca.
     if (selectedCityName) params.set("city", selectedCityName);
@@ -459,7 +464,7 @@ export default function HomeClient() {
      /profiles/discover, y solo hace falta esta. */
   useEffect(() => {
     const controller = new AbortController();
-    const qp = new URLSearchParams({ sort: "new", limit: "12", gender: "FEMALE" });
+    const qp = new URLSearchParams({ sort: "new", limit: "12", gender: homeGender });
     qp.set("lat", String(location[0]));
     qp.set("lng", String(location[1]));
 
@@ -481,10 +486,10 @@ export default function HomeClient() {
     // Defer 2s so above-the-fold images load first
     const timer = setTimeout(() => {
       if (controller.signal.aborted) return;
-      apiFetch<{ creators: UmateCreatorCard[] }>("/umate/creators?limit=12&gender=FEMALE", { signal: controller.signal })
+      apiFetch<{ creators: UmateCreatorCard[] }>(`/umate/creators?limit=12&gender=${homeGender}`, { signal: controller.signal })
         .then((r) => setUmateCreators(r?.creators ?? []))
         .catch(() => {});
-      apiFetch<{ streams: any[] }>("/live/active?gender=FEMALE", { signal: controller.signal })
+      apiFetch<{ streams: any[] }>(`/live/active?gender=${homeGender}`, { signal: controller.signal })
         .then((r) => setLiveStreams(r?.streams ?? []))
         .catch(() => {});
     }, 2000);
@@ -667,24 +672,35 @@ export default function HomeClient() {
             </button>
           </form>
 
-          {/* Ellas / Ellos. El inicio lista mujeres (los perfiles sin género
-              cuentan como tales), así que el público que busca hombres
-              necesitaba una entrada. Como interruptor de dos posiciones se
-              entiende sola: dice qué se está viendo y qué es lo otro. Un chip
-              suelto entre las categorías no decía ninguna de las dos cosas. */}
-          <div className="mx-auto mt-3.5 flex w-full max-w-[15rem] items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] p-1">
-            <Link
-              href="/escorts?gender=FEMALE"
-              className="flex-1 rounded-full bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-center text-[13px] font-bold text-white shadow-[0_4px_14px_rgba(217,70,239,0.28)] transition hover:brightness-110"
-            >
-              Ellas
-            </Link>
-            <Link
-              href="/escorts?gender=MALE"
-              className="flex-1 rounded-full px-4 py-2 text-center text-[13px] font-semibold text-white/55 transition hover:bg-sky-500/15 hover:text-sky-200"
-            >
-              Ellos
-            </Link>
+          {/* Ellas / Ellos: cambia lo que lista el inicio aquí mismo. Antes era
+              un enlace disfrazado de interruptor, que llevaba a otra página
+              —lo que un interruptor justamente no hace—. */}
+          <div
+            role="group"
+            aria-label="Ver perfiles de"
+            className="mx-auto mt-3.5 flex w-full max-w-[15rem] items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] p-1"
+          >
+            {([
+              { value: "FEMALE" as const, label: "Ellas", activeClass: "bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white shadow-[0_4px_14px_rgba(217,70,239,0.28)]" },
+              { value: "MALE" as const, label: "Ellos", activeClass: "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_4px_14px_rgba(56,132,255,0.28)]" },
+            ]).map((option) => {
+              const active = homeGender === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setHomeGender(option.value)}
+                  className={`flex-1 rounded-full px-4 py-2 text-center text-[13px] font-bold transition ${
+                    active
+                      ? option.activeClass
+                      : "font-semibold text-white/50 hover:bg-white/[0.06] hover:text-white/80"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Categorías — qué busca el cliente. Antes esto convivía con una
@@ -847,7 +863,7 @@ export default function HomeClient() {
         <div className="mb-6 h-px bg-white/[0.06]" />
 
         {/* ═══ FEED — filtros + destacadas + grid infinito ═══ */}
-        <HomeFeed goldProfiles={goldProfiles} />
+        <HomeFeed goldProfiles={goldProfiles} gender={homeGender} />
 
         {/* ═══ EN VIVO AHORA ═══ */}
         {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}

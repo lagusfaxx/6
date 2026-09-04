@@ -36,6 +36,8 @@ type AnyProfile = {
 type Props = {
   /** Perfiles del plan Gold. Diamond va arriba del mapa, no aquí. */
   goldProfiles: AnyProfile[];
+  /** Ellas / Ellos: lo elige el interruptor del hero. */
+  gender?: "FEMALE" | "MALE";
 };
 
 /* Filtros por estado del perfil, no por categoría: la categoría ya vive en el
@@ -58,7 +60,7 @@ function toDestacada(p: AnyProfile): DestacadaProfile {
   };
 }
 
-export default function HomeFeed({ goldProfiles }: Props) {
+export default function HomeFeed({ goldProfiles, gender = "FEMALE" }: Props) {
   const gold = goldProfiles.slice(0, 10).map(toDestacada);
 
   return (
@@ -83,7 +85,7 @@ export default function HomeFeed({ goldProfiles }: Props) {
           Repetirlos en las dos zonas mostraba a la misma persona dos veces. */}
       {gold.length > 0 && <DestacadasGrid profiles={gold} tier="GOLD" />}
 
-      <InfiniteFeed categorySlug="escort,masajes" />
+      <InfiniteFeed categorySlug="escort,masajes" gender={gender} />
     </>
   );
 }
