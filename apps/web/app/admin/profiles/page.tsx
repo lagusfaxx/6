@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
-import { apiFetch } from "../../../lib/api";
+import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
 import Avatar from "../../../components/Avatar";
 import MfaConfirmDialog from "../../../components/MfaConfirmDialog";
 import {
@@ -24,6 +24,7 @@ import {
   Pencil,
   Download,
   Image as ImageIcon,
+  MessageCircle,
 } from "lucide-react";
 
 type Profile = {
@@ -39,6 +40,7 @@ type Profile = {
   lastSeen: string | null;
   city: string | null;
   gender: "MALE" | "FEMALE" | "OTHER" | null;
+  phone: string | null;
   tier: string | null;
   role: string;
   isVerified: boolean;
@@ -80,6 +82,18 @@ const GENDERS = [
 
 type GenderValue = (typeof GENDERS)[number]["value"];
 
+// Mismo formato que valida la API (Chile, Colombia, Venezuela y Perú móviles).
+// El número de WhatsApp es la vía de contacto del anuncio: si está mal escrito
+// el perfil queda publicado sin forma de contactarlo, así que el admin lo puede
+// corregir desde aquí sin pasar por una solicitud de cambio.
+const PHONE_REGEX =
+  /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
+
+function waLink(phone: string): string {
+  const cleaned = phone.replace(/[^0-9+]/g, "");
+  return `https://wa.me/${cleaned.startsWith("+") ? cleaned.slice(1) : cleaned}`;
+}
+
 
 const hasLabel = (profile: Profile, label: string) => (profile.profileTags ?? []).includes(label);
 
@@ -102,6 +116,8 @@ export default function AdminProfilesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [rateEditing, setRateEditing] = useState<string | null>(null);
   const [rateInput, setRateInput] = useState("");
+  const [phoneEditing, setPhoneEditing] = useState<string | null>(null);
+  const [phoneInput, setPhoneInput] = useState("");
   const [mediaModal, setMediaModal] = useState<{ profileId: string; displayName: string } | null>(null);
   const [mediaPhotos, setMediaPhotos] = useState<ProfilePhoto[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -326,6 +342,56 @@ export default function AdminProfilesPage() {
     } catch {
       setProfiles(prevProfiles);
       setError("No se pudo actualizar la tarifa del perfil.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function startEditingPhone(profile: Profile) {
+    setPhoneEditing(profile.id);
+    setPhoneInput(profile.phone ?? "");
+    setError(null);
+  }
+
+  function cancelEditingPhone() {
+    setPhoneEditing(null);
+    setPhoneInput("");
+  }
+
+  async function savePhone(profile: Profile) {
+    const trimmed = phoneInput.trim().replace(/\s+/g, " ");
+    const nextPhone = trimmed === "" ? null : trimmed;
+
+    if (nextPhone !== null && !PHONE_REGEX.test(nextPhone)) {
+      setError("Número inválido. Usa formato internacional, por ejemplo +56 9 1234 5678.");
+      return;
+    }
+    if (nextPhone === (profile.phone ?? null)) {
+      cancelEditingPhone();
+      return;
+    }
+
+    setBusy(profile.id);
+    setError(null);
+    const prevProfiles = [...profiles];
+    setProfiles((prev) =>
+      prev.map((pr) => (pr.id === profile.id ? { ...pr, phone: nextPhone } : pr)),
+    );
+    try {
+      await apiFetch(`/admin/profiles/${profile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ phone: nextPhone }),
+      });
+      setSuccess(
+        nextPhone
+          ? `WhatsApp de ${profile.displayName || profile.username} actualizado a ${nextPhone}.`
+          : `WhatsApp de ${profile.displayName || profile.username} eliminado.`,
+      );
+      cancelEditingPhone();
+      await loadProfiles();
+    } catch (err) {
+      setProfiles(prevProfiles);
+      setError(friendlyErrorMessage(err));
     } finally {
       setBusy(null);
     }
@@ -640,6 +706,91 @@ export default function AdminProfilesPage() {
                   <span className="text-[10px] text-amber-300/80">
                     Sin género: aparece como mujer en el inicio
                   </span>
+                )}
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] uppercase tracking-wide text-white/40 flex items-center gap-1">
+                  <MessageCircle className="h-3 w-3" />
+                  WhatsApp:
+                </span>
+                {phoneEditing === p.id ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      savePhone(p);
+                    }}
+                    className="flex flex-wrap items-center gap-1.5"
+                  >
+                    <input
+                      autoFocus
+                      type="tel"
+                      inputMode="tel"
+                      value={phoneInput}
+                      onChange={(e) => setPhoneInput(e.target.value)}
+                      placeholder="+56 9 1234 5678"
+                      className="w-44 rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-[11px] outline-none focus:border-fuchsia-500/30 transition"
+                    />
+                    <button
+                      type="submit"
+                      disabled={busy === p.id}
+                      className="flex h-7 items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2 text-[11px] font-medium text-emerald-200 hover:bg-emerald-500/25 transition disabled:opacity-50"
+                      title="Guardar"
+                    >
+                      {busy === p.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Check className="h-3 w-3" />
+                      )}
+                      Guardar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditingPhone}
+                      disabled={busy === p.id}
+                      className="flex h-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-2 text-[11px] text-white/60 hover:bg-white/10 transition disabled:opacity-50"
+                      title="Cancelar"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    <span className="text-[10px] text-white/40">
+                      Vacío = sin número
+                    </span>
+                  </form>
+                ) : (
+                  <>
+                    <span
+                      className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium ${
+                        p.phone
+                          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
+                          : "border-white/10 bg-white/5 text-white/40"
+                      }`}
+                    >
+                      {p.phone || "Sin número"}
+                    </span>
+                    {p.phone && (
+                      <a
+                        href={waLink(p.phone)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex h-7 items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 text-[11px] text-emerald-200 hover:bg-emerald-500/20 transition"
+                        title="Abrir chat de WhatsApp"
+                      >
+                        <MessageCircle className="h-3 w-3" />
+                        Probar
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      disabled={busy === p.id}
+                      onClick={() => startEditingPhone(p)}
+                      className="flex h-7 items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 text-[11px] text-white/70 hover:bg-white/10 transition disabled:opacity-50"
+                      title="Editar número de WhatsApp"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Editar
+                    </button>
+                  </>
                 )}
               </div>
 
