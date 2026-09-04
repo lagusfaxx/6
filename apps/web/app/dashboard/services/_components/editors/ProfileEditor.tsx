@@ -8,6 +8,7 @@ import FloatingInput from "../FloatingInput";
 import FloatingTextarea from "../FloatingTextarea";
 import FloatingSelect from "../FloatingSelect";
 import PhoneField from "./PhoneField";
+import NameField from "./NameField";
 import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../../../../../components/DirectoryPage";
 
 const PRIMARY_CATEGORY_OPTIONS = [
@@ -62,11 +63,11 @@ export default function ProfileEditor() {
       <EditorCard delay={0}>
         <SectionHeader icon={User} title="Lo básico" subtitle="Tu nombre y presentación" />
         <div className="space-y-3">
-          <FloatingInput
-            label="Nombre visible"
+          {/* El nombre sigue la misma regla que el teléfono: una vez fijado,
+              cambiarlo pasa por una solicitud que revisa el equipo. */}
+          <NameField
             value={state.displayName}
             onChange={(v) => setField("displayName", v)}
-            placeholder="Tu nombre o alias"
           />
           <PhoneField value={state.phone} onChange={(v) => setField("phone", v)} />
           <FloatingSelect

@@ -15,6 +15,10 @@ import {
   PROFESSIONAL_PHONE_REGEX,
   samePhone,
 } from "../profile/phoneChange";
+import {
+  displayNameError,
+  normalizeDisplayName,
+} from "../profile/nameChange";
 
 export const adminRouter = Router();
 
@@ -458,8 +462,16 @@ adminRouter.put(
   "/profiles/:id",
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { isActive, tier, role, membershipExpiresAt, baseRate, gender, phone } =
-      req.body ?? {};
+    const {
+      isActive,
+      tier,
+      role,
+      membershipExpiresAt,
+      baseRate,
+      gender,
+      phone,
+      displayName,
+    } = req.body ?? {};
 
     const data: any = {};
     if (isActive !== undefined) data.isActive = Boolean(isActive);
@@ -484,6 +496,18 @@ adminRouter.put(
       data.membershipExpiresAt = membershipExpiresAt
         ? new Date(membershipExpiresAt)
         : null;
+    }
+    if (displayName !== undefined) {
+      // El nombre está bloqueado para la profesional (cambiarlo pasa por una
+      // solicitud), pero el admin lo corrige aquí: es el mismo caso del
+      // teléfono mal escrito, y evita tener que aprobar una solicitud que la
+      // profesional todavía no mandó.
+      const nextName = normalizeDisplayName(displayName);
+      const issue = displayNameError(nextName);
+      if (issue) {
+        return res.status(400).json({ error: "VALIDATION", message: issue });
+      }
+      data.displayName = nextName;
     }
     if (phone !== undefined) {
       // El número de WhatsApp es la vía de contacto del anuncio. La

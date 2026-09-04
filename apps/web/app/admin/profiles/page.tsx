@@ -86,6 +86,10 @@ type GenderValue = (typeof GENDERS)[number]["value"];
 // El número de WhatsApp es la vía de contacto del anuncio: si está mal escrito
 // el perfil queda publicado sin forma de contactarlo, así que el admin lo puede
 // corregir desde aquí sin pasar por una solicitud de cambio.
+/* Mismo tope que valida la API (`DISPLAY_NAME_MAX_LENGTH` en @uzeed/shared). */
+const DISPLAY_NAME_MIN_LENGTH = 2;
+const DISPLAY_NAME_MAX_LENGTH = 20;
+
 const PHONE_REGEX =
   /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
 
@@ -118,6 +122,8 @@ export default function AdminProfilesPage() {
   const [rateInput, setRateInput] = useState("");
   const [phoneEditing, setPhoneEditing] = useState<string | null>(null);
   const [phoneInput, setPhoneInput] = useState("");
+  const [nameEditing, setNameEditing] = useState<string | null>(null);
+  const [nameInput, setNameInput] = useState("");
   const [mediaModal, setMediaModal] = useState<{ profileId: string; displayName: string } | null>(null);
   const [mediaPhotos, setMediaPhotos] = useState<ProfilePhoto[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -388,6 +394,55 @@ export default function AdminProfilesPage() {
           : `WhatsApp de ${profile.displayName || profile.username} eliminado.`,
       );
       cancelEditingPhone();
+      await loadProfiles();
+    } catch (err) {
+      setProfiles(prevProfiles);
+      setError(friendlyErrorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function startEditingName(profile: Profile) {
+    setNameEditing(profile.id);
+    setNameInput(profile.displayName ?? "");
+    setError(null);
+  }
+
+  function cancelEditingName() {
+    setNameEditing(null);
+    setNameInput("");
+  }
+
+  async function saveDisplayName(profile: Profile) {
+    const nextName = nameInput.replace(/\s+/g, " ").trim();
+    if (
+      nextName.length < DISPLAY_NAME_MIN_LENGTH ||
+      nextName.length > DISPLAY_NAME_MAX_LENGTH
+    ) {
+      setError(
+        `El nombre debe tener entre ${DISPLAY_NAME_MIN_LENGTH} y ${DISPLAY_NAME_MAX_LENGTH} caracteres.`,
+      );
+      return;
+    }
+    if (nextName === (profile.displayName ?? "")) {
+      cancelEditingName();
+      return;
+    }
+
+    setBusy(profile.id);
+    setError(null);
+    const prevProfiles = [...profiles];
+    setProfiles((prev) =>
+      prev.map((pr) => (pr.id === profile.id ? { ...pr, displayName: nextName } : pr)),
+    );
+    try {
+      await apiFetch(`/admin/profiles/${profile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ displayName: nextName }),
+      });
+      setSuccess(`Nombre actualizado a ${nextName}.`);
+      cancelEditingName();
       await loadProfiles();
     } catch (err) {
       setProfiles(prevProfiles);
@@ -706,6 +761,73 @@ export default function AdminProfilesPage() {
                   <span className="text-[10px] text-amber-300/80">
                     Sin género: aparece como mujer en el inicio
                   </span>
+                )}
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] uppercase tracking-wide text-white/40 flex items-center gap-1">
+                  <Pencil className="h-3 w-3" />
+                  Nombre:
+                </span>
+                {nameEditing === p.id ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      saveDisplayName(p);
+                    }}
+                    className="flex flex-wrap items-center gap-1.5"
+                  >
+                    <input
+                      autoFocus
+                      type="text"
+                      value={nameInput}
+                      maxLength={DISPLAY_NAME_MAX_LENGTH}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      placeholder="Nombre público"
+                      className="w-44 rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-[11px] outline-none focus:border-fuchsia-500/30 transition"
+                    />
+                    <span className="text-[10px] text-white/40">
+                      {nameInput.trim().length}/{DISPLAY_NAME_MAX_LENGTH}
+                    </span>
+                    <button
+                      type="submit"
+                      disabled={busy === p.id}
+                      className="flex h-7 items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2 text-[11px] font-medium text-emerald-200 hover:bg-emerald-500/25 transition disabled:opacity-50"
+                      title="Guardar"
+                    >
+                      {busy === p.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Check className="h-3 w-3" />
+                      )}
+                      Guardar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditingName}
+                      disabled={busy === p.id}
+                      className="flex h-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-2 text-[11px] text-white/60 hover:bg-white/10 transition disabled:opacity-50"
+                      title="Cancelar"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <span className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-medium text-white/70">
+                      {p.displayName || "Sin nombre"}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={busy === p.id}
+                      onClick={() => startEditingName(p)}
+                      className="flex h-7 items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 text-[11px] text-white/70 hover:bg-white/10 transition disabled:opacity-50"
+                      title="Editar nombre público"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Editar
+                    </button>
+                  </>
                 )}
               </div>
 

@@ -90,6 +90,9 @@ const INITIAL_DATA: WizardData = {
 };
 
 const TOTAL_STEPS = 3;
+/* Mismo tope que valida la API (`DISPLAY_NAME_MAX_LENGTH` en @uzeed/shared). */
+const DISPLAY_NAME_MIN_LENGTH = 2;
+const DISPLAY_NAME_MAX_LENGTH = 20;
 const PHONE_PREFIXES = ["+56", "+57", "+58", "+51"];
 const MAX_GALLERY = 6;
 
@@ -141,7 +144,8 @@ export default function PublicateClient() {
 
   /* ── Validation per step ── */
   const isStep1Valid =
-    data.displayName.trim().length >= 2 &&
+    data.displayName.trim().length >= DISPLAY_NAME_MIN_LENGTH &&
+    data.displayName.trim().length <= DISPLAY_NAME_MAX_LENGTH &&
     data.primaryCategory.length > 0 &&
     data.galleryFiles.length >= 3;
   const isStep2Valid =
@@ -272,8 +276,15 @@ export default function PublicateClient() {
 
           {/* Display name */}
           <div>
-            <label className={labelClass}>Nombre artístico *</label>
-            <input type="text" className={inputClass} placeholder="Ej: Valentina" maxLength={50} value={data.displayName} onChange={(e) => update({ displayName: e.target.value })} />
+            <label className={labelClass}>
+              Nombre artístico *
+              <span className="ml-2 text-[11px] font-normal text-white/35">
+                {data.displayName.trim().length}/{DISPLAY_NAME_MAX_LENGTH}
+              </span>
+            </label>
+            {/* Tope corto a propósito: un nombre largo rompe las tarjetas del
+                inicio, que es donde se decide el contacto. */}
+            <input type="text" className={inputClass} placeholder="Ej: Valentina" maxLength={DISPLAY_NAME_MAX_LENGTH} value={data.displayName} onChange={(e) => update({ displayName: e.target.value })} />
           </div>
 
           {/* Gender */}

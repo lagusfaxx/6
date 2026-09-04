@@ -102,6 +102,7 @@ enum NotificationType {
   MARKET_ORDER_MESSAGE
   MARKET_ORDER_CANCELLED
   PHONE_CHANGE_REVIEWED
+  NAME_CHANGE_REVIEWED
   FACE_VERIFICATION_REVIEWED
 }
 
@@ -161,6 +162,13 @@ enum ProfessionalDocumentStatus {
 }
 
 enum PhoneChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum NameChangeRequestStatus {
   PENDING
   APPROVED
   REJECTED
@@ -548,6 +556,8 @@ model User {
   professionalDocsReviewed  ProfessionalDocument[] @relation("ProfessionalDocumentReviewer")
   phoneChangeRequests       PhoneChangeRequest[]   @relation("PhoneChangeRequests")
   phoneChangesReviewed      PhoneChangeRequest[]   @relation("PhoneChangeReviewer")
+  nameChangeRequests        NameChangeRequest[]    @relation("NameChangeRequests")
+  nameChangesReviewed       NameChangeRequest[]    @relation("NameChangeReviewer")
   faceVerifications         FaceVerification[]     @relation("FaceVerifications")
   faceVerificationsCreated  FaceVerification[]     @relation("FaceVerificationCreator")
   faceVerificationsReviewed FaceVerification[]     @relation("FaceVerificationReviewer")
@@ -1656,6 +1666,30 @@ model PhoneChangeRequest {
 
   user     User  @relation("PhoneChangeRequests", fields: [userId], references: [id], onDelete: Cascade)
   reviewer User? @relation("PhoneChangeReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status, createdAt])
+}
+
+/// Cambio de nombre público de un perfil profesional. El nombre es con lo que
+/// las clientas reconocen el anuncio (y lo que quedó en capturas y contactos),
+/// así que se cambia con revisión del admin, igual que el teléfono.
+model NameChangeRequest {
+  id            String                  @id @default(uuid()) @db.Uuid
+  userId        String                  @db.Uuid
+  /// Nombre que tenía al pedir el cambio, para auditar y revertir.
+  currentName   String?
+  requestedName String
+  reason        String?
+  status        NameChangeRequestStatus @default(PENDING)
+  reviewedById  String?                 @db.Uuid
+  reviewedAt    DateTime?
+  adminNote     String?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  user     User  @relation("NameChangeRequests", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("NameChangeReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([status, createdAt])

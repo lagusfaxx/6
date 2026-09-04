@@ -43,6 +43,7 @@ import {
   Video,
   Heart,
   Phone,
+  Signature,
 } from "lucide-react";
 
 type MetricBundle = {
@@ -150,6 +151,7 @@ const notificationFallback: Record<string, { title: string; url: string }> = {
   content_reported: { title: "Contenido reportado", url: "/admin/moderation" },
   deletion_requested: { title: "Solicitud de eliminacion", url: "/admin/privacy-requests" },
   phone_change_requested: { title: "Cambio de numero solicitado", url: "/admin/phone-changes" },
+  name_change_requested: { title: "Cambio de nombre solicitado", url: "/admin/name-changes" },
 };
 
 const NAV_ITEMS = [
@@ -158,6 +160,7 @@ const NAV_ITEMS = [
   { href: "/admin/expired-trials", label: "Pruebas caducadas", icon: Clock },
   { href: "/admin/verification", label: "Verificaciones", icon: UserCheck },
   { href: "/admin/phone-changes", label: "Cambios de número", icon: Phone },
+  { href: "/admin/name-changes", label: "Cambios de nombre", icon: Signature },
   { href: "/admin/profiles", label: "Perfiles", icon: Users },
   { href: "/admin/rating", label: "Catador", icon: Star },
   { href: "/admin/deposits", label: "Depositos", icon: ArrowDownToLine },
@@ -601,6 +604,7 @@ export default function AdminIndex() {
                 <QuickAction href="/admin/profiles" icon={Users} label="Perfiles" desc="Gestion de usuarios" accent="violet" />
                 <QuickAction href="/admin/rating" icon={Star} label="Catador" desc="Calificar perfiles" accent="amber" />
                 <QuickAction href="/admin/phone-changes" icon={Phone} label="Cambios de número" desc="Aprobar o rechazar" accent="fuchsia" />
+                <QuickAction href="/admin/name-changes" icon={Signature} label="Cambios de nombre" desc="Aprobar o rechazar" accent="fuchsia" />
                 <QuickAction href="/admin/deposits" icon={CircleDollarSign} label="Depositos" desc={`${metrics.pendingDeposits} pendientes`} accent="emerald" />
                 <QuickAction href="/admin/withdrawals" icon={CreditCard} label="Retiros" desc={`${metrics.pendingWithdrawals} pendientes`} accent="blue" />
                 <QuickAction href="/admin/banners" icon={BookImage} label="Banners" desc="Promociones" accent="pink" />

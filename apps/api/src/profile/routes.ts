@@ -11,6 +11,11 @@ import { isBusinessPlanActive } from "../lib/subscriptions";
 import { validateUploadedFile } from "../lib/uploads";
 import { asyncHandler } from "../lib/asyncHandler";
 import { PROFESSIONAL_PHONE_REGEX, samePhone } from "./phoneChange";
+import {
+  displayNameError,
+  normalizeDisplayName,
+  sameName,
+} from "./nameChange";
 import { parseAndNormalizeTags } from "../lib/tags";
 import { optimizeUploadedImage, ImageOptimizationError } from "../lib/imageOptimizer";
 import { obfuscateLocation } from "../lib/locationPrivacy";
@@ -604,7 +609,7 @@ async function updateProfile(req: any, res: any) {
       : undefined;
   const me = await prisma.user.findUnique({
     where: { id: req.session.userId! },
-    select: { profileType: true, phone: true },
+    select: { profileType: true, phone: true, displayName: true },
   });
   if (!me) return res.status(404).json({ error: "NOT_FOUND" });
   if (me.profileType === "PROFESSIONAL" && bio !== undefined) {
@@ -727,8 +732,33 @@ async function updateProfile(req: any, res: any) {
     }
   }
 
+  /* El nombre público sigue la misma regla que el teléfono: es con lo que se
+     reconoce el anuncio, así que una vez puesto sólo cambia con revisión del
+     equipo. Para el resto de perfiles se edita, pero con el mismo tope de
+     largo que el registro: un nombre kilométrico rompe las tarjetas. */
+  let displayNameUpdate: string | undefined = undefined;
+  if (displayName !== undefined && displayName !== null) {
+    const nextName = normalizeDisplayName(String(displayName));
+    const invalidName = displayNameError(nextName);
+    if (invalidName) {
+      return res.status(400).json({ error: "NAME_INVALID", message: invalidName });
+    }
+    if (
+      me.profileType === "PROFESSIONAL" &&
+      me.displayName &&
+      !sameName(nextName, me.displayName)
+    ) {
+      return res.status(403).json({
+        error: "NAME_LOCKED",
+        message:
+          "Tu nombre solo puede cambiarse con aprobación del equipo. Envía una solicitud desde tu perfil.",
+      });
+    }
+    displayNameUpdate = nextName;
+  }
+
   const baseData: Record<string, unknown> = {
-    displayName: displayName ?? undefined,
+    displayName: displayNameUpdate,
     bio: bio ?? undefined,
     address: address ?? undefined,
     phone: phoneUpdate,
@@ -1066,11 +1096,12 @@ profileRouter.post(
       acceptTerms,
     } = req.body as Record<string, any>;
 
-    const safeDisplayName = String(displayName || "").trim();
-    if (safeDisplayName.length < 2 || safeDisplayName.length > 50) {
+    const safeDisplayName = normalizeDisplayName(displayName);
+    const displayNameIssue = displayNameError(safeDisplayName);
+    if (displayNameIssue) {
       return res.status(400).json({
         error: "DISPLAY_NAME_REQUIRED",
-        message: "Ingresa tu nombre público (entre 2 y 50 caracteres).",
+        message: displayNameIssue,
       });
     }
 

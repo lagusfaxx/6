@@ -17,6 +17,12 @@ import {
   MessageSquare,
 } from "lucide-react";
 
+/* Mismo tope que valida la API (`DISPLAY_NAME_MAX_LENGTH` en @uzeed/shared).
+   Se repite aquí para no arrastrar el paquete compartido —y zod con él— al
+   bundle del cliente, igual que ya se hace con el regex del teléfono. */
+const DISPLAY_NAME_MIN_LENGTH = 2;
+const DISPLAY_NAME_MAX_LENGTH = 20;
+
 const phoneRegex =
   /^\+(?:56\s?9(?:[\s-]?\d){8}|57\s?3(?:[\s-]?\d){9}|58\s?4(?:[\s-]?\d){9}|51\s?9(?:[\s-]?\d){8})$/;
 
@@ -119,8 +125,10 @@ export default function ProfessionalRegisterForm({
 
   function validateStep(step: number): string | null {
     if (step === 1) {
-      if (displayName.trim().length < 2)
-        return "El nombre público debe tener al menos 2 caracteres.";
+      if (displayName.trim().length < DISPLAY_NAME_MIN_LENGTH)
+        return `El nombre público debe tener al menos ${DISPLAY_NAME_MIN_LENGTH} caracteres.`;
+      if (displayName.trim().length > DISPLAY_NAME_MAX_LENGTH)
+        return `El nombre público no puede superar los ${DISPLAY_NAME_MAX_LENGTH} caracteres.`;
       if (!email.trim()) return "Ingresa tu email.";
       if (!phoneRegex.test(phone.trim()))
         return "Ingresa un número válido con código de país (+56, +57, +58 o +51).";
@@ -255,8 +263,11 @@ export default function ProfessionalRegisterForm({
       {subStep === 1 && (
         <>
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-white/70">
+            <label className="flex items-center justify-between text-sm font-medium text-white/70">
               Nombre público
+              <span className="text-[11px] font-normal text-white/35">
+                {displayName.trim().length}/{DISPLAY_NAME_MAX_LENGTH}
+              </span>
             </label>
             <input
               className="input"
@@ -264,8 +275,15 @@ export default function ProfessionalRegisterForm({
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Ej: Agus"
               required
-              minLength={2}
+              minLength={DISPLAY_NAME_MIN_LENGTH}
+              /* Los nombres largos rompen las tarjetas del inicio, así que se
+                 cortan aquí y no después a mano. */
+              maxLength={DISPLAY_NAME_MAX_LENGTH}
             />
+            <p className="text-[11px] text-white/35">
+              Con este nombre te verán tus clientes. Después solo se cambia con
+              aprobación del equipo.
+            </p>
           </div>
 
           <div className="grid gap-2">
