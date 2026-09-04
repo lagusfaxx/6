@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Crown, Gem } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 import DestacadaCard, {
   type DestacadaCardProfile,
@@ -20,20 +19,20 @@ export type ProfileTier = "DIAMOND" | "GOLD";
 
 type TierTheme = {
   title: string;
-  Icon: typeof Crown;
-  iconClass: string;
+  /** El color del título es lo único que distingue un rango del otro. */
+  titleClass: string;
 };
 
-/* Sin píldoras, subtítulos ni halos de color: el nombre del rango y su icono
-   ya dicen todo, y los bloques de fondo dorado/azul ensuciaban el inicio. */
+/* Sin iconos, píldoras, subtítulos ni halos de color: el nombre del rango, en
+   su color, ya dice todo. Lo demás sólo ensuciaba la portada. */
 const TIER_THEMES: Record<ProfileTier, TierTheme> = {
-  DIAMOND: { title: "Diamond", Icon: Gem, iconClass: "text-cyan-300" },
-  GOLD: { title: "Gold", Icon: Crown, iconClass: "text-amber-300" },
+  DIAMOND: { title: "Diamond", titleClass: "text-cyan-300" },
+  GOLD: { title: "Gold", titleClass: "text-amber-300" },
 };
 
 type Props = {
   profiles: DestacadaProfile[];
-  /** Rango que representa la sección. Define título e icono. */
+  /** Rango que representa la sección. Define título y color. */
   tier?: ProfileTier;
   /** Título manual, para usos que no son de rango. */
   title?: string;
@@ -81,20 +80,20 @@ export default function DestacadasGrid({
   if (!profiles.length) return null;
 
   const theme = tier ? TIER_THEMES[tier] : null;
-  const Icon = theme?.Icon ?? Crown;
-  const headingIconClass = theme?.iconClass ?? "text-amber-400";
+  const headingClass = theme?.titleClass ?? "text-white";
   const heading = title ?? theme?.title ?? "Destacadas";
 
   if (compact) {
     return (
-      <section className="mb-4">
-        <div className="mb-2 flex items-center gap-1.5">
-          <Icon className={`h-4 w-4 ${headingIconClass}`} />
-          <h2 className="text-sm font-bold tracking-tight">{heading}</h2>
-        </div>
-        <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+      <section className="mb-5">
+        <h2 className={`mb-2 text-lg font-extrabold tracking-tight ${headingClass}`}>
+          {heading}
+        </h2>
+        {/* Tarjetas más grandes que las de la primera versión: a 104px la fila
+            se leía como miniaturas y el rango más alto no puede verse así. */}
+        <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
           {profiles.map((p) => (
-            <div key={p.id} className="w-[104px] shrink-0 sm:w-[120px]">
+            <div key={p.id} className="w-[150px] shrink-0 sm:w-[170px]">
               <DestacadaCard profile={p} stories={byUser[p.id] || []} />
             </div>
           ))}
@@ -105,10 +104,9 @@ export default function DestacadasGrid({
 
   return (
     <section className="mb-8">
-      <div className="mb-3 flex items-center gap-2">
-        <Icon className={`h-5 w-5 ${headingIconClass}`} />
-        <h2 className="text-2xl font-extrabold tracking-tight">{heading}</h2>
-      </div>
+      <h2 className={`mb-3 text-2xl font-extrabold tracking-tight ${headingClass}`}>
+        {heading}
+      </h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {profiles.map((p) => (
           <DestacadaCard

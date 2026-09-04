@@ -89,12 +89,17 @@ body::after {
   }
 }
 
-/* Hide scrollbar utility */
-.scrollbar-none {
+/* Hide scrollbar utility.
+   `scrollbar-hide` es el alias que usan las secciones que vinieron de U-Mate
+   (historias, chat): allí sólo estaba definido dentro de .umate-theme, así que
+   fuera de esa sección quedaba la barra horizontal a la vista en escritorio. */
+.scrollbar-none,
+.scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-.scrollbar-none::-webkit-scrollbar {
+.scrollbar-none::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
 
