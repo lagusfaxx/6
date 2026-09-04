@@ -527,16 +527,11 @@ export default function HomeClient() {
     availableNow: !!p.availableNow,
   });
 
-  /* Cuatro por rango en la fila compacta sobre el mapa: son dos filas ahora,
-     así que cada una tiene que ocupar menos que la única de antes para que el
-     mapa siga entrando en la primera pantalla. */
+  /* Sobre el mapa va solo Diamond: es el rango más alto y una sola fila deja
+     el mapa a la vista al abrir el inicio. Gold vive en el feed, más abajo. */
   const diamondCompact = useMemo(
-    () => diamondProfiles.slice(0, 4).map(toCardProfile),
+    () => diamondProfiles.slice(0, 6).map(toCardProfile),
     [diamondProfiles],
-  );
-  const goldCompact = useMemo(
-    () => goldProfiles.slice(0, 4).map(toCardProfile),
-    [goldProfiles],
   );
 
   const novedades = useMemo(
@@ -673,26 +668,6 @@ export default function HomeClient() {
             </button>
           </form>
 
-          {/* Acceso directo a los perfiles masculinos. El inicio muestra
-              mujeres por defecto (incluidos los perfiles sin género), así que
-              sin este botón el público que busca hombres no tenía por dónde
-              entrar. Va en azul para que se distinga del fucsia de la marca. */}
-          <div className="mt-3 flex justify-center">
-            <Link
-              href="/services?gender=hombres"
-              className="group inline-flex items-center gap-2 rounded-xl border border-blue-400/30 bg-gradient-to-r from-blue-600/25 to-sky-500/15 px-5 py-2 text-sm font-bold text-blue-200 transition hover:border-blue-400/60 hover:from-blue-600/40 hover:to-sky-500/25 hover:text-white"
-            >
-              <CircleUser className="h-4 w-4" aria-hidden />
-              Ellos
-              {!discreet && (
-                <span className="text-[11px] font-medium text-blue-200/60 group-hover:text-white/70">
-                  escorts hombres
-                </span>
-              )}
-              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
-
           {/* Categorías — qué busca el cliente. Antes esto convivía con una
               segunda fila casi idéntica más abajo y con un chip "Verificadas"
               que apuntaba a /escorts sin filtro, porque la verificación no es
@@ -703,6 +678,18 @@ export default function HomeClient() {
             aria-label="Categorías"
             className="scrollbar-none -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0"
           >
+            {/* Acceso directo a los perfiles masculinos. El inicio lista mujeres
+                por defecto (los perfiles sin género cuentan como tales), así
+                que sin esta entrada el público que busca hombres no tenía por
+                dónde. Va en la misma fila que las categorías para que no quede
+                un botón suelto, y en azul para distinguirlo del fucsia. */}
+            <Link
+              href="/escorts?gender=MALE"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-blue-400/40 bg-blue-500/15 px-3.5 py-1.5 text-xs font-semibold text-blue-200 transition hover:border-blue-400/70 hover:bg-blue-500/25 hover:text-white"
+            >
+              <CircleUser className="h-3.5 w-3.5 text-blue-300/80" aria-hidden />
+              Ellos
+            </Link>
             {[
               { label: "Escorts", href: "/escorts", icon: Sparkles },
               { label: "Masajistas", href: "/masajistas", icon: Hand },
@@ -784,14 +771,10 @@ export default function HomeClient() {
           </section>
         )}
 
-        {/* ═══ RANGOS (compactos) — van sobre el mapa, en fila y pequeños,
-             para que el mapa siga entrando en pantalla al abrir el home.
-             Diamond primero: es el plan más alto. ═══ */}
+        {/* ═══ DIAMOND (compacto) — sobre el mapa, en fila y pequeño, para que
+             el mapa siga entrando en pantalla al abrir el home ═══ */}
         {diamondCompact.length > 0 && (
           <DestacadasGrid profiles={diamondCompact} tier="DIAMOND" compact />
-        )}
-        {goldCompact.length > 0 && (
-          <DestacadasGrid profiles={goldCompact} tier="GOLD" compact />
         )}
         {!hasTieredProfiles && !recentLoading && (
           /* Sin perfiles de rango la zona quedaría vacía, así que se usa para
@@ -799,7 +782,7 @@ export default function HomeClient() {
              secciones tienen que hacer visible. */
           <Link
             href="/ayuda/tiers"
-            className="group mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-gradient-to-r from-cyan-500/[0.08] via-amber-500/[0.06] to-transparent px-4 py-3 transition hover:border-white/20"
+            className="group mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 transition hover:border-white/20"
           >
             <div className="min-w-0">
               <span className="text-sm font-bold text-white">
@@ -857,7 +840,7 @@ export default function HomeClient() {
         <div className="mb-6 h-px bg-white/[0.06]" />
 
         {/* ═══ FEED — filtros + destacadas + grid infinito ═══ */}
-        <HomeFeed diamondProfiles={diamondProfiles} goldProfiles={goldProfiles} />
+        <HomeFeed goldProfiles={goldProfiles} />
 
         {/* ═══ EN VIVO AHORA ═══ */}
         {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}
