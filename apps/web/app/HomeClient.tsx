@@ -29,6 +29,7 @@ import {
   ArrowRight,
   BadgeCheck,
   ChevronRight,
+  CircleUser,
   Download,
   Hand,
   Hotel,
@@ -468,26 +469,38 @@ export default function HomeClient() {
   const leftSideBanners = useMemo(() => sideBanners.filter((_, i) => i % 2 === 0).slice(0, 3), [sideBanners]);
   const rightSideBanners = useMemo(() => sideBanners.filter((_, i) => i % 2 === 1).slice(0, 3), [sideBanners]);
 
-  // Destacadas: DIAMOND + GOLD profiles, fallback to top recent pros so section is never empty
-  const featuredCarouselProfiles = useMemo(() => {
-    const premium = recentPros.filter((p) => p.userLevel === "DIAMOND" || p.userLevel === "GOLD");
-    if (premium.length >= 3) return premium.slice(0, 12);
-    const sorted = [...recentPros].sort((a, b) => b.profileViews - a.profileViews);
-    return sorted.slice(0, 6);
-  }, [recentPros]);
+  /* Rangos: Diamond y Gold van separados y en ese orden.
+     Antes era una única sección "Destacadas" que los mezclaba, y con eso el
+     rango — que es el plan que la profesional paga — no se veía por ninguna
+     parte del inicio. Cada nivel tiene ahora su propia sección. */
+  const diamondProfiles = useMemo(
+    () => recentPros.filter((p) => p.userLevel === "DIAMOND").slice(0, 12),
+    [recentPros],
+  );
+  const goldProfiles = useMemo(
+    () => recentPros.filter((p) => p.userLevel === "GOLD").slice(0, 12),
+    [recentPros],
+  );
+  const hasTieredProfiles = diamondProfiles.length > 0 || goldProfiles.length > 0;
 
-  /* Seis para la fila compacta sobre el mapa: más no caben sin que la fila
-     empiece a competir con el mapa por la primera pantalla. */
-  const destacadasCompact = useMemo(
-    () =>
-      featuredCarouselProfiles.slice(0, 6).map((p) => ({
-        id: p.id,
-        displayName: p.name,
-        avatarUrl: p.avatarUrl ?? null,
-        coverUrl: p.coverUrl ?? null,
-        availableNow: !!p.availableNow,
-      })),
-    [featuredCarouselProfiles],
+  const toCardProfile = (p: RecentProfessional) => ({
+    id: p.id,
+    displayName: p.name,
+    avatarUrl: p.avatarUrl ?? null,
+    coverUrl: p.coverUrl ?? null,
+    availableNow: !!p.availableNow,
+  });
+
+  /* Cuatro por rango en la fila compacta sobre el mapa: son dos filas ahora,
+     así que cada una tiene que ocupar menos que la única de antes para que el
+     mapa siga entrando en la primera pantalla. */
+  const diamondCompact = useMemo(
+    () => diamondProfiles.slice(0, 4).map(toCardProfile),
+    [diamondProfiles],
+  );
+  const goldCompact = useMemo(
+    () => goldProfiles.slice(0, 4).map(toCardProfile),
+    [goldProfiles],
   );
 
   const novedades = useMemo(
@@ -624,6 +637,26 @@ export default function HomeClient() {
             </button>
           </form>
 
+          {/* Acceso directo a los perfiles masculinos. El inicio muestra
+              mujeres por defecto (incluidos los perfiles sin género), así que
+              sin este botón el público que busca hombres no tenía por dónde
+              entrar. Va en azul para que se distinga del fucsia de la marca. */}
+          <div className="mt-3 flex justify-center">
+            <Link
+              href="/services?gender=hombres"
+              className="group inline-flex items-center gap-2 rounded-xl border border-blue-400/30 bg-gradient-to-r from-blue-600/25 to-sky-500/15 px-5 py-2 text-sm font-bold text-blue-200 transition hover:border-blue-400/60 hover:from-blue-600/40 hover:to-sky-500/25 hover:text-white"
+            >
+              <CircleUser className="h-4 w-4" aria-hidden />
+              Ellos
+              {!discreet && (
+                <span className="text-[11px] font-medium text-blue-200/60 group-hover:text-white/70">
+                  escorts hombres
+                </span>
+              )}
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+
           {/* Categorías — qué busca el cliente. Antes esto convivía con una
               segunda fila casi idéntica más abajo y con un chip "Verificadas"
               que apuntaba a /escorts sin filtro, porque la verificación no es
@@ -715,10 +748,34 @@ export default function HomeClient() {
           </section>
         )}
 
-        {/* ═══ DESTACADAS (compacta) — va sobre el mapa, en fila y pequeña,
-             para que el mapa siga entrando en pantalla al abrir el home ═══ */}
-        {featuredCarouselProfiles.length > 0 && (
-          <DestacadasGrid profiles={destacadasCompact} compact />
+        {/* ═══ RANGOS (compactos) — van sobre el mapa, en fila y pequeños,
+             para que el mapa siga entrando en pantalla al abrir el home.
+             Diamond primero: es el plan más alto. ═══ */}
+        {diamondCompact.length > 0 && (
+          <DestacadasGrid profiles={diamondCompact} tier="DIAMOND" compact />
+        )}
+        {goldCompact.length > 0 && (
+          <DestacadasGrid profiles={goldCompact} tier="GOLD" compact />
+        )}
+        {!hasTieredProfiles && !recentLoading && (
+          /* Sin perfiles de rango la zona quedaría vacía, así que se usa para
+             mostrar de qué van los planes — que es justo lo que estas
+             secciones tienen que hacer visible. */
+          <Link
+            href="/ayuda/tiers"
+            className="group mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-gradient-to-r from-cyan-500/[0.08] via-amber-500/[0.06] to-transparent px-4 py-3 transition hover:border-white/20"
+          >
+            <div className="min-w-0">
+              <span className="text-sm font-bold text-white">
+                Planes <span className="text-cyan-300">Diamond</span> y{" "}
+                <span className="text-amber-300">Gold</span>
+              </span>
+              <p className="mt-0.5 truncate text-[11px] text-white/45">
+                Los perfiles con plan aparecen primero en el inicio
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-white/40 transition-transform group-hover:translate-x-0.5" />
+          </Link>
         )}
 
         {/* ═══ MAPA DE CERCANÍA — el atajo al contacto ═══
@@ -764,7 +821,7 @@ export default function HomeClient() {
         <div className="mb-6 h-px bg-white/[0.06]" />
 
         {/* ═══ FEED — filtros + destacadas + grid infinito ═══ */}
-        <HomeFeed destacadasProfiles={featuredCarouselProfiles} />
+        <HomeFeed diamondProfiles={diamondProfiles} goldProfiles={goldProfiles} />
 
         {/* ═══ EN VIVO AHORA ═══ */}
         {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}

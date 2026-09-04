@@ -11,6 +11,10 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { asyncHandler } from "../lib/asyncHandler";
 import { optimizeImage, optimizeUploadedImage } from "../lib/imageOptimizer";
 import { isUUID } from "../lib/validators";
+import {
+  PROFESSIONAL_PHONE_REGEX,
+  samePhone,
+} from "../profile/phoneChange";
 
 export const adminRouter = Router();
 
@@ -370,6 +374,7 @@ adminRouter.get(
           lastSeen: true,
           city: true,
           gender: true,
+          phone: true,
           isVerified: true,
           profileTags: true,
           tier: true,
@@ -453,7 +458,7 @@ adminRouter.put(
   "/profiles/:id",
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { isActive, tier, role, membershipExpiresAt, baseRate, gender } =
+    const { isActive, tier, role, membershipExpiresAt, baseRate, gender, phone } =
       req.body ?? {};
 
     const data: any = {};
@@ -479,6 +484,38 @@ adminRouter.put(
       data.membershipExpiresAt = membershipExpiresAt
         ? new Date(membershipExpiresAt)
         : null;
+    }
+    if (phone !== undefined) {
+      // El número de WhatsApp es la vía de contacto del anuncio. La
+      // profesional no lo cambia sola (pasa por solicitud), pero el admin sí
+      // puede corregirlo desde aquí: es lo que se hacía a mano en la base de
+      // datos cada vez que alguien se registraba con el número mal escrito.
+      if (phone === null || String(phone).trim() === "") {
+        data.phone = null;
+      } else {
+        const trimmed = String(phone).trim().replace(/\s+/g, " ");
+        if (!PROFESSIONAL_PHONE_REGEX.test(trimmed)) {
+          return res.status(400).json({
+            error: "VALIDATION",
+            message:
+              "Número inválido. Usa formato internacional, por ejemplo +56 9 1234 5678.",
+          });
+        }
+        // El mismo número puede estar guardado con o sin espacios, así que se
+        // comparan ambas escrituras antes de dar el número por libre.
+        const compact = trimmed.replace(/[\s-]/g, "");
+        const taken = await prisma.user.findFirst({
+          where: { phone: { in: [trimmed, compact] }, NOT: { id } },
+          select: { id: true, username: true, phone: true },
+        });
+        if (taken && samePhone(taken.phone, trimmed)) {
+          return res.status(409).json({
+            error: "PHONE_TAKEN",
+            message: `Ese número ya está en la cuenta @${taken.username}.`,
+          });
+        }
+        data.phone = trimmed;
+      }
     }
     if (baseRate !== undefined) {
       if (baseRate === null || baseRate === "") {
@@ -506,6 +543,7 @@ adminRouter.put(
         tier: true,
         role: true,
         gender: true,
+        phone: true,
         membershipExpiresAt: true,
         baseRate: true,
       },
