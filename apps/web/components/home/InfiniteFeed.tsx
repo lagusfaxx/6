@@ -250,7 +250,7 @@ export default function InfiniteFeed({
                       <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />
                     )}
                     {hasVerifiedBadge(p.profileTags) && (
-                      <StatusBadgeIcon type="verificada" size="h-3.5 w-3.5" />
+                      <StatusBadgeIcon type="verificada" size="h-5 w-5" />
                     )}
                     {p.age ? (
                       <span className="ml-1 text-[11px] font-normal tabular-nums text-white/55">

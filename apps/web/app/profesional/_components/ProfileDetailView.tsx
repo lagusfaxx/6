@@ -810,11 +810,16 @@ export default function ProfileDetailView({
           {/* Bottom info overlay */}
           <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-16 md:px-8 md:pb-6 bg-gradient-to-t from-[#0c0614] via-[#0c0614]/80 to-transparent">
             <div className="space-y-2 md:space-y-2.5">
-              <h1 className="flex items-center gap-2 text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl">
+              <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl">
                 {professional.name}
                 {professional.age ? <span className="text-white/60 font-normal">, {professional.age}</span> : ""}
                 {hasPremiumBadge(professional?.profileTags) && <StatusBadgeIcon type="premium" size="h-5 w-5" />}
-                {hasVerifiedBadge(professional?.profileTags) && <StatusBadgeIcon type="verificada" size="h-5 w-5" />}
+                {/* La verificación se muestra con texto y no sólo como icono:
+                    es el plus del perfil y nadie va a tocar un escudo chico
+                    para descubrir qué significa. */}
+                {hasVerifiedBadge(professional?.profileTags) && (
+                  <StatusBadgeIcon type="verificada" size="h-4 w-4" showLabel />
+                )}
                 {professional.umateActive && (
                   <Link href={`/umate/profile/${professional.id}`} className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-fuchsia-600/30 to-violet-600/30 border border-fuchsia-400/30 px-2.5 py-0.5 text-xs font-bold text-fuchsia-200 hover:from-fuchsia-600/50 hover:to-violet-600/50 transition" title="Contenido exclusivo en UMate">
                     <Sparkles className="h-3 w-3" /> UMate
