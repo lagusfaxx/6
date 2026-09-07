@@ -9,6 +9,7 @@ import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import { cleanProfileHref } from "../lib/profileUrl";
 import StatusBadgeIcon from "./StatusBadgeIcon";
+import VerifiedWatermark from "./VerifiedWatermark";
 import UserLevelBadge from "./UserLevelBadge";
 import type { MapMarker } from "./MapboxMap";
 const MapboxMap = dynamic(() => import("./MapboxMap"), { ssr: false });
@@ -178,6 +179,9 @@ function ProfileCard({
             </span>
           </div>
         )}
+
+        {/* Watermark across the whole photo for admin-verified profiles */}
+        {hasVerifiedBadge(p.profileTags) && (coverSrc || avatarSrc) && <VerifiedWatermark size="sm" />}
 
         {/* Multi-layer gradient overlay for depth */}
         <div className="uzeed-card-gradient absolute inset-0 pointer-events-none" />

@@ -43,6 +43,7 @@ import {
   Check,
 } from "lucide-react";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
+import VerifiedWatermark from "../../../components/VerifiedWatermark";
 import StatusBadgeIcon from "../../../components/StatusBadgeIcon";
 
 type GalleryItem = { url: string; type: "IMAGE" | "VIDEO" };
@@ -735,6 +736,10 @@ export default function ProfileDetailView({
     ? `${professional.minDurationMinutes} min`
     : "Sin duración mínima";
 
+  // Photos of admin-verified profiles carry a full-surface watermark: it makes
+  // the verification visible everywhere and the photo useless to copy.
+  const isVerifiedProfile = hasVerifiedBadge(professional?.profileTags);
+
   return (
     <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-hidden pb-40 md:pb-10">
       {/* Hero cover */}
@@ -754,6 +759,7 @@ export default function ProfileDetailView({
               <ImageIcon className="h-10 w-10 text-white/50" />
             </div>
           )}
+          {isVerifiedProfile && coverSrc && <VerifiedWatermark size="md" />}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0c0614] via-[#0c0614]/30 to-black/30" />
 
           {/* Top floating badges */}
@@ -918,6 +924,7 @@ export default function ProfileDetailView({
                       />
                     )}
                   </AnimatePresence>
+                  {isVerifiedProfile && <VerifiedWatermark size="md" />}
                 </div>
                 <span className="absolute bottom-3 right-3 rounded-2xl border border-white/20 bg-black/50 px-2.5 py-1 text-xs text-white/90 backdrop-blur-md">
                   {galleryIndex + 1} / {gallery.length}
@@ -1015,6 +1022,7 @@ export default function ProfileDetailView({
                           className="absolute inset-0 h-full w-full object-cover"
                         />
                       )}
+                      {isVerifiedProfile && <VerifiedWatermark size="sm" />}
                     </button>
                     );
                   })}
@@ -1542,11 +1550,14 @@ export default function ProfileDetailView({
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <img
-                  src={lightbox.url}
-                  alt="Vista ampliada"
-                  className="h-full w-full rounded-3xl border border-white/10 object-contain"
-                />
+                <div className="relative h-full w-full overflow-hidden rounded-3xl">
+                  <img
+                    src={lightbox.url}
+                    alt="Vista ampliada"
+                    className="h-full w-full rounded-3xl border border-white/10 object-contain"
+                  />
+                  {isVerifiedProfile && <VerifiedWatermark size="lg" />}
+                </div>
               )}
               {gallery.length > 1 && (
                 <>

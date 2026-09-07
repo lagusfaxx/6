@@ -8,6 +8,7 @@ import UserLevelBadge from "./UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import { cleanProfileHref } from "../lib/profileUrl";
 import StatusBadgeIcon from "./StatusBadgeIcon";
+import VerifiedWatermark from "./VerifiedWatermark";
 import useMe from "../hooks/useMe";
 import { trackAction } from "../hooks/useAnalytics";
 
@@ -177,6 +178,8 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
     ? fullProfile.profileTags
     : (profile.profileTags || []);
 
+  const isVerifiedProfile = hasVerifiedBadge(allProfileTags);
+
   const displayServiceTags = fullProfile?.serviceTags?.length
     ? fullProfile.serviceTags
     : (profile.serviceTags || []);
@@ -217,6 +220,9 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                 decoding="async"
                 className="h-full w-full object-cover transition-all duration-500"
               />
+              {/* Watermark across the whole photo for admin-verified profiles */}
+              {isVerifiedProfile && <VerifiedWatermark size="md" />}
+
               {/* Blurred backdrop layer */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a12] via-[#0a0a12]/40 to-black/20" />
 
@@ -431,6 +437,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                         decoding="async"
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                       />
+                      {isVerifiedProfile && <VerifiedWatermark size="sm" />}
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/15" />
                     </button>
                   ))}
