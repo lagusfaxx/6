@@ -387,7 +387,8 @@ export default function HomeClient() {
       params.set("lat", String(location[0]));
       params.set("lng", String(location[1]));
     }
-    params.set("limit", "30");
+    // La API lo trata como cupos POR RANGO (Diamond y Gold por separado).
+    params.set("limit", "24");
     params.set("gender", "FEMALE");
     // Con comuna elegida en el chip, sus perfiles van primero: la distancia se
     // mide contra el centro de la comuna y una vecina puede quedar más cerca.
@@ -509,11 +510,11 @@ export default function HomeClient() {
      rango — que es el plan que la profesional paga — no se veía por ninguna
      parte del inicio. Cada nivel tiene ahora su propia sección. */
   const diamondProfiles = useMemo(
-    () => recentPros.filter((p) => p.userLevel === "DIAMOND").slice(0, 12),
+    () => recentPros.filter((p) => p.userLevel === "DIAMOND").slice(0, 24),
     [recentPros],
   );
   const goldProfiles = useMemo(
-    () => recentPros.filter((p) => p.userLevel === "GOLD").slice(0, 12),
+    () => recentPros.filter((p) => p.userLevel === "GOLD").slice(0, 24),
     [recentPros],
   );
   const hasTieredProfiles = diamondProfiles.length > 0 || goldProfiles.length > 0;
@@ -527,9 +528,12 @@ export default function HomeClient() {
   });
 
   /* Sobre el mapa va solo Diamond: es el rango más alto y una sola fila deja
-     el mapa a la vista al abrir el inicio. Gold vive en el feed, más abajo. */
+     el mapa a la vista al abrir el inicio. Gold vive en el feed, más abajo.
+     La fila scrollea en horizontal y tiene alto fijo, así que mostrar más
+     tarjetas no le come pantalla al mapa: cortar en 6 sólo escondía Diamond
+     que sí aparecían más abajo en "Cerca de ti". */
   const diamondCompact = useMemo(
-    () => diamondProfiles.slice(0, 6).map(toCardProfile),
+    () => diamondProfiles.map(toCardProfile),
     [diamondProfiles],
   );
 

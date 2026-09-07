@@ -514,7 +514,11 @@ directoryRouter.get(
   "/professionals/recent",
   asyncHandler(async (req, res) => {
     const now = new Date();
-    const limit = Math.max(1, Math.min(12, Number(req.query.limit || 6)));
+    /* El límite es POR RANGO, no total: antes se cortaba en 12 la lista
+       mezclada de Diamond y Gold y, como el orden manda la distancia,
+       un puñado de Gold cercanas se llevaba todos los cupos y las
+       Diamond no llegaban a la fila de arriba del inicio. */
+    const limit = Math.max(1, Math.min(48, Number(req.query.limit || 6)));
     const lat = req.query.lat ? Number(req.query.lat) : null;
     const lng = req.query.lng ? Number(req.query.lng) : null;
     const genderParam =
@@ -527,46 +531,69 @@ directoryRouter.get(
     const selectedCity =
       typeof req.query.city === "string" ? req.query.city.trim().slice(0, 80) : "";
 
-    const users = await prisma.user.findMany({
-      where: {
-        profileType: "PROFESSIONAL",
-        avatarUrl: { not: null },
-        isVerified: true,
-        ...(genderFilter === "FEMALE"
-          ? { OR: [{ gender: "FEMALE" }, { gender: null }] }
-          : genderFilter
-            ? { gender: genderFilter }
-            : {}),
-        // DEV: subscription filter removed during development
-      },
-      take: 120,
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        avatarUrl: true,
-        bio: true,
-        birthdate: true,
-        latitude: true,
-        longitude: true,
-        city: true,
-        createdAt: true,
-        isActive: true,
-        lastSeen: true,
-        completedServices: true,
-        profileViews: true,
-        baseRate: true,
-        tier: true,
-        services: {
-          where: { isActive: true },
-          select: { latitude: true, longitude: true },
-          take: 1,
-          orderBy: { createdAt: "desc" },
-        },
-      },
-    });
+    const baseWhere: Prisma.UserWhereInput = {
+      profileType: "PROFESSIONAL",
+      avatarUrl: { not: null },
+      isVerified: true,
+      ...(genderFilter === "FEMALE"
+        ? { OR: [{ gender: "FEMALE" }, { gender: null }] }
+        : genderFilter
+          ? { gender: genderFilter }
+          : {}),
+      // DEV: subscription filter removed during development
+    };
 
-    const highlighted = users
+    const recentSelect = {
+      id: true,
+      username: true,
+      displayName: true,
+      avatarUrl: true,
+      bio: true,
+      birthdate: true,
+      latitude: true,
+      longitude: true,
+      city: true,
+      createdAt: true,
+      isActive: true,
+      lastSeen: true,
+      completedServices: true,
+      profileViews: true,
+      baseRate: true,
+      tier: true,
+      services: {
+        where: { isActive: true },
+        select: { latitude: true, longitude: true },
+        take: 1,
+        orderBy: { createdAt: "desc" },
+      },
+    } satisfies Prisma.UserSelect;
+
+    /* Dos consultas en vez de una: el pool de recientes se corta, y ese corte
+       era ciego (no había orderBy, así que Postgres devolvía lo que quisiera).
+       Una Diamond que no cayera dentro del corte no aparecía nunca en el
+       inicio, aunque sí más abajo en "Cerca de ti", que consulta aparte.
+       Los perfiles con rango puesto desde el admin se traen completos y por
+       separado, para que ninguno dependa de ese corte. */
+    const [tieredUsers, recentUsers] = await Promise.all([
+      prisma.user.findMany({
+        where: { ...baseWhere, tier: { not: null } },
+        take: 500,
+        orderBy: { createdAt: "desc" },
+        select: recentSelect,
+      }),
+      prisma.user.findMany({
+        where: baseWhere,
+        take: 200,
+        orderBy: { createdAt: "desc" },
+        select: recentSelect,
+      }),
+    ]);
+
+    const byId = new Map<string, (typeof tieredUsers)[number]>();
+    for (const u of [...tieredUsers, ...recentUsers]) byId.set(u.id, u);
+    const users = [...byId.values()];
+
+    const ranked = users
       .map((u) => {
         const serviceLocation = u.services[0];
         const profLat = serviceLocation?.latitude ?? u.latitude;
@@ -616,8 +643,16 @@ directoryRouter.get(
         if (a.isActive !== b.isActive)
           return Number(b.isActive) - Number(a.isActive);
         return (b.profileViews || 0) - (a.profileViews || 0);
-      })
-      .slice(0, limit);
+      });
+
+    /* Cada rango se lleva sus propios cupos: el inicio muestra Diamond y Gold
+       en secciones distintas, así que competir por una misma lista corta sólo
+       dejaba fuera al rango con menos perfiles cerca. Dentro de cada rango
+       manda el mismo orden de siempre (comuna, distancia, actividad). */
+    const highlighted = [
+      ...ranked.filter((u) => u.userLevel === "DIAMOND").slice(0, limit),
+      ...ranked.filter((u) => u.userLevel === "GOLD").slice(0, limit),
+    ];
 
     return res.json({ professionals: highlighted });
   }),
