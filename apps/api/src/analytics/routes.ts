@@ -93,13 +93,16 @@ analyticsRouter.post(
 analyticsRouter.get(
   "/admin/analytics",
   asyncHandler(async (req, res) => {
-    // Only allow admin
+    // Esta ruta no pasa por requireAdmin: valida el rol a mano. Las cuentas
+    // de equipo (MODERATOR) también leen estadísticas, y sólo es un GET.
     if (!req.session?.userId) return res.status(401).json({ error: "UNAUTHENTICATED" });
     const user = await prisma.user.findUnique({
       where: { id: req.session.userId },
       select: { role: true },
     });
-    if (user?.role !== "ADMIN") return res.status(403).json({ error: "FORBIDDEN" });
+    if (user?.role !== "ADMIN" && user?.role !== "MODERATOR") {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
 
     const now = new Date();
     const today = new Date(now);

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { canOpenAdmin, canWrite, isFullAdmin, isReadOnlyStaff } from "../../lib/adminAccess";
 import useMe from "../../hooks/useMe";
 import { apiFetch, getApiBase } from "../../lib/api";
 import { connectRealtime } from "../../lib/realtime";
@@ -177,7 +178,20 @@ const NAV_ITEMS = [
   { href: "/admin/weekly-highlights", label: "Correo Semanal", icon: Mail },
   { href: "/admin/umate-promo", label: "Campanas Email", icon: Mail },
   { href: "/admin/2fa/setup", label: "Doble factor", icon: ShieldCheck },
+  { href: "/admin/equipo", label: "Equipo", icon: Users },
 ];
+
+/**
+ * Lo único que ve una cuenta de equipo. El menú se recorta para no ofrecer
+ * pantallas que la API le va a negar igual con un 403.
+ */
+const STAFF_NAV_HREFS = new Set([
+  "/admin",
+  "/admin/estadisticas",
+  "/admin/verification",
+  "/admin/profiles",
+  "/admin/chats",
+]);
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -192,7 +206,10 @@ function timeAgo(iso: string): string {
 export default function AdminIndex() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
-  const isAdmin = (user?.role ?? "").toUpperCase() === "ADMIN";
+  const isAdmin = canOpenAdmin(user);
+  /* Las cuentas de equipo entran pero sólo miran: nada que escriba se dibuja. */
+  const canEdit = canWrite(user);
+  const readOnly = isReadOnlyStaff(user);
   const twoFactorPending = Boolean(user?.twoFactorPending);
   const twoFactorEnabled = Boolean(user?.twoFactorEnabled);
 
@@ -204,10 +221,12 @@ export default function AdminIndex() {
     if (loading || !isAdmin) return;
     if (twoFactorPending) {
       window.location.replace("/login?next=/admin");
-    } else if (!twoFactorEnabled) {
+    } else if (!twoFactorEnabled && isFullAdmin(user)) {
+      // El enrolamiento obligatorio existe por las acciones destructivas, y
+      // una cuenta de equipo no tiene ninguna: no se la manda al setup.
       window.location.replace("/admin/2fa/setup");
     }
-  }, [loading, isAdmin, twoFactorPending, twoFactorEnabled]);
+  }, [loading, isAdmin, user, twoFactorPending, twoFactorEnabled]);
 
   const [metrics, setMetrics] = useState<MetricBundle>(emptyMetrics);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
@@ -318,6 +337,9 @@ export default function AdminIndex() {
   if (!isAdmin) return <div className="flex h-screen items-center justify-center bg-[#0a0b14] text-white/50">Acceso restringido.</div>;
 
   const totalPending = metrics.pendingVerifications + metrics.pendingDeposits + metrics.pendingWithdrawals;
+  const navItems = canEdit
+    ? NAV_ITEMS
+    : NAV_ITEMS.filter((item) => STAFF_NAV_HREFS.has(item.href));
 
   return (
     <div className="min-h-screen bg-[#0a0b14] text-white">
@@ -331,7 +353,7 @@ export default function AdminIndex() {
             <span className="text-sm font-bold tracking-tight">Uzeed Admin</span>
           </div>
           <nav className="flex-1 py-3 px-3 space-y-0.5">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const isActive = item.href === "/admin";
               return (
                 <Link
@@ -384,7 +406,7 @@ export default function AdminIndex() {
           <div className="px-4 sm:px-6 py-5 space-y-6">
             {/* ── Mobile nav (horizontal scroll) ── */}
             <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden scrollbar-thin">
-              {NAV_ITEMS.filter((n) => n.href !== "/admin").map((item) => (
+              {navItems.filter((n) => n.href !== "/admin").map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
@@ -395,6 +417,17 @@ export default function AdminIndex() {
                 </Link>
               ))}
             </div>
+
+            {readOnly && (
+              <div className="flex items-center gap-2.5 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.07] px-4 py-3">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-cyan-300" />
+                <p className="text-sm text-cyan-100/80">
+                  <span className="font-semibold text-cyan-200">Cuenta de equipo</span>
+                  {" — "}
+                  puedes consultar el panel, pero no aprobar, editar ni borrar nada.
+                </p>
+              </div>
+            )}
 
             {/* ── Pending Actions Alert ── */}
             {totalPending > 0 && (
@@ -429,7 +462,8 @@ export default function AdminIndex() {
                     <h2 className="text-sm font-semibold">Resumen ejecutivo</h2>
                     <p className="text-[11px] text-white/35">Métricas actualizadas de uso, ingresos y crecimiento</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+                  {/* Exportar baja la base con teléfonos: sólo administrador. */}
+                  <div className={`flex-wrap items-center gap-2 ${canEdit ? "flex" : "hidden"}`}>
                     <button
                       onClick={() => downloadProfessionals("PROFESSIONAL")}
                       disabled={exporting}
@@ -597,23 +631,25 @@ export default function AdminIndex() {
             <div>
               <h2 className="text-[11px] font-semibold uppercase tracking-widest text-white/30 mb-3">Acceso rapido</h2>
               <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-                <QuickAction href="/admin/marketplace" icon={ShoppingBag} label="Marketplace" desc="Pedidos, comisiones y envios" accent="fuchsia" />
+                {canEdit && <QuickAction href="/admin/marketplace" icon={ShoppingBag} label="Marketplace" desc="Pedidos, comisiones y envios" accent="fuchsia" />}
                 <QuickAction href="/admin/estadisticas" icon={BarChart3} label="Estadisticas" desc="Metricas y graficos" accent="fuchsia" />
-                <QuickAction href="/admin/expired-trials" icon={Clock} label="Pruebas caducadas" desc="Ganancia potencial" accent="amber" />
+                {canEdit && <QuickAction href="/admin/expired-trials" icon={Clock} label="Pruebas caducadas" desc="Ganancia potencial" accent="amber" />}
                 <QuickAction href="/admin/verification" icon={BadgeCheck} label="Verificaciones" desc={`${metrics.pendingVerifications} pendientes`} accent="amber" />
                 <QuickAction href="/admin/profiles" icon={Users} label="Perfiles" desc="Gestion de usuarios" accent="violet" />
-                <QuickAction href="/admin/rating" icon={Star} label="Catador" desc="Calificar perfiles" accent="amber" />
-                <QuickAction href="/admin/phone-changes" icon={Phone} label="Cambios de número" desc="Aprobar o rechazar" accent="fuchsia" />
-                <QuickAction href="/admin/name-changes" icon={Signature} label="Cambios de nombre" desc="Aprobar o rechazar" accent="fuchsia" />
-                <QuickAction href="/admin/deposits" icon={CircleDollarSign} label="Depositos" desc={`${metrics.pendingDeposits} pendientes`} accent="emerald" />
-                <QuickAction href="/admin/withdrawals" icon={CreditCard} label="Retiros" desc={`${metrics.pendingWithdrawals} pendientes`} accent="blue" />
-                <QuickAction href="/admin/banners" icon={BookImage} label="Banners" desc="Promociones" accent="pink" />
-                <QuickAction href="/admin/home-stories" icon={Video} label="Historias Home" desc="Rotar, ocultar y renovar" accent="fuchsia" />
-                <QuickAction href="/admin/pricing" icon={Tag} label="Precios" desc="Planes y reglas" accent="violet" />
-                <QuickAction href="/admin/quick-listings" icon={Store} label="Listados" desc="Externos" accent="cyan" />
-                <QuickAction href="/admin/weekly-highlights" icon={Mail} label="Correo Semanal" desc="Destacadas" accent="pink" />
-                <QuickAction href="/admin/umate-promo" icon={Mail} label="Campanas Email" desc="Correos masivos con imagenes" accent="fuchsia" />
-                <QuickAction href="/admin/whatsapp" icon={MessageCircle} label="Bot WhatsApp" desc="Avisos a profesionales" accent="emerald" />
+                <QuickAction href="/admin/chats" icon={MessageSquare} label="Chats" desc="Conversaciones" accent="violet" />
+                {canEdit && <QuickAction href="/admin/equipo" icon={ShieldCheck} label="Equipo" desc="Cuentas con acceso al panel" accent="cyan" />}
+                {canEdit && <QuickAction href="/admin/rating" icon={Star} label="Catador" desc="Calificar perfiles" accent="amber" />}
+                {canEdit && <QuickAction href="/admin/phone-changes" icon={Phone} label="Cambios de número" desc="Aprobar o rechazar" accent="fuchsia" />}
+                {canEdit && <QuickAction href="/admin/name-changes" icon={Signature} label="Cambios de nombre" desc="Aprobar o rechazar" accent="fuchsia" />}
+                {canEdit && <QuickAction href="/admin/deposits" icon={CircleDollarSign} label="Depositos" desc={`${metrics.pendingDeposits} pendientes`} accent="emerald" />}
+                {canEdit && <QuickAction href="/admin/withdrawals" icon={CreditCard} label="Retiros" desc={`${metrics.pendingWithdrawals} pendientes`} accent="blue" />}
+                {canEdit && <QuickAction href="/admin/banners" icon={BookImage} label="Banners" desc="Promociones" accent="pink" />}
+                {canEdit && <QuickAction href="/admin/home-stories" icon={Video} label="Historias Home" desc="Rotar, ocultar y renovar" accent="fuchsia" />}
+                {canEdit && <QuickAction href="/admin/pricing" icon={Tag} label="Precios" desc="Planes y reglas" accent="violet" />}
+                {canEdit && <QuickAction href="/admin/quick-listings" icon={Store} label="Listados" desc="Externos" accent="cyan" />}
+                {canEdit && <QuickAction href="/admin/weekly-highlights" icon={Mail} label="Correo Semanal" desc="Destacadas" accent="pink" />}
+                {canEdit && <QuickAction href="/admin/umate-promo" icon={Mail} label="Campanas Email" desc="Correos masivos con imagenes" accent="fuchsia" />}
+                {canEdit && <QuickAction href="/admin/whatsapp" icon={MessageCircle} label="Bot WhatsApp" desc="Avisos a profesionales" accent="emerald" />}
               </div>
             </div>
 

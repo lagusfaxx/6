@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import { canOpenAdmin, canWrite } from "../../../lib/adminAccess";
 import Avatar from "../../../components/Avatar";
 import {
   ArrowLeft,
@@ -79,7 +80,9 @@ const POSE_LABEL: Record<string, string> = {
 export default function AdminVerificationPage() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
-  const isAdmin = useMemo(() => (user?.role ?? "").toUpperCase() === "ADMIN", [user?.role]);
+  /* Las cuentas de equipo también abren esta pantalla, en modo lectura. */
+  const isAdmin = canOpenAdmin(user);
+  const canEdit = canWrite(user);
 
   const [profiles, setProfiles] = useState<PendingProfile[]>([]);
   const [total, setTotal] = useState(0);
@@ -379,6 +382,7 @@ export default function AdminVerificationPage() {
                       >
                         <Eye className="h-3.5 w-3.5" />
                       </button>
+                      {canEdit && (
                       <button
                         disabled={busy === p.id}
                         onClick={() => approveProfile(p)}
@@ -388,6 +392,8 @@ export default function AdminVerificationPage() {
                         {busy === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                         <span className="hidden sm:inline">Aprobar</span>
                       </button>
+                      )}
+                      {canEdit && (
                       <button
                         disabled={busy === p.id}
                         onClick={() => rejectProfile(p)}
@@ -397,6 +403,7 @@ export default function AdminVerificationPage() {
                         <XCircle className="h-3.5 w-3.5" />
                         <span className="hidden sm:inline">Rechazar</span>
                       </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -437,6 +444,7 @@ export default function AdminVerificationPage() {
                     <div>
                       <div className="text-[11px] uppercase text-white/40 mb-1">Verificacion facial</div>
                       <div className="flex flex-wrap items-center gap-2">
+                        {canEdit && (
                         <button
                           onClick={() => sendLink(p)}
                           disabled={sendingLink === p.id}
@@ -449,6 +457,7 @@ export default function AdminVerificationPage() {
                           )}
                           {links[p.id] ? "Crear otro enlace" : "Crear enlace de verificación"}
                         </button>
+                        )}
                         {/* Sin bot de WhatsApp el envío lo hace el admin desde su
                             propio WhatsApp: wa.me abre el chat con el mensaje listo. */}
                         {links[p.id]?.waLink && (
@@ -670,7 +679,7 @@ export default function AdminVerificationPage() {
                     </div>
                   )}
 
-                  {item.status === "SUBMITTED" && (
+                  {item.status === "SUBMITTED" && canEdit && (
                     <div className="mt-4 space-y-2">
                       <input
                         value={rejectReasons[item.id] ?? ""}

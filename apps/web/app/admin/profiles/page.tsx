@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
+import { canOpenAdmin, canWrite } from "../../../lib/adminAccess";
 import Avatar from "../../../components/Avatar";
 import MfaConfirmDialog from "../../../components/MfaConfirmDialog";
 import {
@@ -104,7 +105,9 @@ const hasLabel = (profile: Profile, label: string) => (profile.profileTags ?? []
 export default function AdminProfilesPage() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
-  const isAdmin = useMemo(() => (user?.role ?? "").toUpperCase() === "ADMIN", [user?.role]);
+  /* Las cuentas de equipo también abren esta pantalla, en modo lectura. */
+  const isAdmin = canOpenAdmin(user);
+  const canEdit = canWrite(user);
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [total, setTotal] = useState(0);
@@ -627,6 +630,8 @@ export default function AdminProfilesPage() {
                   >
                     <ImageIcon className="h-3.5 w-3.5" />
                   </button>
+                  {/* Activar, desactivar y eliminar: sólo administrador. */}
+                  {canEdit && (<>
                   <button
                     disabled={busy === p.id}
                     onClick={() => toggleProfile(p)}
@@ -654,9 +659,13 @@ export default function AdminProfilesPage() {
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
+                  </>)}
                 </div>
               </div>
 
+              {/* Etiquetas, tier, género y datos editables: sólo administrador.
+                  El equipo ve la ficha, pero no la cambia. */}
+              {canEdit && (<>
               <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
                 <button
                   disabled={busy === p.id}
@@ -1005,6 +1014,7 @@ export default function AdminProfilesPage() {
                   )}
                 </div>
               )}
+              </>)}
 
             </div>
           ))

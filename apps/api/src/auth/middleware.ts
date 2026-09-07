@@ -162,7 +162,48 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 }
 
 /**
+ * Secciones del panel que una cuenta MODERATOR puede consultar. La lista es
+ * blanca a propósito: lo que no esté acá queda fuera, así agregar un endpoint
+ * nuevo al panel nunca se lo abre al equipo de soporte por descuido.
+ *
+ * Deliberadamente NO incluye /admin/exports (descarga la base en CSV con
+ * teléfonos), /admin/team (crear cuentas) ni nada de pagos, retiros o precios.
+ */
+const MODERATOR_READONLY_PREFIXES = [
+  "/admin/control-center",
+  "/admin/overview",
+  "/admin/analytics",
+  "/admin/chats",
+  "/admin/profiles",
+  "/admin/verification",
+  "/admin/verifications",
+  "/admin/face-verifications",
+];
+
+/**
+ * Una petición de MODERATOR pasa sólo si es de lectura Y cae en la lista
+ * blanca. El método se mira primero: con eso, cualquier ruta de escritura
+ * queda bloqueada aunque su prefijo esté permitido (por ejemplo
+ * `PUT /admin/profiles/:id/toggle`, que comparte prefijo con la lectura).
+ */
+export function isModeratorReadableRequest(req: Request): boolean {
+  const method = req.method.toUpperCase();
+  if (method !== "GET" && method !== "HEAD") return false;
+
+  // originalUrl y no req.path: dentro de un router montado, req.path viene
+  // recortado y perdería el prefijo /admin que estamos comparando.
+  const path = (req.originalUrl || req.url || "").split("?")[0];
+  return MODERATOR_READONLY_PREFIXES.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  );
+}
+
+/**
  * Admin guard: requiere sesión + que el usuario sea ADMIN (por email o por role).
+ *
+ * Las cuentas MODERATOR entran por la puerta chica: sólo lecturas y sólo sobre
+ * las secciones de MODERATOR_READONLY_PREFIXES. Para todo lo demás reciben el
+ * mismo 403 que cualquier usuario.
  *
  * Además bloquea cualquier endpoint /admin/* cuando el admin tiene 2FA habilitado
  * pero todavía no resolvió el challenge en esta sesión (`twoFactorPending`).
@@ -176,10 +217,13 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     const user = (req as any).user as { email?: string; role?: string } | undefined;
     if (!user?.email) return res.status(401).json({ error: "UNAUTHENTICATED" });
 
+    const role = (user.role || "").toUpperCase();
     const isAdminByEmail = user.email === config.adminEmail;
-    const isAdminByRole = (user.role || "").toUpperCase() === "ADMIN";
+    const isAdminByRole = role === "ADMIN";
+    const isReadOnlyModerator =
+      role === "MODERATOR" && isModeratorReadableRequest(req);
 
-    if (!isAdminByEmail && !isAdminByRole) {
+    if (!isAdminByEmail && !isAdminByRole && !isReadOnlyModerator) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 

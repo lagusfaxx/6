@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch } from "../../../lib/api";
+import { canOpenAdmin, canWrite } from "../../../lib/adminAccess";
 import {
   Activity,
   ArrowDownToLine,
@@ -135,7 +136,9 @@ const NAV_ITEMS = [
 export default function AdminEstadisticas() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
-  const isAdmin = (user?.role ?? "").toUpperCase() === "ADMIN";
+  /* Las cuentas de equipo también abren esta pantalla, en modo lectura. */
+  const isAdmin = canOpenAdmin(user);
+  const canEdit = canWrite(user);
   const [data, setData] = useState<Analytics | null>(null);
   const [period, setPeriod] = useState<"24h" | "7d" | "30d">("7d");
   const [error, setError] = useState(false);
