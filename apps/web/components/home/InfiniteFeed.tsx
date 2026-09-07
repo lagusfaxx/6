@@ -7,6 +7,7 @@ import { apiFetch, isRateLimitError, resolveMediaUrl } from "../../lib/api";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
 import { hasPremiumBadge, hasVerifiedBadge } from "../../lib/systemBadges";
 import StatusBadgeIcon from "../StatusBadgeIcon";
+import VerifiedWatermark from "../VerifiedWatermark";
 import UserLevelBadge from "../UserLevelBadge";
 import type { DirectoryResult } from "../DirectoryPage";
 
@@ -217,6 +218,7 @@ export default function InfiniteFeed({
                       "/brand/isotipo-new.png";
                   }}
                 />
+                {hasVerifiedBadge(p.profileTags) && <VerifiedWatermark size="sm" />}
                 <div className="absolute left-2 top-2 z-[3] flex flex-col gap-1">
                   {p.availableNow && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300 ring-1 ring-emerald-400/30">
