@@ -4,10 +4,12 @@ import { useMemo } from "react";
 
 type WatermarkSize = "sm" | "md" | "lg";
 
+// La marca tiene que dejar claro que el perfil está verificado sin taparle
+// la foto a nadie: pocas repeticiones, bien separadas y muy tenues.
 const PRESETS: Record<WatermarkSize, { font: number; gapX: number; gapY: number; opacity: number }> = {
-  sm: { font: 10, gapX: 34, gapY: 46, opacity: 0.5 },
-  md: { font: 14, gapX: 48, gapY: 62, opacity: 0.55 },
-  lg: { font: 18, gapX: 60, gapY: 80, opacity: 0.6 },
+  sm: { font: 9, gapX: 90, gapY: 130, opacity: 0.3 },
+  md: { font: 13, gapX: 190, gapY: 230, opacity: 0.28 },
+  lg: { font: 16, gapX: 260, gapY: 300, opacity: 0.26 },
 };
 
 /**
@@ -24,8 +26,8 @@ function buildTile(text: string, font: number, gapX: number, gapY: number): { ur
 
   const common =
     `font-family="Helvetica,Arial,system-ui,sans-serif" font-size="${font}" font-weight="700" ` +
-    `letter-spacing="${letterSpacing.toFixed(2)}" fill="rgba(255,255,255,0.5)" ` +
-    `stroke="rgba(0,0,0,0.35)" stroke-width="${stroke.toFixed(2)}" paint-order="stroke" ` +
+    `letter-spacing="${letterSpacing.toFixed(2)}" fill="rgba(255,255,255,0.55)" ` +
+    `stroke="rgba(0,0,0,0.22)" stroke-width="${stroke.toFixed(2)}" paint-order="stroke" ` +
     `dominant-baseline="middle"`;
 
   // Row 1 is drawn twice (at x=0 and x=width) so the horizontal seam is clean;
@@ -55,11 +57,12 @@ type Props = {
 };
 
 /**
- * Full-surface, repeating watermark for photos of admin-verified profiles.
+ * Repeating watermark for photos of admin-verified profiles.
  *
- * It signals the profile is verified and makes the photo far less useful to
- * anyone who tries to steal it. Rendered as a rotated, oversized layer inside
- * an `overflow-hidden` box so the diagonal tiling has no visible seams.
+ * Su única función es que el cliente vea que el perfil está verificado, así
+ * que va deliberadamente tenue y espaciada: no debe competir con la foto.
+ * Se dibuja como una capa rotada y sobredimensionada dentro de una caja con
+ * `overflow-hidden`, para que el mosaico diagonal no muestre costuras.
  *
  * The parent element must be positioned (`relative`) and clip its content.
  */
