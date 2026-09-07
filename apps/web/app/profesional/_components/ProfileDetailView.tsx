@@ -1022,7 +1022,6 @@ export default function ProfileDetailView({
                           className="absolute inset-0 h-full w-full object-cover"
                         />
                       )}
-                      {isVerifiedProfile && <VerifiedWatermark size="sm" />}
                     </button>
                     );
                   })}

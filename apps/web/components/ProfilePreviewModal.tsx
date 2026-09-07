@@ -437,7 +437,6 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                         decoding="async"
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                       />
-                      {isVerifiedProfile && <VerifiedWatermark size="sm" />}
                       <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/15" />
                     </button>
                   ))}
