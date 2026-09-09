@@ -10,6 +10,9 @@ datasource db {
 enum Role {
   USER
   ADMIN
+  /// Cuenta de equipo: entra al panel pero sólo mira. La API le permite
+  /// consultas GET sobre un puñado de secciones y le niega toda escritura.
+  MODERATOR
 }
 
 enum ProfileType {
