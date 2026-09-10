@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch, cachedApiFetch } from "../lib/api";
 
+export type ProfileCompletion = {
+  complete: boolean;
+  missing: { key: string; label: string; tab: string }[];
+  /** Perfil que ya estaba publicado antes de la regla: se avisa, no se baja. */
+  grandfathered: boolean;
+};
+
 type MeUser = {
   id: string;
   email?: string;
@@ -19,6 +26,11 @@ type MeUser = {
   birthdate?: string | null;
   twoFactorEnabled?: boolean;
   twoFactorPending?: boolean;
+  isActive?: boolean;
+  isVerified?: boolean;
+  /* Lo calcula /auth/me para las profesionales: qué le falta a la ficha para
+     poder publicarse. */
+  profileCompletion?: ProfileCompletion;
 };
 
 export default function useMe() {

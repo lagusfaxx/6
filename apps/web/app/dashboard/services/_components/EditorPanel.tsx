@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDashboardForm } from "../../../../hooks/useDashboardForm";
+import { missingProfileFields } from "../../../../lib/profileCompletion";
 import ProfileCompletenessBar from "./ProfileCompletenessBar";
 import ProfileEditor from "./editors/ProfileEditor";
 import CoverAvatarEditor from "./editors/CoverAvatarEditor";
@@ -15,19 +16,41 @@ type Props = {
   user: any;
 };
 
-/* ── Pill-style tab button ── */
-function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+/* ── Pill-style tab button ──
+   Lleva cuántos obligatorios faltan en esa pestaña: sin eso, cambiar de
+   pestaña era la única forma de descubrir que quedaban datos pendientes. */
+function TabButton({
+  active,
+  label,
+  pending = 0,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  pending?: number;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
+      className={`relative flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
         active
           ? "bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 text-white shadow-[0_2px_12px_rgba(168,85,247,0.25)]"
-          : "text-white/45 hover:text-white/70 hover:bg-white/[0.06]"
+          : "text-white/45 hover:bg-white/[0.06] hover:text-white/70"
       }`}
     >
       {label}
+      {pending > 0 && (
+        <span
+          className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+            active ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-300"
+          }`}
+          title={`${pending} dato${pending !== 1 ? "s" : ""} obligatorio${pending !== 1 ? "s" : ""} sin completar`}
+        >
+          {pending}
+        </span>
+      )}
     </button>
   );
 }
@@ -35,6 +58,14 @@ function TabButton({ active, label, onClick }: { active: boolean; label: string;
 export default function EditorPanel({ profileType, user }: Props) {
   const { state, setField } = useDashboardForm();
   const ctx = useDashboardForm() as any;
+
+  const pendingByTab = useMemo(() => {
+    if (profileType !== "PROFESSIONAL") return {} as Record<string, number>;
+    return missingProfileFields(state).reduce<Record<string, number>>((acc, field) => {
+      acc[field.tab] = (acc[field.tab] ?? 0) + 1;
+      return acc;
+    }, {});
+  }, [profileType, state]);
 
   const tabs = useMemo(
     () => [
@@ -57,6 +88,7 @@ export default function EditorPanel({ profileType, user }: Props) {
             key={t.key}
             active={state.tab === t.key}
             label={t.label}
+            pending={pendingByTab[t.key] ?? 0}
             onClick={() => setField("tab", t.key)}
           />
         ))}

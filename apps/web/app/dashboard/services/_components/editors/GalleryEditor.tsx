@@ -4,6 +4,7 @@ import { type ChangeEvent } from "react";
 import { motion } from "framer-motion";
 import { resolveMediaUrl } from "../../../../../lib/api";
 import { useDashboardForm } from "../../../../../hooks/useDashboardForm";
+import { fieldAnchor, MIN_PROFILE_PHOTOS } from "../../../../../lib/profileCompletion";
 import EditorCard from "../EditorCard";
 
 type Props = {
@@ -13,13 +14,35 @@ type Props = {
 
 export default function GalleryEditor({ onUploadGallery, onRemoveGalleryItem }: Props) {
   const { state } = useDashboardForm();
+  /* El mínimo de fotos es un requisito para publicar, no una sugerencia: se
+     dice acá arriba, donde se suben, y no sólo en la lista del encabezado. */
+  const photos = state.gallery.filter(
+    (g) => String(g.type).toUpperCase() !== "VIDEO",
+  ).length;
+  const photosComplete = photos >= MIN_PROFILE_PHOTOS;
+  const photosLeft = Math.max(0, MIN_PROFILE_PHOTOS - photos);
 
   return (
     <EditorCard delay={0}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+      <div id={fieldAnchor("photos")} className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-base font-semibold text-white">Galeria</h3>
-          <p className="mt-0.5 text-xs text-white/40">Fotos y videos visibles en tu perfil publico.</p>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold text-white">Galería</h3>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                photosComplete
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : "bg-amber-500/15 text-amber-300"
+              }`}
+            >
+              {photos}/{MIN_PROFILE_PHOTOS} obligatorias
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-white/40">
+            {photosComplete
+              ? "Fotos y videos visibles en tu perfil público."
+              : `Sube ${photosLeft} foto${photosLeft !== 1 ? "s" : ""} más para poder publicar tu perfil.`}
+          </p>
         </div>
         <label className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-white/60 cursor-pointer hover:bg-white/[0.06] transition shrink-0">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,7 +70,7 @@ export default function GalleryEditor({ onUploadGallery, onRemoveGalleryItem }: 
             {String(g.type).toUpperCase() === "VIDEO" ? (
               <video src={resolveMediaUrl(g.url) ?? undefined} className="h-full w-full object-cover" muted loop playsInline controls />
             ) : (
-              <img src={resolveMediaUrl(g.url) ?? undefined} alt="Galeria" className="h-full w-full object-cover" />
+              <img src={resolveMediaUrl(g.url) ?? undefined} alt="Galería" className="h-full w-full object-cover" />
             )}
             {g.isLocked ? (
               <div
@@ -71,8 +94,27 @@ export default function GalleryEditor({ onUploadGallery, onRemoveGalleryItem }: 
         ))}
       </div>
 
-      {!state.gallery.length && (
-        <p className="mt-4 text-center text-xs text-white/30">Aun no tienes fotos o videos en tu galeria.</p>
+      {!photosComplete && (
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {Array.from({ length: photosLeft }).map((_, i) => (
+            <label
+              key={i}
+              className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-amber-500/25 bg-amber-500/[0.04] text-center text-[11px] text-amber-300/70 transition hover:border-amber-500/40 hover:bg-amber-500/[0.07]"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Foto {photos + i + 1}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                multiple
+                onChange={onUploadGallery}
+              />
+            </label>
+          ))}
+        </div>
       )}
     </EditorCard>
   );

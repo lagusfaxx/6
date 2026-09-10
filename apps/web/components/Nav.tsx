@@ -74,6 +74,12 @@ export default function Nav() {
   const isShop = ptype === "SHOP";
   const hasProfile = isProfessional || isShop;
 
+  /* Datos que le faltan a la ficha para publicarse. En "Editar perfil" va el
+     número: es la pista que queda visible mientras navega el resto del sitio. */
+  const completion = me?.user?.profileCompletion;
+  const missingCount =
+    completion && !completion.complete ? completion.missing.length : 0;
+
   /* Desktop sidebar items */
   const sidebarItems: NavItem[] = isMotelProfile
     ? motelItems
@@ -182,6 +188,14 @@ export default function Nav() {
                   >
                     <Icon className={`h-4 w-4 transition-colors ${active ? "text-fuchsia-400" : "group-hover:text-fuchsia-400/60"}`} />
                     {item.label}
+                    {item.href === "/dashboard/services" && missingCount > 0 && (
+                      <span
+                        title={`Faltan ${missingCount} datos para publicar tu perfil`}
+                        className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-300"
+                      >
+                        {missingCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
