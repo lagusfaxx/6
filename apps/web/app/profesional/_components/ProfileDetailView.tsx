@@ -15,6 +15,17 @@ import Link from "next/link";
 import {
   ImageIcon,
   Star,
+  Banknote,
+  Clock,
+  MapPin,
+  CalendarClock,
+  MessageSquare,
+  ListChecks,
+  Camera,
+  User,
+  Smile,
+  Sparkles,
+  HeartHandshake,
   X,
   Heart,
   ChevronLeft,
@@ -124,6 +135,10 @@ type SurveySummary = {
   avgOverall: number;
 };
 
+/* Cuántos servicios se ven antes de "ver los restantes". Nueve llena tres
+   columnas justas en el escritorio y deja la sección corta en el teléfono. */
+const VISIBLE_SERVICES = 9;
+
 const SERVICE_SUBCATEGORIES = [
   "Anal",
   "Oral",
@@ -228,6 +243,10 @@ export default function ProfileDetailView({
   const aboutRef = useRef<HTMLParagraphElement | null>(null);
   const [aboutOverflows, setAboutOverflows] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
+  /* La lista de servicios se muestra recortada: hay perfiles con veinte o más
+     y en el teléfono eso son veinte renglones que empujan las fotos y las
+     opiniones fuera de la pantalla. */
+  const [showAllServices, setShowAllServices] = useState(false);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [surveyReviews, setSurveyReviews] = useState<SurveyReview[]>([]);
   const [surveySummary, setSurveySummary] = useState<SurveySummary | null>(
@@ -699,8 +718,24 @@ export default function ProfileDetailView({
         : `Responde en ${professional.avgResponseMinutes} min`
       : null;
 
-  const serviceCount =
-    (professional.serviceTags?.length ?? 0) + extraSubcategories.length;
+  /* Lo que ofrece, en una sola lista: las etiquetas que marcó más las
+     subcategorías deducidas de ellas, sin repetir y en orden. Sin useMemo a
+     propósito: este bloque corre después de los `return` tempranos de carga,
+     así que un hook acá cambiaría la cantidad de hooks entre renders. */
+  const serviceList = (() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of [...(professional.serviceTags ?? []), ...extraSubcategories]) {
+      const label = String(raw).trim();
+      const key = label.toLowerCase();
+      if (!label || seen.has(key)) continue;
+      seen.add(key);
+      out.push(label);
+    }
+    return out.sort((a, b) => a.localeCompare(b, "es"));
+  })();
+
+  const serviceCount = serviceList.length;
 
   const ratingValue = surveySummary?.avgOverall ?? professional.rating ?? null;
   const ratingCount = surveySummary?.count ?? professional.reviewCount ?? 0;
@@ -906,9 +941,13 @@ export default function ProfileDetailView({
 
             {/* Contacto y precio: lo único con peso visual de la columna. */}
             <div className="mt-6 border-t border-white/[0.08] pt-5">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <Banknote className="h-5 w-5 shrink-0 text-emerald-400/80" />
                 <span className="text-2xl font-semibold tracking-tight">{priceLabel}</span>
-                <span className="text-[13px] text-white/45">{durationLabel}</span>
+                <span className="inline-flex items-center gap-1.5 text-[13px] text-white/45">
+                  <Clock className="h-3.5 w-3.5" />
+                  {durationLabel}
+                </span>
               </div>
 
               <div className="mt-4 hidden flex-wrap gap-2.5 md:flex">
@@ -962,10 +1001,15 @@ export default function ProfileDetailView({
                 )}
               </div>
 
-              {/* Dónde y cuándo, en texto corrido */}
-              <dl className="mt-5 space-y-2 text-[14px]">
+              {/* Dónde, cuándo y opiniones. Cada fila con su icono: la etiqueta
+                  sola a la izquierda dejaba tres renglones de texto plano y no
+                  se distinguía un dato de otro al pasar la vista. */}
+              <dl className="mt-5 space-y-2.5 text-[14px]">
                 <div className="flex gap-3">
-                  <dt className="w-24 shrink-0 text-white/40">Dónde</dt>
+                  <dt className="flex w-24 shrink-0 items-center gap-2 text-white/40">
+                    <MapPin className="h-4 w-4 text-fuchsia-400/70" />
+                    Dónde
+                  </dt>
                   <dd className="text-white/80">
                     {professional.city || "Zona referencial"}
                     {availabilityChips.length > 0 && (
@@ -974,7 +1018,10 @@ export default function ProfileDetailView({
                   </dd>
                 </div>
                 <div className="flex gap-3">
-                  <dt className="w-24 shrink-0 text-white/40">Cuándo</dt>
+                  <dt className="flex w-24 shrink-0 items-center gap-2 text-white/40">
+                    <CalendarClock className="h-4 w-4 text-amber-400/70" />
+                    Cuándo
+                  </dt>
                   <dd className="text-white/80">
                     {professional.availabilityNote ||
                       (availableNow ? "Disponible ahora" : "A coordinar")}
@@ -982,7 +1029,10 @@ export default function ProfileDetailView({
                 </div>
                 {ratingCount > 0 && ratingValue != null && (
                   <div className="flex gap-3">
-                    <dt className="w-24 shrink-0 text-white/40">Opiniones</dt>
+                    <dt className="flex w-24 shrink-0 items-center gap-2 text-white/40">
+                      <Star className="h-4 w-4 fill-amber-300/80 text-amber-300/80" />
+                      Opiniones
+                    </dt>
                     <dd className="text-white/80">
                       {ratingValue.toFixed(1)} de 5
                       <span className="text-white/45"> · {ratingCount} calificaciones</span>
@@ -998,13 +1048,16 @@ export default function ProfileDetailView({
         {gallery.length > 0 && (
           <section id="fotos" className="mt-10 px-4 md:px-0">
             <div className="flex items-baseline justify-between gap-3 border-b border-white/[0.08] pb-2.5">
-              <h2 className="text-lg font-semibold tracking-tight">Fotos</h2>
+              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                <Camera className="h-4 w-4 text-white/35" />
+                Fotos
+              </h2>
               <p className="text-[13px] text-white/40">
                 {photoCount} foto{photoCount === 1 ? "" : "s"}
                 {videoCount > 0
                   ? ` · ${videoCount} video${videoCount === 1 ? "" : "s"}`
                   : ""}
-                {professional.lastSeen ? ` · activa ${timeAgo(professional.lastSeen)}` : ""}
+
               </p>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-5">
@@ -1062,26 +1115,63 @@ export default function ProfileDetailView({
           se lea como una plantilla. */}
       <div className="mx-auto mt-10 w-full max-w-6xl min-w-0 px-4 md:px-8">
         <div className="min-w-0 divide-y divide-white/[0.08]">
-          {/* Servicios: en texto corrido, como los lee la gente. Veinte
-              pastillas moradas ocupan tres veces más y dicen lo mismo. */}
-          {((professional?.serviceTags?.length ?? 0) > 0 ||
-            matchedSubcategories.length > 0 ||
-            hasStyleSection) && (
+          {/* Servicios: una lista de verdad, en columnas y con un visto por
+              ítem. En texto corrido separado por comas se leía como un párrafo
+              cualquiera y no como lo que la profesional ofrece — que es
+              justamente lo que el cliente viene a revisar. Sin volver a las
+              veinte pastillas de colores, que era el otro extremo. */}
+          {(serviceList.length > 0 || styleChips.length > 0) && (
             <section id="servicios" className="min-w-0 scroll-mt-24 py-8 first:pt-0">
-              <h2 className="text-lg font-semibold tracking-tight">Servicios</h2>
+              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                <ListChecks className="h-4 w-4 text-white/35" />
+                Servicios
+              </h2>
 
-              {((professional?.serviceTags?.length ?? 0) > 0 ||
-                matchedSubcategories.length > 0) && (
-                <p className="mt-3 text-[15px] leading-[1.8] text-white/75">
-                  {[...(professional?.serviceTags ?? []), ...extraSubcategories].join(", ")}.
-                </p>
+              {serviceList.length > 0 && (
+                <>
+                  <ul className="mt-4 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+                    {(showAllServices
+                      ? serviceList
+                      : serviceList.slice(0, VISIBLE_SERVICES)
+                    ).map((item) => (
+                      <li
+                        key={item}
+                        className="flex items-start gap-2.5 border-b border-white/[0.06] py-2 text-[14.5px] text-white/85"
+                      >
+                        <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                        <span className="first-letter:uppercase">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {serviceList.length > VISIBLE_SERVICES && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllServices((v) => !v)}
+                      className="mt-3 text-[13px] font-medium text-white/45 underline underline-offset-4 transition hover:text-white/75"
+                    >
+                      {showAllServices
+                        ? "Ver menos"
+                        : `Ver los ${serviceList.length - VISIBLE_SERVICES} restantes`}
+                    </button>
+                  )}
+                </>
               )}
 
-              {hasStyleSection && styleChips.length > 0 && (
-                <p className="mt-3 text-[15px] leading-[1.8] text-white/55">
-                  <span className="text-white/40">Estilo: </span>
-                  {styleChips.join(", ")}.
-                </p>
+              {styleChips.length > 0 && (
+                <div className="mt-5">
+                  <h3 className="text-[13px] font-medium text-white/40">Estilo</h3>
+                  <ul className="mt-2 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+                    {styleChips.map((item) => (
+                      <li
+                        key={item}
+                        className="flex items-start gap-2.5 border-b border-white/[0.06] py-2 text-[14px] text-white/60"
+                      >
+                        <span className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-white/30" />
+                        <span className="first-letter:uppercase">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </section>
           )}
@@ -1106,7 +1196,8 @@ export default function ProfileDetailView({
           {reviews.length > 0 && (
             <section className="min-w-0 py-8">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-lg font-semibold tracking-tight">
+                <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                  <MessageSquare className="h-4 w-4 text-white/35" />
                   Reseñas ({professional.reviewCount || reviews.length})
                 </h2>
                 {professional.rating != null && (
@@ -1176,7 +1267,8 @@ export default function ProfileDetailView({
           {/* Survey Rating Summary + Button */}
           <section className="min-w-0 py-8">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold tracking-tight">
+              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                <Star className="h-4 w-4 fill-amber-300/80 text-amber-300/80" />
                 Calificaciones
                 {surveySummary && surveySummary.count > 0 && (
                   <span className="ml-1.5 text-[13px] font-normal text-white/40">
@@ -1201,17 +1293,23 @@ export default function ProfileDetailView({
                 {/* Rating bars */}
                 <div className="space-y-2">
                   {[
-                    { label: "Cuerpo", value: surveySummary.avgBody },
-                    { label: "Rostro", value: surveySummary.avgFace },
+                    { label: "Cuerpo", value: surveySummary.avgBody, Icon: User },
+                    { label: "Rostro", value: surveySummary.avgFace, Icon: Smile },
                     {
                       label: "Parecida a fotos",
                       value: surveySummary.avgPhotos,
+                      Icon: Camera,
                     },
-                    { label: "Servicio", value: surveySummary.avgService },
-                    { label: "Trato y ambiente", value: surveySummary.avgVibe },
+                    { label: "Servicio", value: surveySummary.avgService, Icon: Sparkles },
+                    {
+                      label: "Trato y ambiente",
+                      value: surveySummary.avgVibe,
+                      Icon: HeartHandshake,
+                    },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center gap-3">
-                      <span className="w-28 text-xs text-white/50 shrink-0">
+                      <span className="flex w-32 shrink-0 items-center gap-2 text-xs text-white/50">
+                        <item.Icon className="h-3.5 w-3.5 text-white/30" />
                         {item.label}
                       </span>
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
@@ -1227,6 +1325,7 @@ export default function ProfileDetailView({
                   ))}
                 </div>
                 <div className="flex items-center justify-center gap-2 pt-2 border-t border-white/[0.06]">
+                  <Star className="h-5 w-5 fill-amber-300 text-amber-300" />
                   <span className="text-2xl font-bold text-amber-300">
                     {surveySummary.avgOverall}
                   </span>
