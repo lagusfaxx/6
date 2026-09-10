@@ -138,6 +138,10 @@ type SurveySummary = {
   avgOverall: number;
 };
 
+/* Cada cuánto cambia la foto de portada. Cinco segundos alcanza para mirarla
+   sin que la página parezca un cartel publicitario. */
+const HERO_ROTATE_MS = 5000;
+
 /* Cuántos servicios se ven antes de "ver los restantes". Nueve llena tres
    columnas justas en el escritorio y deja la sección corta en el teléfono. */
 const VISIBLE_SERVICES = 9;
@@ -239,6 +243,8 @@ export default function ProfileDetailView({
   const [notFound, setNotFound] = useState(false);
   const [lightbox, setLightbox] = useState<GalleryItem | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  /* Cuál de las fotos se está mostrando en la portada. */
+  const [heroIndex, setHeroIndex] = useState(0);
   const thumbVideoRefs = useRef(new Map<string, HTMLVideoElement>());
   /* La presentación recorta la biografía: en el escritorio va en una columna
      angosta y sin recortar empujaba la ficha entera hacia abajo. */
@@ -474,6 +480,37 @@ export default function ProfileDetailView({
     ? gallery.findIndex((g) => g.url === lightbox.url)
     : -1;
 
+  /* Fotos que rotan en el lugar de la principal. Sólo imágenes: un video
+     arrancando solo en la portada asusta a cualquiera que abra el perfil en
+     público, que es la mitad de las visitas de este rubro. */
+  const heroPhotos = useMemo(
+    () => gallery.filter((g) => g.type === "IMAGE"),
+    [gallery],
+  );
+
+  /* La portada va rotando entre las fotos subidas: el perfil se ve vivo y el
+     cliente alcanza a ver más de una foto sin tener que bajar. Se detiene
+     mientras el visor grande está abierto (ahí manda el usuario) y respeta a
+     quien pidió menos animaciones en su sistema. */
+  useEffect(() => {
+    if (heroPhotos.length < 2) return;
+    if (lightbox) return;
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setHeroIndex((i) => (i + 1) % heroPhotos.length);
+    }, HERO_ROTATE_MS);
+    return () => window.clearInterval(timer);
+  }, [heroPhotos.length, lightbox]);
+
+  useEffect(() => {
+    setHeroIndex((i) => (heroPhotos.length ? i % heroPhotos.length : 0));
+  }, [heroPhotos.length]);
+
   useEffect(() => {
     if (!gallery.length) {
       setGalleryIndex(0);
@@ -708,7 +745,8 @@ export default function ProfileDetailView({
 
   const photoCount = gallery.filter((g) => g.type === "IMAGE").length;
   const videoCount = gallery.length - photoCount;
-  const mainPhoto = gallery[0] ?? null;
+  const heroPhoto = heroPhotos[heroIndex] ?? heroPhotos[0] ?? gallery[0] ?? null;
+  const heroSrc = heroPhoto?.url ?? coverSrc;
 
   const aboutText = cleanProfileText(professional.description);
 
@@ -757,19 +795,32 @@ export default function ProfileDetailView({
           <div className="relative w-full overflow-hidden md:sticky md:top-[88px] md:self-start md:rounded-lg">
             <button
               type="button"
-              onClick={() => mainPhoto && setLightbox(mainPhoto)}
+              onClick={() => heroPhoto && setLightbox(heroPhoto)}
               className="relative block aspect-[4/5] w-full"
               aria-label="Ver foto en grande"
             >
-              {coverSrc ? (
-                <img
-                  src={coverSrc}
-                  alt={professional.name}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  style={{
-                    objectPosition: `${professional.coverPositionX ?? 50}% ${professional.coverPositionY ?? 50}%`,
-                  }}
-                />
+              {heroSrc ? (
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.img
+                    key={heroSrc}
+                    src={heroSrc}
+                    alt={professional.name}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.6, ease: "easeInOut" }}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    style={
+                      /* El encuadre guardado es el de la portada; el resto de
+                         las fotos se centran. */
+                      heroIndex === 0 && coverSrc === heroSrc
+                        ? {
+                            objectPosition: `${professional.coverPositionX ?? 50}% ${professional.coverPositionY ?? 50}%`,
+                          }
+                        : undefined
+                    }
+                  />
+                </AnimatePresence>
               ) : (
                 <div className="grid h-full w-full place-items-center bg-white/[0.04]">
                   <ImageIcon className="h-10 w-10 text-white/25" />
@@ -794,6 +845,26 @@ export default function ProfileDetailView({
 
               {isVerifiedProfile && <VerifiedBand size="md" />}
             </button>
+
+            {/* Puntitos: dicen cuántas fotos hay y en cuál va, y dejan saltar a
+                una sin abrir el visor. */}
+            {heroPhotos.length > 1 && (
+              <div className="absolute inset-x-0 bottom-11 z-[4] flex justify-center gap-1.5 px-4">
+                {heroPhotos.slice(0, 8).map((photo, idx) => (
+                  <button
+                    key={photo.url}
+                    type="button"
+                    onClick={() => setHeroIndex(idx)}
+                    aria-label={`Ver foto ${idx + 1}`}
+                    className={`h-1.5 rounded-full transition-all ${
+                      idx === heroIndex
+                        ? "w-5 bg-white/90"
+                        : "w-1.5 bg-white/40 hover:bg-white/70"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
 
             {availableNow && (
               <span className="pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-emerald-200 backdrop-blur-md">
@@ -1522,48 +1593,60 @@ export default function ProfileDetailView({
             quedaban debajo de la cinta de verificación y encima competían con
             los botones que sí cierran el contacto. */}
         <div className="mb-2 flex items-baseline gap-2">
-          <span className="text-sm font-semibold text-white">{priceLabel}</span>
+          <Banknote className="h-4 w-4 shrink-0 self-center text-emerald-400/80" />
+          <span className="text-[15px] font-semibold text-white">{priceLabel}</span>
           <span className="text-xs font-normal text-white/40">{durationLabel}</span>
         </div>
-        {/* Main CTA */}
-        <button
-          onClick={() => handleChatClick("message")}
-          className="btn-primary mb-2 w-full rounded-2xl py-3 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)]"
-        >
-          Enviar mensaje
-        </button>
-        {/* Secondary actions */}
+        {/* En el teléfono estos botones son el perfil entero: se tocan con el
+            pulgar, a una mano y muchas veces en la calle. Van a 44px de alto,
+            que es el mínimo que recomiendan Apple y Google, y WhatsApp con su
+            verde porque acá no compite con nada — es el que hay que tocar. */}
         <div className="flex gap-2">
-          {hasStore && (
-            <Link
-              href={`/marketplace/tienda/${professional.username ?? ""}`}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2 text-xs font-bold text-white"
-            >
-              <ShoppingBag className="h-3.5 w-3.5" />
-              Tienda
-            </Link>
-          )}
-          {professional.phone && (
+          {professional.phone ? (
             <>
-              <a
-                href={`tel:${professional.phone.replace(/[^\d+]/g, "")}`}
-                onClick={() => trackAction("phone_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.06] py-2 text-xs font-semibold text-white/75 transition hover:bg-white/[0.1]"
-              >
-                <Phone className="h-3.5 w-3.5" />
-                Llamar
-              </a>
               <a
                 href={formatWhatsAppUrl(professional.phone)}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackAction("whatsapp_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.06] py-2 text-xs font-semibold text-white/75 transition hover:bg-white/[0.1]"
+                className="flex flex-[2] items-center justify-center gap-2 rounded-xl bg-[#25D366] py-3 text-sm font-bold text-[#04231a] transition active:brightness-95"
               >
-                <WhatsAppIcon className="h-3.5 w-3.5" />
+                <WhatsAppIcon className="h-[18px] w-[18px]" />
                 WhatsApp
               </a>
+              <a
+                href={`tel:${professional.phone.replace(/[^\d+]/g, "")}`}
+                onClick={() => trackAction("phone_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
+                aria-label="Llamar"
+                className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] py-3 text-white/80 transition active:bg-white/[0.12]"
+              >
+                <Phone className="h-[18px] w-[18px]" />
+              </a>
+              <button
+                onClick={() => handleChatClick("message")}
+                aria-label="Enviar mensaje por el chat de UZEED"
+                className="flex w-12 shrink-0 items-center justify-center rounded-xl bg-fuchsia-600 py-3 text-white transition active:brightness-95"
+              >
+                <MessageSquare className="h-[18px] w-[18px]" />
+              </button>
             </>
+          ) : (
+            <button
+              onClick={() => handleChatClick("message")}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-fuchsia-600 py-3 text-sm font-bold text-white transition active:brightness-95"
+            >
+              <MessageSquare className="h-[18px] w-[18px]" />
+              Enviar mensaje
+            </button>
+          )}
+          {hasStore && (
+            <Link
+              href={`/marketplace/tienda/${professional.username ?? ""}`}
+              aria-label="Ver su tienda"
+              className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-fuchsia-400/25 bg-fuchsia-500/12 py-3 text-fuchsia-100 transition active:bg-fuchsia-500/20"
+            >
+              <ShoppingBag className="h-[18px] w-[18px]" />
+            </Link>
           )}
         </div>
       </div>
