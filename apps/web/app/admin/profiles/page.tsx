@@ -55,9 +55,93 @@ type Profile = {
   completedServices: number;
   profileViews: number;
   baseRate: number | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  measurements: string | null;
+  hairColor: string | null;
+  skinTone: string | null;
+  languages: string | null;
+  bio: string | null;
+  availabilityNote: string | null;
+  minDurationMinutes: number | null;
+  acceptsIncalls: boolean | null;
+  acceptsOutcalls: boolean | null;
+  serviceStyleTags: string | null;
+  serviceTags: string[] | null;
+  birthdate: string | null;
   createdAt: string;
   updatedAt: string;
 };
+
+/** Los campos de la ficha que el panel puede completar. */
+type SheetForm = {
+  heightCm: string;
+  weightKg: string;
+  measurements: string;
+  hairColor: string;
+  skinTone: string;
+  languages: string;
+  city: string;
+  availabilityNote: string;
+  minDurationMinutes: string;
+  serviceStyleTags: string;
+  serviceTags: string;
+  profileTags: string;
+  acceptsIncalls: boolean;
+  acceptsOutcalls: boolean;
+};
+
+const SHEET_TEXT_FIELDS: { key: keyof SheetForm; label: string; placeholder?: string }[] = [
+  { key: "heightCm", label: "Estatura (cm)", placeholder: "165" },
+  { key: "weightKg", label: "Peso (kg)", placeholder: "58" },
+  { key: "measurements", label: "Medidas", placeholder: "90-60-90" },
+  { key: "hairColor", label: "Cabello", placeholder: "Negro" },
+  { key: "skinTone", label: "Piel", placeholder: "Trigueña" },
+  { key: "languages", label: "Idiomas", placeholder: "Español, inglés" },
+  { key: "city", label: "Comuna", placeholder: "Las Condes" },
+  { key: "minDurationMinutes", label: "Duración mínima (min)", placeholder: "60" },
+  { key: "availabilityNote", label: "Horario", placeholder: "Todos los días, 10 a 22" },
+  { key: "serviceTags", label: "Servicios (separados por coma)", placeholder: "oral, besos, ducha" },
+  { key: "serviceStyleTags", label: "Estilo (separado por coma)", placeholder: "novia experience" },
+  { key: "profileTags", label: "Etiquetas del perfil (coma)", placeholder: "nalgona, tatuada" },
+];
+
+/** Qué le falta a la ficha, en una línea. */
+function sheetSummary(p: Profile): string {
+  const missing: string[] = [];
+  if (p.heightCm == null) missing.push("estatura");
+  if (p.weightKg == null) missing.push("peso");
+  if (!p.measurements) missing.push("medidas");
+  if (!p.hairColor) missing.push("cabello");
+  if (!p.skinTone) missing.push("piel");
+  if (p.baseRate == null) missing.push("tarifa");
+  if (!p.city) missing.push("comuna");
+  if (!(p.serviceTags ?? []).length) missing.push("servicios");
+  if (!missing.length) return "Ficha completa";
+  return `Falta: ${missing.join(", ")}`;
+}
+
+function sheetFormFrom(p: Profile): SheetForm {
+  /* Las insignias (premium, verificada, exámenes) tienen sus propios botones y
+     no se editan como texto: se filtran de la lista de etiquetas. */
+  const badges = new Set(["premium", "verificada", "profesional con examenes"]);
+  return {
+    heightCm: p.heightCm != null ? String(p.heightCm) : "",
+    weightKg: p.weightKg != null ? String(p.weightKg) : "",
+    measurements: p.measurements ?? "",
+    hairColor: p.hairColor ?? "",
+    skinTone: p.skinTone ?? "",
+    languages: p.languages ?? "",
+    city: p.city ?? "",
+    availabilityNote: p.availabilityNote ?? "",
+    minDurationMinutes: p.minDurationMinutes != null ? String(p.minDurationMinutes) : "",
+    serviceStyleTags: p.serviceStyleTags ?? "",
+    serviceTags: (p.serviceTags ?? []).join(", "),
+    profileTags: (p.profileTags ?? []).filter((t) => !badges.has(t)).join(", "),
+    acceptsIncalls: p.acceptsIncalls === true,
+    acceptsOutcalls: p.acceptsOutcalls === true,
+  };
+}
 
 type ProfilePhoto = {
   id: string;
@@ -136,6 +220,10 @@ export default function AdminProfilesPage() {
   const [phoneInput, setPhoneInput] = useState("");
   const [nameEditing, setNameEditing] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState("");
+  /* Ficha abierta para editar: sólo una a la vez, para no tener veinte
+     formularios a medio llenar en la misma pantalla. */
+  const [sheetEditing, setSheetEditing] = useState<string | null>(null);
+  const [sheetForm, setSheetForm] = useState<SheetForm | null>(null);
   const [mediaModal, setMediaModal] = useState<{ profileId: string; displayName: string } | null>(null);
   const [mediaPhotos, setMediaPhotos] = useState<ProfilePhoto[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -254,6 +342,55 @@ export default function AdminProfilesPage() {
       await loadProfiles();
     } catch {
       setError("No se pudo actualizar la etiqueta del perfil.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function openSheet(profile: Profile) {
+    setSheetEditing(profile.id);
+    setSheetForm(sheetFormFrom(profile));
+  }
+
+  function closeSheet() {
+    setSheetEditing(null);
+    setSheetForm(null);
+  }
+
+  /* Guarda la ficha completa de un perfil. Los campos vacíos se mandan igual:
+     dejar un dato en blanco es una decisión válida (borrarlo), y la API
+     distingue "" de undefined. */
+  async function saveSheet(profile: Profile) {
+    if (!sheetForm) return;
+    setBusy(profile.id);
+    setError(null);
+    const splitList = (value: string) =>
+      value.split(",").map((v) => v.trim()).filter(Boolean);
+    try {
+      await apiFetch(`/admin/profiles/${profile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          heightCm: sheetForm.heightCm,
+          weightKg: sheetForm.weightKg,
+          measurements: sheetForm.measurements,
+          hairColor: sheetForm.hairColor,
+          skinTone: sheetForm.skinTone,
+          languages: sheetForm.languages,
+          city: sheetForm.city,
+          availabilityNote: sheetForm.availabilityNote,
+          minDurationMinutes: sheetForm.minDurationMinutes,
+          serviceStyleTags: sheetForm.serviceStyleTags,
+          serviceTags: splitList(sheetForm.serviceTags),
+          profileTags: splitList(sheetForm.profileTags),
+          acceptsIncalls: sheetForm.acceptsIncalls,
+          acceptsOutcalls: sheetForm.acceptsOutcalls,
+        }),
+      });
+      setSuccess(`Ficha de ${profile.displayName || profile.username} actualizada.`);
+      closeSheet();
+      await loadProfiles();
+    } catch (err: any) {
+      setError(err?.body?.message || "No se pudo guardar la ficha.");
     } finally {
       setBusy(null);
     }
@@ -1033,6 +1170,101 @@ export default function AdminProfilesPage() {
                   )}
                 </div>
               )}
+
+              {/* Ficha completa: lo que la página pública muestra. Los perfiles
+                  viejos quedaron a medio llenar y el equipo los completa acá. */}
+              <div className="mt-3 border-t border-white/10 pt-3">
+                {sheetEditing === p.id && sheetForm ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      saveSheet(p);
+                    }}
+                    className="space-y-3"
+                  >
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {SHEET_TEXT_FIELDS.map((field) => (
+                        <label key={field.key} className="block">
+                          <span className="mb-1 block text-[10px] uppercase tracking-wide text-white/40">
+                            {field.label}
+                          </span>
+                          <input
+                            type="text"
+                            value={String(sheetForm[field.key] ?? "")}
+                            placeholder={field.placeholder}
+                            onChange={(e) =>
+                              setSheetForm((prev) =>
+                                prev ? { ...prev, [field.key]: e.target.value } : prev,
+                              )
+                            }
+                            className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-[11px] outline-none transition focus:border-fuchsia-500/30"
+                          />
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      {(
+                        [
+                          ["acceptsIncalls", "Recibe"],
+                          ["acceptsOutcalls", "Se desplaza"],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <label key={key} className="flex items-center gap-1.5 text-[11px] text-white/70">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(sheetForm[key])}
+                            onChange={(e) =>
+                              setSheetForm((prev) =>
+                                prev ? { ...prev, [key]: e.target.checked } : prev,
+                              )
+                            }
+                            className="h-3.5 w-3.5 accent-fuchsia-500"
+                          />
+                          {label}
+                        </label>
+                      ))}
+
+                      <div className="ml-auto flex gap-1.5">
+                        <button
+                          type="submit"
+                          disabled={busy === p.id}
+                          className="flex h-7 items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2.5 text-[11px] font-medium text-emerald-200 transition hover:bg-emerald-500/25 disabled:opacity-50"
+                        >
+                          {busy === p.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Check className="h-3 w-3" />
+                          )}
+                          Guardar ficha
+                        </button>
+                        <button
+                          type="button"
+                          onClick={closeSheet}
+                          disabled={busy === p.id}
+                          className="flex h-7 items-center rounded-lg border border-white/10 bg-white/5 px-2.5 text-[11px] text-white/60 transition hover:bg-white/10 disabled:opacity-50"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] text-white/40">
+                      {sheetSummary(p)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openSheet(p)}
+                      className="ml-auto flex h-7 items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 text-[11px] text-white/70 transition hover:bg-white/10"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Editar ficha
+                    </button>
+                  </div>
+                )}
+              </div>
               </>)}
 
             </div>

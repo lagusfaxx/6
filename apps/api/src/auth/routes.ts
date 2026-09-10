@@ -5,6 +5,7 @@ import multer from "multer";
 import path from "path";
 import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
+import { missingProfileFields } from "../lib/profileCompletion";
 import { Prisma } from "@prisma/client";
 import { loginInputSchema, registerInputSchema, quickRegisterSchema } from "@uzeed/shared";
 import { autoReplyFields } from "../messages/autoReply";
@@ -800,6 +801,7 @@ authRouter.get(
       allowFreeMessages: true,
       birthdate: true,
       isVerified: true,
+      isActive: true,
       twoFactorEnabled: true,
     };
     const extendedSelect = {
@@ -807,6 +809,7 @@ authRouter.get(
       primaryCategory: true,
       profileTags: true,
       serviceTags: true,
+      profileCompletedAt: true,
     };
     let user: any;
     try {
@@ -828,6 +831,7 @@ authRouter.get(
           user.primaryCategory = null;
           user.profileTags = [];
           user.serviceTags = [];
+          user.profileCompletedAt = null;
         }
       } else {
         throw err;
@@ -850,6 +854,26 @@ authRouter.get(
       ? membershipActive || trialActive
       : true;
 
+    /* Qué le falta a la ficha para poder publicarse. Va en /auth/me porque el
+       estudio lo necesita en cada pantalla: el aviso, la lista de campos y el
+       interruptor de publicar se dibujan con esto. */
+    let profileCompletion:
+      | { complete: boolean; missing: { key: string; label: string; tab: string }[]; grandfathered: boolean }
+      | undefined;
+    if (user.profileType === "PROFESSIONAL") {
+      const photoCount = await prisma.profileMedia.count({
+        where: { ownerId: user.id, type: "IMAGE" },
+      });
+      const missing = missingProfileFields(user as any, photoCount);
+      profileCompletion = {
+        complete: missing.length === 0,
+        missing,
+        // Perfiles que ya estaban publicados antes de la regla: se les avisa,
+        // pero no se les baja el anuncio.
+        grandfathered: Boolean(user.profileCompletedAt) && missing.length > 0,
+      };
+    }
+
     return res.json({
       user: {
         ...user,
@@ -857,6 +881,7 @@ authRouter.get(
         shopTrialEndsAt: user.shopTrialEndsAt?.toISOString() || null,
         subscriptionActive,
         requiresPayment,
+        profileCompletion,
         twoFactorPending: Boolean((req.session as any).twoFactorPending),
       },
     });
