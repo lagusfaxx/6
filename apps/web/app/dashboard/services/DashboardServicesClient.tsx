@@ -511,7 +511,19 @@ export default function DashboardServicesClient() {
       showToast("Perfil actualizado.");
       await loadPanel(user.id);
     } catch (err: any) {
-      setField("error", friendlyErrorMessage(err));
+      /* La ficha incompleta no es un error genérico: el servidor dice
+         exactamente qué falta, y eso es lo que hay que mostrar. */
+      const missing = err?.body?.missing;
+      if (err?.body?.error === "PROFILE_INCOMPLETE" && Array.isArray(missing)) {
+        setField(
+          "error",
+          `Para publicar tu perfil falta: ${missing
+            .map((m: { label: string }) => m.label)
+            .join(", ")}.`,
+        );
+      } else {
+        setField("error", friendlyErrorMessage(err));
+      }
     } finally {
       setField("busy", false);
     }

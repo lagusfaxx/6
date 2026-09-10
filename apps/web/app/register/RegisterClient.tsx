@@ -877,8 +877,10 @@ export default function RegisterClient() {
                 </div>
                 <h2 className="text-xl font-bold text-amber-100">Registro recibido</h2>
                 <p className="mt-2 text-sm text-white/70 leading-relaxed max-w-sm mx-auto">
-                  Tu perfil ha sido creado exitosamente. Para aparecer en la plataforma, un
-                  administrador verificará tu cuenta mediante una llamada telefónica.
+                  Tu cuenta está creada, pero tu perfil todavía no se publica:
+                  falta completar la ficha con los datos que mira el cliente
+                  (medidas, tarifa, comuna y servicios). Un administrador
+                  además verifica la cuenta por teléfono.
                 </p>
                 <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/60">
                   <Phone className="h-3.5 w-3.5" />
@@ -889,30 +891,34 @@ export default function RegisterClient() {
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <h3 className="text-sm font-semibold text-white/90 mb-3 flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-fuchsia-300" />
-                  Mientras tanto puedes
+                  Falta esto para publicarte
                 </h3>
                 <ul className="text-sm text-white/65 space-y-2">
                   <li className="flex items-start gap-2.5">
                     <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                    Subir tu foto de perfil y fotos de galería
+                    Tres fotos o más
                   </li>
                   <li className="flex items-start gap-2.5">
                     <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                    Completar tu descripción y servicios
+                    Estatura, peso, medidas, cabello y piel
                   </li>
                   <li className="flex items-start gap-2.5">
                     <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                    Configurar tus tarifas y disponibilidad
+                    Tarifa, servicios y comuna
                   </li>
                 </ul>
+                <p className="mt-3 text-xs text-white/40">
+                  El panel te va marcando lo que falta y publica el perfil solo
+                  cuando la ficha queda completa.
+                </p>
               </div>
 
               <div className="mt-5 flex flex-col sm:flex-row gap-3">
                 <Link
-                  href="/cuenta"
+                  href="/dashboard/services"
                   className="btn-primary flex-1 text-center flex items-center justify-center gap-2"
                 >
-                  Ir a mi perfil
+                  Completar mi ficha
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link href="/" className="btn-secondary flex-1 text-center">

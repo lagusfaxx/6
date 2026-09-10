@@ -472,6 +472,12 @@ model User {
   subscriptionPrice   Int?              @default(2500)
   shopTrialEndsAt     DateTime?
   termsAcceptedAt     DateTime?
+  /// Momento en que la ficha quedó completa por primera vez (foto, datos,
+  /// tarifa, zona y servicios). Mientras sea null el perfil no se publica: es
+  /// lo que obliga a completar la ficha después del registro. Los perfiles que
+  /// ya estaban publicados antes de la regla se marcan en la migración para no
+  /// sacarlos del aire de un día para otro.
+  profileCompletedAt  DateTime?
   allowFreeMessages   Boolean           @default(false)
   /// Respuesta automática de la profesional: se envía sola 20 segundos después
   /// del primer mensaje de un cliente. El cliente la ve como un mensaje normal

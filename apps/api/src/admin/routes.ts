@@ -391,6 +391,22 @@ adminRouter.get(
           completedServices: true,
           profileViews: true,
           baseRate: true,
+          /* La ficha entera: el panel la edita para completar los perfiles
+             viejos, así que necesita los valores actuales. */
+          heightCm: true,
+          weightKg: true,
+          measurements: true,
+          hairColor: true,
+          skinTone: true,
+          languages: true,
+          bio: true,
+          availabilityNote: true,
+          minDurationMinutes: true,
+          acceptsIncalls: true,
+          acceptsOutcalls: true,
+          serviceStyleTags: true,
+          serviceTags: true,
+          birthdate: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -492,9 +508,108 @@ adminRouter.put(
       gender,
       phone,
       displayName,
+      /* Ficha: lo que la página pública muestra y que hasta ahora sólo podía
+         tocar la profesional desde su panel. Los perfiles antiguos quedaron
+         con la mitad de estos campos vacíos, así que el equipo los completa
+         desde acá. */
+      heightCm,
+      weightKg,
+      measurements,
+      hairColor,
+      skinTone,
+      languages,
+      city,
+      bio,
+      availabilityNote,
+      minDurationMinutes,
+      acceptsIncalls,
+      acceptsOutcalls,
+      serviceStyleTags,
+      serviceTags,
+      profileTags,
     } = req.body ?? {};
 
     const data: any = {};
+
+    /** Texto opcional: "" borra el dato, undefined lo deja como está. */
+    const setText = (field: string, value: unknown, maxLength = 300) => {
+      if (value === undefined) return;
+      if (value === null || String(value).trim() === "") {
+        data[field] = null;
+        return;
+      }
+      data[field] = String(value).trim().slice(0, maxLength);
+    };
+
+    /** Entero opcional dentro de un rango; fuera de rango se ignora. */
+    const setInt = (field: string, value: unknown, max: number) => {
+      if (value === undefined) return;
+      if (value === null || String(value).trim() === "") {
+        data[field] = null;
+        return;
+      }
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return;
+      data[field] = Math.max(0, Math.min(max, Math.round(parsed)));
+    };
+
+    const setBool = (field: string, value: unknown) => {
+      if (value === undefined) return;
+      if (value === null) {
+        data[field] = null;
+        return;
+      }
+      data[field] = value === true || value === "true";
+    };
+
+    setInt("heightCm", heightCm, 260);
+    setInt("weightKg", weightKg, 250);
+    setInt("minDurationMinutes", minDurationMinutes, 1440);
+    setText("measurements", measurements, 40);
+    setText("hairColor", hairColor, 40);
+    setText("skinTone", skinTone, 40);
+    setText("languages", languages, 120);
+    setText("city", city, 80);
+    setText("bio", bio, 2000);
+    setText("availabilityNote", availabilityNote, 200);
+    setText("serviceStyleTags", serviceStyleTags, 300);
+    setBool("acceptsIncalls", acceptsIncalls);
+    setBool("acceptsOutcalls", acceptsOutcalls);
+
+    const normalizeTag = (tag: unknown) =>
+      String(tag)
+        .toLowerCase()
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+    if (Array.isArray(serviceTags)) {
+      data.serviceTags = Array.from(
+        new Set(serviceTags.map(normalizeTag).filter(Boolean)),
+      ).slice(0, 40);
+    }
+
+    /* Las insignias (premium, verificada, exámenes) tienen su propio endpoint
+       con sus reglas: acá se editan sólo las etiquetas del perfil, y las
+       insignias que ya tenía se conservan tal cual. */
+    if (Array.isArray(profileTags)) {
+      const current = await prisma.user.findUnique({
+        where: { id },
+        select: { profileTags: true },
+      });
+      const badges = (current?.profileTags ?? []).filter((tag) =>
+        ADMIN_CONTROLLED_LABELS.has(tag),
+      );
+      const userTags = Array.from(
+        new Set(
+          profileTags
+            .map(normalizeTag)
+            .filter((tag: string) => tag && !ADMIN_CONTROLLED_LABELS.has(tag)),
+        ),
+      ).slice(0, 40);
+      data.profileTags = [...badges, ...userTags];
+    }
+
     if (isActive !== undefined) data.isActive = Boolean(isActive);
     if (gender !== undefined) {
       // El género decide en qué listados aparece el perfil (el home trata a los
@@ -591,6 +706,21 @@ adminRouter.put(
         phone: true,
         membershipExpiresAt: true,
         baseRate: true,
+        heightCm: true,
+        weightKg: true,
+        measurements: true,
+        hairColor: true,
+        skinTone: true,
+        languages: true,
+        city: true,
+        bio: true,
+        availabilityNote: true,
+        minDurationMinutes: true,
+        acceptsIncalls: true,
+        acceptsOutcalls: true,
+        serviceStyleTags: true,
+        serviceTags: true,
+        profileTags: true,
       },
     });
     return res.json({ profile: updated });

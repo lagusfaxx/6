@@ -217,10 +217,12 @@ export default function PublicateClient() {
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
           <CheckCircle2 className="h-8 w-8 text-emerald-400" />
         </div>
-        <h1 className="text-2xl font-bold text-white">Tu perfil fue creado exitosamente</h1>
+        <h1 className="text-2xl font-bold text-white">Tu cuenta fue creada</h1>
         <p className="mt-3 text-sm text-white/50 leading-relaxed">
-          Un administrador lo revisará pronto. Revisa tu correo electrónico para
-          crear tu contraseña y completar tu perfil.
+          Tu perfil todavía no se publica: falta completar la ficha con lo que
+          mira el cliente — medidas, tarifa, comuna y servicios. Revisa tu
+          correo para crear la contraseña y entrar a completarla; el panel te
+          marca lo que falta y publica el perfil cuando esté listo.
         </p>
         <p className="mt-3 text-xs text-white/40 leading-relaxed">
           ¿No recibiste el correo? Revisa tu carpeta de spam o{" "}

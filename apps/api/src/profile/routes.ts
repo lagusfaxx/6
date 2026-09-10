@@ -3,6 +3,10 @@ import multer from "multer";
 import path from "path";
 import fs from "node:fs/promises";
 import { prisma } from "../db";
+import {
+  missingProfileFields,
+  MIN_PROFILE_PHOTOS,
+} from "../lib/profileCompletion";
 import { Prisma } from "@prisma/client";
 import { requireAuth } from "../auth/middleware";
 import { config } from "../config";
@@ -607,10 +611,38 @@ async function updateProfile(req: any, res: any) {
     priceValue !== undefined && Number.isFinite(priceValue)
       ? Math.max(100, Math.min(20000, priceValue))
       : undefined;
-  const me = await prisma.user.findUnique({
-    where: { id: req.session.userId! },
-    select: { profileType: true, phone: true, displayName: true },
-  });
+  const meSelect = {
+    profileType: true,
+    phone: true,
+    displayName: true,
+    birthdate: true,
+    heightCm: true,
+    weightKg: true,
+    measurements: true,
+    hairColor: true,
+    skinTone: true,
+    baseRate: true,
+    city: true,
+    bio: true,
+    serviceTags: true,
+    profileCompletedAt: true,
+  } as const;
+  let me: any;
+  try {
+    me = await prisma.user.findUnique({
+      where: { id: req.session.userId! },
+      select: meSelect,
+    });
+  } catch {
+    // La columna de ficha completa puede no estar todavía en la base: sin ella
+    // el guardado sigue funcionando, sólo que sin la regla de publicación.
+    const { profileCompletedAt: _omit, ...legacySelect } = meSelect as Record<string, boolean>;
+    me = await prisma.user.findUnique({
+      where: { id: req.session.userId! },
+      select: legacySelect as any,
+    });
+    if (me) me.profileCompletedAt = new Date();
+  }
   if (!me) return res.status(404).json({ error: "NOT_FOUND" });
   if (me.profileType === "PROFESSIONAL" && bio !== undefined) {
     if (!bio || bio.trim().length < 20) {
@@ -809,6 +841,50 @@ async function updateProfile(req: any, res: any) {
               : undefined,
   };
 
+  /* Ficha completa antes de publicar.
+     La regla se aplica sobre cómo va a quedar el perfil después de este
+     guardado, no sobre cómo estaba: así completar el último campo y activar
+     en el mismo envío funciona. Los perfiles que ya venían publicados
+     (profileCompletedAt con fecha) no se tocan — esos los completa el equipo
+     desde el panel. */
+  if (me.profileType === "PROFESSIONAL") {
+    const merged = {
+      birthdate: baseData.birthdate !== undefined ? (baseData.birthdate as Date | null) : me.birthdate,
+      heightCm: baseData.heightCm !== undefined ? (baseData.heightCm as number | null) : me.heightCm,
+      weightKg: baseData.weightKg !== undefined ? (baseData.weightKg as number | null) : me.weightKg,
+      measurements: baseData.measurements !== undefined ? (baseData.measurements as string | null) : me.measurements,
+      hairColor: baseData.hairColor !== undefined ? (baseData.hairColor as string | null) : me.hairColor,
+      skinTone: baseData.skinTone !== undefined ? (baseData.skinTone as string | null) : me.skinTone,
+      baseRate: baseData.baseRate !== undefined ? (baseData.baseRate as number | null) : me.baseRate,
+      city: baseData.city !== undefined ? (baseData.city as string | null) : me.city,
+      phone: baseData.phone !== undefined ? (baseData.phone as string | null) : me.phone,
+      bio: baseData.bio !== undefined ? (baseData.bio as string | null) : me.bio,
+      serviceTags: baseData.serviceTags !== undefined ? (baseData.serviceTags as string[]) : me.serviceTags,
+    };
+    const photoCount = await prisma.profileMedia.count({
+      where: { ownerId: req.session.userId!, type: "IMAGE" },
+    });
+    const missing = missingProfileFields(merged, photoCount);
+
+    if (missing.length > 0) {
+      if (safeIsActive === true) {
+        return res.status(422).json({
+          error: "PROFILE_INCOMPLETE",
+          message:
+            "Completa la ficha antes de publicar el perfil: es lo que ve el cliente.",
+          missing,
+          minPhotos: MIN_PROFILE_PHOTOS,
+        });
+      }
+      // Nunca publicado y todavía incompleto: se guarda, pero apagado.
+      if (!me.profileCompletedAt) baseData.isActive = false;
+    } else if (!me.profileCompletedAt) {
+      // Primera vez que la ficha queda completa: queda lista para publicarse.
+      baseData.profileCompletedAt = new Date();
+      if (safeIsActive === undefined) baseData.isActive = true;
+    }
+  }
+
   let user: any;
   try {
     user = await prisma.user.update({
@@ -826,6 +902,7 @@ async function updateProfile(req: any, res: any) {
       delete baseData.serviceTags;
       delete baseData.coverPositionX;
       delete baseData.coverPositionY;
+      delete baseData.profileCompletedAt;
       user = await prisma.user.update({
         where: { id: req.session.userId! },
         data: baseData,
