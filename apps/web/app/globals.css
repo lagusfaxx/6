@@ -191,6 +191,32 @@ body::after {
     background: rgba(255, 255, 255, 0.04);
   }
 
+  /* Campo obligatorio todavía vacío: se nota sin gritar. */
+  .input-studio-pending {
+    border-color: rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.04);
+  }
+
+  .input-studio-pending:focus {
+    @apply border-violet-500/40 ring-2 ring-violet-500/20;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  /* Destello al saltar desde la lista de requisitos hasta el campo. */
+  .studio-field-flash {
+    animation: studio-field-flash 1.4s ease-out;
+    border-radius: 0.75rem;
+  }
+
+  @keyframes studio-field-flash {
+    0%, 40% {
+      box-shadow: 0 0 0 3px rgba(217, 70, 239, 0.35);
+    }
+    100% {
+      box-shadow: 0 0 0 3px rgba(217, 70, 239, 0);
+    }
+  }
+
   .unsaved-bar {
     @apply flex items-center gap-3 rounded-2xl border border-white/10 px-5 py-3;
     background: rgba(0, 0, 0, 0.85);

@@ -1,5 +1,7 @@
 "use client";
 
+import FieldLabel from "./FieldLabel";
+
 type Option = { value: string; label: string };
 
 type Props = {
@@ -10,6 +12,10 @@ type Props = {
   placeholder?: string;
   hint?: string;
   className?: string;
+  id?: string;
+  required?: boolean;
+  complete?: boolean;
+  optional?: boolean;
 };
 
 export default function FloatingSelect({
@@ -20,14 +26,25 @@ export default function FloatingSelect({
   placeholder,
   hint,
   className = "",
+  id,
+  required = false,
+  complete = false,
+  optional = false,
 }: Props) {
+  const pending = required && !complete;
+
   return (
     <div className={`grid gap-1.5 ${className}`}>
-      <label className="text-[11px] font-medium tracking-wide text-white/40 uppercase">
-        {label}
-      </label>
+      <FieldLabel
+        label={label}
+        required={required}
+        complete={complete}
+        optional={optional}
+        htmlFor={id}
+      />
       <select
-        className="input-studio"
+        id={id}
+        className={`input-studio ${pending ? "input-studio-pending" : ""}`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >

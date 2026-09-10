@@ -2,8 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useDashboardForm } from "../../../../hooks/useDashboardForm";
-import { requiredProfileFields, type RequiredField } from "../../../../lib/profileCompletion";
-import { Check, ChevronDown, Circle } from "lucide-react";
+import {
+  focusRequiredField,
+  requiredProfileFields,
+  type RequiredField,
+} from "../../../../lib/profileCompletion";
+import { ArrowRight, Check, ChevronDown, Circle } from "lucide-react";
 
 type Props = {
   user: any;
@@ -15,8 +19,9 @@ type Props = {
  *
  * No es una barra de "completitud" decorativa: son los campos sin los cuales el
  * servidor no publica el perfil (apps/api/src/lib/profileCompletion.ts). Cada
- * campo que falta lleva a la pestaña donde se completa, porque la queja real no
- * es que falte el dato sino no saber dónde se pone.
+ * campo que falta lleva a la pestaña donde se completa y deja el cursor puesto
+ * en él, porque la queja real no es que falte el dato sino no saber dónde se
+ * pone.
  *
  * Los perfiles que ya estaban publicados antes de la regla siguen al aire: a
  * ellos el aviso les cambia el tono — es una recomendación, no un bloqueo.
@@ -40,6 +45,12 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
   /* Perfil que ya está al aire (o que ya lo estuvo): el aviso es una
      recomendación, no un bloqueo — a nadie se le baja el anuncio por esto. */
   const grandfathered = Boolean(user?.profileCompletedAt) || user?.isActive === true;
+
+  /** Lleva a la pestaña del campo y deja el cursor ahí mismo. */
+  const goToField = (field: RequiredField) => {
+    if (state.tab !== field.tab) setField("tab", field.tab);
+    focusRequiredField(field.anchor);
+  };
 
   const tone = complete
     ? {
@@ -68,12 +79,13 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
       ? `Te faltan ${missing.length} datos en la ficha`
       : "Tu perfil no se publica hasta completar la ficha";
 
-
   const subtitle = complete
     ? "El cliente ve todos los datos que busca."
     : grandfathered
       ? "Tu perfil sigue publicado, pero se ve incompleto frente a los que sí los tienen."
       : `Faltan ${missing.length} de ${fields.length} datos que el cliente mira antes de escribir.`;
+
+  const showList = expanded || !complete;
 
   return (
     <div className={`mb-4 overflow-hidden rounded-2xl border ${tone.border} ${tone.bg}`}>
@@ -107,16 +119,35 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
         </div>
       </div>
 
-      {(expanded || (!complete && !grandfathered)) && (
+      {/* El siguiente paso, a un click: no hace falta abrir la lista ni
+          adivinar la pestaña. */}
+      {!complete && (
+        <div className="px-4 pb-3">
+          <button
+            type="button"
+            onClick={() => goToField(missing[0])}
+            className="flex w-full items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-left transition hover:border-fuchsia-500/30 hover:bg-fuchsia-500/[0.08]"
+          >
+            <span className="min-w-0">
+              <span className="block text-[10px] uppercase tracking-wide text-white/35">
+                Continuar por
+              </span>
+              <span className="block truncate text-sm text-white/85">{missing[0].label}</span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-fuchsia-400" />
+          </button>
+        </div>
+      )}
+
+      {showList && (
         <div className="border-t border-white/[0.06] px-4 py-3">
           <ul className="space-y-1">
             {(expanded ? fields : missing).map((field) => (
               <li key={field.key}>
                 <button
                   type="button"
-                  onClick={() => setField("tab", field.tab)}
-                  disabled={field.complete}
-                  className="flex w-full items-center gap-2.5 rounded-lg py-1 text-left text-sm transition disabled:cursor-default"
+                  onClick={() => goToField(field)}
+                  className="group flex w-full items-center gap-2.5 rounded-lg px-1 py-1 text-left text-sm transition hover:bg-white/[0.04]"
                 >
                   {field.complete ? (
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/15">
@@ -130,11 +161,9 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
                   <span className={field.complete ? "text-white/40" : "text-white/80"}>
                     {field.label}
                   </span>
-                  {!field.complete && (
-                    <span className="ml-auto text-[11px] text-white/35 underline underline-offset-4">
-                      Completar
-                    </span>
-                  )}
+                  <span className="ml-auto shrink-0 text-[11px] text-white/35 underline underline-offset-4 group-hover:text-fuchsia-300">
+                    {field.complete ? "Editar" : "Completar"}
+                  </span>
                 </button>
               </li>
             ))}

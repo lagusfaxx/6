@@ -34,9 +34,14 @@ type PhoneChangeState = {
 export default function PhoneField({
   value,
   onChange,
+  required = false,
+  complete = false,
 }: {
   value: string;
   onChange: (value: string) => void;
+  /** Obligatorio para publicar: lo marca el editor de perfil. */
+  required?: boolean;
+  complete?: boolean;
 }) {
   const [state, setState] = useState<PhoneChangeState | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -101,12 +106,14 @@ export default function PhoneField({
   if (!locked) {
     return (
       <FloatingInput
-        label="Teléfono de contacto"
+        label="Número de WhatsApp"
         value={value}
         onChange={onChange}
         type="tel"
         placeholder="+56 9 1234 5678"
         hint="Es el número que verán tus clientes. Una vez guardado, cambiarlo requiere aprobación."
+        required={required}
+        complete={complete}
       />
     );
   }
@@ -114,7 +121,7 @@ export default function PhoneField({
   return (
     <div className="grid gap-1.5">
       <label className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-white/40">
-        Teléfono de contacto
+        Número de WhatsApp
         <Lock className="h-3 w-3" />
       </label>
       <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">

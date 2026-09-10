@@ -1,6 +1,7 @@
 "use client";
 
 import { useDashboardForm } from "../../../../../hooks/useDashboardForm";
+import { fieldAnchor } from "../../../../../lib/profileCompletion";
 import EditorCard from "../EditorCard";
 import FloatingInput from "../FloatingInput";
 import MapboxMap from "../../../../../components/MapboxMap";
@@ -18,6 +19,9 @@ export default function LocationEditor({
   onGeocodeProfileAddress,
 }: Props) {
   const { state, setField } = useDashboardForm();
+  /* La comuna es obligatoria para publicar: se marca acá igual que en la
+     pestaña de perfil, y la lista de requisitos salta directo a ella. */
+  const cityComplete = !!state.city.trim();
   const requiresMapboxLocation =
     profileType === "PROFESSIONAL" ||
     profileType === "ESTABLISHMENT" ||
@@ -25,14 +29,14 @@ export default function LocationEditor({
 
   return (
     <EditorCard
-      title="Ubicacion"
-      subtitle="Actualiza tu direccion y ciudad."
+      title="Ubicación"
+      subtitle="Dónde te ubica el cliente en el mapa."
       delay={0}
     >
       <div className="grid gap-4">
         {requiresMapboxLocation ? (
           <MapboxAddressAutocomplete
-            label="Direccion"
+            label="Dirección"
             value={state.address}
             onChange={(v) => {
               setField("address", v);
@@ -46,20 +50,25 @@ export default function LocationEditor({
               setField("profileLocationVerified", true);
               setField("lastProfileGeocoded", selection.placeName);
             }}
-            placeholder="Busca y selecciona tu direccion"
+            placeholder="Busca y selecciona tu dirección"
             required
           />
         ) : (
           <FloatingInput
-            label="Direccion"
+            label="Dirección"
             value={state.address}
             onChange={(v) => setField("address", v)}
           />
         )}
         <FloatingInput
-          label="Ciudad"
+          id={fieldAnchor("city")}
+          label="Comuna"
           value={state.city}
           onChange={(v) => setField("city", v)}
+          placeholder="Las Condes"
+          hint="Se completa sola al elegir la dirección en el buscador."
+          required
+          complete={cityComplete}
         />
 
         {requiresMapboxLocation && (
@@ -73,10 +82,10 @@ export default function LocationEditor({
               >
                 {state.profileGeocodeBusy
                   ? "Buscando..."
-                  : "Verificar direccion en mapa"}
+                  : "Verificar dirección en mapa"}
               </button>
               <span className="text-[11px] text-white/25">
-                Buscamos automaticamente mientras escribes.
+                Buscamos automáticamente mientras escribes.
               </span>
             </div>
             {state.profileGeocodeError && (

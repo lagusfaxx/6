@@ -1,5 +1,7 @@
 "use client";
 
+import FieldLabel from "./FieldLabel";
+
 type Props = {
   label: string;
   value: string;
@@ -8,6 +10,10 @@ type Props = {
   rows?: number;
   hint?: string;
   className?: string;
+  id?: string;
+  required?: boolean;
+  complete?: boolean;
+  optional?: boolean;
 };
 
 export default function FloatingTextarea({
@@ -18,14 +24,25 @@ export default function FloatingTextarea({
   rows = 3,
   hint,
   className = "",
+  id,
+  required = false,
+  complete = false,
+  optional = false,
 }: Props) {
+  const pending = required && !complete;
+
   return (
     <div className={`grid gap-1.5 ${className}`}>
-      <label className="text-[11px] font-medium tracking-wide text-white/40 uppercase">
-        {label}
-      </label>
+      <FieldLabel
+        label={label}
+        required={required}
+        complete={complete}
+        optional={optional}
+        htmlFor={id}
+      />
       <textarea
-        className="input-studio resize-none"
+        id={id}
+        className={`input-studio resize-none ${pending ? "input-studio-pending" : ""}`}
         style={{ minHeight: `${rows * 1.75}rem` }}
         value={value}
         onChange={(e) => onChange(e.target.value)}

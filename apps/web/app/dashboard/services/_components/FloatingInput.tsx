@@ -1,5 +1,7 @@
 "use client";
 
+import FieldLabel from "./FieldLabel";
+
 type Props = {
   label: string;
   value: string;
@@ -11,6 +13,13 @@ type Props = {
   min?: string;
   hint?: string;
   className?: string;
+  /** id del control: lo usa la lista de requisitos para saltar hasta acá. */
+  id?: string;
+  /** Obligatorio para publicar (no es el `required` del HTML). */
+  required?: boolean;
+  /** Si ese campo obligatorio ya está resuelto. */
+  complete?: boolean;
+  optional?: boolean;
 };
 
 export default function FloatingInput({
@@ -24,14 +33,25 @@ export default function FloatingInput({
   min,
   hint,
   className = "",
+  id,
+  required = false,
+  complete = false,
+  optional = false,
 }: Props) {
+  const pending = required && !complete;
+
   return (
     <div className={`grid gap-1.5 ${className}`}>
-      <label className="text-[11px] font-medium tracking-wide text-white/40 uppercase">
-        {label}
-      </label>
+      <FieldLabel
+        label={label}
+        required={required}
+        complete={complete}
+        optional={optional}
+        htmlFor={id}
+      />
       <input
-        className="input-studio"
+        id={id}
+        className={`input-studio ${pending ? "input-studio-pending" : ""}`}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
