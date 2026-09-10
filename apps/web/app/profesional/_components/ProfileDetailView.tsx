@@ -699,8 +699,24 @@ export default function ProfileDetailView({
         : `Responde en ${professional.avgResponseMinutes} min`
       : null;
 
-  const serviceCount =
-    (professional.serviceTags?.length ?? 0) + extraSubcategories.length;
+  /* Lo que ofrece, en una sola lista: las etiquetas que marcó más las
+     subcategorías deducidas de ellas, sin repetir y en orden. Sin useMemo a
+     propósito: este bloque corre después de los `return` tempranos de carga,
+     así que un hook acá cambiaría la cantidad de hooks entre renders. */
+  const serviceList = (() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of [...(professional.serviceTags ?? []), ...extraSubcategories]) {
+      const label = String(raw).trim();
+      const key = label.toLowerCase();
+      if (!label || seen.has(key)) continue;
+      seen.add(key);
+      out.push(label);
+    }
+    return out.sort((a, b) => a.localeCompare(b, "es"));
+  })();
+
+  const serviceCount = serviceList.length;
 
   const ratingValue = surveySummary?.avgOverall ?? professional.rating ?? null;
   const ratingCount = surveySummary?.count ?? professional.reviewCount ?? 0;
@@ -1062,26 +1078,44 @@ export default function ProfileDetailView({
           se lea como una plantilla. */}
       <div className="mx-auto mt-10 w-full max-w-6xl min-w-0 px-4 md:px-8">
         <div className="min-w-0 divide-y divide-white/[0.08]">
-          {/* Servicios: en texto corrido, como los lee la gente. Veinte
-              pastillas moradas ocupan tres veces más y dicen lo mismo. */}
-          {((professional?.serviceTags?.length ?? 0) > 0 ||
-            matchedSubcategories.length > 0 ||
-            hasStyleSection) && (
+          {/* Servicios: una lista de verdad, en columnas y con un visto por
+              ítem. En texto corrido separado por comas se leía como un párrafo
+              cualquiera y no como lo que la profesional ofrece — que es
+              justamente lo que el cliente viene a revisar. Sin volver a las
+              veinte pastillas de colores, que era el otro extremo. */}
+          {(serviceList.length > 0 || styleChips.length > 0) && (
             <section id="servicios" className="min-w-0 scroll-mt-24 py-8 first:pt-0">
               <h2 className="text-lg font-semibold tracking-tight">Servicios</h2>
 
-              {((professional?.serviceTags?.length ?? 0) > 0 ||
-                matchedSubcategories.length > 0) && (
-                <p className="mt-3 text-[15px] leading-[1.8] text-white/75">
-                  {[...(professional?.serviceTags ?? []), ...extraSubcategories].join(", ")}.
-                </p>
+              {serviceList.length > 0 && (
+                <ul className="mt-4 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+                  {serviceList.map((item) => (
+                    <li
+                      key={item}
+                      className="flex items-start gap-2.5 border-b border-white/[0.06] py-2.5 text-[14.5px] text-white/85"
+                    >
+                      <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                      <span className="first-letter:uppercase">{item}</span>
+                    </li>
+                  ))}
+                </ul>
               )}
 
-              {hasStyleSection && styleChips.length > 0 && (
-                <p className="mt-3 text-[15px] leading-[1.8] text-white/55">
-                  <span className="text-white/40">Estilo: </span>
-                  {styleChips.join(", ")}.
-                </p>
+              {styleChips.length > 0 && (
+                <div className="mt-5">
+                  <h3 className="text-[13px] font-medium text-white/40">Estilo</h3>
+                  <ul className="mt-2 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+                    {styleChips.map((item) => (
+                      <li
+                        key={item}
+                        className="flex items-start gap-2.5 border-b border-white/[0.06] py-2 text-[14px] text-white/60"
+                      >
+                        <span className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-white/30" />
+                        <span className="first-letter:uppercase">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </section>
           )}
