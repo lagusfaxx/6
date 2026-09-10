@@ -221,11 +221,23 @@ export default function AdminVerificationPage() {
     setBusy(p.id);
     setError(null);
     try {
-      await apiFetch(`/admin/verification/${p.id}/approve`, {
-        method: "PUT",
-        body: JSON.stringify({ verifiedByPhone: phoneInputs[p.id] || p.phone || "" }),
-      });
-      setSuccess(`${p.displayName || p.username} ha sido verificado y activado.`);
+      const res = await apiFetch<{ missing?: { label: string }[] }>(
+        `/admin/verification/${p.id}/approve`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ verifiedByPhone: phoneInputs[p.id] || p.phone || "" }),
+        },
+      );
+      /* Verificar ya no publica una ficha a medias: si falta algo, la cuenta
+         queda verificada y el perfil sale recién cuando lo complete. */
+      const missing = res?.missing ?? [];
+      setSuccess(
+        missing.length > 0
+          ? `${p.displayName || p.username} quedó verificada, pero su perfil no se publica hasta completar: ${missing
+              .map((m) => m.label)
+              .join(", ")}. Puedes completarlo tú desde Perfiles.`
+          : `${p.displayName || p.username} ha sido verificado y activado.`,
+      );
       await loadProfiles();
     } catch {
       setError("No se pudo aprobar el perfil.");
