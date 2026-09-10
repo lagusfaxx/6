@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, TrainFront } from "lucide-react";
 import { resolveMediaUrl } from "../../../../lib/api";
 import { hasVerifiedBadge } from "../../../../lib/systemBadges";
 import VerifiedBand from "../../../../components/VerifiedBand";
@@ -136,6 +136,15 @@ function LivePreviewProfessional({ state, user }: Props) {
               {levelLabel}
               {state.city ? ` · ${state.city}` : ""}
             </p>
+            {/* La estación la calcula el servidor con la dirección guardada:
+                si acaba de mover el punto, aparece después de guardar. */}
+            {user?.nearestMetro && (
+              <p className="mt-1 inline-flex items-center gap-1.5 text-[12px] text-white/60">
+                <TrainFront className="h-3.5 w-3.5 text-sky-300/80" />
+                Metro {user.nearestMetro.name}
+                <span className="text-white/35">a {user.nearestMetro.distanceM} m</span>
+              </p>
+            )}
           </div>
           {isVerified && photoUrl && <VerifiedBand size="sm" />}
         </div>

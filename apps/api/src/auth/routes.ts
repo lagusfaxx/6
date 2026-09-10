@@ -6,6 +6,7 @@ import path from "path";
 import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { missingProfileFields } from "../lib/profileCompletion";
+import { nearestMetroStation } from "../lib/metroStations";
 import { Prisma } from "@prisma/client";
 import { loginInputSchema, registerInputSchema, quickRegisterSchema } from "@uzeed/shared";
 import { autoReplyFields } from "../messages/autoReply";
@@ -377,6 +378,12 @@ authRouter.post(
     return res.json({
       user: {
         ...user,
+        /* La misma estación que verá el cliente en la ficha, para que la vista
+           previa del estudio no invente nada. */
+        nearestMetro:
+          user.profileType === "PROFESSIONAL"
+            ? nearestMetroStation(user.latitude, user.longitude)
+            : null,
         membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null,
       },
     });
