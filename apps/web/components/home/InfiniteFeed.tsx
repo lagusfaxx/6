@@ -245,10 +245,6 @@ export default function InfiniteFeed({
                 </div>
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 p-3 [--verified-band-bleed:12px]">
-                  {/* Banda de verificación, justo encima del nombre */}
-                  {hasVerifiedBadge(p.profileTags) && (
-                    <VerifiedBand size="sm" inline />
-                  )}
                   <div className="flex items-center gap-1 truncate text-sm font-bold text-white">
                     <span className="truncate">{p.displayName}</span>
                     {hasPremiumBadge(p.profileTags) && (
@@ -279,6 +275,11 @@ export default function InfiniteFeed({
                       </span>
                     )}
                   </div>
+
+                  {/* Banda de verificación, cruzando el borde de abajo */}
+                  {hasVerifiedBadge(p.profileTags) && (
+                    <VerifiedBand size="sm" inline />
+                  )}
                 </div>
               </div>
             </Link>

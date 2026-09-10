@@ -202,11 +202,6 @@ function ProfileCard({
 
         {/* Bottom info overlay with premium layout */}
         <div className="absolute bottom-0 left-0 right-0 p-3 z-[3] [--verified-band-bleed:12px]">
-          {/* Banda de verificación: cruza la tarjeta justo encima del nombre */}
-          {hasVerifiedBadge(p.profileTags) && (coverSrc || avatarSrc) && (
-            <VerifiedBand size="sm" inline />
-          )}
-
           {/* Name + age + verification badges */}
           <div className="flex items-center gap-1.5 font-bold text-white text-[13px] sm:text-sm leading-tight">
             <span className="truncate">{p.displayName}</span>
@@ -245,6 +240,11 @@ function ProfileCard({
                 </span>
               )}
             </div>
+          )}
+
+          {/* Banda de verificación: cruza el borde de abajo de la tarjeta */}
+          {hasVerifiedBadge(p.profileTags) && (coverSrc || avatarSrc) && (
+            <VerifiedBand size="sm" inline />
           )}
         </div>
       </div>

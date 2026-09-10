@@ -815,8 +815,6 @@ export default function ProfileDetailView({
 
           {/* Bottom info overlay */}
           <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-16 md:px-8 md:pb-6 bg-gradient-to-t from-[#0c0614] via-[#0c0614]/80 to-transparent [--verified-band-bleed:16px] md:[--verified-band-bleed:32px]">
-            {/* Banda de verificación cruzando la parte baja de la portada */}
-            {isVerifiedProfile && coverSrc && <VerifiedBand size="md" inline />}
             <div className="space-y-2 md:space-y-2.5">
               <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl">
                 {professional.name}
@@ -875,6 +873,9 @@ export default function ProfileDetailView({
                 )}
               </div>
             </div>
+
+            {/* Banda de verificación, cruzando el borde de abajo de la portada */}
+            {isVerifiedProfile && coverSrc && <VerifiedBand size="md" inline />}
           </div>
         </div>
       </section>
