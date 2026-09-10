@@ -137,14 +137,6 @@ export const PRODUCT_TYPE_LABEL: Record<MarketProductType, string> = {
   OTHER: "Otro",
 };
 
-export const PRODUCT_TYPE_EMOJI: Record<MarketProductType, string> = {
-  PHOTO_SET: "📸",
-  VIDEO: "🎬",
-  CLOTHING: "👙",
-  FETISH: "🔥",
-  CUSTOM: "✨",
-  OTHER: "🎁",
-};
 
 export const DELIVERY_LABEL: Record<MarketDeliveryMethod, string> = {
   DIGITAL: "Entrega digital",

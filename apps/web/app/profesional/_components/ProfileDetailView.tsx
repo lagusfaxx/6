@@ -14,32 +14,20 @@ import SkeletonCard from "../../../components/SkeletonCard";
 import Link from "next/link";
 import {
   ImageIcon,
-  MapPin,
   Star,
   X,
   Heart,
-  Shield,
   ChevronLeft,
   ChevronRight,
   MessageSquare,
-  Award,
-  Sparkles,
   ShoppingBag,
-  Zap,
-  Gem,
   Phone,
   Play,
   Share2,
   Check,
-  BadgeCheck,
-  Camera,
-  Stethoscope,
-  Banknote,
-  CalendarClock,
 } from "lucide-react";
-import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
+import { hasVerifiedBadge } from "../../../lib/systemBadges";
 import VerifiedBand from "../../../components/VerifiedBand";
-import StatusBadgeIcon from "../../../components/StatusBadgeIcon";
 
 type GalleryItem = { url: string; type: "IMAGE" | "VIDEO" };
 
@@ -657,21 +645,18 @@ export default function ProfileDetailView({
     ? `Escort ${professional.userLevel}`
     : professional.category || "Escort";
 
-  /* Dos filas de datos: arriba lo que se compara de un vistazo (edad, medidas)
-     y abajo lo descriptivo, que se lee sólo si la primera fila convenció. */
-  const primaryChips = [
-    professional.age ? `${professional.age} años` : null,
-    professional.heightCm ? `${professional.heightCm} cm` : null,
-    professional.weightKg ? `${professional.weightKg} kg` : null,
-    professional.measurements || null,
-  ].filter(Boolean) as string[];
-
-  const secondaryChips = [
-    professional.hairColor ? `Cabello ${professional.hairColor}` : null,
-    professional.skinTone ? `Piel ${professional.skinTone}` : null,
-    ...splitCsv(professional.languages),
-    ...filterUserTags(professional.profileTags).slice(0, 6),
-  ].filter(Boolean) as string[];
+  /* Ficha técnica en pares dato/valor. Antes esto eran dos filas de etiquetas
+     de colores; en una página de verdad los datos van en una lista y las
+     etiquetas se guardan para lo que de verdad es una categoría. */
+  const specs = [
+    { label: "Edad", value: professional.age ? `${professional.age} años` : null },
+    { label: "Estatura", value: professional.heightCm ? `${professional.heightCm} cm` : null },
+    { label: "Peso", value: professional.weightKg ? `${professional.weightKg} kg` : null },
+    { label: "Medidas", value: professional.measurements || null },
+    { label: "Cabello", value: professional.hairColor || null },
+    { label: "Piel", value: professional.skinTone || null },
+    { label: "Idiomas", value: splitCsv(professional.languages).join(", ") || null },
+  ].filter((item) => Boolean(item.value)) as { label: string; value: string }[];
 
   const photoCount = gallery.filter((g) => g.type === "IMAGE").length;
   const videoCount = gallery.length - photoCount;
@@ -696,229 +681,181 @@ export default function ProfileDetailView({
 
   return (
     <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-hidden pb-40 md:pb-10">
-      {/* ══════════ Ficha ══════════
-          La presentación entra completa en una pantalla: foto, quién es, los
-          datos duros y por qué creerle. Debajo van las fotos y las opiniones,
-          que es lo que se mira después de decidir que interesa. */}
-      <div className="mx-auto w-full max-w-6xl min-w-0 md:px-8 md:pt-5">
-        <section className="overflow-hidden border-b border-white/[0.07] bg-[#0e0f1e]/70 md:rounded-3xl md:border">
-          <div className="md:grid md:grid-cols-[280px_minmax(0,1fr)] md:gap-6 md:p-6 lg:grid-cols-[320px_minmax(0,1fr)_290px]">
+      {/* Ficha.
+          Sin tarjetas dentro de tarjetas: la foto es la única superficie y
+          todo lo demás se ordena con tipografía y líneas de 1px. Los recuadros
+          apilados y las filas de etiquetas de colores es lo primero que delata
+          una página armada a la rápida. */}
+      <div className="mx-auto w-full max-w-6xl min-w-0 md:px-8 md:pt-6">
+        <div className="md:grid md:grid-cols-[320px_minmax(0,1fr)] md:gap-8 lg:grid-cols-[360px_minmax(0,1fr)]">
 
-            {/* ── Foto principal ── */}
-            {/* self-stretch + h-full: la foto acompaña el alto de la ficha en
-                el escritorio. Con una relación de aspecto fija quedaba un
-                hueco muerto debajo cuando la columna de datos era más alta. */}
-            <div className="relative w-full overflow-hidden md:self-stretch md:rounded-2xl md:border md:border-white/[0.08]">
-              <button
-                type="button"
-                onClick={() => mainPhoto && setLightbox(mainPhoto)}
-                className="relative block aspect-[4/5] w-full md:aspect-auto md:h-full md:min-h-[440px]"
-                aria-label="Ver foto en grande"
-              >
-                {coverSrc ? (
-                  <img
-                    src={coverSrc}
-                    alt={professional.name}
-                    className="absolute inset-0 h-full w-full object-cover"
-                    style={{
-                      objectPosition: `${professional.coverPositionX ?? 50}% ${professional.coverPositionY ?? 50}%`,
-                    }}
-                  />
-                ) : (
-                  <div className="grid h-full w-full place-items-center bg-gradient-to-br from-fuchsia-700/35 via-violet-700/30 to-slate-900">
-                    <ImageIcon className="h-10 w-10 text-white/50" />
-                  </div>
-                )}
-
-                {/* Nombre sobre la foto: sólo en el teléfono, donde no hay
-                    columna al lado que lo sostenga. */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/25 md:hidden" />
-                {/* Copia visual del nombre para el teléfono. El título real es
-                    el <h1> de la columna de al lado, que en móvil queda oculto
-                    a la vista pero sigue en el documento. */}
-                <div aria-hidden="true" className="absolute inset-x-0 bottom-0 px-4 pb-9 text-center md:hidden">
-                  <p className="text-3xl font-extrabold uppercase leading-none tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
-                    {professional.name}
-                    {professional.age ? (
-                      <span className="ml-1.5 text-xl font-semibold text-white/70">
-                        {professional.age}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.32em] text-amber-300/90">
-                    {levelLabel}
-                  </p>
+          {/* ── Foto ── */}
+          <div className="relative w-full overflow-hidden md:sticky md:top-[88px] md:self-start md:rounded-lg">
+            <button
+              type="button"
+              onClick={() => mainPhoto && setLightbox(mainPhoto)}
+              className="relative block aspect-[4/5] w-full"
+              aria-label="Ver foto en grande"
+            >
+              {coverSrc ? (
+                <img
+                  src={coverSrc}
+                  alt={professional.name}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  style={{
+                    objectPosition: `${professional.coverPositionX ?? 50}% ${professional.coverPositionY ?? 50}%`,
+                  }}
+                />
+              ) : (
+                <div className="grid h-full w-full place-items-center bg-white/[0.04]">
+                  <ImageIcon className="h-10 w-10 text-white/25" />
                 </div>
+              )}
 
-                {isVerifiedProfile && <VerifiedBand size="md" />}
-
-                {gallery.length > 1 && (
-                  <span className="absolute bottom-10 right-2.5 z-[4] hidden items-center gap-1 rounded-full border border-white/20 bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white/85 backdrop-blur-md md:inline-flex">
-                    <Camera className="h-3 w-3" />
-                    {gallery.length}
-                  </span>
-                )}
-              </button>
-
-              {/* Nivel + estado, arriba a la izquierda */}
-              <div className="pointer-events-none absolute left-2.5 top-2.5 z-[4] flex flex-col items-start gap-1.5">
-                <span
-                  className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur-md ${availabilityState.className}`}
-                >
-                  <span className={`h-1.5 w-1.5 rounded-full ${availabilityState.dot}`} />
-                  {availabilityState.label}
-                </span>
-                {professional.userLevel && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/35 bg-amber-500/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-100 backdrop-blur-md">
-                    <Gem className="h-3 w-3" />
-                    {professional.userLevel}
-                  </span>
-                )}
-              </div>
-
-              {/* Guardar / compartir */}
-              <div className="absolute right-2.5 top-2.5 z-[4] flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={toggleFavorite}
-                  aria-label={favorite ? "Quitar de favoritos" : "Guardar en favoritos"}
-                  className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition ${
-                    favorite
-                      ? "border-rose-400/50 bg-rose-500/25 text-rose-100"
-                      : "border-white/20 bg-black/45 text-white/75 hover:bg-black/65"
-                  }`}
-                >
-                  <Heart className={`h-4 w-4 ${favorite ? "fill-rose-400" : ""}`} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleShare("profile_detail_hero")}
-                  aria-label="Compartir perfil"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white/75 backdrop-blur-md transition hover:bg-black/65"
-                >
-                  <Share2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* ── Quién es ── */}
-            <div className="min-w-0 px-4 pt-4 md:p-0">
-              <div className="sr-only md:not-sr-only md:block">
-                <h1 className="flex flex-wrap items-center gap-2.5 text-3xl font-extrabold uppercase leading-none tracking-tight lg:text-4xl">
+              {/* Copia visual del nombre para el teléfono. El título real es el
+                  <h1> de la columna de al lado, que en móvil no se ve pero
+                  sigue en el documento. */}
+              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent md:hidden" />
+              <div aria-hidden="true" className="absolute inset-x-0 bottom-0 px-4 pb-9 md:hidden">
+                <p className="text-[26px] font-semibold leading-none tracking-tight">
                   {professional.name}
                   {professional.age ? (
-                    <span className="text-2xl font-semibold text-white/50">
+                    <span className="ml-1.5 text-lg font-normal text-white/60">
                       {professional.age}
                     </span>
                   ) : null}
-                  {hasPremiumBadge(professional?.profileTags) && (
-                    <StatusBadgeIcon type="premium" size="h-5 w-5" />
-                  )}
-                </h1>
-                <p className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.34em] text-amber-300/90">
-                  {levelLabel}
                 </p>
+                <p className="mt-1 text-[13px] text-white/55">{levelLabel}</p>
               </div>
 
-              {/* Señales rápidas: responder rápido y tener servicios hechos es
-                  lo que separa un perfil activo de uno abandonado. */}
-              {(fastResponse || (professional.completedServices ?? 0) > 0 ||
-                professional.umateActive) && (
-                <div className="mt-3 flex flex-wrap items-center gap-2 md:mt-4">
-                  {fastResponse && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-300/25 bg-violet-500/12 px-2.5 py-1 text-[11px] font-semibold text-violet-100">
-                      <Zap className="h-3 w-3 text-violet-300" />
-                      {fastResponse}
-                    </span>
-                  )}
-                  {(professional.completedServices ?? 0) > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/25 bg-emerald-500/12 px-2.5 py-1 text-[11px] font-semibold text-emerald-100">
-                      <Shield className="h-3 w-3 text-emerald-300" />
-                      {professional.completedServices} servicios
-                    </span>
-                  )}
-                  {professional.umateActive && (
-                    <Link
-                      href={`/umate/profile/${professional.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-400/30 bg-gradient-to-r from-fuchsia-600/30 to-violet-600/30 px-2.5 py-1 text-[11px] font-bold text-fuchsia-100 transition hover:from-fuchsia-600/50 hover:to-violet-600/50"
-                      title="Contenido exclusivo en UMate"
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      UMate
-                    </Link>
-                  )}
-                </div>
-              )}
+              {isVerifiedProfile && <VerifiedBand size="md" />}
+            </button>
 
-              {/* Datos físicos: lo primero que se mira, así que van sólidos */}
-              {primaryChips.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5 md:mt-4">
-                  {primaryChips.map((chip) => (
-                    <span
-                      key={chip}
-                      className="rounded-lg border border-white/10 bg-white/[0.09] px-3 py-1.5 text-[13px] font-semibold text-white/90"
-                    >
-                      {chip}
-                    </span>
-                  ))}
-                </div>
-              )}
+            {availableNow && (
+              <span className="pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-emerald-200 backdrop-blur-md">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Disponible ahora
+              </span>
+            )}
 
-              {secondaryChips.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {secondaryChips.map((chip) => (
-                    <span
-                      key={chip}
-                      className="rounded-lg border border-white/[0.09] bg-white/[0.03] px-2.5 py-1.5 text-[12px] capitalize text-white/60"
-                    >
-                      {chip}
-                    </span>
-                  ))}
-                </div>
-              )}
+            <div className="absolute right-3 top-3 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={toggleFavorite}
+                aria-label={favorite ? "Quitar de favoritos" : "Guardar en favoritos"}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white/80 backdrop-blur-md transition hover:bg-black/75"
+              >
+                <Heart className={`h-4 w-4 ${favorite ? "fill-rose-400 text-rose-400" : ""}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShare("profile_detail_hero")}
+                aria-label="Compartir perfil"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white/80 backdrop-blur-md transition hover:bg-black/75"
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
 
-              {/* Confianza: por qué creerle a este perfil */}
-              <div className="mt-4 space-y-2.5 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5">
-                <div className="flex gap-2.5">
-                  <BadgeCheck
-                    className={`mt-0.5 h-4 w-4 shrink-0 ${isVerifiedProfile ? "text-emerald-400" : "text-white/30"}`}
-                  />
-                  <p className="text-[13px] leading-snug text-white/65">
-                    <span className="font-semibold text-white/90">Verificación de perfil: </span>
-                    {isVerifiedProfile
-                      ? `${professional.name} pasó la verificación del equipo y las fotos publicadas corresponden a este perfil.`
-                      : "Este perfil todavía no está verificado por el equipo."}
-                  </p>
-                </div>
-                <div className="flex gap-2.5">
-                  <Camera className="mt-0.5 h-4 w-4 shrink-0 text-sky-400/80" />
-                  <p className="text-[13px] leading-snug text-white/65">
-                    <span className="font-semibold text-white/90">Fotos y videos: </span>
-                    {photoCount} foto{photoCount === 1 ? "" : "s"}
-                    {videoCount > 0
-                      ? ` y ${videoCount} video${videoCount === 1 ? "" : "s"}`
-                      : ""}{" "}
-                    en el perfil.
-                  </p>
-                </div>
-                <div className="flex gap-2.5">
-                  <Stethoscope
-                    className={`mt-0.5 h-4 w-4 shrink-0 ${hasExams ? "text-emerald-400" : "text-white/30"}`}
-                  />
-                  <p className="text-[13px] leading-snug text-white/65">
-                    <span className="font-semibold text-white/90">Exámenes médicos: </span>
-                    {hasExams
-                      ? "al día, comprobados por el equipo."
-                      : "sin comprobante vigente en el perfil."}
-                  </p>
-                </div>
+          {/* ── Quién es ── */}
+          <div className="min-w-0 px-4 pt-5 md:px-0 md:pt-0">
+            <div className="sr-only md:not-sr-only md:block">
+              <h1 className="text-4xl font-semibold leading-none tracking-tight">
+                {professional.name}
+                {professional.age ? (
+                  <span className="ml-2 text-2xl font-normal text-white/45">
+                    {professional.age}
+                  </span>
+                ) : null}
+              </h1>
+              <p className="mt-2 text-sm text-white/55">
+                {levelLabel}
+                {professional.city ? ` · ${professional.city}` : ""}
+              </p>
+            </div>
+
+            {/* Ficha técnica: una lista de datos, no una fila de etiquetas de
+                colores. Se lee igual de rápido y no parece un formulario. */}
+            {specs.length > 0 && (
+              <dl className="mt-5 grid grid-cols-2 gap-x-8 border-t border-white/[0.08] sm:grid-cols-3">
+                {specs.map(({ label, value }) => (
+                  <div
+                    key={label}
+                    className="flex items-baseline justify-between gap-3 border-b border-white/[0.06] py-2.5"
+                  >
+                    <dt className="text-[13px] text-white/40">{label}</dt>
+                    <dd className="text-right text-[14px] font-medium text-white/90">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+
+            {/* Verificación: tres líneas, sin recuadro propio. */}
+            <div className="mt-5 space-y-2 border-l border-white/[0.1] pl-4">
+              <p className="text-[13.5px] leading-relaxed text-white/60">
+                <span className={isVerifiedProfile ? "font-medium text-emerald-300" : "font-medium text-white/80"}>
+                  {isVerifiedProfile ? "Perfil verificado. " : "Perfil sin verificar. "}
+                </span>
+                {isVerifiedProfile
+                  ? `El equipo comprobó que las fotos publicadas corresponden a ${professional.name}.`
+                  : "Todavía no comprobamos que las fotos correspondan a esta persona."}
+              </p>
+              <p className="text-[13.5px] leading-relaxed text-white/60">
+                <span className="font-medium text-white/80">
+                  {hasExams ? "Exámenes al día. " : "Sin exámenes vigentes. "}
+                </span>
+                {hasExams
+                  ? "Presentó exámenes médicos vigentes al equipo."
+                  : "No hay exámenes médicos vigentes en el perfil."}
+              </p>
+              {(fastResponse || (professional.completedServices ?? 0) > 0) && (
+                <p className="text-[13.5px] leading-relaxed text-white/60">
+                  {[
+                    fastResponse,
+                    (professional.completedServices ?? 0) > 0
+                      ? `${professional.completedServices} servicios completados`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+            </div>
+
+            {/* Sobre mí */}
+            {aboutText && (
+              <div className="mt-6">
+                <p
+                  className={`whitespace-pre-line text-[15px] leading-[1.7] text-white/75 ${
+                    aboutOpen ? "" : "line-clamp-4"
+                  }`}
+                >
+                  {aboutText}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAboutOpen((v) => !v)}
+                  className="mt-1.5 text-[13px] font-medium text-white/45 underline underline-offset-4 transition hover:text-white/75"
+                >
+                  {aboutOpen ? "Leer menos" : "Leer más"}
+                </button>
+              </div>
+            )}
+
+            {/* Contacto y precio: lo único con peso visual de la columna. */}
+            <div className="mt-6 border-t border-white/[0.08] pt-5">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="text-2xl font-semibold tracking-tight">{priceLabel}</span>
+                <span className="text-[13px] text-white/45">{durationLabel}</span>
               </div>
 
-              {/* Acciones en escritorio (en el teléfono van en la barra fija) */}
-              <div className="mt-4 hidden flex-wrap gap-2 md:flex">
+              <div className="mt-4 hidden flex-wrap gap-2.5 md:flex">
                 <button
                   onClick={() => handleChatClick("message")}
-                  className="btn-primary flex-1 whitespace-nowrap rounded-xl px-5 py-3 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.28)] transition hover:brightness-110"
+                  className="rounded-lg bg-fuchsia-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-fuchsia-500"
                 >
                   Enviar mensaje
                 </button>
@@ -934,169 +871,79 @@ export default function ProfileDetailView({
                           displayName: professional.name,
                         })
                       }
-                      className="flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-5 py-3 text-sm font-bold text-emerald-200 transition hover:bg-emerald-500/25"
+                      className="rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white/85 transition hover:border-white/35 hover:bg-white/[0.04]"
                     >
-                      <Phone className="h-4 w-4" />
                       WhatsApp
                     </a>
                     <a
                       href={`tel:${professional.phone.replace(/[^\d+]/g, "")}`}
-                      className="flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-white/12 bg-white/[0.05] px-5 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/[0.09]"
+                      onClick={() =>
+                        trackAction("phone_click", professional.id, {
+                          source: "profile_detail_hero",
+                          displayName: professional.name,
+                        })
+                      }
+                      className="rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white/85 transition hover:border-white/35 hover:bg-white/[0.04]"
                     >
-                      Llamar
+                      {professional.phone}
                     </a>
                   </>
                 )}
                 {hasStore && (
                   <Link
                     href={`/marketplace/tienda/${professional.username ?? ""}`}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-fuchsia-400/25 bg-fuchsia-500/12 px-5 py-3 text-sm font-semibold text-fuchsia-100 transition hover:bg-fuchsia-500/20"
+                    className="rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white/85 transition hover:border-white/35 hover:bg-white/[0.04]"
                   >
-                    <ShoppingBag className="h-4 w-4" />
-                    Tienda
+                    Su tienda
                   </Link>
                 )}
               </div>
-            </div>
 
-            {/* ── Sobre mí ── */}
-            {aboutText && (
-              <div className="px-4 pb-4 pt-4 md:col-span-2 md:mt-2 md:border-t md:border-white/[0.06] md:px-0 md:pb-0 md:pt-5 lg:col-span-1 lg:mt-0 lg:border-0 lg:pl-6 lg:pt-0">
-                <h2 className="text-base font-bold text-white/90">Sobre mí</h2>
-                <div className="relative mt-2">
-                  <p
-                    className={`whitespace-pre-line text-[14px] leading-[1.65] text-white/70 ${
-                      aboutOpen ? "" : "line-clamp-[8]"
-                    }`}
-                  >
-                    {aboutText}
-                  </p>
-                  {!aboutOpen && (
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#0e0f1e] to-transparent"
-                    />
-                  )}
+              {/* Dónde y cuándo, en texto corrido */}
+              <dl className="mt-5 space-y-2 text-[14px]">
+                <div className="flex gap-3">
+                  <dt className="w-24 shrink-0 text-white/40">Dónde</dt>
+                  <dd className="text-white/80">
+                    {professional.city || "Zona referencial"}
+                    {availabilityChips.length > 0 && (
+                      <span className="text-white/45"> · {availabilityChips.join(" · ")}</span>
+                    )}
+                  </dd>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setAboutOpen((v) => !v)}
-                  className="mt-2 rounded-lg border border-white/12 bg-white/[0.05] px-3.5 py-1.5 text-xs font-semibold text-white/70 transition hover:bg-white/[0.1]"
-                >
-                  {aboutOpen ? "Leer menos" : "Leer más"}
-                </button>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ══════════ Datos duros ══════════
-            Teléfono, tarifa, dónde y cuándo: lo que decide el contacto. Una
-            celda por dato, con separadores de 1px en vez de tarjetas sueltas. */}
-        <section className="mt-3 grid gap-px overflow-hidden border-y border-white/[0.07] bg-white/[0.07] sm:grid-cols-2 md:mt-4 md:grid-cols-3 md:rounded-2xl md:border">
-          {professional.phone && (
-            <a
-              href={`tel:${professional.phone.replace(/[^\d+]/g, "")}`}
-              onClick={() =>
-                trackAction("phone_click", professional.id, {
-                  source: "profile_detail_facts",
-                  displayName: professional.name,
-                })
-              }
-              className="flex items-start gap-3 bg-[#0e0f1e] p-4 transition hover:bg-[#14152a]"
-            >
-              <Phone className="mt-0.5 h-5 w-5 shrink-0 text-fuchsia-400" />
-              <div className="min-w-0">
-                <p className="truncate text-[17px] font-bold tracking-tight">
-                  {professional.phone}
-                </p>
-                <p className="text-[12px] text-white/45">Toca para llamar</p>
-              </div>
-            </a>
-          )}
-
-          <div className="flex items-start gap-3 bg-[#0e0f1e] p-4">
-            <Banknote className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
-            <div className="min-w-0">
-              <p className="text-[17px] font-bold tracking-tight">{priceLabel}</p>
-              <p className="text-[12px] text-white/45">{durationLabel}</p>
+                <div className="flex gap-3">
+                  <dt className="w-24 shrink-0 text-white/40">Cuándo</dt>
+                  <dd className="text-white/80">
+                    {professional.availabilityNote || availabilityState.label}
+                  </dd>
+                </div>
+                {ratingCount > 0 && ratingValue != null && (
+                  <div className="flex gap-3">
+                    <dt className="w-24 shrink-0 text-white/40">Opiniones</dt>
+                    <dd className="text-white/80">
+                      {ratingValue.toFixed(1)} de 5
+                      <span className="text-white/45"> · {ratingCount} calificaciones</span>
+                    </dd>
+                  </div>
+                )}
+              </dl>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-start gap-3 bg-[#0e0f1e] p-4">
-            <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
-            <div className="min-w-0">
-              <p className="truncate text-[15px] font-bold tracking-tight">
-                {professional.city || "Zona referencial"}
-              </p>
-              <p className="text-[12px] text-white/45">
-                {availabilityChips.length > 0
-                  ? availabilityChips.join(" · ")
-                  : "Consulta el lugar de encuentro"}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3 bg-[#0e0f1e] p-4">
-            <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
-            <div className="min-w-0">
-              <p className="text-[15px] font-bold tracking-tight">
-                {availabilityState.label}
-              </p>
-              <p className="text-[12px] text-white/45">
-                {professional.availabilityNote || "Escríbele para coordinar"}
-              </p>
-            </div>
-          </div>
-
-          <a
-            href="#servicios"
-            className="flex items-start gap-3 bg-[#0e0f1e] p-4 transition hover:bg-[#14152a]"
-          >
-            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-violet-400" />
-            <div className="min-w-0">
-              <p className="text-[15px] font-bold tracking-tight">
-                {serviceCount > 0 ? `${serviceCount} servicios` : "Servicios"}
-              </p>
-              <p className="text-[12px] text-white/45">Ver el detalle</p>
-            </div>
-          </a>
-
-          <div className="flex items-start gap-3 bg-[#0e0f1e] p-4">
-            <Star className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
-            <div className="min-w-0">
-              <p className="text-[15px] font-bold tracking-tight">
-                {ratingValue != null ? ratingValue.toFixed(1) : "Sin calificar"}
-              </p>
-              <p className="text-[12px] text-white/45">
-                {ratingCount > 0
-                  ? `${ratingCount} opinión${ratingCount === 1 ? "" : "es"}`
-                  : "Aún no tiene opiniones"}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* ══════════ Fotos ══════════ */}
+        {/* Fotos */}
         {gallery.length > 0 && (
-          <section id="fotos" className="mt-5 px-4 md:px-0">
-            <div className="flex items-end justify-between gap-3">
-              <h2 className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-sm font-bold text-white shadow-[0_6px_20px_rgba(168,85,247,0.28)]">
-                Fotos
-              </h2>
-              <p className="text-right text-[12px] text-white/40">
+          <section id="fotos" className="mt-10 px-4 md:px-0">
+            <div className="flex items-baseline justify-between gap-3 border-b border-white/[0.08] pb-2.5">
+              <h2 className="text-lg font-semibold tracking-tight">Fotos</h2>
+              <p className="text-[13px] text-white/40">
                 {photoCount} foto{photoCount === 1 ? "" : "s"}
                 {videoCount > 0
                   ? ` · ${videoCount} video${videoCount === 1 ? "" : "s"}`
                   : ""}
-                {professional.lastSeen && (
-                  <span className="block text-white/30">
-                    Última conexión: {timeAgo(professional.lastSeen)}
-                  </span>
-                )}
+                {professional.lastSeen ? ` · activa ${timeAgo(professional.lastSeen)}` : ""}
               </p>
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+            <div className="mt-4 grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-5">
               {gallery.map((item, idx) => {
                 const isLatestVideo =
                   item.type === "VIDEO" && item.url === latestStoryVideoUrl;
@@ -1108,7 +955,7 @@ export default function ProfileDetailView({
                       goToGallery(idx);
                       setLightbox(item);
                     }}
-                    className="group relative aspect-[3/4] overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] transition hover:border-fuchsia-400/40"
+                    className="group relative aspect-[3/4] overflow-hidden rounded-md bg-white/[0.04] transition hover:opacity-90"
                   >
                     {item.type === "VIDEO" ? (
                       <>
@@ -1146,119 +993,71 @@ export default function ProfileDetailView({
         )}
       </div>
 
-      <div className="mx-auto mt-4 grid w-full max-w-6xl min-w-0 gap-4 px-4 md:gap-5 md:px-8">
-        <div className="min-w-0 space-y-4">
-          {/* Servicios + Estilo */}
+      {/* Todo lo que sigue va en la misma columna, separado por líneas y no por
+          tarjetas: apilar recuadros con degradado es lo que hace que una página
+          se lea como una plantilla. */}
+      <div className="mx-auto mt-10 w-full max-w-6xl min-w-0 px-4 md:px-8">
+        <div className="min-w-0 divide-y divide-white/[0.08]">
+          {/* Servicios: en texto corrido, como los lee la gente. Veinte
+              pastillas moradas ocupan tres veces más y dicen lo mismo. */}
           {((professional?.serviceTags?.length ?? 0) > 0 ||
             matchedSubcategories.length > 0 ||
             hasStyleSection) && (
-            <section
-              id="servicios"
-              className="min-w-0 scroll-mt-24 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-5 md:p-6"
-            >
+            <section id="servicios" className="min-w-0 scroll-mt-24 py-8 first:pt-0">
+              <h2 className="text-lg font-semibold tracking-tight">Servicios</h2>
+
               {((professional?.serviceTags?.length ?? 0) > 0 ||
                 matchedSubcategories.length > 0) && (
-                <>
-                  <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-white">
-                    <Sparkles className="h-4 w-4 text-violet-300" />
-                    Servicios que ofrece
-                  </h2>
-                  <div className="flex flex-wrap gap-2">
-                    {(professional?.serviceTags ?? []).map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center rounded-full border border-violet-300/30 bg-gradient-to-b from-violet-500/40 to-violet-600/30 px-3 py-1.5 text-xs font-semibold capitalize text-violet-50 shadow-[0_1px_4px_rgba(139,92,246,0.25)]"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                    {extraSubcategories.map((sub) => (
-                      <span
-                        key={sub}
-                        className="inline-flex items-center rounded-full border border-violet-300/30 bg-gradient-to-b from-violet-500/40 to-violet-600/30 px-3 py-1.5 text-xs font-semibold text-violet-50 shadow-[0_1px_4px_rgba(139,92,246,0.25)]"
-                      >
-                        {sub}
-                      </span>
-                    ))}
-                  </div>
-                </>
+                <p className="mt-3 text-[15px] leading-[1.8] text-white/75">
+                  {[...(professional?.serviceTags ?? []), ...extraSubcategories].join(", ")}.
+                </p>
               )}
 
-              {hasStyleSection && (
-                <div
-                  className={
-                    (professional?.serviceTags?.length ?? 0) > 0 ||
-                    matchedSubcategories.length > 0
-                      ? "mt-5 border-t border-white/[0.06] pt-4"
-                      : ""
-                  }
-                >
-                  <h3 className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-fuchsia-300/70">
-                    Estilo
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {styleChips.map((chip) => (
-                      <span
-                        key={chip}
-                        className="inline-flex rounded-full border border-fuchsia-300/20 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100"
-                      >
-                        {chip}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+              {hasStyleSection && styleChips.length > 0 && (
+                <p className="mt-3 text-[15px] leading-[1.8] text-white/55">
+                  <span className="text-white/40">Estilo: </span>
+                  {styleChips.join(", ")}.
+                </p>
               )}
             </section>
           )}
 
-          {/* Review tags summary */}
+          {/* Lo que repiten los clientes: el dato es cuántas veces se dijo,
+              no la pastilla verde alrededor. */}
           {reviewTags.length > 0 && (
-            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white/95">
-                <Award className="h-4 w-4 text-amber-400" />
-                Lo que dicen los clientes
+            <section className="min-w-0 py-8">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Lo que repiten los clientes
               </h2>
-              <div className="flex flex-wrap gap-2">
-                {reviewTags.map(({ tag, count }) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-100"
-                  >
-                    {tag}
-                    <span className="rounded-full bg-emerald-500/20 px-1.5 text-[10px] text-emerald-300">
-                      {count}
-                    </span>
-                  </span>
-                ))}
-              </div>
+              <p className="mt-3 text-[15px] leading-[1.8] text-white/75">
+                {reviewTags
+                  .map(({ tag, count }) => `${tag} (${count})`)
+                  .join(", ")}
+                .
+              </p>
             </section>
           )}
 
           {/* Reviews / Comments */}
           {reviews.length > 0 && (
-            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="flex items-center gap-2 text-base font-semibold text-white/95">
-                  <MessageSquare className="h-4 w-4 text-fuchsia-400" />
+            <section className="min-w-0 py-8">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-lg font-semibold tracking-tight">
                   Reseñas ({professional.reviewCount || reviews.length})
                 </h2>
-                <div className="flex items-center gap-1 text-sm text-amber-300">
-                  <Star className="h-4 w-4 fill-amber-300" />
-                  <span className="font-semibold">
-                    {professional.rating?.toFixed(1)}
+                {professional.rating != null && (
+                  <span className="text-[13px] text-white/45">
+                    {professional.rating.toFixed(1)} de 5
                   </span>
-                </div>
+                )}
               </div>
 
-              <div className="space-y-3">
+              <div className="mt-4 divide-y divide-white/[0.06]">
                 {displayedReviews.map((review) => (
-                  <div
-                    key={review.id}
-                    className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4"
-                  >
+                  <div key={review.id} className="py-4 first:pt-0">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 text-xs font-semibold text-white/70">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.08] text-xs font-semibold text-white/70">
                           {review.author?.displayName?.[0]?.toUpperCase() ||
                             review.author?.username?.[0]?.toUpperCase() ||
                             "?"}
@@ -1300,7 +1099,7 @@ export default function ProfileDetailView({
                 <button
                   type="button"
                   onClick={() => setShowAllReviews((p) => !p)}
-                  className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-medium text-white/60 transition hover:bg-white/10"
+                  className="mt-4 text-[13px] font-medium text-white/45 underline underline-offset-4 transition hover:text-white/75"
                 >
                   {showAllReviews
                     ? "Ver menos"
@@ -1311,13 +1110,12 @@ export default function ProfileDetailView({
           )}
 
           {/* Survey Rating Summary + Button */}
-          <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent p-4 md:p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="flex items-center gap-2 text-base font-semibold text-white/95">
-                <Star className="h-4 w-4 text-amber-400" />
-                Calificaciones detalladas
+          <section className="min-w-0 py-8">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Calificaciones
                 {surveySummary && surveySummary.count > 0 && (
-                  <span className="text-sm font-normal text-white/40">
+                  <span className="ml-1.5 text-[13px] font-normal text-white/40">
                     ({surveySummary.count})
                   </span>
                 )}
@@ -1328,9 +1126,8 @@ export default function ProfileDetailView({
                   if (redirectToLoginIfNeeded()) return;
                   setShowSurveyModal(true);
                 }}
-                className="flex items-center gap-1.5 rounded-xl border border-fuchsia-400/30 bg-fuchsia-500/15 px-3 py-2 text-xs font-medium text-fuchsia-200 transition hover:bg-fuchsia-500/25"
+                className="rounded-lg border border-white/15 px-3.5 py-2 text-[13px] font-medium text-white/75 transition hover:border-white/35 hover:bg-white/[0.04]"
               >
-                <Star className="h-3.5 w-3.5" />
                 Calificar
               </button>
             </div>
@@ -1353,9 +1150,9 @@ export default function ProfileDetailView({
                       <span className="w-28 text-xs text-white/50 shrink-0">
                         {item.label}
                       </span>
-                      <div className="flex-1 h-3 rounded-full bg-white/10 overflow-hidden">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-amber-400"
+                          className="h-full rounded-full bg-white/45"
                           style={{ width: `${item.value * 10}%` }}
                         />
                       </div>
@@ -1379,18 +1176,15 @@ export default function ProfileDetailView({
 
                 {/* Survey text reviews */}
                 {surveyReviews.filter((r) => r.comment).length > 0 && (
-                  <div className="space-y-2 pt-3 border-t border-white/[0.06]">
+                  <div className="divide-y divide-white/[0.06] pt-3">
                     {surveyReviews
                       .filter((r) => r.comment)
                       .slice(0, showAllReviews ? 50 : 3)
                       .map((review) => (
-                        <div
-                          key={review.id}
-                          className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3"
-                        >
+                        <div key={review.id} className="py-3">
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-2">
-                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 text-[10px] font-semibold text-white/70">
+                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/[0.08] text-[10px] font-semibold text-white/70">
                                 {review.author?.displayName?.[0]?.toUpperCase() ||
                                   review.author?.username?.[0]?.toUpperCase() ||
                                   "?"}
@@ -1423,26 +1217,22 @@ export default function ProfileDetailView({
 
           {/* Comentarios del foro */}
           {professional.forumThread && forumComments.length > 0 && (
-            <section className="min-w-0 rounded-3xl border border-fuchsia-400/20 bg-gradient-to-b from-fuchsia-500/10 via-violet-500/5 to-transparent p-4 md:p-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 className="flex items-center gap-2 text-base font-semibold text-white/95">
-                  <MessageSquare className="h-4 w-4 text-fuchsia-300" />
-                  Comentarios recientes del foro
+            <section className="min-w-0 py-8">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-lg font-semibold tracking-tight">
+                  Comentarios del foro
                 </h2>
                 <Link
                   href={professional.forumThread.url}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-fuchsia-400/30 bg-fuchsia-500/15 px-3 py-2 text-xs font-medium text-fuchsia-200 transition hover:bg-fuchsia-500/25"
+                  className="text-[13px] font-medium text-white/45 underline underline-offset-4 transition hover:text-white/75"
                 >
                   Ver hilo completo
                 </Link>
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+              <div className="mt-3 divide-y divide-white/[0.06]">
                 {forumComments.map((comment) => (
-                  <article
-                    key={comment.id}
-                    className="px-4 py-3 md:px-4.5"
-                  >
+                  <article key={comment.id} className="py-3.5">
                     <div className="mb-1.5 flex items-center justify-between gap-3">
                       <p className="text-xs font-medium text-white/75">
                         {comment.author?.displayName || comment.author?.username || "Usuario"}
@@ -1461,11 +1251,11 @@ export default function ProfileDetailView({
           {/* La descripción del servicio venía en la barra lateral, que ya no
               existe: ahora va con el resto del contenido. */}
           {cleanProfileText(professional.serviceSummary) && (
-            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-5 md:p-6">
-              <h2 className="mb-2 text-base font-semibold text-white">
-                Descripción del servicio
+            <section className="min-w-0 py-8">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Cómo trabaja
               </h2>
-              <p className="whitespace-pre-line text-[15px] leading-[1.7] text-white/70">
+              <p className="mt-3 whitespace-pre-line text-[15px] leading-[1.8] text-white/75">
                 {cleanProfileText(professional.serviceSummary)}
               </p>
             </section>

@@ -131,7 +131,7 @@ export default function EstablishmentsClient() {
                   <div className="font-semibold">{e.name}</div>
                   <div className="text-xs text-white/60">{e.city}</div>
                 </div>
-                <div className="text-xs text-white/60">⭐ {e.rating ?? "N/A"}</div>
+                <div className="text-xs text-white/60">{e.rating != null ? `${e.rating} de 5` : "Sin calificar"}</div>
               </div>
               <p className="mt-3 text-sm text-white/60 line-clamp-2">
                 {e.description || "Lugar recomendado para clientes."}

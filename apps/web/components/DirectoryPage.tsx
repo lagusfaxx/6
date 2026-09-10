@@ -704,7 +704,7 @@ export default function DirectoryPage({
           </div>
         ) : displayed.length === 0 ? (
           <div className="py-24 text-center">
-            <p className="text-4xl mb-3">🔍</p>
+            <Search className="mx-auto mb-3 h-8 w-8 text-white/20" />
             <p className="text-white/50">No encontramos resultados con estos filtros.</p>
             {activeFilterCount > 0 && (
               <button

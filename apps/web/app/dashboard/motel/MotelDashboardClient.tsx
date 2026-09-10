@@ -6,17 +6,40 @@ import { useRouter, useSearchParams } from "next/navigation";
 import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import { extractMapboxLocation } from "../../../lib/mapboxFeature";
+import {
+  AlertTriangle,
+  Camera,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  Building2,
+  Eye,
+  MessageCircle,
+  Search,
+  Wallet,
+  Check,
+  X,
+  BarChart3,
+  Palette,
+  MapPin,
+  BedDouble,
+  Tag,
+  CalendarDays,
+} from "lucide-react";
 
 type Dashboard = { profile: any; rooms: any[]; promotions: any[]; bookings: any[] };
 type TabKey = "overview" | "profile" | "location" | "rooms" | "promos" | "bookings";
 
-const tabsMeta: Array<{ key: TabKey; label: string; icon: string }> = [
-  { key: "overview", label: "Resumen", icon: "📊" },
-  { key: "profile", label: "Branding", icon: "🎨" },
-  { key: "location", label: "Ubicación", icon: "📍" },
-  { key: "rooms", label: "Habitaciones", icon: "🛏️" },
-  { key: "promos", label: "Promociones", icon: "🏷️" },
-  { key: "bookings", label: "Reservas", icon: "📅" },
+/* Iconos de verdad y no emojis: el emoji cambia de dibujo en cada sistema, no
+   se tiñe con el color del texto y es lo primero que delata una interfaz
+   armada a la rápida. */
+const tabsMeta: Array<{ key: TabKey; label: string; Icon: typeof BarChart3 }> = [
+  { key: "overview", label: "Resumen", Icon: BarChart3 },
+  { key: "profile", label: "Branding", Icon: Palette },
+  { key: "location", label: "Ubicación", Icon: MapPin },
+  { key: "rooms", label: "Habitaciones", Icon: BedDouble },
+  { key: "promos", label: "Promociones", Icon: Tag },
+  { key: "bookings", label: "Reservas", Icon: CalendarDays },
 ];
 
 function formatDate(iso?: string | null) {
@@ -337,7 +360,7 @@ export default function MotelDashboardPage() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="w-full max-w-md rounded-3xl border border-red-500/20 bg-red-500/5 p-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-2xl">⚠️</div>
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10"><AlertTriangle className="h-6 w-6 text-red-300" /></div>
           <h2 className="mb-2 text-xl font-semibold">Error al cargar</h2>
           <p className="text-sm text-white/60">{error || "No pudimos cargar el panel del motel."}</p>
           <button onClick={() => { setLoading(true); load(); }} className="mt-4 rounded-xl bg-white/10 px-6 py-2.5 text-sm font-medium transition hover:bg-white/15">
@@ -366,9 +389,9 @@ export default function MotelDashboardPage() {
       {msg && (
         <div className="fixed left-1/2 top-4 z-50 -translate-x-1/2 animate-[slideDown_0.3s_ease-out]">
           <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-black/90 px-5 py-3 shadow-2xl backdrop-blur-xl">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-xs">✓</div>
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20"><Check className="h-3.5 w-3.5 text-emerald-300" /></div>
             <span className="text-sm text-white/90">{msg}</span>
-            <button onClick={() => setMsg(null)} className="ml-2 text-white/40 transition hover:text-white/70">✕</button>
+            <button onClick={() => setMsg(null)} className="ml-2 text-white/40 transition hover:text-white/70" aria-label="Cerrar"><X className="h-4 w-4" /></button>
           </div>
         </div>
       )}
@@ -422,13 +445,13 @@ export default function MotelDashboardPage() {
                 href={`/hospedaje/${data.profile.username || data.profile.id}?preview=true`}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-white/80 transition-all hover:border-white/20 hover:bg-white/[0.08]"
               >
-                👁️ Ver perfil
+                <Eye className="h-4 w-4" /> Ver perfil
               </Link>
               <Link
                 href="/chats"
                 className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-white/80 transition-all hover:border-white/20 hover:bg-white/[0.08]"
               >
-                💬 Mensajes
+                <MessageCircle className="h-4 w-4" /> Mensajes
               </Link>
               <button
                 onClick={logout}
@@ -453,7 +476,7 @@ export default function MotelDashboardPage() {
                 : "border border-transparent text-white/50 hover:bg-white/[0.04] hover:text-white/70"
             }`}
           >
-            <span className="text-sm">{t.icon}</span>
+            <t.Icon className="h-4 w-4" />
             {t.label}
           </button>
         ))}
@@ -469,7 +492,7 @@ export default function MotelDashboardPage() {
             <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 transition-all hover:border-fuchsia-500/20">
               <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
               <div className="relative">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-fuchsia-500/10 text-lg">🛏️</div>
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-fuchsia-500/10"><BedDouble className="h-5 w-5 text-fuchsia-300" /></div>
                 <div className="text-xs font-medium text-white/40">Habitaciones</div>
                 <div className="mt-1 text-3xl font-bold">{data.rooms.length}</div>
                 <div className="mt-1 text-xs text-white/40">{data.rooms.filter((r: any) => r.isActive).length} activas</div>
@@ -478,7 +501,7 @@ export default function MotelDashboardPage() {
             <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 transition-all hover:border-amber-500/20">
               <div className="absolute inset-0 bg-gradient-to-br from-amber-600/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
               <div className="relative">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-lg">📋</div>
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10"><ClipboardList className="h-5 w-5 text-amber-300" /></div>
                 <div className="text-xs font-medium text-white/40">Reservas pendientes</div>
                 <div className="mt-1 text-3xl font-bold text-amber-300">{pendingBookings}</div>
                 <div className="mt-1 text-xs text-white/40">{data.bookings.length} total</div>
@@ -487,7 +510,7 @@ export default function MotelDashboardPage() {
             <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 transition-all hover:border-emerald-500/20">
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
               <div className="relative">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-lg">✅</div>
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10"><CheckCircle2 className="h-5 w-5 text-emerald-300" /></div>
                 <div className="text-xs font-medium text-white/40">Confirmadas</div>
                 <div className="mt-1 text-3xl font-bold text-emerald-300">{confirmedBookings}</div>
                 <div className="mt-1 text-xs text-white/40">activas ahora</div>
@@ -496,7 +519,7 @@ export default function MotelDashboardPage() {
             <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 transition-all hover:border-violet-500/20">
               <div className="absolute inset-0 bg-gradient-to-br from-violet-600/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
               <div className="relative">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-lg">💰</div>
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10"><Wallet className="h-5 w-5 text-violet-300" /></div>
                 <div className="text-xs font-medium text-white/40">Ingresos estimados</div>
                 <div className="mt-1 text-3xl font-bold text-violet-300">{formatMoney(totalRevenue)}</div>
                 <div className="mt-1 text-xs text-white/40">confirmadas + finalizadas</div>
@@ -616,7 +639,7 @@ export default function MotelDashboardPage() {
                 {uploadingAsset === "cover" ? (
                   <span className="flex items-center gap-2"><span className="h-3 w-3 animate-spin rounded-full border-2 border-white/20 border-t-white" /> Subiendo...</span>
                 ) : (
-                  <>📷 Cambiar portada</>
+                  <><Camera className="h-4 w-4" /> Cambiar portada</>
                 )}
               </button>
               <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadProfileImage("cover", e.target.files?.[0])} />
@@ -632,7 +655,7 @@ export default function MotelDashboardPage() {
                     className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/70 text-xs backdrop-blur-xl transition hover:bg-black/90"
                     onClick={() => avatarInputRef.current?.click()}
                   >
-                    {uploadingAsset === "avatar" ? "⏳" : "📷"}
+                    {uploadingAsset === "avatar" ? "..." : <Camera className="h-4 w-4" />}
                   </button>
                   <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadProfileImage("avatar", e.target.files?.[0])} />
                 </div>
@@ -706,7 +729,7 @@ export default function MotelDashboardPage() {
                   {geocodeBusy ? (
                     <span className="flex items-center gap-2"><span className="h-3 w-3 animate-spin rounded-full border-2 border-white/20 border-t-white" /> Buscando...</span>
                   ) : (
-                    <>🔍 Buscar en mapa</>
+                    <><Search className="h-4 w-4" /> Buscar en mapa</>
                   )}
                 </button>
                 <button
@@ -724,7 +747,7 @@ export default function MotelDashboardPage() {
             ) : (
               <div className="flex h-[380px] items-center justify-center bg-white/[0.02]">
                 <div className="text-center">
-                  <div className="mb-2 text-3xl">📍</div>
+                  <MapPin className="mx-auto mb-2 h-7 w-7 text-white/25" />
                   <div className="text-sm text-white/40">Ingresa una dirección para ver el mapa</div>
                 </div>
               </div>
@@ -791,7 +814,7 @@ export default function MotelDashboardPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="mb-1 text-2xl">📸</div>
+                    <Camera className="mx-auto mb-1 h-6 w-6 text-white/25" />
                     <div className="text-xs text-white/40">Arrastra fotos aquí o</div>
                     <button className="mt-1 text-xs font-medium text-fuchsia-400 transition hover:text-fuchsia-300" onClick={() => roomFilesRef.current?.click()}>
                       selecciona archivos
@@ -811,7 +834,7 @@ export default function MotelDashboardPage() {
                         onClick={() => setRoomForm((f: any) => ({ ...f, photoUrls: f.photoUrls.filter((_: any, j: number) => j !== i) }))}
                         className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition group-hover:opacity-100"
                       >
-                        <span className="text-xs">✕</span>
+                        <X className="h-3 w-3" />
                       </button>
                     </div>
                   ))}
@@ -841,7 +864,7 @@ export default function MotelDashboardPage() {
           <div className="space-y-3">
             {data.rooms.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] p-12 text-center">
-                <div className="mb-3 text-4xl">🏨</div>
+                <Building2 className="mx-auto mb-3 h-9 w-9 text-white/20" />
                 <div className="text-sm font-semibold">Sin habitaciones</div>
                 <div className="mt-1 text-xs text-white/40">Crea tu primera habitación para empezar a recibir reservas</div>
               </div>
@@ -854,7 +877,7 @@ export default function MotelDashboardPage() {
                       {r.photoUrls?.[0] ? (
                         <img src={resolveMediaUrl(r.photoUrls[0]) || ""} className="h-full w-full object-cover" alt="" />
                       ) : (
-                        <div className="flex h-full items-center justify-center text-2xl text-white/20">🛏️</div>
+                        <div className="flex h-full items-center justify-center"><BedDouble className="h-6 w-6 text-white/20" /></div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -951,7 +974,7 @@ export default function MotelDashboardPage() {
                           className="sr-only"
                         />
                         <div className={`flex h-5 w-5 items-center justify-center rounded-md border transition ${promoForm.roomIds.includes(r.id) ? "border-fuchsia-500 bg-fuchsia-500" : "border-white/20"}`}>
-                          {promoForm.roomIds.includes(r.id) && <span className="text-[10px] text-white">✓</span>}
+                          {promoForm.roomIds.includes(r.id) && <Check className="h-3 w-3 text-white" />}
                         </div>
                         <span className="text-sm">{r.name}</span>
                       </label>
@@ -977,7 +1000,7 @@ export default function MotelDashboardPage() {
           <div className="space-y-3">
             {data.promotions.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] p-12 text-center">
-                <div className="mb-3 text-4xl">🏷️</div>
+                <Tag className="mx-auto mb-3 h-9 w-9 text-white/20" />
                 <div className="text-sm font-semibold">Sin promociones</div>
                 <div className="mt-1 text-xs text-white/40">Crea tu primera promoción para atraer más clientes</div>
               </div>
@@ -1053,7 +1076,7 @@ export default function MotelDashboardPage() {
           <div className="space-y-3">
             {data.bookings.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] p-12 text-center">
-                <div className="mb-3 text-4xl">📅</div>
+                <CalendarDays className="mx-auto mb-3 h-9 w-9 text-white/20" />
                 <div className="text-sm font-semibold">Sin reservas</div>
                 <div className="mt-1 text-xs text-white/40">Las reservas de tus clientes aparecerán aquí</div>
               </div>
@@ -1072,9 +1095,9 @@ export default function MotelDashboardPage() {
                             </span>
                           </div>
                           <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/50">
-                            <span>🛏️ {b.roomName || "Habitación"}</span>
-                            <span>⏱️ {durationLabel(b.durationType)}</span>
-                            <span>📅 {formatDateTime(b.startAt)}</span>
+                            <span className="flex items-center gap-1.5"><BedDouble className="h-3.5 w-3.5 text-white/35" />{b.roomName || "Habitación"}</span>
+                            <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-white/35" />{durationLabel(b.durationType)}</span>
+                            <span className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-white/35" />{formatDateTime(b.startAt)}</span>
                           </div>
                         </div>
                         <div className="text-right">
@@ -1105,14 +1128,14 @@ export default function MotelDashboardPage() {
                               onClick={() => applyBookingAction(b.id, "ACCEPT")}
                               className="rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2 text-xs font-semibold shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50"
                             >
-                              {isBusy ? "..." : "✓ Aceptar"}
+                              {isBusy ? "..." : "Aceptar"}
                             </button>
                             <button
                               disabled={isBusy}
                               onClick={() => applyBookingAction(b.id, "REJECT")}
                               className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
                             >
-                              {isBusy ? "..." : "✕ Rechazar"}
+                              {isBusy ? "..." : "Rechazar"}
                             </button>
                           </>
                         )}
@@ -1129,7 +1152,7 @@ export default function MotelDashboardPage() {
                           href={`/chat/${b.clientId || b.clientUsername}`}
                           className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium transition hover:bg-white/[0.08]"
                         >
-                          💬 Chat
+                          <MessageCircle className="h-3.5 w-3.5" /> Chat
                         </Link>
                         <button
                           disabled={isBusy}
@@ -1149,7 +1172,7 @@ export default function MotelDashboardPage() {
           {/* Daily agenda */}
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h3 className="font-semibold">📆 Agenda diaria</h3>
+              <h3 className="flex items-center gap-2 font-semibold"><CalendarDays className="h-4 w-4 text-white/40" /> Agenda diaria</h3>
               <input
                 type="date"
                 className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white outline-none transition focus:border-fuchsia-500/40 [color-scheme:dark]"

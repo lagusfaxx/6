@@ -461,7 +461,7 @@ export default function LiveStreamPage() {
           id: `private-${data.showId}`,
           userId: "system",
           userName: "Sistema",
-          message: `🔒 Show Privado activado por ${data.buyerName} — ${data.price} tokens`,
+          message: `Show privado activado por ${data.buyerName} · ${data.price} tokens`,
           createdAt: new Date().toISOString(),
           isTip: true,
           tipAmount: data.price,
@@ -476,7 +476,7 @@ export default function LiveStreamPage() {
           id: `private-end-${data.showId}`,
           userId: "system",
           userName: "Sistema",
-          message: "🔓 Show Privado finalizado — Transmisión pública",
+          message: "Show privado finalizado · vuelve la transmisión pública",
           createdAt: new Date().toISOString(),
         }]);
       }

@@ -67,7 +67,7 @@ export default function PurchasesPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={cover} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-2xl">🎁</div>
+                    <div className="flex h-full items-center justify-center text-[11px] text-white/25">Sin imagen</div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
