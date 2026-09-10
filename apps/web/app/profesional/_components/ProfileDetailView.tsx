@@ -10,7 +10,6 @@ import {
 } from "../../../lib/chat";
 import useMe from "../../../hooks/useMe";
 import { trackAction } from "../../../hooks/useAnalytics";
-import StarRating from "../../../components/StarRating";
 import SkeletonCard from "../../../components/SkeletonCard";
 import Link from "next/link";
 import {
@@ -20,10 +19,6 @@ import {
   X,
   Heart,
   Shield,
-  ShieldCheck,
-  Crown,
-  Clock,
-  Eye,
   ChevronLeft,
   ChevronRight,
   MessageSquare,
@@ -33,14 +28,14 @@ import {
   Zap,
   Gem,
   Phone,
-  Ruler,
-  Weight,
-  Scissors,
-  Palette,
-  Languages,
   Play,
   Share2,
   Check,
+  BadgeCheck,
+  Camera,
+  Stethoscope,
+  Banknote,
+  CalendarClock,
 } from "lucide-react";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
 import VerifiedBand from "../../../components/VerifiedBand";
@@ -164,6 +159,14 @@ const SERVICE_SUBCATEGORIES = [
   "Novia experience",
 ] as const;
 
+/** La insignia de exámenes viene con y sin tilde según cuándo se guardó. */
+function hasExamsBadge(tags: string[] | null | undefined): boolean {
+  return (tags || []).some((t) => {
+    const n = t.toLowerCase().trim();
+    return n === "profesional con examenes" || n === "profesional con exámenes";
+  });
+}
+
 function splitCsv(value?: string | null) {
   return (value || "")
     .split(",")
@@ -230,13 +233,10 @@ export default function ProfileDetailView({
   const [notFound, setNotFound] = useState(false);
   const [lightbox, setLightbox] = useState<GalleryItem | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
-  const [pendingVideoSeek, setPendingVideoSeek] = useState<{
-    url: string;
-    time: number;
-  } | null>(null);
   const thumbVideoRefs = useRef(new Map<string, HTMLVideoElement>());
-  const mainVideoRef = useRef<HTMLVideoElement | null>(null);
-  const [galleryDirection, setGalleryDirection] = useState(1);
+  /* La presentación recorta la biografía: en el escritorio va en una columna
+     angosta y sin recortar empujaba la ficha entera hacia abajo. */
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [surveyReviews, setSurveyReviews] = useState<SurveyReview[]>([]);
@@ -365,72 +365,6 @@ export default function ProfileDetailView({
       .catch(() => {});
   }, [professional?.id]);
 
-  const infoItems = useMemo(() => {
-    if (!professional)
-      return [] as {
-        label: string;
-        value: string;
-        Icon: typeof Ruler;
-        accent: string;
-      }[];
-
-    const baseItems: {
-      label: string;
-      value: string | null | undefined;
-      Icon: typeof Ruler;
-      accent: string;
-    }[] = [
-      {
-        label: "Estatura",
-        value: professional.heightCm ? `${professional.heightCm} cm` : null,
-        Icon: Ruler,
-        accent: "from-fuchsia-500/30 to-fuchsia-500/0 text-fuchsia-200",
-      },
-      {
-        label: "Peso",
-        value: professional.weightKg ? `${professional.weightKg} kg` : null,
-        Icon: Weight,
-        accent: "from-violet-500/30 to-violet-500/0 text-violet-200",
-      },
-      {
-        label: "Medidas",
-        value: professional.measurements || null,
-        Icon: Sparkles,
-        accent: "from-pink-500/30 to-pink-500/0 text-pink-200",
-      },
-      {
-        label: "Cabello",
-        value: professional.hairColor || null,
-        Icon: Scissors,
-        accent: "from-amber-500/30 to-amber-500/0 text-amber-200",
-      },
-      {
-        label: "Piel",
-        value: professional.skinTone || null,
-        Icon: Palette,
-        accent: "from-rose-500/30 to-rose-500/0 text-rose-200",
-      },
-    ];
-
-    const languageItems = splitCsv(professional.languages).map(
-      (language, index) => ({
-        label: index === 0 ? "Idiomas" : "Idioma",
-        value: language,
-        Icon: Languages,
-        accent: "from-sky-500/30 to-sky-500/0 text-sky-200",
-      }),
-    );
-
-    return [...baseItems, ...languageItems]
-      .filter((item) => Boolean(item.value))
-      .map((item) => ({
-        label: item.label,
-        value: String(item.value),
-        Icon: item.Icon,
-        accent: item.accent,
-      }));
-  }, [professional]);
-
   const styleChips = useMemo(
     () => splitCsv(professional?.serviceStyleTags),
     [professional?.serviceStyleTags],
@@ -517,7 +451,6 @@ export default function ProfileDetailView({
     professional?.coverUrl,
     professional?.avatarUrl,
   ]);
-  const selectedGalleryItem = gallery[galleryIndex] ?? gallery[0] ?? null;
   const latestStoryVideoUrl = useMemo(() => {
     const first = (professional?.stories ?? []).find(
       (s) => String(s.type || "").toUpperCase() === "VIDEO",
@@ -537,35 +470,11 @@ export default function ProfileDetailView({
     setGalleryIndex((prev) => Math.min(prev, gallery.length - 1));
   }, [gallery.length]);
 
-  useEffect(() => {
-    if (!pendingVideoSeek) return;
-    if (selectedGalleryItem?.url !== pendingVideoSeek.url) return;
-    const video = mainVideoRef.current;
-    if (!video) return;
-    const apply = () => {
-      try {
-        video.currentTime = pendingVideoSeek.time;
-        void video.play();
-      } catch {}
-      setPendingVideoSeek(null);
-    };
-    if (video.readyState >= 1) {
-      apply();
-    } else {
-      const onMeta = () => apply();
-      video.addEventListener("loadedmetadata", onMeta, { once: true });
-      return () => video.removeEventListener("loadedmetadata", onMeta);
-    }
-  }, [pendingVideoSeek, selectedGalleryItem?.url]);
-
   function goToGallery(nextIndex: number) {
     if (!gallery.length) return;
-    const normalized = (nextIndex + gallery.length) % gallery.length;
-    setGalleryDirection(normalized > galleryIndex ? 1 : -1);
-    setGalleryIndex(normalized);
+    setGalleryIndex((nextIndex + gallery.length) % gallery.length);
   }
 
-  const hasDetailsSection = infoItems.length > 0;
   const hasStyleSection =
     styleChips.length > 0 || matchedSubcategories.length > 0;
   const hasRatesSection = typeof professional?.baseRate === "number";
@@ -740,320 +649,513 @@ export default function ProfileDetailView({
   // cruzada abajo: se ve de una y dice qué es sin que nadie tenga que tocar
   // un escudo diminuto.
   const isVerifiedProfile = hasVerifiedBadge(professional?.profileTags);
+  const hasExams = hasExamsBadge(professional?.profileTags);
+
+  /* Línea bajo el nombre: el nivel es lo que la distingue de un aviso
+     cualquiera, y si no tiene, la categoría dice al menos qué ofrece. */
+  const levelLabel = professional.userLevel
+    ? `Escort ${professional.userLevel}`
+    : professional.category || "Escort";
+
+  /* Dos filas de datos: arriba lo que se compara de un vistazo (edad, medidas)
+     y abajo lo descriptivo, que se lee sólo si la primera fila convenció. */
+  const primaryChips = [
+    professional.age ? `${professional.age} años` : null,
+    professional.heightCm ? `${professional.heightCm} cm` : null,
+    professional.weightKg ? `${professional.weightKg} kg` : null,
+    professional.measurements || null,
+  ].filter(Boolean) as string[];
+
+  const secondaryChips = [
+    professional.hairColor ? `Cabello ${professional.hairColor}` : null,
+    professional.skinTone ? `Piel ${professional.skinTone}` : null,
+    ...splitCsv(professional.languages),
+    ...filterUserTags(professional.profileTags).slice(0, 6),
+  ].filter(Boolean) as string[];
+
+  const photoCount = gallery.filter((g) => g.type === "IMAGE").length;
+  const videoCount = gallery.length - photoCount;
+  const mainPhoto = gallery[0] ?? null;
+
+  const aboutText = cleanProfileText(professional.description);
+
+  /* "Responde al instante" sólo si el dato existe y es bueno: prometer
+     rapidez sin respaldo es lo que hace que el cliente escriba y se queme. */
+  const fastResponse =
+    professional.avgResponseMinutes != null && professional.avgResponseMinutes <= 30
+      ? professional.avgResponseMinutes <= 5
+        ? "Responde al instante"
+        : `Responde en ${professional.avgResponseMinutes} min`
+      : null;
+
+  const serviceCount =
+    (professional.serviceTags?.length ?? 0) + extraSubcategories.length;
+
+  const ratingValue = surveySummary?.avgOverall ?? professional.rating ?? null;
+  const ratingCount = surveySummary?.count ?? professional.reviewCount ?? 0;
 
   return (
     <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-hidden pb-40 md:pb-10">
-      {/* Hero cover */}
-      <section className="relative w-full overflow-hidden">
-        <div className="relative aspect-[9/6] w-full overflow-hidden md:aspect-[16/7]">
-          {coverSrc ? (
-            <img
-              src={coverSrc}
-              alt="Portada"
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{
-                objectPosition: `${professional.coverPositionX ?? 50}% ${professional.coverPositionY ?? 50}%`,
-              }}
-            />
-          ) : (
-            <div className="grid h-full w-full place-items-center bg-gradient-to-br from-fuchsia-700/35 via-violet-700/30 to-slate-900">
-              <ImageIcon className="h-10 w-10 text-white/50" />
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0c0614] via-[#0c0614]/30 to-black/30" />
+      {/* ══════════ Ficha ══════════
+          La presentación entra completa en una pantalla: foto, quién es, los
+          datos duros y por qué creerle. Debajo van las fotos y las opiniones,
+          que es lo que se mira después de decidir que interesa. */}
+      <div className="mx-auto w-full max-w-6xl min-w-0 md:px-8 md:pt-5">
+        <section className="overflow-hidden border-b border-white/[0.07] bg-[#0e0f1e]/70 md:rounded-3xl md:border">
+          <div className="md:grid md:grid-cols-[280px_minmax(0,1fr)] md:gap-6 md:p-6 lg:grid-cols-[320px_minmax(0,1fr)_290px]">
 
-          {/* Top floating badges */}
-          <div className="absolute inset-x-0 top-0 flex items-start justify-between p-4 md:p-6">
-            <div className="flex flex-col gap-1.5">
-              <span
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium backdrop-blur-xl ${availabilityState.className}`}
+            {/* ── Foto principal ── */}
+            {/* self-stretch + h-full: la foto acompaña el alto de la ficha en
+                el escritorio. Con una relación de aspecto fija quedaba un
+                hueco muerto debajo cuando la columna de datos era más alta. */}
+            <div className="relative w-full overflow-hidden md:self-stretch md:rounded-2xl md:border md:border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => mainPhoto && setLightbox(mainPhoto)}
+                className="relative block aspect-[4/5] w-full md:aspect-auto md:h-full md:min-h-[440px]"
+                aria-label="Ver foto en grande"
               >
-                <span className="relative flex h-2 w-2">
-                  {availableNow && (
-                    <span
-                      className="absolute inset-0 rounded-full bg-emerald-300/90 animate-ping opacity-80"
-                      style={{ animationDuration: "1.4s" }}
-                    />
-                  )}
-                  <span
-                    className={`relative h-2 w-2 rounded-full ${availabilityState.dot} ${availableNow ? "shadow-[0_0_6px_2px_rgba(52,211,153,0.5)]" : ""}`}
+                {coverSrc ? (
+                  <img
+                    src={coverSrc}
+                    alt={professional.name}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    style={{
+                      objectPosition: `${professional.coverPositionX ?? 50}% ${professional.coverPositionY ?? 50}%`,
+                    }}
                   />
-                </span>
-                {availabilityState.label}
-              </span>
-              {professional.avgResponseMinutes != null &&
-                professional.avgResponseMinutes <= 30 && (
-                  <span className="flex items-center gap-1.5 rounded-full border border-violet-300/30 bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-100 backdrop-blur-xl">
-                    <Zap className="h-3 w-3 text-violet-300" />
-                    {professional.avgResponseMinutes <= 5
-                      ? "Responde al instante"
-                      : `Responde en ${professional.avgResponseMinutes} min`}
-                  </span>
+                ) : (
+                  <div className="grid h-full w-full place-items-center bg-gradient-to-br from-fuchsia-700/35 via-violet-700/30 to-slate-900">
+                    <ImageIcon className="h-10 w-10 text-white/50" />
+                  </div>
                 )}
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/30 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-xl">
-              <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
-              <span>
-                {(surveySummary?.avgOverall ?? professional.rating)?.toFixed(
-                  1,
-                ) ?? "–"}
-              </span>
-              {(surveySummary?.count ?? professional.reviewCount ?? 0) > 0 && (
-                <>
-                  <span className="text-white/30">•</span>
-                  <span className="text-white/50">
-                    {surveySummary?.count ?? professional.reviewCount} reseña
-                    {(surveySummary?.count ?? professional.reviewCount ?? 0) !==
-                    1
-                      ? "s"
-                      : ""}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
 
-          {/* Bottom info overlay */}
-          <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-16 md:px-8 md:pb-6 bg-gradient-to-t from-[#0c0614] via-[#0c0614]/80 to-transparent [--verified-band-bleed:16px] md:[--verified-band-bleed:32px]">
-            <div className="space-y-2 md:space-y-2.5">
-              <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl">
-                {professional.name}
-                {professional.age ? <span className="text-white/60 font-normal">, {professional.age}</span> : ""}
-                {hasPremiumBadge(professional?.profileTags) && <StatusBadgeIcon type="premium" size="h-5 w-5" />}
-                {/* La verificación se muestra con texto y no sólo como icono:
-                    es el plus del perfil y nadie va a tocar un escudo chico
-                    para descubrir qué significa. */}
-                {hasVerifiedBadge(professional?.profileTags) && (
-                  <StatusBadgeIcon type="verificada" size="h-4 w-4" showLabel />
-                )}
-                {professional.umateActive && (
-                  <Link href={`/umate/profile/${professional.id}`} className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-fuchsia-600/30 to-violet-600/30 border border-fuchsia-400/30 px-2.5 py-0.5 text-xs font-bold text-fuchsia-200 hover:from-fuchsia-600/50 hover:to-violet-600/50 transition" title="Contenido exclusivo en UMate">
-                    <Sparkles className="h-3 w-3" /> UMate
-                  </Link>
-                )}
-              </h1>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/70 md:text-base">
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-fuchsia-400" />
-                  {professional.city || "Ubicación no especificada"}
-                </span>
-                {professional.category && (
-                  <>
-                    <span className="text-white/20">·</span>
-                    <span>{professional.category}</span>
-                  </>
-                )}
-              </div>
+                {/* Nombre sobre la foto: sólo en el teléfono, donde no hay
+                    columna al lado que lo sostenga. */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/25 md:hidden" />
+                {/* Copia visual del nombre para el teléfono. El título real es
+                    el <h1> de la columna de al lado, que en móvil queda oculto
+                    a la vista pero sigue en el documento. */}
+                <div aria-hidden="true" className="absolute inset-x-0 bottom-0 px-4 pb-9 text-center md:hidden">
+                  <p className="text-3xl font-extrabold uppercase leading-none tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
+                    {professional.name}
+                    {professional.age ? (
+                      <span className="ml-1.5 text-xl font-semibold text-white/70">
+                        {professional.age}
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.32em] text-amber-300/90">
+                    {levelLabel}
+                  </p>
+                </div>
 
-              {/* Profile tags + stats in one row */}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {filterUserTags(professional?.profileTags).slice(0, 5).map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex rounded-full border border-fuchsia-300/30 bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-100 capitalize backdrop-blur-sm"
-                  >
-                    {tag}
+                {isVerifiedProfile && <VerifiedBand size="md" />}
+
+                {gallery.length > 1 && (
+                  <span className="absolute bottom-10 right-2.5 z-[4] hidden items-center gap-1 rounded-full border border-white/20 bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white/85 backdrop-blur-md md:inline-flex">
+                    <Camera className="h-3 w-3" />
+                    {gallery.length}
                   </span>
-                ))}
+                )}
+              </button>
+
+              {/* Nivel + estado, arriba a la izquierda */}
+              <div className="pointer-events-none absolute left-2.5 top-2.5 z-[4] flex flex-col items-start gap-1.5">
+                <span
+                  className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur-md ${availabilityState.className}`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${availabilityState.dot}`} />
+                  {availabilityState.label}
+                </span>
                 {professional.userLevel && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-100 backdrop-blur-sm">
-                    <Gem className="h-3 w-3 text-amber-300" />
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/35 bg-amber-500/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-100 backdrop-blur-md">
+                    <Gem className="h-3 w-3" />
                     {professional.userLevel}
                   </span>
                 )}
               </div>
 
-              {/* Stats row */}
-              <div className="flex items-center gap-4 text-xs text-white/45">
-                {(professional.completedServices ?? 0) > 0 && (
-                  <span className="flex items-center gap-1">
-                    <Shield className="h-3.5 w-3.5 text-emerald-400" />
-                    {professional.completedServices} servicios
-                  </span>
+              {/* Guardar / compartir */}
+              <div className="absolute right-2.5 top-2.5 z-[4] flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={toggleFavorite}
+                  aria-label={favorite ? "Quitar de favoritos" : "Guardar en favoritos"}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition ${
+                    favorite
+                      ? "border-rose-400/50 bg-rose-500/25 text-rose-100"
+                      : "border-white/20 bg-black/45 text-white/75 hover:bg-black/65"
+                  }`}
+                >
+                  <Heart className={`h-4 w-4 ${favorite ? "fill-rose-400" : ""}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleShare("profile_detail_hero")}
+                  aria-label="Compartir perfil"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white/75 backdrop-blur-md transition hover:bg-black/65"
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* ── Quién es ── */}
+            <div className="min-w-0 px-4 pt-4 md:p-0">
+              <div className="sr-only md:not-sr-only md:block">
+                <h1 className="flex flex-wrap items-center gap-2.5 text-3xl font-extrabold uppercase leading-none tracking-tight lg:text-4xl">
+                  {professional.name}
+                  {professional.age ? (
+                    <span className="text-2xl font-semibold text-white/50">
+                      {professional.age}
+                    </span>
+                  ) : null}
+                  {hasPremiumBadge(professional?.profileTags) && (
+                    <StatusBadgeIcon type="premium" size="h-5 w-5" />
+                  )}
+                </h1>
+                <p className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.34em] text-amber-300/90">
+                  {levelLabel}
+                </p>
+              </div>
+
+              {/* Señales rápidas: responder rápido y tener servicios hechos es
+                  lo que separa un perfil activo de uno abandonado. */}
+              {(fastResponse || (professional.completedServices ?? 0) > 0 ||
+                professional.umateActive) && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 md:mt-4">
+                  {fastResponse && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-300/25 bg-violet-500/12 px-2.5 py-1 text-[11px] font-semibold text-violet-100">
+                      <Zap className="h-3 w-3 text-violet-300" />
+                      {fastResponse}
+                    </span>
+                  )}
+                  {(professional.completedServices ?? 0) > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/25 bg-emerald-500/12 px-2.5 py-1 text-[11px] font-semibold text-emerald-100">
+                      <Shield className="h-3 w-3 text-emerald-300" />
+                      {professional.completedServices} servicios
+                    </span>
+                  )}
+                  {professional.umateActive && (
+                    <Link
+                      href={`/umate/profile/${professional.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-400/30 bg-gradient-to-r from-fuchsia-600/30 to-violet-600/30 px-2.5 py-1 text-[11px] font-bold text-fuchsia-100 transition hover:from-fuchsia-600/50 hover:to-violet-600/50"
+                      title="Contenido exclusivo en UMate"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      UMate
+                    </Link>
+                  )}
+                </div>
+              )}
+
+              {/* Datos físicos: lo primero que se mira, así que van sólidos */}
+              {primaryChips.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5 md:mt-4">
+                  {primaryChips.map((chip) => (
+                    <span
+                      key={chip}
+                      className="rounded-lg border border-white/10 bg-white/[0.09] px-3 py-1.5 text-[13px] font-semibold text-white/90"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {secondaryChips.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {secondaryChips.map((chip) => (
+                    <span
+                      key={chip}
+                      className="rounded-lg border border-white/[0.09] bg-white/[0.03] px-2.5 py-1.5 text-[12px] capitalize text-white/60"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Confianza: por qué creerle a este perfil */}
+              <div className="mt-4 space-y-2.5 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5">
+                <div className="flex gap-2.5">
+                  <BadgeCheck
+                    className={`mt-0.5 h-4 w-4 shrink-0 ${isVerifiedProfile ? "text-emerald-400" : "text-white/30"}`}
+                  />
+                  <p className="text-[13px] leading-snug text-white/65">
+                    <span className="font-semibold text-white/90">Verificación de perfil: </span>
+                    {isVerifiedProfile
+                      ? `${professional.name} pasó la verificación del equipo y las fotos publicadas corresponden a este perfil.`
+                      : "Este perfil todavía no está verificado por el equipo."}
+                  </p>
+                </div>
+                <div className="flex gap-2.5">
+                  <Camera className="mt-0.5 h-4 w-4 shrink-0 text-sky-400/80" />
+                  <p className="text-[13px] leading-snug text-white/65">
+                    <span className="font-semibold text-white/90">Fotos y videos: </span>
+                    {photoCount} foto{photoCount === 1 ? "" : "s"}
+                    {videoCount > 0
+                      ? ` y ${videoCount} video${videoCount === 1 ? "" : "s"}`
+                      : ""}{" "}
+                    en el perfil.
+                  </p>
+                </div>
+                <div className="flex gap-2.5">
+                  <Stethoscope
+                    className={`mt-0.5 h-4 w-4 shrink-0 ${hasExams ? "text-emerald-400" : "text-white/30"}`}
+                  />
+                  <p className="text-[13px] leading-snug text-white/65">
+                    <span className="font-semibold text-white/90">Exámenes médicos: </span>
+                    {hasExams
+                      ? "al día, comprobados por el equipo."
+                      : "sin comprobante vigente en el perfil."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Acciones en escritorio (en el teléfono van en la barra fija) */}
+              <div className="mt-4 hidden flex-wrap gap-2 md:flex">
+                <button
+                  onClick={() => handleChatClick("message")}
+                  className="btn-primary flex-1 whitespace-nowrap rounded-xl px-5 py-3 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.28)] transition hover:brightness-110"
+                >
+                  Enviar mensaje
+                </button>
+                {professional.phone && (
+                  <>
+                    <a
+                      href={formatWhatsAppUrl(professional.phone)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() =>
+                        trackAction("whatsapp_click", professional.id, {
+                          source: "profile_detail_hero",
+                          displayName: professional.name,
+                        })
+                      }
+                      className="flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-5 py-3 text-sm font-bold text-emerald-200 transition hover:bg-emerald-500/25"
+                    >
+                      <Phone className="h-4 w-4" />
+                      WhatsApp
+                    </a>
+                    <a
+                      href={`tel:${professional.phone.replace(/[^\d+]/g, "")}`}
+                      className="flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-white/12 bg-white/[0.05] px-5 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/[0.09]"
+                    >
+                      Llamar
+                    </a>
+                  </>
+                )}
+                {hasStore && (
+                  <Link
+                    href={`/marketplace/tienda/${professional.username ?? ""}`}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-fuchsia-400/25 bg-fuchsia-500/12 px-5 py-3 text-sm font-semibold text-fuchsia-100 transition hover:bg-fuchsia-500/20"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    Tienda
+                  </Link>
                 )}
               </div>
             </div>
 
-            {/* Banda de verificación, cruzando el borde de abajo de la portada */}
-            {isVerifiedProfile && coverSrc && <VerifiedBand size="md" inline />}
+            {/* ── Sobre mí ── */}
+            {aboutText && (
+              <div className="px-4 pb-4 pt-4 md:col-span-2 md:mt-2 md:border-t md:border-white/[0.06] md:px-0 md:pb-0 md:pt-5 lg:col-span-1 lg:mt-0 lg:border-0 lg:pl-6 lg:pt-0">
+                <h2 className="text-base font-bold text-white/90">Sobre mí</h2>
+                <div className="relative mt-2">
+                  <p
+                    className={`whitespace-pre-line text-[14px] leading-[1.65] text-white/70 ${
+                      aboutOpen ? "" : "line-clamp-[8]"
+                    }`}
+                  >
+                    {aboutText}
+                  </p>
+                  {!aboutOpen && (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#0e0f1e] to-transparent"
+                    />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAboutOpen((v) => !v)}
+                  className="mt-2 rounded-lg border border-white/12 bg-white/[0.05] px-3.5 py-1.5 text-xs font-semibold text-white/70 transition hover:bg-white/[0.1]"
+                >
+                  {aboutOpen ? "Leer menos" : "Leer más"}
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
 
-      <div className="mx-auto mt-3 grid w-full max-w-6xl min-w-0 gap-4 px-4 md:mt-4 md:grid-cols-[minmax(0,1fr)_360px] md:items-start md:gap-5 md:px-8">
-        <div className="min-w-0 space-y-4">
-          {/* Gallery */}
-          <section className="min-w-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent">
-            {selectedGalleryItem ? (
-              <motion.button
-                type="button"
-                onClick={() => setLightbox(selectedGalleryItem)}
-                className="relative block w-full overflow-hidden border-b border-white/10"
-              >
-                <div className="relative aspect-[4/5] w-full md:aspect-[16/9]">
-                  <AnimatePresence mode="wait">
-                    {selectedGalleryItem.type === "VIDEO" ? (
-                      <motion.video
-                        key={selectedGalleryItem.url}
-                        ref={mainVideoRef}
-                        src={selectedGalleryItem.url}
-                        muted
-                        loop
-                        playsInline
-                        autoPlay
-                        preload="metadata"
-                        className="absolute inset-0 h-full w-full object-cover"
-                        initial={{
-                          opacity: 0,
-                          x: galleryDirection > 0 ? 40 : -40,
-                        }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: galleryDirection > 0 ? -40 : 40 }}
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
-                      />
-                    ) : (
-                      <motion.img
-                        key={selectedGalleryItem.url}
-                        src={selectedGalleryItem.url}
-                        alt="Imagen destacada"
-                        className="absolute inset-0 h-full w-full object-cover"
-                        initial={{
-                          opacity: 0,
-                          x: galleryDirection > 0 ? 40 : -40,
-                        }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: galleryDirection > 0 ? -40 : 40 }}
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
-                      />
-                    )}
-                  </AnimatePresence>
-                  {isVerifiedProfile && <VerifiedBand size="md" />}
-                </div>
-                <span className="absolute bottom-3 right-3 rounded-2xl border border-white/20 bg-black/50 px-2.5 py-1 text-xs text-white/90 backdrop-blur-md">
-                  {galleryIndex + 1} / {gallery.length}
-                </span>
-                {gallery.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        goToGallery(galleryIndex - 1);
-                      }}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 rounded-2xl border border-white/20 bg-black/55 p-3 text-white/90 backdrop-blur-md transition hover:bg-black/75"
-                    >
-                      <ChevronLeft className="h-5 w-5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        goToGallery(galleryIndex + 1);
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-2xl border border-white/20 bg-black/55 p-3 text-white/90 backdrop-blur-md transition hover:bg-black/75"
-                    >
-                      <ChevronRight className="h-5 w-5" />
-                    </button>
-                  </>
-                )}
-              </motion.button>
-            ) : (
-              <div className="grid aspect-[4/5] w-full place-items-center bg-white/[0.03] text-white/60 md:aspect-[16/9]">
-                <div className="text-center text-sm">
-                  <ImageIcon className="mx-auto mb-2 h-5 w-5" />
-                  Sin fotos disponibles
-                </div>
+        {/* ══════════ Datos duros ══════════
+            Teléfono, tarifa, dónde y cuándo: lo que decide el contacto. Una
+            celda por dato, con separadores de 1px en vez de tarjetas sueltas. */}
+        <section className="mt-3 grid gap-px overflow-hidden border-y border-white/[0.07] bg-white/[0.07] sm:grid-cols-2 md:mt-4 md:grid-cols-3 md:rounded-2xl md:border">
+          {professional.phone && (
+            <a
+              href={`tel:${professional.phone.replace(/[^\d+]/g, "")}`}
+              onClick={() =>
+                trackAction("phone_click", professional.id, {
+                  source: "profile_detail_facts",
+                  displayName: professional.name,
+                })
+              }
+              className="flex items-start gap-3 bg-[#0e0f1e] p-4 transition hover:bg-[#14152a]"
+            >
+              <Phone className="mt-0.5 h-5 w-5 shrink-0 text-fuchsia-400" />
+              <div className="min-w-0">
+                <p className="truncate text-[17px] font-bold tracking-tight">
+                  {professional.phone}
+                </p>
+                <p className="text-[12px] text-white/45">Toca para llamar</p>
               </div>
-            )}
-
-            {gallery.length > 1 && (
-              <div className="min-w-0 overflow-hidden px-3 py-2.5 md:px-4">
-                <div className="flex min-w-0 flex-nowrap gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {gallery.map((item, idx) => {
-                    const isLatestVideo =
-                      item.type === "VIDEO" && item.url === latestStoryVideoUrl;
-                    const isSelected = idx === galleryIndex;
-                    const shouldLoopThumb = isLatestVideo && !isSelected;
-                    const handleClick = () => {
-                      if (isLatestVideo) {
-                        const v = thumbVideoRefs.current.get(item.url);
-                        if (v && Number.isFinite(v.currentTime)) {
-                          setPendingVideoSeek({
-                            url: item.url,
-                            time: v.currentTime,
-                          });
-                        }
-                      }
-                      goToGallery(idx);
-                    };
-                    return (
-                    <button
-                      type="button"
-                      key={`${item.url}-${idx}`}
-                      onClick={handleClick}
-                      className={`relative w-20 shrink-0 overflow-hidden rounded-xl border transition-all duration-200 aspect-[3/4] md:w-24 ${
-                        isSelected
-                          ? "border-fuchsia-300 shadow-[0_0_0_1px_rgba(232,121,249,0.5)] scale-[1.03]"
-                          : "border-white/10 opacity-80 hover:opacity-100 hover:scale-105 hover:brightness-110"
-                      }`}
-                    >
-                      {item.type === "VIDEO" ? (
-                        <>
-                          <video
-                            ref={(el) => {
-                              if (el) thumbVideoRefs.current.set(item.url, el);
-                              else thumbVideoRefs.current.delete(item.url);
-                            }}
-                            src={shouldLoopThumb ? item.url : `${item.url}#t=0.1`}
-                            muted
-                            loop={shouldLoopThumb}
-                            autoPlay={shouldLoopThumb}
-                            playsInline
-                            preload="metadata"
-                            className="absolute inset-0 h-full w-full object-cover"
-                          />
-                          <div className="pointer-events-none absolute right-1 top-1">
-                            <div className="rounded-full bg-black/55 p-1 ring-1 ring-white/30">
-                              <Play className="h-2.5 w-2.5 fill-white text-white" />
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        <img
-                          src={item.url}
-                          alt={`Galería ${idx + 1}`}
-                          className="absolute inset-0 h-full w-full object-cover"
-                        />
-                      )}
-                    </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* Sobre mi */}
-          {cleanProfileText(professional.description) && (
-            <section className="relative min-w-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-fuchsia-500/[0.06] via-violet-500/[0.04] to-transparent p-5 md:p-6">
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-y-5 left-0 w-[3px] rounded-r-full bg-gradient-to-b from-fuchsia-400 via-violet-400 to-transparent"
-              />
-              <h2 className="mb-3 pl-3 text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300/80">
-                Sobre mi
-              </h2>
-              <p className="whitespace-pre-line pl-3 text-[15px] leading-[1.7] text-white/85">
-                {cleanProfileText(professional.description)}
-              </p>
-            </section>
+            </a>
           )}
 
+          <div className="flex items-start gap-3 bg-[#0e0f1e] p-4">
+            <Banknote className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+            <div className="min-w-0">
+              <p className="text-[17px] font-bold tracking-tight">{priceLabel}</p>
+              <p className="text-[12px] text-white/45">{durationLabel}</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 bg-[#0e0f1e] p-4">
+            <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
+            <div className="min-w-0">
+              <p className="truncate text-[15px] font-bold tracking-tight">
+                {professional.city || "Zona referencial"}
+              </p>
+              <p className="text-[12px] text-white/45">
+                {availabilityChips.length > 0
+                  ? availabilityChips.join(" · ")
+                  : "Consulta el lugar de encuentro"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 bg-[#0e0f1e] p-4">
+            <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+            <div className="min-w-0">
+              <p className="text-[15px] font-bold tracking-tight">
+                {availabilityState.label}
+              </p>
+              <p className="text-[12px] text-white/45">
+                {professional.availabilityNote || "Escríbele para coordinar"}
+              </p>
+            </div>
+          </div>
+
+          <a
+            href="#servicios"
+            className="flex items-start gap-3 bg-[#0e0f1e] p-4 transition hover:bg-[#14152a]"
+          >
+            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-violet-400" />
+            <div className="min-w-0">
+              <p className="text-[15px] font-bold tracking-tight">
+                {serviceCount > 0 ? `${serviceCount} servicios` : "Servicios"}
+              </p>
+              <p className="text-[12px] text-white/45">Ver el detalle</p>
+            </div>
+          </a>
+
+          <div className="flex items-start gap-3 bg-[#0e0f1e] p-4">
+            <Star className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+            <div className="min-w-0">
+              <p className="text-[15px] font-bold tracking-tight">
+                {ratingValue != null ? ratingValue.toFixed(1) : "Sin calificar"}
+              </p>
+              <p className="text-[12px] text-white/45">
+                {ratingCount > 0
+                  ? `${ratingCount} opinión${ratingCount === 1 ? "" : "es"}`
+                  : "Aún no tiene opiniones"}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════ Fotos ══════════ */}
+        {gallery.length > 0 && (
+          <section id="fotos" className="mt-5 px-4 md:px-0">
+            <div className="flex items-end justify-between gap-3">
+              <h2 className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-sm font-bold text-white shadow-[0_6px_20px_rgba(168,85,247,0.28)]">
+                Fotos
+              </h2>
+              <p className="text-right text-[12px] text-white/40">
+                {photoCount} foto{photoCount === 1 ? "" : "s"}
+                {videoCount > 0
+                  ? ` · ${videoCount} video${videoCount === 1 ? "" : "s"}`
+                  : ""}
+                {professional.lastSeen && (
+                  <span className="block text-white/30">
+                    Última conexión: {timeAgo(professional.lastSeen)}
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+              {gallery.map((item, idx) => {
+                const isLatestVideo =
+                  item.type === "VIDEO" && item.url === latestStoryVideoUrl;
+                return (
+                  <button
+                    type="button"
+                    key={`${item.url}-${idx}`}
+                    onClick={() => {
+                      goToGallery(idx);
+                      setLightbox(item);
+                    }}
+                    className="group relative aspect-[3/4] overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] transition hover:border-fuchsia-400/40"
+                  >
+                    {item.type === "VIDEO" ? (
+                      <>
+                        <video
+                          ref={(el) => {
+                            if (el) thumbVideoRefs.current.set(item.url, el);
+                            else thumbVideoRefs.current.delete(item.url);
+                          }}
+                          src={isLatestVideo ? item.url : `${item.url}#t=0.1`}
+                          muted
+                          loop={isLatestVideo}
+                          autoPlay={isLatestVideo}
+                          playsInline
+                          preload="metadata"
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                        <span className="pointer-events-none absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1 ring-1 ring-white/25">
+                          <Play className="h-2.5 w-2.5 fill-white text-white" />
+                        </span>
+                      </>
+                    ) : (
+                      <img
+                        src={item.url}
+                        alt={`${professional.name} ${idx + 1}`}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+      </div>
+
+      <div className="mx-auto mt-4 grid w-full max-w-6xl min-w-0 gap-4 px-4 md:gap-5 md:px-8">
+        <div className="min-w-0 space-y-4">
           {/* Servicios + Estilo */}
           {((professional?.serviceTags?.length ?? 0) > 0 ||
             matchedSubcategories.length > 0 ||
             hasStyleSection) && (
-            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-5 md:p-6">
+            <section
+              id="servicios"
+              className="min-w-0 scroll-mt-24 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-5 md:p-6"
+            >
               {((professional?.serviceTags?.length ?? 0) > 0 ||
                 matchedSubcategories.length > 0) && (
                 <>
@@ -1106,46 +1208,6 @@ export default function ProfileDetailView({
                   </div>
                 </div>
               )}
-            </section>
-          )}
-
-          {/* Información */}
-          {hasDetailsSection && (
-            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-5 md:p-6">
-              <h2 className="mb-4 text-base font-semibold text-white">
-                Información
-              </h2>
-              <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3">
-                {infoItems.map((item) => {
-                  const ItemIcon = item.Icon;
-                  return (
-                    <div
-                      key={`${item.label}-${item.value}`}
-                      className="group relative min-w-0 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 transition hover:border-white/[0.12] hover:bg-white/[0.05]"
-                    >
-                      <div
-                        aria-hidden="true"
-                        className={`pointer-events-none absolute inset-0 bg-gradient-to-br opacity-60 ${item.accent}`}
-                      />
-                      <div className="relative flex items-center gap-2.5">
-                        <div
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] ring-1 ring-inset ring-white/10 ${item.accent.split(" ").pop()}`}
-                        >
-                          <ItemIcon className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-[10px] font-semibold uppercase tracking-wide text-white/45">
-                            {item.label}
-                          </div>
-                          <div className="truncate text-sm font-semibold text-white">
-                            {item.value}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </section>
           )}
 
@@ -1396,131 +1458,19 @@ export default function ProfileDetailView({
             </section>
           )}
 
+          {/* La descripción del servicio venía en la barra lateral, que ya no
+              existe: ahora va con el resto del contenido. */}
+          {cleanProfileText(professional.serviceSummary) && (
+            <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-5 md:p-6">
+              <h2 className="mb-2 text-base font-semibold text-white">
+                Descripción del servicio
+              </h2>
+              <p className="whitespace-pre-line text-[15px] leading-[1.7] text-white/70">
+                {cleanProfileText(professional.serviceSummary)}
+              </p>
+            </section>
+          )}
         </div>
-
-        {/* Sidebar */}
-        <aside className="hidden min-w-0 md:block">
-          <div className="sticky top-[88px] min-w-0 space-y-4">
-            {/* Price card */}
-            <div className="overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-white/[0.02] shadow-[0_4px_40px_rgba(0,0,0,0.3)]">
-              <div className="p-6">
-                <div className="border-b border-white/[0.08] pb-4">
-                  <p className="text-3xl font-bold leading-none text-white tracking-tight">
-                    {priceLabel}
-                  </p>
-                  <p className="mt-1.5 flex items-center gap-1.5 text-sm text-white/60">
-                    <Clock className="h-3.5 w-3.5" />
-                    {durationLabel}
-                  </p>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span
-                    className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${availabilityState.className}`}
-                  >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${availabilityState.dot}`}
-                    />
-                    {availabilityState.label}
-                  </span>
-                  {availabilityChips.map((chip) => (
-                    <span
-                      key={chip}
-                      className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/70"
-                    >
-                      {chip}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3 text-sm text-white/70">
-                  <p className="flex items-start gap-2">
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-fuchsia-400" />
-                    <span>
-                      {professional.city
-                        ? `Zona aproximada: ${professional.city}`
-                        : "Zona referencial"}
-                    </span>
-                  </p>
-                </div>
-
-                {professional.availabilityNote && (
-                  <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200/80 border border-amber-500/15">
-                    {professional.availabilityNote}
-                  </p>
-                )}
-
-                <div className="mt-4 space-y-2.5">
-                <button
-                  onClick={() => handleChatClick("message")}
-                  className="btn-primary w-full rounded-2xl py-3.5 text-sm font-bold shadow-[0_8px_24px_rgba(168,85,247,0.3)] transition-transform duration-200 hover:scale-105 hover:shadow-[0_0_24px_rgba(168,85,247,0.45)]"
-                >
-                  Enviar mensaje
-                </button>
-
-                {/* Secondary actions — compact icon row */}
-                <div className="flex gap-2 pt-1">
-                  {hasStore && (
-                    <Link
-                      href={`/marketplace/tienda/${professional.username ?? ""}`}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600/90 to-violet-600/90 py-2.5 text-xs font-bold text-white transition-all hover:brightness-110"
-                    >
-                      <ShoppingBag className="h-3.5 w-3.5" />
-                      Tienda
-                    </Link>
-                  )}
-                  {professional.phone && (
-                    <a
-                      href={formatWhatsAppUrl(professional.phone)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => trackAction("whatsapp_click", professional.id, { source: "profile_detail", displayName: professional.name })}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 py-2.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-                    >
-                      <Phone className="h-3.5 w-3.5" />
-                      WhatsApp
-                    </a>
-                  )}
-                  <button
-                    onClick={toggleFavorite}
-                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-medium transition-all ${
-                      favorite
-                        ? "border-rose-400/50 bg-rose-500/15 text-rose-200"
-                        : "border-white/10 bg-white/[0.04] text-white/60 hover:bg-white/[0.08]"
-                    }`}
-                  >
-                    <Heart
-                      className={`h-3.5 w-3.5 ${favorite ? "fill-red-500 text-red-500" : ""}`}
-                    />
-                    {favorite ? "Guardado" : "Favorito"}
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleShare("profile_detail_sidebar")}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/25 bg-violet-500/10 py-2.5 text-xs font-semibold text-violet-100 transition hover:bg-violet-500/20"
-                >
-                  <Share2 className="h-3.5 w-3.5" />
-                  Compartir perfil
-                </button>
-              </div>
-              </div>
-            </div>
-
-            {/* Service summary */}
-            {cleanProfileText(professional.serviceSummary) && (
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
-                  Descripcion del servicio
-                </h3>
-                <p className="text-sm leading-relaxed text-white/65">
-                  {cleanProfileText(professional.serviceSummary)}
-                </p>
-              </div>
-            )}
-          </div>
-        </aside>
       </div>
 
       {/* Lightbox */}
@@ -1642,16 +1592,26 @@ export default function ProfileDetailView({
             </Link>
           )}
           {professional.phone && (
-            <a
-              href={formatWhatsAppUrl(professional.phone)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => trackAction("whatsapp_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-            >
-              <Phone className="h-3.5 w-3.5" />
-              WhatsApp
-            </a>
+            <>
+              <a
+                href={`tel:${professional.phone.replace(/[^\d+]/g, "")}`}
+                onClick={() => trackAction("phone_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.06] py-2 text-xs font-semibold text-white/75 transition hover:bg-white/[0.1]"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                Llamar
+              </a>
+              <a
+                href={formatWhatsAppUrl(professional.phone)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackAction("whatsapp_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/15 py-2 text-xs font-bold text-emerald-200 transition hover:bg-emerald-500/25"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                WhatsApp
+              </a>
+            </>
           )}
         </div>
       </div>
