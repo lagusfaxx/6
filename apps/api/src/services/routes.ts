@@ -133,12 +133,29 @@ servicesRouter.get(
       typeof req.query.types === "string"
         ? req.query.types.split(",").map((t) => t.trim())
         : [];
+    /* Filtro por género, con la misma regla que el directorio: pedir FEMALE
+       incluye a los perfiles sin género declarado (la mayoría del catálogo
+       antiguo), porque el sitio nace de mujeres y un perfil sin dato no puede
+       desaparecer del listado. Pedir MALE u OTHER exige el dato explícito. */
+    const genderParam =
+      typeof req.query.gender === "string" ? req.query.gender.toUpperCase() : "";
+    const genderFilter =
+      genderParam === "MALE" || genderParam === "FEMALE" || genderParam === "OTHER"
+        ? (genderParam as "MALE" | "FEMALE" | "OTHER")
+        : null;
     const profiles = await prisma.user.findMany({
       where: {
         profileType: {
           in: types.length ? types : ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"],
         },
         isVerified: true,
+        /* Va dentro de AND porque la búsqueda por texto ya ocupa la clave OR
+           de este where: puestos como hermanos, el segundo pisaba al primero. */
+        ...(genderFilter === "FEMALE"
+          ? { AND: [{ OR: [{ gender: "FEMALE" as const }, { gender: null }] }] }
+          : genderFilter
+            ? { gender: genderFilter }
+            : {}),
         ...(q
           ? {
               OR: [

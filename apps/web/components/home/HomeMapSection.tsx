@@ -42,6 +42,7 @@ type NearbyProfile = {
   availableNow?: boolean;
   lastSeen?: string | null;
   userLevel?: "SILVER" | "GOLD" | "DIAMOND";
+  gender?: "MALE" | "FEMALE" | "OTHER" | null;
   age?: number | null;
   heightCm?: number | null;
   hairColor?: string | null;
@@ -131,6 +132,12 @@ export default function HomeMapSection({ fullBleed = false }: Props) {
     setFailed(false);
     const qp = new URLSearchParams();
     qp.set("types", "PROFESSIONAL,ESTABLISHMENT,SHOP");
+    /* El inicio muestra mujeres — igual que el feed, las destacadas y las
+       novedades. Los perfiles de hombres tienen su propia entrada ("Ellos"),
+       así que en el mapa del home no van: el cliente que llega aquí no los
+       está buscando. Los perfiles sin género declarado siguen contando como
+       mujeres, que es la regla del resto del sitio. */
+    qp.set("gender", "FEMALE");
     qp.set("lat", String(center[0]));
     qp.set("lng", String(center[1]));
     /* Acotar en el servidor al radio más amplio que ofrece la sección. /cerca
@@ -156,6 +163,9 @@ export default function HomeMapSection({ fullBleed = false }: Props) {
   const nearby = useMemo(
     () =>
       profiles
+        /* Red de seguridad por si la respuesta trae hombres igual (avisos
+           rápidos externos, cachés viejas): el mapa del home no los pinta. */
+        .filter((p) => p.gender !== "MALE")
         .filter((p) => p.distance != null && Number.isFinite(p.distance) && p.distance <= radiusKm)
         .sort((a, b) => {
           const tierDiff = tierOrder(a.userLevel) - tierOrder(b.userLevel);

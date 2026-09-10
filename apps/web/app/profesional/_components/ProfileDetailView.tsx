@@ -43,7 +43,7 @@ import {
   Check,
 } from "lucide-react";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../../lib/systemBadges";
-import VerifiedWatermark from "../../../components/VerifiedWatermark";
+import VerifiedBand from "../../../components/VerifiedBand";
 import StatusBadgeIcon from "../../../components/StatusBadgeIcon";
 
 type GalleryItem = { url: string; type: "IMAGE" | "VIDEO" };
@@ -736,8 +736,9 @@ export default function ProfileDetailView({
     ? `${professional.minDurationMinutes} min`
     : "Sin duración mínima";
 
-  // Photos of admin-verified profiles carry a full-surface watermark: it makes
-  // the verification visible everywhere and the photo useless to copy.
+  // Las fotos de los perfiles verificados por admin llevan una banda azul
+  // cruzada abajo: se ve de una y dice qué es sin que nadie tenga que tocar
+  // un escudo diminuto.
   const isVerifiedProfile = hasVerifiedBadge(professional?.profileTags);
 
   return (
@@ -759,7 +760,6 @@ export default function ProfileDetailView({
               <ImageIcon className="h-10 w-10 text-white/50" />
             </div>
           )}
-          {isVerifiedProfile && coverSrc && <VerifiedWatermark size="md" />}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0c0614] via-[#0c0614]/30 to-black/30" />
 
           {/* Top floating badges */}
@@ -815,6 +815,8 @@ export default function ProfileDetailView({
 
           {/* Bottom info overlay */}
           <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-16 md:px-8 md:pb-6 bg-gradient-to-t from-[#0c0614] via-[#0c0614]/80 to-transparent">
+            {/* Banda de verificación cruzando la parte baja de la portada */}
+            {isVerifiedProfile && coverSrc && <VerifiedBand size="md" inline />}
             <div className="space-y-2 md:space-y-2.5">
               <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl">
                 {professional.name}
@@ -924,7 +926,7 @@ export default function ProfileDetailView({
                       />
                     )}
                   </AnimatePresence>
-                  {isVerifiedProfile && <VerifiedWatermark size="md" />}
+                  {isVerifiedProfile && <VerifiedBand size="md" />}
                 </div>
                 <span className="absolute bottom-3 right-3 rounded-2xl border border-white/20 bg-black/50 px-2.5 py-1 text-xs text-white/90 backdrop-blur-md">
                   {galleryIndex + 1} / {gallery.length}
@@ -1555,7 +1557,7 @@ export default function ProfileDetailView({
                     alt="Vista ampliada"
                     className="h-full w-full rounded-3xl border border-white/10 object-contain"
                   />
-                  {isVerifiedProfile && <VerifiedWatermark size="lg" />}
+                  {isVerifiedProfile && <VerifiedBand size="lg" />}
                 </div>
               )}
               {gallery.length > 1 && (

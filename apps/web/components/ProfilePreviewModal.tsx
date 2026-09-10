@@ -8,7 +8,7 @@ import UserLevelBadge from "./UserLevelBadge";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import { cleanProfileHref } from "../lib/profileUrl";
 import StatusBadgeIcon from "./StatusBadgeIcon";
-import VerifiedWatermark from "./VerifiedWatermark";
+import VerifiedBand from "./VerifiedBand";
 import useMe from "../hooks/useMe";
 import { trackAction } from "../hooks/useAnalytics";
 
@@ -220,9 +220,6 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                 decoding="async"
                 className="h-full w-full object-cover transition-all duration-500"
               />
-              {/* Watermark across the whole photo for admin-verified profiles */}
-              {isVerifiedProfile && <VerifiedWatermark size="md" />}
-
               {/* Blurred backdrop layer */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a12] via-[#0a0a12]/40 to-black/20" />
 
@@ -267,6 +264,8 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
 
           {/* ─── Profile Info Overlay ─── */}
           <div className="absolute bottom-0 left-0 right-0 p-5 z-[5]">
+            {/* Banda de verificación cruzando la parte baja de la foto */}
+            {isVerifiedProfile && <VerifiedBand size="md" inline />}
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
