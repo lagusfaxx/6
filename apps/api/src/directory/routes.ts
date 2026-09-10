@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db";
+import { nearestMetroStation, publicMetro } from "../lib/metroStations";
 import { Prisma } from "@prisma/client";
 import { asyncHandler } from "../lib/asyncHandler";
 import { findCategoryByRef } from "../lib/categories";
@@ -706,6 +707,8 @@ directoryRouter.get(
         acceptsOutcalls: true,
         city: true,
         address: true,
+        latitude: true,
+        longitude: true,
         phone: true,
         serviceCategory: true,
         completedServices: true,
@@ -871,6 +874,12 @@ directoryRouter.get(
           (u.city && String(u.city).trim()) ||
           extractCommuneFromAddress(u.address) ||
           null,
+        /* Estación de metro más cercana. Se calcula del punto real pero sólo
+           se publica el nombre: en Santiago "el metro Tobalaba" es la
+           referencia que usa todo el mundo, y sin la distancia no hay forma de
+           acercarse a la dirección. Las coordenadas del mapa siguen
+           desplazadas como hasta ahora. */
+        nearestMetro: publicMetro(nearestMetroStation(u.latitude, u.longitude)),
         heightCm: u.heightCm,
         weightKg: u.weightKg,
         measurements: u.measurements,

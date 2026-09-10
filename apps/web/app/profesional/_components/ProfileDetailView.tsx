@@ -19,6 +19,7 @@ import {
   Clock,
   MapPin,
   CalendarClock,
+  TrainFront,
   MessageSquare,
   ListChecks,
   Camera,
@@ -67,6 +68,8 @@ type Professional = {
   age?: number | null;
   gender?: string | null;
   city?: string | null;
+  /** Estación de metro más cercana, calculada en el servidor. */
+  nearestMetro?: { name: string; lines: string[] } | null;
   serviceSummary?: string | null;
   isOnline: boolean;
   lastSeen: string | null;
@@ -832,9 +835,19 @@ export default function ProfileDetailView({
                   </span>
                 ) : null}
               </h1>
-              <p className="mt-2 text-sm text-white/55">
-                {levelLabel}
-                {professional.city ? ` · ${professional.city}` : ""}
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 text-sm text-white/55">
+                <span>
+                  {levelLabel}
+                  {professional.city ? ` · ${professional.city}` : ""}
+                </span>
+                {professional.nearestMetro && (
+                  /* La referencia con la que se ubica media Santiago. Va junto
+                     al nombre porque es de las primeras cosas que se buscan. */
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 px-2 py-0.5 text-[12px] text-white/70">
+                    <TrainFront className="h-3.5 w-3.5 text-sky-300/80" />
+                    Metro {professional.nearestMetro.name}
+                  </span>
+                )}
               </p>
             </div>
 
@@ -1012,6 +1025,11 @@ export default function ProfileDetailView({
                   </dt>
                   <dd className="text-white/80">
                     {professional.city || "Zona referencial"}
+                    {professional.nearestMetro && (
+                      <span className="text-white/45">
+                        {" · "}Metro {professional.nearestMetro.name}
+                      </span>
+                    )}
                     {availabilityChips.length > 0 && (
                       <span className="text-white/45"> · {availabilityChips.join(" · ")}</span>
                     )}
