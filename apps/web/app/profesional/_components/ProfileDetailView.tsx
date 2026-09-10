@@ -782,7 +782,7 @@ export default function ProfileDetailView({
   const ratingCount = surveySummary?.count ?? professional.reviewCount ?? 0;
 
   return (
-    <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-hidden pb-40 md:pb-10">
+    <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-hidden pb-[15rem] md:pb-10">
       {/* Ficha.
           Sin tarjetas dentro de tarjetas: la foto es la única superficie y
           todo lo demás se ordena con tipografía y líneas de 1px. Los recuadros
@@ -1588,7 +1588,11 @@ export default function ProfileDetailView({
       </AnimatePresence>
 
       {/* Mobile bottom bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0c0614]/95 px-4 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-2xl md:hidden">
+      {/* Va encima de la barra de navegación del sitio, no sobre ella: las dos
+          estaban fijas al borde inferior y ésta la tapaba, así que los botones
+          quedaban pegados al filo de la pantalla — justo donde el iPhone se
+          come el toque con el gesto de inicio. */}
+      <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-40 border-y border-white/[0.08] bg-[#0c0614]/95 px-4 pb-3 pt-2.5 backdrop-blur-2xl md:hidden">
         {/* Guardar y compartir viven sobre la foto: acá abajo repetidos
             quedaban debajo de la cinta de verificación y encima competían con
             los botones que sí cierran el contacto. */}
@@ -1601,51 +1605,46 @@ export default function ProfileDetailView({
             pulgar, a una mano y muchas veces en la calle. Van a 44px de alto,
             que es el mínimo que recomiendan Apple y Google, y WhatsApp con su
             verde porque acá no compite con nada — es el que hay que tocar. */}
+        {/* Todos del mismo ancho y del mismo alto (52px, bastante más que los
+            44 mínimos): en el teléfono se tocan con el pulgar y en movimiento,
+            y ninguno tiene por qué ser más difícil de acertar que otro. */}
         <div className="flex gap-2">
-          {professional.phone ? (
-            <>
-              <a
-                href={formatWhatsAppUrl(professional.phone)}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => trackAction("whatsapp_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
-                className="flex flex-[2] items-center justify-center gap-2 rounded-xl bg-[#25D366] py-3 text-sm font-bold text-[#04231a] transition active:brightness-95"
-              >
-                <WhatsAppIcon className="h-[18px] w-[18px]" />
-                WhatsApp
-              </a>
-              <a
-                href={`tel:${professional.phone.replace(/[^\d+]/g, "")}`}
-                onClick={() => trackAction("phone_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
-                aria-label="Llamar"
-                className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] py-3 text-white/80 transition active:bg-white/[0.12]"
-              >
-                <Phone className="h-[18px] w-[18px]" />
-              </a>
-              <button
-                onClick={() => handleChatClick("message")}
-                aria-label="Enviar mensaje por el chat de UZEED"
-                className="flex w-12 shrink-0 items-center justify-center rounded-xl bg-fuchsia-600 py-3 text-white transition active:brightness-95"
-              >
-                <MessageSquare className="h-[18px] w-[18px]" />
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => handleChatClick("message")}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-fuchsia-600 py-3 text-sm font-bold text-white transition active:brightness-95"
+          {professional.phone && (
+            <a
+              href={formatWhatsAppUrl(professional.phone)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackAction("whatsapp_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
+              className="flex min-h-[52px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-2 text-[13px] font-bold text-[#04231a] transition active:brightness-95"
             >
-              <MessageSquare className="h-[18px] w-[18px]" />
-              Enviar mensaje
-            </button>
+              <WhatsAppIcon className="h-[18px] w-[18px] shrink-0" />
+              WhatsApp
+            </a>
           )}
+          {professional.phone && (
+            <a
+              href={`tel:${professional.phone.replace(/[^\d+]/g, "")}`}
+              onClick={() => trackAction("phone_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
+              className="flex min-h-[52px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.06] px-2 text-[13px] font-semibold text-white/85 transition active:bg-white/[0.12]"
+            >
+              <Phone className="h-[18px] w-[18px] shrink-0" />
+              Llamar
+            </a>
+          )}
+          <button
+            onClick={() => handleChatClick("message")}
+            className="flex min-h-[52px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-fuchsia-600 px-2 text-[13px] font-bold text-white transition active:brightness-95"
+          >
+            <MessageSquare className="h-[18px] w-[18px] shrink-0" />
+            {professional.phone ? "Chat" : "Enviar mensaje"}
+          </button>
           {hasStore && (
             <Link
               href={`/marketplace/tienda/${professional.username ?? ""}`}
-              aria-label="Ver su tienda"
-              className="flex w-12 shrink-0 items-center justify-center rounded-xl border border-fuchsia-400/25 bg-fuchsia-500/12 py-3 text-fuchsia-100 transition active:bg-fuchsia-500/20"
+              className="flex min-h-[52px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-fuchsia-400/25 bg-fuchsia-500/12 px-2 text-[13px] font-semibold text-fuchsia-100 transition active:bg-fuchsia-500/20"
             >
-              <ShoppingBag className="h-[18px] w-[18px]" />
+              <ShoppingBag className="h-[18px] w-[18px] shrink-0" />
+              Tienda
             </Link>
           )}
         </div>
