@@ -31,9 +31,11 @@ import {
   HelpCircle,
   Eye,
   EyeOff,
+  ShieldCheck,
 } from "lucide-react";
 import Avatar from "./Avatar";
 import useMe from "../hooks/useMe";
+import { canOpenAdmin, isTeamStaff } from "../lib/adminAccess";
 import { useDiscreet } from "./DiscreetProvider";
 import QuickExitBar from "./QuickExitBar";
 import { DISCREET_BRAND, discreetLabel } from "../lib/discreet";
@@ -597,6 +599,14 @@ export default function TopHeader() {
                     <button onClick={() => handleNavLink("/wallet")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
                       <Wallet className="h-4 w-4 text-white/40" /> Billetera
                     </button>
+                    {/* Panel: sin esto, una cuenta de equipo tenía que escribir
+                        /admin a mano para entrar. */}
+                    {canOpenAdmin(me?.user) && (
+                      <button onClick={() => handleNavLink("/admin")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-cyan-200/90 hover:bg-white/[0.06] transition">
+                        <ShieldCheck className="h-4 w-4 text-cyan-400/70" />
+                        {isTeamStaff(me?.user) ? "Panel de equipo" : "Administración"}
+                      </button>
+                    )}
                   </>
                 ) : (
                   <>

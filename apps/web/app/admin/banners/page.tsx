@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { canOpenAdmin, isFullAdmin } from "../../../lib/adminAccess";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
@@ -60,7 +61,9 @@ function extractProfileId(linkUrl?: string | null) {
 export default function AdminBannersPage() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
-  const isAdmin = useMemo(() => (user?.role ?? "").toUpperCase() === "ADMIN", [user?.role]);
+  const isAdmin = canOpenAdmin(user);
+  /* Borrar pasa por doble factor y sólo lo tiene el administrador. */
+  const canDestroy = isFullAdmin(user);
 
   const [items, setItems] = useState<Banner[]>([]);
   const [profiles, setProfiles] = useState<AdminProfile[]>([]);
@@ -384,7 +387,7 @@ export default function AdminBannersPage() {
         <div className="mt-6">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/70"><Eye className="h-4 w-4 text-emerald-400" /> Activos ({activeBanners.length})</h3>
           <div className="space-y-3">
-            {activeBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={(id) => setRemoveTarget(id)} onReplaceProfile={replaceProfile} onUpdateTier={updateTier} />)}
+            {activeBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={canDestroy ? (id) => setRemoveTarget(id) : null} onReplaceProfile={replaceProfile} onUpdateTier={updateTier} />)}
           </div>
         </div>
       )}
@@ -393,7 +396,7 @@ export default function AdminBannersPage() {
         <div className="mt-6">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white/70"><EyeOff className="h-4 w-4 text-white/30" /> Desactivados ({inactiveBanners.length})</h3>
           <div className="space-y-3">
-            {inactiveBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={(id) => setRemoveTarget(id)} onReplaceProfile={replaceProfile} onUpdateTier={updateTier} />)}
+            {inactiveBanners.map((b) => <BannerCard key={b.id} banner={b} busy={busy} profiles={profiles} onToggle={toggle} onRemove={canDestroy ? (id) => setRemoveTarget(id) : null} onReplaceProfile={replaceProfile} onUpdateTier={updateTier} />)}
           </div>
         </div>
       )}
@@ -566,7 +569,8 @@ function BannerCard({
   busy: boolean;
   profiles: AdminProfile[];
   onToggle: (b: Banner) => void;
-  onRemove: (id: string) => void;
+  /* null en las cuentas de equipo: borrar banners es del administrador. */
+  onRemove: ((id: string) => void) | null;
   onReplaceProfile: (banner: Banner, profileId: string) => void;
   onUpdateTier: (banner: Banner, nextTier: "STANDARD" | "GOLD") => void;
 }) {
@@ -610,9 +614,11 @@ function BannerCard({
           <button disabled={busy} onClick={() => onToggle(banner)} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-50 ${banner.isActive ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border border-white/10 bg-white/5 text-white/50"}`}>
             {banner.isActive ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />} {banner.isActive ? "Activo" : "Inactivo"}
           </button>
+          {onRemove && (
           <button disabled={busy} onClick={() => onRemove(banner.id)} className="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/20 disabled:opacity-50">
             <Trash2 className="h-3.5 w-3.5" /> Eliminar
           </button>
+          )}
         </div>
       </div>
     </div>

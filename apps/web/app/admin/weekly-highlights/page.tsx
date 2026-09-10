@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { canOpenAdmin } from "../../../lib/adminAccess";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
@@ -43,10 +44,7 @@ type SendResult = {
 export default function WeeklyHighlightsPage() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
-  const isAdmin = useMemo(
-    () => (user?.role ?? "").toUpperCase() === "ADMIN",
-    [user?.role],
-  );
+  const isAdmin = canOpenAdmin(user);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ProfileResult[]>([]);

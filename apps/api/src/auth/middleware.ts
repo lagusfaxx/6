@@ -162,48 +162,92 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 }
 
 /**
- * Secciones del panel que una cuenta MODERATOR puede consultar. La lista es
- * blanca a propósito: lo que no esté acá queda fuera, así agregar un endpoint
- * nuevo al panel nunca se lo abre al equipo de soporte por descuido.
+ * Lo único que una cuenta de equipo (MODERATOR) NO puede tocar.
  *
- * Deliberadamente NO incluye /admin/exports (descarga la base en CSV con
- * teléfonos), /admin/team (crear cuentas) ni nada de pagos, retiros o precios.
+ * El modelo se dio vuelta a propósito: antes era una lista blanca de lecturas
+ * y el equipo no podía resolver nada, así que cada solicitud terminaba en el
+ * dueño. Ahora entra a todo el panel — aprueba verificaciones, cambios de
+ * nombre y de número, depósitos, retiros, moderación, banners, precios — y lo
+ * que queda fuera es esta lista corta, que son las jugadas sin vuelta atrás o
+ * las que romperían el sentido de tener un rol reducido:
+ *
+ *  - /admin/quick-professionals: pedido explícito, es alta de perfiles falsos.
+ *  - /admin/team: crear compañeros o ascenderse a sí mismo.
+ *  - /admin/exports: baja la base completa en CSV, con teléfonos.
+ *  - /plans: los planes de cobro de Khipu (dinero de verdad, no una solicitud).
+ *
+ * Además de esta lista, borrar perfiles queda fuera (ver más abajo) y todas
+ * las acciones destructivas que ya pasan por `requireFresh2FA` siguen siendo
+ * exclusivas del administrador: ese guard exige rol ADMIN.
  */
-const MODERATOR_READONLY_PREFIXES = [
-  "/admin/control-center",
-  "/admin/overview",
-  "/admin/analytics",
-  "/admin/chats",
-  "/admin/profiles",
-  "/admin/verification",
-  "/admin/verifications",
-  "/admin/face-verifications",
+const MODERATOR_BLOCKED_PREFIXES = [
+  "/admin/quick-professionals",
+  "/admin/team",
+  "/admin/exports",
+  "/plans",
 ];
 
 /**
- * Una petición de MODERATOR pasa sólo si es de lectura Y cae en la lista
- * blanca. El método se mira primero: con eso, cualquier ruta de escritura
- * queda bloqueada aunque su prefijo esté permitido (por ejemplo
- * `PUT /admin/profiles/:id/toggle`, que comparte prefijo con la lectura).
+ * ¿Quien hace esta petición es equipo y nada más? Se usa dentro de los
+ * handlers que dejan pasar al equipo pero le recortan qué campos puede tocar.
+ * Depende de que `requireAdmin` (o `requireAuth`) ya haya cargado `req.user`.
  */
-export function isModeratorReadableRequest(req: Request): boolean {
-  const method = req.method.toUpperCase();
-  if (method !== "GET" && method !== "HEAD") return false;
+export function isTeamOnlyRequest(req: Request): boolean {
+  const user = (req as any).user as { email?: string; role?: string } | undefined;
+  if (!user) return false;
+  const role = (user.role || "").toUpperCase();
+  if (role !== "MODERATOR") return false;
+  return user.email !== config.adminEmail;
+}
 
+/** Editar identidad (nombre, teléfono) y rol tampoco: ver `moderatorBlockedProfileFields`. */
+const MODERATOR_BLOCKED_PROFILE_FIELDS = ["displayName", "phone", "role"] as const;
+
+/**
+ * Campos de PUT /admin/profiles/:id vedados al equipo. Las tarifas sí se
+ * editan: el pedido fue justamente ese, poder corregir precios sin poder
+ * cambiarle el nombre ni el número a nadie (eso pasa por el dueño, porque es
+ * lo que identifica y contacta al perfil).
+ */
+export function moderatorBlockedProfileFields(body: unknown): string[] {
+  if (!body || typeof body !== "object") return [];
+  return MODERATOR_BLOCKED_PROFILE_FIELDS.filter(
+    (field) => (body as Record<string, unknown>)[field] !== undefined,
+  );
+}
+
+function pathMatches(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}/`);
+}
+
+/**
+ * Qué puede pedir una cuenta de equipo. Todo el panel menos la lista negra y
+ * menos borrar perfiles.
+ */
+export function isModeratorAllowedRequest(req: Request): boolean {
   // originalUrl y no req.path: dentro de un router montado, req.path viene
   // recortado y perdería el prefijo /admin que estamos comparando.
   const path = (req.originalUrl || req.url || "").split("?")[0];
-  return MODERATOR_READONLY_PREFIXES.some(
-    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
-  );
+
+  if (MODERATOR_BLOCKED_PREFIXES.some((prefix) => pathMatches(path, prefix))) {
+    return false;
+  }
+
+  // Eliminar perfiles es la única baja que se nombró explícitamente. Se corta
+  // por método para que no dependa de qué endpoint nuevo cuelgue del prefijo.
+  if (req.method.toUpperCase() === "DELETE" && pathMatches(path, "/admin/profiles")) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
  * Admin guard: requiere sesión + que el usuario sea ADMIN (por email o por role).
  *
- * Las cuentas MODERATOR entran por la puerta chica: sólo lecturas y sólo sobre
- * las secciones de MODERATOR_READONLY_PREFIXES. Para todo lo demás reciben el
- * mismo 403 que cualquier usuario.
+ * Las cuentas MODERATOR (equipo) entran a todo el panel salvo lo que corta
+ * `isModeratorAllowedRequest`. Para lo demás reciben 403 como cualquier
+ * usuario.
  *
  * Además bloquea cualquier endpoint /admin/* cuando el admin tiene 2FA habilitado
  * pero todavía no resolvió el challenge en esta sesión (`twoFactorPending`).
@@ -220,13 +264,24 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     const role = (user.role || "").toUpperCase();
     const isAdminByEmail = user.email === config.adminEmail;
     const isAdminByRole = role === "ADMIN";
-    const isReadOnlyModerator =
-      role === "MODERATOR" && isModeratorReadableRequest(req);
+    const isTeamMember = role === "MODERATOR";
 
-    if (!isAdminByEmail && !isAdminByRole && !isReadOnlyModerator) {
+    if (!isAdminByEmail && !isAdminByRole && !isTeamMember) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
+    // Una cuenta de equipo que además es administradora por correo o por rol
+    // no es equipo: manda el permiso más alto.
+    const isTeamOnly = isTeamMember && !isAdminByEmail && !isAdminByRole;
+    if (isTeamOnly && !isModeratorAllowedRequest(req)) {
+      return res.status(403).json({
+        error: "FORBIDDEN_FOR_TEAM",
+        message: "Esta acción es sólo para el administrador.",
+      });
+    }
+
+    // El challenge de doble factor se exige a todos por igual: si la cuenta lo
+    // tiene activado y no lo resolvió en esta sesión, no entra al panel.
     if ((req.session as any)?.twoFactorPending) {
       return res.status(401).json({
         error: "TWO_FACTOR_PENDING",

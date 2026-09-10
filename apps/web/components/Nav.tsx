@@ -17,8 +17,10 @@ import {
   ShoppingBag,
   Radio,
   HelpCircle,
+  ShieldCheck,
 } from "lucide-react";
 import useMe from "../hooks/useMe";
+import { canOpenAdmin, isTeamStaff } from "../lib/adminAccess";
 import { useForumNotifications } from "./ForumNotifications";
 import { useChatNotifications } from "./ChatNotifications";
 import { LiveCountBadge } from "./navigation/LiveCountBadge";
@@ -76,6 +78,11 @@ export default function Nav() {
   const sidebarItems: NavItem[] = isMotelProfile
     ? motelItems
     : clientItems;
+
+  /* El panel: los administradores y las cuentas de equipo necesitan una
+     puerta visible. Sin esto había que escribir /admin a mano. */
+  const canSeeAdminPanel = canOpenAdmin(me?.user);
+  const adminPanelLabel = isTeamStaff(me?.user) ? "Panel de equipo" : "Administración";
 
   /* Professional extra items for sidebar */
   const profileItems: NavItem[] = hasProfile
@@ -178,6 +185,32 @@ export default function Nav() {
                   </Link>
                 );
               })}
+            </div>
+          )}
+
+          {/* Panel: administración y cuentas de equipo */}
+          {canSeeAdminPanel && (
+            <div className="pt-3 mt-3 border-t border-white/[0.06]">
+              <p className="px-4 mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/25">
+                Panel
+              </p>
+              <Link
+                href="/admin"
+                className={`group flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
+                  pathname === "/admin" || pathname.startsWith("/admin/")
+                    ? "bg-gradient-to-r from-cyan-500/[0.14] to-sky-500/[0.06] border border-cyan-500/25 text-cyan-200"
+                    : "text-white/60 hover:bg-white/[0.04] hover:text-white/80"
+                }`}
+              >
+                <ShieldCheck
+                  className={`h-4 w-4 transition-colors ${
+                    pathname === "/admin" || pathname.startsWith("/admin/")
+                      ? "text-cyan-300"
+                      : "text-cyan-400/60 group-hover:text-cyan-300"
+                  }`}
+                />
+                {adminPanelLabel}
+              </Link>
             </div>
           )}
 

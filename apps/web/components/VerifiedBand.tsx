@@ -10,11 +10,14 @@ type BandSize = "sm" | "md" | "lg";
  * Reemplaza a la vieja marca de agua en diagonal: esa iba tenue a propósito y
  * el cliente ni la registraba. Aquí la verificación tiene que ser lo segundo
  * que se ve después de la cara, así que va como una banda sólida de lado a
- * lado, en azul — el color con el que la gente asocia identidad comprobada —
- * y ligeramente inclinada para que se lea como sello y no como subtítulo.
+ * lado, en azul — el color con el que la gente asocia identidad comprobada.
  *
- * La banda se dibuja más ancha que la foto (130%) porque al rotarla las puntas
- * se meterían hacia dentro y dejarían las esquinas al aire.
+ * La banda va horizontal, de borde a borde. Se probó inclinada y en pantallas
+ * grandes no servía: el desvío vertical de las puntas crece con el ancho (en
+ * un monitor la banda mide más de 1000px y las puntas se subían decenas de
+ * píxeles), así que terminaba encima del nombre. El aire de "cinta cruzada" lo
+ * ponen ahora unas franjas diagonales dentro de la propia banda, que no
+ * dependen del ancho.
  *
  * Dos modos:
  *  - `inline` (recomendado en tarjetas): la banda va dentro del bloque de
@@ -35,17 +38,22 @@ const PRESETS: Record<
 };
 
 const BAND_CLASS =
-  "flex items-center justify-center gap-1.5 border-y border-white/25 " +
-  "bg-gradient-to-r from-sky-600 via-blue-500 to-sky-600 text-white " +
-  "shadow-[0_6px_18px_rgba(2,132,199,0.45)]";
+  "relative flex items-center justify-center gap-1.5 overflow-hidden border-y " +
+  "border-white/25 bg-gradient-to-r from-sky-600 via-blue-500 to-sky-600 " +
+  "text-white shadow-[0_6px_18px_rgba(2,132,199,0.45)]";
+
+/* Franjas diagonales muy suaves: dan el aire de cinta de seguridad sin tocar
+   la legibilidad del texto. */
+const STRIPES: CSSProperties = {
+  backgroundImage:
+    "repeating-linear-gradient(115deg, rgba(255,255,255,0.16) 0 10px, rgba(255,255,255,0) 10px 22px)",
+};
 
 type Props = {
   /** Escala de la banda. "sm" en tarjetas, "md" en galerías, "lg" en el lightbox. */
   size?: BandSize;
   /** Texto de la banda. */
   text?: string;
-  /** Inclinación en grados. */
-  angle?: number;
   /** Colócala en el flujo (dentro del bloque inferior) en vez de anclarla a la foto. */
   inline?: boolean;
   className?: string;
@@ -54,7 +62,6 @@ type Props = {
 export default function VerifiedBand({
   size = "md",
   text = "PERFIL VERIFICADO",
-  angle = -3,
   inline = false,
   className = "",
 }: Props) {
@@ -62,6 +69,11 @@ export default function VerifiedBand({
 
   const content = (
     <>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={STRIPES}
+      />
       {/* Check dibujado a mano: un icono importado no escala igual de fino en
           la banda pequeña de las tarjetas. */}
       <svg
@@ -73,12 +85,12 @@ export default function VerifiedBand({
         strokeWidth="3.2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="shrink-0 drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]"
+        className="relative shrink-0 drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]"
       >
         <path d="M20 6 9 17l-5-5" />
       </svg>
       <span
-        className="whitespace-nowrap font-extrabold uppercase drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]"
+        className="relative whitespace-nowrap font-extrabold uppercase drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]"
         style={{
           fontSize: preset.font,
           letterSpacing: `${preset.tracking}em`,
@@ -102,10 +114,11 @@ export default function VerifiedBand({
         className={`pointer-events-none relative z-[3] select-none ${BAND_CLASS} ${className}`}
         style={{
           ...padding,
-          width: "130%",
-          marginLeft: "-15%",
+          /* Sangra el padding del bloque de información para llegar a los dos
+             bordes de la foto sin depender de cuánto padding tenga. */
+          width: "calc(100% + 2 * var(--verified-band-bleed, 0px))",
+          marginLeft: "calc(-1 * var(--verified-band-bleed, 0px))",
           marginBottom: preset.bottom,
-          transform: `rotate(${angle}deg)`,
         }}
       >
         {content}
@@ -123,8 +136,8 @@ export default function VerifiedBand({
         style={{
           ...padding,
           bottom: preset.bottom,
-          width: "130%",
-          transform: `translateX(-50%) rotate(${angle}deg)`,
+          width: "100%",
+          transform: "translateX(-50%)",
         }}
       >
         {content}

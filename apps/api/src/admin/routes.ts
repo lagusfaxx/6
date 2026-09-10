@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { prisma } from "../db";
 import { Prisma } from "@prisma/client";
-import { requireAdmin } from "../auth/middleware";
+import {
+  requireAdmin,
+  isTeamOnlyRequest,
+  moderatorBlockedProfileFields,
+} from "../auth/middleware";
 import { requireFresh2FA } from "../auth/twoFactor";
 import { CreatePostSchema } from "@uzeed/shared";
 import multer from "multer";
@@ -462,6 +466,23 @@ adminRouter.put(
   "/profiles/:id",
   asyncHandler(async (req, res) => {
     const { id } = req.params;
+
+    /* Las cuentas de equipo editan el perfil salvo lo que identifica y
+       contacta a la persona: nombre y teléfono los corrige el administrador,
+       porque ahí un error (o una mano de más) se lleva puesto el anuncio.
+       El rol tampoco, que sería la escalera para ascenderse. Las tarifas sí. */
+    const blocked = isTeamOnlyRequest(req)
+      ? moderatorBlockedProfileFields(req.body)
+      : [];
+    if (blocked.length > 0) {
+      return res.status(403).json({
+        error: "FORBIDDEN_FOR_TEAM",
+        message:
+          "El nombre, el teléfono y el rol los cambia el administrador. Puedes editar el resto, incluidas las tarifas.",
+        fields: blocked,
+      });
+    }
+
     const {
       isActive,
       tier,

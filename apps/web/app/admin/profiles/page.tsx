@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
-import { canOpenAdmin, canWrite } from "../../../lib/adminAccess";
+import {
+  canDeleteProfiles,
+  canEditProfileIdentity,
+  canOpenAdmin,
+  canWrite,
+} from "../../../lib/adminAccess";
 import Avatar from "../../../components/Avatar";
 import MfaConfirmDialog from "../../../components/MfaConfirmDialog";
 import {
@@ -105,9 +110,13 @@ const hasLabel = (profile: Profile, label: string) => (profile.profileTags ?? []
 export default function AdminProfilesPage() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
-  /* Las cuentas de equipo también abren esta pantalla, en modo lectura. */
+  /* Las cuentas de equipo trabajan esta pantalla igual que el administrador,
+     menos borrar el perfil y menos tocar nombre y teléfono: eso identifica y
+     contacta a la persona, y un error ahí deja el anuncio muerto. */
   const isAdmin = canOpenAdmin(user);
   const canEdit = canWrite(user);
+  const canDelete = canDeleteProfiles(user);
+  const canEditIdentity = canEditProfileIdentity(user);
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [total, setTotal] = useState(0);
@@ -630,8 +639,8 @@ export default function AdminProfilesPage() {
                   >
                     <ImageIcon className="h-3.5 w-3.5" />
                   </button>
-                  {/* Activar, desactivar y eliminar: sólo administrador. */}
-                  {canEdit && (<>
+                  {/* Activar y desactivar: también el equipo. */}
+                  {canEdit && (
                   <button
                     disabled={busy === p.id}
                     onClick={() => toggleProfile(p)}
@@ -651,6 +660,9 @@ export default function AdminProfilesPage() {
                     )}
                     <span className="hidden sm:inline">{p.isActive ? "Activo" : "Inactivo"}</span>
                   </button>
+                  )}
+                  {/* Eliminar: sólo administrador. */}
+                  {canDelete && (
                   <button
                     disabled={busy === p.id}
                     onClick={() => setDeleteConfirm(p.id)}
@@ -659,12 +671,12 @@ export default function AdminProfilesPage() {
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
-                  </>)}
+                  )}
                 </div>
               </div>
 
-              {/* Etiquetas, tier, género y datos editables: sólo administrador.
-                  El equipo ve la ficha, pero no la cambia. */}
+              {/* Etiquetas, tier, género y tarifas: administrador y equipo.
+                  Nombre y teléfono llevan su propia condición más abajo. */}
               {canEdit && (<>
               <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
                 <button
@@ -773,6 +785,9 @@ export default function AdminProfilesPage() {
                 )}
               </div>
 
+              {/* Nombre público: sólo administrador (el equipo lo ve arriba, en
+                  la cabecera de la ficha). */}
+              {canEditIdentity && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="text-[11px] uppercase tracking-wide text-white/40 flex items-center gap-1">
                   <Pencil className="h-3 w-3" />
@@ -839,7 +854,10 @@ export default function AdminProfilesPage() {
                   </>
                 )}
               </div>
+              )}
 
+              {/* WhatsApp: es la vía de contacto del anuncio, sólo administrador. */}
+              {canEditIdentity && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="text-[11px] uppercase tracking-wide text-white/40 flex items-center gap-1">
                   <MessageCircle className="h-3 w-3" />
@@ -924,6 +942,7 @@ export default function AdminProfilesPage() {
                   </>
                 )}
               </div>
+              )}
 
               {(p.profileType === "PROFESSIONAL" || p.profileType === "ESTABLISHMENT" || p.profileType === "SHOP") && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">

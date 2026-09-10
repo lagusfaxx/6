@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { canOpenAdmin } from "../../../lib/adminAccess";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import useMe from "../../../hooks/useMe";
@@ -108,7 +109,7 @@ type GenderValue = (typeof GENDERS)[number]["value"];
 export default function AdminRatingPage() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
-  const isAdmin = useMemo(() => (user?.role ?? "").toUpperCase() === "ADMIN", [user?.role]);
+  const isAdmin = canOpenAdmin(user);
 
   // Queue state
   const [profiles, setProfiles] = useState<QueueProfile[]>([]);

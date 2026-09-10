@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { canOpenAdmin } from "../../../lib/adminAccess";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch } from "../../../lib/api";
@@ -105,7 +106,7 @@ function lastSeenLabel(iso: string | null): string {
 export default function AdminExpiredTrials() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
-  const isAdmin = (user?.role ?? "").toUpperCase() === "ADMIN";
+  const isAdmin = canOpenAdmin(user);
   const [data, setData] = useState<ExpiredTrialsResponse | null>(null);
   const [error, setError] = useState(false);
   const [loadingData, setLoadingData] = useState(false);

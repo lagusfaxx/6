@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { canOpenAdmin } from "../../../lib/adminAccess";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -49,7 +50,7 @@ const TABS: { value: Status; label: string }[] = [
 
 export default function AdminPhoneChangesPage() {
   const { me, loading } = useMe();
-  const isAdmin = (me?.user?.role ?? "").toUpperCase() === "ADMIN";
+  const isAdmin = canOpenAdmin(me?.user);
 
   const [status, setStatus] = useState<Status>("PENDING");
   const [requests, setRequests] = useState<PhoneChange[]>([]);

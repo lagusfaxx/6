@@ -7,12 +7,12 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 
 /**
- * Cuentas de equipo: altas y bajas del rol MODERATOR, que entra al panel en
- * modo sólo lectura (ver `MODERATOR_READONLY_PREFIXES` en auth/middleware).
+ * Cuentas de equipo: altas y bajas del rol MODERATOR, que entra al panel y
+ * trabaja casi todo (ver `MODERATOR_BLOCKED_PREFIXES` en auth/middleware).
  *
- * Todo este router queda detrás de requireAdmin y ninguna de sus rutas está en
- * la lista blanca del moderador, así que un moderador no puede ni listar el
- * equipo ni, mucho menos, crearse compañeros o ascenderse a sí mismo.
+ * Todo este router queda detrás de requireAdmin y su prefijo está en la lista
+ * negra del moderador, así que un moderador no puede ni listar el equipo ni,
+ * mucho menos, crearse compañeros o ascenderse a sí mismo.
  */
 export const adminTeamRouter = Router();
 

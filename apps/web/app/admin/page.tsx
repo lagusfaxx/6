@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { canOpenAdmin, canWrite, isFullAdmin, isReadOnlyStaff } from "../../lib/adminAccess";
+import {
+  canExportData,
+  canOpenAdmin,
+  canOpenSection,
+  isFullAdmin,
+  isTeamStaff,
+} from "../../lib/adminAccess";
 import useMe from "../../hooks/useMe";
 import { apiFetch, getApiBase } from "../../lib/api";
 import { connectRealtime } from "../../lib/realtime";
@@ -181,17 +187,9 @@ const NAV_ITEMS = [
   { href: "/admin/equipo", label: "Equipo", icon: Users },
 ];
 
-/**
- * Lo único que ve una cuenta de equipo. El menú se recorta para no ofrecer
- * pantallas que la API le va a negar igual con un 403.
- */
-const STAFF_NAV_HREFS = new Set([
-  "/admin",
-  "/admin/estadisticas",
-  "/admin/verification",
-  "/admin/profiles",
-  "/admin/chats",
-]);
+/* Qué ve cada cuenta lo decide `canOpenSection`: el equipo entra a todo el
+   panel salvo las secciones reservadas al administrador, y el menú se recorta
+   para no ofrecer pantallas que la API le va a negar igual con un 403. */
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -207,9 +205,11 @@ export default function AdminIndex() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
   const isAdmin = canOpenAdmin(user);
-  /* Las cuentas de equipo entran pero sólo miran: nada que escriba se dibuja. */
-  const canEdit = canWrite(user);
-  const readOnly = isReadOnlyStaff(user);
+  /* Las cuentas de equipo trabajan el panel; lo que se esconde es lo que sólo
+     puede el administrador (equipo, profesionales rápidos y la exportación). */
+  const adminOnly = isFullAdmin(user);
+  const isTeam = isTeamStaff(user);
+  const canExport = canExportData(user);
   const twoFactorPending = Boolean(user?.twoFactorPending);
   const twoFactorEnabled = Boolean(user?.twoFactorEnabled);
 
@@ -337,9 +337,7 @@ export default function AdminIndex() {
   if (!isAdmin) return <div className="flex h-screen items-center justify-center bg-[#0a0b14] text-white/50">Acceso restringido.</div>;
 
   const totalPending = metrics.pendingVerifications + metrics.pendingDeposits + metrics.pendingWithdrawals;
-  const navItems = canEdit
-    ? NAV_ITEMS
-    : NAV_ITEMS.filter((item) => STAFF_NAV_HREFS.has(item.href));
+  const navItems = NAV_ITEMS.filter((item) => canOpenSection(user, item.href));
 
   return (
     <div className="min-h-screen bg-[#0a0b14] text-white">
@@ -418,13 +416,16 @@ export default function AdminIndex() {
               ))}
             </div>
 
-            {readOnly && (
-              <div className="flex items-center gap-2.5 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.07] px-4 py-3">
-                <ShieldCheck className="h-4 w-4 shrink-0 text-cyan-300" />
+            {isTeam && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.07] px-4 py-3">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
                 <p className="text-sm text-cyan-100/80">
                   <span className="font-semibold text-cyan-200">Cuenta de equipo</span>
                   {" — "}
-                  puedes consultar el panel, pero no aprobar, editar ni borrar nada.
+                  puedes aprobar solicitudes, resolver cambios y editar tarifas.
+                  Quedan para el administrador: borrar perfiles, cambiar nombres
+                  y teléfonos, los profesionales rápidos, las cuentas del equipo
+                  y la exportación de datos.
                 </p>
               </div>
             )}
@@ -463,7 +464,7 @@ export default function AdminIndex() {
                     <p className="text-[11px] text-white/35">Métricas actualizadas de uso, ingresos y crecimiento</p>
                   </div>
                   {/* Exportar baja la base con teléfonos: sólo administrador. */}
-                  <div className={`flex-wrap items-center gap-2 ${canEdit ? "flex" : "hidden"}`}>
+                  <div className={`flex-wrap items-center gap-2 ${canExport ? "flex" : "hidden"}`}>
                     <button
                       onClick={() => downloadProfessionals("PROFESSIONAL")}
                       disabled={exporting}
@@ -631,25 +632,25 @@ export default function AdminIndex() {
             <div>
               <h2 className="text-[11px] font-semibold uppercase tracking-widest text-white/30 mb-3">Acceso rapido</h2>
               <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-                {canEdit && <QuickAction href="/admin/marketplace" icon={ShoppingBag} label="Marketplace" desc="Pedidos, comisiones y envios" accent="fuchsia" />}
+                {<QuickAction href="/admin/marketplace" icon={ShoppingBag} label="Marketplace" desc="Pedidos, comisiones y envios" accent="fuchsia" />}
                 <QuickAction href="/admin/estadisticas" icon={BarChart3} label="Estadisticas" desc="Metricas y graficos" accent="fuchsia" />
-                {canEdit && <QuickAction href="/admin/expired-trials" icon={Clock} label="Pruebas caducadas" desc="Ganancia potencial" accent="amber" />}
+                {<QuickAction href="/admin/expired-trials" icon={Clock} label="Pruebas caducadas" desc="Ganancia potencial" accent="amber" />}
                 <QuickAction href="/admin/verification" icon={BadgeCheck} label="Verificaciones" desc={`${metrics.pendingVerifications} pendientes`} accent="amber" />
                 <QuickAction href="/admin/profiles" icon={Users} label="Perfiles" desc="Gestion de usuarios" accent="violet" />
                 <QuickAction href="/admin/chats" icon={MessageSquare} label="Chats" desc="Conversaciones" accent="violet" />
-                {canEdit && <QuickAction href="/admin/equipo" icon={ShieldCheck} label="Equipo" desc="Cuentas con acceso al panel" accent="cyan" />}
-                {canEdit && <QuickAction href="/admin/rating" icon={Star} label="Catador" desc="Calificar perfiles" accent="amber" />}
-                {canEdit && <QuickAction href="/admin/phone-changes" icon={Phone} label="Cambios de número" desc="Aprobar o rechazar" accent="fuchsia" />}
-                {canEdit && <QuickAction href="/admin/name-changes" icon={Signature} label="Cambios de nombre" desc="Aprobar o rechazar" accent="fuchsia" />}
-                {canEdit && <QuickAction href="/admin/deposits" icon={CircleDollarSign} label="Depositos" desc={`${metrics.pendingDeposits} pendientes`} accent="emerald" />}
-                {canEdit && <QuickAction href="/admin/withdrawals" icon={CreditCard} label="Retiros" desc={`${metrics.pendingWithdrawals} pendientes`} accent="blue" />}
-                {canEdit && <QuickAction href="/admin/banners" icon={BookImage} label="Banners" desc="Promociones" accent="pink" />}
-                {canEdit && <QuickAction href="/admin/home-stories" icon={Video} label="Historias Home" desc="Rotar, ocultar y renovar" accent="fuchsia" />}
-                {canEdit && <QuickAction href="/admin/pricing" icon={Tag} label="Precios" desc="Planes y reglas" accent="violet" />}
-                {canEdit && <QuickAction href="/admin/quick-listings" icon={Store} label="Listados" desc="Externos" accent="cyan" />}
-                {canEdit && <QuickAction href="/admin/weekly-highlights" icon={Mail} label="Correo Semanal" desc="Destacadas" accent="pink" />}
-                {canEdit && <QuickAction href="/admin/umate-promo" icon={Mail} label="Campanas Email" desc="Correos masivos con imagenes" accent="fuchsia" />}
-                {canEdit && <QuickAction href="/admin/whatsapp" icon={MessageCircle} label="Bot WhatsApp" desc="Avisos a profesionales" accent="emerald" />}
+                {adminOnly && <QuickAction href="/admin/equipo" icon={ShieldCheck} label="Equipo" desc="Cuentas con acceso al panel" accent="cyan" />}
+                {<QuickAction href="/admin/rating" icon={Star} label="Catador" desc="Calificar perfiles" accent="amber" />}
+                {<QuickAction href="/admin/phone-changes" icon={Phone} label="Cambios de número" desc="Aprobar o rechazar" accent="fuchsia" />}
+                {<QuickAction href="/admin/name-changes" icon={Signature} label="Cambios de nombre" desc="Aprobar o rechazar" accent="fuchsia" />}
+                {<QuickAction href="/admin/deposits" icon={CircleDollarSign} label="Depositos" desc={`${metrics.pendingDeposits} pendientes`} accent="emerald" />}
+                {<QuickAction href="/admin/withdrawals" icon={CreditCard} label="Retiros" desc={`${metrics.pendingWithdrawals} pendientes`} accent="blue" />}
+                {<QuickAction href="/admin/banners" icon={BookImage} label="Banners" desc="Promociones" accent="pink" />}
+                {<QuickAction href="/admin/home-stories" icon={Video} label="Historias Home" desc="Rotar, ocultar y renovar" accent="fuchsia" />}
+                {<QuickAction href="/admin/pricing" icon={Tag} label="Precios" desc="Planes y reglas" accent="violet" />}
+                {<QuickAction href="/admin/quick-listings" icon={Store} label="Listados" desc="Externos" accent="cyan" />}
+                {<QuickAction href="/admin/weekly-highlights" icon={Mail} label="Correo Semanal" desc="Destacadas" accent="pink" />}
+                {<QuickAction href="/admin/umate-promo" icon={Mail} label="Campanas Email" desc="Correos masivos con imagenes" accent="fuchsia" />}
+                {<QuickAction href="/admin/whatsapp" icon={MessageCircle} label="Bot WhatsApp" desc="Avisos a profesionales" accent="emerald" />}
               </div>
             </div>
 
