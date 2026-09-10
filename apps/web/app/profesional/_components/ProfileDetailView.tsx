@@ -15,6 +15,17 @@ import Link from "next/link";
 import {
   ImageIcon,
   Star,
+  Banknote,
+  Clock,
+  MapPin,
+  CalendarClock,
+  MessageSquare,
+  ListChecks,
+  Camera,
+  User,
+  Smile,
+  Sparkles,
+  HeartHandshake,
   X,
   Heart,
   ChevronLeft,
@@ -930,9 +941,13 @@ export default function ProfileDetailView({
 
             {/* Contacto y precio: lo único con peso visual de la columna. */}
             <div className="mt-6 border-t border-white/[0.08] pt-5">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <Banknote className="h-5 w-5 shrink-0 text-emerald-400/80" />
                 <span className="text-2xl font-semibold tracking-tight">{priceLabel}</span>
-                <span className="text-[13px] text-white/45">{durationLabel}</span>
+                <span className="inline-flex items-center gap-1.5 text-[13px] text-white/45">
+                  <Clock className="h-3.5 w-3.5" />
+                  {durationLabel}
+                </span>
               </div>
 
               <div className="mt-4 hidden flex-wrap gap-2.5 md:flex">
@@ -986,10 +1001,15 @@ export default function ProfileDetailView({
                 )}
               </div>
 
-              {/* Dónde y cuándo, en texto corrido */}
-              <dl className="mt-5 space-y-2 text-[14px]">
+              {/* Dónde, cuándo y opiniones. Cada fila con su icono: la etiqueta
+                  sola a la izquierda dejaba tres renglones de texto plano y no
+                  se distinguía un dato de otro al pasar la vista. */}
+              <dl className="mt-5 space-y-2.5 text-[14px]">
                 <div className="flex gap-3">
-                  <dt className="w-24 shrink-0 text-white/40">Dónde</dt>
+                  <dt className="flex w-24 shrink-0 items-center gap-2 text-white/40">
+                    <MapPin className="h-4 w-4 text-fuchsia-400/70" />
+                    Dónde
+                  </dt>
                   <dd className="text-white/80">
                     {professional.city || "Zona referencial"}
                     {availabilityChips.length > 0 && (
@@ -998,7 +1018,10 @@ export default function ProfileDetailView({
                   </dd>
                 </div>
                 <div className="flex gap-3">
-                  <dt className="w-24 shrink-0 text-white/40">Cuándo</dt>
+                  <dt className="flex w-24 shrink-0 items-center gap-2 text-white/40">
+                    <CalendarClock className="h-4 w-4 text-amber-400/70" />
+                    Cuándo
+                  </dt>
                   <dd className="text-white/80">
                     {professional.availabilityNote ||
                       (availableNow ? "Disponible ahora" : "A coordinar")}
@@ -1006,7 +1029,10 @@ export default function ProfileDetailView({
                 </div>
                 {ratingCount > 0 && ratingValue != null && (
                   <div className="flex gap-3">
-                    <dt className="w-24 shrink-0 text-white/40">Opiniones</dt>
+                    <dt className="flex w-24 shrink-0 items-center gap-2 text-white/40">
+                      <Star className="h-4 w-4 fill-amber-300/80 text-amber-300/80" />
+                      Opiniones
+                    </dt>
                     <dd className="text-white/80">
                       {ratingValue.toFixed(1)} de 5
                       <span className="text-white/45"> · {ratingCount} calificaciones</span>
@@ -1022,13 +1048,16 @@ export default function ProfileDetailView({
         {gallery.length > 0 && (
           <section id="fotos" className="mt-10 px-4 md:px-0">
             <div className="flex items-baseline justify-between gap-3 border-b border-white/[0.08] pb-2.5">
-              <h2 className="text-lg font-semibold tracking-tight">Fotos</h2>
+              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                <Camera className="h-4 w-4 text-white/35" />
+                Fotos
+              </h2>
               <p className="text-[13px] text-white/40">
                 {photoCount} foto{photoCount === 1 ? "" : "s"}
                 {videoCount > 0
                   ? ` · ${videoCount} video${videoCount === 1 ? "" : "s"}`
                   : ""}
-                {professional.lastSeen ? ` · activa ${timeAgo(professional.lastSeen)}` : ""}
+
               </p>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-5">
@@ -1093,7 +1122,10 @@ export default function ProfileDetailView({
               veinte pastillas de colores, que era el otro extremo. */}
           {(serviceList.length > 0 || styleChips.length > 0) && (
             <section id="servicios" className="min-w-0 scroll-mt-24 py-8 first:pt-0">
-              <h2 className="text-lg font-semibold tracking-tight">Servicios</h2>
+              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                <ListChecks className="h-4 w-4 text-white/35" />
+                Servicios
+              </h2>
 
               {serviceList.length > 0 && (
                 <>
@@ -1164,7 +1196,8 @@ export default function ProfileDetailView({
           {reviews.length > 0 && (
             <section className="min-w-0 py-8">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-lg font-semibold tracking-tight">
+                <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                  <MessageSquare className="h-4 w-4 text-white/35" />
                   Reseñas ({professional.reviewCount || reviews.length})
                 </h2>
                 {professional.rating != null && (
@@ -1234,7 +1267,8 @@ export default function ProfileDetailView({
           {/* Survey Rating Summary + Button */}
           <section className="min-w-0 py-8">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold tracking-tight">
+              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                <Star className="h-4 w-4 fill-amber-300/80 text-amber-300/80" />
                 Calificaciones
                 {surveySummary && surveySummary.count > 0 && (
                   <span className="ml-1.5 text-[13px] font-normal text-white/40">
@@ -1259,17 +1293,23 @@ export default function ProfileDetailView({
                 {/* Rating bars */}
                 <div className="space-y-2">
                   {[
-                    { label: "Cuerpo", value: surveySummary.avgBody },
-                    { label: "Rostro", value: surveySummary.avgFace },
+                    { label: "Cuerpo", value: surveySummary.avgBody, Icon: User },
+                    { label: "Rostro", value: surveySummary.avgFace, Icon: Smile },
                     {
                       label: "Parecida a fotos",
                       value: surveySummary.avgPhotos,
+                      Icon: Camera,
                     },
-                    { label: "Servicio", value: surveySummary.avgService },
-                    { label: "Trato y ambiente", value: surveySummary.avgVibe },
+                    { label: "Servicio", value: surveySummary.avgService, Icon: Sparkles },
+                    {
+                      label: "Trato y ambiente",
+                      value: surveySummary.avgVibe,
+                      Icon: HeartHandshake,
+                    },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center gap-3">
-                      <span className="w-28 text-xs text-white/50 shrink-0">
+                      <span className="flex w-32 shrink-0 items-center gap-2 text-xs text-white/50">
+                        <item.Icon className="h-3.5 w-3.5 text-white/30" />
                         {item.label}
                       </span>
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
@@ -1285,6 +1325,7 @@ export default function ProfileDetailView({
                   ))}
                 </div>
                 <div className="flex items-center justify-center gap-2 pt-2 border-t border-white/[0.06]">
+                  <Star className="h-5 w-5 fill-amber-300 text-amber-300" />
                   <span className="text-2xl font-bold text-amber-300">
                     {surveySummary.avgOverall}
                   </span>
