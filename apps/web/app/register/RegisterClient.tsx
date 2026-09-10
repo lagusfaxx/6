@@ -913,17 +913,28 @@ export default function RegisterClient() {
                 </p>
               </div>
 
-              <div className="mt-5 flex flex-col sm:flex-row gap-3">
+              {/* Una sola acción con peso. Cuando "Volver al inicio" pesaba
+                  igual, se tomaba ese camino y la ficha quedaba a medias: la
+                  cuenta deja navegar el sitio con normalidad, así que nada
+                  delataba que el perfil no estaba publicado. */}
+              <div className="mt-5 flex flex-col gap-3">
                 <Link
                   href="/dashboard/services"
-                  className="btn-primary flex-1 text-center flex items-center justify-center gap-2"
+                  className="btn-primary flex w-full items-center justify-center gap-2 text-center"
                 >
-                  Completar mi ficha
+                  Completar mi ficha ahora
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link href="/" className="btn-secondary flex-1 text-center">
-                  Volver al inicio
+                <Link
+                  href="/"
+                  className="text-center text-xs text-white/40 underline-offset-4 transition hover:text-white/60 hover:underline"
+                >
+                  Lo hago después, ir al inicio
                 </Link>
+                <p className="text-center text-[11px] text-white/30">
+                  Si lo dejas para después, arriba de cada pantalla vas a ver
+                  lo que falta hasta que tu perfil quede publicado.
+                </p>
               </div>
             </div>
           ) : null}
