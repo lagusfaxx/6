@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { canOpenAdmin } from "../../../lib/adminAccess";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch } from "../../../lib/api";
@@ -22,7 +23,7 @@ export default function AdminPricingPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isAdmin = useMemo(() => (user?.role ?? "").toUpperCase() === "ADMIN", [user?.role]);
+  const isAdmin = canOpenAdmin(user);
 
   useEffect(() => {
     if (!isAdmin) return;

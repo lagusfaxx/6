@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, LogIn, ArrowLeft, ShieldCheck } from "lucide-react";
 import { apiFetch, friendlyErrorMessage, getApiBase, safeRedirect } from "../../lib/api";
+import { canOpenAdmin } from "../../lib/adminAccess";
 
 const GOOGLE_OAUTH_ERRORS: Record<string, string> = {
   access_denied: "Cancelaste el inicio de sesión con Google.",
@@ -77,8 +78,16 @@ export default function LoginClient() {
     window.location.href = url;
   }
 
-  function redirectAfterLogin() {
+  /* Las cuentas del panel (administrador y equipo) entran a trabajar, no a
+     mirar el inicio: si no venían siguiendo un enlace, se las manda al panel.
+     Una cuenta de equipo recién creada no tiene perfil ni nada que hacer en el
+     home, y antes tenía que escribir /admin a mano. */
+  function redirectAfterLogin(user?: { role?: string } | null) {
     const next = searchParams.get("next");
+    if (!next && canOpenAdmin(user)) {
+      window.location.replace("/admin");
+      return;
+    }
     window.location.replace(safeRedirect(next));
   }
 
@@ -99,7 +108,7 @@ export default function LoginClient() {
         // anything else.
         window.location.replace("/admin/2fa/setup");
       } else {
-        redirectAfterLogin();
+        redirectAfterLogin(res.user);
       }
     } catch (err: any) {
       if (err?.status === 401) {
@@ -124,7 +133,12 @@ export default function LoginClient() {
       if (postLoginAction === "setup") {
         window.location.replace("/admin/2fa/setup");
       } else {
-        redirectAfterLogin();
+        // Tras el doble factor ya no tenemos el usuario del login a mano: se
+        // vuelve a pedir para saber si esta cuenta abre el panel.
+        const me = await apiFetch<{ user: { role?: string } | null }>("/auth/me").catch(
+          () => null,
+        );
+        redirectAfterLogin(me?.user ?? null);
       }
     } catch (err: any) {
       setError(friendlyErrorMessage(err) || "Código inválido");

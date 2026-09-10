@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { canOpenAdmin } from "../../../lib/adminAccess";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
@@ -103,7 +104,7 @@ function groupByUser(stories: HomeStory[]): ProfileGroup[] {
 
 export default function AdminHomeStoriesPage() {
   const { me, loading: meLoading } = useMe();
-  const isAdmin = (me?.user?.role ?? "").toUpperCase() === "ADMIN";
+  const isAdmin = canOpenAdmin(me?.user);
 
   const [filter, setFilter] = useState<FilterMode>("all");
   const [range, setRange] = useState<RangeMode>("all");

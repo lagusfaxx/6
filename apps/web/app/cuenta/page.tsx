@@ -11,6 +11,7 @@ import Avatar from "../../components/Avatar";
 import EmailNotificationsToggle from "../../components/EmailNotificationsToggle";
 import AutoReplySettings from "../../components/AutoReplySettings";
 import { Badge } from "../../components/ui/badge";
+import { canOpenAdmin, isTeamStaff } from "../../lib/adminAccess";
 import { useState, useEffect, useCallback } from "react";
 import {
   User, MessageSquare, Heart,
@@ -65,7 +66,11 @@ export default function AccountPage() {
   const canManageProfile = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
   const requiresPayment = ["PROFESSIONAL", "SHOP", "ESTABLISHMENT"].includes(profileType);
   const canUpgradeToProfessional = profileType === "CLIENT";
-  const isAdmin = role === "ADMIN";
+  /* El panel lo abren el administrador y las cuentas de equipo. Antes esto
+     miraba sólo ADMIN y el equipo no tenía por dónde entrar: había que
+     escribir /admin a mano en la barra del navegador. */
+  const canSeeAdminPanel = canOpenAdmin(user);
+  const isTeamAccount = isTeamStaff(user);
 
   const isTrialPeriod = subscriptionStatus?.trialActive && !subscriptionStatus?.membershipActive;
   const profileLabel =
@@ -378,14 +383,16 @@ export default function AccountPage() {
 
 
           {/* ── Admin ── */}
-          {isAdmin && (
+          {canSeeAdminPanel && (
             <div className="border-t border-white/[0.06]">
               <Link
                 href="/admin"
                 className="flex items-center gap-3 px-6 py-4 hover:bg-white/[0.03] transition"
               >
                 <Shield className="h-4 w-4 text-amber-400" />
-                <span className="text-sm font-medium">Panel de administración</span>
+                <span className="text-sm font-medium">
+                  {isTeamAccount ? "Panel de equipo" : "Panel de administración"}
+                </span>
                 <ChevronRight className="ml-auto h-4 w-4 text-white/20" />
               </Link>
             </div>

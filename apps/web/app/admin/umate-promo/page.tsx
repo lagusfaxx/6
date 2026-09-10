@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { canOpenAdmin } from "../../../lib/adminAccess";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, getApiBase } from "../../../lib/api";
@@ -53,10 +54,7 @@ const DEFAULT_BODY = `<p>Hola,</p>
 export default function EmailCampaignPage() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
-  const isAdmin = useMemo(
-    () => (user?.role ?? "").toUpperCase() === "ADMIN",
-    [user?.role],
-  );
+  const isAdmin = canOpenAdmin(user);
 
   const [subject, setSubject] = useState("Novedades en UZEED");
   const [title, setTitle] = useState("Novedades en UZEED");

@@ -28,10 +28,13 @@ type Member = {
 const MIN_PASSWORD_LENGTH = 10;
 
 /**
- * Alta y baja de cuentas de equipo: entran al panel a mirar (inicio, chats,
- * estadísticas, perfiles y verificaciones) y no pueden aprobar, editar ni
- * borrar nada. Los administradores se listan pero no se tocan desde aquí:
- * quitarle el rol a uno por error dejaría el panel sin dueño.
+ * Alta y baja de cuentas de equipo: entran al panel completo y trabajan —
+ * aprueban verificaciones y solicitudes, mueven depósitos y retiros, moderan y
+ * editan tarifas — salvo borrar perfiles, cambiar nombres y teléfonos, dar de
+ * alta profesionales rápidos, tocar estas cuentas y exportar la base.
+ *
+ * Los administradores se listan pero no se tocan desde aquí: quitarle el rol a
+ * uno por error dejaría el panel sin dueño.
  */
 export default function AdminTeamPage() {
   const { me, loading } = useMe();
@@ -137,9 +140,11 @@ export default function AdminTeamPage() {
         <header className="mb-6">
           <h1 className="text-xl font-bold tracking-tight">Equipo</h1>
           <p className="mt-1 text-sm text-white/40">
-            Cuentas con acceso al panel. Las de equipo sólo consultan: ven el
-            inicio, los chats, las estadísticas, los perfiles y las
-            verificaciones, sin poder aprobar, editar ni borrar.
+            Cuentas con acceso al panel. Las de equipo resuelven el día a día:
+            aprueban verificaciones y solicitudes, revisan depósitos y retiros,
+            moderan y editan tarifas. No pueden borrar perfiles, cambiar nombres
+            ni teléfonos, crear profesionales rápidos, tocar estas cuentas ni
+            exportar la base.
           </p>
         </header>
 

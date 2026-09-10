@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { canOpenAdmin } from "../../../lib/adminAccess";
 import Link from "next/link";
 import useMe from "../../../hooks/useMe";
 import { apiFetch } from "../../../lib/api";
@@ -51,7 +52,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function AdminWhatsAppPage() {
   const { me, loading } = useMe();
-  const isAdmin = (me?.user?.role ?? "").toUpperCase() === "ADMIN";
+  const isAdmin = canOpenAdmin(me?.user);
 
   const [status, setStatus] = useState<WaStatus | null>(null);
   const [qr, setQr] = useState<string | null>(null);

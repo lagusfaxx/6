@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { canOpenAdmin, isFullAdmin } from "../../../lib/adminAccess";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import useMe from "../../../hooks/useMe";
@@ -51,10 +52,9 @@ type QuickListing = {
 export default function AdminQuickListingsPage() {
   const { me, loading } = useMe();
   const user = me?.user ?? null;
-  const isAdmin = useMemo(
-    () => (user?.role ?? "").toUpperCase() === "ADMIN",
-    [user?.role],
-  );
+  const isAdmin = canOpenAdmin(user);
+  /* Borrar pasa por doble factor y sólo lo tiene el administrador. */
+  const canDestroy = isFullAdmin(user);
 
   const [items, setItems] = useState<QuickListing[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -504,6 +504,7 @@ export default function AdminQuickListingsPage() {
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
+                  {canDestroy && (
                   <button
                     onClick={() => setDeleteTarget(item.id)}
                     className="rounded-lg border border-red-500/20 p-2 text-red-400 hover:bg-red-500/10"
@@ -511,6 +512,7 @@ export default function AdminQuickListingsPage() {
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
+                  )}
                 </div>
               </div>
 
@@ -551,6 +553,7 @@ export default function AdminQuickListingsPage() {
                         alt={`Foto ${idx + 1}`}
                         className="h-full w-full object-cover"
                       />
+                      {canDestroy && (
                       <button
                         type="button"
                         onClick={() => setDeletePhotoTarget({ id: item.id, url })}
@@ -559,6 +562,7 @@ export default function AdminQuickListingsPage() {
                       >
                         <X className="h-3 w-3" />
                       </button>
+                      )}
                     </div>
                   ))}
                 </div>
