@@ -9,7 +9,7 @@ import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import { cleanProfileHref } from "../lib/profileUrl";
 import StatusBadgeIcon from "./StatusBadgeIcon";
-import VerifiedWatermark from "./VerifiedWatermark";
+import VerifiedBand from "./VerifiedBand";
 import UserLevelBadge from "./UserLevelBadge";
 import type { MapMarker } from "./MapboxMap";
 const MapboxMap = dynamic(() => import("./MapboxMap"), { ssr: false });
@@ -180,9 +180,6 @@ function ProfileCard({
           </div>
         )}
 
-        {/* Watermark across the whole photo for admin-verified profiles */}
-        {hasVerifiedBadge(p.profileTags) && (coverSrc || avatarSrc) && <VerifiedWatermark size="sm" />}
-
         {/* Multi-layer gradient overlay for depth */}
         <div className="uzeed-card-gradient absolute inset-0 pointer-events-none" />
         <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/[0.04] via-transparent to-violet-600/[0.04] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -204,6 +201,11 @@ function ProfileCard({
 
         {/* Bottom info overlay with premium layout */}
         <div className="absolute bottom-0 left-0 right-0 p-3 z-[3]">
+          {/* Banda de verificación: cruza la tarjeta justo encima del nombre */}
+          {hasVerifiedBadge(p.profileTags) && (coverSrc || avatarSrc) && (
+            <VerifiedBand size="sm" inline />
+          )}
+
           {/* Name + age + verification badges */}
           <div className="flex items-center gap-1.5 font-bold text-white text-[13px] sm:text-sm leading-tight">
             <span className="truncate">{p.displayName}</span>

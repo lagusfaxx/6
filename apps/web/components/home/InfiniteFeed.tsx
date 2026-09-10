@@ -7,7 +7,7 @@ import { apiFetch, isRateLimitError, resolveMediaUrl } from "../../lib/api";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
 import { hasPremiumBadge, hasVerifiedBadge } from "../../lib/systemBadges";
 import StatusBadgeIcon from "../StatusBadgeIcon";
-import VerifiedWatermark from "../VerifiedWatermark";
+import VerifiedBand from "../VerifiedBand";
 import UserLevelBadge from "../UserLevelBadge";
 import type { DirectoryResult } from "../DirectoryPage";
 
@@ -218,7 +218,6 @@ export default function InfiniteFeed({
                       "/brand/isotipo-new.png";
                   }}
                 />
-                {hasVerifiedBadge(p.profileTags) && <VerifiedWatermark size="sm" />}
                 <div className="absolute left-2 top-2 z-[3] flex flex-col gap-1">
                   {p.availableNow && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300 ring-1 ring-emerald-400/30">
@@ -246,6 +245,10 @@ export default function InfiniteFeed({
                 </div>
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 p-3">
+                  {/* Banda de verificación, justo encima del nombre */}
+                  {hasVerifiedBadge(p.profileTags) && (
+                    <VerifiedBand size="sm" inline />
+                  )}
                   <div className="flex items-center gap-1 truncate text-sm font-bold text-white">
                     <span className="truncate">{p.displayName}</span>
                     {hasPremiumBadge(p.profileTags) && (
