@@ -19,7 +19,6 @@ import {
   Heart,
   ChevronLeft,
   ChevronRight,
-  MessageSquare,
   ShoppingBag,
   Phone,
   Play,
@@ -28,6 +27,7 @@ import {
 } from "lucide-react";
 import { hasVerifiedBadge } from "../../../lib/systemBadges";
 import VerifiedBand from "../../../components/VerifiedBand";
+import WhatsAppIcon from "../../../components/icons/WhatsAppIcon";
 
 type GalleryItem = { url: string; type: "IMAGE" | "VIDEO" };
 
@@ -225,6 +225,8 @@ export default function ProfileDetailView({
   /* La presentación recorta la biografía: en el escritorio va en una columna
      angosta y sin recortar empujaba la ficha entera hacia abajo. */
   const [aboutOpen, setAboutOpen] = useState(false);
+  const aboutRef = useRef<HTMLParagraphElement | null>(null);
+  const [aboutOverflows, setAboutOverflows] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [surveyReviews, setSurveyReviews] = useState<SurveyReview[]>([]);
@@ -457,6 +459,30 @@ export default function ProfileDetailView({
     }
     setGalleryIndex((prev) => Math.min(prev, gallery.length - 1));
   }, [gallery.length]);
+
+  /* ¿La biografía quedó recortada? Se mide el párrafo real: el recorte lo hace
+     el navegador según el ancho de la columna, así que contar caracteres no
+     sirve — a un ancho entra y a otro no. Se vuelve a medir al cambiar el
+     tamaño de la ventana. */
+  useEffect(() => {
+    const el = aboutRef.current;
+    if (!el) {
+      setAboutOverflows(false);
+      return;
+    }
+    const measure = () => {
+      if (aboutOpen) return; // desplegado siempre cabe: el botón dice "Leer menos"
+      setAboutOverflows(el.scrollHeight - el.clientHeight > 2);
+    };
+    measure();
+    if (typeof ResizeObserver !== "function") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [aboutOpen, professional?.description]);
 
   function goToGallery(nextIndex: number) {
     if (!gallery.length) return;
@@ -738,7 +764,9 @@ export default function ProfileDetailView({
               </span>
             )}
 
-            <div className="absolute right-3 top-3 flex items-center gap-1.5">
+            {/* z-[5]: la cinta de verificación ocupa toda la foto con z-[3];
+                sin esto, guardar y compartir quedaban debajo de esa capa. */}
+            <div className="absolute right-3 top-3 z-[5] flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={toggleFavorite}
@@ -793,26 +821,51 @@ export default function ProfileDetailView({
               </dl>
             )}
 
-            {/* Verificación: tres líneas, sin recuadro propio. */}
-            <div className="mt-5 space-y-2 border-l border-white/[0.1] pl-4">
-              <p className="text-[13.5px] leading-relaxed text-white/60">
-                <span className={isVerifiedProfile ? "font-medium text-emerald-300" : "font-medium text-white/80"}>
-                  {isVerifiedProfile ? "Perfil verificado. " : "Perfil sin verificar. "}
+            {/* Verificación. Cada línea lleva su color: verde cuando el dato
+                está comprobado y ámbar cuando falta. En gris parejo el cliente
+                no distinguía una cosa de la otra y la verificación —que es el
+                argumento de venta del perfil— pasaba desapercibida. */}
+            <div className="mt-5 space-y-2.5">
+              <p
+                className={`flex gap-2.5 border-l-2 pl-3 text-[13.5px] leading-relaxed ${
+                  isVerifiedProfile
+                    ? "border-emerald-400/70 text-emerald-100/75"
+                    : "border-amber-400/60 text-amber-100/70"
+                }`}
+              >
+                <span>
+                  <span
+                    className={`font-semibold ${
+                      isVerifiedProfile ? "text-emerald-300" : "text-amber-300"
+                    }`}
+                  >
+                    {isVerifiedProfile ? "Perfil verificado. " : "Perfil sin verificar. "}
+                  </span>
+                  {isVerifiedProfile
+                    ? `El equipo comprobó que las fotos publicadas corresponden a ${professional.name}.`
+                    : "Todavía no comprobamos que las fotos correspondan a esta persona."}
                 </span>
-                {isVerifiedProfile
-                  ? `El equipo comprobó que las fotos publicadas corresponden a ${professional.name}.`
-                  : "Todavía no comprobamos que las fotos correspondan a esta persona."}
               </p>
-              <p className="text-[13.5px] leading-relaxed text-white/60">
-                <span className="font-medium text-white/80">
-                  {hasExams ? "Exámenes al día. " : "Sin exámenes vigentes. "}
+              <p
+                className={`flex gap-2.5 border-l-2 pl-3 text-[13.5px] leading-relaxed ${
+                  hasExams
+                    ? "border-emerald-400/70 text-emerald-100/75"
+                    : "border-amber-400/60 text-amber-100/70"
+                }`}
+              >
+                <span>
+                  <span
+                    className={`font-semibold ${hasExams ? "text-emerald-300" : "text-amber-300"}`}
+                  >
+                    {hasExams ? "Exámenes al día. " : "Sin exámenes vigentes. "}
+                  </span>
+                  {hasExams
+                    ? "Presentó exámenes médicos vigentes al equipo."
+                    : "No hay exámenes médicos vigentes en el perfil."}
                 </span>
-                {hasExams
-                  ? "Presentó exámenes médicos vigentes al equipo."
-                  : "No hay exámenes médicos vigentes en el perfil."}
               </p>
               {(fastResponse || (professional.completedServices ?? 0) > 0) && (
-                <p className="text-[13.5px] leading-relaxed text-white/60">
+                <p className="border-l-2 border-white/15 pl-3 text-[13.5px] leading-relaxed text-white/55">
                   {[
                     fastResponse,
                     (professional.completedServices ?? 0) > 0
@@ -829,19 +882,25 @@ export default function ProfileDetailView({
             {aboutText && (
               <div className="mt-6">
                 <p
+                  ref={aboutRef}
                   className={`whitespace-pre-line text-[15px] leading-[1.7] text-white/75 ${
                     aboutOpen ? "" : "line-clamp-4"
                   }`}
                 >
                   {aboutText}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setAboutOpen((v) => !v)}
-                  className="mt-1.5 text-[13px] font-medium text-white/45 underline underline-offset-4 transition hover:text-white/75"
-                >
-                  {aboutOpen ? "Leer menos" : "Leer más"}
-                </button>
+                {/* El botón sale sólo si de verdad quedó texto sin mostrar: una
+                    biografía de dos líneas con un "Leer más" que no hace nada
+                    es de las cosas que hacen desconfiar de una página. */}
+                {aboutOverflows && (
+                  <button
+                    type="button"
+                    onClick={() => setAboutOpen((v) => !v)}
+                    className="mt-1.5 text-[13px] font-medium text-white/45 underline underline-offset-4 transition hover:text-white/75"
+                  >
+                    {aboutOpen ? "Leer menos" : "Leer más"}
+                  </button>
+                )}
               </div>
             )}
 
@@ -871,8 +930,12 @@ export default function ProfileDetailView({
                           displayName: professional.name,
                         })
                       }
-                      className="rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white/85 transition hover:border-white/35 hover:bg-white/[0.04]"
+                      /* El glifo de WhatsApp alcanza para reconocerlo: pintar
+                         el botón entero de verde lo sacaba de la fila y hacía
+                         que compitiera con el de mensaje. */
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white/85 transition hover:border-white/35 hover:bg-white/[0.04]"
                     >
+                      <WhatsAppIcon className="h-4 w-4" />
                       WhatsApp
                     </a>
                     <a
@@ -913,7 +976,8 @@ export default function ProfileDetailView({
                 <div className="flex gap-3">
                   <dt className="w-24 shrink-0 text-white/40">Cuándo</dt>
                   <dd className="text-white/80">
-                    {professional.availabilityNote || availabilityState.label}
+                    {professional.availabilityNote ||
+                      (availableNow ? "Disponible ahora" : "A coordinar")}
                   </dd>
                 </div>
                 {ratingCount > 0 && ratingValue != null && (
@@ -1337,31 +1401,12 @@ export default function ProfileDetailView({
 
       {/* Mobile bottom bar */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0c0614]/95 px-4 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-2xl md:hidden">
-        {/* Price row */}
-        <div className="mb-2 flex items-center justify-between">
-          <div className="text-sm font-semibold text-white">
-            {priceLabel}
-            <span className="ml-1.5 text-xs font-normal text-white/40">{durationLabel}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => handleShare("profile_detail_sticky")}
-              aria-label="Compartir perfil"
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/60 transition hover:bg-violet-500/15 hover:text-violet-200"
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
-            <button
-              onClick={toggleFavorite}
-              aria-label={favorite ? "Quitar de favoritos" : "Guardar favorito"}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] transition hover:bg-white/[0.08]"
-            >
-              <Heart
-                className={`h-4 w-4 ${favorite ? "fill-red-500 text-red-500" : "text-white/50"}`}
-              />
-            </button>
-          </div>
+        {/* Guardar y compartir viven sobre la foto: acá abajo repetidos
+            quedaban debajo de la cinta de verificación y encima competían con
+            los botones que sí cierran el contacto. */}
+        <div className="mb-2 flex items-baseline gap-2">
+          <span className="text-sm font-semibold text-white">{priceLabel}</span>
+          <span className="text-xs font-normal text-white/40">{durationLabel}</span>
         </div>
         {/* Main CTA */}
         <button
@@ -1396,9 +1441,9 @@ export default function ProfileDetailView({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackAction("whatsapp_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/15 py-2 text-xs font-bold text-emerald-200 transition hover:bg-emerald-500/25"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.06] py-2 text-xs font-semibold text-white/75 transition hover:bg-white/[0.1]"
               >
-                <MessageSquare className="h-3.5 w-3.5" />
+                <WhatsAppIcon className="h-3.5 w-3.5" />
                 WhatsApp
               </a>
             </>
