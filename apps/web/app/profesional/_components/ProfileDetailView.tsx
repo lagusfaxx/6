@@ -124,6 +124,10 @@ type SurveySummary = {
   avgOverall: number;
 };
 
+/* Cuántos servicios se ven antes de "ver los restantes". Nueve llena tres
+   columnas justas en el escritorio y deja la sección corta en el teléfono. */
+const VISIBLE_SERVICES = 9;
+
 const SERVICE_SUBCATEGORIES = [
   "Anal",
   "Oral",
@@ -228,6 +232,10 @@ export default function ProfileDetailView({
   const aboutRef = useRef<HTMLParagraphElement | null>(null);
   const [aboutOverflows, setAboutOverflows] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
+  /* La lista de servicios se muestra recortada: hay perfiles con veinte o más
+     y en el teléfono eso son veinte renglones que empujan las fotos y las
+     opiniones fuera de la pantalla. */
+  const [showAllServices, setShowAllServices] = useState(false);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [surveyReviews, setSurveyReviews] = useState<SurveyReview[]>([]);
   const [surveySummary, setSurveySummary] = useState<SurveySummary | null>(
@@ -1088,17 +1096,33 @@ export default function ProfileDetailView({
               <h2 className="text-lg font-semibold tracking-tight">Servicios</h2>
 
               {serviceList.length > 0 && (
-                <ul className="mt-4 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
-                  {serviceList.map((item) => (
-                    <li
-                      key={item}
-                      className="flex items-start gap-2.5 border-b border-white/[0.06] py-2.5 text-[14.5px] text-white/85"
+                <>
+                  <ul className="mt-4 grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+                    {(showAllServices
+                      ? serviceList
+                      : serviceList.slice(0, VISIBLE_SERVICES)
+                    ).map((item) => (
+                      <li
+                        key={item}
+                        className="flex items-start gap-2.5 border-b border-white/[0.06] py-2 text-[14.5px] text-white/85"
+                      >
+                        <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                        <span className="first-letter:uppercase">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {serviceList.length > VISIBLE_SERVICES && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllServices((v) => !v)}
+                      className="mt-3 text-[13px] font-medium text-white/45 underline underline-offset-4 transition hover:text-white/75"
                     >
-                      <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                      <span className="first-letter:uppercase">{item}</span>
-                    </li>
-                  ))}
-                </ul>
+                      {showAllServices
+                        ? "Ver menos"
+                        : `Ver los ${serviceList.length - VISIBLE_SERVICES} restantes`}
+                    </button>
+                  )}
+                </>
               )}
 
               {styleChips.length > 0 && (

@@ -8,6 +8,10 @@ import { hasVerifiedBadge } from "../../../../lib/systemBadges";
 import VerifiedBand from "../../../../components/VerifiedBand";
 import type { DashboardFormState } from "../../../../hooks/useDashboardForm";
 
+/* Lo mismo que la ficha pública: la lista se recorta para no comerse la
+   pantalla. Acá van menos porque la vista previa es angosta. */
+const PREVIEW_SERVICES = 8;
+
 type Props = {
   state: DashboardFormState;
   user: any;
@@ -293,17 +297,25 @@ function LivePreviewProfessional({ state, user }: Props) {
               /* La misma lista con vistos que la ficha pública: si acá se
                  vieran como un párrafo, la profesional no sabría cómo se
                  muestran de verdad sus servicios. */
-              <ul className="mt-2 grid gap-x-6 sm:grid-cols-2">
-                {services.map((item) => (
-                  <li
-                    key={item}
-                    className="flex items-start gap-2 border-b border-white/[0.06] py-1.5 text-[13.5px] text-white/85"
-                  >
-                    <Check className="mt-[3px] h-3 w-3 shrink-0 text-emerald-400" />
-                    <span className="first-letter:uppercase">{item}</span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul className="mt-2 grid gap-x-6 sm:grid-cols-2">
+                  {services.slice(0, PREVIEW_SERVICES).map((item) => (
+                    <li
+                      key={item}
+                      className="flex items-start gap-2 border-b border-white/[0.06] py-1.5 text-[13.5px] text-white/85"
+                    >
+                      <Check className="mt-[3px] h-3 w-3 shrink-0 text-emerald-400" />
+                      <span className="first-letter:uppercase">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                {services.length > PREVIEW_SERVICES && (
+                  <p className="mt-2 text-[12px] text-white/35">
+                    y {services.length - PREVIEW_SERVICES} más — en tu perfil se
+                    ven con un botón para desplegarlos.
+                  </p>
+                )}
+              </>
             ) : (
               <p className="mt-2 text-[13px] text-amber-200/70">
                 Sin servicios marcados. Sin ellos el perfil no sale en los

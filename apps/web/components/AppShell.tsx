@@ -23,10 +23,6 @@ const PresenceHeartbeat = dynamic(
   () => import("./PresenceHeartbeat"),
   { ssr: false },
 );
-const SocialProofToast = dynamic(
-  () => import("./SocialProofToast"),
-  { ssr: false },
-);
 
 /**
  * Controla cuándo se muestra el chrome (Nav + layout).
@@ -146,7 +142,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <TopHeader />
             {deferredReady && <PushNotificationsManager />}
             {deferredReady && <PresenceHeartbeat />}
-            {deferredReady && !isCercaRoute && !isChatThreadRoute && <SocialProofToast />}
             {/* La conversación y las secciones tienen su propia flecha. */}
             {!isHome && !isCercaRoute && !isChatThreadRoute && !hasOwnBackButton && (
               <BackButton />
