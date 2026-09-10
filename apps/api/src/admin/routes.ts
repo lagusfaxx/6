@@ -7,6 +7,7 @@ import {
   moderatorBlockedProfileFields,
 } from "../auth/middleware";
 import { requireFresh2FA } from "../auth/twoFactor";
+import { missingProfileFields } from "../lib/profileCompletion";
 import { CreatePostSchema } from "@uzeed/shared";
 import multer from "multer";
 import path from "path";
@@ -853,9 +854,38 @@ adminRouter.put(
     const { verifiedByPhone } = req.body ?? {};
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { isVerified: true, profileType: true },
+      select: {
+        isVerified: true,
+        profileType: true,
+        isActive: true,
+        profileCompletedAt: true,
+        birthdate: true,
+        heightCm: true,
+        weightKg: true,
+        measurements: true,
+        hairColor: true,
+        skinTone: true,
+        baseRate: true,
+        city: true,
+        phone: true,
+        bio: true,
+        serviceTags: true,
+      },
     });
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+    /* Aprobar la verificación publicaba el perfil siempre. Con la ficha a
+       medias eso deja al aire un anuncio sin medidas ni tarifa, que es lo que
+       veníamos a arreglar: si falta algo, la cuenta queda verificada pero sin
+       publicar, y el panel muestra qué falta. Los perfiles que ya estaban
+       publicados no se tocan. */
+    let missing: { key: string; label: string; tab: string }[] = [];
+    if (user.profileType === "PROFESSIONAL" && !user.isActive && !user.profileCompletedAt) {
+      const photoCount = await prisma.profileMedia.count({
+        where: { ownerId: id, type: "IMAGE" },
+      });
+      missing = missingProfileFields(user as any, photoCount);
+    }
 
     const updated = await prisma.user.update({
       where: { id },
@@ -863,17 +893,18 @@ adminRouter.put(
         isVerified: true,
         verifiedAt: new Date(),
         verifiedByPhone: verifiedByPhone ? String(verifiedByPhone) : null,
-        isActive: true,
+        isActive: missing.length === 0 ? true : undefined,
       },
       select: {
         id: true,
         username: true,
         displayName: true,
         isVerified: true,
+        isActive: true,
         profileType: true,
       },
     });
-    return res.json({ profile: updated });
+    return res.json({ profile: updated, missing });
   }),
 );
 

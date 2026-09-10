@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import { prisma } from "../db";
 import {
   missingProfileFields,
+  resolvePublication,
   MIN_PROFILE_PHOTOS,
 } from "../lib/profileCompletion";
 import { Prisma } from "@prisma/client";
@@ -615,6 +616,7 @@ async function updateProfile(req: any, res: any) {
     profileType: true,
     phone: true,
     displayName: true,
+    isActive: true,
     birthdate: true,
     heightCm: true,
     weightKg: true,
@@ -866,22 +868,32 @@ async function updateProfile(req: any, res: any) {
     });
     const missing = missingProfileFields(merged, photoCount);
 
-    if (missing.length > 0) {
-      if (safeIsActive === true) {
-        return res.status(422).json({
-          error: "PROFILE_INCOMPLETE",
-          message:
-            "Completa la ficha antes de publicar el perfil: es lo que ve el cliente.",
-          missing,
-          minPhotos: MIN_PROFILE_PHOTOS,
-        });
-      }
-      // Nunca publicado y todavía incompleto: se guarda, pero apagado.
-      if (!me.profileCompletedAt) baseData.isActive = false;
-    } else if (!me.profileCompletedAt) {
-      // Primera vez que la ficha queda completa: queda lista para publicarse.
+    /* El caso que hay que cuidar: el equipo aprueba la verificación (eso
+       publica el perfil) antes de que la profesional termine la ficha. Si acá
+       la apagáramos, cualquier edición suya la sacaría del listado sin que
+       nadie lo pidiera. Por eso la regla sólo retiene la publicación de los
+       que todavía no están publicados. */
+    const decision = resolvePublication({
+      profileCompletedAt: me.profileCompletedAt,
+      isActive: me.isActive === true,
+      requestedActive: safeIsActive,
+      missingCount: missing.length,
+    });
+
+    if (decision === "blocked") {
+      return res.status(422).json({
+        error: "PROFILE_INCOMPLETE",
+        message:
+          "Completa la ficha antes de publicar el perfil: es lo que ve el cliente.",
+        missing,
+        minPhotos: MIN_PROFILE_PHOTOS,
+      });
+    }
+    if (decision === "hold") {
+      baseData.isActive = false;
+    } else if (decision === "publish") {
       baseData.profileCompletedAt = new Date();
-      if (safeIsActive === undefined) baseData.isActive = true;
+      baseData.isActive = true;
     }
   }
 

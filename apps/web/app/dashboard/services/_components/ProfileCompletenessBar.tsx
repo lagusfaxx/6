@@ -37,8 +37,9 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
   const missing = fields.filter((f) => !f.complete);
   const complete = missing.length === 0;
   const percentage = Math.round((done / fields.length) * 100);
-  /* Ya estaba publicado antes de la regla: se le avisa, no se le bloquea. */
-  const grandfathered = Boolean(user?.profileCompletedAt);
+  /* Perfil que ya está al aire (o que ya lo estuvo): el aviso es una
+     recomendación, no un bloqueo — a nadie se le baja el anuncio por esto. */
+  const grandfathered = Boolean(user?.profileCompletedAt) || user?.isActive === true;
 
   const tone = complete
     ? {
@@ -66,6 +67,7 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
     : grandfathered
       ? `Te faltan ${missing.length} datos en la ficha`
       : "Tu perfil no se publica hasta completar la ficha";
+
 
   const subtitle = complete
     ? "El cliente ve todos los datos que busca."
