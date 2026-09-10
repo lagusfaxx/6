@@ -69,11 +69,7 @@ type Professional = {
   gender?: string | null;
   city?: string | null;
   /** Estación de metro más cercana, calculada en el servidor. */
-  nearestMetro?: {
-    name: string;
-    lines: string[];
-    distanceM: number;
-  } | null;
+  nearestMetro?: { name: string; lines: string[] } | null;
   serviceSummary?: string | null;
   isOnline: boolean;
   lastSeen: string | null;
@@ -850,9 +846,6 @@ export default function ProfileDetailView({
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 px-2 py-0.5 text-[12px] text-white/70">
                     <TrainFront className="h-3.5 w-3.5 text-sky-300/80" />
                     Metro {professional.nearestMetro.name}
-                    <span className="text-white/35">
-                      a {professional.nearestMetro.distanceM} m
-                    </span>
                   </span>
                 )}
               </p>

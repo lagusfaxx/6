@@ -6,7 +6,7 @@ import path from "path";
 import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { missingProfileFields } from "../lib/profileCompletion";
-import { nearestMetroStation } from "../lib/metroStations";
+import { nearestMetroStation, publicMetro } from "../lib/metroStations";
 import { Prisma } from "@prisma/client";
 import { loginInputSchema, registerInputSchema, quickRegisterSchema } from "@uzeed/shared";
 import { autoReplyFields } from "../messages/autoReply";
@@ -382,7 +382,7 @@ authRouter.post(
            previa del estudio no invente nada. */
         nearestMetro:
           user.profileType === "PROFESSIONAL"
-            ? nearestMetroStation(user.latitude, user.longitude)
+            ? publicMetro(nearestMetroStation(user.latitude, user.longitude))
             : null,
         membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null,
       },

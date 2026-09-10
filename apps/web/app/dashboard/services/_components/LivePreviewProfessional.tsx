@@ -142,7 +142,6 @@ function LivePreviewProfessional({ state, user }: Props) {
               <p className="mt-1 inline-flex items-center gap-1.5 text-[12px] text-white/60">
                 <TrainFront className="h-3.5 w-3.5 text-sky-300/80" />
                 Metro {user.nearestMetro.name}
-                <span className="text-white/35">a {user.nearestMetro.distanceM} m</span>
               </p>
             )}
           </div>

@@ -175,9 +175,8 @@ export type NearestMetro = {
   /** Líneas que pasan por ella, ej. ["1", "4"]. */
   lines: string[];
   /**
-   * Distancia redondeada a 100 m. Se redondea a propósito: la ficha muestra la
-   * ubicación aproximada, y un valor al metro permitiría triangular la
-   * dirección exacta de la profesional.
+   * Distancia real en metros. Queda para uso interno (elegir la estación,
+   * ordenar, futuros filtros por cercanía) y NO se publica: ver `publicMetro`.
    */
   distanceM: number;
 };
@@ -203,9 +202,24 @@ export function nearestMetroStation(
     best = {
       name,
       lines: lines ? lines.split(",") : [],
-      distanceM: Math.max(100, Math.round(distance / 100) * 100),
+      distanceM: Math.round(distance),
     };
   }
 
   return best;
+}
+
+/**
+ * Lo que se publica de la estación: sólo el nombre y las líneas.
+ *
+ * La distancia se queda adentro. Es un dato de ubicación: aunque se redondee,
+ * cruzarla con el punto desplazado del mapa acota bastante dónde vive la
+ * profesional, y en la ficha no aporta nada — "Metro Tobalaba" ya es toda la
+ * referencia que el cliente necesita.
+ */
+export function publicMetro(
+  station: NearestMetro | null,
+): { name: string; lines: string[] } | null {
+  if (!station) return null;
+  return { name: station.name, lines: station.lines };
 }
