@@ -877,10 +877,20 @@ export default function RegisterClient() {
                 </div>
                 <h2 className="text-xl font-bold text-amber-100">Registro recibido</h2>
                 <p className="mt-2 text-sm text-white/70 leading-relaxed max-w-sm mx-auto">
-                  Tu cuenta está creada, pero tu perfil todavía no se publica:
-                  falta completar la ficha con los datos que mira el cliente
-                  (medidas, tarifa, comuna y servicios). Un administrador
-                  además verifica la cuenta por teléfono.
+                  {isProfessional ? (
+                    <>
+                      Tu cuenta está creada, pero tu perfil todavía no se
+                      publica: falta completar la ficha con los datos que mira
+                      el cliente (medidas, tarifa, comuna y servicios). Un
+                      administrador además verifica la cuenta por teléfono.
+                    </>
+                  ) : (
+                    <>
+                      Tu cuenta está creada. Para aparecer en la plataforma, un
+                      administrador verifica la cuenta por teléfono; mientras
+                      tanto puedes completar tu perfil desde el panel.
+                    </>
+                  )}
                 </p>
                 <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/60">
                   <Phone className="h-3.5 w-3.5" />
@@ -891,26 +901,33 @@ export default function RegisterClient() {
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <h3 className="text-sm font-semibold text-white/90 mb-3 flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-fuchsia-300" />
-                  Falta esto para publicarte
+                  {isProfessional ? "Falta esto para publicarte" : "Mientras tanto puedes"}
                 </h3>
                 <ul className="text-sm text-white/65 space-y-2">
-                  <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                    Tres fotos o más
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                    Estatura, peso, medidas, cabello y piel
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                    Tarifa, servicios y comuna
-                  </li>
+                  {(isProfessional
+                    ? [
+                        "Tres fotos o más",
+                        "Estatura, peso, medidas, cabello y piel",
+                        "Tarifa, servicios y comuna",
+                      ]
+                    : [
+                        "Subir tus fotos",
+                        "Completar la descripción",
+                        "Configurar precios y horarios",
+                      ]
+                  ).map((item) => (
+                    <li key={item} className="flex items-start gap-2.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+                      {item}
+                    </li>
+                  ))}
                 </ul>
-                <p className="mt-3 text-xs text-white/40">
-                  El panel te va marcando lo que falta y publica el perfil solo
-                  cuando la ficha queda completa.
-                </p>
+                {isProfessional && (
+                  <p className="mt-3 text-xs text-white/40">
+                    El panel te va marcando lo que falta y publica el perfil
+                    solo cuando la ficha queda completa.
+                  </p>
+                )}
               </div>
 
               <div className="mt-5 flex flex-col sm:flex-row gap-3">
@@ -918,7 +935,7 @@ export default function RegisterClient() {
                   href="/dashboard/services"
                   className="btn-primary flex-1 text-center flex items-center justify-center gap-2"
                 >
-                  Completar mi ficha
+                  {isProfessional ? "Completar mi ficha" : "Ir a mi panel"}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link href="/" className="btn-secondary flex-1 text-center">

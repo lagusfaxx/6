@@ -743,24 +743,33 @@ async function updateProfile(req: any, res: any) {
   if (phone !== undefined) {
     const trimmedPhone = String(phone ?? "").trim();
     if (me.profileType === "PROFESSIONAL") {
-      if (!PROFESSIONAL_PHONE_REGEX.test(trimmedPhone)) {
+      /* El panel manda el perfil entero en cada guardado, así que el número
+         viaja aunque no se haya tocado. Si no cambió, no se valida ni se
+         escribe: un número guardado antes de que existiera este formato
+         —o cargado por el equipo— dejaba a la profesional sin poder guardar
+         NADA del resto de su ficha, con un error de teléfono que ella no podía
+         arreglar porque el campo está bloqueado. */
+      if (samePhone(trimmedPhone, me.phone)) {
+        phoneUpdate = undefined;
+      } else if (!PROFESSIONAL_PHONE_REGEX.test(trimmedPhone)) {
         return res.status(400).json({
           error: "PHONE_INVALID",
           message:
             "Ingresa un número válido con código de país (+56, +57, +58 o +51).",
         });
-      }
-      // El número de WhatsApp es la vía de contacto del anuncio: cambiarlo por
-      // cuenta propia deja la cuenta anterior publicada con un número muerto.
-      // Una vez fijado sólo se cambia por solicitud revisada en el admin.
-      if (me.phone && !samePhone(trimmedPhone, me.phone)) {
+      } else if (me.phone) {
+        // El número de WhatsApp es la vía de contacto del anuncio: cambiarlo
+        // por cuenta propia deja la cuenta anterior publicada con un número
+        // muerto. Una vez fijado sólo se cambia por solicitud revisada en el
+        // admin.
         return res.status(403).json({
           error: "PHONE_LOCKED",
           message:
             "Tu número solo puede cambiarse con aprobación del equipo. Envía una solicitud desde tu perfil.",
         });
+      } else {
+        phoneUpdate = trimmedPhone;
       }
-      phoneUpdate = trimmedPhone;
     } else {
       phoneUpdate = trimmedPhone === "" ? null : trimmedPhone;
     }
@@ -773,22 +782,24 @@ async function updateProfile(req: any, res: any) {
   let displayNameUpdate: string | undefined = undefined;
   if (displayName !== undefined && displayName !== null) {
     const nextName = normalizeDisplayName(String(displayName));
-    const invalidName = displayNameError(nextName);
-    if (invalidName) {
-      return res.status(400).json({ error: "NAME_INVALID", message: invalidName });
+    /* Igual que el teléfono: el nombre viaja en cada guardado del panel. Si no
+       cambió no se valida — hay nombres guardados antes del tope de 20 (por
+       Google, por el equipo o por registros viejos) y revalidarlos dejaba a esa
+       cuenta sin poder guardar nada más de su ficha. */
+    if (!sameName(nextName, me.displayName)) {
+      const invalidName = displayNameError(nextName);
+      if (invalidName) {
+        return res.status(400).json({ error: "NAME_INVALID", message: invalidName });
+      }
+      if (me.profileType === "PROFESSIONAL" && me.displayName) {
+        return res.status(403).json({
+          error: "NAME_LOCKED",
+          message:
+            "Tu nombre solo puede cambiarse con aprobación del equipo. Envía una solicitud desde tu perfil.",
+        });
+      }
+      displayNameUpdate = nextName;
     }
-    if (
-      me.profileType === "PROFESSIONAL" &&
-      me.displayName &&
-      !sameName(nextName, me.displayName)
-    ) {
-      return res.status(403).json({
-        error: "NAME_LOCKED",
-        message:
-          "Tu nombre solo puede cambiarse con aprobación del equipo. Envía una solicitud desde tu perfil.",
-      });
-    }
-    displayNameUpdate = nextName;
   }
 
   const baseData: Record<string, unknown> = {

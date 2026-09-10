@@ -6,6 +6,12 @@ import { apiFetch, friendlyErrorMessage, safeRedirect } from "../lib/api";
 import { Eye, EyeOff, FileText, ShieldCheck } from "lucide-react";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
 
+/* Mismo tope que valida la API (`DISPLAY_NAME_MAX_LENGTH` en @uzeed/shared).
+   Se repite acá, como en el formulario de profesionales, para no arrastrar zod
+   al paquete del navegador por dos números. */
+const DISPLAY_NAME_MIN_LENGTH = 2;
+const DISPLAY_NAME_MAX_LENGTH = 20;
+
 type Mode = "login" | "register";
 
 function flattenValidation(details: any): string | null {
@@ -206,14 +212,22 @@ export default function AuthForm({
       {mode === "register" ? (
         <div className="grid gap-2">
           <label className="text-sm font-medium text-white/70">Nombre público</label>
+          {/* El tope lo valida la API (@uzeed/shared): sin el maxLength acá la
+              persona escribía su nombre completo, mandaba el formulario entero
+              y recién ahí se enteraba de que no cabía. */}
           <input
             className="input"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="Ej: Agus"
             required
-            minLength={2}
+            minLength={DISPLAY_NAME_MIN_LENGTH}
+            maxLength={DISPLAY_NAME_MAX_LENGTH}
           />
+          <p className="text-[11px] text-white/35">
+            Así te van a ver. Máximo {DISPLAY_NAME_MAX_LENGTH} caracteres
+            {displayName ? ` · ${displayName.trim().length}/${DISPLAY_NAME_MAX_LENGTH}` : ""}
+          </p>
         </div>
       ) : null}
 
