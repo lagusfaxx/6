@@ -246,7 +246,7 @@ export default function FaceVerificationPage({ params }: { params: { token: stri
   return (
     <Shell>
       <div className="text-center">
-        <h1 className="text-lg font-bold">Hola {link.name} 👋</h1>
+        <h1 className="text-lg font-bold">Hola {link.name}</h1>
         <p className="mt-1 text-sm text-white/50">
           Son 3 fotos de tu cara para verificar que el perfil es tuyo. Toma menos de un minuto.
         </p>

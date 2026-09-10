@@ -204,7 +204,7 @@ export default function UmateAdminPage() {
         method: "POST",
         body: JSON.stringify({}),
       });
-      setDemoSeedMsg(`✅ ${res.count} creadora(s) demo creada(s). Revisa el home de Uzeed.`);
+      setDemoSeedMsg(`${res.count} creadora(s) demo creada(s). Revisa el home de Uzeed.`);
       await loadDemoSeedStatus();
     } catch (err: any) {
       setDemoSeedMsg(err?.body?.message || err?.body?.error || "No se pudo seedear.");
@@ -223,7 +223,7 @@ export default function UmateAdminPage() {
         method: "POST",
         body: JSON.stringify({}),
       });
-      setDemoSeedMsg(`✅ ${res.count} creadora(s) demo borrada(s). Home limpio.`);
+      setDemoSeedMsg(`${res.count} creadora(s) demo borrada(s). Home limpio.`);
       await loadDemoSeedStatus();
     } catch (err: any) {
       setDemoSeedMsg(err?.body?.message || err?.body?.error || "No se pudo revertir.");

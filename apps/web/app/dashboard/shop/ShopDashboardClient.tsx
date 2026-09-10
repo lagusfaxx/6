@@ -7,6 +7,17 @@ import useMe from "../../../hooks/useMe";
 import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import { extractMapboxLocation } from "../../../lib/mapboxFeature";
+import {
+  BarChart3,
+  Palette,
+  FolderTree,
+  Package,
+  MapPin,
+  Camera,
+  Pencil,
+  Trash2,
+  X,
+} from "lucide-react";
 
 /* ── Types ── */
 type ProductMedia = { id: string; url: string; pos: number };
@@ -25,12 +36,14 @@ type Product = {
 
 type TabKey = "overview" | "branding" | "categories" | "products" | "location";
 
-const tabsMeta: Array<{ key: TabKey; label: string; icon: string }> = [
-  { key: "overview", label: "Resumen", icon: "📊" },
-  { key: "branding", label: "Branding", icon: "🎨" },
-  { key: "categories", label: "Categorías", icon: "📂" },
-  { key: "products", label: "Productos", icon: "📦" },
-  { key: "location", label: "Ubicación", icon: "📍" },
+/* Iconos y no emojis: el emoji se dibuja distinto en cada sistema y no toma el
+   color del texto. */
+const tabsMeta: Array<{ key: TabKey; label: string; Icon: typeof BarChart3 }> = [
+  { key: "overview", label: "Resumen", Icon: BarChart3 },
+  { key: "branding", label: "Branding", Icon: Palette },
+  { key: "categories", label: "Categorías", Icon: FolderTree },
+  { key: "products", label: "Productos", Icon: Package },
+  { key: "location", label: "Ubicación", Icon: MapPin },
 ];
 
 /* ── Helpers ── */
@@ -439,7 +452,7 @@ export default function ShopDashboardClient() {
                   tab === t.key ? "text-white" : "text-white/50 hover:text-white/70"
                 }`}
               >
-                <span className="mr-1.5">{t.icon}</span>
+                <t.Icon className="mr-1.5 inline h-4 w-4 align-[-3px]" />
                 {t.label}
                 {tab === t.key && (
                   <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500" />
@@ -799,7 +812,7 @@ export default function ShopDashboardClient() {
                                       onClick={() => removeProductMedia(m.id)}
                                       className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-red-500/90 text-[8px] text-white shadow group-hover/thumb:flex"
                                     >
-                                      ✕
+                                      <X className="h-2.5 w-2.5" />
                                     </button>
                                   </div>
                                 ))}
@@ -809,20 +822,28 @@ export default function ShopDashboardClient() {
                             {/* Actions */}
                             <div className="mt-3 flex flex-wrap gap-2">
                               <label className="cursor-pointer rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-white/60 transition-all hover:bg-white/[0.06]">
-                                {uploadingProductId === p.id ? "Subiendo..." : "📷 Fotos"}
+                                {uploadingProductId === p.id ? (
+                                  "Subiendo..."
+                                ) : (
+                                  <span className="flex items-center gap-1.5">
+                                    <Camera className="h-3.5 w-3.5" /> Fotos
+                                  </span>
+                                )}
                                 <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => uploadProductMedia(p.id, e)} />
                               </label>
                               <button
                                 onClick={() => startEditProduct(p)}
                                 className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-white/60 transition-all hover:bg-white/[0.06]"
                               >
-                                ✏️ Editar
+                                <Pencil className="mr-1.5 inline h-3.5 w-3.5 align-[-2px]" />
+                                Editar
                               </button>
                               <button
                                 onClick={() => removeProduct(p.id)}
                                 className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-red-300/70 transition-all hover:bg-red-500/10"
                               >
-                                🗑 Eliminar
+                                <Trash2 className="mr-1.5 inline h-3.5 w-3.5 align-[-2px]" />
+                                Eliminar
                               </button>
                             </div>
                           </div>
@@ -914,7 +935,7 @@ export default function ShopDashboardClient() {
         <div className="fixed top-4 right-4 z-50 max-w-sm rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200 shadow-2xl backdrop-blur-xl">
           <div className="flex items-start justify-between gap-2">
             <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-red-300 hover:text-white">✕</button>
+            <button onClick={() => setError(null)} className="text-red-300 hover:text-white" aria-label="Cerrar"><X className="h-4 w-4" /></button>
           </div>
         </div>
       )}

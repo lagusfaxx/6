@@ -12,7 +12,7 @@ import useMe from "../../../../hooks/useMe";
 import BankData from "../../../../components/marketplace/BankData";
 import { apiFetch, friendlyErrorMessage, resolveMediaUrl } from "../../../../lib/api";
 import {
-  DELIVERY_HINT, DELIVERY_LABEL, PRODUCT_TYPE_EMOJI, PRODUCT_TYPE_LABEL, formatClp,
+  DELIVERY_HINT, DELIVERY_LABEL, PRODUCT_TYPE_LABEL, formatClp,
   type MarketConfig, type MarketDeliveryMethod, type MarketOrder, type MarketProduct, type MarketTransferData,
 } from "../../../../lib/marketplace";
 
@@ -91,7 +91,9 @@ export default function ProductClient({ productId }: { productId: string }) {
                 <img src={resolveMediaUrl(current.url) || ""} alt={product.title} className="h-full w-full object-cover" />
               )
             ) : (
-              <div className="flex h-full items-center justify-center text-6xl">{PRODUCT_TYPE_EMOJI[product.type]}</div>
+              <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/30">
+                {PRODUCT_TYPE_LABEL[product.type]}
+              </div>
             )}
 
             {media.length > 1 && (

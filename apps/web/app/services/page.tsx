@@ -15,6 +15,7 @@ const ProfilePreviewModal = dynamic(() => import("../../components/ProfilePrevie
 const Stories = dynamic(() => import("../../components/Stories"), { ssr: false });
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../../lib/systemBadges";
 import StatusBadgeIcon from "../../components/StatusBadgeIcon";
+import BackButton from "../../components/BackButton";
 import {
   MapPin,
   Search,
@@ -749,35 +750,43 @@ export default function ServicesPage() {
   const activeFilterCount = activeQuickFilters.size + (search ? 1 : 0) + (genderFilter ? 1 : 0);
 
   return (
-    <div className="pb-24">
+    /* -mx-4 para cancelar el padding del layout: la cabecera es una barra de
+       borde a borde, pegada al header, y no un recuadro flotando dentro de la
+       página con márgenes a los lados. */
+    <div className="-mx-4 pb-24">
       {/* ── Header ── */}
-      <section className="relative border-b border-white/[0.06] backdrop-blur-2xl" style={{ background: "linear-gradient(180deg, rgba(12,6,22,0.95) 0%, rgba(12,6,22,0.8) 60%, rgba(12,6,22,0.6) 100%)" }}>
+      <section className="sticky top-[60px] z-20 border-b border-white/[0.06] bg-[#0d0e1a]/95 backdrop-blur-xl md:top-[72px]">
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/25 to-transparent" />
-        <div className="relative mx-auto max-w-6xl px-4 pt-4 pb-3.5">
+        <div className="relative mx-auto max-w-6xl px-4 pt-3 pb-3">
           {/* Title row */}
           <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2.5">
-              <h1 className="text-lg font-bold tracking-tight whitespace-nowrap bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">Explorar</h1>
-              <p className="flex items-center gap-1.5 text-[11px] text-white/35">
-                {locationLabel && (
-                  <>
-                    <MapPin className="h-2.5 w-2.5 text-fuchsia-400/60" />
-                    <span className="text-fuchsia-300/50 font-medium">{locationLabel}</span>
-                    <span className="text-white/[0.1]">·</span>
-                  </>
-                )}
-                {!loading && (
-                  <span className="tabular-nums">
-                    {displayProfiles.length} resultado{displayProfiles.length !== 1 ? "s" : ""}
-                  </span>
-                )}
-                {loading && !hasLoadedOnce && (
-                  <span className="inline-flex items-center gap-1">
-                    <span className="h-1 w-1 rounded-full bg-fuchsia-400/60 animate-pulse" />
-                    Buscando...
-                  </span>
-                )}
-              </p>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <BackButton inline />
+              <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2.5">
+                <h1 className="whitespace-nowrap bg-gradient-to-r from-white to-white/80 bg-clip-text text-lg font-bold tracking-tight text-transparent">
+                  Explorar
+                </h1>
+                <p className="flex items-center gap-1.5 text-[11px] text-white/35">
+                  {locationLabel && (
+                    <>
+                      <MapPin className="h-2.5 w-2.5 text-fuchsia-400/60" />
+                      <span className="font-medium text-fuchsia-300/50">{locationLabel}</span>
+                      <span className="text-white/[0.1]">·</span>
+                    </>
+                  )}
+                  {!loading && (
+                    <span className="tabular-nums">
+                      {displayProfiles.length} resultado{displayProfiles.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  {loading && !hasLoadedOnce && (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="h-1 w-1 rounded-full bg-fuchsia-400/60 animate-pulse" />
+                      Buscando...
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
             <button
               type="button"

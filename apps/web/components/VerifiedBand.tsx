@@ -20,8 +20,12 @@ type BandSize = "sm" | "md" | "lg";
  * dependen del ancho.
  *
  * Dos modos:
- *  - `inline` (recomendado en tarjetas): la banda va dentro del bloque de
- *    información inferior, justo encima del nombre, así nunca lo tapa.
+ *  - `inline` (recomendado en tarjetas): la banda va como último elemento del
+ *    bloque de información inferior, pegada al borde de abajo de la foto. Iba
+ *    arriba del nombre y, cuando ese bloque crecía más que la foto (la ficha
+ *    del modal, por ejemplo), la banda se salía por arriba y quedaba cortada
+ *    contra el borde superior. Como último hijo de un bloque anclado abajo,
+ *    siempre queda dentro.
  *  - absoluto (por defecto): se ancla al borde inferior de la foto. Solo para
  *    fotos sin texto encima.
  *
@@ -30,23 +34,26 @@ type BandSize = "sm" | "md" | "lg";
  */
 const PRESETS: Record<
   BandSize,
-  { font: number; padY: number; bottom: number; tracking: number; tick: number }
+  { font: number; padY: number; gap: number; tracking: number; tick: number }
 > = {
-  sm: { font: 8.5, padY: 3, bottom: 10, tracking: 0.09, tick: 9 },
-  md: { font: 11, padY: 5, bottom: 14, tracking: 0.11, tick: 12 },
-  lg: { font: 13, padY: 7, bottom: 18, tracking: 0.13, tick: 14 },
+  /* `gap` es el aire entre el texto del bloque y la banda. */
+  sm: { font: 8.5, padY: 3, gap: 8, tracking: 0.09, tick: 9 },
+  md: { font: 11, padY: 5, gap: 10, tracking: 0.11, tick: 12 },
+  lg: { font: 13, padY: 7, gap: 12, tracking: 0.13, tick: 14 },
 };
 
+/* Semitransparente y con desenfoque detrás: se sigue leyendo de una, pero deja
+   ver la foto por debajo en vez de taparla con una franja maciza. */
 const BAND_CLASS =
   "relative flex items-center justify-center gap-1.5 overflow-hidden border-y " +
-  "border-white/25 bg-gradient-to-r from-sky-600 via-blue-500 to-sky-600 " +
-  "text-white shadow-[0_6px_18px_rgba(2,132,199,0.45)]";
+  "border-white/20 bg-gradient-to-r from-sky-600/65 via-blue-500/60 to-sky-600/65 " +
+  "text-white backdrop-blur-[2px] shadow-[0_4px_14px_rgba(2,132,199,0.28)]";
 
 /* Franjas diagonales muy suaves: dan el aire de cinta de seguridad sin tocar
    la legibilidad del texto. */
 const STRIPES: CSSProperties = {
   backgroundImage:
-    "repeating-linear-gradient(115deg, rgba(255,255,255,0.16) 0 10px, rgba(255,255,255,0) 10px 22px)",
+    "repeating-linear-gradient(115deg, rgba(255,255,255,0.13) 0 10px, rgba(255,255,255,0) 10px 22px)",
 };
 
 type Props = {
@@ -118,7 +125,7 @@ export default function VerifiedBand({
              bordes de la foto sin depender de cuánto padding tenga. */
           width: "calc(100% + 2 * var(--verified-band-bleed, 0px))",
           marginLeft: "calc(-1 * var(--verified-band-bleed, 0px))",
-          marginBottom: preset.bottom,
+          marginTop: preset.gap,
         }}
       >
         {content}
@@ -135,7 +142,8 @@ export default function VerifiedBand({
         className={`absolute left-1/2 ${BAND_CLASS}`}
         style={{
           ...padding,
-          bottom: preset.bottom,
+          /* Pegada al borde de abajo de la foto. */
+          bottom: 0,
           width: "100%",
           transform: "translateX(-50%)",
         }}

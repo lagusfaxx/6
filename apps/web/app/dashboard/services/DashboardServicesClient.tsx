@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage, getApiBase } from "../../../lib/api";
+import { Building2, Store } from "lucide-react";
 import {
   DashboardFormContext,
   useDashboardFormReducer,
@@ -921,8 +922,8 @@ export default function DashboardServicesClient() {
     return (
       <div className="mx-auto max-w-xl mt-8 space-y-4">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-lg text-lg">
-            ✦
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.06]">
+            <Building2 className="h-5 w-5 text-white/70" />
           </div>
           <h1 className="text-xl font-semibold">Panel Motel</h1>
           <p className="text-sm text-white/60">
@@ -944,8 +945,8 @@ export default function DashboardServicesClient() {
     return (
       <div className="mx-auto max-w-xl mt-8 space-y-4">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-lg text-lg">
-            ✦
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.06]">
+            <Store className="h-5 w-5 text-white/70" />
           </div>
           <h1 className="text-xl font-semibold">Panel Tienda</h1>
           <p className="text-sm text-white/60">

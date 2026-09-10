@@ -9,6 +9,7 @@ import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import { cleanProfileHref } from "../lib/profileUrl";
 import StatusBadgeIcon from "./StatusBadgeIcon";
+import BackButton from "./BackButton";
 import VerifiedBand from "./VerifiedBand";
 import UserLevelBadge from "./UserLevelBadge";
 import type { MapMarker } from "./MapboxMap";
@@ -201,11 +202,6 @@ function ProfileCard({
 
         {/* Bottom info overlay with premium layout */}
         <div className="absolute bottom-0 left-0 right-0 p-3 z-[3] [--verified-band-bleed:12px]">
-          {/* Banda de verificación: cruza la tarjeta justo encima del nombre */}
-          {hasVerifiedBadge(p.profileTags) && (coverSrc || avatarSrc) && (
-            <VerifiedBand size="sm" inline />
-          )}
-
           {/* Name + age + verification badges */}
           <div className="flex items-center gap-1.5 font-bold text-white text-[13px] sm:text-sm leading-tight">
             <span className="truncate">{p.displayName}</span>
@@ -244,6 +240,11 @@ function ProfileCard({
                 </span>
               )}
             </div>
+          )}
+
+          {/* Banda de verificación: cruza el borde de abajo de la tarjeta */}
+          {hasVerifiedBadge(p.profileTags) && (coverSrc || avatarSrc) && (
+            <VerifiedBand size="sm" inline />
           )}
         </div>
       </div>
@@ -450,10 +451,11 @@ export default function DirectoryPage({
   return (
     <div className="-mx-4 -mt-4 min-h-screen text-white">
       {/* ── Sticky header ── */}
-      <div className="sticky top-[60px] md:top-[68px] z-20 bg-[#0d0e1a]/95 backdrop-blur-xl border-b border-white/[0.06]">
-        {/* pl-12 en móvil: el botón flotante de "volver" del layout se apoya
-            justo encima de esta fila y tapaba el título. */}
-        <div className="max-w-7xl mx-auto pl-12 pr-4 py-3 flex items-center gap-3 sm:pl-4">
+      <div className="sticky top-[60px] md:top-[72px] z-20 bg-[#0d0e1a]/95 backdrop-blur-xl border-b border-white/[0.06]">
+        {/* El botón de volver va aquí dentro, en el flujo: flotando encima se
+            apoyaba justo sobre esta fila y tapaba el título. */}
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+          <BackButton inline />
           {/* Title + count */}
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold truncate flex items-center gap-2">
@@ -702,7 +704,7 @@ export default function DirectoryPage({
           </div>
         ) : displayed.length === 0 ? (
           <div className="py-24 text-center">
-            <p className="text-4xl mb-3">🔍</p>
+            <Search className="mx-auto mb-3 h-8 w-8 text-white/20" />
             <p className="text-white/50">No encontramos resultados con estos filtros.</p>
             {activeFilterCount > 0 && (
               <button

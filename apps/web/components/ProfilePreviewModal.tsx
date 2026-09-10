@@ -264,8 +264,6 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
 
           {/* ─── Profile Info Overlay ─── */}
           <div className="absolute bottom-0 left-0 right-0 p-5 z-[5] [--verified-band-bleed:20px]">
-            {/* Banda de verificación cruzando la parte baja de la foto */}
-            {isVerifiedProfile && <VerifiedBand size="md" inline />}
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -309,6 +307,9 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
                 </span>
               )}
             </div>
+
+            {/* Banda de verificación, cruzando el borde de abajo de la foto */}
+            {isVerifiedProfile && <VerifiedBand size="md" inline />}
           </div>
         </div>
 

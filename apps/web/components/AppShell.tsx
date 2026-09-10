@@ -63,6 +63,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
      y el resto del sitio asomando alrededor. */
   const isChatThreadRoute = /^\/chats?\/[^/]+/.test(pathname);
 
+  /* Secciones con barra propia (Explorar y los directorios): el botón de
+     volver va dentro de esa barra, en el flujo. Flotando se apoyaba encima del
+     título — en Explorar se comía la "E" — y en el escritorio caía sobre el
+     borde izquierdo del contenido. */
+  const SECTION_ROUTES = ["/services", "/escorts", "/masajistas", "/moteles", "/sexshop"];
+  const hasOwnBackButton =
+    SECTION_ROUTES.includes(pathname) ||
+    /* /escorts/<etiqueta> es el mismo directorio con un filtro; el resto de
+       las subrutas (una tienda, un perfil) son páginas de detalle y siguen con
+       la flecha flotante. */
+    pathname.startsWith("/escorts/");
+
   // Dashboard routes: hide main header/nav so the Creator Studio has its own layout
   const isDashboardRoute = pathname.startsWith("/dashboard");
 
@@ -135,8 +147,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             {deferredReady && <PushNotificationsManager />}
             {deferredReady && <PresenceHeartbeat />}
             {deferredReady && !isCercaRoute && !isChatThreadRoute && <SocialProofToast />}
-            {/* La conversación tiene su propia flecha en la cabecera. */}
-            {!isHome && !isCercaRoute && !isChatThreadRoute && <BackButton />}
+            {/* La conversación y las secciones tienen su propia flecha. */}
+            {!isHome && !isCercaRoute && !isChatThreadRoute && !hasOwnBackButton && (
+              <BackButton />
+            )}
             {/* Reduced pt since we removed the category chips row from mobile header */}
             <main
               className={

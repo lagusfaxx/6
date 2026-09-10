@@ -639,7 +639,7 @@ function ProductRow({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={resolveMediaUrl(product.coverUrl) || ""} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full items-center justify-center text-lg">📦</div>
+            <div className="flex h-full items-center justify-center text-[10px] text-white/25">Sin foto</div>
           )}
         </div>
         <div className="min-w-0 flex-1">

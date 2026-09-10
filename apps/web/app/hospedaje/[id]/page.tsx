@@ -5,6 +5,19 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import {
+  Building2,
+  Camera,
+  MapPin,
+  Star,
+  Tag,
+  Phone,
+  Clock,
+  BedDouble,
+  ClipboardList,
+  MessageCircle,
+  X,
+} from "lucide-react";
 
 type Room = {
   id: string;
@@ -190,7 +203,7 @@ export default function HospedajeDetailPage() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="w-full max-w-md rounded-3xl border border-white/[0.08] bg-white/[0.03] p-12 text-center">
-          <div className="mb-4 text-5xl">🏨</div>
+          <Building2 className="mx-auto mb-4 h-10 w-10 text-white/25" />
           <h2 className="text-xl font-semibold">No encontrado</h2>
           <p className="mt-1 text-sm text-white/40">No pudimos encontrar este hospedaje.</p>
           <Link href="/hospedaje" className="mt-4 inline-block text-sm text-fuchsia-400 transition hover:text-fuchsia-300">
@@ -217,7 +230,7 @@ export default function HospedajeDetailPage() {
 
           {/* Photo count badge */}
           <div className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl">
-            📷 {gallery.length} fotos
+            <Camera className="h-3.5 w-3.5" /> {gallery.length} fotos
           </div>
 
           {/* Header info */}
@@ -235,10 +248,10 @@ export default function HospedajeDetailPage() {
               <div className="min-w-0 flex-1">
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">{data.name}</h1>
                 <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-white/70">
-                  <span className="flex items-center gap-1">📍 {data.address}, {data.city}</span>
+                  <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 shrink-0 text-fuchsia-400" /> {data.address}, {data.city}</span>
                   {data.rating != null && (
                     <span className="flex items-center gap-1">
-                      ⭐ {data.rating} · {data.reviewsCount ?? 0} reseñas
+                      <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" /> {data.rating} · {data.reviewsCount ?? 0} reseñas
                     </span>
                   )}
                 </div>
@@ -249,7 +262,7 @@ export default function HospedajeDetailPage() {
                   </span>
                   {activePromos.length > 0 && (
                     <span className="rounded-full border border-fuchsia-400/30 bg-fuchsia-500/15 px-3 py-1 text-xs font-medium text-fuchsia-300">
-                      🏷️ {activePromos.length} oferta{activePromos.length !== 1 ? "s" : ""}
+                      <Tag className="h-3.5 w-3.5" /> {activePromos.length} oferta{activePromos.length !== 1 ? "s" : ""}
                     </span>
                   )}
                 </div>
@@ -282,7 +295,7 @@ export default function HospedajeDetailPage() {
       {/* Lightbox */}
       {lightboxOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4" onClick={() => setLightboxOpen(false)}>
-          <button className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-lg text-white backdrop-blur-xl">✕</button>
+          <button className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-xl" aria-label="Cerrar"><X className="h-4 w-4" /></button>
           <button
             className="absolute left-4 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-xl"
             onClick={(e) => { e.stopPropagation(); setGalleryIndex((prev) => (prev === 0 ? gallery.length - 1 : prev - 1)); }}
@@ -313,17 +326,17 @@ export default function HospedajeDetailPage() {
         <div className="space-y-5">
           {/* About */}
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">📋 Sobre este hospedaje</h2>
+            <h2 className="flex items-center gap-2 text-lg font-semibold"><ClipboardList className="h-4 w-4 text-white/40" /> Sobre este hospedaje</h2>
             <div className="mt-3 space-y-2 text-sm text-white/60">
               {data.rules && <p>{data.rules}</p>}
-              <p>📞 Teléfono: {data.phone || "No disponible"}</p>
-              <p>🕐 Horario: {data.schedule || "24/7"}</p>
+              <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-white/35" /> Teléfono: {data.phone || "No disponible"}</p>
+              <p className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-white/35" /> Horario: {data.schedule || "24/7"}</p>
             </div>
           </div>
 
           {/* Rooms */}
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">🛏️ Habitaciones</h2>
+            <h2 className="flex items-center gap-2 text-lg font-semibold"><BedDouble className="h-4 w-4 text-white/40" /> Habitaciones</h2>
             <div className="mt-4 space-y-3">
               {data.rooms.map((r) => {
                 const isSelected = selectedRoom?.id === r.id;
@@ -362,7 +375,7 @@ export default function HospedajeDetailPage() {
                           )}
                         </div>
                         {r.description && <div className="mt-0.5 text-xs text-white/40">{r.description}</div>}
-                        {r.location && <div className="mt-0.5 text-xs text-white/30">📍 {r.location}</div>}
+                        {r.location && <div className="mt-0.5 flex items-center gap-1 text-xs text-white/30"><MapPin className="h-3 w-3" /> {r.location}</div>}
 
                         {/* Amenities */}
                         {r.amenities && r.amenities.length > 0 && (
@@ -393,7 +406,7 @@ export default function HospedajeDetailPage() {
                         {promo && (
                           <div className="mt-2 flex items-center gap-2">
                             <span className="rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-2.5 py-0.5 text-xs font-medium text-fuchsia-300">
-                              🏷️ {promo.title} {promo.discountPercent ? `(-${promo.discountPercent}%)` : ""}
+                              <Tag className="h-3 w-3" /> {promo.title} {promo.discountPercent ? `(-${promo.discountPercent}%)` : ""}
                             </span>
                             <span className="text-xs text-white/30 line-through">{formatMoney(roomBase)}</span>
                             <span className="text-sm font-bold text-emerald-300">{formatMoney(roomFinal)}</span>
@@ -416,7 +429,7 @@ export default function HospedajeDetailPage() {
           {/* Active promotions */}
           {activePromos.length > 0 && (
             <div className="rounded-2xl border border-fuchsia-500/15 bg-gradient-to-r from-fuchsia-500/5 to-transparent p-5">
-              <h2 className="flex items-center gap-2 text-lg font-semibold">🏷️ Ofertas activas</h2>
+              <h2 className="flex items-center gap-2 text-lg font-semibold"><Tag className="h-4 w-4 text-white/40" /> Ofertas activas</h2>
               <div className="mt-3 space-y-2">
                 {activePromos.map((p) => (
                   <div key={p.id} className="rounded-xl border border-fuchsia-500/10 bg-fuchsia-500/5 p-3">
@@ -435,7 +448,7 @@ export default function HospedajeDetailPage() {
           {data.latitude != null && data.longitude != null && (
             <div className="overflow-hidden rounded-2xl border border-white/[0.08]">
               <div className="bg-white/[0.03] p-4 pb-0">
-                <h2 className="flex items-center gap-2 text-lg font-semibold">📍 Ubicación</h2>
+                <h2 className="flex items-center gap-2 text-lg font-semibold"><MapPin className="h-4 w-4 text-white/40" /> Ubicación</h2>
                 <p className="mt-1 text-sm text-white/40">{data.address}, {data.city}</p>
               </div>
               <div className="mt-3">
@@ -454,7 +467,7 @@ export default function HospedajeDetailPage() {
           {existingBooking && (
             <div className="mb-4 rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-violet-300">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/20 text-xs">📋</span>
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/20"><ClipboardList className="h-3 w-3 text-violet-200" /></span>
                 Reserva existente
               </div>
               <div className="mt-2 space-y-1 text-xs text-white/60">
@@ -477,7 +490,7 @@ export default function HospedajeDetailPage() {
                 href={`/chat/${data.id}`}
                 className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-violet-400 transition hover:text-violet-300"
               >
-                💬 Ir al chat →
+                <MessageCircle className="h-3.5 w-3.5" /> Ir al chat
               </Link>
             </div>
           )}
@@ -513,7 +526,7 @@ export default function HospedajeDetailPage() {
               <div className="mt-0.5 text-3xl font-bold text-fuchsia-200">{formatMoney(discountedPrice)}</div>
               {promoForRoom && (
                 <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-emerald-300">
-                  🏷️ {promoForRoom.title}
+                  <Tag className="h-3 w-3" /> {promoForRoom.title}
                 </div>
               )}
             </div>
@@ -583,14 +596,14 @@ export default function HospedajeDetailPage() {
               href={`/chat/${data.id}`}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-medium transition hover:bg-white/[0.08]"
             >
-              💬 Enviar mensaje
+              <MessageCircle className="h-4 w-4" /> Enviar mensaje
             </Link>
             {data.phone && (
               <a
                 href={`tel:${data.phone}`}
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-3 text-sm font-medium transition hover:bg-white/[0.08]"
               >
-                📞 Llamar
+                <Phone className="h-4 w-4" /> Llamar
               </a>
             )}
           </div>
