@@ -930,9 +930,10 @@ export default function ProfileDetailView({
                           displayName: professional.name,
                         })
                       }
-                      /* Verde de WhatsApp: el botón se reconoce antes de
-                         leerlo y es el que más se toca de toda la ficha. */
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-6 py-3 text-sm font-semibold text-[#04231a] transition hover:bg-[#1fbe5a]"
+                      /* El glifo de WhatsApp alcanza para reconocerlo: pintar
+                         el botón entero de verde lo sacaba de la fila y hacía
+                         que compitiera con el de mensaje. */
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white/85 transition hover:border-white/35 hover:bg-white/[0.04]"
                     >
                       <WhatsAppIcon className="h-4 w-4" />
                       WhatsApp
@@ -1440,7 +1441,7 @@ export default function ProfileDetailView({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackAction("whatsapp_click", professional.id, { source: "profile_detail_sticky", displayName: professional.name })}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] py-2 text-xs font-bold text-[#04231a] transition hover:bg-[#1fbe5a]"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.06] py-2 text-xs font-semibold text-white/75 transition hover:bg-white/[0.1]"
               >
                 <WhatsAppIcon className="h-3.5 w-3.5" />
                 WhatsApp
