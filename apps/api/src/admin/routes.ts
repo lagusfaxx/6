@@ -874,13 +874,15 @@ adminRouter.put(
     });
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
 
-    /* Aprobar la verificación publicaba el perfil siempre. Con la ficha a
-       medias eso deja al aire un anuncio sin medidas ni tarifa, que es lo que
-       veníamos a arreglar: si falta algo, la cuenta queda verificada pero sin
-       publicar, y el panel muestra qué falta. Los perfiles que ya estaban
-       publicados no se tocan. */
+    /* Aprobar la verificación publica el perfil, tenga la ficha completa o
+       no: retenerlo dejaba a la profesional verificada pero invisible por
+       datos personales que nadie está obligada a publicar. Lo que falte se le
+       recuerda en su panel como visibilidad.
+
+       `missing` se sigue devolviendo, pero como información para quien aprueba
+       —"esta ficha está a medias"—, no como condición. */
     let missing: { key: string; label: string; tab: string }[] = [];
-    if (user.profileType === "PROFESSIONAL" && !user.isActive && !user.profileCompletedAt) {
+    if (user.profileType === "PROFESSIONAL") {
       const photoCount = await prisma.profileMedia.count({
         where: { ownerId: id, type: "IMAGE" },
       });
@@ -893,7 +895,11 @@ adminRouter.put(
         isVerified: true,
         verifiedAt: new Date(),
         verifiedByPhone: verifiedByPhone ? String(verifiedByPhone) : null,
-        isActive: missing.length === 0 ? true : undefined,
+        isActive: true,
+        /* Deja marcado que ya se publicó una vez. Sin esto, una profesional
+           que después apaga su perfil lo vería reaparecer solo con la
+           siguiente edición que guardara. */
+        profileCompletedAt: user.profileCompletedAt ?? new Date(),
       },
       select: {
         id: true,

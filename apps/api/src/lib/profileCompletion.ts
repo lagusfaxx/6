@@ -134,16 +134,20 @@ export function isProfileComplete(profile: ProfileLike, photoCount: number): boo
 /**
  * Qué hacer con la publicación del perfil al guardar.
  *
- * Está aparte y sin dependencias para poder probarla sola: es la regla que
- * decide si un anuncio se ve o no, y equivocarse acá saca perfiles del aire.
+ * La ficha incompleta ya no retiene nada. Retenerla salía peor de lo que
+ * arreglaba: el anuncio no existía hasta que ella acertara con una lista que
+ * no había pedido, y los datos que faltaban eran justo los personales, los que
+ * nadie está obligada a publicar. Ahora la ficha se completa porque conviene
+ * —más completa, más visible— y eso se recuerda en el panel, no con el
+ * anuncio caído.
  *
- *  - "blocked": pidió publicar con la ficha incompleta → error, no se guarda.
- *  - "hold": nunca estuvo publicado y sigue incompleto → se guarda apagado.
- *  - "publish": la ficha quedó completa por primera vez → se publica.
- *  - "keep": no se toca la publicación (el caso de todos los perfiles que ya
- *    estaban al aire, completos o no).
+ *  - "publish": perfil nuevo que todavía no se había publicado → se publica.
+ *  - "keep": no se toca la publicación.
+ *
+ * Sigue calculándose `missingProfileFields`, pero para el recordatorio y el
+ * puntaje de visibilidad, no para bloquear.
  */
-export type PublicationDecision = "blocked" | "hold" | "publish" | "keep";
+export type PublicationDecision = "publish" | "keep";
 
 export function resolvePublication(input: {
   /** Fecha en que la ficha se completó por primera vez, si ya pasó. */
@@ -152,21 +156,10 @@ export function resolvePublication(input: {
   isActive: boolean;
   /** Lo que pidió la petición: true publicar, false despublicar, undefined nada. */
   requestedActive: boolean | undefined;
-  /** Cuántos campos obligatorios faltan después de este guardado. */
-  missingCount: number;
 }): PublicationDecision {
-  const everCompleted = Boolean(input.profileCompletedAt);
-
-  if (input.missingCount > 0) {
-    if (input.requestedActive === true) return "blocked";
-    // Nunca publicado y todavía incompleto: se guarda, pero apagado. A un
-    // perfil que ya está al aire no se le baja el anuncio por esto.
-    if (!everCompleted && !input.isActive) return "hold";
-    return "keep";
+  // Perfil que nunca se publicó y no pidió lo contrario: sale al aire.
+  if (!input.profileCompletedAt && input.requestedActive === undefined) {
+    return "publish";
   }
-
-  // Ficha completa. La primera vez además se publica sola, salvo que la
-  // petición diga expresamente lo contrario.
-  if (!everCompleted && input.requestedActive === undefined) return "publish";
   return "keep";
 }

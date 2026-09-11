@@ -81,7 +81,7 @@ export default function EditorPanel({ profileType, user }: Props) {
   return (
     <div className="space-y-4">
       <StudioWelcome />
-      <ProfileCompletenessBar user={user} profileType={profileType} />
+      <ProfileCompletenessBar profileType={profileType} />
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-1.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-1.5">

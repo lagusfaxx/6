@@ -13,7 +13,7 @@ import { ChatNotificationProvider } from "./ChatNotifications";
 import { usePageViewTracker } from "../hooks/useAnalytics";
 import ScrollToTop from "./ScrollToTop";
 import MarketplacePromo from "./marketplace/MarketplacePromo";
-import ProfileIncompleteBanner from "./ProfileIncompleteBanner";
+import ProfileVisibilityReminder from "./ProfileVisibilityReminder";
 
 /* Lazy-load non-critical shell components to reduce initial main-thread work */
 const PushNotificationsManager = dynamic(
@@ -159,10 +159,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     : "flex-1 px-4 pt-[76px] pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-[90px] md:pb-6"
               }
             >
-              {/* Va antes que nada: una profesional con la ficha a medias no
-                  aparece en la app, y navegando se ve igual que si estuviera
-                  publicada. */}
-              {!isCercaRoute && !isChatThreadRoute && <ProfileIncompleteBanner />}
+              {/* La ficha a medias ya no esconde el perfil, pero sí lo deja
+                  fuera de filtros y búsquedas: esto lo recuerda. */}
+              {!isCercaRoute && !isChatThreadRoute && <ProfileVisibilityReminder />}
               {!isCercaRoute && !isChatThreadRoute && <MarketplacePromo />}
               {children}
             </main>

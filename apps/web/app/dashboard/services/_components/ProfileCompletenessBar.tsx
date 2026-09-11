@@ -7,14 +7,13 @@ import {
   requiredProfileFields,
   type RequiredField,
 } from "../../../../lib/profileCompletion";
-import { ArrowRight, Check, ChevronDown, EyeOff, PartyPopper } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, EyeOff, TrendingUp, Sparkles } from "lucide-react";
 
 type Props = {
-  user: any;
   profileType: string;
 };
 
-/** Anillo de progreso: el porcentaje se lee de un vistazo, sin leerlo. */
+/** Anillo de progreso: el puntaje se lee de un vistazo, sin leerlo. */
 function ProgressRing({ value, tone }: { value: number; tone: string }) {
   const r = 18;
   const circumference = 2 * Math.PI * r;
@@ -43,18 +42,15 @@ function ProgressRing({ value, tone }: { value: number; tone: string }) {
 }
 
 /**
- * Requisitos para publicar.
+ * Visibilidad del perfil.
  *
- * No es una barra de "completitud" decorativa: son los campos sin los cuales el
- * servidor no publica el perfil (apps/api/src/lib/profileCompletion.ts). Cada
- * campo que falta lleva a la pestaña donde se completa y deja el cursor puesto
- * en él, porque la queja real no es que falte el dato sino no saber dónde se
- * pone.
- *
- * Los perfiles que ya estaban publicados antes de la regla siguen al aire: a
- * ellos el aviso les cambia el tono — es una recomendación, no un bloqueo.
+ * Esto fue una lista de requisitos que retenía la publicación. Ya no: el
+ * anuncio sale al aire igual, y estos datos son lo que hace que aparezca en
+ * más búsquedas y filtros. El tono cambia con eso — es una palanca que ella
+ * decide usar, no un peaje. Lo que no quiera publicar lo marca como "prefiero
+ * no decirlo" y suma igual.
  */
-export default function ProfileCompletenessBar({ user, profileType }: Props) {
+export default function ProfileCompletenessBar({ profileType }: Props) {
   const { state, setField } = useDashboardForm();
   const [expanded, setExpanded] = useState(false);
 
@@ -70,11 +66,7 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
   const missing = fields.filter((f) => !f.complete);
   const complete = missing.length === 0;
   const percentage = Math.round((done / fields.length) * 100);
-  /* Perfil que ya está al aire (o que ya lo estuvo): el aviso es una
-     recomendación, no un bloqueo — a nadie se le baja el anuncio por esto. */
-  const grandfathered = Boolean(user?.profileCompletedAt) || user?.isActive === true;
 
-  /** Lleva a la pestaña del campo y deja el cursor ahí mismo. */
   const goToField = (field: RequiredField) => {
     if (state.tab !== field.tab) setField("tab", field.tab);
     focusRequiredField(field.key);
@@ -82,21 +74,17 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
 
   const tone = complete
     ? { ring: "text-emerald-400", border: "border-emerald-500/20", glow: "from-emerald-500/[0.10]" }
-    : grandfathered
-      ? { ring: "text-white/50", border: "border-white/10", glow: "from-white/[0.04]" }
-      : { ring: "text-amber-400", border: "border-amber-500/25", glow: "from-amber-500/[0.10]" };
+    : percentage >= 60
+      ? { ring: "text-fuchsia-400", border: "border-fuchsia-500/20", glow: "from-fuchsia-500/[0.08]" }
+      : { ring: "text-violet-400", border: "border-white/10", glow: "from-violet-500/[0.07]" };
 
   const title = complete
-    ? "Ficha completa"
-    : grandfathered
-      ? `Te faltan ${missing.length} datos en la ficha`
-      : "Tu perfil no se publica hasta completar la ficha";
+    ? "Perfil al máximo de visibilidad"
+    : "Suma visibilidad a tu perfil";
 
   const subtitle = complete
-    ? "El cliente ve todos los datos que busca."
-    : grandfathered
-      ? "Sigue publicado, pero se ve incompleto frente a los que sí los tienen."
-      : `Faltan ${missing.length} de ${fields.length} datos que el cliente mira antes de escribir.`;
+    ? "Apareces en todas las búsquedas y filtros que usa el cliente."
+    : `${missing.length} dato${missing.length !== 1 ? "s" : ""} para aparecer en más búsquedas. Tu perfil ya está publicado.`;
 
   return (
     <div
@@ -105,14 +93,17 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
       <div className="flex items-center gap-3.5 px-4 py-3.5">
         {complete ? (
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15">
-            <PartyPopper className="h-5 w-5 text-emerald-300" />
+            <Sparkles className="h-5 w-5 text-emerald-300" />
           </span>
         ) : (
           <ProgressRing value={percentage} tone={tone.ring} />
         )}
 
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold leading-tight text-white/90">{title}</p>
+          <p className="flex items-center gap-1.5 text-[13px] font-semibold leading-tight text-white/90">
+            {!complete && <TrendingUp className="h-3.5 w-3.5 shrink-0 text-fuchsia-400" />}
+            {title}
+          </p>
           <p className="mt-0.5 text-[11px] leading-snug text-white/45">{subtitle}</p>
         </div>
 
@@ -127,7 +118,6 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
         </button>
       </div>
 
-      {/* El siguiente paso, a un toque: sin abrir la lista ni adivinar la pestaña. */}
       {!complete && (
         <div className="px-4 pb-3">
           <button
@@ -135,12 +125,12 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
             onClick={() => goToField(missing[0])}
             className="group flex w-full items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 py-3 text-left transition hover:border-fuchsia-500/40 hover:bg-fuchsia-500/[0.08]"
           >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-fuchsia-500/15 text-[11px] font-bold text-fuchsia-300">
-              {fields.length - missing.length + 1}
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-fuchsia-500/15">
+              <TrendingUp className="h-3.5 w-3.5 text-fuchsia-300" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-[10px] uppercase tracking-wider text-white/30">
-                Sigue con
+                Lo que más suma ahora
               </span>
               <span className="block truncate text-sm font-medium text-white/90">
                 {missing[0].label}
@@ -182,7 +172,7 @@ export default function ProfileCompletenessBar({ user, profileType }: Props) {
                   </span>
 
                   <span className="ml-auto shrink-0 text-[11px] text-white/25 transition group-hover:text-fuchsia-300">
-                    {field.undisclosed ? "Sin mostrar" : field.complete ? "Editar" : "Completar"}
+                    {field.undisclosed ? "Sin mostrar" : field.complete ? "Editar" : "Agregar"}
                   </span>
                 </button>
               </li>

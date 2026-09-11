@@ -220,9 +220,9 @@ function LivePreviewProfessional({ state, user }: Props) {
                 Tarifa a consultar
               </span>
             ) : (
-              <p className="text-[13px] text-amber-200/70">
-                Sin tarifa. El perfil aparece como "Tarifa a consultar" y pierde
-                contactos frente a los que la muestran.
+              <p className="text-[13px] text-white/45">
+                Sin tarifa aparece como "Tarifa a consultar". Mostrarla suele
+                traer más contactos.
               </p>
             )}
 

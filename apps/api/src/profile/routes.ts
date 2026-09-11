@@ -4,10 +4,8 @@ import path from "path";
 import fs from "node:fs/promises";
 import { prisma } from "../db";
 import {
-  missingProfileFields,
   resolvePublication,
   sanitizeUndisclosedFields,
-  MIN_PROFILE_PHOTOS,
 } from "../lib/profileCompletion";
 import { Prisma } from "@prisma/client";
 import { requireAuth } from "../auth/middleware";
@@ -867,59 +865,19 @@ async function updateProfile(req: any, res: any) {
     }
   }
 
-  /* Ficha completa antes de publicar.
-     La regla se aplica sobre cómo va a quedar el perfil después de este
-     guardado, no sobre cómo estaba: así completar el último campo y activar
-     en el mismo envío funciona. Los perfiles que ya venían publicados
-     (profileCompletedAt con fecha) no se tocan — esos los completa el equipo
-     desde el panel. */
+  /* Publicación. La ficha incompleta ya no retiene el anuncio: un perfil
+     nuevo sale al aire al guardarse, y lo que falte se recuerda en el panel
+     como visibilidad, no como bloqueo. `profileCompletedAt` se sigue usando
+     para no volver a publicar sola una ficha que la profesional apagó a
+     propósito. */
   if (me.profileType === "PROFESSIONAL") {
-    const merged = {
-      birthdate: baseData.birthdate !== undefined ? (baseData.birthdate as Date | null) : me.birthdate,
-      heightCm: baseData.heightCm !== undefined ? (baseData.heightCm as number | null) : me.heightCm,
-      weightKg: baseData.weightKg !== undefined ? (baseData.weightKg as number | null) : me.weightKg,
-      measurements: baseData.measurements !== undefined ? (baseData.measurements as string | null) : me.measurements,
-      hairColor: baseData.hairColor !== undefined ? (baseData.hairColor as string | null) : me.hairColor,
-      skinTone: baseData.skinTone !== undefined ? (baseData.skinTone as string | null) : me.skinTone,
-      baseRate: baseData.baseRate !== undefined ? (baseData.baseRate as number | null) : me.baseRate,
-      city: baseData.city !== undefined ? (baseData.city as string | null) : me.city,
-      phone: baseData.phone !== undefined ? (baseData.phone as string | null) : me.phone,
-      bio: baseData.bio !== undefined ? (baseData.bio as string | null) : me.bio,
-      serviceTags: baseData.serviceTags !== undefined ? (baseData.serviceTags as string[]) : me.serviceTags,
-      undisclosedFields:
-        baseData.undisclosedFields !== undefined
-          ? (baseData.undisclosedFields as string[])
-          : me.undisclosedFields,
-    };
-    const photoCount = await prisma.profileMedia.count({
-      where: { ownerId: req.session.userId!, type: "IMAGE" },
-    });
-    const missing = missingProfileFields(merged, photoCount);
-
-    /* El caso que hay que cuidar: el equipo aprueba la verificación (eso
-       publica el perfil) antes de que la profesional termine la ficha. Si acá
-       la apagáramos, cualquier edición suya la sacaría del listado sin que
-       nadie lo pidiera. Por eso la regla sólo retiene la publicación de los
-       que todavía no están publicados. */
     const decision = resolvePublication({
       profileCompletedAt: me.profileCompletedAt,
       isActive: me.isActive === true,
       requestedActive: safeIsActive,
-      missingCount: missing.length,
     });
 
-    if (decision === "blocked") {
-      return res.status(422).json({
-        error: "PROFILE_INCOMPLETE",
-        message:
-          "Completa la ficha antes de publicar el perfil: es lo que ve el cliente.",
-        missing,
-        minPhotos: MIN_PROFILE_PHOTOS,
-      });
-    }
-    if (decision === "hold") {
-      baseData.isActive = false;
-    } else if (decision === "publish") {
+    if (decision === "publish") {
       baseData.profileCompletedAt = new Date();
       baseData.isActive = true;
     }

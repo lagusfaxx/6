@@ -74,8 +74,8 @@ export default function Nav() {
   const isShop = ptype === "SHOP";
   const hasProfile = isProfessional || isShop;
 
-  /* Datos que le faltan a la ficha para publicarse. En "Editar perfil" va el
-     número: es la pista que queda visible mientras navega el resto del sitio. */
+  /* Datos que le faltan a la ficha para aparecer en más búsquedas. En "Editar
+     perfil" va el número: es la pista que queda visible mientras navega. */
   const completion = me?.user?.profileCompletion;
   const missingCount =
     completion && !completion.complete ? completion.missing.length : 0;
@@ -190,8 +190,8 @@ export default function Nav() {
                     {item.label}
                     {item.href === "/dashboard/services" && missingCount > 0 && (
                       <span
-                        title={`Faltan ${missingCount} datos para publicar tu perfil`}
-                        className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-300"
+                        title={`${missingCount} datos para ganar visibilidad`}
+                        className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-fuchsia-500/20 px-1.5 text-[10px] font-bold text-fuchsia-300"
                       >
                         {missingCount}
                       </span>

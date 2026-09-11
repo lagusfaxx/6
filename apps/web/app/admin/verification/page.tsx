@@ -228,14 +228,14 @@ export default function AdminVerificationPage() {
           body: JSON.stringify({ verifiedByPhone: phoneInputs[p.id] || p.phone || "" }),
         },
       );
-      /* Verificar ya no publica una ficha a medias: si falta algo, la cuenta
-         queda verificada y el perfil sale recién cuando lo complete. */
+      /* Aprobar publica el perfil siempre. Lo que falte se informa acá para
+         que el equipo pueda ayudar desde Perfiles, pero no retiene nada. */
       const missing = res?.missing ?? [];
       setSuccess(
         missing.length > 0
-          ? `${p.displayName || p.username} quedó verificada, pero su perfil no se publica hasta completar: ${missing
+          ? `${p.displayName || p.username} quedó verificada y publicada. Su ficha está a medias (falta ${missing
               .map((m) => m.label)
-              .join(", ")}. Puedes completarlo tú desde Perfiles.`
+              .join(", ")}), así que aparece en menos búsquedas: puedes completarla desde Perfiles.`
           : `${p.displayName || p.username} ha sido verificado y activado.`,
       );
       await loadProfiles();

@@ -59,11 +59,13 @@ export default function StudioWelcome() {
           <PartyPopper className="h-4 w-4 text-fuchsia-300" />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-white/90">Tu cuenta está creada</p>
+          <p className="text-sm font-semibold text-white/90">
+            Tu perfil ya está publicado
+          </p>
           <p className="mt-1 text-[12px] leading-relaxed text-white/55">
-            Te falta la ficha para que tu perfil salga en la app. Abajo está lo
-            que queda: lo que no quieras publicar, márcalo como “prefiero no
-            decirlo” y también cuenta.
+            Abajo están los datos que te hacen aparecer en más búsquedas. Los
+            completas cuando quieras, y lo que prefieras no publicar lo marcas
+            como “prefiero no decirlo”: suma igual.
           </p>
           <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] text-white/50">
             <Phone className="h-3 w-3" />

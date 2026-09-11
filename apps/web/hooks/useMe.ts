@@ -5,9 +5,8 @@ import { apiFetch, cachedApiFetch } from "../lib/api";
 
 export type ProfileCompletion = {
   complete: boolean;
+  /** Datos que faltan para aparecer en más búsquedas. No retienen nada. */
   missing: { key: string; label: string; tab: string }[];
-  /** Perfil que ya estaba publicado antes de la regla: se avisa, no se baja. */
-  grandfathered: boolean;
 };
 
 type MeUser = {
