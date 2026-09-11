@@ -10,9 +10,10 @@ import {
 
 import useMe from "../../../../hooks/useMe";
 import BankData from "../../../../components/marketplace/BankData";
+import { MediaThumb } from "../../../../components/marketplace/ui";
 import { apiFetch, friendlyErrorMessage, resolveMediaUrl } from "../../../../lib/api";
 import {
-  DELIVERY_HINT, DELIVERY_LABEL, PRODUCT_TYPE_LABEL, formatClp,
+  DELIVERY_HINT, DELIVERY_LABEL, PRODUCT_TYPE_LABEL, formatClp, productCoverMedia,
   type MarketConfig, type MarketDeliveryMethod, type MarketOrder, type MarketProduct, type MarketTransferData,
 } from "../../../../lib/marketplace";
 
@@ -68,7 +69,14 @@ export default function ProductClient({ productId }: { productId: string }) {
   }
 
   const { product, seller, reviews, holdDays } = data;
-  const media = product.media.length ? product.media : [];
+  /* Si la profesional no armó vitrina, se muestra igual la portada difuminada
+     que se generó con el contenido: la ficha nunca queda en blanco. */
+  const cover = productCoverMedia(product);
+  const media = product.media.length
+    ? product.media
+    : cover
+      ? [{ id: "cover", url: cover.url, thumbnailUrl: cover.thumbnailUrl, type: cover.type, pos: 0 }]
+      : [];
   const current = media[mediaIndex];
   const isOwner = me?.user?.id === seller.id;
   const isAuthed = Boolean(me?.user?.id);
@@ -85,7 +93,14 @@ export default function ProductClient({ productId }: { productId: string }) {
           <div className="relative aspect-square overflow-hidden rounded-xl bg-black/40">
             {current ? (
               current.type === "VIDEO" ? (
-                <video src={resolveMediaUrl(current.url) || ""} controls playsInline className="h-full w-full object-contain" />
+                <video
+                  src={resolveMediaUrl(current.url) || ""}
+                  poster={resolveMediaUrl(current.thumbnailUrl) || undefined}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-contain"
+                />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={resolveMediaUrl(current.url) || ""} alt={product.title} className="h-full w-full object-cover" />
@@ -135,8 +150,11 @@ export default function ProductClient({ productId }: { productId: string }) {
                     index === mediaIndex ? "border-fuchsia-400" : "border-white/10 opacity-70"
                   }`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={resolveMediaUrl(item.thumbnailUrl || item.url) || ""} alt="" className="h-full w-full object-cover" />
+                  <MediaThumb
+                    url={resolveMediaUrl(item.url)}
+                    thumbnailUrl={resolveMediaUrl(item.thumbnailUrl)}
+                    type={item.type}
+                  />
                 </button>
               ))}
             </div>

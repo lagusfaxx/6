@@ -6,6 +6,7 @@ import { requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { getMarketSettings } from "./settings";
 import { confirmOrderPaid, logOrderEvent, rejectOrderPayment, releaseOrderPayout, signOrderAssets } from "./orders";
+import { buildProductAssetUrl } from "./media";
 import { notifyMarket, orderUrl } from "./notify";
 
 export const marketAdminRouter = Router();
@@ -175,14 +176,21 @@ marketAdminRouter.get("/admin/market/orders", requireAdmin, asyncHandler(async (
       include: {
         buyer: { select: profileSelect },
         seller: { select: profileSelect },
-        product: { select: { id: true, coverUrl: true, type: true } },
+        product: { select: { id: true, coverUrl: true, type: true, media: { orderBy: { pos: "asc" }, select: { url: true, thumbnailUrl: true, type: true } } } },
         _count: { select: { assets: true, messages: true } },
       },
     }),
     prisma.marketOrder.count({ where }),
   ]);
 
-  return res.json({ orders, total, hasMore: skip + orders.length < total });
+  return res.json({
+    orders: orders.map((order) => ({
+      ...order,
+      product: order.product ? { ...order.product, coverUrl: adminCover(order.product) } : null,
+    })),
+    total,
+    hasMore: skip + orders.length < total,
+  });
 }));
 
 /** Detalle completo: incluye contenido entregado, chat y bitácora. */
@@ -298,19 +306,51 @@ marketAdminRouter.post("/admin/market/orders/:id/refund", requireAdmin, asyncHan
 
 /* ─────────── Catálogo y tiendas ─────────── */
 
+/**
+ * Firma los archivos maestros del artículo para que la administración pueda
+ * verlos. Son las mismas URL de vida corta que recibe quien compra: el archivo
+ * privado nunca queda expuesto con un enlace permanente.
+ */
+function signProductAssets(assets: Array<{ id: string; type: string; sizeBytes: number; pos: number; createdAt: Date; thumbnailUrl: string | null }>) {
+  return assets.map((asset) => ({
+    id: asset.id,
+    type: asset.type,
+    sizeBytes: asset.sizeBytes,
+    pos: asset.pos,
+    createdAt: asset.createdAt,
+    url: buildProductAssetUrl(asset.id, "asset"),
+    thumbnailUrl: asset.thumbnailUrl ? buildProductAssetUrl(asset.id, "thumb") : null,
+  }));
+}
+
+/** Portada que no sea un video: un .mp4 dentro de un <img> se ve como un hueco. */
+function adminCover(product: { coverUrl: string | null; media: Array<{ url: string; thumbnailUrl: string | null; type: string }> }): string | null {
+  const isVideoUrl = (url: string | null) => Boolean(url && /\.(mp4|mov|webm|m4v|avi|mkv)(\?|$)/i.test(url));
+  if (product.coverUrl && !isVideoUrl(product.coverUrl)) return product.coverUrl;
+  const withThumb = product.media.find((m) => m.thumbnailUrl);
+  if (withThumb?.thumbnailUrl) return withThumb.thumbnailUrl;
+  return product.media.find((m) => m.type !== "VIDEO" && !isVideoUrl(m.url))?.url || null;
+}
+
 marketAdminRouter.get("/admin/market/products", requireAdmin, asyncHandler(async (req, res) => {
   const q = str(req.query.q, 80);
   const take = Math.min(200, Math.max(1, toInt(req.query.limit, 60)));
   const skip = Math.max(0, toInt(req.query.offset, 0));
+  const hidden = String(req.query.hidden || "").toLowerCase();
 
-  const where: Prisma.MarketProductWhereInput = q
-    ? {
-        OR: [
-          { title: { contains: q, mode: "insensitive" } },
-          { user: { username: { contains: q, mode: "insensitive" } } },
-        ],
-      }
-    : {};
+  const filters: Prisma.MarketProductWhereInput[] = [];
+  if (q) {
+    filters.push({
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+        { user: { username: { contains: q, mode: "insensitive" } } },
+      ],
+    });
+  }
+  if (hidden === "true") filters.push({ isHidden: true });
+  if (hidden === "false") filters.push({ isHidden: false });
+  const where: Prisma.MarketProductWhereInput = filters.length ? { AND: filters } : {};
 
   const [products, total] = await Promise.all([
     prisma.marketProduct.findMany({
@@ -327,7 +367,33 @@ marketAdminRouter.get("/admin/market/products", requireAdmin, asyncHandler(async
     prisma.marketProduct.count({ where }),
   ]);
 
-  return res.json({ products, total, hasMore: skip + products.length < total });
+  return res.json({
+    products: products.map((product) => ({ ...product, coverUrl: adminCover(product) })),
+    total,
+    hasMore: skip + products.length < total,
+  });
+}));
+
+/** Ficha completa para la administración: vitrina pública y contenido privado. */
+marketAdminRouter.get("/admin/market/products/:id", requireAdmin, asyncHandler(async (req, res) => {
+  const product = await prisma.marketProduct.findUnique({
+    where: { id: String(req.params.id) },
+    include: {
+      media: { orderBy: { pos: "asc" } },
+      assets: { orderBy: { pos: "asc" } },
+      user: { select: profileSelect },
+      seller: { select: { id: true, storeName: true, tagline: true, totalSales: true } },
+      _count: { select: { orders: true } },
+    },
+  });
+  if (!product) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const { assets, ...rest } = product;
+  return res.json({
+    product: { ...rest, coverUrl: adminCover(product), _count: { assets: assets.length, orders: product._count.orders } },
+    media: product.media,
+    assets: signProductAssets(assets),
+  });
 }));
 
 marketAdminRouter.put("/admin/market/products/:id/visibility", requireAdmin, asyncHandler(async (req, res) => {

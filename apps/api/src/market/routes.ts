@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import sharp from "sharp";
 import type { MarketDeliveryMethod, MarketProductType, Prisma } from "@prisma/client";
 
 import { prisma } from "../db";
@@ -20,12 +21,11 @@ import {
 } from "../lib/marketEmail";
 import { getMarketSettings, publicTransferData, splitAmounts, transferDataComplete } from "./settings";
 import {
-  buildOrderAssetUrl,
   isPrivateRef,
   privateRefToRelPath,
   savePrivate,
   streamOrderAsset,
-  verifyOrderAssetSignature,
+  verifyMediaSignature,
   MARKET_ASSET_FOLDER,
 } from "./media";
 import {
@@ -112,29 +112,144 @@ const publicProfile = {
   profileType: true,
 } as const;
 
-/** Extrae el primer frame de un video para usarlo de miniatura. */
-async function extractVideoThumbnail(
-  videoBuffer: Buffer,
-  originalFilename: string,
+/** Guarda una miniatura ya renderizada y devuelve su URL. */
+async function saveThumbnail(buffer: Buffer, privateAsset: boolean): Promise<string> {
+  const saved = privateAsset
+    ? await savePrivate({ buffer, originalName: "thumb.jpg", mimeType: "image/jpeg", folder: MARKET_ASSET_FOLDER })
+    : await storage.save({ buffer, filename: "thumb.jpg", mimeType: "image/jpeg", folder: "market-previews" });
+  return saved.url;
+}
+
+/**
+ * Saca un frame del video con ffmpeg para usarlo de portada.
+ *
+ * Se intenta primero medio segundo adentro (el frame cero de muchos videos es
+ * negro) y, si el video es más corto que eso o el seek falla, se cae al primer
+ * frame. Devuelve el buffer JPEG, o null si no hay ffmpeg en la máquina.
+ */
+async function renderVideoFrame(videoBuffer: Buffer, originalFilename: string): Promise<Buffer | null> {
+  let tmpDir: string | null = null;
+  try {
+    tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), "market-thumb-"));
+    const tmpVideo = path.join(tmpDir, "input" + path.extname(originalFilename));
+    await fsp.writeFile(tmpVideo, videoBuffer);
+
+    const attempts: string[][] = [
+      ["-ss", "0.5", "-i", tmpVideo, "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "6"],
+      ["-i", tmpVideo, "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "6"],
+    ];
+
+    for (let i = 0; i < attempts.length; i++) {
+      const tmpThumb = path.join(tmpDir, `thumb-${i}.jpg`);
+      try {
+        await execFileAsync("ffmpeg", ["-y", ...attempts[i], tmpThumb], { timeout: 20000 });
+        const thumbBuffer = await fsp.readFile(tmpThumb);
+        if (thumbBuffer.length > 0) return thumbBuffer;
+      } catch {
+        // Se prueba la siguiente estrategia.
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    if (tmpDir) await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/**
+ * Primer frame de un video. Se intenta con ffmpeg en el servidor y, si no está
+ * disponible, se usa el frame que el navegador de quien sube ya extrajo (campo
+ * `poster_<índice>` del formulario). Así ninguna publicación con video queda
+ * sin nada que mostrar en la vitrina.
+ */
+async function videoFrameBuffer(
+  file: Express.Multer.File,
+  poster: Express.Multer.File | undefined,
+): Promise<Buffer | null> {
+  const frame = await renderVideoFrame(file.buffer, file.originalname);
+  if (frame?.length) return frame;
+  if (poster && ALLOWED_IMAGE_MIMES.includes(poster.mimetype) && poster.buffer.length) return poster.buffer;
+  return null;
+}
+
+async function saveThumbnailSafe(buffer: Buffer, privateAsset: boolean): Promise<string | null> {
+  try {
+    return await saveThumbnail(buffer, privateAsset);
+  } catch {
+    return null;
+  }
+}
+
+/** Miniatura de un video de vitrina, ya guardada y lista para usar de portada. */
+async function videoThumbnailUrl(
+  file: Express.Multer.File,
+  poster: Express.Multer.File | undefined,
   opts: { privateAsset?: boolean } = {},
 ): Promise<string | null> {
+  const frame = await videoFrameBuffer(file, poster);
+  if (!frame) return null;
+  return saveThumbnailSafe(frame, Boolean(opts.privateAsset));
+}
+
+/**
+ * Portada censurada a partir del contenido privado.
+ *
+ * Cuando alguien sube sólo el material que va a vender y no arma vitrina, el
+ * artículo aparecía como un recuadro vacío. Con esto se genera una imagen
+ * pública difuminada: deja ver colores y formas gruesas —suficiente para que
+ * el artículo se vea— sin mostrar el contenido que se paga.
+ */
+async function buildCensoredCover(buffer: Buffer): Promise<string | null> {
   try {
-    const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), "market-thumb-"));
-    const tmpVideo = path.join(tmpDir, "input" + path.extname(originalFilename));
-    const tmpThumb = path.join(tmpDir, "thumb.jpg");
-    await fsp.writeFile(tmpVideo, videoBuffer);
-    await execFileAsync("ffmpeg", ["-i", tmpVideo, "-vframes", "1", "-ss", "0.5", "-vf", "scale=640:-2", "-q:v", "8", tmpThumb], {
-      timeout: 15000,
+    const blurred = await sharp(buffer, { failOn: "none" })
+      .rotate()
+      .resize(640, undefined, { fit: "inside", withoutEnlargement: true })
+      .blur(24)
+      .jpeg({ quality: 60 })
+      .toBuffer();
+    const saved = await storage.save({
+      buffer: blurred,
+      filename: "preview.jpg",
+      mimeType: "image/jpeg",
+      folder: "market-previews",
     });
-    const thumbBuffer = await fsp.readFile(tmpThumb);
-    const saved = opts.privateAsset
-      ? await savePrivate({ buffer: thumbBuffer, originalName: "thumb.jpg", mimeType: "image/jpeg", folder: MARKET_ASSET_FOLDER })
-      : await storage.save({ buffer: thumbBuffer, filename: "thumb.jpg", mimeType: "image/jpeg", folder: "market-previews" });
-    await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => undefined);
     return saved.url;
   } catch {
     return null;
   }
+}
+
+/** Separa los archivos subidos de las portadas que los acompañan. */
+function splitUploads(req: any): { files: Express.Multer.File[]; posters: Map<number, Express.Multer.File> } {
+  const all = (req.files as Express.Multer.File[]) || [];
+  const files: Express.Multer.File[] = [];
+  const posters = new Map<number, Express.Multer.File>();
+  for (const file of all) {
+    const match = /^poster_(\d+)$/.exec(file.fieldname);
+    if (match) posters.set(Number(match[1]), file);
+    else if (file.fieldname === "files") files.push(file);
+  }
+  return { files, posters };
+}
+
+/** ¿La URL apunta a un video? Sirve para no meter un .mp4 dentro de un <img>. */
+function looksLikeVideo(url: string | null | undefined): boolean {
+  return typeof url === "string" && /\.(mp4|mov|webm|m4v|avi|mkv)(\?|$)/i.test(url);
+}
+
+/**
+ * Portada segura del artículo: nunca devuelve la URL de un video, porque la
+ * vitrina la pinta dentro de un <img> y se vería como un hueco vacío. Si la
+ * portada guardada es un video se busca la primera miniatura o foto real.
+ */
+function coverFor(product: any): string | null {
+  if (product.coverUrl && !looksLikeVideo(product.coverUrl)) return product.coverUrl;
+  const media = (product.media || []) as Array<{ url: string; thumbnailUrl: string | null; type: string }>;
+  const withThumb = media.find((m) => m.thumbnailUrl);
+  if (withThumb?.thumbnailUrl) return withThumb.thumbnailUrl;
+  const image = media.find((m) => m.type !== "VIDEO" && !looksLikeVideo(m.url));
+  return image?.url || null;
 }
 
 /** Ficha pública del artículo (nunca incluye los archivos privados). */
@@ -150,7 +265,7 @@ function productCard(product: any) {
     stock: product.stock,
     isActive: product.isActive,
     tags: product.tags,
-    coverUrl: product.coverUrl,
+    coverUrl: coverFor(product),
     salesCount: product.salesCount,
     viewCount: product.viewCount,
     ratingAvg: product.ratingAvg,
@@ -212,7 +327,9 @@ function orderCard(order: any, viewer: "buyer" | "seller" | "admin") {
     disputeResolution: order.disputeResolution,
     createdAt: order.createdAt,
     assetCount: order._count?.assets ?? (order.assets?.length ?? 0),
-    product: order.product ? { id: order.product.id, coverUrl: order.product.coverUrl, type: order.product.type } : null,
+    product: order.product
+      ? { id: order.product.id, coverUrl: coverFor(order.product), type: order.product.type }
+      : null,
     buyer: order.buyer
       ? { id: order.buyer.id, username: order.buyer.username, displayName: order.buyer.displayName, avatarUrl: order.buyer.avatarUrl }
       : null,
@@ -453,14 +570,16 @@ marketRouter.get("/market/sellers/:username", asyncHandler(async (req, res) => {
    La firma HMAC de vida corta es la autorización: así el <img> o el <video>
    cargan sin cookies y el enlace deja de servir a los 15 minutos. */
 
-async function handleOrderAsset(req: any, res: any, kind: "asset" | "thumb") {
+async function handleSignedAsset(req: any, res: any, scope: "order" | "product", kind: "asset" | "thumb") {
   const id = String(req.params.assetId || "");
   const exp = parseInt(String(req.query.exp || ""), 10);
   const sig = typeof req.query.sig === "string" ? req.query.sig : "";
   if (!id || !exp || !sig) return res.status(400).json({ error: "BAD_SIGNATURE" });
-  if (!verifyOrderAssetSignature(id, kind, exp, sig)) return res.status(403).json({ error: "BAD_SIGNATURE" });
+  if (!verifyMediaSignature(scope, id, kind, exp, sig)) return res.status(403).json({ error: "BAD_SIGNATURE" });
 
-  const asset = await prisma.marketOrderAsset.findUnique({ where: { id }, select: { url: true, thumbnailUrl: true } });
+  const asset = scope === "order"
+    ? await prisma.marketOrderAsset.findUnique({ where: { id }, select: { url: true, thumbnailUrl: true } })
+    : await prisma.marketProductAsset.findUnique({ where: { id }, select: { url: true, thumbnailUrl: true } });
   if (!asset) return res.status(404).json({ error: "NOT_FOUND" });
 
   const source = kind === "thumb" ? asset.thumbnailUrl : asset.url;
@@ -472,10 +591,17 @@ async function handleOrderAsset(req: any, res: any, kind: "asset" | "thumb") {
   await streamOrderAsset(relPath, req, res);
 }
 
-marketRouter.get("/market/media/:assetId", asyncHandler((req, res) => handleOrderAsset(req, res, "asset")));
-marketRouter.head("/market/media/:assetId", asyncHandler((req, res) => handleOrderAsset(req, res, "asset")));
-marketRouter.get("/market/media/:assetId/thumb", asyncHandler((req, res) => handleOrderAsset(req, res, "thumb")));
-marketRouter.head("/market/media/:assetId/thumb", asyncHandler((req, res) => handleOrderAsset(req, res, "thumb")));
+marketRouter.get("/market/media/:assetId", asyncHandler((req, res) => handleSignedAsset(req, res, "order", "asset")));
+marketRouter.head("/market/media/:assetId", asyncHandler((req, res) => handleSignedAsset(req, res, "order", "asset")));
+marketRouter.get("/market/media/:assetId/thumb", asyncHandler((req, res) => handleSignedAsset(req, res, "order", "thumb")));
+marketRouter.head("/market/media/:assetId/thumb", asyncHandler((req, res) => handleSignedAsset(req, res, "order", "thumb")));
+
+/* El archivo maestro del artículo se sirve con el mismo mecanismo, en su propio
+   ámbito de firma: solo la administración recibe estas URLs (ver adminRoutes). */
+marketRouter.get("/market/media/product/:assetId", asyncHandler((req, res) => handleSignedAsset(req, res, "product", "asset")));
+marketRouter.head("/market/media/product/:assetId", asyncHandler((req, res) => handleSignedAsset(req, res, "product", "asset")));
+marketRouter.get("/market/media/product/:assetId/thumb", asyncHandler((req, res) => handleSignedAsset(req, res, "product", "thumb")));
+marketRouter.head("/market/media/product/:assetId/thumb", asyncHandler((req, res) => handleSignedAsset(req, res, "product", "thumb")));
 
 /* ══════════════════════ Compradora — pedidos ══════════════════════ */
 
@@ -720,7 +846,7 @@ marketRouter.get("/market/orders", requireAuth, asyncHandler(async (req, res) =>
     orderBy: { createdAt: "desc" },
     take: 100,
     include: {
-      product: { select: { id: true, coverUrl: true, type: true } },
+      product: { select: { id: true, coverUrl: true, type: true, media: { orderBy: { pos: "asc" }, select: { url: true, thumbnailUrl: true, type: true } } } },
       seller: { select: publicProfile },
       _count: { select: { assets: true } },
     },
@@ -734,7 +860,7 @@ marketRouter.get("/market/orders/:id", requireAuth, asyncHandler(async (req, res
   const order = await prisma.marketOrder.findUnique({
     where: { id: String(req.params.id) },
     include: {
-      product: { select: { id: true, coverUrl: true, type: true } },
+      product: { select: { id: true, coverUrl: true, type: true, media: { orderBy: { pos: "asc" }, select: { url: true, thumbnailUrl: true, type: true } } } },
       buyer: { select: publicProfile },
       seller: { select: publicProfile },
       assets: { orderBy: { createdAt: "asc" } },
@@ -1168,15 +1294,16 @@ marketRouter.delete("/market/seller/products/:id", requireAuth, contentLimiter, 
 }));
 
 /** POST /market/seller/products/:id/media — fotos de vitrina (públicas). */
-marketRouter.post("/market/seller/products/:id/media", requireAuth, contentLimiter, upload.array("files", 8), asyncHandler(async (req, res) => {
+marketRouter.post("/market/seller/products/:id/media", requireAuth, contentLimiter, upload.any(), asyncHandler(async (req, res) => {
   const seller = await requireSeller(req, res);
   if (!seller) return;
 
   const product = await prisma.marketProduct.findUnique({ where: { id: String(req.params.id) } });
   if (!product || product.sellerId !== seller.id) return res.status(404).json({ error: "NOT_FOUND" });
 
-  const files = (req.files as Express.Multer.File[]) || [];
+  const { files, posters } = splitUploads(req);
   if (!files.length) return res.status(400).json({ error: "NO_FILES" });
+  if (files.length > 8) return res.status(400).json({ error: "TOO_MANY_FILES" });
   for (const file of files) {
     if (!ALLOWED_MEDIA_MIMES.includes(file.mimetype)) {
       return res.status(400).json({ error: "INVALID_FILE_TYPE", message: `Tipo no permitido: ${file.mimetype}` });
@@ -1187,7 +1314,8 @@ marketRouter.post("/market/seller/products/:id/media", requireAuth, contentLimit
   let pos = (lastPos._max.pos ?? -1) + 1;
 
   const created = [];
-  for (const file of files) {
+  for (let index = 0; index < files.length; index++) {
+    const file = files[index];
     const isVideo = file.mimetype.startsWith("video/");
     const saved = await storage.save({
       buffer: file.buffer,
@@ -1195,7 +1323,7 @@ marketRouter.post("/market/seller/products/:id/media", requireAuth, contentLimit
       mimeType: file.mimetype,
       folder: "market-previews",
     });
-    const thumbnailUrl = isVideo ? await extractVideoThumbnail(file.buffer, file.originalname) : null;
+    const thumbnailUrl = isVideo ? await videoThumbnailUrl(file, posters.get(index)) : null;
     const media = await prisma.marketProductMedia.create({
       data: {
         productId: product.id,
@@ -1208,11 +1336,11 @@ marketRouter.post("/market/seller/products/:id/media", requireAuth, contentLimit
     created.push(media);
   }
 
-  if (!product.coverUrl && created.length) {
-    await prisma.marketProduct.update({
-      where: { id: product.id },
-      data: { coverUrl: created[0].thumbnailUrl || created[0].url },
-    });
+  /* La portada sólo puede ser una imagen: si lo primero que se subió es un
+     video sin frame, se deja vacía antes que dejar un <img> roto en la vitrina. */
+  if (!product.coverUrl) {
+    const cover = coverFor({ coverUrl: null, media: created });
+    if (cover) await prisma.marketProduct.update({ where: { id: product.id }, data: { coverUrl: cover } });
   }
 
   return res.json({ media: created });
@@ -1231,10 +1359,10 @@ marketRouter.delete("/market/seller/media/:mediaId", requireAuth, contentLimiter
   await prisma.marketProductMedia.delete({ where: { id: media.id } });
 
   if (media.product.coverUrl === media.url || media.product.coverUrl === media.thumbnailUrl) {
-    const next = await prisma.marketProductMedia.findFirst({ where: { productId: media.product.id }, orderBy: { pos: "asc" } });
+    const rest = await prisma.marketProductMedia.findMany({ where: { productId: media.product.id }, orderBy: { pos: "asc" } });
     await prisma.marketProduct.update({
       where: { id: media.product.id },
-      data: { coverUrl: next ? next.thumbnailUrl || next.url : null },
+      data: { coverUrl: coverFor({ coverUrl: null, media: rest }) },
     });
   }
 
@@ -1243,15 +1371,16 @@ marketRouter.delete("/market/seller/media/:mediaId", requireAuth, contentLimiter
 
 /** POST /market/seller/products/:id/assets — el contenido que recibe quien compra.
  *  Se guarda en almacenamiento privado: nunca se sirve desde /uploads. */
-marketRouter.post("/market/seller/products/:id/assets", requireAuth, contentLimiter, upload.array("files", 20), asyncHandler(async (req, res) => {
+marketRouter.post("/market/seller/products/:id/assets", requireAuth, contentLimiter, upload.any(), asyncHandler(async (req, res) => {
   const seller = await requireSeller(req, res);
   if (!seller) return;
 
   const product = await prisma.marketProduct.findUnique({ where: { id: String(req.params.id) } });
   if (!product || product.sellerId !== seller.id) return res.status(404).json({ error: "NOT_FOUND" });
 
-  const files = (req.files as Express.Multer.File[]) || [];
+  const { files, posters } = splitUploads(req);
   if (!files.length) return res.status(400).json({ error: "NO_FILES" });
+  if (files.length > 20) return res.status(400).json({ error: "TOO_MANY_FILES" });
   for (const file of files) {
     if (!ALLOWED_MEDIA_MIMES.includes(file.mimetype)) {
       return res.status(400).json({ error: "INVALID_FILE_TYPE", message: `Tipo no permitido: ${file.mimetype}` });
@@ -1262,7 +1391,9 @@ marketRouter.post("/market/seller/products/:id/assets", requireAuth, contentLimi
   let pos = (lastPos._max.pos ?? -1) + 1;
 
   const created = [];
-  for (const file of files) {
+  let coverSource: Buffer | null = null;
+  for (let index = 0; index < files.length; index++) {
+    const file = files[index];
     const isVideo = file.mimetype.startsWith("video/");
     const saved = await savePrivate({
       buffer: file.buffer,
@@ -1270,7 +1401,8 @@ marketRouter.post("/market/seller/products/:id/assets", requireAuth, contentLimi
       mimeType: file.mimetype,
       folder: MARKET_ASSET_FOLDER,
     });
-    const thumbnailUrl = isVideo ? await extractVideoThumbnail(file.buffer, file.originalname, { privateAsset: true }) : null;
+    const frameBuffer = isVideo ? await videoFrameBuffer(file, posters.get(index)) : null;
+    const thumbnailUrl = frameBuffer ? await saveThumbnailSafe(frameBuffer, true) : null;
     const asset = await prisma.marketProductAsset.create({
       data: {
         productId: product.id,
@@ -1282,6 +1414,19 @@ marketRouter.post("/market/seller/products/:id/assets", requireAuth, contentLimi
       },
     });
     created.push({ id: asset.id, type: asset.type, sizeBytes: asset.sizeBytes, pos: asset.pos, createdAt: asset.createdAt });
+
+    /* Sin vitrina y sin portada el artículo se veía como un recuadro vacío:
+       se arma una portada difuminada con el primer archivo que sirva. */
+    if (!coverSource && (!isVideo || frameBuffer)) coverSource = isVideo ? frameBuffer : file.buffer;
+  }
+
+  if (coverSource) {
+    const mediaCount = await prisma.marketProductMedia.count({ where: { productId: product.id } });
+    const fresh = await prisma.marketProduct.findUnique({ where: { id: product.id }, select: { coverUrl: true } });
+    if (!mediaCount && !fresh?.coverUrl) {
+      const coverUrl = await buildCensoredCover(coverSource);
+      if (coverUrl) await prisma.marketProduct.update({ where: { id: product.id }, data: { coverUrl } });
+    }
   }
 
   return res.json({ assets: created });
@@ -1336,7 +1481,7 @@ marketRouter.get("/market/seller/orders", requireAuth, asyncHandler(async (req, 
     orderBy: { createdAt: "desc" },
     take: 150,
     include: {
-      product: { select: { id: true, coverUrl: true, type: true } },
+      product: { select: { id: true, coverUrl: true, type: true, media: { orderBy: { pos: "asc" }, select: { url: true, thumbnailUrl: true, type: true } } } },
       buyer: { select: publicProfile },
       _count: { select: { assets: true } },
     },
