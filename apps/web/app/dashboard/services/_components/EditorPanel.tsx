@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useDashboardForm } from "../../../../hooks/useDashboardForm";
 import { missingProfileFields } from "../../../../lib/profileCompletion";
 import ProfileCompletenessBar from "./ProfileCompletenessBar";
+import StudioWelcome from "./StudioWelcome";
 import ProfileEditor from "./editors/ProfileEditor";
 import CoverAvatarEditor from "./editors/CoverAvatarEditor";
 import ProductsEditor from "./editors/ProductsEditor";
@@ -79,6 +80,7 @@ export default function EditorPanel({ profileType, user }: Props) {
 
   return (
     <div className="space-y-4">
+      <StudioWelcome />
       <ProfileCompletenessBar user={user} profileType={profileType} />
 
       {/* Tab bar */}

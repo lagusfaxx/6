@@ -13,9 +13,6 @@ import {
   Building2,
   ShoppingBag,
   User,
-  Clock,
-  Phone,
-  CheckCircle2,
   ArrowLeft,
   ArrowRight,
   Sparkles,
@@ -98,7 +95,7 @@ export default function RegisterClient() {
     (googleInitialType === "PROFESSIONAL" || googleInitialType === "CLIENT");
 
   const [step, setStep] = useState<
-    "choose" | "form" | "verify" | "pending" | "photos-failed"
+    "choose" | "form" | "verify" | "photos-failed"
   >(isGoogleFlow ? "form" : "choose");
   const [profileType, setProfileType] = useState<ProfileType | null>(
     isGoogleFlow ? googleInitialType : null,
@@ -108,7 +105,10 @@ export default function RegisterClient() {
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [pendingFormData, setPendingFormData] = useState<RegisterFormData | null>(null);
   const [registerError, setRegisterError] = useState<string | null>(null);
-  const [registering, setRegistering] = useState(false);
+  /* Sólo se escribe: la pantalla que lo leía era la de "registro recibido",
+     que ahora es el propio estudio. Se mantiene para no soltar el flag a
+     media creación de cuenta. */
+  const [, setRegistering] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
@@ -174,6 +174,15 @@ export default function RegisterClient() {
 
   const isBusinessProfile =
     profileType === "PROFESSIONAL" || profileType === "ESTABLISHMENT" || profileType === "SHOP";
+
+  /* Al terminar el registro se entra al estudio, no a una pantalla de "listo"
+     con dos botones. Esa pantalla era un desvío: quien tocaba "volver al
+     inicio" navegaba el sitio con la ficha a medias y el perfil sin publicar,
+     sin nada que se lo recordara. El estudio recibe con la bienvenida y la
+     lista de lo que falta, que es donde se resuelve. */
+  const goToStudio = () => {
+    window.location.replace("/dashboard/services?bienvenida=1");
+  };
   const isProfessional = profileType === "PROFESSIONAL";
 
   const selected = useMemo<OptionConfig | null>(() => {
@@ -338,7 +347,7 @@ export default function RegisterClient() {
 
     setAccountCreated(true);
     setRegistering(false);
-    setStep("pending");
+    goToStudio();
   }
 
   // After email verified, create the account (and upload photos for professionals)
@@ -381,7 +390,7 @@ export default function RegisterClient() {
 
     setRegistering(false);
     if (isBusinessProfile) {
-      setStep("pending");
+      goToStudio();
     } else {
       window.location.replace("/");
     }
@@ -396,7 +405,7 @@ export default function RegisterClient() {
       await uploadProfessionalPhotos();
       setRetryingUpload(false);
       if (isBusinessProfile) {
-        setStep("pending");
+        goToStudio();
       } else {
         window.location.replace("/");
       }
@@ -411,7 +420,7 @@ export default function RegisterClient() {
   function skipPhotoUpload() {
     if (!accountCreated) return;
     if (isBusinessProfile) {
-      setStep("pending");
+      goToStudio();
     } else {
       window.location.replace("/");
     }
@@ -464,7 +473,7 @@ export default function RegisterClient() {
     );
   }
 
-  const stepIndex = step === "choose" ? 0 : step === "form" ? 1 : step === "pending" ? 2 : 1;
+  const stepIndex = step === "choose" ? 0 : step === "form" ? 1 : 1;
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-10">
@@ -487,14 +496,11 @@ export default function RegisterClient() {
           <p className="mt-2 text-sm text-white/55 text-center max-w-sm leading-relaxed">
             {step === "choose"
               ? "Elige el tipo de cuenta que mejor se ajuste a ti. Es rápido y gratis."
-              : step === "pending"
-                ? "Tu registro ha sido recibido"
-                : `Registrándote como ${selected?.title ?? profileType}`}
+              : `Registrándote como ${selected?.title ?? profileType}`}
           </p>
 
           {/* Progress dots */}
-          {step !== "pending" && (
-            <div className="mt-5 flex items-center gap-2">
+          <div className="mt-5 flex items-center gap-2">
               {["Tipo", "Datos", "Listo"].map((label, i) => {
                 const active = i <= stepIndex;
                 const current = i === stepIndex;
@@ -521,8 +527,7 @@ export default function RegisterClient() {
                   </div>
                 );
               })}
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Card */}
@@ -867,74 +872,6 @@ export default function RegisterClient() {
                 >
                   Continuar sin fotos (puedo subirlas más tarde desde mi panel)
                 </button>
-              </div>
-            </div>
-          ) : step === "pending" ? (
-            <div className="relative p-6 sm:p-8">
-              <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-orange-500/5 p-6 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400/30 to-orange-500/20 border border-amber-400/30">
-                  <Clock className="h-8 w-8 text-amber-300" />
-                </div>
-                <h2 className="text-xl font-bold text-amber-100">Registro recibido</h2>
-                <p className="mt-2 text-sm text-white/70 leading-relaxed max-w-sm mx-auto">
-                  Tu cuenta está creada, pero tu perfil todavía no se publica:
-                  falta completar la ficha con los datos que mira el cliente
-                  (medidas, tarifa, comuna y servicios). Un administrador
-                  además verifica la cuenta por teléfono.
-                </p>
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/60">
-                  <Phone className="h-3.5 w-3.5" />
-                  <span>Verificación telefónica manual</span>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <h3 className="text-sm font-semibold text-white/90 mb-3 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-fuchsia-300" />
-                  Falta esto para publicarte
-                </h3>
-                <ul className="text-sm text-white/65 space-y-2">
-                  <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                    Tres fotos o más
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                    Estatura, peso, medidas, cabello y piel
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                    Tarifa, servicios y comuna
-                  </li>
-                </ul>
-                <p className="mt-3 text-xs text-white/40">
-                  El panel te va marcando lo que falta y publica el perfil solo
-                  cuando la ficha queda completa.
-                </p>
-              </div>
-
-              {/* Una sola acción con peso. Cuando "Volver al inicio" pesaba
-                  igual, se tomaba ese camino y la ficha quedaba a medias: la
-                  cuenta deja navegar el sitio con normalidad, así que nada
-                  delataba que el perfil no estaba publicado. */}
-              <div className="mt-5 flex flex-col gap-3">
-                <Link
-                  href="/dashboard/services"
-                  className="btn-primary flex w-full items-center justify-center gap-2 text-center"
-                >
-                  Completar mi ficha ahora
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  href="/"
-                  className="text-center text-xs text-white/40 underline-offset-4 transition hover:text-white/60 hover:underline"
-                >
-                  Lo hago después, ir al inicio
-                </Link>
-                <p className="text-center text-[11px] text-white/30">
-                  Si lo dejas para después, arriba de cada pantalla vas a ver
-                  lo que falta hasta que tu perfil quede publicado.
-                </p>
               </div>
             </div>
           ) : null}
