@@ -472,12 +472,17 @@ model User {
   subscriptionPrice   Int?              @default(2500)
   shopTrialEndsAt     DateTime?
   termsAcceptedAt     DateTime?
-  /// Momento en que la ficha quedó completa por primera vez (foto, datos,
-  /// tarifa, zona y servicios). Mientras sea null el perfil no se publica: es
-  /// lo que obliga a completar la ficha después del registro. Los perfiles que
-  /// ya estaban publicados antes de la regla se marcan en la migración para no
-  /// sacarlos del aire de un día para otro.
+  /// Momento en que el perfil se publicó por primera vez. Nació para retener
+  /// la publicación hasta tener la ficha completa; esa regla se quitó porque
+  /// dejaba invisible a quien no quería publicar datos personales. Hoy sólo
+  /// marca que el perfil ya salió al aire alguna vez, y sirve para no volver a
+  /// publicarlo solo si la profesional lo apagó a propósito.
   profileCompletedAt  DateTime?
+  /// Datos de la ficha que la profesional marcó como "prefiero no decirlo".
+  /// Sólo admite las claves de `OPTOUT_ELIGIBLE_FIELDS`: son datos personales
+  /// que suman al anuncio pero que nadie está obligada a publicar. Un campo
+  /// acá cuenta como resuelto para publicar y en la ficha pública se omite.
+  undisclosedFields   String[]          @default([])
   allowFreeMessages   Boolean           @default(false)
   /// Respuesta automática de la profesional: se envía sola 20 segundos después
   /// del primer mensaje de un cliente. El cliente la ve como un mensaje normal

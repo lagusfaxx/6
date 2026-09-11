@@ -219,10 +219,10 @@ export default function PublicateClient() {
         </div>
         <h1 className="text-2xl font-bold text-white">Tu cuenta fue creada</h1>
         <p className="mt-3 text-sm text-white/50 leading-relaxed">
-          Tu perfil todavía no se publica: falta completar la ficha con lo que
-          mira el cliente — medidas, tarifa, comuna y servicios. Revisa tu
-          correo para crear la contraseña y entrar a completarla; el panel te
-          marca lo que falta y publica el perfil cuando esté listo.
+          Revisa tu correo para crear la contraseña y entrar a tu panel. Ahí
+          puedes sumar los datos que te hacen aparecer en más búsquedas —
+          medidas, tarifa y servicios —, y lo que prefieras no publicar lo
+          dejas marcado como “prefiero no decirlo”.
         </p>
         <p className="mt-3 text-xs text-white/40 leading-relaxed">
           ¿No recibiste el correo? Revisa tu carpeta de spam o{" "}

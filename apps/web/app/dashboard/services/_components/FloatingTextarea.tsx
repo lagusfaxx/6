@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import FieldLabel from "./FieldLabel";
 
 type Props = {
@@ -10,7 +11,7 @@ type Props = {
   rows?: number;
   hint?: string;
   className?: string;
-  id?: string;
+  fieldKey?: string;
   required?: boolean;
   complete?: boolean;
   optional?: boolean;
@@ -24,15 +25,16 @@ export default function FloatingTextarea({
   rows = 3,
   hint,
   className = "",
-  id,
+  fieldKey,
   required = false,
   complete = false,
   optional = false,
 }: Props) {
+  const id = useId();
   const pending = required && !complete;
 
   return (
-    <div className={`grid gap-1.5 ${className}`}>
+    <div className={`grid gap-1.5 ${className}`} data-studio-field={fieldKey}>
       <FieldLabel
         label={label}
         required={required}

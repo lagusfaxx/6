@@ -34,6 +34,41 @@ export type ProfileFieldSpec = {
   tab: "profile" | "photos" | "services" | "location";
 };
 
+/**
+ * Datos que se pueden dejar en "prefiero no decirlo".
+ *
+ * Son los personales: suman al anuncio, pero obligar a publicarlos es pedirle
+ * a alguien que exponga su cuerpo en números para poder trabajar. Marcarlos
+ * cuenta como resuelto y en la ficha pública no aparecen.
+ *
+ * El resto no está acá y no es por descuido:
+ *  - `birthdate` sostiene el mayor de 18, que es legal y no opinable;
+ *  - `photos`, `phone` y `city` son el anuncio mismo — sin foto no hay qué
+ *    mirar, sin número no hay por dónde escribir y sin comuna no hay cómo
+ *    encontrarla;
+ *  - `bio` y `serviceTags` son lo que se lee y por lo que se filtra: un perfil
+ *    sin ellos no aparece en ninguna búsqueda.
+ */
+export const OPTOUT_ELIGIBLE_FIELDS: ReadonlySet<string> = new Set([
+  "heightCm",
+  "weightKg",
+  "measurements",
+  "hairColor",
+  "skinTone",
+  "baseRate",
+]);
+
+/** Deja sólo las claves que de verdad admiten "prefiero no decirlo". */
+export function sanitizeUndisclosedFields(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const raw of value) {
+    const key = String(raw).trim();
+    if (OPTOUT_ELIGIBLE_FIELDS.has(key)) seen.add(key);
+  }
+  return [...seen];
+}
+
 export const MIN_PROFILE_PHOTOS = 3;
 export const MIN_PROFILE_BIO_LENGTH = 20;
 
@@ -64,6 +99,7 @@ type ProfileLike = {
   phone?: string | null;
   bio?: string | null;
   serviceTags?: string[] | null;
+  undisclosedFields?: string[] | null;
 };
 
 function filled(value: unknown): boolean {
@@ -79,7 +115,11 @@ export function missingProfileFields(
   profile: ProfileLike,
   photoCount: number,
 ): ProfileFieldSpec[] {
+  const undisclosed = new Set(sanitizeUndisclosedFields(profile.undisclosedFields));
   return REQUIRED_PROFILE_FIELDS.filter((field) => {
+    // "Prefiero no decirlo" es una respuesta: el dato queda resuelto aunque la
+    // columna esté vacía.
+    if (undisclosed.has(field.key)) return false;
     if (field.key === "photos") return photoCount < MIN_PROFILE_PHOTOS;
     if (field.key === "bio")
       return String(profile.bio ?? "").trim().length < MIN_PROFILE_BIO_LENGTH;
@@ -94,16 +134,20 @@ export function isProfileComplete(profile: ProfileLike, photoCount: number): boo
 /**
  * Qué hacer con la publicación del perfil al guardar.
  *
- * Está aparte y sin dependencias para poder probarla sola: es la regla que
- * decide si un anuncio se ve o no, y equivocarse acá saca perfiles del aire.
+ * La ficha incompleta ya no retiene nada. Retenerla salía peor de lo que
+ * arreglaba: el anuncio no existía hasta que ella acertara con una lista que
+ * no había pedido, y los datos que faltaban eran justo los personales, los que
+ * nadie está obligada a publicar. Ahora la ficha se completa porque conviene
+ * —más completa, más visible— y eso se recuerda en el panel, no con el
+ * anuncio caído.
  *
- *  - "blocked": pidió publicar con la ficha incompleta → error, no se guarda.
- *  - "hold": nunca estuvo publicado y sigue incompleto → se guarda apagado.
- *  - "publish": la ficha quedó completa por primera vez → se publica.
- *  - "keep": no se toca la publicación (el caso de todos los perfiles que ya
- *    estaban al aire, completos o no).
+ *  - "publish": perfil nuevo que todavía no se había publicado → se publica.
+ *  - "keep": no se toca la publicación.
+ *
+ * Sigue calculándose `missingProfileFields`, pero para el recordatorio y el
+ * puntaje de visibilidad, no para bloquear.
  */
-export type PublicationDecision = "blocked" | "hold" | "publish" | "keep";
+export type PublicationDecision = "publish" | "keep";
 
 export function resolvePublication(input: {
   /** Fecha en que la ficha se completó por primera vez, si ya pasó. */
@@ -112,21 +156,10 @@ export function resolvePublication(input: {
   isActive: boolean;
   /** Lo que pidió la petición: true publicar, false despublicar, undefined nada. */
   requestedActive: boolean | undefined;
-  /** Cuántos campos obligatorios faltan después de este guardado. */
-  missingCount: number;
 }): PublicationDecision {
-  const everCompleted = Boolean(input.profileCompletedAt);
-
-  if (input.missingCount > 0) {
-    if (input.requestedActive === true) return "blocked";
-    // Nunca publicado y todavía incompleto: se guarda, pero apagado. A un
-    // perfil que ya está al aire no se le baja el anuncio por esto.
-    if (!everCompleted && !input.isActive) return "hold";
-    return "keep";
+  // Perfil que nunca se publicó y no pidió lo contrario: sale al aire.
+  if (!input.profileCompletedAt && input.requestedActive === undefined) {
+    return "publish";
   }
-
-  // Ficha completa. La primera vez además se publica sola, salvo que la
-  // petición diga expresamente lo contrario.
-  if (!everCompleted && input.requestedActive === undefined) return "publish";
   return "keep";
 }

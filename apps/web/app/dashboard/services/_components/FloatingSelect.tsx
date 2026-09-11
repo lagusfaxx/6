@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import FieldLabel from "./FieldLabel";
 
 type Option = { value: string; label: string };
@@ -12,10 +13,11 @@ type Props = {
   placeholder?: string;
   hint?: string;
   className?: string;
-  id?: string;
+  fieldKey?: string;
   required?: boolean;
   complete?: boolean;
   optional?: boolean;
+  undisclosed?: boolean;
 };
 
 export default function FloatingSelect({
@@ -26,27 +28,31 @@ export default function FloatingSelect({
   placeholder,
   hint,
   className = "",
-  id,
+  fieldKey,
   required = false,
   complete = false,
   optional = false,
+  undisclosed = false,
 }: Props) {
+  const id = useId();
   const pending = required && !complete;
 
   return (
-    <div className={`grid gap-1.5 ${className}`}>
+    <div className={`grid gap-1.5 ${className}`} data-studio-field={fieldKey}>
       <FieldLabel
         label={label}
         required={required}
         complete={complete}
         optional={optional}
+        undisclosed={undisclosed}
         htmlFor={id}
       />
       <select
         id={id}
         className={`input-studio ${pending ? "input-studio-pending" : ""}`}
-        value={value}
+        value={undisclosed ? "" : value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={undisclosed}
       >
         {placeholder && <option value="">{placeholder}</option>}
         {options.map((opt) => (
@@ -55,7 +61,7 @@ export default function FloatingSelect({
           </option>
         ))}
       </select>
-      {hint && <span className="text-[11px] text-white/30">{hint}</span>}
+      {hint && !undisclosed && <span className="text-[11px] text-white/30">{hint}</span>}
     </div>
   );
 }

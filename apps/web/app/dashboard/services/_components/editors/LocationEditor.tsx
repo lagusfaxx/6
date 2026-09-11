@@ -1,7 +1,6 @@
 "use client";
 
 import { useDashboardForm } from "../../../../../hooks/useDashboardForm";
-import { fieldAnchor } from "../../../../../lib/profileCompletion";
 import EditorCard from "../EditorCard";
 import FloatingInput from "../FloatingInput";
 import MapboxMap from "../../../../../components/MapboxMap";
@@ -61,7 +60,7 @@ export default function LocationEditor({
           />
         )}
         <FloatingInput
-          id={fieldAnchor("city")}
+          fieldKey="city"
           label="Comuna"
           value={state.city}
           onChange={(v) => setField("city", v)}

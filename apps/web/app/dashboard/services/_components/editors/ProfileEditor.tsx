@@ -4,12 +4,12 @@ import { useMemo, useState } from "react";
 import { ChevronDown, DollarSign, Tag, Sparkles, User, Ruler, Check, AlertCircle } from "lucide-react";
 import { useDashboardForm } from "../../../../../hooks/useDashboardForm";
 import {
-  fieldAnchor,
   requiredFieldsByKey,
   MIN_PROFILE_BIO_LENGTH,
 } from "../../../../../lib/profileCompletion";
 import EditorCard from "../EditorCard";
 import SectionHeader from "../SectionHeader";
+import UndisclosedToggle from "../UndisclosedToggle";
 import FloatingInput from "../FloatingInput";
 import FloatingTextarea from "../FloatingTextarea";
 import FloatingSelect from "../FloatingSelect";
@@ -111,6 +111,7 @@ export default function ProfileEditor() {
   const { state, setField } = useDashboardForm();
   const req = useMemo(() => requiredFieldsByKey(state), [state]);
   const isDone = (key: string) => Boolean(req[key]?.complete);
+  const isHidden = (key: string) => Boolean(req[key]?.undisclosed);
   const countDone = (keys: string[]) => keys.filter(isDone).length;
 
   const bioLeft = MIN_PROFILE_BIO_LENGTH - state.bio.trim().length;
@@ -137,7 +138,7 @@ export default function ProfileEditor() {
             onChange={(v) => setField("displayName", v)}
           />
 
-          <div id={fieldAnchor("phone")}>
+          <div data-studio-field="phone">
             <PhoneField
               value={state.phone}
               onChange={(v) => setField("phone", v)}
@@ -147,7 +148,7 @@ export default function ProfileEditor() {
           </div>
 
           <FloatingInput
-            id={fieldAnchor("birthdate")}
+            fieldKey="birthdate"
             label="Fecha de nacimiento"
             value={state.birthdate}
             onChange={(v) => setField("birthdate", v)}
@@ -159,7 +160,7 @@ export default function ProfileEditor() {
           />
 
           <FloatingTextarea
-            id={fieldAnchor("bio")}
+            fieldKey="bio"
             label="Descripción del perfil"
             value={state.bio}
             onChange={(v) => setField("bio", v)}
@@ -189,78 +190,98 @@ export default function ProfileEditor() {
         <SectionHeader
           icon={Ruler}
           title="Tus datos"
-          subtitle="Es lo primero que el cliente mira en la ficha"
+          subtitle="Lo primero que mira el cliente. Lo que no quieras publicar, márcalo y listo"
           required={5}
           done={countDone(["heightCm", "weightKg", "measurements", "hairColor", "skinTone"])}
         />
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <FloatingInput
-              id={fieldAnchor("heightCm")}
-              label="Estatura (cm)"
-              value={state.heightCm}
-              onChange={(v) => setField("heightCm", v)}
-              type="number"
-              min="0"
-              placeholder="165"
-              required
-              complete={isDone("heightCm")}
-            />
-            <FloatingInput
-              id={fieldAnchor("weightKg")}
-              label="Peso (kg)"
-              value={state.weightKg}
-              onChange={(v) => setField("weightKg", v)}
-              type="number"
-              min="0"
-              placeholder="58"
-              required
-              complete={isDone("weightKg")}
-            />
+            <div>
+              <FloatingInput
+                fieldKey="heightCm"
+                label="Estatura (cm)"
+                value={state.heightCm}
+                onChange={(v) => setField("heightCm", v)}
+                type="number"
+                min="0"
+                placeholder="165"
+                required
+                complete={isDone("heightCm")}
+                undisclosed={isHidden("heightCm")}
+              />
+              <UndisclosedToggle fieldKey="heightCm" />
+            </div>
+            <div>
+              <FloatingInput
+                fieldKey="weightKg"
+                label="Peso (kg)"
+                value={state.weightKg}
+                onChange={(v) => setField("weightKg", v)}
+                type="number"
+                min="0"
+                placeholder="58"
+                required
+                complete={isDone("weightKg")}
+                undisclosed={isHidden("weightKg")}
+              />
+              <UndisclosedToggle fieldKey="weightKg" />
+            </div>
           </div>
 
-          <FloatingInput
-            id={fieldAnchor("measurements")}
-            label="Medidas"
-            value={state.measurements}
-            onChange={(v) => setField("measurements", v)}
-            placeholder="90-60-90"
-            required
-            complete={isDone("measurements")}
-          />
+          <div>
+            <FloatingInput
+              fieldKey="measurements"
+              label="Medidas"
+              value={state.measurements}
+              onChange={(v) => setField("measurements", v)}
+              placeholder="90-60-90"
+              required
+              complete={isDone("measurements")}
+              undisclosed={isHidden("measurements")}
+            />
+            <UndisclosedToggle fieldKey="measurements" />
+          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <FloatingInput
-                id={fieldAnchor("hairColor")}
+                fieldKey="hairColor"
                 label="Color de cabello"
                 value={state.hairColor}
                 onChange={(v) => setField("hairColor", v)}
                 placeholder="Castaño"
                 required
                 complete={isDone("hairColor")}
+                undisclosed={isHidden("hairColor")}
               />
-              <SuggestionRow
-                options={HAIR_COLOR_OPTIONS}
-                value={state.hairColor}
-                onPick={(v) => setField("hairColor", v)}
-              />
+              {!isHidden("hairColor") && (
+                <SuggestionRow
+                  options={HAIR_COLOR_OPTIONS}
+                  value={state.hairColor}
+                  onPick={(v) => setField("hairColor", v)}
+                />
+              )}
+              <UndisclosedToggle fieldKey="hairColor" />
             </div>
             <div className="space-y-2">
               <FloatingInput
-                id={fieldAnchor("skinTone")}
+                fieldKey="skinTone"
                 label="Tono de piel"
                 value={state.skinTone}
                 onChange={(v) => setField("skinTone", v)}
                 placeholder="Trigueña"
                 required
                 complete={isDone("skinTone")}
+                undisclosed={isHidden("skinTone")}
               />
-              <SuggestionRow
-                options={SKIN_TONE_OPTIONS}
-                value={state.skinTone}
-                onPick={(v) => setField("skinTone", v)}
-              />
+              {!isHidden("skinTone") && (
+                <SuggestionRow
+                  options={SKIN_TONE_OPTIONS}
+                  value={state.skinTone}
+                  onPick={(v) => setField("skinTone", v)}
+                />
+              )}
+              <UndisclosedToggle fieldKey="skinTone" />
             </div>
           </div>
         </div>
@@ -277,18 +298,25 @@ export default function ProfileEditor() {
         />
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <FloatingInput
-              id={fieldAnchor("baseRate")}
-              label="Tarifa base (CLP)"
-              value={state.baseRate}
-              onChange={(v) => setField("baseRate", v)}
-              type="number"
-              min="1000"
-              placeholder="40000"
-              hint="Monto completo, sin puntos. Mínimo $1.000."
-              required
-              complete={isDone("baseRate")}
-            />
+            <div>
+              <FloatingInput
+                fieldKey="baseRate"
+                label="Tarifa base (CLP)"
+                value={state.baseRate}
+                onChange={(v) => setField("baseRate", v)}
+                type="number"
+                min="1000"
+                placeholder="40000"
+                hint="Monto completo, sin puntos. Mínimo $1.000."
+                required
+                complete={isDone("baseRate")}
+                undisclosed={isHidden("baseRate")}
+              />
+              <UndisclosedToggle
+                fieldKey="baseRate"
+                label="Prefiero no decirla (sale como “a consultar”)"
+              />
+            </div>
             <FloatingInput
               label="Duración mínima (min)"
               value={state.minDurationMinutes}
@@ -304,7 +332,7 @@ export default function ProfileEditor() {
 
       {/* ─── 4. SERVICIOS QUE OFREZCO (obligatorio) ─── */}
       <EditorCard delay={0.15} className={serviceTagsDone ? "" : "ring-1 ring-amber-500/20"}>
-        <div id={fieldAnchor("serviceTags")} tabIndex={-1} className="outline-none">
+        <div data-studio-field="serviceTags" tabIndex={-1} className="outline-none">
           <SectionHeader
             icon={Tag}
             title="Servicios que ofrezco"

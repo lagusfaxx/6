@@ -817,6 +817,7 @@ authRouter.get(
       profileTags: true,
       serviceTags: true,
       profileCompletedAt: true,
+      undisclosedFields: true,
     };
     let user: any;
     try {
@@ -839,6 +840,7 @@ authRouter.get(
           user.profileTags = [];
           user.serviceTags = [];
           user.profileCompletedAt = null;
+          user.undisclosedFields = [];
         }
       } else {
         throw err;
@@ -861,24 +863,18 @@ authRouter.get(
       ? membershipActive || trialActive
       : true;
 
-    /* Qué le falta a la ficha para poder publicarse. Va en /auth/me porque el
-       estudio lo necesita en cada pantalla: el aviso, la lista de campos y el
-       interruptor de publicar se dibujan con esto. */
+    /* Qué le falta a la ficha para aparecer en más búsquedas. Ya no retiene la
+       publicación — el perfil sale al aire igual —, pero el panel lo necesita
+       en cada pantalla para el puntaje de visibilidad y el recordatorio. */
     let profileCompletion:
-      | { complete: boolean; missing: { key: string; label: string; tab: string }[]; grandfathered: boolean }
+      | { complete: boolean; missing: { key: string; label: string; tab: string }[] }
       | undefined;
     if (user.profileType === "PROFESSIONAL") {
       const photoCount = await prisma.profileMedia.count({
         where: { ownerId: user.id, type: "IMAGE" },
       });
       const missing = missingProfileFields(user as any, photoCount);
-      profileCompletion = {
-        complete: missing.length === 0,
-        missing,
-        // Perfiles que ya estaban publicados antes de la regla: se les avisa,
-        // pero no se les baja el anuncio.
-        grandfathered: Boolean(user.profileCompletedAt) && missing.length > 0,
-      };
+      profileCompletion = { complete: missing.length === 0, missing };
     }
 
     return res.json({

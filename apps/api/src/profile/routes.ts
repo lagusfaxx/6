@@ -4,9 +4,8 @@ import path from "path";
 import fs from "node:fs/promises";
 import { prisma } from "../db";
 import {
-  missingProfileFields,
   resolvePublication,
-  MIN_PROFILE_PHOTOS,
+  sanitizeUndisclosedFields,
 } from "../lib/profileCompletion";
 import { Prisma } from "@prisma/client";
 import { requireAuth } from "../auth/middleware";
@@ -599,6 +598,7 @@ async function updateProfile(req: any, res: any) {
     coverPositionX,
     coverPositionY,
     isOnline,
+    undisclosedFields,
   } = req.body as Record<string, string | boolean | string[] | number | null>;
   const allowedGenders = new Set(["MALE", "FEMALE", "OTHER"]);
   const allowedPrefs = new Set(["MALE", "FEMALE", "ALL", "OTHER"]);
@@ -628,6 +628,7 @@ async function updateProfile(req: any, res: any) {
     bio: true,
     serviceTags: true,
     profileCompletedAt: true,
+    undisclosedFields: true,
   } as const;
   let me: any;
   try {
@@ -636,14 +637,21 @@ async function updateProfile(req: any, res: any) {
       select: meSelect,
     });
   } catch {
-    // La columna de ficha completa puede no estar todavía en la base: sin ella
-    // el guardado sigue funcionando, sólo que sin la regla de publicación.
-    const { profileCompletedAt: _omit, ...legacySelect } = meSelect as Record<string, boolean>;
+    // Las columnas nuevas pueden no estar todavía en la base: sin ellas el
+    // guardado sigue funcionando, sólo que sin la regla de publicación.
+    const {
+      profileCompletedAt: _omitCompleted,
+      undisclosedFields: _omitUndisclosed,
+      ...legacySelect
+    } = meSelect as Record<string, boolean>;
     me = await prisma.user.findUnique({
       where: { id: req.session.userId! },
       select: legacySelect as any,
     });
-    if (me) me.profileCompletedAt = new Date();
+    if (me) {
+      me.profileCompletedAt = new Date();
+      me.undisclosedFields = [];
+    }
   }
   if (!me) return res.status(404).json({ error: "NOT_FOUND" });
   if (me.profileType === "PROFESSIONAL" && bio !== undefined) {
@@ -829,6 +837,12 @@ async function updateProfile(req: any, res: any) {
     longitude: longitude ? Number(longitude) : undefined,
     birthdate: safeBirthdate,
     isActive: safeIsActive,
+    /* "Prefiero no decirlo": sólo se guardan las claves que lo admiten, así
+       nadie se salta un obligatorio mandando su nombre por el body. */
+    undisclosedFields:
+      undisclosedFields === undefined
+        ? undefined
+        : sanitizeUndisclosedFields(undisclosedFields),
     coverPositionX: clampCoverPosition(coverPositionX),
     coverPositionY: clampCoverPosition(coverPositionY),
     isOnline:
@@ -843,55 +857,27 @@ async function updateProfile(req: any, res: any) {
               : undefined,
   };
 
-  /* Ficha completa antes de publicar.
-     La regla se aplica sobre cómo va a quedar el perfil después de este
-     guardado, no sobre cómo estaba: así completar el último campo y activar
-     en el mismo envío funciona. Los perfiles que ya venían publicados
-     (profileCompletedAt con fecha) no se tocan — esos los completa el equipo
-     desde el panel. */
-  if (me.profileType === "PROFESSIONAL") {
-    const merged = {
-      birthdate: baseData.birthdate !== undefined ? (baseData.birthdate as Date | null) : me.birthdate,
-      heightCm: baseData.heightCm !== undefined ? (baseData.heightCm as number | null) : me.heightCm,
-      weightKg: baseData.weightKg !== undefined ? (baseData.weightKg as number | null) : me.weightKg,
-      measurements: baseData.measurements !== undefined ? (baseData.measurements as string | null) : me.measurements,
-      hairColor: baseData.hairColor !== undefined ? (baseData.hairColor as string | null) : me.hairColor,
-      skinTone: baseData.skinTone !== undefined ? (baseData.skinTone as string | null) : me.skinTone,
-      baseRate: baseData.baseRate !== undefined ? (baseData.baseRate as number | null) : me.baseRate,
-      city: baseData.city !== undefined ? (baseData.city as string | null) : me.city,
-      phone: baseData.phone !== undefined ? (baseData.phone as string | null) : me.phone,
-      bio: baseData.bio !== undefined ? (baseData.bio as string | null) : me.bio,
-      serviceTags: baseData.serviceTags !== undefined ? (baseData.serviceTags as string[]) : me.serviceTags,
-    };
-    const photoCount = await prisma.profileMedia.count({
-      where: { ownerId: req.session.userId!, type: "IMAGE" },
-    });
-    const missing = missingProfileFields(merged, photoCount);
+  /* Un dato en "prefiero no decirlo" no puede quedar guardado a medias: se
+     borra la columna, o seguiría saliendo en la ficha pública. */
+  if (baseData.undisclosedFields !== undefined) {
+    for (const key of baseData.undisclosedFields as string[]) {
+      baseData[key] = null;
+    }
+  }
 
-    /* El caso que hay que cuidar: el equipo aprueba la verificación (eso
-       publica el perfil) antes de que la profesional termine la ficha. Si acá
-       la apagáramos, cualquier edición suya la sacaría del listado sin que
-       nadie lo pidiera. Por eso la regla sólo retiene la publicación de los
-       que todavía no están publicados. */
+  /* Publicación. La ficha incompleta ya no retiene el anuncio: un perfil
+     nuevo sale al aire al guardarse, y lo que falte se recuerda en el panel
+     como visibilidad, no como bloqueo. `profileCompletedAt` se sigue usando
+     para no volver a publicar sola una ficha que la profesional apagó a
+     propósito. */
+  if (me.profileType === "PROFESSIONAL") {
     const decision = resolvePublication({
       profileCompletedAt: me.profileCompletedAt,
       isActive: me.isActive === true,
       requestedActive: safeIsActive,
-      missingCount: missing.length,
     });
 
-    if (decision === "blocked") {
-      return res.status(422).json({
-        error: "PROFILE_INCOMPLETE",
-        message:
-          "Completa la ficha antes de publicar el perfil: es lo que ve el cliente.",
-        missing,
-        minPhotos: MIN_PROFILE_PHOTOS,
-      });
-    }
-    if (decision === "hold") {
-      baseData.isActive = false;
-    } else if (decision === "publish") {
+    if (decision === "publish") {
       baseData.profileCompletedAt = new Date();
       baseData.isActive = true;
     }

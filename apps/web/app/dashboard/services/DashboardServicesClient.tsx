@@ -243,6 +243,9 @@ export default function DashboardServicesClient() {
           primaryCategory: meRes?.user?.primaryCategory ?? "",
           profileTags: Array.isArray(meRes?.user?.profileTags) ? meRes.user.profileTags : [],
           serviceTags: Array.isArray(meRes?.user?.serviceTags) ? meRes.user.serviceTags : [],
+          undisclosedFields: Array.isArray(meRes?.user?.undisclosedFields)
+            ? meRes.user.undisclosedFields
+            : [],
           availabilityNote: meRes?.user?.availabilityNote ?? "",
           baseRate:
             meRes?.user?.baseRate != null ? String(meRes.user.baseRate) : "",
@@ -297,6 +300,7 @@ export default function DashboardServicesClient() {
             acceptsOutcalls: fields.acceptsOutcalls,
             profileTags: JSON.stringify(fields.profileTags),
             serviceTags: JSON.stringify(fields.serviceTags),
+            undisclosedFields: JSON.stringify(fields.undisclosedFields),
           });
         }, 0);
       } catch {
@@ -491,6 +495,7 @@ export default function DashboardServicesClient() {
         primaryCategory: state.primaryCategory || null,
         profileTags: state.profileTags,
         serviceTags: state.serviceTags,
+        undisclosedFields: state.undisclosedFields,
         availabilityNote: state.availabilityNote || null,
         baseRate: state.baseRate || null,
         minDurationMinutes: state.minDurationMinutes || null,
@@ -511,19 +516,7 @@ export default function DashboardServicesClient() {
       showToast("Perfil actualizado.");
       await loadPanel(user.id);
     } catch (err: any) {
-      /* La ficha incompleta no es un error genérico: el servidor dice
-         exactamente qué falta, y eso es lo que hay que mostrar. */
-      const missing = err?.body?.missing;
-      if (err?.body?.error === "PROFILE_INCOMPLETE" && Array.isArray(missing)) {
-        setField(
-          "error",
-          `Para publicar tu perfil falta: ${missing
-            .map((m: { label: string }) => m.label)
-            .join(", ")}.`,
-        );
-      } else {
-        setField("error", friendlyErrorMessage(err));
-      }
+      setField("error", friendlyErrorMessage(err));
     } finally {
       setField("busy", false);
     }
