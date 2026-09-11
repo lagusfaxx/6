@@ -4,7 +4,7 @@ import { type ChangeEvent } from "react";
 import { motion } from "framer-motion";
 import { resolveMediaUrl } from "../../../../../lib/api";
 import { useDashboardForm } from "../../../../../hooks/useDashboardForm";
-import { fieldAnchor, MIN_PROFILE_PHOTOS } from "../../../../../lib/profileCompletion";
+import { MIN_PROFILE_PHOTOS } from "../../../../../lib/profileCompletion";
 import EditorCard from "../EditorCard";
 
 type Props = {
@@ -24,7 +24,7 @@ export default function GalleryEditor({ onUploadGallery, onRemoveGalleryItem }: 
 
   return (
     <EditorCard delay={0}>
-      <div id={fieldAnchor("photos")} className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div data-studio-field="photos" className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-white">Galería</h3>

@@ -20,26 +20,52 @@ export type RequiredField = {
   label: string;
   tab: StudioTab;
   complete: boolean;
-  /** id del control en el DOM, para poder saltar directo a él. */
-  anchor: string;
+  /** Resuelto con "prefiero no decirlo" en vez de con un dato. */
+  undisclosed: boolean;
 };
 
-/** id del control de un campo obligatorio dentro del estudio. */
-export function fieldAnchor(key: string): string {
-  return `studio-field-${key}`;
+/**
+ * Datos que admiten "prefiero no decirlo" (espejo de OPTOUT_ELIGIBLE_FIELDS en
+ * el servidor). Son los personales: obligar a publicarlos es pedirle a alguien
+ * que exponga su cuerpo en números para poder trabajar.
+ *
+ * El resto no está acá a propósito: la fecha de nacimiento sostiene el mayor de
+ * 18, y fotos, WhatsApp, comuna, descripción y servicios son el anuncio mismo
+ * — sin ellos no hay qué mirar, por dónde escribir ni cómo encontrarla.
+ */
+export const OPTOUT_ELIGIBLE_FIELDS = [
+  "heightCm",
+  "weightKg",
+  "measurements",
+  "hairColor",
+  "skinTone",
+  "baseRate",
+] as const;
+
+export type OptOutField = (typeof OPTOUT_ELIGIBLE_FIELDS)[number];
+
+export function canOptOut(key: string): key is OptOutField {
+  return (OPTOUT_ELIGIBLE_FIELDS as readonly string[]).includes(key);
 }
 
 export function requiredProfileFields(state: DashboardFormState): RequiredField[] {
   const photos = state.gallery.filter(
     (g) => String(g.type).toUpperCase() !== "VIDEO",
   ).length;
+  const undisclosed = new Set<string>(
+    (state.undisclosedFields ?? []).filter((k) => canOptOut(k)),
+  );
 
   const field = (
     key: string,
     label: string,
     tab: StudioTab,
-    complete: boolean,
-  ): RequiredField => ({ key, label, tab, complete, anchor: fieldAnchor(key) });
+    filled: boolean,
+  ): RequiredField => {
+    const hidden = undisclosed.has(key);
+    // "Prefiero no decirlo" es una respuesta: el dato queda resuelto.
+    return { key, label, tab, complete: hidden || filled, undisclosed: hidden };
+  };
 
   return [
     field("photos", `Al menos ${MIN_PROFILE_PHOTOS} fotos`, "galeria", photos >= MIN_PROFILE_PHOTOS),
@@ -61,7 +87,7 @@ export function missingProfileFields(state: DashboardFormState): RequiredField[]
   return requiredProfileFields(state).filter((f) => !f.complete);
 }
 
-/** Los campos obligatorios de una pestaña, para el contador de cada sección. */
+/** Los campos obligatorios por clave, para el contador de cada sección. */
 export function requiredFieldsByKey(
   state: DashboardFormState,
 ): Record<string, RequiredField> {
@@ -73,31 +99,54 @@ export function requiredFieldsByKey(
 /**
  * Lleva el foco al campo que falta.
  *
- * La pestaña se monta con animación, así que el control puede no existir
- * todavía cuando se hace click en la lista: se reintenta unos frames antes de
- * rendirse. El destello es lo que evita el "¿y dónde quedó?" — sin él, saltar
- * a un formulario largo deja a la persona buscando el campo con la vista.
+ * El estudio monta el editor dos veces — una para el escritorio y otra para el
+ * teléfono — y sólo esconde con CSS la que no toca. Buscar por `id` devolvía
+ * siempre la primera del documento, la del escritorio: en el teléfono esa está
+ * en `display:none`, así que el scroll y el foco no hacían nada y el botón
+ * "Completar" parecía roto. Por eso se busca por atributo y se elige la copia
+ * que de verdad está en pantalla.
+ *
+ * La pestaña además se monta con animación, así que el control puede no existir
+ * todavía al hacer click: se reintenta unos frames antes de rendirse.
  */
-export function focusRequiredField(anchor: string, attempt = 0): void {
+export function focusRequiredField(key: string, attempt = 0): void {
   if (typeof document === "undefined") return;
 
-  const el = document.getElementById(anchor);
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLElement>(`[data-studio-field="${key}"]`),
+  );
+  // offsetParent nulo = la copia escondida del otro breakpoint.
+  const el = candidates.find((n) => n.offsetParent !== null);
+
   if (!el) {
     if (attempt < 40) {
-      requestAnimationFrame(() => focusRequiredField(anchor, attempt + 1));
+      requestAnimationFrame(() => focusRequiredField(key, attempt + 1));
     }
     return;
   }
 
   el.scrollIntoView({ behavior: "smooth", block: "center" });
-  const focusable = el.matches("input, select, textarea, button, [tabindex]")
-    ? el
-    : el.querySelector<HTMLElement>("input, select, textarea, button, [tabindex]");
-  focusable?.focus({ preventScroll: true });
+
+  /* En el teléfono no se abre el teclado solo: el salto de la pantalla al
+     enfocar tapa el campo al que se acaba de llegar. Se marca y se deja que
+     ella toque. */
+  const coarsePointer =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: coarse)").matches;
+
+  if (!coarsePointer) {
+    const focusable = el.matches("input, select, textarea, button, [tabindex]")
+      ? el
+      : el.querySelector<HTMLElement>(
+          "input:not([type=hidden]), select, textarea, button, [tabindex]",
+        );
+    focusable?.focus({ preventScroll: true });
+  }
 
   el.classList.remove("studio-field-flash");
-  // Reinicia la animación si se vuelve a hacer click en el mismo campo.
+  // Reinicia la animación si se vuelve a tocar el mismo campo.
   void el.offsetWidth;
   el.classList.add("studio-field-flash");
-  window.setTimeout(() => el.classList.remove("studio-field-flash"), 1600);
+  window.setTimeout(() => el.classList.remove("studio-field-flash"), 1800);
 }

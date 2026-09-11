@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import FieldLabel from "./FieldLabel";
 
 type Props = {
@@ -13,13 +14,14 @@ type Props = {
   min?: string;
   hint?: string;
   className?: string;
-  /** id del control: lo usa la lista de requisitos para saltar hasta acá. */
-  id?: string;
+  /** Clave del requisito: con esto la lista de arriba salta hasta acá. */
+  fieldKey?: string;
   /** Obligatorio para publicar (no es el `required` del HTML). */
   required?: boolean;
-  /** Si ese campo obligatorio ya está resuelto. */
   complete?: boolean;
   optional?: boolean;
+  /** Resuelto con "prefiero no decirlo". */
+  undisclosed?: boolean;
 };
 
 export default function FloatingInput({
@@ -33,34 +35,39 @@ export default function FloatingInput({
   min,
   hint,
   className = "",
-  id,
+  fieldKey,
   required = false,
   complete = false,
   optional = false,
+  undisclosed = false,
 }: Props) {
+  /* El estudio monta este editor dos veces (escritorio y teléfono). Un id fijo
+     se repetiría en las dos copias; useId da uno por instancia. */
+  const id = useId();
   const pending = required && !complete;
 
   return (
-    <div className={`grid gap-1.5 ${className}`}>
+    <div className={`grid gap-1.5 ${className}`} data-studio-field={fieldKey}>
       <FieldLabel
         label={label}
         required={required}
         complete={complete}
         optional={optional}
+        undisclosed={undisclosed}
         htmlFor={id}
       />
       <input
         id={id}
         className={`input-studio ${pending ? "input-studio-pending" : ""}`}
         type={type}
-        value={value}
+        value={undisclosed ? "" : value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
+        placeholder={undisclosed ? "Prefiero no decirlo" : placeholder}
+        disabled={disabled || undisclosed}
         max={max}
         min={min}
       />
-      {hint && <span className="text-[11px] text-white/30">{hint}</span>}
+      {hint && !undisclosed && <span className="text-[11px] text-white/30">{hint}</span>}
     </div>
   );
 }

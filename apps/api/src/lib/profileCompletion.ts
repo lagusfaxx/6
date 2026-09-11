@@ -34,6 +34,41 @@ export type ProfileFieldSpec = {
   tab: "profile" | "photos" | "services" | "location";
 };
 
+/**
+ * Datos que se pueden dejar en "prefiero no decirlo".
+ *
+ * Son los personales: suman al anuncio, pero obligar a publicarlos es pedirle
+ * a alguien que exponga su cuerpo en números para poder trabajar. Marcarlos
+ * cuenta como resuelto y en la ficha pública no aparecen.
+ *
+ * El resto no está acá y no es por descuido:
+ *  - `birthdate` sostiene el mayor de 18, que es legal y no opinable;
+ *  - `photos`, `phone` y `city` son el anuncio mismo — sin foto no hay qué
+ *    mirar, sin número no hay por dónde escribir y sin comuna no hay cómo
+ *    encontrarla;
+ *  - `bio` y `serviceTags` son lo que se lee y por lo que se filtra: un perfil
+ *    sin ellos no aparece en ninguna búsqueda.
+ */
+export const OPTOUT_ELIGIBLE_FIELDS: ReadonlySet<string> = new Set([
+  "heightCm",
+  "weightKg",
+  "measurements",
+  "hairColor",
+  "skinTone",
+  "baseRate",
+]);
+
+/** Deja sólo las claves que de verdad admiten "prefiero no decirlo". */
+export function sanitizeUndisclosedFields(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const raw of value) {
+    const key = String(raw).trim();
+    if (OPTOUT_ELIGIBLE_FIELDS.has(key)) seen.add(key);
+  }
+  return [...seen];
+}
+
 export const MIN_PROFILE_PHOTOS = 3;
 export const MIN_PROFILE_BIO_LENGTH = 20;
 
@@ -64,6 +99,7 @@ type ProfileLike = {
   phone?: string | null;
   bio?: string | null;
   serviceTags?: string[] | null;
+  undisclosedFields?: string[] | null;
 };
 
 function filled(value: unknown): boolean {
@@ -79,7 +115,11 @@ export function missingProfileFields(
   profile: ProfileLike,
   photoCount: number,
 ): ProfileFieldSpec[] {
+  const undisclosed = new Set(sanitizeUndisclosedFields(profile.undisclosedFields));
   return REQUIRED_PROFILE_FIELDS.filter((field) => {
+    // "Prefiero no decirlo" es una respuesta: el dato queda resuelto aunque la
+    // columna esté vacía.
+    if (undisclosed.has(field.key)) return false;
     if (field.key === "photos") return photoCount < MIN_PROFILE_PHOTOS;
     if (field.key === "bio")
       return String(profile.bio ?? "").trim().length < MIN_PROFILE_BIO_LENGTH;

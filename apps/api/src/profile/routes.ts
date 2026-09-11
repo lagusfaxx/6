@@ -6,6 +6,7 @@ import { prisma } from "../db";
 import {
   missingProfileFields,
   resolvePublication,
+  sanitizeUndisclosedFields,
   MIN_PROFILE_PHOTOS,
 } from "../lib/profileCompletion";
 import { Prisma } from "@prisma/client";
@@ -599,6 +600,7 @@ async function updateProfile(req: any, res: any) {
     coverPositionX,
     coverPositionY,
     isOnline,
+    undisclosedFields,
   } = req.body as Record<string, string | boolean | string[] | number | null>;
   const allowedGenders = new Set(["MALE", "FEMALE", "OTHER"]);
   const allowedPrefs = new Set(["MALE", "FEMALE", "ALL", "OTHER"]);
@@ -628,6 +630,7 @@ async function updateProfile(req: any, res: any) {
     bio: true,
     serviceTags: true,
     profileCompletedAt: true,
+    undisclosedFields: true,
   } as const;
   let me: any;
   try {
@@ -636,14 +639,21 @@ async function updateProfile(req: any, res: any) {
       select: meSelect,
     });
   } catch {
-    // La columna de ficha completa puede no estar todavía en la base: sin ella
-    // el guardado sigue funcionando, sólo que sin la regla de publicación.
-    const { profileCompletedAt: _omit, ...legacySelect } = meSelect as Record<string, boolean>;
+    // Las columnas nuevas pueden no estar todavía en la base: sin ellas el
+    // guardado sigue funcionando, sólo que sin la regla de publicación.
+    const {
+      profileCompletedAt: _omitCompleted,
+      undisclosedFields: _omitUndisclosed,
+      ...legacySelect
+    } = meSelect as Record<string, boolean>;
     me = await prisma.user.findUnique({
       where: { id: req.session.userId! },
       select: legacySelect as any,
     });
-    if (me) me.profileCompletedAt = new Date();
+    if (me) {
+      me.profileCompletedAt = new Date();
+      me.undisclosedFields = [];
+    }
   }
   if (!me) return res.status(404).json({ error: "NOT_FOUND" });
   if (me.profileType === "PROFESSIONAL" && bio !== undefined) {
@@ -829,6 +839,12 @@ async function updateProfile(req: any, res: any) {
     longitude: longitude ? Number(longitude) : undefined,
     birthdate: safeBirthdate,
     isActive: safeIsActive,
+    /* "Prefiero no decirlo": sólo se guardan las claves que lo admiten, así
+       nadie se salta un obligatorio mandando su nombre por el body. */
+    undisclosedFields:
+      undisclosedFields === undefined
+        ? undefined
+        : sanitizeUndisclosedFields(undisclosedFields),
     coverPositionX: clampCoverPosition(coverPositionX),
     coverPositionY: clampCoverPosition(coverPositionY),
     isOnline:
@@ -842,6 +858,14 @@ async function updateProfile(req: any, res: any) {
               ? false
               : undefined,
   };
+
+  /* Un dato en "prefiero no decirlo" no puede quedar guardado a medias: se
+     borra la columna, o seguiría saliendo en la ficha pública. */
+  if (baseData.undisclosedFields !== undefined) {
+    for (const key of baseData.undisclosedFields as string[]) {
+      baseData[key] = null;
+    }
+  }
 
   /* Ficha completa antes de publicar.
      La regla se aplica sobre cómo va a quedar el perfil después de este
@@ -862,6 +886,10 @@ async function updateProfile(req: any, res: any) {
       phone: baseData.phone !== undefined ? (baseData.phone as string | null) : me.phone,
       bio: baseData.bio !== undefined ? (baseData.bio as string | null) : me.bio,
       serviceTags: baseData.serviceTags !== undefined ? (baseData.serviceTags as string[]) : me.serviceTags,
+      undisclosedFields:
+        baseData.undisclosedFields !== undefined
+          ? (baseData.undisclosedFields as string[])
+          : me.undisclosedFields,
     };
     const photoCount = await prisma.profileMedia.count({
       where: { ownerId: req.session.userId!, type: "IMAGE" },

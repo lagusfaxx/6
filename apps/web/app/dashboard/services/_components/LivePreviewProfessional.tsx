@@ -62,6 +62,9 @@ function LivePreviewProfessional({ state, user }: Props) {
   const priceLabel = Number.isFinite(rate) && rate > 0
     ? `$${rate.toLocaleString("es-CL")}`
     : null;
+  /* Tarifa en "prefiero no decirla": es una decisión suya, no un olvido. La
+     ficha la muestra como "a consultar" y el aviso naranja sobra. */
+  const rateUndisclosed = (state.undisclosedFields ?? []).includes("baseRate");
   const durationLabel = state.minDurationMinutes
     ? `${state.minDurationMinutes} min`
     : "Sin duración mínima";
@@ -212,6 +215,10 @@ function LivePreviewProfessional({ state, user }: Props) {
                 <span className="text-xl font-semibold tracking-tight">{priceLabel}</span>
                 <span className="text-[12px] text-white/45">{durationLabel}</span>
               </div>
+            ) : rateUndisclosed ? (
+              <span className="text-xl font-semibold tracking-tight text-white/70">
+                Tarifa a consultar
+              </span>
             ) : (
               <p className="text-[13px] text-amber-200/70">
                 Sin tarifa. El perfil aparece como "Tarifa a consultar" y pierde

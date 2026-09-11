@@ -817,6 +817,7 @@ authRouter.get(
       profileTags: true,
       serviceTags: true,
       profileCompletedAt: true,
+      undisclosedFields: true,
     };
     let user: any;
     try {
@@ -839,6 +840,7 @@ authRouter.get(
           user.profileTags = [];
           user.serviceTags = [];
           user.profileCompletedAt = null;
+          user.undisclosedFields = [];
         }
       } else {
         throw err;

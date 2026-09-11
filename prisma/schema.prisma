@@ -478,6 +478,11 @@ model User {
   /// ya estaban publicados antes de la regla se marcan en la migración para no
   /// sacarlos del aire de un día para otro.
   profileCompletedAt  DateTime?
+  /// Datos de la ficha que la profesional marcó como "prefiero no decirlo".
+  /// Sólo admite las claves de `OPTOUT_ELIGIBLE_FIELDS`: son datos personales
+  /// que suman al anuncio pero que nadie está obligada a publicar. Un campo
+  /// acá cuenta como resuelto para publicar y en la ficha pública se omite.
+  undisclosedFields   String[]          @default([])
   allowFreeMessages   Boolean           @default(false)
   /// Respuesta automática de la profesional: se envía sola 20 segundos después
   /// del primer mensaje de un cliente. El cliente la ve como un mensaje normal
