@@ -10,10 +10,11 @@ import {
 } from "lucide-react";
 
 import useMe from "../../../hooks/useMe";
-import { StatRow } from "../../../components/marketplace/ui";
+import { MediaThumb, StatRow } from "../../../components/marketplace/ui";
 import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
+import { appendVideoPosters } from "../../../lib/videoPoster";
 import {
-  DELIVERY_LABEL, ORDER_STATUS_UI, PRODUCT_TYPE_LABEL, formatClp, formatDate,
+  DELIVERY_LABEL, ORDER_STATUS_UI, PRODUCT_TYPE_LABEL, formatClp, formatDate, productCoverMedia,
   type MarketDeliveryMethod, type MarketOrder, type MarketProduct, type MarketProductType,
 } from "../../../lib/marketplace";
 
@@ -582,8 +583,12 @@ function ProductRow({
     setBusy(true);
     onError(null);
     try {
+      const list = Array.from(files);
       const form = new FormData();
-      Array.from(files).forEach((file) => form.append("files", file));
+      list.forEach((file) => form.append("files", file));
+      /* El primer frame de cada video viaja junto al archivo: si el servidor no
+         puede extraerlo, la vitrina igual tiene algo que mostrar. */
+      await appendVideoPosters(form, list);
       const res = await fetch(`${getApiBase()}/market/seller/products/${product.id}/${kind}`, {
         method: "POST",
         credentials: "include",
@@ -630,17 +635,18 @@ function ProductRow({
   };
 
   const needsAssets = product.deliveryMethods.includes("DIGITAL") && (product.assetCount ?? 0) === 0;
+  const cover = productCoverMedia(product);
 
   return (
     <div className="border-b border-white/[0.06]">
       <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 py-3 text-left">
         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-black/40">
-          {product.coverUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={resolveMediaUrl(product.coverUrl) || ""} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center text-[10px] text-white/25">Sin foto</div>
-          )}
+          <MediaThumb
+            url={resolveMediaUrl(cover?.url)}
+            thumbnailUrl={resolveMediaUrl(cover?.thumbnailUrl)}
+            type={cover?.type}
+            fallback={<div className="flex h-full items-center justify-center text-[10px] text-white/25">Sin foto</div>}
+          />
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-white">{product.title}</p>
@@ -678,6 +684,19 @@ function ProductRow({
               <Lock className="h-4 w-4" /> Contenido a entregar ({assets.length || product.assetCount || 0})
             </button>
           </div>
+
+          {product.media.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {product.media.map((item) => (
+                <div key={item.id} className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                  <MediaThumb url={resolveMediaUrl(item.url)} thumbnailUrl={resolveMediaUrl(item.thumbnailUrl)} type={item.type} />
+                  {item.type === "VIDEO" && (
+                    <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[8px] font-semibold text-white">Video</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           <p className="text-[11px] leading-relaxed text-white/40">
             Las fotos de vitrina son públicas y sirven de anzuelo. El contenido a entregar queda guardado en privado y solo lo

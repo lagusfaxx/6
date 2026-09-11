@@ -146,3 +146,40 @@ export const btn = {
   ghost:
     "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm text-white/55 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40",
 };
+
+/**
+ * Miniatura de un archivo del marketplace.
+ *
+ * Un video no se puede pintar dentro de un <img>: queda un recuadro vacío, que
+ * es justo lo que se veía en la vitrina cuando la publicación era un video sin
+ * miniatura. Acá se usa el primer frame cuando existe y, si no, el propio video
+ * en silencio y sin controles, que muestra su primer cuadro igual.
+ */
+export function MediaThumb({
+  url,
+  thumbnailUrl,
+  type,
+  alt = "",
+  className = "h-full w-full object-cover",
+  fallback,
+}: {
+  url: string | null | undefined;
+  thumbnailUrl?: string | null;
+  type?: "IMAGE" | "VIDEO" | string | null;
+  alt?: string;
+  className?: string;
+  fallback?: React.ReactNode;
+}) {
+  const poster = thumbnailUrl || (type === "VIDEO" ? null : url);
+
+  if (poster) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={poster} alt={alt} className={className} />;
+  }
+
+  if (url && type === "VIDEO") {
+    return <video src={url} muted playsInline preload="metadata" className={className} />;
+  }
+
+  return <>{fallback ?? <div className={`${className} bg-black/40`} />}</>;
+}

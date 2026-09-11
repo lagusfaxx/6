@@ -57,6 +57,34 @@ export type MarketProduct = {
   seller: MarketSellerCard | null;
 };
 
+/** ¿La URL apunta a un video? Un .mp4 dentro de un <img> se ve como un hueco. */
+export function isVideoUrl(url: string | null | undefined): boolean {
+  return typeof url === "string" && /\.(mp4|mov|webm|m4v|avi|mkv)(\?|$)/i.test(url);
+}
+
+/**
+ * Qué mostrar como portada del artículo. Se prefiere una imagen de verdad
+ * (portada guardada, miniatura del video o la primera foto) y, si el artículo
+ * sólo tiene videos sin miniatura, se devuelve el video para pintar su primer
+ * cuadro con un <video> en vez de dejar el recuadro vacío.
+ */
+export function productCoverMedia(product: {
+  coverUrl?: string | null;
+  media?: MarketProductMedia[] | null;
+}): { url: string; type: "IMAGE" | "VIDEO"; thumbnailUrl: string | null } | null {
+  if (product.coverUrl && !isVideoUrl(product.coverUrl)) {
+    return { url: product.coverUrl, type: "IMAGE", thumbnailUrl: null };
+  }
+  const media = product.media || [];
+  const withThumb = media.find((m) => m.thumbnailUrl);
+  if (withThumb) return { url: withThumb.url, type: withThumb.type, thumbnailUrl: withThumb.thumbnailUrl };
+  const image = media.find((m) => m.type !== "VIDEO" && !isVideoUrl(m.url));
+  if (image) return { url: image.url, type: "IMAGE", thumbnailUrl: null };
+  const video = media.find((m) => m.type === "VIDEO" || isVideoUrl(m.url));
+  if (video) return { url: video.url, type: "VIDEO", thumbnailUrl: null };
+  return null;
+}
+
 export type MarketOrder = {
   id: string;
   code: string;

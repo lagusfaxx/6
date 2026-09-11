@@ -24,6 +24,14 @@ function payload(subject: string, exp: number): string {
   return `market-media\0${subject}\0${exp}`;
 }
 
+/** Origen del archivo firmado: el entregado en un pedido o el maestro del artículo. */
+export type MediaScope = "order" | "product";
+
+function subjectOf(scope: MediaScope, id: string, kind: "asset" | "thumb"): string {
+  // El ámbito "order" no lleva prefijo: las firmas ya emitidas siguen valiendo.
+  return scope === "order" ? `${id}:${kind}` : `${scope}:${id}:${kind}`;
+}
+
 function sign(subject: string, ttlSeconds = ASSET_TTL_SECONDS): { exp: number; sig: string } {
   const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
   const sig = crypto
@@ -52,15 +60,28 @@ function verify(subject: string, exp: number, sig: string | null | undefined): b
 
 /** URL firmada para un archivo entregado en un pedido. */
 export function buildOrderAssetUrl(orderAssetId: string, kind: "asset" | "thumb"): string {
-  const subject = `${orderAssetId}:${kind}`;
-  const { exp, sig } = sign(subject);
+  return buildSignedMediaUrl("order", orderAssetId, kind);
+}
+
+/** URL firmada para el archivo maestro del artículo (uso interno: administración). */
+export function buildProductAssetUrl(productAssetId: string, kind: "asset" | "thumb"): string {
+  return buildSignedMediaUrl("product", productAssetId, kind);
+}
+
+export function buildSignedMediaUrl(scope: MediaScope, assetId: string, kind: "asset" | "thumb"): string {
+  const { exp, sig } = sign(subjectOf(scope, assetId, kind));
   const base = (config.apiUrl || "").replace(/\/$/, "");
+  const path = scope === "order" ? `/market/media/${assetId}` : `/market/media/product/${assetId}`;
   const suffix = kind === "thumb" ? "/thumb" : "";
-  return `${base}/market/media/${orderAssetId}${suffix}?exp=${exp}&sig=${sig}`;
+  return `${base}${path}${suffix}?exp=${exp}&sig=${sig}`;
 }
 
 export function verifyOrderAssetSignature(orderAssetId: string, kind: "asset" | "thumb", exp: number, sig: string | null | undefined): boolean {
-  return verify(`${orderAssetId}:${kind}`, exp, sig);
+  return verify(subjectOf("order", orderAssetId, kind), exp, sig);
+}
+
+export function verifyMediaSignature(scope: MediaScope, assetId: string, kind: "asset" | "thumb", exp: number, sig: string | null | undefined): boolean {
+  return verify(subjectOf(scope, assetId, kind), exp, sig);
 }
 
 /**

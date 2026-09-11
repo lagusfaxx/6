@@ -10,8 +10,9 @@ import {
 
 import useMe from "../../hooks/useMe";
 import { apiFetch, resolveMediaUrl } from "../../lib/api";
+import { MediaThumb } from "../../components/marketplace/ui";
 import {
-  PRODUCT_TYPE_LABEL, formatClp,
+  PRODUCT_TYPE_LABEL, formatClp, productCoverMedia,
   type MarketConfig, type MarketProduct, type MarketProductType,
 } from "../../lib/marketplace";
 
@@ -277,7 +278,7 @@ export default function MarketplaceClient() {
 }
 
 function ProductCard({ product }: { product: MarketProduct }) {
-  const cover = resolveMediaUrl(product.coverUrl || product.media[0]?.thumbnailUrl || product.media[0]?.url);
+  const cover = productCoverMedia(product);
 
   return (
     <Link
@@ -285,14 +286,18 @@ function ProductCard({ product }: { product: MarketProduct }) {
       className="group"
     >
       <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-black/40">
-        {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt={product.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-        ) : (
-          <div className="flex h-full items-center justify-center px-3 text-center text-[11px] text-white/25">
-            {PRODUCT_TYPE_LABEL[product.type]}
-          </div>
-        )}
+        <MediaThumb
+          url={resolveMediaUrl(cover?.url)}
+          thumbnailUrl={resolveMediaUrl(cover?.thumbnailUrl)}
+          type={cover?.type}
+          alt={product.title}
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          fallback={
+            <div className="flex h-full items-center justify-center px-3 text-center text-[11px] text-white/25">
+              {PRODUCT_TYPE_LABEL[product.type]}
+            </div>
+          }
+        />
         {product.autoDeliver && product.deliveryMethods.includes("DIGITAL") && (
           <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white/85 backdrop-blur">
             <Zap className="h-2.5 w-2.5 text-emerald-300" /> Al instante

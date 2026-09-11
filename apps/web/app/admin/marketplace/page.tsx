@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Banknote, CheckCircle2, Clock, DollarSign, Eye, EyeOff, MessageCircle,
-  Package, Percent, Save, Settings, ShieldCheck, ShoppingBag, Store, Truck,
-  Users, XCircle,
+  Banknote, CheckCircle2, Clock, DollarSign, Eye, EyeOff, Image as ImageIcon,
+  MessageCircle, Package, Percent, Save, Search, Settings, ShieldCheck,
+  ShoppingBag, Store, Truck, Users, XCircle,
 } from "lucide-react";
 
 import { apiFetch, friendlyErrorMessage, resolveMediaUrl } from "../../../lib/api";
 import ProtectedGallery from "../../../components/marketplace/ProtectedGallery";
-import { StatRow } from "../../../components/marketplace/ui";
+import { MediaThumb, StatRow } from "../../../components/marketplace/ui";
 import {
-  ORDER_STATUS_UI, DELIVERY_LABEL, formatClp, formatDate,
-  type MarketOrderAsset, type MarketOrderStatus,
+  ORDER_STATUS_UI, DELIVERY_LABEL, PRODUCT_TYPE_LABEL, formatClp, formatDate, productCoverMedia,
+  type MarketDeliveryMethod, type MarketOrderAsset, type MarketOrderStatus,
+  type MarketProductMedia, type MarketProductType,
 } from "../../../lib/marketplace";
 
 type Settings = {
@@ -72,11 +73,30 @@ type AdminOrder = {
   _count?: { assets: number; messages: number };
 };
 
-type Tab = "resumen" | "pedidos" | "envios" | "retiros" | "tiendas" | "config";
+type AdminProduct = {
+  id: string;
+  title: string;
+  description: string | null;
+  priceClp: number;
+  type: MarketProductType;
+  deliveryMethods: MarketDeliveryMethod[];
+  isActive: boolean;
+  isHidden: boolean;
+  coverUrl: string | null;
+  createdAt: string;
+  salesCount: number;
+  viewCount: number;
+  media: MarketProductMedia[];
+  user: { id: string; username: string; displayName: string | null; email: string } | null;
+  _count?: { assets: number; orders: number };
+};
+
+type Tab = "resumen" | "pedidos" | "catalogo" | "envios" | "retiros" | "tiendas" | "config";
 
 const TABS: Array<{ key: Tab; label: string; icon: typeof Store }> = [
   { key: "resumen", label: "Resumen", icon: DollarSign },
   { key: "pedidos", label: "Pedidos", icon: Package },
+  { key: "catalogo", label: "Catálogo", icon: ImageIcon },
   { key: "envios", label: "Envíos", icon: Truck },
   { key: "retiros", label: "Retiros", icon: Banknote },
   { key: "tiendas", label: "Tiendas", icon: Store },
@@ -141,6 +161,7 @@ export default function AdminMarketplacePage() {
       <div className="mt-5">
         {tab === "resumen" && <OverviewTab overview={overview} />}
         {tab === "pedidos" && <OrdersTab onError={setError} onNotice={flash} reload={loadOverview} />}
+        {tab === "catalogo" && <CatalogTab onError={setError} onNotice={flash} />}
         {tab === "envios" && <ShippingTab onError={setError} onNotice={flash} />}
         {tab === "retiros" && <WithdrawalsTab onError={setError} onNotice={flash} reload={loadOverview} />}
         {tab === "tiendas" && <SellersTab onError={setError} onNotice={flash} />}
@@ -368,19 +389,22 @@ function OrderInspector({ orderId, onError }: { orderId: string; onError: (v: st
   const [events, setEvents] = useState<Array<{ id: string; type: string; note: string | null; createdAt: string }>>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<{ assets: MarketOrderAsset[]; messages: any[]; events: any[] }>(`/admin/market/orders/${orderId}`)
-      .then((response) => {
-        if (cancelled) return;
-        setAssets(response.assets || []);
-        setMessages(response.messages || []);
-        setEvents(response.events || []);
-      })
-      .catch((err) => onError(friendlyErrorMessage(err)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => { cancelled = true; };
+  const load = useCallback(async () => {
+    try {
+      const response = await apiFetch<{ assets: MarketOrderAsset[]; messages: any[]; events: any[] }>(
+        `/admin/market/orders/${orderId}`,
+      );
+      setAssets(response.assets || []);
+      setMessages(response.messages || []);
+      setEvents(response.events || []);
+    } catch (err: any) {
+      onError(friendlyErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   }, [onError, orderId]);
+
+  useEffect(() => { load(); }, [load]);
 
   if (loading) return <p className="mt-3 text-xs text-white/45">Cargando detalle...</p>;
 
@@ -391,7 +415,7 @@ function OrderInspector({ orderId, onError }: { orderId: string; onError: (v: st
           <ShieldCheck className="h-3.5 w-3.5" /> Contenido entregado ({assets.length})
         </p>
         {assets.length > 0 ? (
-          <ProtectedGallery assets={assets} watermark="UZEED · Revisión admin" />
+          <ProtectedGallery assets={assets} watermark="UZEED · Revisión admin" onRefreshUrls={load} />
         ) : (
           <p className="text-xs text-white/35">Este pedido no entregó archivos digitales.</p>
         )}
@@ -424,6 +448,224 @@ function OrderInspector({ orderId, onError }: { orderId: string; onError: (v: st
             </p>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Catálogo ─────────── */
+
+/**
+ * Todo lo que se publica en el marketplace, con acceso completo al material.
+ *
+ * La administración tiene que poder mirar lo mismo que recibe quien compra
+ * —fotos y videos, no sólo el título— para resolver un reclamo o bajar una
+ * publicación. El contenido privado se sirve con las mismas URL firmadas de
+ * vida corta que usa la compradora: no hay enlace permanente al archivo.
+ */
+function CatalogTab({ onError, onNotice }: { onError: (v: string | null) => void; onNotice: (v: string) => void }) {
+  const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
+  const [onlyHidden, setOnlyHidden] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: "60" });
+      if (search) params.set("q", search);
+      if (onlyHidden) params.set("hidden", "true");
+      const response = await apiFetch<{ products: AdminProduct[] }>(`/admin/market/products?${params.toString()}`);
+      setProducts(response.products || []);
+    } catch (err: any) {
+      onError(friendlyErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [onError, onlyHidden, search]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const setHidden = async (product: AdminProduct, isHidden: boolean) => {
+    setBusy(true);
+    try {
+      await apiFetch(`/admin/market/products/${product.id}/visibility`, {
+        method: "PUT",
+        body: JSON.stringify({ isHidden }),
+      });
+      onNotice(isHidden ? "Artículo oculto del marketplace" : "Artículo visible de nuevo");
+      await load();
+    } catch (err: any) {
+      onError(friendlyErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <form
+        onSubmit={(e) => { e.preventDefault(); setSearch(query.trim()); }}
+        className="flex flex-wrap items-center gap-2"
+      >
+        <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
+          <Search className="h-4 w-4 shrink-0 text-white/35" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar por título o usuaria"
+            className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+          />
+        </div>
+        <button type="submit" className="rounded-xl bg-white/[0.06] px-3 py-2 text-xs font-semibold text-white">Buscar</button>
+        <button
+          type="button"
+          onClick={() => setOnlyHidden((v) => !v)}
+          className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+            onlyHidden ? "bg-fuchsia-500/20 text-fuchsia-200" : "bg-white/[0.04] text-white/55 hover:bg-white/[0.08]"
+          }`}
+        >
+          Sólo ocultos
+        </button>
+      </form>
+
+      {loading ? (
+        <p className="text-sm text-white/45">Cargando catálogo...</p>
+      ) : products.length === 0 ? (
+        <p className="py-14 text-center text-sm text-white/45">Sin artículos publicados.</p>
+      ) : (
+        products.map((product) => {
+          const cover = productCoverMedia(product);
+          return (
+            <div key={product.id} className="border-b border-white/[0.06] py-4">
+              <div className="flex items-start gap-3">
+                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-black/40">
+                  <MediaThumb
+                    url={resolveMediaUrl(cover?.url)}
+                    thumbnailUrl={resolveMediaUrl(cover?.thumbnailUrl)}
+                    type={cover?.type}
+                    fallback={<div className="flex h-full items-center justify-center text-[10px] text-white/25">Sin vitrina</div>}
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-white">{product.title}</p>
+                  <p className="text-[11px] text-white/40">
+                    {PRODUCT_TYPE_LABEL[product.type]} · {formatClp(product.priceClp)} · {formatDate(product.createdAt)}
+                  </p>
+                  <p className="mt-0.5 truncate text-[11px] text-white/50">
+                    {product.user?.username || "—"} · {product.media.length} de vitrina · {product._count?.assets ?? 0} archivo
+                    {(product._count?.assets ?? 0) === 1 ? "" : "s"} a entregar · {product._count?.orders ?? 0} pedidos
+                  </p>
+                  {!product.isActive && <p className="mt-0.5 text-[11px] text-amber-300">Pausado por la vendedora</p>}
+                  {product.isHidden && <p className="mt-0.5 text-[11px] text-rose-300">Oculto por administración</p>}
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOpenId(openId === product.id ? null : product.id)}
+                  className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-white/70"
+                >
+                  <Eye className="h-3.5 w-3.5" /> {openId === product.id ? "Ocultar contenido" : "Ver fotos y videos"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setHidden(product, !product.isHidden)}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold disabled:opacity-40 ${
+                    product.isHidden ? "bg-emerald-500/15 text-emerald-200" : "bg-rose-500/15 text-rose-200"
+                  }`}
+                >
+                  {product.isHidden ? <><Eye className="h-3.5 w-3.5" /> Volver a publicar</> : <><EyeOff className="h-3.5 w-3.5" /> Ocultar</>}
+                </button>
+                <Link
+                  href={`/marketplace/producto/${product.id}`}
+                  target="_blank"
+                  className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-white/60"
+                >
+                  Ver ficha pública
+                </Link>
+              </div>
+
+              {openId === product.id && <ProductInspector productId={product.id} onError={onError} />}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+/** Vitrina pública y contenido privado de un artículo, para la administración. */
+function ProductInspector({ productId, onError }: { productId: string; onError: (v: string | null) => void }) {
+  const [media, setMedia] = useState<MarketProductMedia[]>([]);
+  const [assets, setAssets] = useState<MarketOrderAsset[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const response = await apiFetch<{ media: MarketProductMedia[]; assets: MarketOrderAsset[] }>(
+        `/admin/market/products/${productId}`,
+      );
+      setMedia(response.media || []);
+      setAssets(response.assets || []);
+    } catch (err: any) {
+      onError(friendlyErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [onError, productId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <p className="mt-3 text-xs text-white/45">Cargando contenido...</p>;
+
+  return (
+    <div className="mt-4 space-y-4 border-t border-white/[0.06] pt-4">
+      <div>
+        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-white/60">
+          <ImageIcon className="h-3.5 w-3.5" /> Vitrina pública ({media.length})
+        </p>
+        {media.length === 0 ? (
+          <p className="text-xs text-white/35">Este artículo no tiene fotos de vitrina.</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {media.map((item) => (
+              <a
+                key={item.id}
+                href={resolveMediaUrl(item.url) || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-black/40"
+              >
+                <MediaThumb
+                  url={resolveMediaUrl(item.url)}
+                  thumbnailUrl={resolveMediaUrl(item.thumbnailUrl)}
+                  type={item.type}
+                />
+                {item.type === "VIDEO" && (
+                  <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-semibold text-white">Video</span>
+                )}
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-white/60">
+          <ShieldCheck className="h-3.5 w-3.5" /> Contenido a entregar ({assets.length})
+        </p>
+        {assets.length === 0 ? (
+          <p className="text-xs text-white/35">Todavía no subieron el contenido que se vende.</p>
+        ) : (
+          <ProtectedGallery assets={assets} watermark="UZEED · Revisión admin" onRefreshUrls={load} />
+        )}
       </div>
     </div>
   );
