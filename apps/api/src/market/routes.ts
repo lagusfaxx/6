@@ -389,6 +389,9 @@ marketRouter.get("/market/products", asyncHandler(async (req, res) => {
     isActive: true,
     isHidden: false,
     seller: { isActive: true, isBanned: false },
+    /* Un artículo digital sin archivos no se puede comprar (el pedido se
+       rechaza): mientras falte el contenido, no se muestra en el catálogo. */
+    AND: [{ OR: [{ assets: { some: {} } }, { deliveryMethods: { hasSome: ["SHIPPING", "MEET"] } }] }],
     ...(PRODUCT_TYPES.includes(type as MarketProductType) ? { type: type as MarketProductType } : {}),
     ...(sellerUsername ? { user: { username: sellerUsername } } : {}),
     ...(minPrice !== null || maxPrice !== null
@@ -532,7 +535,13 @@ marketRouter.get("/market/sellers/:username", asyncHandler(async (req, res) => {
   }
 
   const products = await prisma.marketProduct.findMany({
-    where: { userId: user.id, isActive: true, isHidden: false },
+    where: {
+      userId: user.id,
+      isActive: true,
+      isHidden: false,
+      // Mismo criterio que el catálogo: sin contenido no se puede vender.
+      OR: [{ assets: { some: {} } }, { deliveryMethods: { hasSome: ["SHIPPING", "MEET"] } }],
+    },
     orderBy: { createdAt: "desc" },
     take: 60,
     include: {

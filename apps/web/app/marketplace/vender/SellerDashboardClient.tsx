@@ -71,6 +71,29 @@ const TABS: Array<{ key: Tab; label: string; icon: typeof Store }> = [
 const TYPES: MarketProductType[] = ["PHOTO_SET", "VIDEO", "CLOTHING", "FETISH", "CUSTOM", "OTHER"];
 const DIGITAL_TYPES: MarketProductType[] = ["PHOTO_SET", "VIDEO"];
 
+/** Sube archivos a un artículo, con el primer frame de cada video. */
+async function uploadProductFiles(productId: string, kind: "media" | "assets", files: File[]): Promise<void> {
+  if (!files.length) return;
+  const form = new FormData();
+  files.forEach((file) => form.append("files", file));
+  /* El primer frame de cada video viaja junto al archivo: si el servidor no
+     puede extraerlo, la vitrina igual tiene algo que mostrar. */
+  await appendVideoPosters(form, files);
+  const res = await fetch(`${getApiBase()}/market/seller/products/${productId}/${kind}`, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "UPLOAD_FAILED");
+}
+
+/** Resumen corto de lo que se eligió subir. */
+function fileSummary(files: File[]): string {
+  if (!files.length) return "";
+  if (files.length === 1) return files[0].name;
+  return `${files.length} archivos`;
+}
+
 export default function SellerDashboardClient() {
   const searchParams = useSearchParams();
   const { me, loading: meLoading } = useMe();
@@ -440,9 +463,18 @@ function ProductForm({
   const [methods, setMethods] = useState<MarketDeliveryMethod[]>(["DIGITAL"]);
   const [autoDeliver, setAutoDeliver] = useState(true);
   const [stock, setStock] = useState("");
+  const [assetFiles, setAssetFiles] = useState<File[]>([]);
+  const [previewFiles, setPreviewFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<string | null>(null);
+  const assetInputRef = useRef<HTMLInputElement | null>(null);
+  const previewInputRef = useRef<HTMLInputElement | null>(null);
 
   const isDigital = DIGITAL_TYPES.includes(type);
+  /* Lo que se vende se sube acá mismo: publicar sólo la ficha dejaba el
+     artículo en el catálogo sin el video ni las fotos, imposible de comprar. */
+  const needsContent = methods.includes("DIGITAL");
+  const missingContent = needsContent && assetFiles.length === 0;
 
   const toggleMethod = (method: MarketDeliveryMethod) => {
     setMethods((prev) => (prev.includes(method) ? prev.filter((m) => m !== method) : [...prev, method]));
@@ -451,8 +483,10 @@ function ProductForm({
   const submit = async () => {
     setBusy(true);
     onError(null);
+    let productId: string | null = null;
     try {
-      await apiFetch("/market/seller/products", {
+      setStep("Publicando la ficha...");
+      const created = await apiFetch<{ product: { id: string } }>("/market/seller/products", {
         method: "POST",
         body: JSON.stringify({
           title,
@@ -464,10 +498,28 @@ function ProductForm({
           stock: isDigital ? null : stock === "" ? null : Number(stock),
         }),
       });
+      productId = created.product.id;
+
+      if (assetFiles.length) {
+        setStep("Subiendo el contenido...");
+        await uploadProductFiles(productId, "assets", assetFiles);
+      }
+      if (previewFiles.length) {
+        setStep("Subiendo las fotos de vitrina...");
+        await uploadProductFiles(productId, "media", previewFiles);
+      }
       await onCreated();
     } catch (err: any) {
-      onError(friendlyErrorMessage(err));
+      /* Si la ficha se creó y falló la subida, el artículo ya existe: se avisa
+         para que lo complete desde la lista en vez de publicarlo de nuevo. */
+      onError(
+        productId
+          ? "El artículo se creó, pero no pudimos subir los archivos. Ábrelo en la lista y vuelve a intentarlo."
+          : friendlyErrorMessage(err),
+      );
+      if (productId) await onCreated();
     } finally {
+      setStep(null);
       setBusy(false);
     }
   };
@@ -533,17 +585,80 @@ function ProductForm({
         </label>
       )}
 
+      <div className="space-y-2 border-t border-white/[0.07] pt-3">
+        <p className="text-xs font-medium text-white/50">Archivos</p>
+
+        <input
+          ref={assetInputRef}
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          hidden
+          onChange={(e) => { setAssetFiles(Array.from(e.target.files || [])); e.target.value = ""; }}
+        />
+        <button
+          type="button"
+          onClick={() => assetInputRef.current?.click()}
+          className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-3 text-left text-xs font-semibold transition ${
+            assetFiles.length
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+              : missingContent
+                ? "border-amber-500/35 bg-amber-500/[0.07] text-amber-200"
+                : "border-white/10 bg-white/[0.04] text-white"
+          }`}
+        >
+          <Lock className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1">
+            {assetFiles.length ? `Contenido a entregar: ${fileSummary(assetFiles)}` : "Subir el contenido a entregar"}
+            <span className="mt-0.5 block font-normal text-white/45">
+              El video o las fotos que recibe quien compra. Quedan en privado.
+            </span>
+          </span>
+          {assetFiles.length > 0 && <CheckCircle2 className="h-4 w-4 shrink-0" />}
+        </button>
+
+        <input
+          ref={previewInputRef}
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          hidden
+          onChange={(e) => { setPreviewFiles(Array.from(e.target.files || [])); e.target.value = ""; }}
+        />
+        <button
+          type="button"
+          onClick={() => previewInputRef.current?.click()}
+          className="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-left text-xs font-semibold text-white"
+        >
+          <ImagePlus className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1">
+            {previewFiles.length ? `Vitrina: ${fileSummary(previewFiles)}` : "Fotos de vitrina (opcional)"}
+            <span className="mt-0.5 block font-normal text-white/45">
+              Las que se ven en el marketplace. Si no subes ninguna, armamos una portada difuminada con tu contenido.
+            </span>
+          </span>
+          {previewFiles.length > 0 && <CheckCircle2 className="h-4 w-4 shrink-0" />}
+        </button>
+
+        {missingContent && (
+          <p className="flex items-start gap-1.5 text-[11px] text-amber-300">
+            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+            Para entrega digital necesitas subir el contenido ahora: sin él nadie puede comprarlo.
+          </p>
+        )}
+      </div>
+
       <div className="flex gap-2">
         <button type="button" onClick={onCancel} className="flex-1 rounded-xl border border-white/10 px-4 py-3 text-sm text-white/60">
           Cancelar
         </button>
         <button
           type="button"
-          disabled={busy || !title || !priceClp || methods.length === 0}
+          disabled={busy || !title || !priceClp || methods.length === 0 || missingContent}
           onClick={submit}
           className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-3 text-sm font-bold text-white disabled:opacity-40"
         >
-          {busy ? "Publicando..." : "Publicar"}
+          {busy ? step || "Publicando..." : "Publicar"}
         </button>
       </div>
     </div>
@@ -583,18 +698,7 @@ function ProductRow({
     setBusy(true);
     onError(null);
     try {
-      const list = Array.from(files);
-      const form = new FormData();
-      list.forEach((file) => form.append("files", file));
-      /* El primer frame de cada video viaja junto al archivo: si el servidor no
-         puede extraerlo, la vitrina igual tiene algo que mostrar. */
-      await appendVideoPosters(form, list);
-      const res = await fetch(`${getApiBase()}/market/seller/products/${product.id}/${kind}`, {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "UPLOAD_FAILED");
+      await uploadProductFiles(product.id, kind, Array.from(files));
       onNotice(kind === "media" ? "Vitrina actualizada" : "Contenido cargado");
       if (kind === "assets") await loadAssets();
       await reload();
@@ -655,7 +759,7 @@ function ProductRow({
           </p>
           {needsAssets && (
             <p className="mt-0.5 flex items-center gap-1 text-[11px] text-amber-300">
-              <AlertCircle className="h-3 w-3" /> Falta subir el contenido
+              <AlertCircle className="h-3 w-3" /> Falta subir el contenido: no aparece en el marketplace
             </p>
           )}
         </div>
