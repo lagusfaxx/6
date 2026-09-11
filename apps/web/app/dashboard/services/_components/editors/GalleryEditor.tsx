@@ -14,8 +14,9 @@ type Props = {
 
 export default function GalleryEditor({ onUploadGallery, onRemoveGalleryItem }: Props) {
   const { state } = useDashboardForm();
-  /* El mínimo de fotos es un requisito para publicar, no una sugerencia: se
-     dice acá arriba, donde se suben, y no sólo en la lista del encabezado. */
+  /* Las fotos ya no retienen la publicación. Siguen siendo lo primero que
+     mira el cliente, así que el contador se queda — pero como visibilidad,
+     no como peaje. */
   const photos = state.gallery.filter(
     (g) => String(g.type).toUpperCase() !== "VIDEO",
   ).length;
@@ -32,16 +33,16 @@ export default function GalleryEditor({ onUploadGallery, onRemoveGalleryItem }: 
               className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                 photosComplete
                   ? "bg-emerald-500/15 text-emerald-300"
-                  : "bg-amber-500/15 text-amber-300"
+                  : "bg-fuchsia-500/15 text-fuchsia-300"
               }`}
             >
-              {photos}/{MIN_PROFILE_PHOTOS} obligatorias
+              {photos}/{MIN_PROFILE_PHOTOS} recomendadas
             </span>
           </div>
           <p className="mt-0.5 text-xs text-white/40">
             {photosComplete
               ? "Fotos y videos visibles en tu perfil público."
-              : `Sube ${photosLeft} foto${photosLeft !== 1 ? "s" : ""} más para poder publicar tu perfil.`}
+              : `Con ${photosLeft} foto${photosLeft !== 1 ? "s" : ""} más apareces en más búsquedas.`}
           </p>
         </div>
         <label className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-white/60 cursor-pointer hover:bg-white/[0.06] transition shrink-0">
@@ -99,7 +100,7 @@ export default function GalleryEditor({ onUploadGallery, onRemoveGalleryItem }: 
           {Array.from({ length: photosLeft }).map((_, i) => (
             <label
               key={i}
-              className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-amber-500/25 bg-amber-500/[0.04] text-center text-[11px] text-amber-300/70 transition hover:border-amber-500/40 hover:bg-amber-500/[0.07]"
+              className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-fuchsia-500/25 bg-fuchsia-500/[0.04] text-center text-[11px] text-fuchsia-300/70 transition hover:border-fuchsia-500/40 hover:bg-fuchsia-500/[0.07]"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
