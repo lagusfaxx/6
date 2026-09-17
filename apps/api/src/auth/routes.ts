@@ -411,15 +411,64 @@ const quickRegisterDisk = multer.diskStorage({
   },
 });
 
+const QUICK_REGISTER_MAX_FILE_BYTES = 10 * 1024 * 1024;
+
 const quickRegisterUpload = multer({
   storage: quickRegisterDisk,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: QUICK_REGISTER_MAX_FILE_BYTES },
   fileFilter: (_req, file, cb) => {
-    const ok = (file.mimetype || "").toLowerCase().startsWith("image/");
-    if (!ok) return cb(new Error("INVALID_FILE_TYPE"));
+    /* El tipo declarado por el navegador no decide: varios Android y los
+       archivos que llegan reenviados por WhatsApp mandan
+       `application/octet-stream` o un tipo vacío para un JPG perfectamente
+       válido, y con eso se caía el registro entero. Lo que manda son los
+       magic bytes, que `validateUploadedFile` mira archivo por archivo más
+       abajo. Acá sólo se corta lo que se declara y NO es imagen (un PDF, un
+       video), para no escribir en disco lo que igual se va a descartar. */
+    const declared = (file.mimetype || "").toLowerCase();
+    const declaresSomethingElse =
+      declared.length > 0 &&
+      declared !== "application/octet-stream" &&
+      !declared.startsWith("image/");
+    if (declaresSomethingElse) return cb(new Error("INVALID_FILE_TYPE"));
     return cb(null, true);
   },
 });
+
+/**
+ * Traduce los fallos de multer a un 400 que se entienda. Sin esto caían al
+ * handler global como 500 INTERNAL_SERVER_ERROR y el formulario mostraba
+ * "Ocurrió un error. Intenta nuevamente.": una foto de más de 10 MB —una foto
+ * de teléfono cualquiera— mataba el registro sin decir cuál ni por qué.
+ */
+function handleQuickRegisterUpload(
+  req: import("express").Request,
+  res: import("express").Response,
+  next: import("express").NextFunction,
+) {
+  quickRegisterUpload.fields([
+    { name: "avatar", maxCount: 1 },
+    { name: "gallery", maxCount: 6 },
+  ])(req, res, (err: any) => {
+    if (!err) return next();
+
+    const code = err instanceof multer.MulterError ? err.code : err?.message;
+    console.warn("[auth/quick-register] upload rejected", {
+      code,
+      field: err?.field,
+    });
+
+    const message =
+      code === "LIMIT_FILE_SIZE"
+        ? "Una de tus fotos pesa más de 10 MB. Súbela más liviana o elige otra."
+        : code === "LIMIT_FILE_COUNT" || code === "LIMIT_UNEXPECTED_FILE"
+          ? "Puedes subir hasta 6 fotos."
+          : code === "INVALID_FILE_TYPE"
+            ? "Sólo se aceptan fotos (JPG o PNG)."
+            : "No pudimos recibir tus fotos. Intenta de nuevo con otras imágenes.";
+
+    return res.status(400).json({ error: "UPLOAD_REJECTED", message });
+  });
+}
 
 function slugify(text: string): string {
   return text
@@ -434,10 +483,7 @@ function slugify(text: string): string {
 authRouter.post(
   "/quick-register",
   authLimiter,
-  quickRegisterUpload.fields([
-    { name: "avatar", maxCount: 1 },
-    { name: "gallery", maxCount: 6 },
-  ]),
+  handleQuickRegisterUpload,
   asyncHandler(async (req, res) => {
     const b = req.body;
     const body = {

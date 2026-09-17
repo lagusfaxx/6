@@ -89,6 +89,50 @@ const INITIAL_DATA: WizardData = {
   acceptTerms: false,
 };
 
+/* La API rechaza cualquier archivo sobre 10 MB (`limits.fileSize` de multer en
+   /auth/quick-register). Una foto de teléfono los pasa sin esfuerzo, y el
+   registro entero se caía por eso: se sube al menos 3 fotos o no hay perfil.
+   Así que se achican acá antes de enviarlas. Si el navegador no sabe decodificar
+   el formato (HEIC en Chrome, por ejemplo) se manda el original y el servidor
+   lo convierte. */
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_PHOTO_EDGE = 1600;
+
+async function shrinkPhoto(file: File): Promise<File> {
+  if (file.size <= MAX_UPLOAD_BYTES) return file;
+
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    return file;
+  }
+
+  try {
+    const scale = Math.min(1, MAX_PHOTO_EDGE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.85),
+    );
+    /* Sólo se reemplaza si de verdad quedó más liviana: en una foto ya
+       optimizada el re-encode puede salir peor. */
+    if (!blob || blob.size >= file.size) return file;
+
+    const name = file.name.replace(/\.[^.]+$/, "") || "foto";
+    return new File([blob], `${name}.jpg`, { type: "image/jpeg" });
+  } catch {
+    return file;
+  } finally {
+    bitmap.close();
+  }
+}
+
 const TOTAL_STEPS = 3;
 /* Mismo tope que valida la API (`DISPLAY_NAME_MAX_LENGTH` en @uzeed/shared). */
 const DISPLAY_NAME_MIN_LENGTH = 2;
@@ -115,16 +159,16 @@ export default function PublicateClient() {
     [],
   );
 
-  const handleGalleryAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGalleryAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    e.target.value = "";
     if (!files.length) return;
     const remaining = MAX_GALLERY - data.galleryFiles.length;
-    const toAdd = files.slice(0, remaining);
+    const toAdd = await Promise.all(files.slice(0, remaining).map(shrinkPhoto));
     update({
       galleryFiles: [...data.galleryFiles, ...toAdd],
       galleryPreviews: [...data.galleryPreviews, ...toAdd.map((f) => URL.createObjectURL(f))],
     });
-    e.target.value = "";
   };
 
   const removeGalleryItem = (idx: number) => {
