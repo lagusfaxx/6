@@ -49,6 +49,7 @@ async function main() {
     },
     select: {
       createdAt: true,
+      profileType: true,
       verifiedAt: true,
       isVerified: true,
       isActive: true,
@@ -82,6 +83,40 @@ async function main() {
       `${d}  ${String(r.altas).padStart(5)}  ${String(r.conPassword).padStart(7)}  ` +
         `${String(r.verificadas).padStart(11)}  ${String(r.publicadas).padStart(10)}  ` +
         `${String(r.aprobadas).padStart(17)}`,
+    );
+  }
+
+  /* La prueba que separa "se rompió el formulario" de "vino menos gente":
+     visitas a /publicate contra altas de profesionales, día por día. Si las
+     visitas se mantienen y las altas caen, el embudo está roto. Si caen las
+     dos, es demanda (estacionalidad, tráfico, SEO). */
+  const visitas = await prisma.pageView.findMany({
+    where: { path: { startsWith: "/publicate" }, createdAt: { gte: since } },
+    select: { createdAt: true, sessionId: true },
+  });
+  const visitasPorDia = new Map();
+  for (const v of visitas) {
+    const key = dayKey(v.createdAt);
+    if (!visitasPorDia.has(key)) visitasPorDia.set(key, new Set());
+    visitasPorDia.get(key).add(v.sessionId || v.createdAt.toISOString());
+  }
+
+  console.log("\nEmbudo /publicate — visitas únicas vs. altas de profesionales");
+  console.log("─".repeat(70));
+  console.log("fecha       visitas  altas-prof  conversión");
+  const profPorDia = new Map();
+  for (const u of altas) {
+    if (u.profileType !== "PROFESSIONAL") continue;
+    const key = dayKey(u.createdAt);
+    profPorDia.set(key, (profPorDia.get(key) || 0) + 1);
+  }
+  const diasEmbudo = [...new Set([...visitasPorDia.keys(), ...profPorDia.keys()])].sort();
+  for (const d of diasEmbudo) {
+    const v = visitasPorDia.get(d)?.size || 0;
+    const a = profPorDia.get(d) || 0;
+    const pct = v > 0 ? `${((a / v) * 100).toFixed(1)}%` : "—";
+    console.log(
+      `${d}  ${String(v).padStart(7)}  ${String(a).padStart(10)}  ${pct.padStart(10)}`,
     );
   }
 
