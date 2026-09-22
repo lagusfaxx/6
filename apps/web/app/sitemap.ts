@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { CITY_LANDINGS } from "../lib/cities";
+import { ESCORT_LANDINGS } from "../lib/escortLandings";
 import { cleanProfileHref } from "../lib/profileUrl";
 
 type ProfessionalItem = {
@@ -182,6 +183,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   add("/live", "always", 0.85);
   add("/foro", "hourly", 0.85);
   // /hot redirects to /premium — excluded from sitemap
+
+  // ── Landings del lado OFERTA (captar escorts y creadoras) ──
+  // El SEO del sitio apuntaba solo al cliente que busca escorts; estas URLs
+  // cubren la intención contraria ("trabajar de escort", "vender packs",
+  // "publicar anuncio gratis"). /creadoras iba con noindex hasta ahora.
+  for (const landing of ESCORT_LANDINGS) {
+    add(`/${landing.slug}`, "weekly", 0.85);
+  }
 
   // ── Registro (indexable para captar profesionales) ──
   add("/register", "weekly", 0.7);

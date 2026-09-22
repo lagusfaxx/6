@@ -4,13 +4,10 @@ import EscortLandingPage, {
 } from "../../components/EscortLandingPage";
 import { getEscortLanding } from "../../lib/escortLandings";
 
-const landing = getEscortLanding("creadoras")!;
+const landing = getEscortLanding("trabajar-de-escort")!;
 
-// Antes esta página iba con robots: { index: false, follow: false }, así que
-// ninguna búsqueda del lado oferta ("trabajar de escort", "publicar perfil",
-// "vender packs") podía llegar al sitio. Ahora es indexable.
 export const metadata: Metadata = buildEscortLandingMetadata(landing);
 
-export default function CreadorasPage() {
+export default function Page() {
   return <EscortLandingPage landing={landing} />;
 }

@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { CITY_LANDINGS } from "../../lib/cities";
+import type { EscortLanding } from "../../lib/escortLandings";
+
+export type RelatedLanding = { slug: string; eyebrow: string; h1: string };
 
 export type PublicProfile = {
   id: string;
@@ -70,7 +74,16 @@ const steps = [
   "Envía tu verificación y publica tu perfil para recibir contactos.",
 ];
 
-export default function CreadorasClient({ profiles = [] }: { profiles?: PublicProfile[] }) {
+export default function CreadorasClient({
+  profiles = [],
+  landing,
+  related = [],
+}: {
+  profiles?: PublicProfile[];
+  /** Variante de landing: define eyebrow, H1, intro, bloque SEO y FAQ. */
+  landing: EscortLanding;
+  related?: RelatedLanding[];
+}) {
   return (
     <div className="relative mx-auto w-full max-w-5xl px-4 py-10 sm:py-14">
       {/* Ambient glow */}
@@ -93,17 +106,13 @@ export default function CreadorasClient({ profiles = [] }: { profiles?: PublicPr
       {/* Hero */}
       <section className="text-center">
         <span className="inline-block rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-fuchsia-300">
-          Invitación para creadoras
+          {landing.eyebrow}
         </span>
         <h1 className="mt-5 text-3xl font-bold tracking-tight text-white sm:text-5xl">
-          Trabaja con independencia en la plataforma líder de Chile
+          {landing.h1}
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/60 sm:text-base">
-          UZEED es la plataforma chilena que reúne directorio de perfiles,
-          feed de contenido y suscripciones en un solo lugar. Creas tu perfil,
-          publicas tu contenido, decides tus precios y hablas directamente con
-          tus clientes. Seguridad, control total y la tarifa más baja del
-          mercado.
+          {landing.intro}
         </p>
 
         {/* Primary CTAs */}
@@ -340,6 +349,102 @@ export default function CreadorasClient({ profiles = [] }: { profiles?: PublicPr
             </li>
           ))}
         </ol>
+      </section>
+
+      {/* Bloque SEO largo — texto indexable con la intención de la variante */}
+      <section className="mt-14">
+        <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+          {landing.seoSection.heading}
+        </h2>
+        <div className="mt-4 space-y-4 text-sm leading-relaxed text-white/60 sm:text-base">
+          {landing.seoSection.paragraphs.map((text, i) => (
+            <p key={i}>{text}</p>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ — mismo contenido que el JSON-LD FAQPage de la página */}
+      <section className="mt-14">
+        <header className="mb-6 text-center">
+          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            Preguntas frecuentes
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-white/55">
+            Lo que más nos preguntan antes de publicar el primer perfil.
+          </p>
+        </header>
+
+        <div className="space-y-2">
+          {landing.faq.map((item) => (
+            <details
+              key={item.question}
+              className="group rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 open:border-fuchsia-500/20"
+            >
+              <summary className="cursor-pointer list-none text-sm font-semibold text-white/85 marker:hidden">
+                <span className="flex items-start justify-between gap-3">
+                  {item.question}
+                  <svg
+                    className="mt-0.5 h-4 w-4 shrink-0 text-white/40 transition-transform group-open:rotate-180"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path d="M5 8l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              </summary>
+              <p className="mt-2 text-sm leading-relaxed text-white/60">{item.answer}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      {/* Enlaces internos: otras landings del lado oferta */}
+      {related.length > 0 && (
+        <section className="mt-14">
+          <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
+            También te puede interesar
+          </h2>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {related.map((r) => (
+              <Link
+                key={r.slug}
+                href={`/${r.slug}`}
+                className="group rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 transition-colors hover:border-fuchsia-500/25 hover:bg-white/[0.05]"
+              >
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-fuchsia-300/80">
+                  {r.eyebrow}
+                </span>
+                <p className="mt-1.5 text-sm font-medium leading-snug text-white/75 group-hover:text-white">
+                  {r.h1}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Enlaces internos por ciudad — reparte autoridad a las landings geo */}
+      <section className="mt-10">
+        <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
+          Publica tu perfil en tu ciudad
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm text-white/55">
+          UZEED recibe clientes en más de 300 ciudades y comunas de Chile. Mira
+          los perfiles activos en tu zona antes de publicar el tuyo.
+        </p>
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {CITY_LANDINGS.slice(0, 18).map((city) => (
+            <li key={city.slug}>
+              <Link
+                href={`/escorts/${city.slug}`}
+                className="inline-flex rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-xs text-white/55 transition-colors hover:border-fuchsia-500/25 hover:text-white/85"
+              >
+                Escorts en {city.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* Privacy note */}
