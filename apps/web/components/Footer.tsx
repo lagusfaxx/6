@@ -20,6 +20,12 @@ const footerLinks = {
     { label: "Escorts en Antofagasta", href: "/escorts/antofagasta" },
     { label: "Escorts en Temuco", href: "/escorts/temuco" },
   ],
+  "Trabaja con UZEED": [
+    { label: "Publica tu perfil gratis", href: "/creadoras" },
+    { label: "Trabajar de escort en Chile", href: "/trabajar-de-escort" },
+    { label: "Vender contenido +18", href: "/vender-contenido" },
+    { label: "Publicar anuncio de escort", href: "/publicar-anuncio-escort" },
+  ],
   "Cuenta": [
     { label: "Iniciar sesión", href: "/login" },
     { label: "Registro cliente", href: "/register?type=CLIENT" },
@@ -39,7 +45,7 @@ export default function Footer() {
     <footer className="border-t border-white/[0.06] bg-black/30 pb-20 md:pb-0">
       {/* Desktop: full footer */}
       <div className="mx-auto hidden max-w-6xl px-6 py-12 md:block">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
           {Object.entries(footerLinks).map(([title, links]) => (
             <div key={title}>
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/50">{title}</h3>
