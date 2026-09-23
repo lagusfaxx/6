@@ -2123,3 +2123,19 @@ model MarketReview {
 
   @@index([productId, createdAt])
 }
+
+/// Bitácora del servidor MCP (Claude). Cada herramienta que cambia algo deja
+/// una fila; las consultas SQL libres también, para saber qué se miró.
+model McpAuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  tool      String
+  /// "full" (token con escritura) o "read" (token de sólo lectura).
+  scope     String
+  args      Json?
+  ok        Boolean  @default(true)
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([tool, createdAt])
+}
