@@ -1,7 +1,18 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { prisma } from "../../db";
+import { Prisma } from "@prisma/client";
 import { config } from "../../config";
+import {
+  actorKeySql,
+  realActionSql,
+  realPageViewSql,
+  realUserSql,
+  realUserWhere,
+  staffIdsSql,
+  visitorKeySql,
+} from "../../lib/statsFilters";
+import { localTs } from "../metrics";
 import { guarded, type McpScope } from "../audit";
 import {
   PROFILE_TYPES,
@@ -66,11 +77,13 @@ const ORDER: Record<NonNullable<SearchArgs["orden"]>, any> = {
 
 type RankingArgs = PeriodInput & {
   metrica:
+    | "visitantes_ficha"
     | "visitas_ficha"
-    | "clicks_whatsapp"
+    | "contactos_whatsapp"
     | "mensajes_recibidos"
     | "favoritos"
     | "solicitudes"
+    | "tasa_contacto"
     | "vistas_totales"
     | "servicios_completados"
     | "ganancias_tokens";
@@ -78,6 +91,42 @@ type RankingArgs = PeriodInput & {
   ciudad?: string;
   limite?: number;
 };
+
+/**
+ * Condición SQL "esta página vista es la ficha de ese perfil". La ficha vive
+ * en /profesional/<id>; se acepta también el username por enlaces antiguos.
+ */
+function profilePathSql(alias: string, idCol: Prisma.Sql, usernameCol: Prisma.Sql): Prisma.Sql {
+  const seg = Prisma.sql`split_part(${Prisma.raw(`"${alias}"`)}."path", '/', 3)`;
+  return Prisma.sql`(${Prisma.raw(`"${alias}"`)}."path" LIKE '/profesional/%' AND (${seg} = ${idCol}::text OR ${seg} = ${usernameCol}))`;
+}
+
+/** Visitas, visitantes y contactos reales de la ficha de un perfil desde `since`. */
+async function profileActivity(id: string, username: string, since: Date) {
+  const [views, clicks] = await Promise.all([
+    prisma.$queryRaw<{ visitas: number; visitantes: number }[]>`
+      SELECT COUNT(*)::int AS visitas, COUNT(DISTINCT ${visitorKeySql("pv")})::int AS visitantes
+      FROM "PageView" pv
+      WHERE pv."createdAt" >= ${since} AND ${realPageViewSql("pv")}
+        AND ${profilePathSql("pv", Prisma.sql`${id}::uuid`, Prisma.sql`${username}`)}`,
+    prisma.$queryRaw<{ action: string; clicks: number; unicos: number }[]>`
+      SELECT ua."action", COUNT(*)::int AS clicks,
+             COUNT(DISTINCT (${actorKeySql("ua")} || ':' || to_char(${localTs('ua."createdAt"')}, 'YYYY-MM-DD')))::int AS unicos
+      FROM "UserAction" ua
+      WHERE ua."targetId" = ${id}::uuid AND ua."createdAt" >= ${since} AND ${realActionSql("ua")}
+      GROUP BY 1`,
+  ]);
+  const byAction = Object.fromEntries(clicks.map((c) => [c.action, { clicks: c.clicks, contactosUnicos: c.unicos }]));
+  const visitors = views[0]?.visitantes ?? 0;
+  const whatsappUnique = byAction.whatsapp_click?.contactosUnicos ?? 0;
+  return {
+    visitasFicha: views[0]?.visitas ?? 0,
+    visitantesFicha: visitors,
+    acciones: byAction,
+    // Qué parte de quienes vieron la ficha escribió por WhatsApp.
+    tasaContactoWhatsappPct: visitors ? Math.round((whatsappUnique / visitors) * 1000) / 10 : null,
+  };
+}
 
 export function registerUserTools(server: McpServer, scope: McpScope) {
   server.registerTool(
@@ -199,9 +248,7 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
         messagesReceived,
         unreadReceived,
         favoritesReceived,
-        whatsappTotal,
-        whatsapp30,
-        profileVisits30,
+        profileStats,
         photos,
         videos,
         activeStories,
@@ -217,9 +264,7 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
         prisma.message.count({ where: { toId: id } }),
         prisma.message.count({ where: { toId: id, readAt: null } }),
         prisma.favorite.count({ where: { professionalId: id } }),
-        prisma.userAction.count({ where: { action: "whatsapp_click", targetId: id } }),
-        prisma.userAction.count({ where: { action: "whatsapp_click", targetId: id, createdAt: { gte: since30 } } }),
-        prisma.pageView.count({ where: { path: { startsWith: `/profesional/${user.username}` }, createdAt: { gte: since30 } } }),
+        profileActivity(id, user.username, since30),
         prisma.profileMedia.count({ where: { ownerId: id, type: "IMAGE" } }),
         prisma.profileMedia.count({ where: { ownerId: id, type: "VIDEO" } }),
         prisma.story.count({ where: { userId: id, expiresAt: { gt: new Date() } } }),
@@ -247,7 +292,7 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
 
       return jsonResult({
         usuario: user,
-        urlPublica: `${config.appUrl.replace(/\/$/, "")}/profesional/${user.username}`,
+        urlPublica: `${config.appUrl.replace(/\/$/, "")}/profesional/${user.id}`,
         membresia: {
           activa: membershipActive,
           venceEl: user.membershipExpiresAt,
@@ -259,9 +304,7 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
           mensajesRecibidos: messagesReceived,
           mensajesSinLeer: unreadReceived,
           favoritosRecibidos: favoritesReceived,
-          clicksWhatsappTotal: whatsappTotal,
-          clicksWhatsapp30d: whatsapp30,
-          visitasFicha30d: profileVisits30,
+          ultimos30Dias: profileStats,
           solicitudesComoProfesional: Object.fromEntries(requestsAsPro.map((r) => [r.status, r._count._all])),
           solicitudesComoCliente: requestsAsClient,
         },
@@ -282,14 +325,16 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
     {
       title: "Ranking de perfiles",
       description:
-        "Top de perfiles por una métrica. Con periodo: visitas_ficha, clicks_whatsapp, mensajes_recibidos, favoritos, solicitudes. Acumuladas (ignoran el periodo): vistas_totales, servicios_completados, ganancias_tokens.",
+        "Top de perfiles por una métrica, con datos limpios (sin bots, sin el equipo, sin perfiles de prueba). Con periodo: visitantes_ficha (personas distintas que vieron la ficha), visitas_ficha, contactos_whatsapp (únicos por persona y día), mensajes_recibidos (sin el equipo; incluye remitentes únicos), favoritos, solicitudes, tasa_contacto (% de visitantes que escribió por WhatsApp; mínimo 20 visitantes). Acumuladas (ignoran el periodo): vistas_totales, servicios_completados, ganancias_tokens.",
       inputSchema: {
         metrica: z.enum([
+          "visitantes_ficha",
           "visitas_ficha",
-          "clicks_whatsapp",
+          "contactos_whatsapp",
           "mensajes_recibidos",
           "favoritos",
           "solicitudes",
+          "tasa_contacto",
           "vistas_totales",
           "servicios_completados",
           "ganancias_tokens",
@@ -305,111 +350,138 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
       const period = resolvePeriod(args);
       const take = args.limite ?? 20;
       const profileType = args.tipoPerfil || "PROFESSIONAL";
-      const userWhere: any = { profileType };
-      if (args.ciudad) userWhere.city = { contains: args.ciudad, mode: "insensitive" };
-      const range = { gte: period.from, lt: period.to };
-      // Pedimos de más porque después se filtra por tipo/ciudad.
-      const wide = Math.min(take * 5, 500);
+      const cumulative = ["vistas_totales", "servicios_completados", "ganancias_tokens"].includes(args.metrica);
 
-      let scores: { userId: string; valor: number }[] = [];
+      // Filtro de perfiles dentro del SQL: así el top sale del universo
+      // correcto y no de un recorte previo.
+      const userFilter = Prisma.sql`u."profileType"::text = ${profileType} AND ${realUserSql("u")}${
+        args.ciudad ? Prisma.sql` AND u."city" ILIKE ${"%" + args.ciudad + "%"}` : Prisma.empty
+      }`;
+      const from = period.from;
+      const to = period.to;
+      const pvJoin = Prisma.sql`"PageView" pv JOIN "User" u
+        ON pv."path" LIKE '/profesional/%'
+       AND (split_part(pv."path", '/', 3) = u."id"::text OR split_part(pv."path", '/', 3) = u."username")`;
+      const pvWhere = Prisma.sql`pv."createdAt" >= ${from} AND pv."createdAt" < ${to} AND ${realPageViewSql("pv")} AND ${userFilter}`;
+      const waUnique = Prisma.sql`COUNT(DISTINCT (${actorKeySql("ua")} || ':' || to_char(${localTs('ua."createdAt"')}, 'YYYY-MM-DD')))`;
+
+      type Row = { id: string; valor: number; detalle: Record<string, number> | null };
+      let rows: Row[] = [];
       switch (args.metrica) {
+        case "visitantes_ficha":
         case "visitas_ficha": {
-          const rows = await prisma.$queryRaw<{ username: string; valor: number }[]>`
-            SELECT split_part("path", '/', 3) AS username, COUNT(*)::int AS valor
-            FROM "PageView"
-            WHERE "path" LIKE '/profesional/%' AND "createdAt" >= ${period.from} AND "createdAt" < ${period.to}
-            GROUP BY 1 ORDER BY 2 DESC LIMIT ${wide}`;
-          const users = await prisma.user.findMany({
-            where: { username: { in: rows.map((r) => decodeURIComponent(r.username)) } },
-            select: { id: true, username: true },
-          });
-          const byName = new Map(users.map((u) => [u.username, u.id]));
-          scores = rows
-            .map((r) => ({ userId: byName.get(decodeURIComponent(r.username)) || "", valor: r.valor }))
-            .filter((r) => r.userId);
+          const order = args.metrica === "visitantes_ficha" ? Prisma.raw("visitantes") : Prisma.raw("visitas");
+          const r = await prisma.$queryRaw<{ id: string; visitas: number; visitantes: number }[]>`
+            SELECT u."id", COUNT(*)::int AS visitas, COUNT(DISTINCT ${visitorKeySql("pv")})::int AS visitantes
+            FROM ${pvJoin} WHERE ${pvWhere}
+            GROUP BY u."id" ORDER BY ${order} DESC LIMIT ${take}`;
+          rows = r.map((x) => ({
+            id: x.id,
+            valor: args.metrica === "visitantes_ficha" ? x.visitantes : x.visitas,
+            detalle: { visitas: x.visitas, visitantes: x.visitantes },
+          }));
           break;
         }
-        case "clicks_whatsapp": {
-          const rows = await prisma.userAction.groupBy({
-            by: ["targetId"],
-            where: { action: "whatsapp_click", createdAt: range, targetId: { not: null } },
-            _count: { _all: true },
-            orderBy: { _count: { targetId: "desc" } },
-            take: wide,
-          });
-          scores = rows.map((r) => ({ userId: r.targetId!, valor: r._count._all }));
+        case "contactos_whatsapp": {
+          const r = await prisma.$queryRaw<{ id: string; unicos: number; clicks: number; personas: number }[]>`
+            SELECT u."id", ${waUnique}::int AS unicos, COUNT(*)::int AS clicks, COUNT(DISTINCT ${actorKeySql("ua")})::int AS personas
+            FROM "UserAction" ua JOIN "User" u ON u."id" = ua."targetId"
+            WHERE ua."action" = 'whatsapp_click' AND ua."createdAt" >= ${from} AND ua."createdAt" < ${to}
+              AND ${realActionSql("ua")} AND ${userFilter}
+            GROUP BY u."id" ORDER BY unicos DESC, clicks DESC LIMIT ${take}`;
+          rows = r.map((x) => ({ id: x.id, valor: x.unicos, detalle: { clicks: x.clicks, personasDistintas: x.personas } }));
+          break;
+        }
+        case "tasa_contacto": {
+          const r = await prisma.$queryRaw<{ id: string; visitantes: number; contactos: number }[]>`
+            WITH v AS (
+              SELECT u."id", COUNT(DISTINCT ${visitorKeySql("pv")})::int AS visitantes
+              FROM ${pvJoin} WHERE ${pvWhere} GROUP BY u."id"
+            ), c AS (
+              SELECT ua."targetId" AS id, ${waUnique}::int AS contactos
+              FROM "UserAction" ua
+              WHERE ua."action" = 'whatsapp_click' AND ua."createdAt" >= ${from} AND ua."createdAt" < ${to} AND ${realActionSql("ua")}
+              GROUP BY 1
+            )
+            SELECT v."id", v.visitantes, COALESCE(c.contactos, 0)::int AS contactos
+            FROM v LEFT JOIN c ON c.id = v."id"
+            WHERE v.visitantes >= 20
+            ORDER BY COALESCE(c.contactos, 0)::float / v.visitantes DESC, v.visitantes DESC LIMIT ${take}`;
+          rows = r.map((x) => ({
+            id: x.id,
+            valor: Math.round((x.contactos / x.visitantes) * 1000) / 10,
+            detalle: { visitantes: x.visitantes, contactosWhatsapp: x.contactos },
+          }));
           break;
         }
         case "mensajes_recibidos": {
-          const rows = await prisma.message.groupBy({
-            by: ["toId"],
-            where: { createdAt: range },
-            _count: { _all: true },
-            orderBy: { _count: { toId: "desc" } },
-            take: wide,
-          });
-          scores = rows.map((r) => ({ userId: r.toId, valor: r._count._all }));
+          const r = await prisma.$queryRaw<{ id: string; mensajes: number; remitentes: number }[]>`
+            SELECT u."id", COUNT(*)::int AS mensajes, COUNT(DISTINCT m."fromId")::int AS remitentes
+            FROM "Message" m JOIN "User" u ON u."id" = m."toId"
+            WHERE m."createdAt" >= ${from} AND m."createdAt" < ${to}
+              AND m."fromId" NOT IN ${staffIdsSql()} AND ${userFilter}
+            GROUP BY u."id" ORDER BY mensajes DESC LIMIT ${take}`;
+          rows = r.map((x) => ({ id: x.id, valor: x.mensajes, detalle: { remitentesUnicos: x.remitentes } }));
           break;
         }
         case "favoritos": {
-          const rows = await prisma.favorite.groupBy({
-            by: ["professionalId"],
-            where: { createdAt: range },
-            _count: { _all: true },
-            orderBy: { _count: { professionalId: "desc" } },
-            take: wide,
-          });
-          scores = rows.map((r) => ({ userId: r.professionalId, valor: r._count._all }));
+          const r = await prisma.$queryRaw<{ id: string; valor: number }[]>`
+            SELECT u."id", COUNT(*)::int AS valor
+            FROM "Favorite" f JOIN "User" u ON u."id" = f."professionalId"
+            WHERE f."createdAt" >= ${from} AND f."createdAt" < ${to} AND ${userFilter}
+            GROUP BY u."id" ORDER BY valor DESC LIMIT ${take}`;
+          rows = r.map((x) => ({ id: x.id, valor: x.valor, detalle: null }));
           break;
         }
         case "solicitudes": {
-          const rows = await prisma.serviceRequest.groupBy({
-            by: ["professionalId"],
-            where: { createdAt: range },
-            _count: { _all: true },
-            orderBy: { _count: { professionalId: "desc" } },
-            take: wide,
-          });
-          scores = rows.map((r) => ({ userId: r.professionalId, valor: r._count._all }));
+          const r = await prisma.$queryRaw<{ id: string; valor: number; finalizadas: number }[]>`
+            SELECT u."id", COUNT(*)::int AS valor, COUNT(*) FILTER (WHERE sr."status" = 'FINALIZADO')::int AS finalizadas
+            FROM "ServiceRequest" sr JOIN "User" u ON u."id" = sr."professionalId"
+            WHERE sr."createdAt" >= ${from} AND sr."createdAt" < ${to} AND ${userFilter}
+            GROUP BY u."id" ORDER BY valor DESC LIMIT ${take}`;
+          rows = r.map((x) => ({ id: x.id, valor: x.valor, detalle: { finalizadas: x.finalizadas } }));
           break;
         }
         case "vistas_totales":
         case "servicios_completados": {
           const field = args.metrica === "vistas_totales" ? "profileViews" : "completedServices";
+          const where: Prisma.UserWhereInput = { AND: [realUserWhere(), { profileType }] };
+          if (args.ciudad) (where.AND as Prisma.UserWhereInput[]).push({ city: { contains: args.ciudad, mode: "insensitive" } });
           const users = await prisma.user.findMany({
-            where: userWhere,
+            where,
             orderBy: { [field]: "desc" },
             take,
             select: { id: true, profileViews: true, completedServices: true },
           });
-          scores = users.map((u) => ({ userId: u.id, valor: (u as any)[field] }));
+          rows = users.map((u) => ({ id: u.id, valor: u[field], detalle: null }));
           break;
         }
         case "ganancias_tokens": {
+          const userWhere: Prisma.UserWhereInput = { AND: [realUserWhere(), { profileType }] };
+          if (args.ciudad) (userWhere.AND as Prisma.UserWhereInput[]).push({ city: { contains: args.ciudad, mode: "insensitive" } });
           const wallets = await prisma.wallet.findMany({
             where: { user: userWhere },
             orderBy: { totalEarned: "desc" },
             take,
-            select: { userId: true, totalEarned: true },
+            select: { userId: true, totalEarned: true, balance: true },
           });
-          scores = wallets.map((w) => ({ userId: w.userId, valor: w.totalEarned }));
+          rows = wallets.map((w) => ({ id: w.userId, valor: w.totalEarned, detalle: { saldoTokens: w.balance } }));
           break;
         }
       }
 
       const users = await prisma.user.findMany({
-        where: { ...userWhere, id: { in: scores.map((s) => s.userId) } },
+        where: { id: { in: rows.map((r) => r.id) } },
         select: { id: true, username: true, displayName: true, city: true, tier: true, isActive: true, isVerified: true },
       });
       const byId = new Map(users.map((u) => [u.id, u]));
-      const ranking = scores
-        .filter((s) => byId.has(s.userId))
-        .slice(0, take)
-        .map((s, i) => ({ posicion: i + 1, valor: s.valor, ...byId.get(s.userId)! }));
+      const ranking = rows
+        .filter((r) => byId.has(r.id))
+        .map((r, i) => ({ posicion: i + 1, valor: r.valor, ...(r.detalle ?? {}), ...byId.get(r.id)! }));
 
-      const cumulative = ["vistas_totales", "servicios_completados", "ganancias_tokens"].includes(args.metrica);
       return jsonResult({
         metrica: args.metrica,
+        unidad: args.metrica === "tasa_contacto" ? "% de visitantes que contactó por WhatsApp" : undefined,
         tipoPerfil: profileType,
         periodo: cumulative ? "acumulado histórico" : describePeriod(period),
         ranking,
@@ -437,7 +509,11 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
         const now = new Date();
         const dias = args.dias ?? 7;
         const window = dias * MS_DAY;
-        const where: any = { profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] } };
+        // Sin perfiles de prueba ni cargados por admin: no pagan membresía.
+        const where: any = {
+          AND: [realUserWhere(), { adminManaged: false }],
+          profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
+        };
         let orderBy: any = { membershipExpiresAt: "asc" };
         switch (args.estado) {
           case "activas":
@@ -462,6 +538,7 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
         ]);
         return jsonResult({
           estado: args.estado,
+          criterio: "Sin perfiles de prueba, cuentas del equipo ni perfiles cargados por admin (adminManaged).",
           ventanaDias: args.estado === "activas" || args.estado === "pruebas_vencidas" ? null : dias,
           total,
           precioMembresiaClp: config.membershipPriceClp,

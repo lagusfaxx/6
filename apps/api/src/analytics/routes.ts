@@ -3,8 +3,14 @@ import rateLimit from "express-rate-limit";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 import { broadcast } from "../realtime/sse";
+import { chileStartOfToday } from "../lib/chileTime";
 
 export const analyticsRouter = Router();
+
+/** Ids que genera el navegador (UUID): se aceptan sólo si tienen esa forma. */
+function clientId(value: unknown): string | null {
+  return typeof value === "string" && /^[A-Za-z0-9-]{8,64}$/.test(value) ? value : null;
+}
 
 const analyticsLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -20,7 +26,7 @@ analyticsRouter.post(
   "/analytics/pageview",
   analyticsLimiter,
   asyncHandler(async (req, res) => {
-    const { path, referrer, sessionId } = req.body;
+    const { path, referrer, sessionId, visitorId } = req.body;
     if (!path || typeof path !== "string") {
       return res.status(400).json({ error: "path required" });
     }
@@ -38,7 +44,8 @@ analyticsRouter.post(
       data: {
         path: path.slice(0, 500),
         userId,
-        sessionId: sessionId || null,
+        sessionId: clientId(sessionId),
+        visitorId: clientId(visitorId),
         referrer: referrer ? String(referrer).slice(0, 500) : null,
         userAgent: userAgent ? String(userAgent).slice(0, 500) : null,
         city,
@@ -56,7 +63,7 @@ analyticsRouter.post(
   "/analytics/action",
   analyticsLimiter,
   asyncHandler(async (req, res) => {
-    const { action, targetId, metadata } = req.body;
+    const { action, targetId, metadata, sessionId, visitorId } = req.body;
     if (!action || typeof action !== "string") {
       return res.status(400).json({ error: "action required" });
     }
@@ -69,6 +76,8 @@ analyticsRouter.post(
       data: {
         action: action.slice(0, 100),
         userId,
+        sessionId: clientId(sessionId),
+        visitorId: clientId(visitorId),
         targetId: targetId || null,
         metadata: metadata || null,
       },
@@ -105,14 +114,16 @@ analyticsRouter.get(
     }
 
     const now = new Date();
-    const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+    // Día calendario de Chile (el servidor corre en UTC).
+    const today = chileStartOfToday(now);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const period = String(req.query.period || "7d");
-    const periodStart = period === "30d" ? thirtyDaysAgo : period === "24h" ? yesterday : sevenDaysAgo;
+    // "24h" son las últimas 24 horas; antes partía en la medianoche de ayer y
+    // sumaba hasta 48 horas.
+    const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const periodStart = period === "30d" ? thirtyDaysAgo : period === "24h" ? last24h : sevenDaysAgo;
 
     const [
       // Visits

@@ -50,7 +50,8 @@ Ejemplos:
 - "Informe mensual de agosto" (prompt **informe_mensual**, argumento `2026-08`).
 - "¿Qué está pendiente hoy y en qué orden lo atiendo?" (prompt **revision_operativa**).
 - "¿Cuánto facturamos este mes vs. el anterior, por tipo de plan?"
-- "Top 20 profesionales de Santiago por clicks a WhatsApp en los últimos 30 días."
+- "Top 20 profesionales de Santiago por contactos de WhatsApp en los últimos 30 días."
+- "¿Qué perfiles convierten mejor visitas en contactos?" (ranking `tasa_contacto`).
 - "¿Qué perfiles tienen la membresía por vencer esta semana?"
 - "Cohorte de registros de junio: ¿cuántas siguen activas y cuántas pagaron?"
   (usa `consulta_sql`).
@@ -62,7 +63,7 @@ Ejemplos:
 | --------------------- | -------------------------------------------------------------------------------------------- |
 | `resumen_general`     | Foto actual del negocio (la misma del dashboard admin).                                      |
 | `kpis_periodo`        | KPIs de un rango con comparación contra el periodo anterior.                                 |
-| `serie_temporal`      | Evolución diaria/semanal/mensual de 20 métricas (registros, ingresos, visitas, mensajes...). |
+| `serie_temporal`      | Evolución diaria/semanal/mensual de 22 métricas, sin huecos (los días sin actividad van en 0). |
 | `analitica_trafico`   | Visitas, sesiones, páginas, secciones, referentes, ciudades, acciones.                       |
 | `buscar_usuarios`     | Buscar/filtrar usuarios por texto, tipo, ciudad, tier, estado, inactividad, registro.        |
 | `ver_usuario`         | Ficha completa de un usuario con actividad, pagos y pendientes.                              |
@@ -76,6 +77,34 @@ Ejemplos:
 | `describir_esquema`   | Tablas, columnas y enums de la base.                                                         |
 | `consulta_sql`        | SELECT libre de sólo lectura para cualquier cosa que falte.                                  |
 | `ver_bitacora`        | Qué acciones y consultas se hicieron por el MCP.                                             |
+
+### Cómo se cuenta (precisión)
+
+Todas las herramientas usan los mismos criterios (`apps/api/src/lib/statsFilters.ts`)
+y cada respuesta los repite en `criterios`:
+
+- **Días en hora de Chile**, incluidos los cambios de horario. Antes "hoy" en
+  el panel partía a las 21:00/20:00 del día anterior (hora UTC del servidor).
+- **Tráfico real**: sin bots ni herramientas (por user agent), sin el equipo
+  (ADMIN/MODERATOR) y sin páginas `/admin`. Cada resumen dice cuánto se excluyó.
+- **Visitantes únicos** por navegador (`visitorId` en localStorage). Antes el
+  único id era por pestaña. Las visitas anteriores a este cambio no lo tienen:
+  `pctVisitasSinVisitorId` dice qué parte del periodo se aproxima por pestaña.
+- **Fuentes de tráfico** por sesión (referente de la primera página), no por
+  página: `document.referrer` se repite en toda la navegación interna.
+- **Contactos por WhatsApp/teléfono únicos**: una vez por persona, perfil y
+  día (doble click o botón de arriba + el fijo cuentan 1). También se dan los
+  clicks brutos.
+- **Visitas a fichas** por `/profesional/<id>` (antes se buscaba por username y
+  daban casi 0).
+- **Usuarios** sin perfiles de prueba (`@testseed.uzeed.cl`) ni cuentas del
+  equipo; "registros orgánicos" excluye además los perfiles cargados por admin.
+- **Ingresos** sin doble conteo: los depósitos de tokens por Flow ya son un
+  pago `TOKEN_PURCHASE`; sólo se suman aparte los de transferencia. Marketplace
+  neto de pedidos reembolsados, cancelados o rechazados.
+- **Comparaciones justas**: si el periodo está en curso se compara hasta la
+  misma hora del periodo anterior; los meses contra el mes anterior desde el
+  día 1. `baseChica` avisa cuando el % se calcula sobre menos de 20 casos.
 
 Los periodos aceptan `periodo` (`hoy`, `ayer`, `7d`, `30d`, `90d`, `365d`,
 `semana_actual`, `mes_actual`, `mes_anterior`, `anio_actual`) o `desde`/`hasta`

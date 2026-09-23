@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { prisma } from "../../db";
 import { guarded, type McpScope } from "../audit";
-import { deltaPct, describePeriod, jsonResult, periodShape, resolvePeriod, type PeriodInput } from "../helpers";
+import { compare, describePeriod, jsonResult, periodShape, resolvePeriod, type PeriodInput } from "../helpers";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
 
@@ -15,6 +15,9 @@ const PURPOSES = [
   "PUBLICATE_GOLD",
   "MARKETPLACE_ORDER",
 ] as const;
+
+/** Pedidos pagados que no se deshicieron (reembolso, cancelación, rechazo). */
+const MARKET_SALE_STATUSES = ["PAID", "PREPARING", "DELIVERED", "COMPLETED", "DISPUTED"] as const;
 
 const USER_MINI = { select: { id: true, username: true, displayName: true, profileType: true } } as const;
 
@@ -47,7 +50,7 @@ async function revenue({ from, to }: Range) {
       _count: { _all: true },
     }),
     prisma.marketOrder.aggregate({
-      where: { paidAt: paid },
+      where: { paidAt: paid, status: { in: [...MARKET_SALE_STATUSES] } },
       _sum: { totalClp: true, commissionClp: true, sellerNetClp: true, shippingClp: true },
       _count: { _all: true },
     }),
@@ -76,8 +79,12 @@ async function revenue({ from, to }: Range) {
   const transferDeposits = deposits.find((d) => d.method === "TRANSFER");
   const transferClp = transferDeposits?._sum.clpAmount || 0;
 
+  const paymentsCount = byPurpose.reduce((acc, r) => acc + r._count._all, 0) + (transferDeposits?._count._all || 0);
+
   return {
     totalCobradoClp: totalPaid + transferClp,
+    pagosTotales: paymentsCount,
+    ticketPromedioClp: paymentsCount ? Math.round((totalPaid + transferClp) / paymentsCount) : 0,
     pagosPasarelaYTransferenciaClp: totalPaid,
     depositosTokensPorTransferenciaClp: transferClp,
     porProposito: byPurpose
@@ -149,15 +156,24 @@ export function registerBusinessTools(server: McpServer, scope: McpScope) {
       return jsonResult({
         periodo: describePeriod(period),
         ...current,
+        criterios:
+          "Pagos aprobados por fecha de pago + depósitos de tokens por transferencia (los de Flow ya están en los pagos). Marketplace sin pedidos reembolsados, cancelados ni rechazados.",
+        periodoAnterior: period.previous.label,
         comparacion: {
-          totalCobradoAnteriorClp: previous.totalCobradoClp,
-          variacionPct: deltaPct(current.totalCobradoClp, previous.totalCobradoClp),
-          ticketPromedioClp: current.porProposito.length
-            ? Math.round(
-                current.pagosPasarelaYTransferenciaClp /
-                  Math.max(1, current.porProposito.reduce((a, r) => a + r.pagos, 0)),
-              )
-            : 0,
+          totalCobradoClp: compare(current.totalCobradoClp, previous.totalCobradoClp),
+          pagos: compare(current.pagosTotales, previous.pagosTotales),
+          ticketPromedioClp: compare(current.ticketPromedioClp, previous.ticketPromedioClp),
+          marketplaceVentasClp: compare(current.marketplace.ventasClp, previous.marketplace.ventasClp),
+          marketplaceComisionClp: compare(current.marketplace.comisionClp, previous.marketplace.comisionClp),
+          porProposito: Object.fromEntries(
+            [...new Set([...current.porProposito, ...previous.porProposito].map((r) => r.proposito))].map((purpose) => [
+              purpose,
+              compare(
+                current.porProposito.find((r) => r.proposito === purpose)?.clp ?? 0,
+                previous.porProposito.find((r) => r.proposito === purpose)?.clp ?? 0,
+              ),
+            ]),
+          ),
         },
         topPagadores: topPayers.map((p) => ({
           ...byId.get(p.subscriberId),
@@ -405,13 +421,13 @@ export function registerBusinessTools(server: McpServer, scope: McpScope) {
       const [byStatus, paid, topSellers, topProducts, catalog, sellers] = await Promise.all([
         prisma.marketOrder.groupBy({ by: ["status"], where: { createdAt: created }, _count: { _all: true }, _sum: { totalClp: true } }),
         prisma.marketOrder.aggregate({
-          where: { paidAt: created },
+          where: { paidAt: created, status: { in: [...MARKET_SALE_STATUSES] } },
           _sum: { totalClp: true, commissionClp: true },
           _count: { _all: true },
         }),
         prisma.marketOrder.groupBy({
           by: ["sellerId"],
-          where: { paidAt: created },
+          where: { paidAt: created, status: { in: [...MARKET_SALE_STATUSES] } },
           _sum: { totalClp: true, commissionClp: true },
           _count: { _all: true },
           orderBy: { _sum: { totalClp: "desc" } },
@@ -419,7 +435,7 @@ export function registerBusinessTools(server: McpServer, scope: McpScope) {
         }),
         prisma.marketOrder.groupBy({
           by: ["productTitle"],
-          where: { paidAt: created },
+          where: { paidAt: created, status: { in: [...MARKET_SALE_STATUSES] } },
           _sum: { totalClp: true },
           _count: { _all: true },
           orderBy: { _count: { productTitle: "desc" } },

@@ -3,16 +3,12 @@ import { prisma } from "../db";
 import { requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
+import { chileStartOfToday, chileStartOfYesterday } from "../lib/chileTime";
+import { realActionSql, realPageViewSql, realUserWhere } from "../lib/statsFilters";
 
 export const adminOverviewRouter = Router();
 
 adminOverviewRouter.use(requireAdmin);
-
-function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
 
 /**
  * Business-oriented overview for the admin dashboard. Aggregates:
@@ -32,8 +28,15 @@ adminOverviewRouter.get(
 /** Lo usa también el servidor MCP (`resumen_general`), por eso vive aparte del handler. */
 export async function buildAdminOverview() {
   const now = new Date();
-  const today = startOfDay(now);
-  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  // Días calendario de Chile: el servidor corre en UTC.
+  const today = chileStartOfToday(now);
+  const yesterday = chileStartOfYesterday(now);
+  // "Ayer a esta misma hora": comparar el día en curso contra el día completo
+  // de ayer siempre daba caída.
+  const yesterdaySameTime = new Date(yesterday.getTime() + (now.getTime() - today.getTime()));
+  // Sin perfiles de prueba ni cuentas del equipo.
+  const real = realUserWhere();
+  const users = (where: Record<string, unknown> = {}) => ({ where: { AND: [real, where] } });
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -47,6 +50,7 @@ export async function buildAdminOverview() {
     totalClients,
     newUsersToday,
     newUsersYesterday,
+    newUsersYesterdaySameTime,
     newUsersWeek,
     newUsersPrevWeek,
     newUsersMonth,
@@ -62,6 +66,8 @@ export async function buildAdminOverview() {
     paidIntentsWeek,
     paidIntentsToday,
     tokenDepositsApprovedMonth,
+    transferDepositsWeek,
+    transferDepositsToday,
     messagesWeek,
     messagesPrevWeek,
     videocallsWeek,
@@ -76,42 +82,37 @@ export async function buildAdminOverview() {
     revenueByPurpose,
     umateActiveSubs,
   ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { profileType: "PROFESSIONAL" } }),
-    prisma.user.count({ where: { profileType: "ESTABLISHMENT" } }),
-    prisma.user.count({ where: { profileType: "SHOP" } }),
-    prisma.user.count({ where: { profileType: { in: ["CLIENT", "VIEWER"] } } }),
-    prisma.user.count({ where: { createdAt: { gte: today } } }),
-    prisma.user.count({
-      where: { createdAt: { gte: yesterday, lt: today } },
-    }),
-    prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
-    prisma.user.count({
-      where: { createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo } },
-    }),
-    prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-    prisma.user.count({
-      where: { OR: [{ isOnline: true }, { lastSeen: { gte: today } }] },
-    }),
-    prisma.user.count({ where: { lastSeen: { gte: sevenDaysAgo } } }),
-    prisma.user.count({
-      where: {
+    prisma.user.count(users()),
+    prisma.user.count(users({ profileType: "PROFESSIONAL" })),
+    prisma.user.count(users({ profileType: "ESTABLISHMENT" })),
+    prisma.user.count(users({ profileType: "SHOP" })),
+    prisma.user.count(users({ profileType: { in: ["CLIENT", "VIEWER"] } })),
+    prisma.user.count(users({ createdAt: { gte: today } })),
+    prisma.user.count(users({ createdAt: { gte: yesterday, lt: today } })),
+    prisma.user.count(users({ createdAt: { gte: yesterday, lt: yesterdaySameTime } })),
+    prisma.user.count(users({ createdAt: { gte: sevenDaysAgo } })),
+    prisma.user.count(users({ createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo } })),
+    prisma.user.count(users({ createdAt: { gte: thirtyDaysAgo } })),
+    prisma.user.count(users({ OR: [{ isOnline: true }, { lastSeen: { gte: today } }] })),
+    prisma.user.count(users({ lastSeen: { gte: sevenDaysAgo } })),
+    prisma.user.count(
+      users({
         profileType: "PROFESSIONAL",
         OR: [{ isOnline: true }, { lastSeen: { gte: today } }],
-      },
-    }),
-    prisma.user.count({
-      where: {
+      }),
+    ),
+    prisma.user.count(
+      users({
         profileType: "PROFESSIONAL",
         OR: [{ lastSeen: { lt: fortyEightHrAgo } }, { lastSeen: null }],
-      },
-    }),
-    prisma.user.count({
-      where: {
+      }),
+    ),
+    prisma.user.count(
+      users({
         isVerified: false,
         profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
-      },
-    }),
+      }),
+    ),
     prisma.tokenDeposit.count({ where: { status: "PENDING" } }),
     prisma.withdrawalRequest.count({ where: { status: "PENDING" } }),
     prisma.professionalDocument.count({ where: { status: "PENDING" } }),
@@ -130,10 +131,20 @@ export async function buildAdminOverview() {
       _count: { _all: true },
       where: { status: "PAID", paidAt: { gte: today } },
     }),
+    // Sólo transferencias: los depósitos por Flow ya vienen como PaymentIntent
+    // TOKEN_PURCHASE pagado y sumarlos otra vez duplicaba ese ingreso.
     prisma.tokenDeposit.aggregate({
       _sum: { clpAmount: true },
       _count: { _all: true },
-      where: { status: "APPROVED", reviewedAt: { gte: thirtyDaysAgo } },
+      where: { status: "APPROVED", method: "TRANSFER", reviewedAt: { gte: thirtyDaysAgo } },
+    }),
+    prisma.tokenDeposit.aggregate({
+      _sum: { clpAmount: true },
+      where: { status: "APPROVED", method: "TRANSFER", reviewedAt: { gte: sevenDaysAgo } },
+    }),
+    prisma.tokenDeposit.aggregate({
+      _sum: { clpAmount: true },
+      where: { status: "APPROVED", method: "TRANSFER", reviewedAt: { gte: today } },
     }),
     prisma.message.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
     prisma.message.count({
@@ -147,15 +158,21 @@ export async function buildAdminOverview() {
       where: { status: "FINALIZADO", updatedAt: { gte: sevenDaysAgo } },
     }),
     prisma.favorite.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
-    prisma.userAction.count({
-      where: { action: "whatsapp_click", createdAt: { gte: sevenDaysAgo } },
-    }),
-    prisma.pageView.count({
-      where: { createdAt: { gte: sevenDaysAgo }, path: { startsWith: "/profesional" } },
-    }),
+    // Sin clicks del equipo ni visitas de bots o del panel.
+    prisma.$queryRaw<{ n: number }[]>`
+      SELECT COUNT(*)::int AS n FROM "UserAction" ua
+      WHERE ua."action" = 'whatsapp_click' AND ua."createdAt" >= ${sevenDaysAgo} AND ${realActionSql("ua")}`.then(
+      (r) => r[0]?.n ?? 0,
+    ),
+    prisma.$queryRaw<{ n: number }[]>`
+      SELECT COUNT(*)::int AS n FROM "PageView" pv
+      WHERE pv."createdAt" >= ${sevenDaysAgo} AND pv."path" LIKE '/profesional/%' AND ${realPageViewSql("pv")}`.then(
+      (r) => r[0]?.n ?? 0,
+    ),
     prisma.user.groupBy({
       by: ["city"],
       where: {
+        AND: [real],
         profileType: "PROFESSIONAL",
         isActive: true,
         city: { not: null },
@@ -165,7 +182,7 @@ export async function buildAdminOverview() {
       take: 10,
     }),
     prisma.user.findMany({
-      where: { profileType: "PROFESSIONAL", isActive: true },
+      where: { AND: [real], profileType: "PROFESSIONAL", isActive: true },
       orderBy: { profileViews: "desc" },
       take: 10,
       select: {
@@ -179,6 +196,7 @@ export async function buildAdminOverview() {
       },
     }),
     prisma.wallet.findMany({
+      where: { user: real },
       orderBy: { totalEarned: "desc" },
       take: 10,
       select: {
@@ -209,12 +227,12 @@ export async function buildAdminOverview() {
   const revenueMonthClp =
     (paidIntentsMonth._sum.amount || 0) +
     (tokenDepositsApprovedMonth._sum.clpAmount || 0);
-  const revenueWeekClp = paidIntentsWeek._sum.amount || 0;
-  const revenueTodayClp = paidIntentsToday._sum.amount || 0;
+  const revenueWeekClp = (paidIntentsWeek._sum.amount || 0) + (transferDepositsWeek._sum.clpAmount || 0);
+  const revenueTodayClp = (paidIntentsToday._sum.amount || 0) + (transferDepositsToday._sum.clpAmount || 0);
 
   const userGrowthVsYesterday =
-    newUsersYesterday > 0
-      ? ((newUsersToday - newUsersYesterday) / newUsersYesterday) * 100
+    newUsersYesterdaySameTime > 0
+      ? ((newUsersToday - newUsersYesterdaySameTime) / newUsersYesterdaySameTime) * 100
       : null;
   const userGrowthVsPrevWeek =
     newUsersPrevWeek > 0
@@ -235,6 +253,7 @@ export async function buildAdminOverview() {
       clients: totalClients,
       newToday: newUsersToday,
       newYesterday: newUsersYesterday,
+      newYesterdaySameTime: newUsersYesterdaySameTime,
       newThisWeek: newUsersWeek,
       newPrevWeek: newUsersPrevWeek,
       newThisMonth: newUsersMonth,

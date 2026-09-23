@@ -1,9 +1,12 @@
 import { z } from "zod";
 import { prisma } from "../db";
 import { isUUID } from "../lib/validators";
+import { CHILE_TZ, addDaysYmd, chileMidnight, chileToday } from "../lib/chileTime";
+
+export { chileMidnight, chileToday };
 
 /** Todas las fechas que ve o pide Claude se entienden en hora de Chile. */
-export const TZ = "America/Santiago";
+export const TZ = CHILE_TZ;
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 
@@ -62,40 +65,6 @@ export function errorResult(message: string): ToolResult {
   return { isError: true, content: [{ type: "text", text: message }] };
 }
 
-/** Minutos que Chile está corrido de UTC en ese instante (-180 o -240). */
-function tzOffsetMinutes(date: Date): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(date);
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  const wallAsUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
-  return Math.round((wallAsUtc - date.getTime()) / 60000);
-}
-
-/** Medianoche en Chile de una fecha "YYYY-MM-DD". */
-export function chileMidnight(ymd: string): Date {
-  const guess = new Date(`${ymd}T00:00:00Z`);
-  return new Date(guess.getTime() - tzOffsetMinutes(guess) * 60000);
-}
-
-/** Fecha de hoy en Chile como "YYYY-MM-DD". */
-export function chileToday(now = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(now);
-}
-
-function addDaysYmd(ymd: string, days: number): string {
-  const d = new Date(`${ymd}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const PERIOD_PRESETS = [
@@ -129,11 +98,19 @@ export type PeriodInput = {
 
 export type Period = {
   from: Date;
+  /** Fin exclusivo. Si el periodo incluye hoy, es "ahora" y no la medianoche. */
   to: Date;
   label: string;
   days: number;
-  /** Periodo inmediatamente anterior y del mismo largo, para comparar. */
-  previous: { from: Date; to: Date };
+  /** true si el periodo todavía no termina (incluye hoy). */
+  inProgress: boolean;
+  /**
+   * Periodo con el que se compara, del mismo largo efectivo. Si el periodo
+   * está en curso se compara hasta la misma hora ("hoy hasta las 15:00" contra
+   * "ayer hasta las 15:00"), para no enfrentar un día a medias con uno entero.
+   * Los meses se comparan contra el mes anterior desde su día 1.
+   */
+  previous: { from: Date; to: Date; label: string };
 };
 
 export function resolvePeriod(input: PeriodInput): Period {
@@ -187,15 +164,39 @@ export function resolvePeriod(input: PeriodInput): Period {
 
   if (fromYmd > toYmd) [fromYmd, toYmd] = [toYmd, fromYmd];
 
+  const now = new Date();
   const from = chileMidnight(fromYmd);
-  const to = chileMidnight(addDaysYmd(toYmd, 1));
+  const fullTo = chileMidnight(addDaysYmd(toYmd, 1));
+  const inProgress = fullTo.getTime() > now.getTime() && from.getTime() <= now.getTime();
+  const to = inProgress ? now : fullTo;
   const span = to.getTime() - from.getTime();
+
+  const calendarMonth =
+    !input.desde && !input.hasta && (input.periodo === "mes_actual" || input.periodo === "mes_anterior");
+  let prevFrom: Date;
+  if (calendarMonth) {
+    const [y, m] = fromYmd.split("-").map(Number);
+    const prevMonth = m === 1 ? `${y - 1}-12-01` : `${y}-${String(m - 1).padStart(2, "0")}-01`;
+    prevFrom = chileMidnight(prevMonth);
+  } else {
+    prevFrom = new Date(from.getTime() - (fullTo.getTime() - from.getTime()));
+  }
+  let prevTo = new Date(prevFrom.getTime() + span);
+  // Un mes anterior más corto no se come días del mes siguiente.
+  if (prevTo.getTime() > from.getTime()) prevTo = from;
+  const fmt = (d: Date) => chileToday(d);
+
   return {
     from,
     to,
-    label: fromYmd === toYmd ? fromYmd : `${fromYmd} a ${toYmd}`,
-    days: Math.round(span / MS_DAY),
-    previous: { from: new Date(from.getTime() - span), to: from },
+    label: (fromYmd === toYmd ? fromYmd : `${fromYmd} a ${toYmd}`) + (inProgress ? " (en curso, hasta ahora)" : ""),
+    days: Math.max(1, Math.round((fullTo.getTime() - from.getTime()) / MS_DAY)),
+    inProgress,
+    previous: {
+      from: prevFrom,
+      to: prevTo,
+      label: `${fmt(prevFrom)} a ${fmt(new Date(prevTo.getTime() - 1))}`,
+    },
   };
 }
 
@@ -203,6 +204,7 @@ export function describePeriod(period: Period) {
   return {
     rango: period.label,
     dias: period.days,
+    enCurso: period.inProgress,
     zonaHoraria: TZ,
     desdeUtc: period.from.toISOString(),
     hastaUtc: period.to.toISOString(),
@@ -213,6 +215,20 @@ export function describePeriod(period: Period) {
 export function deltaPct(current: number, previous: number): number | null {
   if (!previous) return null;
   return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
+/**
+ * Comparación completa de un indicador. Con bases chicas el % engaña (de 2 a
+ * 4 es +100%), así que se marca como poco significativa bajo 20 casos.
+ */
+export function compare(current: number, previous: number) {
+  return {
+    actual: current,
+    anterior: previous,
+    diferencia: Math.round((current - previous) * 100) / 100,
+    variacionPct: deltaPct(current, previous),
+    baseChica: Math.max(current, previous) < 20 || undefined,
+  };
 }
 
 /** Busca un usuario por id, username o email. */
