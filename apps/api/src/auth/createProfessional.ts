@@ -71,6 +71,8 @@ export type CreateProfessionalInput = {
   galleryUrls?: string[];
   /** "SILVER" for free, "GOLD" for paid */
   tier: "SILVER" | "GOLD";
+  /** Para estadísticas: "form" (registro normal) o "publicate_gold" (pagó primero). */
+  signupSource?: string;
 };
 
 /**
@@ -150,6 +152,7 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
       data: {
         email,
         username,
+        signupSource: input.signupSource ?? "form",
         phone: input.phone,
         profileType: "PROFESSIONAL",
         displayName: input.displayName,

@@ -11,7 +11,8 @@ export type AdminEventType =
   | "deletion_requested"
   | "phone_change_requested"
   | "face_verification_submitted"
-  | "mcp_authorized";
+  | "mcp_authorized"
+  | "stats_alert";
 
 type AdminEventInput = {
   type: AdminEventType;
@@ -54,6 +55,11 @@ const ADMIN_EVENT_CONFIG: Record<
     title: "Cambio de número solicitado",
     body: "Una profesional pidió cambiar su número de WhatsApp.",
     url: "/admin/phone-changes",
+  },
+  stats_alert: {
+    title: "Alerta de estadísticas",
+    body: "Se cumplió una alerta configurada. Revisa el detalle con Claude o en el panel.",
+    url: "/admin/estadisticas",
   },
   mcp_authorized: {
     title: "Claude autorizado en el panel",

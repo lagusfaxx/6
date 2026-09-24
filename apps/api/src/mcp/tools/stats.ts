@@ -25,6 +25,7 @@ import {
   type PeriodInput,
 } from "../helpers";
 import { clickSummary, localTs, messagingSummary, trafficSummary, type Range } from "../metrics";
+import { describeFiltros, filtrosShape, hasProfileFilters as hasProfileFilters, hasTrafficFilters, pickFiltros, profileSql, withSegment, yearAgo, type Filtros } from "../stats/core";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
 
@@ -198,30 +199,32 @@ type SeriesDef = {
   where?: () => Prisma.Sql;
   description: string;
   profileFilter?: boolean;
+  /** Cómo unir la fila con el perfil para aplicar filtros comunes. */
+  profileJoin?: "user" | "pv_profile" | "ua_target" | "msg_to" | "fav_pro" | "sr_pro" | "payment_sub";
 };
 
 const raw = (sql: string) => () => Prisma.raw(sql);
 
 const SERIES: Record<string, SeriesDef> = {
   registros: {
-    table: "User", dateCol: "createdAt", agg: raw("COUNT(*)"), where: () => realUserSql("t"),
+    table: "User", profileJoin: "user", dateCol: "createdAt", agg: raw("COUNT(*)"), where: () => realUserSql("t"),
     description: "Registros (sin prueba ni equipo)", profileFilter: true,
   },
   registros_organicos: {
-    table: "User", dateCol: "createdAt", agg: raw("COUNT(*)"),
+    table: "User", profileJoin: "user", dateCol: "createdAt", agg: raw("COUNT(*)"),
     where: () => Prisma.sql`${realUserSql("t")} AND t."adminManaged" = false`,
     description: "Registros orgánicos (sin perfiles cargados por admin)", profileFilter: true,
   },
   perfiles_verificados: {
-    table: "User", dateCol: "verifiedAt", agg: raw("COUNT(*)"), where: () => realUserSql("t"),
+    table: "User", profileJoin: "user", dateCol: "verifiedAt", agg: raw("COUNT(*)"), where: () => realUserSql("t"),
     description: "Perfiles verificados", profileFilter: true,
   },
   ingresos_clp: {
-    table: "PaymentIntent", dateCol: "paidAt", agg: raw(`SUM(t."amount")`), where: raw(`t."status" = 'PAID'`),
+    table: "PaymentIntent", profileJoin: "payment_sub", dateCol: "paidAt", agg: raw(`SUM(t."amount")`), where: raw(`t."status" = 'PAID'`),
     description: "CLP cobrados por pagos aprobados (no incluye depósitos por transferencia: ver depositos_transferencia_clp)",
   },
   pagos: {
-    table: "PaymentIntent", dateCol: "paidAt", agg: raw("COUNT(*)"), where: raw(`t."status" = 'PAID'`),
+    table: "PaymentIntent", profileJoin: "payment_sub", dateCol: "paidAt", agg: raw("COUNT(*)"), where: raw(`t."status" = 'PAID'`),
     description: "Pagos aprobados",
   },
   depositos_transferencia_clp: {
@@ -234,7 +237,7 @@ const SERIES: Record<string, SeriesDef> = {
     description: "CLP de retiros aprobados",
   },
   mensajes: {
-    table: "Message", dateCol: "createdAt", agg: raw("COUNT(*)"),
+    table: "Message", profileJoin: "msg_to", dateCol: "createdAt", agg: raw("COUNT(*)"),
     where: () => Prisma.sql`t."fromId" NOT IN ${staffIdsSql()} AND t."toId" NOT IN ${staffIdsSql()}`,
     description: "Mensajes enviados (sin el equipo)",
   },
@@ -248,23 +251,23 @@ const SERIES: Record<string, SeriesDef> = {
     description: "Visitantes únicos (por navegador) de cada día/semana/mes",
   },
   visitas_fichas: {
-    table: "PageView", dateCol: "createdAt", agg: raw("COUNT(*)"),
+    table: "PageView", profileJoin: "pv_profile", dateCol: "createdAt", agg: raw("COUNT(*)"),
     where: () => Prisma.sql`t."path" LIKE '/profesional/%' AND ${realPageViewSql("t")}`,
     description: "Visitas reales a fichas de profesionales",
   },
   contactos_whatsapp: {
-    table: "UserAction", dateCol: "createdAt",
+    table: "UserAction", profileJoin: "ua_target", dateCol: "createdAt",
     agg: () => Prisma.sql`COUNT(DISTINCT (${actorKeySql("t")} || ':' || COALESCE(t."targetId"::text, '') || ':' || to_char(${localTs('t."createdAt"')}, 'YYYY-MM-DD')))`,
     where: () => Prisma.sql`t."action" = 'whatsapp_click' AND ${realActionSql("t")}`,
     description: "Contactos únicos por WhatsApp (persona + perfil + día)",
   },
   clicks_whatsapp: {
-    table: "UserAction", dateCol: "createdAt", agg: raw("COUNT(*)"),
+    table: "UserAction", profileJoin: "ua_target", dateCol: "createdAt", agg: raw("COUNT(*)"),
     where: () => Prisma.sql`t."action" = 'whatsapp_click' AND ${realActionSql("t")}`,
     description: "Clicks a WhatsApp sin deduplicar (sin el equipo)",
   },
-  favoritos: { table: "Favorite", dateCol: "createdAt", agg: raw("COUNT(*)"), description: "Favoritos agregados" },
-  solicitudes_servicio: { table: "ServiceRequest", dateCol: "createdAt", agg: raw("COUNT(*)"), description: "Solicitudes de servicio" },
+  favoritos: { table: "Favorite", profileJoin: "fav_pro", dateCol: "createdAt", agg: raw("COUNT(*)"), description: "Favoritos agregados" },
+  solicitudes_servicio: { table: "ServiceRequest", profileJoin: "sr_pro", dateCol: "createdAt", agg: raw("COUNT(*)"), description: "Solicitudes de servicio" },
   videollamadas: { table: "VideocallBooking", dateCol: "createdAt", agg: raw("COUNT(*)"), description: "Videollamadas reservadas" },
   marketplace_pedidos: {
     table: "MarketOrder", dateCol: "paidAt", agg: raw("COUNT(*)"),
@@ -288,7 +291,7 @@ const SERIES: Record<string, SeriesDef> = {
 
 const SERIES_KEYS = Object.keys(SERIES) as [string, ...string[]];
 
-const BUCKETS = { dia: "day", semana: "week", mes: "month" } as const;
+const BUCKETS = { hora: "hour", dia: "day", semana: "week", mes: "month" } as const;
 
 export function registerStatsTools(server: McpServer, ctx: McpContext) {
   server.registerTool(
@@ -348,46 +351,69 @@ export function registerStatsTools(server: McpServer, ctx: McpContext) {
         ".",
       inputSchema: {
         metrica: z.enum(SERIES_KEYS),
-        agrupacion: z.enum(["dia", "semana", "mes"]).optional().describe("Por defecto: dia."),
-        tipoPerfil: z.enum(PROFILE_TYPES).optional().describe("Sólo para registros, registros_organicos y perfiles_verificados."),
+        agrupacion: z.enum(["hora", "dia", "semana", "mes"]).optional().describe("Por defecto: dia. hora = por hora (usa periodos cortos)."),
         ...periodShape,
+        ...filtrosShape,
+        compararAnio: z.boolean().optional().describe("Agrega la misma serie del año anterior alineada por posición."),
       },
       annotations: READ,
     },
     guarded(
       "serie_temporal",
       ctx,
-      async (args: PeriodInput & { metrica: string; agrupacion?: keyof typeof BUCKETS; tipoPerfil?: string }) => {
+      async (args: PeriodInput & Filtros & { metrica: string; agrupacion?: keyof typeof BUCKETS; compararAnio?: boolean }) => {
         const def = SERIES[args.metrica];
         const period = resolvePeriod(args);
+        const f = await withSegment(pickFiltros(args as Record<string, unknown>));
         const unit = BUCKETS[args.agrupacion || "dia"];
+        const fmt = args.agrupacion === "hora" ? "YYYY-MM-DD HH24:00" : "YYYY-MM-DD";
         const col = `t."${def.dateCol}"`;
-        const conditions: Prisma.Sql[] = [
-          Prisma.sql`${Prisma.raw(col)} >= ${period.from}`,
-          Prisma.sql`${Prisma.raw(col)} < ${period.to}`,
-        ];
-        if (def.where) conditions.push(def.where());
-        if (def.profileFilter && args.tipoPerfil) {
-          conditions.push(Prisma.sql`t."profileType"::text = ${args.tipoPerfil}`);
-        }
         const step = Prisma.raw(`'1 ${unit}'::interval`);
         const unitLit = Prisma.raw(`'${unit}'`);
-        const rows = await prisma.$queryRaw<{ periodo: string; valor: number }[]>`
+        const pf = await profileSql(f, "u");
+        const filtered = hasProfileFilters(f);
+        let joinSql: Prisma.Sql = Prisma.empty;
+        let notaFiltros: string | undefined;
+        if (filtered) {
+          switch (def.profileJoin) {
+            case "user": joinSql = Prisma.sql`JOIN "User" u ON u."id" = t."id" AND ${pf}`; break;
+            case "pv_profile": joinSql = Prisma.sql`JOIN "User" u ON split_part(t."path", '/', 3) IN (u."id"::text, u."username") AND ${pf}`; break;
+            case "ua_target": joinSql = Prisma.sql`JOIN "User" u ON u."id" = t."targetId" AND ${pf}`; break;
+            case "msg_to": joinSql = Prisma.sql`JOIN "User" u ON u."id" = t."toId" AND ${pf}`; break;
+            case "fav_pro": joinSql = Prisma.sql`JOIN "User" u ON u."id" = t."professionalId" AND ${pf}`; break;
+            case "sr_pro": joinSql = Prisma.sql`JOIN "User" u ON u."id" = t."professionalId" AND ${pf}`; break;
+            case "payment_sub": joinSql = Prisma.sql`JOIN "User" u ON u."id" = t."subscriberId" AND ${pf}`; break;
+            default: notaFiltros = "Los filtros de perfil no aplican a esta métrica; se muestra sin filtrar.";
+          }
+        }
+        if (hasTrafficFilters(f) && !(f.region || f.ciudad || f.comuna)) {
+          notaFiltros = (notaFiltros ? notaFiltros + " " : "") + "Los filtros de tráfico (dispositivo, fuente, tipo de usuario) no aplican a serie_temporal: usa analitica_trafico.";
+        }
+        const series = async (range: { from: Date; to: Date }) => {
+          const conditions: Prisma.Sql[] = [
+            Prisma.sql`${Prisma.raw(col)} >= ${range.from}`,
+            Prisma.sql`${Prisma.raw(col)} < ${range.to}`,
+          ];
+          if (def.where) conditions.push(def.where());
+          return prisma.$queryRaw<{ periodo: string; valor: number }[]>`
           WITH buckets AS (
             SELECT generate_series(
-              date_trunc(${unitLit}, ${period.from}::timestamptz AT TIME ZONE ${TZ}),
-              date_trunc(${unitLit}, (${period.to}::timestamptz - interval '1 millisecond') AT TIME ZONE ${TZ}),
+              date_trunc(${unitLit}, ${range.from}::timestamptz AT TIME ZONE ${TZ}),
+              date_trunc(${unitLit}, (${range.to}::timestamptz - interval '1 millisecond') AT TIME ZONE ${TZ}),
               ${step}
             ) AS b
           ), data AS (
             SELECT date_trunc(${unitLit}, ${localTs(col)}) AS b, ${def.agg()} AS v
-            FROM ${Prisma.raw(`"${def.table}"`)} t
+            FROM ${Prisma.raw(`"${def.table}"`)} t ${joinSql}
             WHERE ${Prisma.join(conditions, " AND ")}
             GROUP BY 1
           )
-          SELECT to_char(buckets.b, 'YYYY-MM-DD') AS periodo, COALESCE(data.v, 0)::float8 AS valor
+          SELECT to_char(buckets.b, ${fmt}) AS periodo, COALESCE(data.v, 0)::float8 AS valor
           FROM buckets LEFT JOIN data ON data.b = buckets.b
           ORDER BY buckets.b`;
+        };
+        const rows = await series(period);
+        const lastYear = args.compararAnio ? await series(yearAgo(period)) : null;
         const values = rows.map((r) => r.valor);
         const total = values.reduce((a, b) => a + b, 0);
         const distinctMetric = args.metrica === "visitantes_unicos";
@@ -402,91 +428,13 @@ export function registerStatsTools(server: McpServer, ctx: McpContext) {
           promedioPorPeriodo: rows.length ? Math.round((total / rows.length) * 100) / 100 : 0,
           maximo: rows.length ? rows.reduce((m, r) => (r.valor > m.valor ? r : m)) : null,
           minimo: rows.length ? rows.reduce((m, r) => (r.valor < m.valor ? r : m)) : null,
-          nota: period.inProgress ? "El último punto está en curso (incompleto)." : undefined,
+          filtros: describeFiltros(f),
+          nota: [period.inProgress ? "El último punto está en curso (incompleto)." : "", notaFiltros ?? ""].filter(Boolean).join(" ") || undefined,
           puntos: rows,
+          anioAnterior: lastYear ? { puntos: lastYear, nota: "Misma cantidad de puntos, alineados por posición (mismas fechas un año antes)." } : undefined,
+          grafico: "línea temporal" + (lastYear ? " con dos series (actual y año anterior)" : ""),
         });
       },
     ),
-  );
-
-  server.registerTool(
-    "analitica_trafico",
-    {
-      title: "Analítica de tráfico web",
-      description:
-        "Tráfico real del sitio en un periodo (sin bots, sin el equipo, sin /admin): visitas, visitantes únicos, sesiones, cuánto se excluyó y por qué, páginas y secciones más vistas (con visitantes), fuentes de entrada (referente de la primera página de cada sesión, no de cada página), páginas de entrada, ciudades, países y acciones (brutas y únicas).",
-      inputSchema: {
-        ...periodShape,
-        limite: z.number().int().min(1).max(100).optional().describe("Filas por ranking (por defecto 20)."),
-      },
-      annotations: READ,
-    },
-    guarded("analitica_trafico", ctx, async (args: PeriodInput & { limite?: number }) => {
-      const period = resolvePeriod(args);
-      const take = args.limite ?? 20;
-      const inRange = Prisma.sql`pv."createdAt" >= ${period.from} AND pv."createdAt" < ${period.to} AND ${realPageViewSql("pv")}`;
-      const [summary, topPaths, sections, sources, landings, cities, countries, actions] = await Promise.all([
-        trafficSummary(period),
-        prisma.$queryRaw<{ ruta: string; visitas: number; visitantes: number }[]>`
-          SELECT pv."path" AS ruta, COUNT(*)::int AS visitas, COUNT(DISTINCT ${visitorKeySql("pv")})::int AS visitantes
-          FROM "PageView" pv WHERE ${inRange}
-          GROUP BY 1 ORDER BY 2 DESC LIMIT ${take}`,
-        prisma.$queryRaw<{ seccion: string; visitas: number; visitantes: number }[]>`
-          SELECT COALESCE(NULLIF(split_part(pv."path", '/', 2), ''), '(inicio)') AS seccion,
-                 COUNT(*)::int AS visitas, COUNT(DISTINCT ${visitorKeySql("pv")})::int AS visitantes
-          FROM "PageView" pv WHERE ${inRange}
-          GROUP BY 1 ORDER BY 2 DESC LIMIT ${take}`,
-        // document.referrer no cambia al navegar dentro del sitio (SPA): todas
-        // las páginas de una sesión traen el referente de entrada. Se cuenta
-        // una vez por sesión, en su primera página.
-        prisma.$queryRaw<{ fuente: string; sesiones: number }[]>`
-          WITH firsts AS (
-            SELECT DISTINCT ON (COALESCE(pv."sessionId", pv."id"::text)) pv."referrer"
-            FROM "PageView" pv WHERE ${inRange}
-            ORDER BY COALESCE(pv."sessionId", pv."id"::text), pv."createdAt"
-          )
-          SELECT CASE
-                   WHEN "referrer" IS NULL OR "referrer" = '' THEN '(directo)'
-                   WHEN "referrer" ~* '^https?://([a-z0-9-]+[.])*uzeed[.]cl' THEN '(interno)'
-                   ELSE COALESCE(substring("referrer" from '^(?:https?://)?(?:www[.])?([^/:?#]+)'), '(otro)')
-                 END AS fuente,
-                 COUNT(*)::int AS sesiones
-          FROM firsts GROUP BY 1 ORDER BY 2 DESC LIMIT ${take}`,
-        prisma.$queryRaw<{ pagina: string; entradas: number }[]>`
-          WITH firsts AS (
-            SELECT DISTINCT ON (COALESCE(pv."sessionId", pv."id"::text)) pv."path"
-            FROM "PageView" pv WHERE ${inRange}
-            ORDER BY COALESCE(pv."sessionId", pv."id"::text), pv."createdAt"
-          )
-          SELECT "path" AS pagina, COUNT(*)::int AS entradas FROM firsts GROUP BY 1 ORDER BY 2 DESC LIMIT ${take}`,
-        prisma.$queryRaw<{ ciudad: string; visitantes: number; visitas: number }[]>`
-          SELECT pv."city" AS ciudad, COUNT(DISTINCT ${visitorKeySql("pv")})::int AS visitantes, COUNT(*)::int AS visitas
-          FROM "PageView" pv WHERE ${inRange} AND pv."city" IS NOT NULL
-          GROUP BY 1 ORDER BY 2 DESC LIMIT ${take}`,
-        prisma.$queryRaw<{ pais: string; visitantes: number; visitas: number }[]>`
-          SELECT pv."country" AS pais, COUNT(DISTINCT ${visitorKeySql("pv")})::int AS visitantes, COUNT(*)::int AS visitas
-          FROM "PageView" pv WHERE ${inRange} AND pv."country" IS NOT NULL
-          GROUP BY 1 ORDER BY 2 DESC LIMIT ${take}`,
-        prisma.$queryRaw<{ accion: string; total: number; unicas: number }[]>`
-          SELECT ua."action" AS accion, COUNT(*)::int AS total,
-                 COUNT(DISTINCT (${actorKeySql("ua")} || ':' || COALESCE(ua."targetId"::text, '') || ':' ||
-                   to_char(${localTs('ua."createdAt"')}, 'YYYY-MM-DD')))::int AS unicas
-          FROM "UserAction" ua
-          WHERE ua."createdAt" >= ${period.from} AND ua."createdAt" < ${period.to} AND ${realActionSql("ua")}
-          GROUP BY 1 ORDER BY 2 DESC`,
-      ]);
-      return jsonResult({
-        periodo: describePeriod(period),
-        criterios: { trafico: CRITERIOS.trafico, clicks: CRITERIOS.clicks },
-        resumen: summary,
-        paginasMasVistas: topPaths,
-        secciones: sections,
-        fuentesDeEntrada: sources,
-        paginasDeEntrada: landings,
-        ciudades: cities,
-        paises: countries,
-        acciones: actions,
-      });
-    }),
   );
 }

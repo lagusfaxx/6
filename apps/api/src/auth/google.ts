@@ -419,6 +419,7 @@ googleAuthRouter.post(
           data: {
             email: pending.email,
             username,
+            signupSource: "google",
             displayName: pending.displayName,
             profileType: "CLIENT",
             role: "USER",
@@ -577,6 +578,7 @@ googleAuthRouter.post(
         data: {
           email: pending.email,
           username,
+          signupSource: "google",
           phone: data.phone,
           gender: data.gender,
           preferenceGender: data.preferenceGender || null,

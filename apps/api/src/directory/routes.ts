@@ -1499,6 +1499,35 @@ directoryRouter.get(
     const allResults = merged.slice(offset, offset + limit);
     const hasMore = offset + allResults.length < merged.length;
 
+    /* Estadísticas: se registran sólo las búsquedas con término o filtros
+       explícitos (los listados sin filtro son navegación). Primera página
+       nada más, para no contar el scroll como búsquedas nuevas. */
+    const explicitFilters = {
+      ...(profileTagFilter.length ? { profileTags: profileTagFilter } : {}),
+      ...(serviceTagFilter.length ? { serviceTags: serviceTagFilter } : {}),
+      ...(tierFilter ? { tier: tierFilter } : {}),
+      ...(genderFilter && genderFilter !== "FEMALE" ? { gender: genderFilter } : {}),
+      ...(maduras ? { maduras: true } : {}),
+      ...(availableNow ? { availableNow: true } : {}),
+    };
+    if (offset === 0 && (q || Object.keys(explicitFilters).length)) {
+      prisma.searchLog
+        .create({
+          data: {
+            q: q || null,
+            categorySlug: categorySlug || null,
+            city: selectedCity || null,
+            entityType,
+            filters: Object.keys(explicitFilters).length ? explicitFilters : undefined,
+            resultCount: merged.length,
+            userId: (req.session as any)?.userId || null,
+            sessionId: typeof req.query.sid === "string" && /^[A-Za-z0-9-]{8,64}$/.test(req.query.sid) ? req.query.sid : null,
+            visitorId: typeof req.query.vid === "string" && /^[A-Za-z0-9-]{8,64}$/.test(req.query.vid) ? req.query.vid : null,
+          },
+        })
+        .catch(() => {});
+    }
+
     return res.json({
       results: allResults,
       total: merged.length,

@@ -12,6 +12,20 @@ function clientId(value: unknown): string | null {
   return typeof value === "string" && /^[A-Za-z0-9-]{8,64}$/.test(value) ? value : null;
 }
 
+function shortText(value: unknown, max = 100): string | null {
+  if (typeof value !== "string") return null;
+  const t = value.trim().replace(/[\u0000-\u001f]/g, "");
+  return t ? t.slice(0, max) : null;
+}
+
+/** "mobile" | "tablet" | "desktop" a partir del user agent. */
+export function deviceFromUserAgent(ua: string | null | undefined): string | null {
+  if (!ua) return null;
+  if (/iPad|Tablet|PlayBook|Silk|(Android(?!.*Mobile))/i.test(ua)) return "tablet";
+  if (/Mobi|Android|iPhone|iPod|Windows Phone|Opera Mini|IEMobile/i.test(ua)) return "mobile";
+  return "desktop";
+}
+
 const analyticsLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 60,
@@ -26,7 +40,7 @@ analyticsRouter.post(
   "/analytics/pageview",
   analyticsLimiter,
   asyncHandler(async (req, res) => {
-    const { path, referrer, sessionId, visitorId } = req.body;
+    const { path, referrer, sessionId, visitorId, utm, standalone } = req.body;
     if (!path || typeof path !== "string") {
       return res.status(400).json({ error: "path required" });
     }
@@ -46,6 +60,11 @@ analyticsRouter.post(
         userId,
         sessionId: clientId(sessionId),
         visitorId: clientId(visitorId),
+        utmSource: shortText(utm?.source),
+        utmMedium: shortText(utm?.medium),
+        utmCampaign: shortText(utm?.campaign),
+        device: deviceFromUserAgent(typeof userAgent === "string" ? userAgent : null),
+        displayMode: standalone === true ? "pwa" : "browser",
         referrer: referrer ? String(referrer).slice(0, 500) : null,
         userAgent: userAgent ? String(userAgent).slice(0, 500) : null,
         city,
@@ -53,6 +72,35 @@ analyticsRouter.post(
       },
     });
 
+    res.json({ ok: true });
+  }),
+);
+
+/* ─── Impresiones en listados (una llamada por página de resultados) ───
+   Agregado por perfil y día: cuántas veces apareció y en qué posiciones.
+   Con las vistas de la ficha da el CTR listado → perfil. */
+
+analyticsRouter.post(
+  "/analytics/impressions",
+  analyticsLimiter,
+  asyncHandler(async (req, res) => {
+    const ids: unknown = req.body?.ids;
+    const start = Number(req.body?.start) || 0;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: "ids required" });
+    const clean = ids
+      .slice(0, 120)
+      .filter((v): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v));
+    if (!clean.length) return res.json({ ok: true });
+    const positions = clean.map((_, i) => start + i + 1);
+    // Un solo upsert para toda la página. La fecha es la de Chile.
+    await prisma.$executeRaw`
+      INSERT INTO "ProfileDailyStats" ("profileId", "date", "impressions", "positionSum", "updatedAt")
+      SELECT id, (now() AT TIME ZONE 'America/Santiago')::date, 1, pos, now()
+      FROM unnest(${clean}::uuid[], ${positions}::int[]) AS t(id, pos)
+      ON CONFLICT ("profileId", "date") DO UPDATE
+        SET "impressions" = "ProfileDailyStats"."impressions" + 1,
+            "positionSum" = "ProfileDailyStats"."positionSum" + EXCLUDED."positionSum",
+            "updatedAt" = now()`;
     res.json({ ok: true });
   }),
 );

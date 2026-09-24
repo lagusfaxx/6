@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { MapPin, ShieldCheck, Video } from "lucide-react";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../../lib/api";
+import { trackImpressions } from "../../hooks/useAnalytics";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
 import { hasPremiumBadge, hasVerifiedBadge } from "../../lib/systemBadges";
 import StatusBadgeIcon from "../StatusBadgeIcon";
@@ -123,6 +124,7 @@ export default function InfiniteFeed({
         );
         if (myReq !== reqId.current) return;
         const incoming = data.results || [];
+        trackImpressions(incoming.map((r) => r.id), nextOffset);
         setItems((prev) => {
           const base = replace ? [] : prev;
           const known = new Set([...base.map((r) => r.id), ...seenIds]);

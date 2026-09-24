@@ -1689,6 +1689,7 @@ adminRouter.post(
       data: {
         email,
         username,
+        signupSource: "admin",
         passwordHash: "ADMIN_MANAGED_NO_LOGIN",
         displayName: String(displayName),
         phone: phone ? String(phone) : null,

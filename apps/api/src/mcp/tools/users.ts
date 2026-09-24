@@ -17,6 +17,7 @@ import { guarded, type McpContext } from "../audit";
 import {
   PROFILE_TYPES,
   TIERS,
+  TZ,
   describePeriod,
   errorResult,
   findUserRef,
@@ -99,6 +100,53 @@ type RankingArgs = PeriodInput & {
 function profilePathSql(alias: string, idCol: Prisma.Sql, usernameCol: Prisma.Sql): Prisma.Sql {
   const seg = Prisma.sql`split_part(${Prisma.raw(`"${alias}"`)}."path", '/', 3)`;
   return Prisma.sql`(${Prisma.raw(`"${alias}"`)}."path" LIKE '/profesional/%' AND (${seg} = ${idCol}::text OR ${seg} = ${usernameCol}))`;
+}
+
+/** Ficha 360: tendencia 30 días, exposición en listados, historial de tier, cambios de nombre/teléfono y reportes. */
+async function profile360(id: string) {
+  const since30 = new Date(Date.now() - 30 * MS_DAY);
+  const [tendencia, exposicion, tierHistory, phoneChanges, nameChanges, reportes] = await Promise.all([
+    prisma.$queryRaw<{ dia: string; vistas: number; contactos: number }[]>`
+      WITH days AS (SELECT generate_series(date_trunc('day', (now() AT TIME ZONE ${TZ}) - interval '29 days'), date_trunc('day', now() AT TIME ZONE ${TZ}), '1 day'::interval) AS d),
+      v AS (SELECT date_trunc('day', ${localTs('pv."createdAt"')}) AS d, COUNT(*)::int AS n FROM "PageView" pv
+            WHERE pv."path" LIKE '/profesional/%' AND split_part(pv."path", '/', 3) = ${id} AND pv."createdAt" >= ${since30} AND ${realPageViewSql("pv")} GROUP BY 1),
+      c AS (SELECT date_trunc('day', ${localTs('ua."createdAt"')}) AS d, COUNT(DISTINCT ${actorKeySql("ua")})::int AS n FROM "UserAction" ua
+            WHERE ua."targetId" = ${id}::uuid AND ua."action" IN ('whatsapp_click','phone_click') AND ua."createdAt" >= ${since30} AND ${realActionSql("ua")} GROUP BY 1)
+      SELECT to_char(days.d, 'YYYY-MM-DD') AS dia, COALESCE(v.n, 0)::int AS vistas, COALESCE(c.n, 0)::int AS contactos
+      FROM days LEFT JOIN v ON v.d = days.d LEFT JOIN c ON c.d = days.d ORDER BY days.d`,
+    prisma.$queryRaw<{ impresiones: number; posicion: number | null }[]>`
+      SELECT COALESCE(SUM(impressions), 0)::int AS impresiones, (SUM("positionSum")::float8 / NULLIF(SUM(impressions), 0)) AS posicion
+      FROM "ProfileDailyStats" WHERE "profileId" = ${id}::uuid AND "date" >= (now() AT TIME ZONE ${TZ})::date - 30`,
+    prisma.profileTierHistory.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 20, select: { fromTier: true, toTier: true, createdAt: true } }),
+    prisma.phoneChangeRequest.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 10, select: { status: true, createdAt: true, reviewedAt: true } }),
+    prisma.nameChangeRequest.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 10, select: { currentName: true, requestedName: true, status: true, createdAt: true, reviewedAt: true } }),
+    prisma.$queryRaw<{ n: number; ultimo: Date | null }[]>`
+      SELECT COUNT(*)::int AS n, MAX("createdAt") AS ultimo FROM "Notification" WHERE "type" = 'ADMIN_EVENT' AND "data"->>'type' = 'content_reported' AND "data"->>'targetId' = ${id}`,
+  ]);
+  const vistas30 = tendencia.reduce((a, r) => a + r.vistas, 0);
+  const contactos30 = tendencia.reduce((a, r) => a + r.contactos, 0);
+  const first = tendencia.slice(0, 15).reduce((a, r) => a + r.vistas, 0);
+  const second = tendencia.slice(15).reduce((a, r) => a + r.vistas, 0);
+  return {
+    ficha360: {
+      tendencia30d: {
+        puntos: tendencia,
+        vistas: vistas30,
+        contactos: contactos30,
+        tendenciaVistasPct: first ? Math.round(((second - first) / first) * 1000) / 10 : null,
+        grafico: "línea doble (vistas y contactos) por día",
+      },
+      exposicion30d: {
+        impresiones: exposicion[0]?.impresiones ?? 0,
+        posicionMedia: exposicion[0]?.posicion != null ? Math.round(Number(exposicion[0].posicion) * 10) / 10 : null,
+        ctrListadoPct: exposicion[0]?.impresiones ? Math.round((vistas30 / exposicion[0].impresiones) * 1000) / 10 : null,
+      },
+      historialTier: tierHistory,
+      cambiosTelefono: phoneChanges,
+      cambiosNombre: nameChanges,
+      reportes: { total: reportes[0]?.n ?? 0, ultimo: reportes[0]?.ultimo ?? null },
+    },
+  };
 }
 
 /** Visitas, visitantes y contactos reales de la ficha de un perfil desde `since`. */
@@ -286,6 +334,7 @@ export function registerUserTools(server: McpServer, ctx: McpContext) {
         }),
       ]);
 
+      const extras360 = await profile360(id);
       const now = new Date();
       const membershipActive = !!user.membershipExpiresAt && user.membershipExpiresAt > now;
       const trialActive = !!user.shopTrialEndsAt && user.shopTrialEndsAt > now;
@@ -316,6 +365,7 @@ export function registerUserTools(server: McpServer, ctx: McpContext) {
           verificacionFacial: faceVerification,
         },
         pagosRecientes: payments,
+        ...extras360,
       });
     }),
   );
