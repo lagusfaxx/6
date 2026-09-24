@@ -113,6 +113,9 @@ MCP_SQL_PASSWORD=<clave-aleatoria>
 MCP_ALLOWED_IPS=               # IPs/CIDR permitidas para /mcp, separadas por coma
 MCP_OAUTH_ALLOW_LOOPBACK=true  # false = sólo claude.ai/claude.com (sin Claude Code)
 MCP_OAUTH_REDIRECT_URIS=       # redirecciones extra permitidas, exactas
+# Google Search Console (herramientas de SEO para Claude; ver MCP.md)
+GSC_SERVICE_ACCOUNT_JSON=      # JSON de la cuenta de servicio, tal cual o en base64
+GSC_SITE_URL=sc-domain:uzeed.cl
 ```
 
 ## 🚀 Despliegue en Coolify
