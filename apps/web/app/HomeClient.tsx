@@ -11,6 +11,7 @@ import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../components/Direct
 import useMe from "../hooks/useMe";
 import { useDiscreet } from "../components/DiscreetProvider";
 import { DISCREET_BRAND, discreetLabel } from "../lib/discreet";
+import { toHomeProfile, type HomeProfile } from "../components/home/ProfileCard";
 
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
@@ -171,6 +172,8 @@ type RecentProfessional = {
   profileTags?: string[];
   serviceTags?: string[];
   galleryUrls?: string[];
+  /** Lo que muestra la tarjeta de perfil (Diamond y Gold). */
+  card: HomeProfile;
 };
 
 /* Solo lo que la tarjeta de novedades necesita. */
@@ -426,6 +429,7 @@ export default function HomeClient() {
             profileTags: Array.isArray(p.profileTags) ? p.profileTags : [],
             serviceTags: Array.isArray(p.serviceTags) ? p.serviceTags : [],
             galleryUrls: p.galleryUrls ?? [],
+            card: toHomeProfile(p),
           }),
         );
 
@@ -519,34 +523,19 @@ export default function HomeClient() {
   );
   const hasTieredProfiles = diamondProfiles.length > 0 || goldProfiles.length > 0;
 
-  const toCardProfile = (p: RecentProfessional) => ({
-    id: p.id,
-    displayName: p.name,
-    avatarUrl: p.avatarUrl ?? null,
-    coverUrl: p.coverUrl ?? null,
-    availableNow: !!p.availableNow,
-  });
-
   /* Sobre el mapa va solo Diamond: es el rango más alto y una sola fila deja
      el mapa a la vista al abrir el inicio. Gold vive en el feed, más abajo.
      La fila scrollea en horizontal y tiene alto fijo, así que mostrar más
      tarjetas no le come pantalla al mapa: cortar en 6 sólo escondía Diamond
      que sí aparecían más abajo en "Cerca de ti". */
   const diamondCompact = useMemo(
-    () => diamondProfiles.map(toCardProfile),
+    () => diamondProfiles.map((p) => p.card),
     [diamondProfiles],
   );
 
   const novedades = useMemo(
     () =>
-      newProfiles.slice(0, 12).map((p) => ({
-        id: p.id,
-        displayName: p.displayName,
-        city: p.city ?? null,
-        avatarUrl: p.avatarUrl ?? null,
-        coverUrl: p.coverUrl ?? null,
-        availableNow: !!p.availableNow,
-      })),
+      newProfiles.slice(0, 12).map((p) => toHomeProfile(p, { isNew: true })),
     [newProfiles],
   );
 
@@ -851,7 +840,7 @@ export default function HomeClient() {
         <div className="mb-6 h-px bg-white/[0.06]" />
 
         {/* ═══ FEED — filtros + destacadas + grid infinito ═══ */}
-        <HomeFeed goldProfiles={goldProfiles} />
+        <HomeFeed goldProfiles={goldProfiles.map((p) => p.card)} />
 
         {/* ═══ EN VIVO AHORA ═══ */}
         {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}

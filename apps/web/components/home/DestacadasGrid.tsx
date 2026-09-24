@@ -2,12 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../lib/api";
-import DestacadaCard, {
-  type DestacadaCardProfile,
-  type FeaturedStoryMedia,
-} from "./DestacadaCard";
+import ProfileCard, { type CardStoryMedia, type HomeProfile } from "./ProfileCard";
 
-export type DestacadaProfile = DestacadaCardProfile;
+export type DestacadaProfile = HomeProfile;
 
 /**
  * Rango del perfil. Antes el home mezclaba Diamond y Gold en una sola sección
@@ -45,7 +42,7 @@ type Props = {
 };
 
 type FeaturedResponse = {
-  byUser: Record<string, FeaturedStoryMedia[]>;
+  byUser: Record<string, CardStoryMedia[]>;
 };
 
 export default function DestacadasGrid({
@@ -55,7 +52,7 @@ export default function DestacadasGrid({
   compact = false,
 }: Props) {
   const userIds = useMemo(() => profiles.map((p) => p.id), [profiles]);
-  const [byUser, setByUser] = useState<Record<string, FeaturedStoryMedia[]>>({});
+  const [byUser, setByUser] = useState<Record<string, CardStoryMedia[]>>({});
 
   useEffect(() => {
     if (userIds.length === 0) {
@@ -93,8 +90,8 @@ export default function DestacadasGrid({
             se leía como miniaturas y el rango más alto no puede verse así. */}
         <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
           {profiles.map((p) => (
-            <div key={p.id} className="w-[150px] shrink-0 sm:w-[170px]">
-              <DestacadaCard profile={p} stories={byUser[p.id] || []} />
+            <div key={p.id} className="w-[170px] shrink-0 sm:w-[190px]">
+              <ProfileCard profile={p} stories={byUser[p.id] || []} aspect="aspect-[3/4]" eager />
             </div>
           ))}
         </div>
@@ -109,10 +106,11 @@ export default function DestacadasGrid({
       </h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {profiles.map((p) => (
-          <DestacadaCard
+          <ProfileCard
             key={p.id}
             profile={p}
             stories={byUser[p.id] || []}
+            aspect="aspect-[3/4]"
           />
         ))}
       </div>

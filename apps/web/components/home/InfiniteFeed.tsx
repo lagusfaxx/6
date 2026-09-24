@@ -1,16 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { MapPin, ShieldCheck, Video } from "lucide-react";
-import { apiFetch, isRateLimitError, resolveMediaUrl } from "../../lib/api";
+import { apiFetch, isRateLimitError } from "../../lib/api";
 import { trackImpressions } from "../../hooks/useAnalytics";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
-import { hasPremiumBadge, hasVerifiedBadge } from "../../lib/systemBadges";
-import StatusBadgeIcon from "../StatusBadgeIcon";
-import VerifiedBand from "../VerifiedBand";
-import UserLevelBadge from "../UserLevelBadge";
 import type { DirectoryResult } from "../DirectoryPage";
+import ProfileCard, { toHomeProfile } from "./ProfileCard";
 
 type Props = {
   /** When omitted, the title is derived from the active city/GPS chip. */
@@ -31,29 +26,6 @@ type SearchResponse = {
 };
 
 const PAGE_SIZE_DEFAULT = 24;
-
-function profileImage(p: DirectoryResult) {
-  return (
-    resolveMediaUrl(p.coverUrl) ??
-    resolveMediaUrl(p.avatarUrl) ??
-    "/brand/isotipo-new.png"
-  );
-}
-
-function hasExamsBadge(p: DirectoryResult) {
-  return (p.profileTags || []).some((t) => {
-    const n = String(t || "").trim().toLowerCase();
-    return n === "profesional con examenes" || n === "profesional con exámenes";
-  });
-}
-
-function hasVideoCallBadge(p: DirectoryResult) {
-  const all = [...(p.serviceTags || []), ...(p.profileTags || [])];
-  return all.some((t) => {
-    const n = String(t || "").trim().toLowerCase();
-    return n === "videollamada" || n === "videollamadas";
-  });
-}
 
 export default function InfiniteFeed({
   title,
@@ -107,6 +79,7 @@ export default function InfiniteFeed({
           sort: effectiveLoc ? "near" : "featured",
           limit: String(pageSize),
           offset: String(nextOffset),
+          withGallery: "true",
         });
         if (effectiveLoc) {
           params.set("lat", String(effectiveLoc[0]));
@@ -202,89 +175,8 @@ export default function InfiniteFeed({
         <p className="py-16 text-center text-white/40">{emptyLabel}</p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {items.map((p) => (
-            <Link
-              key={p.id}
-              href={`/profesional/${p.id}`}
-              className="group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0a14]"
-            >
-              <div className="relative aspect-[3/4] overflow-hidden">
-                <img
-                  src={profileImage(p)}
-                  alt={p.displayName}
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                  loading="lazy"
-                  decoding="async"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src =
-                      "/brand/isotipo-new.png";
-                  }}
-                />
-                <div className="absolute left-2 top-2 z-[3] flex flex-col gap-1">
-                  {p.availableNow && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300 ring-1 ring-emerald-400/30">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      Online
-                    </span>
-                  )}
-                  {hasExamsBadge(p) && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-300 ring-1 ring-sky-400/30">
-                      <ShieldCheck className="h-2.5 w-2.5" /> Exámenes
-                    </span>
-                  )}
-                  {hasVideoCallBadge(p) && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold text-violet-300 ring-1 ring-violet-400/30">
-                      <Video className="h-2.5 w-2.5" /> Videollamada
-                    </span>
-                  )}
-                </div>
-                <div className="absolute right-2 top-2 z-[3]">
-                  <UserLevelBadge
-                    level={
-                      p.userLevel as "SILVER" | "GOLD" | "DIAMOND" | null
-                    }
-                  />
-                </div>
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 p-3 [--verified-band-bleed:12px]">
-                  <div className="flex items-center gap-1 truncate text-sm font-bold text-white">
-                    <span className="truncate">{p.displayName}</span>
-                    {hasPremiumBadge(p.profileTags) && (
-                      <StatusBadgeIcon type="premium" size="h-3.5 w-3.5" />
-                    )}
-                    {hasVerifiedBadge(p.profileTags) && (
-                      <StatusBadgeIcon type="verificada" size="h-5 w-5" />
-                    )}
-                    {p.age ? (
-                      <span className="ml-1 text-[11px] font-normal tabular-nums text-white/55">
-                        {p.age}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-1 flex items-center gap-1.5 text-[11px] text-white/55">
-                    {p.city && (
-                      <span className="flex items-center gap-1 truncate">
-                        <MapPin className="h-3 w-3 shrink-0 text-fuchsia-400/60" />
-                        {p.city}
-                      </span>
-                    )}
-                    {p.distance != null && (
-                      <span className="shrink-0 tabular-nums text-white/40">
-                        ·{" "}
-                        {p.distance < 1
-                          ? `${Math.round(p.distance * 1000)}m`
-                          : `${p.distance.toFixed(1)}km`}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Banda de verificación, cruzando el borde de abajo */}
-                  {hasVerifiedBadge(p.profileTags) && (
-                    <VerifiedBand size="sm" inline />
-                  )}
-                </div>
-              </div>
-            </Link>
+          {items.map((p, i) => (
+            <ProfileCard key={p.id} profile={toHomeProfile(p)} eager={i < 4} />
           ))}
 
           {loading &&

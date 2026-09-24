@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
+import { Barlow_Condensed } from 'next/font/google';
 import "./globals.css";
 import AppShell from '../components/AppShell';
 import AgeGate from '../components/AgeGate';
@@ -139,9 +140,18 @@ const jsonLd = {
   ],
 };
 
+/* Tipografía de los nombres en las tarjetas de perfil. next/font la sirve
+   desde el mismo dominio, sin pedido extra a Google. */
+const fontDisplay = Barlow_Condensed({
+  subsets: ['latin'],
+  weight: ['600', '700', '800'],
+  display: 'swap',
+  variable: '--font-display',
+});
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="es" className={fontDisplay.variable}>
       <head>
         {/* Preconnect to third-party origins to reduce DNS+TLS latency */}
         <link rel="preconnect" href="https://www.googletagmanager.com" crossOrigin="anonymous" />

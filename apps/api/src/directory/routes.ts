@@ -511,6 +511,24 @@ directoryRouter.get(
   }),
 );
 
+/* Hasta 6 fotos públicas por perfil, para pasar fotos dentro de la tarjeta
+   del inicio. Una sola consulta para todos los ids de la página. */
+async function galleryByOwner(ids: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (!ids.length) return out;
+  const rows = await prisma.profileMedia.findMany({
+    where: { ownerId: { in: ids }, type: "IMAGE", isLocked: false },
+    orderBy: { createdAt: "asc" },
+    select: { ownerId: true, url: true },
+  });
+  for (const r of rows) {
+    const list = out.get(r.ownerId) ?? [];
+    if (list.length < 6) list.push(r.url);
+    out.set(r.ownerId, list);
+  }
+  return out;
+}
+
 directoryRouter.get(
   "/professionals/recent",
   asyncHandler(async (req, res) => {
@@ -561,6 +579,11 @@ directoryRouter.get(
       profileViews: true,
       baseRate: true,
       tier: true,
+      coverUrl: true,
+      profileTags: true,
+      serviceTags: true,
+      serviceCategory: true,
+      primaryCategory: true,
       services: {
         where: { isActive: true },
         select: { latitude: true, longitude: true },
@@ -623,6 +646,16 @@ directoryRouter.get(
           completedServices: u.completedServices,
           userLevel,
           lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
+          /* Datos de la tarjeta del inicio. */
+          coverUrl: u.coverUrl,
+          availableNow: u.lastSeen
+            ? now.getTime() - u.lastSeen.getTime() <= 5 * 60 * 1000
+            : false,
+          profileTags: u.profileTags ?? [],
+          serviceTags: u.serviceTags ?? [],
+          serviceCategory: u.serviceCategory,
+          primaryCategory: u.primaryCategory,
+          nearestMetro: publicMetro(nearestMetroStation(profLat, profLng)),
         };
       })
       .filter((u) => ["GOLD", "DIAMOND"].includes(u.userLevel))
@@ -655,7 +688,12 @@ directoryRouter.get(
       ...ranked.filter((u) => u.userLevel === "GOLD").slice(0, limit),
     ];
 
-    return res.json({ professionals: highlighted });
+    const gallery = await galleryByOwner(highlighted.map((u) => u.id)).catch(
+      () => new Map<string, string[]>(),
+    );
+    return res.json({
+      professionals: highlighted.map((u) => ({ ...u, galleryUrls: gallery.get(u.id) ?? [] })),
+    });
   }),
 );
 
@@ -1155,6 +1193,8 @@ directoryRouter.get(
     /* Free-text search across displayName / username / city. Optional. */
     const qRaw = typeof req.query.q === "string" ? req.query.q : "";
     const q = qRaw.trim().slice(0, 80);
+    /* 'true' → agrega galleryUrls (hasta 6 fotos públicas) a cada resultado. */
+    const withGallery = req.query.withGallery === "true";
 
     /* ── normalise tag filters ── */
     function normTag(t: string) {
@@ -1390,6 +1430,10 @@ directoryRouter.get(
         avgResponseMinutes: (u as any).avgResponseMinutes ?? null,
         adminQualityScore: (u as any).adminQualityScore ?? null,
         isMadura,
+        isNew: now.getTime() - u.createdAt.getTime() <= 15 * 24 * 60 * 60 * 1000,
+        /* Sólo el nombre de la estación, calculado del punto real: igual que
+           en el detalle del perfil. */
+        nearestMetro: publicMetro(nearestMetroStation(userLat, userLng)),
         createdAt: u.createdAt.toISOString(),
       };
     });
@@ -1473,6 +1517,8 @@ directoryRouter.get(
           gender: null,
           profileType: entityType === "shop" ? "SHOP" : "ESTABLISHMENT",
           avgResponseMinutes: null,
+          isNew: false,
+          nearestMetro: null,
           websiteUrl: ql.websiteUrl,
           externalOnly: true,
         };
@@ -1496,7 +1542,13 @@ directoryRouter.get(
          los perfiles de otras comunas aunque sean de la comuna elegida. */
       merged.sort((a, b) => cityRank(a.city) - cityRank(b.city));
     }
-    const allResults = merged.slice(offset, offset + limit);
+    const pageResults = merged.slice(offset, offset + limit);
+    const gallery = withGallery
+      ? await galleryByOwner(pageResults.map((r) => r.id)).catch(() => new Map<string, string[]>())
+      : null;
+    const allResults = gallery
+      ? pageResults.map((r) => ({ ...r, galleryUrls: gallery.get(r.id) ?? [] }))
+      : pageResults;
     const hasMore = offset + allResults.length < merged.length;
 
     /* Estadísticas: se registran sólo las búsquedas con término o filtros

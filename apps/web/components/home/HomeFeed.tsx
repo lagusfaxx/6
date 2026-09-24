@@ -24,18 +24,9 @@ import { Clock, ShieldCheck, ShoppingBag, Sparkles, Star } from "lucide-react";
 import DestacadasGrid, { type DestacadaProfile } from "./DestacadasGrid";
 import InfiniteFeed from "./InfiniteFeed";
 
-type AnyProfile = {
-  id: string;
-  displayName?: string | null;
-  name?: string | null;
-  avatarUrl?: string | null;
-  coverUrl?: string | null;
-  availableNow?: boolean;
-};
-
 type Props = {
   /** Perfiles del plan Gold. Diamond va arriba del mapa, no aquí. */
-  goldProfiles: AnyProfile[];
+  goldProfiles: DestacadaProfile[];
 };
 
 /* Filtros por estado del perfil, no por categoría: la categoría ya vive en el
@@ -48,18 +39,8 @@ const FEED_FILTERS = [
   { label: "Premium", href: "/premium", icon: Star },
 ];
 
-function toDestacada(p: AnyProfile): DestacadaProfile {
-  return {
-    id: p.id,
-    displayName: p.displayName || p.name || "Perfil",
-    avatarUrl: p.avatarUrl ?? null,
-    coverUrl: p.coverUrl ?? null,
-    availableNow: !!p.availableNow,
-  };
-}
-
 export default function HomeFeed({ goldProfiles }: Props) {
-  const gold = goldProfiles.slice(0, 10).map(toDestacada);
+  const gold = goldProfiles.slice(0, 10);
 
   return (
     <>
