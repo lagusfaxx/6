@@ -107,6 +107,8 @@ enum NotificationType {
   PHONE_CHANGE_REVIEWED
   NAME_CHANGE_REVIEWED
   FACE_VERIFICATION_REVIEWED
+  /// Aviso que manda el equipo (panel o Claude) a un usuario o segmento.
+  ADMIN_MESSAGE
 }
 
 enum PaymentIntentPurpose {
@@ -591,6 +593,7 @@ model User {
   marketLedger           MarketLedgerEntry[]  @relation("MarketLedger")
   marketWithdrawals      MarketWithdrawal[]   @relation("MarketWithdrawals")
   marketReviews          MarketReview[]       @relation("MarketReviews")
+  adminNotes             AdminUserNote[]      @relation("AdminNotesAbout")
 }
 
 model PushSubscription {
@@ -2337,4 +2340,20 @@ model StatsAlert {
   updatedAt    DateTime  @updatedAt
 
   @@index([enabled])
+}
+
+/// Notas internas del equipo sobre un usuario (no las ve el usuario). Las
+/// escribe el panel o Claude por el MCP; salen en la ficha 360.
+model AdminUserNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  authorId  String?  @db.Uuid
+  text      String
+  /// "panel" o "mcp".
+  source    String   @default("panel")
+  createdAt DateTime @default(now())
+
+  user User @relation("AdminNotesAbout", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }

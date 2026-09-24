@@ -107,8 +107,21 @@ equipo, `/admin` y perfiles de prueba se excluyen siempre.
 | `buscar_usuarios`, `ranking_perfiles`, `membresias`, `informe_ingresos`, `listar_pagos`, `pendientes`, `resumen_marketplace`, `resumen_umate` | Igual que antes. |
 | `detalle_registros` | Drill-down: las filas detrás de cualquier número (visitas, sesiones, contactos, registros, perfiles, pagos, búsquedas, mensajes, favoritos, impresiones). |
 | `exportar_csv` | Lo mismo en CSV. |
-| `describir_esquema`, `consulta_sql` | Esquema y SELECT libre de sólo lectura. |
+| `ubicacion_clientes` | De dónde son los clientes por región/ciudad/comuna: visitantes, los que vieron fichas y los que contactaron; flujo zona del cliente → zona del perfil contactado (% local, principales orígenes de cada ciudad); búsquedas en otra zona; cuentas cliente por ciudad declarada; visitas desde el extranjero por país. |
+| `describir_esquema`, `consulta_sql` | Esquema (con los valores de cada enum y las vistas `mcp_*`) y SELECT libre de sólo lectura. Si la consulta falla, el error explica qué corregir (valor de enum inválido con los válidos, columna inexistente, dato sensible, tiempo agotado). `pesada=true` da 60 s en vez de 20 s, máximo 5 por hora. |
 | `ver_bitacora` | Qué se hizo por el MCP. |
+
+#### Vistas para `consulta_sql`
+
+Responden preguntas sobre columnas que el lector no puede leer, sin entregar el dato:
+
+| Vista | Qué trae |
+| --- | --- |
+| `mcp_cuenta_datos` | Por cuenta: si tiene email, teléfono, ubicación exacta, dirección, tarjeta guardada, 2FA, verificación por teléfono; dominio del correo sólo si es masivo (gmail, hotmail...), si no `otro`. |
+| `mcp_zona_perfiles` | Perfiles por celda de ~1 km y tipo; sólo celdas con 3 o más perfiles. |
+| `mcp_mensajes_diarios` | Mensajes por día (hora de Chile) y par remitente → destinatario, leídos y largo promedio, sin el texto. |
+
+La API las concede al rol lector al arrancar (`mcp_reader_refresh_grants`).
 
 ### Herramientas del panel (guardan configuración)
 
@@ -171,7 +184,15 @@ en `YYYY-MM-DD`. Todo se calcula en hora de Chile.
 
 `cambiar_estado_perfil`, `aprobar_verificacion`, `rechazar_verificacion`,
 `cambiar_tier`. Hacen lo mismo que el botón equivalente del panel y quedan en la
-bitácora (`McpAuditLog`). A propósito **no hay** herramientas que muevan dinero
+bitácora (`McpAuditLog`).
+
+Trabajo del equipo (también sólo administrador y en la bitácora):
+
+| Herramienta | Para qué |
+| --- | --- |
+| `bandeja_admin` | Avisos del panel (eliminación de datos, contacto, contenido reportado, depósitos, retiros, verificaciones, alertas): listar pendientes y marcarlos atendidos para todo el equipo. Los correos de quien escribió salen enmascarados. Marcar atendido no aprueba ni rechaza nada. |
+| `notas_internas` | Notas del equipo sobre un usuario (el usuario no las ve). Salen también en `ver_usuario`. No se borran desde Claude. |
+| `enviar_aviso` | Notificación en la app (con push) y/o correo a un usuario o a un grupo por filtros de perfil o segmento. Siempre devuelve primero una vista previa con un código; sólo envía si se repite con ese código. Máximo 1.000 destinatarios por envío, 300 correos por envío y 2.000 avisos por día. El correo sólo va a quien acepta avisos por correo y lleva enlace de baja. El enlace sólo puede ser una ruta de uzeed.cl. | A propósito **no hay** herramientas que muevan dinero
 (depósitos, retiros, reembolsos, saldos) ni que borren: eso sigue en el panel,
 con su 2FA.
 

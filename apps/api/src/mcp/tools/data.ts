@@ -24,6 +24,66 @@ const FORBIDDEN_SQL: [RegExp, string][] = [
   [/passwordHash|passwordSetToken|twoFactorSecret|tokenHash|p256dh/i, "columnas de credenciales"],
 ];
 
+/** Vistas agregadas que crea la migración para consulta_sql (ver mcp_reader_refresh_grants). */
+const VISTAS = [
+  {
+    vista: "mcp_cuenta_datos",
+    columnas: ["userId", "tieneEmail", "dominioEmail", "tieneTelefono", "tieneUbicacionExacta", "tieneDireccion", "verificadoPorTelefono", "tieneTarjetaGuardada", "tiene2fa"],
+    para: "Qué datos de contacto tiene cada cuenta, sin el dato (dominioEmail sólo si es un proveedor masivo, si no 'otro'). Se cruza con \"User\" por userId.",
+  },
+  {
+    vista: "mcp_zona_perfiles",
+    columnas: ["latAprox", "lngAprox", "tipoPerfil", "perfiles", "publicados"],
+    para: "Mapa de oferta por celda de ~1 km; sólo celdas con 3 o más perfiles.",
+  },
+  {
+    vista: "mcp_mensajes_diarios",
+    columnas: ["dia", "fromId", "toId", "mensajes", "leidos", "largoPromedio"],
+    para: "Mensajes por día (hora de Chile) y par remitente→destinatario, sin el texto.",
+  },
+];
+
+const HEAVY_TIMEOUT_MS = 60_000;
+const NORMAL_TIMEOUT_MS = 20_000;
+const HEAVY_PER_HOUR = 5;
+
+/**
+ * Traduce el error de Postgres a algo que Claude pueda corregir: el código y
+ * el mensaje hablan de la consulta que él mismo escribió (columna que no
+ * existe, valor de enum, sintaxis). Lo que no sea de la consulta sigue saliendo
+ * genérico, con el detalle sólo en la bitácora.
+ */
+function explainSqlError(err: any): string | null {
+  const meta = err?.meta ?? {};
+  const raw = String(err?.message ?? "");
+  const code: string | undefined = meta.code ?? raw.match(/Code: `(\w{5})`/)?.[1];
+  const pgMessage = String(meta.message ?? raw.match(/Message: `([\s\S]*?)`\s*$/)?.[1] ?? "")
+    .replace(/^ERROR:\s*/, "")
+    .slice(0, 400);
+  if (!code) return null;
+
+  if (code === "22P02") {
+    const m = pgMessage.match(/invalid input value for enum "?(\w+)"?: "([^"]*)"/);
+    if (m) {
+      const e = Prisma.dmmf.datamodel.enums.find((x) => x.name === m[1]);
+      const valores = e ? e.values.map((v) => v.name).join(", ") : "revisa describir_esquema";
+      return `"${m[2]}" no es un valor de ${m[1]}. Valores válidos: ${valores}.`;
+    }
+  }
+  if (code === "42501") {
+    return "La consulta toca una columna o tabla que el MCP no puede leer (dato sensible). Nombra sólo las columnas que necesitas o usa las vistas mcp_* de describir_esquema.";
+  }
+  if (code === "57014") {
+    return `La consulta superó el tiempo máximo. Acota el rango de fechas, agrega filtros o repite con pesada=true (${HEAVY_TIMEOUT_MS / 1000} s, máximo ${HEAVY_PER_HOUR} por hora).`;
+  }
+  // 22xxx (datos) y 42xxx (sintaxis, nombres, tipos, agrupación): son errores de la consulta.
+  if (/^(22|42)/.test(code)) {
+    const hint = code === "42703" || code === "42P01" ? " Recuerda: tablas y columnas camelCase van entre comillas dobles (\"User\".\"createdAt\")." : "";
+    return `Error de Postgres ${code}: ${pgMessage}.${hint}`;
+  }
+  return null;
+}
+
 function validateSql(sql: string): string | null {
   const trimmed = sql.trim().replace(/;\s*$/, "");
   if (!/^(select|with)\b/i.test(trimmed)) return "Sólo se permiten consultas SELECT (o WITH ... SELECT).";
@@ -57,7 +117,9 @@ export function registerDataTools(server: McpServer, ctx: McpContext) {
             relaciones: m.fields.filter((f) => f.kind === "object").map((f) => f.type),
             doc: m.documentation,
           })),
-          enums: enums.map((e) => e.name),
+          vistas: VISTAS,
+          enums: enums.map((e) => ({ nombre: e.name, valores: e.values.map((v) => v.name) })),
+          notaEnums: "Los valores de enum están en inglés o en español según la tabla (ServiceRequestStatus usa FINALIZADO; MarketOrderStatus usa COMPLETED). Úsalos tal cual.",
         });
       }
       const model = models.find((m) => m.name.toLowerCase() === tabla.toLowerCase());
@@ -91,32 +153,54 @@ export function registerDataTools(server: McpServer, ctx: McpContext) {
     {
       title: "Consulta SQL de sólo lectura",
       description:
-        "Ejecuta un SELECT libre sobre la base PostgreSQL de UZEED para cualquier estadística o informe que las otras herramientas no cubran (cohortes, embudos, cruces, retención...). Corre con un usuario de base de datos de sólo lectura, en transacción READ ONLY, con límite de 20 s y de filas. La base niega columnas sensibles (credenciales, email, teléfonos, mensajes privados, datos bancarios, ubicación exacta, documentos): no uses SELECT *, nombra las columnas. Tablas y columnas camelCase van entre comillas dobles. Revisa describir_esquema primero. Queda en la bitácora.",
+        "Ejecuta un SELECT libre sobre la base PostgreSQL de UZEED para cualquier estadística o informe que las otras herramientas no cubran (cohortes, embudos, cruces, retención...). Corre con un usuario de base de datos de sólo lectura, en transacción READ ONLY, con límite de 20 s (60 s con pesada=true, máximo 5 por hora) y de filas. La base niega columnas sensibles (credenciales, email, teléfonos, mensajes privados, datos bancarios, ubicación exacta, documentos): no uses SELECT *, nombra las columnas; para esas preguntas usa las vistas mcp_* (mcp_cuenta_datos, mcp_zona_perfiles, mcp_mensajes_diarios). Tablas y columnas camelCase van entre comillas dobles. Revisa describir_esquema primero: trae los valores de cada enum. Si la consulta falla, el error dice qué corregir. Queda en la bitácora.",
       inputSchema: {
         sql: z.string().min(1).max(20000).describe("Una sola sentencia SELECT o WITH ... SELECT."),
         limite: z.number().int().min(1).max(2000).optional().describe("Máximo de filas a devolver (por defecto 500)."),
+        pesada: z.boolean().optional().describe("true para cohortes o cruces largos: 60 s en vez de 20 s. Máximo 5 por hora."),
       },
       annotations: READ,
     },
     guarded(
       "consulta_sql",
       ctx,
-      async ({ sql, limite }: { sql: string; limite?: number }) => {
+      async ({ sql, limite, pesada }: { sql: string; limite?: number; pesada?: boolean }) => {
         const problem = validateSql(sql);
         if (problem) return errorResult(problem);
+        if (pesada) {
+          const recent = await prisma.mcpAuditLog.count({
+            where: {
+              tool: "consulta_sql",
+              userId: ctx.userId,
+              createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+              args: { path: ["pesada"], equals: true },
+            },
+          });
+          if (recent >= HEAVY_PER_HOUR) {
+            return errorResult(`Ya usaste ${HEAVY_PER_HOUR} consultas pesadas en la última hora. Acota la consulta para que corra en 20 s o espera.`);
+          }
+        }
+        const timeoutMs = pesada ? HEAVY_TIMEOUT_MS : NORMAL_TIMEOUT_MS;
         const limit = limite ?? 500;
         const body = sql.trim().replace(/;\s*$/, "");
         const started = Date.now();
-        const rows = await sqlReader().$transaction(
-          async (tx) => {
-            await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
-            await tx.$executeRawUnsafe("SET LOCAL statement_timeout = 20000");
-            return tx.$queryRawUnsafe<Record<string, unknown>[]>(
-              `SELECT * FROM (\n${body}\n) AS mcp_q LIMIT ${limit + 1}`,
-            );
-          },
-          { timeout: 25000, maxWait: 5000 },
-        );
+        let rows: Record<string, unknown>[];
+        try {
+          rows = await sqlReader().$transaction(
+            async (tx) => {
+              await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
+              await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = ${timeoutMs}`);
+              return tx.$queryRawUnsafe<Record<string, unknown>[]>(
+                `SELECT * FROM (\n${body}\n) AS mcp_q LIMIT ${limit + 1}`,
+              );
+            },
+            { timeout: timeoutMs + 5000, maxWait: 5000 },
+          );
+        } catch (err) {
+          const explained = explainSqlError(err);
+          if (explained) return errorResult(explained);
+          throw err;
+        }
         const truncated = rows.length > limit;
         return jsonResult({
           filas: truncated ? rows.slice(0, limit) : rows,

@@ -177,6 +177,34 @@ export async function sendAdminStatsEmail(to: string, subject: string, title: st
   await send(to, subject, html);
 }
 
+/* ─── Aviso del equipo (panel o Claude por el MCP) ─── */
+
+/**
+ * Aviso escrito por el equipo. Todo el texto viene de afuera: se escapa, y
+ * el enlace sólo puede ser una ruta dentro de uzeed.cl (lo valida quien llama).
+ * Lleva el enlace de baja de los avisos por correo.
+ */
+export async function sendAdminMessageEmail(
+  email: string,
+  displayName: string | null,
+  title: string,
+  message: string,
+  path: string | null,
+  unsubscribeUrl: string,
+) {
+  const name = esc(displayName || "");
+  const html = wrapEmail(
+    esc(title),
+    [
+      paragraph(name ? `Hola ${name},` : "Hola,"),
+      paragraph(esc(message).replace(/\n/g, "<br/>")),
+      path ? ctaButton("Ver en UZEED", `${config.appUrl}${path}`) : "",
+      paragraph(`<a href="${unsubscribeUrl}" style="color:rgba(255,255,255,0.4);font-size:11px;">No quiero recibir avisos por correo</a>`),
+    ].join(""),
+  );
+  await send(email, `${title} — UZEED`, html);
+}
+
 /** Escapa texto para meterlo en un correo. */
 export { esc as escapeHtml };
 
