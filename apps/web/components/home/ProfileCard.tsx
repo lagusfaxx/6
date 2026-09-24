@@ -10,12 +10,12 @@
  * dentro de la tarjeta, la estrella guarda en favoritas y la marca de agua
  * deja la foto firmada si alguien la copia a otro sitio.
  *
- * El borde depende del plan: Diamond con brillo lavanda, Gold dorado y Silver
- * sin borde.
+ * El plan se ve en la etiqueta de arriba (Diamond, Gold); el borde es el
+ * mismo sutil para todas.
  */
 
 import Link from "next/link";
-import { useState, type MouseEvent } from "react";
+import { useRef, useState, type MouseEvent, type TouchEvent } from "react";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { resolveMediaUrl } from "../../lib/api";
 import { hasVerifiedBadge } from "../../lib/systemBadges";
@@ -85,7 +85,10 @@ export function categoryLabel(p: HomeProfile): string {
   const tags = [...p.profileTags, ...p.serviceTags].map(normalize);
   const paid = p.userLevel === "DIAMOND" || p.userLevel === "GOLD";
   const cat = `${normalize(p.primaryCategory)} ${normalize(p.serviceCategory)}`;
-  if (tags.includes("trans") || cat.includes("trans")) return paid ? "Trans VIP" : "Trans";
+  /* Trans se define por la etiqueta del perfil, igual que el filtro
+     /escorts?profileTags=trans. La categoría principal no sirve: hay
+     perfiles de mujeres con primaryCategory "trans" cargado por error. */
+  if (p.profileTags.map(normalize).includes("trans")) return paid ? "Trans VIP" : "Trans";
   if (cat.includes("masaj")) {
     const text = `${cat} ${tags.join(" ")}`;
     if (text.includes("tantr")) return "Tántrico";
@@ -120,16 +123,9 @@ function buildSlides(p: HomeProfile, stories: CardStoryMedia[]): Slide[] {
   return list.length ? list : [{ kind: "image", url: "/brand/isotipo-new.png" }];
 }
 
-const RING: Record<HomeLevel, string> = {
-  DIAMOND:
-    "shadow-[0_0_0_1.5px_rgba(165,180,252,0.75),0_10px_30px_-8px_rgba(165,180,252,0.35)]",
-  GOLD: "shadow-[0_0_0_1.5px_rgba(245,196,81,0.7)]",
-  SILVER: "",
-};
-
 function VerifiedCheck() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" role="img" aria-label="Verificada">
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" role="img" aria-label="Verificada">
       <path
         fill="#38bdf8"
         d="M12 1.5l2.6 1.9 3.2-.2 1 3.1 2.7 1.8-1 3.1 1 3.1-2.7 1.8-1 3.1-3.2-.2L12 22.5l-2.6-1.9-3.2.2-1-3.1-2.7-1.8 1-3.1-1-3.1 2.7-1.8 1-3.1 3.2.2z"
@@ -147,7 +143,10 @@ function VerifiedCheck() {
 }
 
 const TAG_CLASS =
-  "rounded-[5px] bg-black/55 px-[7px] py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.06em] backdrop-blur-sm";
+  "rounded-[4px] bg-black/55 px-1.5 py-[2px] text-[8.5px] font-extrabold uppercase tracking-[0.06em] backdrop-blur-sm";
+
+const ARROW_CLASS =
+  "absolute top-1/2 z-[3] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-black/55 text-white shadow-[0_2px_10px_rgba(0,0,0,0.4)] backdrop-blur-sm transition hover:bg-black/75";
 
 type Props = {
   profile: HomeProfile;
@@ -174,10 +173,29 @@ export default function ProfileCard({
   const [index, setIndex] = useState(0);
   const current = slides[Math.min(index, slides.length - 1)];
 
+  const go = (delta: number) =>
+    setIndex((i) => (i + delta + slides.length) % slides.length);
   const step = (delta: number) => (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIndex((i) => (i + delta + slides.length) % slides.length);
+    go(delta);
+  };
+
+  /* Deslizar con el dedo cambia de foto; un gesto más vertical que
+     horizontal se deja pasar para no trabar el scroll de la página. */
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: TouchEvent) => {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e: TouchEvent) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start || slides.length < 2) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1);
   };
 
   const tag =
@@ -191,7 +209,9 @@ export default function ProfileCard({
 
   return (
     <article
-      className={`group relative isolate max-w-full overflow-hidden rounded-xl bg-uzeed-800 ${aspect} ${RING[p.userLevel]}`}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      className={`group relative isolate max-w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0a14] ${aspect}`}
     >
       {current.kind === "video" ? (
         <video
@@ -225,7 +245,7 @@ export default function ProfileCard({
         </span>
       </div>
 
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.2)_38%,transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.8)_0%,rgba(0,0,0,0.15)_28%,transparent_45%)]" />
 
       <Link
         href={`/profesional/${p.id}`}
@@ -234,21 +254,21 @@ export default function ProfileCard({
       />
 
       {slides.length > 1 && (
-        <div className="pointer-events-none absolute left-1/2 top-2.5 z-[3] flex -translate-x-1/2 gap-[3px]">
+        <div className="pointer-events-none absolute left-1/2 top-2 z-[3] flex -translate-x-1/2 gap-[3px]">
           {slides.map((_, i) => (
             <i
               key={i}
-              className={`block h-[2.5px] w-3.5 rounded-sm ${i === index ? "bg-white" : "bg-white/35"}`}
+              className={`block h-[2px] w-3 rounded-sm ${i === index ? "bg-white" : "bg-white/35"}`}
             />
           ))}
         </div>
       )}
 
-      <div className="pointer-events-none absolute left-2 top-5 z-[3] flex items-center gap-[5px]">
+      <div className="pointer-events-none absolute left-2 top-4 z-[3] flex items-center gap-[5px]">
         {p.availableNow && (
           <span
             title="Disponible ahora"
-            className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]"
+            className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_2px_rgba(52,211,153,0.25)]"
           />
         )}
         {tag}
@@ -263,10 +283,10 @@ export default function ProfileCard({
         }}
         aria-label={isFavorite ? "Quitar de favoritas" : "Guardar en favoritas"}
         aria-pressed={isFavorite}
-        className="absolute right-1.5 top-1.5 z-[3] grid h-8 w-8 place-items-center rounded-full bg-black/35 transition hover:bg-black/55"
+        className="absolute right-1.5 top-1.5 z-[3] grid h-7 w-7 place-items-center rounded-full bg-black/40 transition hover:bg-black/60"
       >
         <Star
-          className={`h-[17px] w-[17px] ${isFavorite ? "fill-tier-gold text-tier-gold" : "text-white"}`}
+          className={`h-[15px] w-[15px] ${isFavorite ? "fill-tier-gold text-tier-gold" : "text-white"}`}
           strokeWidth={2}
         />
       </button>
@@ -277,39 +297,39 @@ export default function ProfileCard({
             type="button"
             onClick={step(-1)}
             aria-label="Foto anterior"
-            className="absolute left-1.5 top-1/2 z-[3] grid h-[26px] w-[26px] -translate-y-1/2 place-items-center rounded-full bg-black/40 opacity-80 transition-opacity focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+            className={`${ARROW_CLASS} left-1.5`}
           >
-            <ChevronLeft className="h-[13px] w-[13px] text-white" strokeWidth={2.5} />
+            <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
           </button>
           <button
             type="button"
             onClick={step(1)}
             aria-label="Foto siguiente"
-            className="absolute right-1.5 top-1/2 z-[3] grid h-[26px] w-[26px] -translate-y-1/2 place-items-center rounded-full bg-black/40 opacity-80 transition-opacity focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+            className={`${ARROW_CLASS} right-1.5`}
           >
-            <ChevronRight className="h-[13px] w-[13px] text-white" strokeWidth={2.5} />
+            <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
           </button>
         </>
       )}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] p-2.5">
-        <div className="flex items-center gap-1.5">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] px-2.5 pb-2">
+        <div className="flex items-center gap-1">
           <span
-            className={`truncate font-display font-extrabold uppercase leading-none tracking-[0.01em] ${
-              large ? "text-[clamp(24px,2.6vw,32px)]" : "text-[clamp(19px,2vw,24px)]"
+            className={`truncate font-display font-bold uppercase leading-none tracking-[0.02em] [text-shadow:0_1px_6px_rgba(0,0,0,0.6)] ${
+              large ? "text-[19px]" : "text-[15px]"
             }`}
           >
             {p.displayName}
-            {p.age ? <span className="ml-[5px]">{p.age}</span> : null}
+            {p.age ? <span className="ml-1 font-semibold text-white/85">{p.age}</span> : null}
           </span>
           {hasVerifiedBadge(p.profileTags) && <VerifiedCheck />}
         </div>
-        <div className="mt-1 text-[10.5px] font-extrabold uppercase tracking-[0.08em] text-fuchsia-300">
+        <div className="mt-0.5 text-[8.5px] font-bold uppercase tracking-[0.08em] text-fuchsia-300/90">
           {categoryLabel(p)}
         </div>
         {(p.city || p.nearestMetro) && (
-          <div className="mt-0.5 truncate text-[11.5px] text-white/60">
-            {p.city && <b className="font-semibold text-white">{p.city}</b>}
+          <div className="mt-px truncate text-[10px] text-white/55">
+            {p.city && <b className="font-semibold text-white/85">{p.city}</b>}
             {p.city && p.nearestMetro ? " · " : null}
             {p.nearestMetro ? `Metro ${p.nearestMetro.name}` : null}
           </div>
