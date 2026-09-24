@@ -71,7 +71,10 @@ function htmlHeaders(res: Response, formTarget?: string) {
     `default-src 'none'; style-src 'unsafe-inline'; form-action ${formAction}; frame-ancestors 'none'; base-uri 'none'`,
   );
   res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "no-referrer");
+  // same-origin y no no-referrer: con no-referrer el navegador manda
+  // `Origin: null` al enviar el formulario y el chequeo de origen lo rechaza.
+  // Hacia afuera (claude.ai) igual no viaja ningún Referer.
+  res.setHeader("Referrer-Policy", "same-origin");
   res.setHeader("X-Content-Type-Options", "nosniff");
 }
 
@@ -303,8 +306,23 @@ export function createMcpOAuthRouter(sessionMiddleware: RequestHandler): Router 
   router.post(OAUTH_PATHS.authorize, limiter(15 * 60 * 1000, 30), form, sessionMiddleware, async (req, res) => {
     try {
       // CSRF: el formulario sólo se puede enviar desde esta misma página.
+      // La defensa principal es request_id (aleatorio y atado a la sesión);
+      // esto es una segunda capa. Sec-Fetch-Site lo pone el navegador y una
+      // página no lo puede falsificar; Origin se mira cuando es un origen real.
+      const fetchSite = req.header("sec-fetch-site");
       const origin = req.header("origin");
-      if (origin && origin !== ISSUER_ORIGIN) {
+      const sameSite = fetchSite === "same-origin";
+      const crossByFetch = fetchSite !== undefined && fetchSite !== "same-origin" && fetchSite !== "none";
+      const crossByOrigin = !sameSite && origin !== undefined && origin !== "null" && origin !== ISSUER_ORIGIN;
+      if (crossByFetch || crossByOrigin) {
+        await writeAudit({
+          tool: "oauth_consent_origen_rechazado",
+          scope: "auth",
+          userId: req.session?.userId ?? null,
+          ip: clientIp(req),
+          args: { origin: origin ?? null, secFetchSite: fetchSite ?? null, esperado: ISSUER_ORIGIN },
+          ok: false,
+        });
         htmlHeaders(res);
         return res.status(403).send(errorPage("Origen no permitido."));
       }
