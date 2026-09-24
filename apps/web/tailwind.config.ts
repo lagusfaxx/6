@@ -13,7 +13,16 @@ export default {
         },
         studio: {
           bg: "#0e0e12"
-        }
+        },
+        /* Colores de plan de las tarjetas de perfil. */
+        tier: {
+          diamond: "#a5b4fc",
+          gold: "#f5c451",
+        },
+      },
+      fontFamily: {
+        /* Nombres en las tarjetas de perfil. */
+        display: ["var(--font-display)", "Arial Narrow", "system-ui", "sans-serif"],
       },
       boxShadow: {
         "studio-card":
