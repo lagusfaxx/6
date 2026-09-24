@@ -100,15 +100,19 @@ VAPID_PRIVATE_KEY=<tu-clave-privada-vapid>
 
 ## 🤖 Servidor MCP para Claude (OPCIONAL)
 
-Conecta Claude al panel para pedirle estadísticas, informes y acciones. Sin
-estas variables, `/mcp` responde 404. Detalle en [MCP.md](./MCP.md).
+Conecta Claude al panel para pedirle estadísticas, informes y acciones. Está
+apagado salvo `MCP_ENABLED=true`. La conexión es por OAuth: un administrador
+con 2FA la aprueba desde su navegador. Guía completa en [MCP.md](./MCP.md).
 
-Genera cada token con `openssl rand -hex 32` (mínimo 32 caracteres):
 ```bash
-# Lecturas + acciones (activar/ocultar perfiles, verificar, cambiar tier)
-MCP_TOKEN=<token-largo-y-secreto>
-# Sólo lecturas (opcional, para compartir informes sin poder cambiar nada)
-MCP_READ_TOKEN=<otro-token-largo-y-secreto>
+MCP_ENABLED=true
+# Usuario de base de datos sólo-lectura para consulta_sql (ver MCP.md, paso 2).
+# Si no se configura, consulta_sql no existe.
+MCP_SQL_DATABASE_URL=postgresql://uzeed_mcp_sql:<clave>@<host>:5432/<base>
+# Opcionales
+MCP_ALLOWED_IPS=               # IPs/CIDR permitidas para /mcp, separadas por coma
+MCP_OAUTH_ALLOW_LOOPBACK=true  # false = sólo claude.ai/claude.com (sin Claude Code)
+MCP_OAUTH_REDIRECT_URIS=       # redirecciones extra permitidas, exactas
 ```
 
 ## 🚀 Despliegue en Coolify

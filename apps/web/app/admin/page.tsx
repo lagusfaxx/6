@@ -35,6 +35,7 @@ import {
   PieChart,
   Shield,
   ShieldCheck,
+  Bot,
   Store,
   MessageCircle,
   Tag,
@@ -639,6 +640,7 @@ export default function AdminIndex() {
                 <QuickAction href="/admin/profiles" icon={Users} label="Perfiles" desc="Gestion de usuarios" accent="violet" />
                 <QuickAction href="/admin/chats" icon={MessageSquare} label="Chats" desc="Conversaciones" accent="violet" />
                 {adminOnly && <QuickAction href="/admin/equipo" icon={ShieldCheck} label="Equipo" desc="Cuentas con acceso al panel" accent="cyan" />}
+                {adminOnly && <QuickAction href="/admin/claude" icon={Bot} label="Claude" desc="Accesos y bitácora del MCP" accent="fuchsia" />}
                 {<QuickAction href="/admin/rating" icon={Star} label="Catador" desc="Calificar perfiles" accent="amber" />}
                 {<QuickAction href="/admin/phone-changes" icon={Phone} label="Cambios de número" desc="Aprobar o rechazar" accent="fuchsia" />}
                 {<QuickAction href="/admin/name-changes" icon={Signature} label="Cambios de nombre" desc="Aprobar o rechazar" accent="fuchsia" />}

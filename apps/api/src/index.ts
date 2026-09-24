@@ -60,6 +60,9 @@ import { umateRouter } from "./umate/routes";
 import { referralRouter } from "./referral/routes";
 import { adminReferralRouter } from "./referral/adminRoutes";
 import { mcpRouter } from "./mcp/routes";
+import { createMcpOAuthRouter } from "./mcp/oauth/routes";
+import { refreshMcpReaderGrants } from "./mcp/boot";
+import { mcpAdminRouter } from "./mcp/adminRoutes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 import { startWorker } from "./worker";
@@ -77,8 +80,41 @@ app.use(
   })
 );
 
-// Servidor MCP (Claude): autentica con su propio token, sin cookies ni CORS.
+const pgPool = new pg.Pool({
+  connectionString: config.databaseUrl,
+  max: 20,
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 5_000,
+});
+const PgStore = PgSession(session);
+
+const sessionMiddleware = session({
+    name: "uzeed_session",
+    secret: config.sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: config.env !== "development",
+      domain: config.cookieDomain,
+      maxAge: 1000 * 60 * 60 * 24 * 30
+    },
+    store: new PgStore({
+      pool: pgPool,
+      tableName: "session",
+      createTableIfMissing: true,
+      pruneSessionInterval: 900,   // limpiar sesiones expiradas cada 15 min
+      disableTouch: true,          // no actualizar sesión en cada request (reduce writes)
+    })
+  });
+
+// Servidor MCP (Claude): autentica con tokens OAuth propios, sin cookies ni CORS.
 app.use(mcpRouter);
+// OAuth del MCP: la pantalla de consentimiento necesita la sesión del admin,
+// pero va antes de CORS y del chequeo de Origin (tiene los suyos propios).
+app.use(createMcpOAuthRouter(sessionMiddleware));
+
 
 const corsOrigins = Array.from(
   new Set([
@@ -135,36 +171,7 @@ app.use((req, res, next) => {
   express.urlencoded({ extended: true, limit: "2mb" })(req, res, next);
 });
 
-const pgPool = new pg.Pool({
-  connectionString: config.databaseUrl,
-  max: 20,
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 5_000,
-});
-const PgStore = PgSession(session);
-
-app.use(
-  session({
-    name: "uzeed_session",
-    secret: config.sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: config.env !== "development",
-      domain: config.cookieDomain,
-      maxAge: 1000 * 60 * 60 * 24 * 30
-    },
-    store: new PgStore({
-      pool: pgPool,
-      tableName: "session",
-      createTableIfMissing: true,
-      pruneSessionInterval: 900,   // limpiar sesiones expiradas cada 15 min
-      disableTouch: true,          // no actualizar sesión en cada request (reduce writes)
-    })
-  })
-);
+app.use(sessionMiddleware);
 
 // ── CSRF protection: validate Origin header on state-changing requests ──
 app.use((req, res, next) => {
@@ -267,6 +274,7 @@ app.use("/", analyticsRouter);
 app.use("/", umateRouter);
 app.use("/", referralRouter);
 app.use("/", adminReferralRouter);
+app.use("/", mcpAdminRouter);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const requestId = (req as any).requestId;
@@ -302,6 +310,7 @@ async function boot() {
   await ensureAdminUser().catch((err) => console.error("[api] admin seed failed", err));
   await seedCategories().catch((err) => console.error("[api] category seed failed", err));
   await runStoriesTtlExtensionOnce().catch((err) => console.error("[api] stories ttl recovery failed", err));
+  await refreshMcpReaderGrants();
 
   app.listen(config.port, () => {
     console.log(`[api] listening on :${config.port}`);

@@ -2132,13 +2132,18 @@ model MarketReview {
   @@index([productId, createdAt])
 }
 
-/// Bitácora del servidor MCP (Claude). Cada herramienta que cambia algo deja
-/// una fila; las consultas SQL libres también, para saber qué se miró.
+/// Bitácora del servidor MCP (Claude). Cada llamada a una herramienta y cada
+/// evento de autorización (consentimiento, emisión, refresco y revocación de
+/// tokens, intentos fallidos) deja una fila con quién, desde qué cliente e IP.
 model McpAuditLog {
   id        String   @id @default(uuid()) @db.Uuid
   tool      String
-  /// "full" (token con escritura) o "read" (token de sólo lectura).
+  /// "write" (lecturas + acciones), "read" (sólo lectura) o "auth" para
+  /// eventos de autorización.
   scope     String
+  userId    String?  @db.Uuid
+  clientId  String?
+  ip        String?
   args      Json?
   ok        Boolean  @default(true)
   error     String?
@@ -2146,4 +2151,66 @@ model McpAuditLog {
 
   @@index([createdAt])
   @@index([tool, createdAt])
+  @@index([userId, createdAt])
+}
+
+/// Aplicación registrada por OAuth (claude.ai, Claude Desktop, Claude Code).
+/// El registro es dinámico (RFC 7591) pero sólo acepta redirecciones de la
+/// lista permitida, así que un tercero no puede recibir códigos.
+model McpOAuthClient {
+  id           String   @id
+  name         String
+  redirectUris String[]
+  /// Hash del secreto si el cliente es confidencial; null = cliente público (PKCE).
+  secretHash   String?
+  createdAt    DateTime @default(now())
+  lastUsedAt   DateTime?
+
+  codes  McpOAuthCode[]
+  tokens McpOAuthToken[]
+}
+
+/// Código de autorización de un solo uso (5 minutos), atado a PKCE.
+model McpOAuthCode {
+  codeHash      String    @id
+  clientId      String
+  userId        String    @db.Uuid
+  redirectUri   String
+  codeChallenge String
+  scope         String
+  resource      String?
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  client McpOAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+/// Un par access/refresh. Al refrescar se crea una fila nueva de la misma
+/// familia y la anterior queda rotada; reusar un refresh ya rotado revoca la
+/// familia completa (señal de robo). La familia vence a los 30 días sí o sí.
+model McpOAuthToken {
+  id               String    @id @default(uuid()) @db.Uuid
+  familyId         String    @db.Uuid
+  clientId         String
+  userId           String    @db.Uuid
+  scope            String
+  accessHash       String    @unique
+  refreshHash      String    @unique
+  accessExpiresAt  DateTime
+  refreshExpiresAt DateTime
+  familyExpiresAt  DateTime
+  rotatedAt        DateTime?
+  revokedAt        DateTime?
+  revokedReason    String?
+  lastUsedAt       DateTime?
+  lastIp           String?
+  createdAt        DateTime  @default(now())
+
+  client McpOAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([userId, revokedAt])
 }

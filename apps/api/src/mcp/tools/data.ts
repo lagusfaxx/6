@@ -2,7 +2,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db";
-import { guarded, type McpScope } from "../audit";
+import { sqlReader, sqlReaderConfigured } from "../sqlReader";
+import { guarded, type McpContext } from "../audit";
 import { TZ, errorResult, jsonResult } from "../helpers";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
@@ -14,8 +15,10 @@ const READ = { readOnlyHint: true, openWorldHint: false } as const;
  * de credenciales. Los nombres de columna igual se vuelven a tapar al salir.
  */
 const FORBIDDEN_SQL: [RegExp, string][] = [
-  [/\bpg_(read|ls|stat_file|sleep|terminate|cancel|reload|rotate)/i, "funciones de sistema"],
-  [/\b(lo_import|lo_export|dblink|copy|set_config|current_setting)\b/i, "funciones de sistema"],
+  // Catálogos y funciones de sistema, SQL dinámico (query_to_xml y familia),
+  // cambio de rol/configuración y escapes Unicode que esconden nombres.
+  [/\bpg_|_to_xml|\bxml|\b(lo_[a-z]+|dblink\w*|copy|set_config|current_setting|set\s+role|reset|do|execute|prepare|listen|notify)\b/i, "funciones de sistema"],
+  [/\bU&|\bE'|\$\$|\$[A-Za-z_]\w*\$/i, "cadenas con escapes"],
   // \b deja pasar "sessionId" (columna de PageView) y corta la tabla "session".
   [/\bsession\b/i, "la tabla de sesiones"],
   [/passwordHash|passwordSetToken|twoFactorSecret|tokenHash|p256dh/i, "columnas de credenciales"],
@@ -31,7 +34,7 @@ function validateSql(sql: string): string | null {
   return null;
 }
 
-export function registerDataTools(server: McpServer, scope: McpScope) {
+export function registerDataTools(server: McpServer, ctx: McpContext) {
   server.registerTool(
     "describir_esquema",
     {
@@ -43,7 +46,7 @@ export function registerDataTools(server: McpServer, scope: McpScope) {
       },
       annotations: READ,
     },
-    guarded("describir_esquema", scope, async ({ tabla }: { tabla?: string }) => {
+    guarded("describir_esquema", ctx, async ({ tabla }: { tabla?: string }) => {
       const { models, enums } = Prisma.dmmf.datamodel;
       if (!tabla) {
         return jsonResult({
@@ -83,12 +86,12 @@ export function registerDataTools(server: McpServer, scope: McpScope) {
     }),
   );
 
-  server.registerTool(
+  if (sqlReaderConfigured()) server.registerTool(
     "consulta_sql",
     {
       title: "Consulta SQL de sólo lectura",
       description:
-        "Ejecuta un SELECT libre sobre la base PostgreSQL de UZEED para cualquier estadística o informe que las otras herramientas no cubran (cohortes, embudos, cruces, retención...). Corre en una transacción READ ONLY con límite de 20 s y de filas. Tablas y columnas camelCase van entre comillas dobles. Revisa describir_esquema primero. Queda en la bitácora.",
+        "Ejecuta un SELECT libre sobre la base PostgreSQL de UZEED para cualquier estadística o informe que las otras herramientas no cubran (cohortes, embudos, cruces, retención...). Corre con un usuario de base de datos de sólo lectura, en transacción READ ONLY, con límite de 20 s y de filas. La base niega columnas sensibles (credenciales, email, teléfonos, mensajes privados, datos bancarios, ubicación exacta, documentos): no uses SELECT *, nombra las columnas. Tablas y columnas camelCase van entre comillas dobles. Revisa describir_esquema primero. Queda en la bitácora.",
       inputSchema: {
         sql: z.string().min(1).max(20000).describe("Una sola sentencia SELECT o WITH ... SELECT."),
         limite: z.number().int().min(1).max(2000).optional().describe("Máximo de filas a devolver (por defecto 500)."),
@@ -97,14 +100,14 @@ export function registerDataTools(server: McpServer, scope: McpScope) {
     },
     guarded(
       "consulta_sql",
-      scope,
+      ctx,
       async ({ sql, limite }: { sql: string; limite?: number }) => {
         const problem = validateSql(sql);
         if (problem) return errorResult(problem);
         const limit = limite ?? 500;
         const body = sql.trim().replace(/;\s*$/, "");
         const started = Date.now();
-        const rows = await prisma.$transaction(
+        const rows = await sqlReader().$transaction(
           async (tx) => {
             await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
             await tx.$executeRawUnsafe("SET LOCAL statement_timeout = 20000");
@@ -121,12 +124,11 @@ export function registerDataTools(server: McpServer, scope: McpScope) {
           truncado: truncated,
           ms: Date.now() - started,
         });
-      },
-      { audit: true },
+      }
     ),
   );
 
-  server.registerTool(
+  if (ctx.scope === "full") server.registerTool(
     "ver_bitacora",
     {
       title: "Ver bitácora del MCP",
@@ -137,7 +139,7 @@ export function registerDataTools(server: McpServer, scope: McpScope) {
       },
       annotations: READ,
     },
-    guarded("ver_bitacora", scope, async ({ herramienta, limite }: { herramienta?: string; limite?: number }) => {
+    guarded("ver_bitacora", ctx, async ({ herramienta, limite }: { herramienta?: string; limite?: number }) => {
       const rows = await prisma.mcpAuditLog.findMany({
         where: herramienta ? { tool: herramienta } : undefined,
         orderBy: { createdAt: "desc" },

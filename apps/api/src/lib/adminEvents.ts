@@ -10,7 +10,8 @@ export type AdminEventType =
   | "content_reported"
   | "deletion_requested"
   | "phone_change_requested"
-  | "face_verification_submitted";
+  | "face_verification_submitted"
+  | "mcp_authorized";
 
 type AdminEventInput = {
   type: AdminEventType;
@@ -53,6 +54,11 @@ const ADMIN_EVENT_CONFIG: Record<
     title: "Cambio de número solicitado",
     body: "Una profesional pidió cambiar su número de WhatsApp.",
     url: "/admin/phone-changes",
+  },
+  mcp_authorized: {
+    title: "Claude autorizado en el panel",
+    body: "Se conectó Claude (MCP) con una cuenta del equipo. Si no fuiste tú, revoca el acceso.",
+    url: "/admin",
   },
   face_verification_submitted: {
     title: "Verificación facial recibida",
