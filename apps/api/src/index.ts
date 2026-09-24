@@ -61,7 +61,7 @@ import { referralRouter } from "./referral/routes";
 import { adminReferralRouter } from "./referral/adminRoutes";
 import { mcpRouter } from "./mcp/routes";
 import { createMcpOAuthRouter } from "./mcp/oauth/routes";
-import { refreshMcpReaderGrants } from "./mcp/boot";
+import { prepareMcpDatabase } from "./mcp/boot";
 import { mcpAdminRouter } from "./mcp/adminRoutes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
@@ -310,7 +310,7 @@ async function boot() {
   await ensureAdminUser().catch((err) => console.error("[api] admin seed failed", err));
   await seedCategories().catch((err) => console.error("[api] category seed failed", err));
   await runStoriesTtlExtensionOnce().catch((err) => console.error("[api] stories ttl recovery failed", err));
-  await refreshMcpReaderGrants();
+  await prepareMcpDatabase();
 
   app.listen(config.port, () => {
     console.log(`[api] listening on :${config.port}`);

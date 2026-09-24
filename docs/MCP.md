@@ -11,25 +11,24 @@ Código: `apps/api/src/mcp/`.
 
 1. **Activa el 2FA** en tu cuenta de administrador (panel → Doble factor). Sin
    2FA nadie puede conectar Claude.
-2. **Crea el usuario de sólo lectura** para `consulta_sql`. En la consola de
-   Postgres (Coolify → base de datos → Terminal), con una clave larga nueva:
-
-   ```sql
-   CREATE ROLE uzeed_mcp_sql LOGIN PASSWORD '<clave-larga>' IN ROLE uzeed_mcp_reader;
-   ALTER ROLE uzeed_mcp_sql SET default_transaction_read_only = on;
-   ALTER ROLE uzeed_mcp_sql SET statement_timeout = '20s';
-   ```
-
-   El rol `uzeed_mcp_reader` lo crea la migración `mcp_oauth_hardening`. Si
-   este paso se salta, todo funciona salvo `consulta_sql`, que no aparece.
-3. En Coolify, app **API**:
+2. En Coolify, app **API**, agrega:
 
    ```
    MCP_ENABLED=true
-   MCP_SQL_DATABASE_URL=postgresql://uzeed_mcp_sql:<clave-larga>@<host>:5432/<base>
+   MCP_SQL_PASSWORD=<clave aleatoria de 16+ caracteres>
    ```
 
-4. Redeploy. Las migraciones corren solas.
+   Genera la clave con `openssl rand -hex 32` (sólo letras, números, `.`, `-`, `_`).
+3. Redeploy. No hay que entrar a la terminal: al arrancar, la API crea sola el
+   usuario de base de datos `uzeed_mcp_sql` con esa clave (Postgres recibe el
+   hash, no la clave), lo deja sólo en el rol lector `uzeed_mcp_reader`, en
+   sólo lectura y con 20 s por consulta, y prueba la conexión. Usa el mismo
+   host y base de `DATABASE_URL`. Para cambiar la clave, cambia la variable y
+   redeploy.
+
+   Si falta `MCP_SQL_PASSWORD`, es débil o el usuario de la base no puede
+   crear roles, el log lo dice y sólo `consulta_sql` queda apagada; el resto
+   del MCP funciona.
 
 Con `MCP_ENABLED` distinto de `true`, `/mcp` y todo el OAuth responden 404.
 
@@ -147,7 +146,7 @@ hacia adentro:
 | Tokens | Guardados como hash. Acceso de 1 h, refresh rotativo; reusar un refresh o un código viejo revoca toda la familia (señal de robo). Máximo 30 días. |
 | Revalidación | Cada llamada revisa token, rol y 2FA de la cuenta. |
 | Permisos | Acciones sólo con scope `mcp:write` (administrador). Nada mueve dinero ni borra. |
-| SQL | `consulta_sql` usa un usuario de base de datos propio: la **base** niega credenciales, email, teléfonos, mensajes privados, datos bancarios, RUT, IPs, ubicación exacta, documentos, fotos de verificación, sesiones y tokens. Transacción de sólo lectura, 20 s, 2 conexiones máximo. Las columnas o tablas nuevas quedan invisibles salvo que no sean sensibles por nombre. |
+| SQL | `consulta_sql` usa un usuario de base de datos propio (`uzeed_mcp_sql`, sin forma de volver al dueño de la base): la **base** niega credenciales, email, teléfonos, mensajes privados, datos bancarios, RUT, IPs, ubicación exacta, documentos, fotos de verificación, sesiones y tokens. Transacción de sólo lectura, 20 s, 2 conexiones máximo. La API crea ese usuario al arrancar (clave como hash SCRAM). Las columnas o tablas nuevas quedan invisibles salvo que no sean sensibles por nombre. |
 | Fuerza bruta | 20 tokens inválidos desde una IP → bloqueada 30 min. Límites por endpoint y 120 llamadas/min por token. |
 | Consentimiento | Sin JavaScript, CSP estricta, no se puede enmarcar (clickjacking), CSRF por solicitud, 5 intentos de código máximo. |
 | Bitácora | Cada llamada y cada evento de autorización con cuenta, cliente e IP. Visible en `/admin/claude`. |

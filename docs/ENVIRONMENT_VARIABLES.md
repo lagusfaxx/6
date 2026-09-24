@@ -106,9 +106,9 @@ con 2FA la aprueba desde su navegador. Guía completa en [MCP.md](./MCP.md).
 
 ```bash
 MCP_ENABLED=true
-# Usuario de base de datos sólo-lectura para consulta_sql (ver MCP.md, paso 2).
-# Si no se configura, consulta_sql no existe.
-MCP_SQL_DATABASE_URL=postgresql://uzeed_mcp_sql:<clave>@<host>:5432/<base>
+# Clave del usuario sólo-lectura que la API crea sola para consulta_sql
+# (16+ caracteres: openssl rand -hex 32). Si no se configura, consulta_sql no existe.
+MCP_SQL_PASSWORD=<clave-aleatoria>
 # Opcionales
 MCP_ALLOWED_IPS=               # IPs/CIDR permitidas para /mcp, separadas por coma
 MCP_OAUTH_ALLOW_LOOPBACK=true  # false = sólo claude.ai/claude.com (sin Claude Code)
