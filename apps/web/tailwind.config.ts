@@ -13,17 +13,7 @@ export default {
         },
         studio: {
           bg: "#0e0e12"
-        },
-        /* Colores de plan y de estado del inicio. */
-        tier: {
-          diamond: "#a5b4fc",
-          gold: "#f5c451",
-        },
-        verified: "#38bdf8",
-      },
-      fontFamily: {
-        sans: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
-        display: ["var(--font-display)", "Arial Narrow", "system-ui", "sans-serif"],
+        }
       },
       boxShadow: {
         "studio-card":

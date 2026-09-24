@@ -3,29 +3,24 @@
 /**
  * Mapa de cercanía en el home.
  *
- * Es la diferencia de UZEED frente al resto de los directorios, así que va
- * como banda ancha justo después de Diamond: a la izquierda el mapa y a la
- * derecha cuántas están disponibles cerca, el radio y la leyenda de pines por
- * plan (Diamond con foto y nombre, Gold con foto, Silver como punto).
- *
- * Sigue las pestañas y los filtros del inicio: si se elige "Masajistas" o
- * "Disponibles ahora", el mapa muestra lo mismo que el listado.
+ * Es la misma experiencia de /cerca pero recortada a lo esencial: el cliente de
+ * este rubro decide por inmediatez, así que lo primero que debe ver es quién
+ * está a pocos km y disponible ahora.
  *
  * Coste: mapbox-gl pesa bastante, así que el mapa NO se monta hasta que la
  * sección entra en viewport (IntersectionObserver con margen). Hasta entonces
- * se pinta un placeholder del mismo alto — sin CLS y sin castigar el LCP.
+ * se pinta un placeholder del mismo alto — sin CLS y sin castigar el LCP, que
+ * es justo lo que Google mide para el ranking.
  */
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
-import { spreadOverlapping, tierOrder } from "../../lib/mapMarkers";
+import { formatDistance, spreadOverlapping, tierOrder } from "../../lib/mapMarkers";
 import type { MapMarker } from "../MapboxMap";
-import { LocateFixed, MapPin } from "lucide-react";
-import type { HomeCategory } from "./ProfileCard";
-import type { QuickFilter } from "./homeQuery";
+import { LocateFixed, MapPin, Maximize2 } from "lucide-react";
 
 const MapboxMap = dynamic(() => import("../MapboxMap"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../ProfilePreviewModal"), { ssr: false });
@@ -44,9 +39,6 @@ type NearbyProfile = {
   distance: number | null;
   profileType: "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
   serviceCategory: string | null;
-  primaryCategory?: string | null;
-  profileTags?: string[] | null;
-  createdAt?: string | null;
   availableNow?: boolean;
   lastSeen?: string | null;
   userLevel?: "SILVER" | "GOLD" | "DIAMOND";
@@ -65,49 +57,24 @@ const RADIUS_OPTIONS = [5, 10, 25] as const;
 const DEFAULT_RADIUS_KM = 10;
 const MAX_RADIUS_KM = RADIUS_OPTIONS[RADIUS_OPTIONS.length - 1];
 const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
-const NEW_MS = 15 * 24 * 60 * 60 * 1000;
-
-function norm(s: string | null | undefined): string {
-  return String(s ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
-}
 
 function ownerHref(p: NearbyProfile) {
   if (p.externalOnly && p.websiteUrl) return p.websiteUrl;
+  if (p.profileType === "ESTABLISHMENT") return `/hospedaje/${p.id}`;
+  if (p.profileType === "SHOP") return `/sexshop/${p.username}`;
   return `/profesional/${p.id}`;
 }
 
-/* Misma regla que la pestaña del listado. */
-function matchesCategory(p: NearbyProfile, category: HomeCategory): boolean {
-  const tags = (p.profileTags ?? []).map(norm);
-  const cat = `${norm(p.primaryCategory)} ${norm(p.serviceCategory)}`;
-  if (category === "trans") return tags.includes("trans");
-  if (category === "masajes") return p.gender !== "MALE" && cat.includes("masaj");
-  return p.gender !== "MALE" && !cat.includes("masaj");
-}
-
-function matchesFilter(p: NearbyProfile, filter: QuickFilter): boolean {
-  if (filter === "availableNow") return Boolean(p.availableNow);
-  if (filter === "new") {
-    const t = Date.parse(p.createdAt || "");
-    return Number.isFinite(t) && Date.now() - t <= NEW_MS;
-  }
-  if (filter === "exams") {
-    return (p.profileTags ?? []).some((t) => norm(t) === "profesional con examenes");
-  }
-  /* "Con video" depende de las historias, que el mapa no trae: se muestra
-     todo en vez de un mapa vacío. */
-  return true;
-}
-
 type Props = {
-  category: HomeCategory;
-  filter: QuickFilter;
+  /**
+   * A sangre: el mapa ocupa todo el ancho de la pantalla, sin bordes ni
+   * esquinas redondeadas, y más alto. La cabecera y los controles conservan
+   * su padding para no quedar pegados al borde.
+   */
+  fullBleed?: boolean;
 };
 
-export default function HomeMapSection({ category, filter }: Props) {
+export default function HomeMapSection({ fullBleed = false }: Props) {
   const locationCtx = useContext(LocationFilterContext);
   const effectiveLoc = locationCtx?.effectiveLocation ?? null;
   const center = useMemo<[number, number]>(
@@ -126,9 +93,15 @@ export default function HomeMapSection({ category, filter }: Props) {
   const fetchRef = useRef(0);
 
   const hasToken = Boolean(process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
-  /* Sin ubicación el mapa cae a Santiago. En ese caso NO se puede hablar de
-     cercanía — para alguien en Concepción sería falso. */
+  /* Ojo: sin ubicación el mapa cae a Santiago. En ese caso NO se puede hablar
+     de cercanía — para alguien en Concepción sería falso. */
   const hasLocation = Boolean(effectiveLoc);
+  const locationLabel =
+    locationCtx?.state.mode === "city"
+      ? locationCtx.state.selectedCity?.name ?? null
+      : effectiveLoc
+        ? "tu ubicación"
+        : null;
 
   /* Monta el mapa recién cuando la sección se acerca al viewport. */
   useEffect(() => {
@@ -151,17 +124,26 @@ export default function HomeMapSection({ category, filter }: Props) {
     return () => io.disconnect();
   }, [visible]);
 
-  /* Los perfiles se piden una sola vez por ubicación, con el radio más amplio;
-     pestañas, filtros y radio filtran en el cliente sin volver a pedir. */
+  /* Los perfiles se piden solo una vez que la sección es visible. */
   useEffect(() => {
     if (!visible || !hasToken) return;
     const myFetch = ++fetchRef.current;
     setLoading(true);
     setFailed(false);
     const qp = new URLSearchParams();
-    qp.set("types", "PROFESSIONAL");
+    qp.set("types", "PROFESSIONAL,ESTABLISHMENT,SHOP");
+    /* El inicio muestra mujeres — igual que el feed, las destacadas y las
+       novedades. Los perfiles de hombres tienen su propia entrada ("Ellos"),
+       así que en el mapa del home no van: el cliente que llega aquí no los
+       está buscando. Los perfiles sin género declarado siguen contando como
+       mujeres, que es la regla del resto del sitio. */
+    qp.set("gender", "FEMALE");
     qp.set("lat", String(center[0]));
     qp.set("lng", String(center[1]));
+    /* Acotar en el servidor al radio más amplio que ofrece la sección. /cerca
+       se trae el catálogo entero (take: 300 + establecimientos) y filtra en el
+       cliente; en el home eso sería una descarga grande en cada visita. Con el
+       tope pedido una sola vez, los chips siguen filtrando sin refetch. */
     qp.set("rangeKm", String(MAX_RADIUS_KM));
 
     apiFetch<{ profiles: NearbyProfile[] }>(`/services?${qp.toString()}`)
@@ -181,15 +163,16 @@ export default function HomeMapSection({ category, filter }: Props) {
   const nearby = useMemo(
     () =>
       profiles
-        .filter((p) => p.profileType === "PROFESSIONAL")
-        .filter((p) => matchesCategory(p, category) && matchesFilter(p, filter))
+        /* Red de seguridad por si la respuesta trae hombres igual (avisos
+           rápidos externos, cachés viejas): el mapa del home no los pinta. */
+        .filter((p) => p.gender !== "MALE")
         .filter((p) => p.distance != null && Number.isFinite(p.distance) && p.distance <= radiusKm)
         .sort((a, b) => {
           const tierDiff = tierOrder(a.userLevel) - tierOrder(b.userLevel);
           if (tierDiff !== 0) return tierDiff;
           return (a.distance ?? 1e9) - (b.distance ?? 1e9);
         }),
-    [profiles, category, filter, radiusKm],
+    [profiles, radiusKm],
   );
 
   const availableCount = useMemo(
@@ -218,7 +201,7 @@ export default function HomeMapSection({ category, filter }: Props) {
         hairColor: p.hairColor ?? null,
         weightKg: p.weightKg ?? null,
         serviceValue: p.baseRate ?? null,
-        level: p.userLevel ?? "SILVER",
+        level: p.userLevel ?? null,
         lastSeen: p.lastSeen ?? null,
         tier: p.availableNow ? "online" : "offline",
         galleryUrls: p.galleryUrls ?? [],
@@ -242,22 +225,89 @@ export default function HomeMapSection({ category, filter }: Props) {
      que dejar un recuadro de error a la vista del cliente. */
   if (!hasToken) return null;
 
-  let caption: string;
-  if (failed) caption = "No pudimos cargar el mapa. Reintenta en unos segundos.";
-  else if (loading && !profiles.length) caption = "Buscando perfiles…";
-  else if (!hasLocation) caption = `disponibles ahora en Santiago`;
-  else caption = `disponibles ahora a menos de ${radiusKm} km`;
+  const closest = nearby.slice(0, 6);
+  const connected =
+    availableCount > 0
+      ? ` · ${availableCount} conectada${availableCount === 1 ? "" : "s"} ahora`
+      : "";
+
+  let statusText: string;
+  if (failed) {
+    statusText = "No pudimos cargar los perfiles del mapa. Reintenta en unos segundos.";
+  } else if (loading && !nearby.length) {
+    statusText = "Buscando perfiles…";
+  } else if (!hasLocation) {
+    // Fallback a Santiago: se dice cuál es la referencia en vez de fingir cercanía.
+    statusText =
+      nearby.length > 0
+        ? `${nearby.length} perfil${nearby.length === 1 ? "" : "es"} en Santiago${connected}. Activa tu ubicación para ver los de tu zona.`
+        : "Activa tu ubicación para ver quién está cerca tuyo.";
+  } else if (nearby.length > 0) {
+    statusText = `${nearby.length} perfil${nearby.length === 1 ? "" : "es"} a menos de ${radiusKm} km${connected}`;
+  } else {
+    statusText = `Sin perfiles a menos de ${radiusKm} km`;
+  }
 
   return (
-    <section
-      ref={sectionRef}
-      aria-labelledby="home-map-title"
-      className="mt-[18px] grid overflow-hidden rounded-[14px] border border-sky-400/30 bg-[#0e1220] md:grid-cols-[minmax(0,1fr)_250px]"
-    >
-      <h2 id="home-map-title" className="sr-only">
-        Quién está cerca ahora
-      </h2>
-      <div className="relative h-[420px] bg-[#10131f]">
+    <section ref={sectionRef} className={fullBleed ? "mb-0" : "mb-10"} aria-labelledby="home-map-title">
+      <div className={fullBleed ? "mb-3 px-8" : "mb-3"}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="home-map-title" className="min-w-0 truncate text-lg font-bold tracking-tight sm:text-xl">
+            Quién está cerca ahora
+          </h2>
+          <Link
+            href="/cerca"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-white/60 transition hover:border-white/25 hover:text-white"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Mapa completo</span>
+            <span className="sm:hidden">Ampliar</span>
+          </Link>
+        </div>
+        <p className="mt-0.5 text-xs text-white/40">{statusText}</p>
+      </div>
+
+      {/* Radio + ubicación */}
+      <div className={`mb-3 flex flex-wrap items-center gap-1.5 ${fullBleed ? "px-8" : ""}`}>
+        {RADIUS_OPTIONS.map((r) => (
+          <button
+            key={r}
+            type="button"
+            onClick={() => setRadiusKm(r)}
+            aria-pressed={radiusKm === r}
+            className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition ${
+              radiusKm === r
+                ? "bg-fuchsia-600 text-white"
+                : "border border-white/10 text-white/50 hover:border-white/25 hover:text-white/80"
+            }`}
+          >
+            {r} km
+          </button>
+        ))}
+        {hasLocation ? (
+          <span className="ml-1 inline-flex items-center gap-1 text-[11px] text-white/35">
+            <MapPin className="h-3 w-3 text-fuchsia-400/70" />
+            desde {locationLabel}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => locationCtx?.useCurrentLocation()}
+            className="ml-1 inline-flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-500/15 px-3 py-1.5 text-[11px] font-semibold text-sky-200 transition hover:bg-sky-500/25"
+          >
+            <LocateFixed className="h-3 w-3" />
+            Usar mi ubicación
+          </button>
+        )}
+      </div>
+
+      <div
+        className={
+          fullBleed
+            ? "relative h-[62svh] min-h-[380px] overflow-hidden border-y border-white/10 bg-[#0a0a12] sm:h-[68svh]"
+            : "relative h-[340px] overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a12] sm:h-[420px]"
+        }
+      >
         {visible ? (
           <MapboxMap
             userLocation={center}
@@ -265,9 +315,9 @@ export default function HomeMapSection({ category, filter }: Props) {
             fill
             rangeKm={radiusKm}
             autoCenterOnDataChange
-            showMarkersForArea={false}
+            showMarkersForArea
+            areaFillOpacity={0.07}
             renderHtmlMarkers
-            tieredMarkers
             focusMarkerId={focusedId}
             onMarkerSelect={handleMarkerSelect}
             onMarkerDeselect={handleMarkerDeselect}
@@ -280,70 +330,52 @@ export default function HomeMapSection({ category, filter }: Props) {
         )}
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-white/[0.08] p-4 md:border-l md:border-t-0">
-        <div className="text-[34px] font-extrabold leading-none tabular-nums">
-          {failed ? "—" : availableCount}
-          <small className="mt-1.5 block text-[12.5px] font-semibold leading-snug text-white/60">
-            {caption}
-          </small>
-        </div>
-
-        <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-white/40">
-            Radio
-          </div>
-          <div className="flex gap-1.5">
-            {RADIUS_OPTIONS.map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRadiusKm(r)}
-                aria-pressed={radiusKm === r}
-                className={`flex-1 rounded-lg border py-1.5 text-xs font-bold transition ${
-                  radiusKm === r
-                    ? "border-sky-400/60 bg-sky-400/[0.14] text-white"
-                    : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:border-white/20"
-                }`}
-              >
-                {r} km
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {!hasLocation && (
-          <button
-            type="button"
-            onClick={() => locationCtx?.useCurrentLocation()}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-500/15 px-3 py-1.5 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/25"
-          >
-            <LocateFixed className="h-3.5 w-3.5" />
-            Usar mi ubicación
-          </button>
-        )}
-
-        <div className="grid gap-1.5 text-xs text-white/60">
-          <span className="flex items-center gap-2">
-            <i className="h-4 w-4 shrink-0 rounded-full bg-uzeed-700 shadow-[0_0_0_2px_#a5b4fc]" />
-            Diamond: foto y nombre
-          </span>
-          <span className="flex items-center gap-2">
-            <i className="ml-0.5 h-3 w-3 shrink-0 rounded-full bg-uzeed-700 shadow-[0_0_0_2px_#f5c451]" />
-            Gold: foto
-          </span>
-          <span className="flex items-center gap-2">
-            <i className="ml-1 h-2 w-2 shrink-0 rounded-full bg-fuchsia-500" />
-            Silver: punto
-          </span>
-        </div>
-
-        <Link
-          href="/cerca"
-          className="mt-auto rounded-[9px] bg-sky-400 px-3 py-[9px] text-center text-[13px] font-extrabold text-[#04121c] transition hover:bg-sky-300"
-        >
-          Abrir mapa completo
-        </Link>
-      </div>
+      {/* Fila de las más cercanas: también sirve como enlaces rastreables. */}
+      {closest.length > 0 && (
+        <ul className="scrollbar-none -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          {closest.map((p) => {
+            const img = resolveMediaUrl(p.avatarUrl) ?? resolveMediaUrl(p.coverUrl);
+            const dist = formatDistance(p.distance);
+            return (
+              <li key={p.id} className="shrink-0">
+                <Link
+                  href={ownerHref(p)}
+                  className="flex w-[190px] items-center gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2 transition hover:border-fuchsia-500/25 hover:bg-white/[0.05]"
+                >
+                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-[#0a0a10]">
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={p.displayName || p.username}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <img src="/brand/isotipo-new.png" alt="" className="h-5 w-5 opacity-20" />
+                      </div>
+                    )}
+                    {p.availableNow && (
+                      <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0a0a12] bg-emerald-400" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-xs font-semibold">
+                      {p.displayName || p.username}
+                    </div>
+                    <div className="mt-0.5 truncate text-[10px] text-white/40">
+                      {/* Sin ubicación real la distancia se mide desde Santiago:
+                          se muestra la comuna en su lugar. */}
+                      {hasLocation && dist ? `a ${dist}` : p.city || "Chile"}
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {preview && (
         <ProfilePreviewModal profile={preview} onClose={() => setPreview(null)} />
