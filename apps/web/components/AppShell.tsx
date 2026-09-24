@@ -12,7 +12,6 @@ import { ForumNotificationProvider } from "./ForumNotifications";
 import { ChatNotificationProvider } from "./ChatNotifications";
 import { usePageViewTracker } from "../hooks/useAnalytics";
 import ScrollToTop from "./ScrollToTop";
-import MarketplacePromo from "./marketplace/MarketplacePromo";
 import ProfileVisibilityReminder from "./ProfileVisibilityReminder";
 
 /* Lazy-load non-critical shell components to reduce initial main-thread work */
@@ -162,7 +161,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               {/* La ficha a medias ya no esconde el perfil, pero sí lo deja
                   fuera de filtros y búsquedas: esto lo recuerda. */}
               {!isCercaRoute && !isChatThreadRoute && <ProfileVisibilityReminder />}
-              {!isCercaRoute && !isChatThreadRoute && <MarketplacePromo />}
               {children}
             </main>
             {!isCercaRoute && !isChatThreadRoute && <Footer />}

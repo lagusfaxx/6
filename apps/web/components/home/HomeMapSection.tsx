@@ -16,9 +16,9 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { apiFetch, resolveMediaUrl } from "../../lib/api";
+import { apiFetch } from "../../lib/api";
 import { LocationFilterContext } from "../../hooks/useLocationFilter";
-import { formatDistance, spreadOverlapping, tierOrder } from "../../lib/mapMarkers";
+import { spreadOverlapping, tierOrder } from "../../lib/mapMarkers";
 import type { MapMarker } from "../MapboxMap";
 import { LocateFixed, MapPin, Maximize2 } from "lucide-react";
 
@@ -53,10 +53,24 @@ type NearbyProfile = {
   externalOnly?: boolean;
 };
 
-const RADIUS_OPTIONS = [5, 10, 25] as const;
-const DEFAULT_RADIUS_KM = 10;
-const MAX_RADIUS_KM = RADIUS_OPTIONS[RADIUS_OPTIONS.length - 1];
+/* Radio fijo. Ya no hay botones de 5/10/25 km: el mapa trae lo que hay a
+   25 km del punto que se está mirando y, si el cliente lo arrastra a otra
+   zona, pide los perfiles de esa zona. */
+const RADIUS_KM = 25;
+/* Distancia que hay que mover el mapa para pedir los perfiles de la zona
+   nueva. Menos que el radio, para que no queden huecos en los bordes. */
+const REFETCH_KM = 8;
 const SANTIAGO_FALLBACK: [number, number] = [-33.45, -70.66];
+
+function distanceKm(a: [number, number], b: [number, number]): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b[0] - a[0]);
+  const dLng = toRad(b[1] - a[1]);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(h));
+}
 
 function ownerHref(p: NearbyProfile) {
   if (p.externalOnly && p.websiteUrl) return p.websiteUrl;
@@ -87,10 +101,11 @@ export default function HomeMapSection({ fullBleed = false }: Props) {
   const [profiles, setProfiles] = useState<NearbyProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [radiusKm, setRadiusKm] = useState<number>(DEFAULT_RADIUS_KM);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<NearbyProfile | null>(null);
   const fetchRef = useRef(0);
+  /* Centro del último pedido; el mapa pide otra zona al alejarse de él. */
+  const lastFetchCenter = useRef<[number, number] | null>(null);
 
   const hasToken = Boolean(process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
   /* Ojo: sin ubicación el mapa cae a Santiago. En ese caso NO se puede hablar
@@ -124,41 +139,63 @@ export default function HomeMapSection({ fullBleed = false }: Props) {
     return () => io.disconnect();
   }, [visible]);
 
-  /* Los perfiles se piden solo una vez que la sección es visible. */
+  /* Pide los perfiles a RADIUS_KM de un punto. Con replace se empieza de
+     cero (cambió la ubicación del cliente); si no, se suman a los que ya
+     están, así al arrastrar el mapa no desaparece lo que se vio antes. */
+  const loadAround = useCallback(
+    (at: [number, number], replace: boolean) => {
+      const myFetch = ++fetchRef.current;
+      lastFetchCenter.current = at;
+      setLoading(true);
+      setFailed(false);
+      const qp = new URLSearchParams();
+      qp.set("types", "PROFESSIONAL,ESTABLISHMENT,SHOP");
+      /* El inicio muestra mujeres — igual que el feed, las destacadas y las
+         novedades. Los perfiles de hombres tienen su propia entrada ("Ellos").
+         Los perfiles sin género declarado siguen contando como mujeres, que
+         es la regla del resto del sitio. */
+      qp.set("gender", "FEMALE");
+      qp.set("lat", String(at[0]));
+      qp.set("lng", String(at[1]));
+      qp.set("rangeKm", String(RADIUS_KM));
+
+      apiFetch<{ profiles: NearbyProfile[] }>(`/services?${qp.toString()}`)
+        .then((res) => {
+          if (myFetch !== fetchRef.current) return;
+          const incoming = res?.profiles || [];
+          setProfiles((prev) => {
+            const byId = new Map((replace ? [] : prev).map((p) => [p.id, p]));
+            for (const p of incoming) byId.set(p.id, p);
+            return [...byId.values()];
+          });
+        })
+        .catch(() => {
+          if (myFetch !== fetchRef.current) return;
+          setFailed(true);
+        })
+        .finally(() => {
+          if (myFetch === fetchRef.current) setLoading(false);
+        });
+    },
+    [],
+  );
+
+  /* Los perfiles se piden recién cuando la sección es visible. */
   useEffect(() => {
     if (!visible || !hasToken) return;
-    const myFetch = ++fetchRef.current;
-    setLoading(true);
-    setFailed(false);
-    const qp = new URLSearchParams();
-    qp.set("types", "PROFESSIONAL,ESTABLISHMENT,SHOP");
-    /* El inicio muestra mujeres — igual que el feed, las destacadas y las
-       novedades. Los perfiles de hombres tienen su propia entrada ("Ellos"),
-       así que en el mapa del home no van: el cliente que llega aquí no los
-       está buscando. Los perfiles sin género declarado siguen contando como
-       mujeres, que es la regla del resto del sitio. */
-    qp.set("gender", "FEMALE");
-    qp.set("lat", String(center[0]));
-    qp.set("lng", String(center[1]));
-    /* Acotar en el servidor al radio más amplio que ofrece la sección. /cerca
-       se trae el catálogo entero (take: 300 + establecimientos) y filtra en el
-       cliente; en el home eso sería una descarga grande en cada visita. Con el
-       tope pedido una sola vez, los chips siguen filtrando sin refetch. */
-    qp.set("rangeKm", String(MAX_RADIUS_KM));
+    loadAround(center, true);
+  }, [visible, hasToken, center, loadAround]);
 
-    apiFetch<{ profiles: NearbyProfile[] }>(`/services?${qp.toString()}`)
-      .then((res) => {
-        if (myFetch !== fetchRef.current) return;
-        setProfiles(res?.profiles || []);
-      })
-      .catch(() => {
-        if (myFetch !== fetchRef.current) return;
-        setFailed(true);
-      })
-      .finally(() => {
-        if (myFetch === fetchRef.current) setLoading(false);
-      });
-  }, [visible, hasToken, center]);
+  /* El cliente arrastró o hizo zoom hacia otra zona: se piden los perfiles
+     de ahí. */
+  const handleCenterChange = useCallback(
+    ({ lat, lng }: { lat: number; lng: number }) => {
+      const last = lastFetchCenter.current;
+      if (!last || distanceKm(last, [lat, lng]) < REFETCH_KM) return;
+      loadAround([lat, lng], false);
+    },
+    [loadAround],
+  );
 
   const nearby = useMemo(
     () =>
@@ -166,24 +203,31 @@ export default function HomeMapSection({ fullBleed = false }: Props) {
         /* Red de seguridad por si la respuesta trae hombres igual (avisos
            rápidos externos, cachés viejas): el mapa del home no los pinta. */
         .filter((p) => p.gender !== "MALE")
-        .filter((p) => p.distance != null && Number.isFinite(p.distance) && p.distance <= radiusKm)
-        .sort((a, b) => {
-          const tierDiff = tierOrder(a.userLevel) - tierOrder(b.userLevel);
-          if (tierDiff !== 0) return tierDiff;
-          return (a.distance ?? 1e9) - (b.distance ?? 1e9);
-        }),
-    [profiles, radiusKm],
+        .filter((p) => Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude)))
+        .sort((a, b) => tierOrder(a.userLevel) - tierOrder(b.userLevel)),
+    [profiles],
+  );
+
+  /* Lo que está a RADIUS_KM de la ubicación del cliente, para el texto de
+     arriba. Lo que se cargó al arrastrar el mapa a otra zona no cuenta. */
+  const aroundUser = useMemo(
+    () =>
+      nearby.filter(
+        (p) =>
+          distanceKm(center, [Number(p.latitude), Number(p.longitude)]) <= RADIUS_KM,
+      ),
+    [nearby, center],
   );
 
   const availableCount = useMemo(
-    () => nearby.filter((p) => p.availableNow).length,
-    [nearby],
+    () => aroundUser.filter((p) => p.availableNow).length,
+    [aroundUser],
   );
 
   const markers = useMemo(() => {
     const base = nearby
       .filter((p) => Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude)))
-      .slice(0, 80)
+      .slice(0, 200)
       .map((p) => ({
         id: p.id,
         name: p.displayName || p.username,
@@ -225,7 +269,6 @@ export default function HomeMapSection({ fullBleed = false }: Props) {
      que dejar un recuadro de error a la vista del cliente. */
   if (!hasToken) return null;
 
-  const closest = nearby.slice(0, 6);
   const connected =
     availableCount > 0
       ? ` · ${availableCount} conectada${availableCount === 1 ? "" : "s"} ahora`
@@ -234,18 +277,18 @@ export default function HomeMapSection({ fullBleed = false }: Props) {
   let statusText: string;
   if (failed) {
     statusText = "No pudimos cargar los perfiles del mapa. Reintenta en unos segundos.";
-  } else if (loading && !nearby.length) {
+  } else if (loading && !profiles.length) {
     statusText = "Buscando perfiles…";
   } else if (!hasLocation) {
     // Fallback a Santiago: se dice cuál es la referencia en vez de fingir cercanía.
     statusText =
-      nearby.length > 0
-        ? `${nearby.length} perfil${nearby.length === 1 ? "" : "es"} en Santiago${connected}. Activa tu ubicación para ver los de tu zona.`
+      aroundUser.length > 0
+        ? `${aroundUser.length} perfil${aroundUser.length === 1 ? "" : "es"} en Santiago${connected}. Activa tu ubicación para ver los de tu zona.`
         : "Activa tu ubicación para ver quién está cerca tuyo.";
-  } else if (nearby.length > 0) {
-    statusText = `${nearby.length} perfil${nearby.length === 1 ? "" : "es"} a menos de ${radiusKm} km${connected}`;
+  } else if (aroundUser.length > 0) {
+    statusText = `${aroundUser.length} perfil${aroundUser.length === 1 ? "" : "es"} a menos de ${RADIUS_KM} km${connected}`;
   } else {
-    statusText = `Sin perfiles a menos de ${radiusKm} km`;
+    statusText = `Sin perfiles a menos de ${RADIUS_KM} km. Mueve el mapa para ver otras zonas.`;
   }
 
   return (
@@ -267,25 +310,10 @@ export default function HomeMapSection({ fullBleed = false }: Props) {
         <p className="mt-0.5 text-xs text-white/40">{statusText}</p>
       </div>
 
-      {/* Radio + ubicación */}
+      {/* Ubicación */}
       <div className={`mb-3 flex flex-wrap items-center gap-1.5 ${fullBleed ? "px-8" : ""}`}>
-        {RADIUS_OPTIONS.map((r) => (
-          <button
-            key={r}
-            type="button"
-            onClick={() => setRadiusKm(r)}
-            aria-pressed={radiusKm === r}
-            className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition ${
-              radiusKm === r
-                ? "bg-fuchsia-600 text-white"
-                : "border border-white/10 text-white/50 hover:border-white/25 hover:text-white/80"
-            }`}
-          >
-            {r} km
-          </button>
-        ))}
         {hasLocation ? (
-          <span className="ml-1 inline-flex items-center gap-1 text-[11px] text-white/35">
+          <span className="inline-flex items-center gap-1 text-[11px] text-white/35">
             <MapPin className="h-3 w-3 text-fuchsia-400/70" />
             desde {locationLabel}
           </span>
@@ -293,7 +321,7 @@ export default function HomeMapSection({ fullBleed = false }: Props) {
           <button
             type="button"
             onClick={() => locationCtx?.useCurrentLocation()}
-            className="ml-1 inline-flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-500/15 px-3 py-1.5 text-[11px] font-semibold text-sky-200 transition hover:bg-sky-500/25"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-500/15 px-3 py-1.5 text-[11px] font-semibold text-sky-200 transition hover:bg-sky-500/25"
           >
             <LocateFixed className="h-3 w-3" />
             Usar mi ubicación
@@ -313,8 +341,8 @@ export default function HomeMapSection({ fullBleed = false }: Props) {
             userLocation={center}
             markers={markers}
             fill
-            rangeKm={radiusKm}
             autoCenterOnDataChange
+            onCenterChange={handleCenterChange}
             showMarkersForArea
             areaFillOpacity={0.07}
             renderHtmlMarkers
@@ -329,53 +357,6 @@ export default function HomeMapSection({ fullBleed = false }: Props) {
           </div>
         )}
       </div>
-
-      {/* Fila de las más cercanas: también sirve como enlaces rastreables. */}
-      {closest.length > 0 && (
-        <ul className="scrollbar-none -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          {closest.map((p) => {
-            const img = resolveMediaUrl(p.avatarUrl) ?? resolveMediaUrl(p.coverUrl);
-            const dist = formatDistance(p.distance);
-            return (
-              <li key={p.id} className="shrink-0">
-                <Link
-                  href={ownerHref(p)}
-                  className="flex w-[190px] items-center gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2 transition hover:border-fuchsia-500/25 hover:bg-white/[0.05]"
-                >
-                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-[#0a0a10]">
-                    {img ? (
-                      <img
-                        src={img}
-                        alt={p.displayName || p.username}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <img src="/brand/isotipo-new.png" alt="" className="h-5 w-5 opacity-20" />
-                      </div>
-                    )}
-                    {p.availableNow && (
-                      <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0a0a12] bg-emerald-400" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-xs font-semibold">
-                      {p.displayName || p.username}
-                    </div>
-                    <div className="mt-0.5 truncate text-[10px] text-white/40">
-                      {/* Sin ubicación real la distancia se mide desde Santiago:
-                          se muestra la comuna en su lugar. */}
-                      {hasLocation && dist ? `a ${dist}` : p.city || "Chile"}
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
 
       {preview && (
         <ProfilePreviewModal profile={preview} onClose={() => setPreview(null)} />
