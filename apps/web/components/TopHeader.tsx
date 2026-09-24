@@ -26,7 +26,6 @@ import {
   Settings,
   LogIn,
   Search,
-  Crown,
   Wallet,
   HelpCircle,
   Eye,
@@ -114,7 +113,6 @@ const MEGA_MENU = [
   { label: "Sex Shop", route: "/sexshop", icon: ShoppingBag },
   { label: "Despedidas", route: "/escorts?serviceTags=despedidas", icon: PartyPopper },
   { label: "Marketplace", route: "/marketplace", icon: ShoppingBag },
-  { label: "Premium", route: "/premium", icon: Crown },
 ] as const;
 
 export default function TopHeader() {

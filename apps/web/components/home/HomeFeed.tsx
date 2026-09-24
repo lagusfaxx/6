@@ -11,16 +11,10 @@
  * scroll, no swipe, y de un carrusel prácticamente solo se ve la primera
  * lámina. Un grid vertical denso de fotos es lo que se escanea bien.
  *
- * Así que el cuerpo queda en tres piezas: una barra de filtros con lo que
- * decide la compra en este rubro (disponibilidad, novedad, exámenes, formato),
- * la sección Gold (Diamond va más arriba, sobre el mapa), y el grid
- * infinito. Las secciones que se quitaron no
- * desaparecen como función: cada una es ahora un filtro que lleva al listado
- * completo, con más opciones de las que tenía la sección plegable.
+ * Así que el cuerpo queda en dos piezas: la sección Gold (Diamond va más
+ * arriba, sobre el mapa) y el grid infinito.
  */
 
-import Link from "next/link";
-import { Clock, ShieldCheck, ShoppingBag, Sparkles, Star } from "lucide-react";
 import DestacadasGrid, { type DestacadaProfile } from "./DestacadasGrid";
 import InfiniteFeed from "./InfiniteFeed";
 
@@ -29,37 +23,11 @@ type Props = {
   goldProfiles: DestacadaProfile[];
 };
 
-/* Filtros por estado del perfil, no por categoría: la categoría ya vive en el
-   hero. Cada uno apunta a un listado que ya existe. */
-const FEED_FILTERS = [
-  { label: "Disponible ahora", href: "/escorts?availableNow=true", icon: Sparkles },
-  { label: "Nuevas", href: "/escorts?sort=new", icon: Clock },
-  { label: "Con exámenes", href: "/escorts?profileTags=profesional+con+examenes", icon: ShieldCheck },
-  { label: "Marketplace", href: "/marketplace", icon: ShoppingBag },
-  { label: "Premium", href: "/premium", icon: Star },
-];
-
 export default function HomeFeed({ goldProfiles }: Props) {
   const gold = goldProfiles.slice(0, 10);
 
   return (
     <>
-      <nav
-        aria-label="Filtros rápidos"
-        className="scrollbar-none -mx-4 mb-6 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
-      >
-        {FEED_FILTERS.map((f) => (
-          <Link
-            key={f.href}
-            href={f.href}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-xs font-medium text-white/65 transition hover:border-fuchsia-500/30 hover:bg-white/[0.05] hover:text-white"
-          >
-            <f.icon className="h-3.5 w-3.5 text-white/40" aria-hidden />
-            {f.label}
-          </Link>
-        ))}
-      </nav>
-
       {/* Cada rango aparece una sola vez: Diamond sobre el mapa y Gold aquí.
           Repetirlos en las dos zonas mostraba a la misma persona dos veces. */}
       {gold.length > 0 && <DestacadasGrid profiles={gold} tier="GOLD" />}

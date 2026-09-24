@@ -159,7 +159,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   add("/profesionales", "daily", 0.85);
   add("/sexshop", "daily", 0.8);
   add("/services", "daily", 0.85);
-  add("/premium", "daily", 0.8);
 
   // ── Landing pages por tag de escort (long-tail SEO) ──
   for (const tag of ESCORT_TAGS) {
@@ -182,7 +181,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // ── Contenido dinámico ──
   add("/live", "always", 0.85);
   add("/foro", "hourly", 0.85);
-  // /hot redirects to /premium — excluded from sitemap
+  // /hot y /premium redirigen al inicio — fuera del sitemap
 
   // ── Landings del lado OFERTA (captar escorts y creadoras) ──
   // El SEO del sitio apuntaba solo al cliente que busca escorts; estas URLs

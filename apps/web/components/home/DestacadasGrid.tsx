@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../lib/api";
 import ProfileCard, { type CardStoryMedia, type HomeProfile } from "./ProfileCard";
+import RowScroller from "./RowScroller";
 
 export type DestacadaProfile = HomeProfile;
 
@@ -88,13 +89,13 @@ export default function DestacadasGrid({
         </h2>
         {/* Tarjetas más grandes que las de la primera versión: a 104px la fila
             se leía como miniaturas y el rango más alto no puede verse así. */}
-        <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+        <RowScroller className="-mx-4 gap-3 px-4 pb-1 sm:mx-0 sm:px-0">
           {profiles.map((p) => (
             <div key={p.id} className="w-[170px] shrink-0 sm:w-[190px]">
               <ProfileCard profile={p} stories={byUser[p.id] || []} aspect="aspect-[3/4]" eager />
             </div>
           ))}
-        </div>
+        </RowScroller>
       </section>
     );
   }
