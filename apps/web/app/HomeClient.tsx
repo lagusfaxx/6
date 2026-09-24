@@ -6,23 +6,37 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { apiFetch, resolveMediaUrl } from "../lib/api";
 import { CHILEAN_CITIES, LocationFilterContext } from "../hooks/useLocationFilter";
+import { CITY_LANDINGS } from "../lib/cities";
 import { PROFILE_TAGS_CATALOG, SERVICE_TAGS_CATALOG } from "../components/DirectoryPage";
 import useMe from "../hooks/useMe";
 import { useDiscreet } from "../components/DiscreetProvider";
-import { DISCREET_BRAND } from "../lib/discreet";
+import { DISCREET_BRAND, discreetLabel } from "../lib/discreet";
 
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
+const HomeFeed = dynamic(() => import("../components/home/HomeFeed"), { ssr: false });
 const LiveCamsSection = dynamic(() => import("../components/home/LiveCamsSection"), { ssr: false });
-const HomeTieredFeed = dynamic(() => import("../components/home/HomeTieredFeed"), { ssr: false });
+const HomeMapSection = dynamic(() => import("../components/home/HomeMapSection"), { ssr: false });
+const NovedadesCarousel = dynamic(() => import("../components/home/NovedadesCarousel"), { ssr: false });
+const DestacadasGrid = dynamic(() => import("../components/home/DestacadasGrid"), { ssr: false });
 
+import {
+  buildChatHref,
+  buildCurrentPathWithSearch,
+  buildLoginHref,
+} from "../lib/chat";
 import {
   ArrowRight,
   BadgeCheck,
   ChevronRight,
   Download,
+  Hand,
+  Hotel,
   MapPin,
+  Navigation,
   Search as SearchIcon,
+  ShoppingBag,
+  Sparkles,
   Users,
   X,
   Zap,
@@ -100,6 +114,19 @@ function resolveSearch(raw: string): ResolvedSearch {
   return { href: `/escorts?q=${encodeURIComponent(raw.trim())}` };
 }
 
+/* La ciudad del perfil es texto libre ("Las Condes", "Las Condes, Santiago"),
+   así que se compara sin tildes y por contención en ambos sentidos. */
+function sameCityName(
+  profileCity: string | null | undefined,
+  selectedCity: string | null,
+): boolean {
+  if (!selectedCity) return false;
+  const a = normalizeQuery(String(profileCity ?? ""));
+  const b = normalizeQuery(selectedCity);
+  if (!a || !b) return false;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
 /* ── Types ── */
 
 type Banner = {
@@ -113,6 +140,8 @@ type Banner = {
   imageZoom?: number;
 };
 
+type UserLevel = "SILVER" | "GOLD" | "DIAMOND";
+
 type FeaturedBannerProfile = {
   id: string;
   name: string;
@@ -121,6 +150,37 @@ type FeaturedBannerProfile = {
   coverUrl?: string | null;
   category?: string | null;
   age?: number | null;
+};
+
+type RecentProfessional = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  coverUrl?: string | null;
+  city?: string | null;
+  distance: number | null;
+  age: number | null;
+  isActive: boolean;
+  userLevel: UserLevel;
+  completedServices: number;
+  profileViews: number;
+  lastSeen?: string | null;
+  availableNow?: boolean;
+  bio?: string | null;
+  serviceCategory?: string | null;
+  profileTags?: string[];
+  serviceTags?: string[];
+  galleryUrls?: string[];
+};
+
+/* Solo lo que la tarjeta de novedades necesita. */
+type NewProfile = {
+  id: string;
+  displayName: string;
+  city?: string | null;
+  avatarUrl?: string | null;
+  coverUrl?: string | null;
+  availableNow?: boolean;
 };
 
 type UmateCreatorCard = {
@@ -243,6 +303,8 @@ export default function HomeClient() {
   const [heroQuery, setHeroQuery] = useState("");
   const [banners, setBanners] = useState<Banner[]>([]);
   const [bannersLoaded, setBannersLoaded] = useState(false);
+  const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
+  const [newProfiles, setNewProfiles] = useState<NewProfile[]>([]);
   const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
   const locationCtx = useContext(LocationFilterContext);
   const location = locationCtx?.effectiveLocation ?? SANTIAGO_FALLBACK;
@@ -254,6 +316,7 @@ export default function HomeClient() {
       ? locationCtx.state.selectedCity?.name ?? null
       : null;
   const locationKey = `${location[0]}-${location[1]}-${selectedCityName ?? ""}`;
+  const [recentLoading, setRecentLoading] = useState(true);
   const { me } = useMe();
   const { discreet } = useDiscreet();
   const [previewProfile, setPreviewProfile] = useState<any>(null);
@@ -318,6 +381,100 @@ export default function HomeClient() {
     });
   }, [banners]);
 
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (location) {
+      params.set("lat", String(location[0]));
+      params.set("lng", String(location[1]));
+    }
+    // La API lo trata como cupos POR RANGO (Diamond y Gold por separado).
+    params.set("limit", "24");
+    params.set("gender", "FEMALE");
+    // Con comuna elegida en el chip, sus perfiles van primero: la distancia se
+    // mide contra el centro de la comuna y una vecina puede quedar más cerca.
+    if (selectedCityName) params.set("city", selectedCityName);
+    const query = params.toString();
+
+    const controller = new AbortController();
+
+    setRecentLoading(true);
+
+    apiFetch<{ professionals: any[] }>(`/professionals/recent?${query}`, {
+      signal: controller.signal,
+    })
+      .then((res) => {
+        const mapped: RecentProfessional[] = (res?.professionals || []).map(
+          (p: any) => ({
+            id: p.id,
+            name: p.name || "Experiencia",
+            avatarUrl: p.avatarUrl,
+            coverUrl: p.coverUrl ?? null,
+            city: p.city ?? null,
+            distance: typeof p.distance === "number" ? p.distance : null,
+            age: typeof p.age === "number" ? p.age : null,
+            isActive: Boolean(p.isActive),
+            availableNow: Boolean(p.availableNow),
+            userLevel:
+              p.userLevel === "DIAMOND" || p.userLevel === "GOLD"
+                ? p.userLevel
+                : "SILVER",
+            completedServices: Number(p.completedServices || 0),
+            profileViews: Number(p.profileViews || 0),
+            lastSeen: p.lastSeen ?? null,
+            bio: p.bio ?? null,
+            serviceCategory: p.serviceCategory ?? null,
+            profileTags: Array.isArray(p.profileTags) ? p.profileTags : [],
+            serviceTags: Array.isArray(p.serviceTags) ? p.serviceTags : [],
+            galleryUrls: p.galleryUrls ?? [],
+          }),
+        );
+
+        /* Los de la comuna elegida arriba y, dentro de ella, por cercanía;
+           después el resto por distancia real. Ordenar solo por distancia
+           metía perfiles de la comuna vecina por delante de los de la comuna
+           que la persona acababa de elegir en el chip. */
+        mapped.sort((a, b) => {
+          if (selectedCityName) {
+            const cityCmp =
+              Number(!sameCityName(a.city, selectedCityName)) -
+              Number(!sameCityName(b.city, selectedCityName));
+            if (cityCmp !== 0) return cityCmp;
+          }
+          return (a.distance ?? 1e9) - (b.distance ?? 1e9);
+        });
+
+        setRecentPros(mapped);
+      })
+      .catch((err: any) => {
+        if (err?.name === "AbortError") return;
+      })
+      .finally(() => setRecentLoading(false));
+
+    return () => {
+      controller.abort();
+    };
+  }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Perfiles recién publicados para la sección bajo el mapa. Es una sola
+     consulta: al quitar la sección se habían eliminado las tres de
+     /profiles/discover, y solo hace falta esta. */
+  useEffect(() => {
+    const controller = new AbortController();
+    const qp = new URLSearchParams({ sort: "new", limit: "12", gender: "FEMALE" });
+    qp.set("lat", String(location[0]));
+    qp.set("lng", String(location[1]));
+
+    apiFetch<{ profiles: NewProfile[] }>(`/profiles/discover?${qp.toString()}`, {
+      signal: controller.signal,
+    })
+      .then((res) => setNewProfiles(res?.profiles ?? []))
+      .catch(() => {
+        /* silenciado: sin datos la sección simplemente no se muestra */
+      });
+
+    return () => controller.abort();
+  }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Fetch U-Mate creators & live streams (deferred — below the fold) ──
   useEffect(() => {
     const controller = new AbortController();
@@ -347,6 +504,51 @@ export default function HomeClient() {
   const sideBanners = useMemo(() => [...verticalBanners, ...horizontalBanners], [verticalBanners, horizontalBanners]);
   const leftSideBanners = useMemo(() => sideBanners.filter((_, i) => i % 2 === 0).slice(0, 3), [sideBanners]);
   const rightSideBanners = useMemo(() => sideBanners.filter((_, i) => i % 2 === 1).slice(0, 3), [sideBanners]);
+
+  /* Rangos: Diamond y Gold van separados y en ese orden.
+     Antes era una única sección "Destacadas" que los mezclaba, y con eso el
+     rango — que es el plan que la profesional paga — no se veía por ninguna
+     parte del inicio. Cada nivel tiene ahora su propia sección. */
+  const diamondProfiles = useMemo(
+    () => recentPros.filter((p) => p.userLevel === "DIAMOND").slice(0, 24),
+    [recentPros],
+  );
+  const goldProfiles = useMemo(
+    () => recentPros.filter((p) => p.userLevel === "GOLD").slice(0, 24),
+    [recentPros],
+  );
+  const hasTieredProfiles = diamondProfiles.length > 0 || goldProfiles.length > 0;
+
+  const toCardProfile = (p: RecentProfessional) => ({
+    id: p.id,
+    displayName: p.name,
+    avatarUrl: p.avatarUrl ?? null,
+    coverUrl: p.coverUrl ?? null,
+    availableNow: !!p.availableNow,
+  });
+
+  /* Sobre el mapa va solo Diamond: es el rango más alto y una sola fila deja
+     el mapa a la vista al abrir el inicio. Gold vive en el feed, más abajo.
+     La fila scrollea en horizontal y tiene alto fijo, así que mostrar más
+     tarjetas no le come pantalla al mapa: cortar en 6 sólo escondía Diamond
+     que sí aparecían más abajo en "Cerca de ti". */
+  const diamondCompact = useMemo(
+    () => diamondProfiles.map(toCardProfile),
+    [diamondProfiles],
+  );
+
+  const novedades = useMemo(
+    () =>
+      newProfiles.slice(0, 12).map((p) => ({
+        id: p.id,
+        displayName: p.displayName,
+        city: p.city ?? null,
+        avatarUrl: p.avatarUrl ?? null,
+        coverUrl: p.coverUrl ?? null,
+        availableNow: !!p.availableNow,
+      })),
+    [newProfiles],
+  );
 
   const bannerHref = (banner: Banner) => {
     const profileId = (banner.linkUrl || "").startsWith("profile:") ? (banner.linkUrl || "").slice("profile:".length) : "";
@@ -396,23 +598,48 @@ export default function HomeClient() {
   };
 
   return (
-    <div className="min-h-[100dvh] overflow-x-clip text-white antialiased">
-      {/* ═══ TÍTULO + BUSCADOR ═══
-           Una línea en vez de la portada grande: lo primero que se ve al
-           entrar son perfiles. */}
-      <section className="relative mx-auto max-w-6xl px-4 pb-2 pt-4 md:pt-5">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+    <div className="min-h-[100dvh] overflow-x-hidden text-white antialiased">
+      {/* ═══ HERO ═══ */}
+      <section className="relative flex items-center justify-center px-4 pt-5 pb-4 md:pt-9 md:pb-6">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[#050510]" />
+
+        <div className="relative mx-auto w-full max-w-3xl text-center">
           {/* En modo discreto el titular es lo primero que delata a un metro de
               distancia, así que cambia junto con el resto del disfraz. */}
-          <h1 className="text-xl font-extrabold tracking-[-0.01em] text-white">
-            {discreet
-              ? DISCREET_BRAND.tagline
-              : selectedCityName
-                ? `Escorts en ${selectedCityName}`
-                : locationCtx?.effectiveLocation
-                  ? "Escorts cerca de ti"
-                  : "Escorts en Santiago"}
+          <h1 className="text-[1.35rem] font-extrabold leading-[1.15] tracking-tight text-white sm:text-[1.9rem] md:text-[2.15rem]">
+            {discreet ? DISCREET_BRAND.tagline : "Escorts y masajistas cerca tuyo"}
           </h1>
+
+          <p className="mx-auto mt-2 max-w-lg text-[12.5px] leading-snug text-white/50 sm:text-sm">
+            {discreet ? (
+              <>Mira en el mapa qué hay disponible cerca de ti, en {CITY_LANDINGS.length} comunas.</>
+            ) : (
+              <>
+                Mira en el mapa quién está a pocos kilómetros y conectada ahora mismo.
+                Perfiles verificados en Santiago, Viña del Mar y otras {CITY_LANDINGS.length - 2} comunas.
+              </>
+            )}
+          </p>
+
+          {/* CTA primario: el mapa, que es la ruta más corta al contacto */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+            <Link
+              href="/cerca"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-fuchsia-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-fuchsia-500"
+            >
+              <Navigation className="h-4 w-4" />
+              Ver quién está cerca
+            </Link>
+            <Link
+              href="/services"
+              className="group inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-5 py-2.5 text-sm font-semibold text-white/70 transition hover:border-white/30 hover:text-white"
+            >
+              Ver todos los perfiles
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+
+          {/* Buscador dentro del hero */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -424,25 +651,87 @@ export default function HomeClient() {
                 router.push(resolved.href);
               }
             }}
-            className="flex min-w-[min(100%,260px)] flex-1 items-center gap-2 rounded-[10px] border border-white/[0.08] bg-white/[0.05] px-3 py-2 transition focus-within:border-fuchsia-500/50"
+            className="relative mx-auto mt-4 flex w-full max-w-xl items-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.04] px-3 py-1.5 transition focus-within:border-fuchsia-500/50 focus-within:bg-white/[0.06]"
             role="search"
           >
-            <SearchIcon className="h-[15px] w-[15px] shrink-0 text-white/40" aria-hidden />
+            <SearchIcon className="h-4 w-4 shrink-0 text-white/40" aria-hidden />
             <input
               type="search"
               value={heroQuery}
               onChange={(e) => setHeroQuery(e.target.value)}
               placeholder="Nombre, comuna o servicio"
               aria-label="Buscar"
-              className="w-full bg-transparent text-[13px] text-white placeholder:text-white/40 outline-none"
+              className="w-full bg-transparent text-sm text-white placeholder:text-white/35 outline-none"
             />
+            <button
+              type="submit"
+              className="shrink-0 rounded-lg bg-fuchsia-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-fuchsia-500"
+            >
+              Buscar
+            </button>
           </form>
-          <InstallAppButton compact />
+
+          {/* Ellas / Ellos. El inicio lista mujeres (los perfiles sin género
+              cuentan como tales), así que el público que busca hombres
+              necesitaba una entrada. Como interruptor de dos posiciones se
+              entiende sola: dice qué se está viendo y qué es lo otro. Un chip
+              suelto entre las categorías no decía ninguna de las dos cosas. */}
+          <div className="mx-auto mt-3.5 flex w-full max-w-[15rem] items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] p-1">
+            <Link
+              href="/escorts?gender=FEMALE"
+              className="flex-1 rounded-full bg-gradient-to-r from-fuchsia-600 to-violet-600 px-4 py-2 text-center text-[13px] font-bold text-white shadow-[0_4px_14px_rgba(217,70,239,0.28)] transition hover:brightness-110"
+            >
+              Ellas
+            </Link>
+            <Link
+              href="/escorts?gender=MALE"
+              className="flex-1 rounded-full px-4 py-2 text-center text-[13px] font-semibold text-white/55 transition hover:bg-sky-500/15 hover:text-sky-200"
+            >
+              Ellos
+            </Link>
+          </div>
+
+          {/* Categorías — qué busca el cliente. Antes esto convivía con una
+              segunda fila casi idéntica más abajo y con un chip "Verificadas"
+              que apuntaba a /escorts sin filtro, porque la verificación no es
+              filtrable: se muestra como insignia en cada tarjeta. Los filtros
+              por estado (disponible, nuevas, exámenes) viven ahora sobre el
+              grid, que es donde se usan. */}
+          <nav
+            aria-label="Categorías"
+            className="scrollbar-none -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0"
+          >
+            {[
+              { label: "Escorts", href: "/escorts", icon: Sparkles },
+              { label: "Masajistas", href: "/masajistas", icon: Hand },
+              { label: "Moteles", href: "/moteles", icon: Hotel },
+              { label: "Sex Shop", href: "/sexshop", icon: ShoppingBag },
+              { label: "Marketplace", href: "/marketplace", icon: ShoppingBag },
+            ].map((c) => (
+              <Link
+                key={c.href}
+                href={c.href}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.10] px-3.5 py-1.5 text-xs font-medium text-white/70 transition hover:border-fuchsia-500/35 hover:text-white"
+              >
+                <c.icon className="h-3.5 w-3.5 text-white/40" aria-hidden />
+                {discreetLabel(c.href, c.label, discreet)}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Link compacto para descargar app */}
+          <div className="mt-3">
+            <InstallAppButton compact />
+          </div>
         </div>
       </section>
 
+      <div className="relative mx-auto max-w-5xl px-4">
+        <div className="h-px bg-white/[0.07]" />
+      </div>
+
       {/* Main content */}
-      <div className="relative mx-auto max-w-6xl overflow-visible px-4 pb-16 mt-2">
+      <div className="relative mx-auto max-w-6xl overflow-visible px-4 pb-16 mt-6">
         {/* Side ad banners (desktop) */}
         {leftSideBanners.length > 0 && (
           <div className="absolute left-0 top-0 hidden w-[160px] space-y-3 2xl:block" style={{ marginLeft: "-180px" }}>
@@ -464,42 +753,105 @@ export default function HomeClient() {
         )}
 
         {/* ═══ STORIES ═══ */}
-        <section className="mb-2">
+        <section className="mb-6">
           <Stories />
         </section>
 
-        {/* ═══ PESTAÑAS · DIAMOND · MAPA · GOLD · SILVER ═══
-             Los banners publicitarios de móvil van entre Gold y Silver. */}
-        <HomeTieredFeed
-          isAuthed={isAuthed}
-          trialText={TRIAL_TEXT}
-          beforeSilver={
-            <div className="mt-6 2xl:hidden">
-              {!bannersLoaded ? (
-                <div className="mb-8 2xl:hidden min-h-[60px]" />
-              ) : horizontalBanners.length > 0 && (
-                <section className="mb-8 2xl:hidden">
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
-                      <Zap className="h-3 w-3" /> Promocionado
-                    </span>
-                  </div>
-                  <div className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x">
-                    {horizontalBanners.map((b) => (
-                      <a
-                        key={b.id}
-                        href={bannerHref(b)}
-                        className="relative block h-[240px] w-[150px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0a14] shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/20 hover:shadow-lg"
-                      >
-                        {renderProfileBanner(b)}
-                      </a>
-                    ))}
-                  </div>
-                </section>
-              )}
+        {/* ═══ BANNERS PUBLICITARIOS ═══ */}
+        {/* Stable wrapper prevents CLS: reserves space until we know if banners exist */}
+        {!bannersLoaded ? (
+          <div className="mb-8 2xl:hidden min-h-[60px]" />
+        ) : horizontalBanners.length > 0 && (
+          <section className="mb-8 2xl:hidden">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+                <Zap className="h-3 w-3" /> Promocionado
+              </span>
             </div>
-          }
-        />
+            <div className="scrollbar-none -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x">
+              {horizontalBanners.map((b) => (
+                <a
+                  key={b.id}
+                  href={bannerHref(b)}
+                  className="relative block h-[240px] w-[150px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/[0.08] bg-[#0c0a14] shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:border-fuchsia-500/20 hover:shadow-lg"
+                >
+                  {renderProfileBanner(b)}
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ═══ DIAMOND (compacto) — sobre el mapa, en fila y pequeño, para que
+             el mapa siga entrando en pantalla al abrir el home ═══ */}
+        {diamondCompact.length > 0 && (
+          <DestacadasGrid profiles={diamondCompact} tier="DIAMOND" compact />
+        )}
+        {!hasTieredProfiles && !recentLoading && (
+          /* Sin perfiles de rango la zona quedaría vacía, así que se usa para
+             mostrar de qué van los planes — que es justo lo que estas
+             secciones tienen que hacer visible. */
+          <Link
+            href="/ayuda/tiers"
+            className="group mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 transition hover:border-white/20"
+          >
+            <div className="min-w-0">
+              <span className="text-sm font-bold text-white">
+                Planes <span className="text-cyan-300">Diamond</span> y{" "}
+                <span className="text-amber-300">Gold</span>
+              </span>
+              <p className="mt-0.5 truncate text-[11px] text-white/45">
+                Los perfiles con plan aparecen primero en el inicio
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-white/40 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        )}
+
+        {/* ═══ MAPA DE CERCANÍA — el atajo al contacto ═══
+             A sangre completa: se sale del max-w y del padding del contenedor
+             para ocupar todo el ancho de la pantalla. */}
+        {/* Ancho completo anulando el padding de los DOS ancestros que lo
+            aportan: el <main> de AppShell y este contenedor, 16px cada uno.
+            No se usa w-screen porque en escritorio hay una barra lateral de
+            240px: centrar contra el viewport metía la sección debajo de ella
+            y cortaba el título y los chips de radio. Así el mapa llega al
+            borde en móvil y ocupa todo el área de contenido en escritorio. */}
+        <div className="-mx-8 mb-6">
+          <HomeMapSection fullBleed />
+        </div>
+
+        {/* ═══ NUEVAS — justo bajo el mapa ═══ */}
+        {novedades.length > 0 && (
+          <NovedadesCarousel
+            profiles={novedades}
+            ctaHref="/escorts?sort=new"
+            ctaLabel="Ver todas las nuevas"
+          />
+        )}
+
+        {/* ═══ CTA PUBLÍCATE ═══ */}
+        {!isAuthed && (
+          <Link
+            href="/empezar"
+            className="group mb-6 flex items-center justify-between rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/[0.06] px-5 py-4 transition-colors hover:border-fuchsia-500/35 hover:bg-fuchsia-500/[0.10]"
+          >
+            <div>
+              <span className="text-sm font-semibold text-white">
+                ¿Ofreces servicios? <span className="text-fuchsia-400">Publícate aquí</span>
+              </span>
+              <p className="mt-0.5 text-[11px] text-white/40">Perfil listo en minutos, sin registro previo</p>
+            </div>
+            <span className="shrink-0 rounded-lg bg-fuchsia-500/20 px-3 py-1.5 text-xs font-semibold text-fuchsia-300 transition-colors group-hover:bg-fuchsia-500/30">
+              Empezar
+            </span>
+          </Link>
+        )}
+
+        <div className="mb-6 h-px bg-white/[0.06]" />
+
+        {/* ═══ FEED — filtros + destacadas + grid infinito ═══ */}
+        <HomeFeed goldProfiles={goldProfiles} />
 
         {/* ═══ EN VIVO AHORA ═══ */}
         {liveStreams.length > 0 && <div className="mb-6 h-px bg-gradient-to-r from-transparent via-red-500/[0.1] to-transparent" />}

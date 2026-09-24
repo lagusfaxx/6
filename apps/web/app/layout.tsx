@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
-import { Barlow_Condensed, Manrope } from 'next/font/google';
 import "./globals.css";
 import AppShell from '../components/AppShell';
 import AgeGate from '../components/AgeGate';
@@ -140,25 +139,9 @@ const jsonLd = {
   ],
 };
 
-/* Tipografía del sitio: Manrope para el texto y Barlow Condensed para los
-   nombres de las tarjetas. next/font las sirve desde el mismo dominio, sin
-   pedido extra a Google. */
-const fontSans = Manrope({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  display: 'swap',
-  variable: '--font-sans',
-});
-const fontDisplay = Barlow_Condensed({
-  subsets: ['latin'],
-  weight: ['600', '700', '800'],
-  display: 'swap',
-  variable: '--font-display',
-});
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${fontSans.variable} ${fontDisplay.variable}`}>
+    <html lang="es">
       <head>
         {/* Preconnect to third-party origins to reduce DNS+TLS latency */}
         <link rel="preconnect" href="https://www.googletagmanager.com" crossOrigin="anonymous" />
@@ -179,7 +162,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="min-h-screen font-sans text-white antialiased">
+      <body className="min-h-screen text-white antialiased">
         <AgeGate />
         <DiscreetProvider>
           <AppShell>{children}</AppShell>
