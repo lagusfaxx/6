@@ -80,6 +80,8 @@ const ADMIN_ONLY_SECTIONS = [
   /* El doble factor es obligatorio sólo para el administrador; la pantalla de
      enrolamiento rechaza a las cuentas de equipo, así que no se les ofrece. */
   "/admin/2fa",
+  /* Accesos de Claude (MCP) al panel: sólo el administrador los ve y corta. */
+  "/admin/claude",
 ];
 
 /** ¿Se le muestra esta sección del panel a esta cuenta? */

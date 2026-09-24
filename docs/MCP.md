@@ -9,38 +9,51 @@ Código: `apps/api/src/mcp/`.
 
 ## 1. Activarlo
 
-1. Genera un token: `openssl rand -hex 32`.
-2. En Coolify, en la app **API**, agrega `MCP_TOKEN=<token>` (y opcionalmente
-   `MCP_READ_TOKEN=<otro token>` para un acceso sólo de lectura).
-3. Redeploy. La migración `add_mcp_audit_log` crea la tabla de bitácora sola.
+1. **Activa el 2FA** en tu cuenta de administrador (panel → Doble factor). Sin
+   2FA nadie puede conectar Claude.
+2. En Coolify, app **API**, agrega:
 
-Sin tokens configurados, `/mcp` responde 404.
+   ```
+   MCP_ENABLED=true
+   MCP_SQL_PASSWORD=<clave aleatoria de 16+ caracteres>
+   ```
 
-| Token            | Herramientas                               |
-| ---------------- | ------------------------------------------ |
-| `MCP_TOKEN`      | Todas: lecturas + acciones                 |
-| `MCP_READ_TOKEN` | Sólo lecturas (las acciones ni aparecen)   |
+   Genera la clave con `openssl rand -hex 32` (sólo letras, números, `.`, `-`, `_`).
+3. Redeploy. No hay que entrar a la terminal: al arrancar, la API crea sola el
+   usuario de base de datos `uzeed_mcp_sql` con esa clave (Postgres recibe el
+   hash, no la clave), lo deja sólo en el rol lector `uzeed_mcp_reader`, en
+   sólo lectura y con 20 s por consulta, y prueba la conexión. Usa el mismo
+   host y base de `DATABASE_URL`. Para cambiar la clave, cambia la variable y
+   redeploy.
+
+   Si falta `MCP_SQL_PASSWORD`, es débil o el usuario de la base no puede
+   crear roles, el log lo dice y sólo `consulta_sql` queda apagada; el resto
+   del MCP funciona.
+
+Con `MCP_ENABLED` distinto de `true`, `/mcp` y todo el OAuth responden 404.
 
 ## 2. Conectarlo
 
 **claude.ai / Claude Desktop** → Configuración → Conectores → *Agregar conector
-personalizado* → URL:
+personalizado* → URL `https://api.uzeed.cl/mcp` (sin nada más).
 
-```
-https://api.uzeed.cl/mcp/<MCP_TOKEN>
-```
-
-(Los conectores personalizados no permiten cabeceras, por eso el token va en
-la ruta. Trátala como una contraseña.)
-
-**Claude Code** (token en cabecera, no queda en la URL):
+**Claude Code**:
 
 ```bash
-claude mcp add --transport http uzeed https://api.uzeed.cl/mcp \
-  --header "Authorization: Bearer <MCP_TOKEN>"
+claude mcp add --transport http uzeed https://api.uzeed.cl/mcp
 ```
 
-Para cambiar o revocar el acceso, cambia el token en Coolify y redeploy.
+Claude abre una pestaña de autorización en `api.uzeed.cl`. Tienes que tener la
+sesión de admin abierta en uzeed.cl en ese navegador; la pantalla muestra qué
+aplicación pide acceso y a dónde vuelve, y se aprueba con el **código 2FA del
+momento**. No se entrega la contraseña.
+
+- El acceso dura 1 hora y Claude lo renueva solo; como máximo **30 días**,
+  después hay que volver a aprobar con 2FA.
+- Cada autorización nueva manda un aviso a todos los administradores.
+- **Revocar**: panel → **Claude** (`/admin/claude`) muestra quién tiene acceso,
+  desde qué IP y cuándo lo usó por última vez; se corta uno o todos (todos pide 2FA).
+- Si al administrador le quitan el rol o apaga el 2FA, sus accesos mueren al instante.
 
 ## 3. Qué se le puede pedir
 
@@ -110,7 +123,7 @@ Los periodos aceptan `periodo` (`hoy`, `ayer`, `7d`, `30d`, `90d`, `365d`,
 `semana_actual`, `mes_actual`, `mes_anterior`, `anio_actual`) o `desde`/`hasta`
 en `YYYY-MM-DD`. Todo se calcula en hora de Chile.
 
-### Acciones (sólo con `MCP_TOKEN`)
+### Acciones (sólo administrador)
 
 `cambiar_estado_perfil`, `aprobar_verificacion`, `rechazar_verificacion`,
 `cambiar_tier`. Hacen lo mismo que el botón equivalente del panel y quedan en la
@@ -120,11 +133,24 @@ con su 2FA.
 
 ## 4. Seguridad
 
-- Token comparado en tiempo constante; mínimo 32 caracteres.
-- `consulta_sql` corre en una transacción `READ ONLY` con 20 s de límite, una
-  sola sentencia, y rechaza funciones de sistema, la tabla `session` y las
-  columnas de credenciales.
-- Toda respuesta tapa `passwordHash`, `twoFactorSecret`, `passwordSetToken`,
-  `tokenHash` y claves de push, aunque se pidan con `SELECT *`.
-- Límite de 240 llamadas por minuto.
-- Los errores del MCP no loguean la URL (puede llevar el token).
+Pensado para una app masiva y con gente intentando entrar. Capas, de afuera
+hacia adentro:
+
+| Capa | Qué hace |
+| ---- | -------- |
+| Interruptor | Todo apagado salvo `MCP_ENABLED=true`. |
+| IPs (opcional) | `MCP_ALLOWED_IPS` limita quién puede llamar a `/mcp`. |
+| OAuth 2.1 + PKCE | Sin tokens fijos ni tokens en la URL. Sólo `Authorization: Bearer`. |
+| Aprobación humana | Sesión de admin + código 2FA vigente (no reutilizable) en cada autorización. |
+| Redirecciones | Sólo `claude.ai`, `claude.com` y `localhost` (Claude Code). Un tercero no puede recibir códigos. |
+| Tokens | Guardados como hash. Acceso de 1 h, refresh rotativo; reusar un refresh o un código viejo revoca toda la familia (señal de robo). Máximo 30 días. |
+| Revalidación | Cada llamada revisa token, rol y 2FA de la cuenta. |
+| Permisos | Acciones sólo con scope `mcp:write` (administrador). Nada mueve dinero ni borra. |
+| SQL | `consulta_sql` usa un usuario de base de datos propio (`uzeed_mcp_sql`, sin forma de volver al dueño de la base): la **base** niega credenciales, email, teléfonos, mensajes privados, datos bancarios, RUT, IPs, ubicación exacta, documentos, fotos de verificación, sesiones y tokens. Transacción de sólo lectura, 20 s, 2 conexiones máximo. La API crea ese usuario al arrancar (clave como hash SCRAM). Las columnas o tablas nuevas quedan invisibles salvo que no sean sensibles por nombre. |
+| Fuerza bruta | 20 tokens inválidos desde una IP → bloqueada 30 min. Límites por endpoint y 120 llamadas/min por token. |
+| Consentimiento | Sin JavaScript, CSP estricta, no se puede enmarcar (clickjacking), CSRF por solicitud, 5 intentos de código máximo. |
+| Bitácora | Cada llamada y cada evento de autorización con cuenta, cliente e IP. Visible en `/admin/claude`. |
+| Errores | Las respuestas no muestran detalles internos; quedan en la bitácora. |
+
+Las cuentas de equipo (MODERATOR) no pueden conectar Claude: el 2FA es sólo
+para administradores.

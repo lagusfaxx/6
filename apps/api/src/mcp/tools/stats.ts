@@ -13,7 +13,7 @@ import {
   staffIdsSql,
   visitorKeySql,
 } from "../../lib/statsFilters";
-import { guarded, type McpScope } from "../audit";
+import { guarded, type McpContext } from "../audit";
 import {
   PROFILE_TYPES,
   TZ,
@@ -290,7 +290,7 @@ const SERIES_KEYS = Object.keys(SERIES) as [string, ...string[]];
 
 const BUCKETS = { dia: "day", semana: "week", mes: "month" } as const;
 
-export function registerStatsTools(server: McpServer, scope: McpScope) {
+export function registerStatsTools(server: McpServer, ctx: McpContext) {
   server.registerTool(
     "resumen_general",
     {
@@ -300,7 +300,7 @@ export function registerStatsTools(server: McpServer, scope: McpScope) {
       inputSchema: {},
       annotations: READ,
     },
-    guarded("resumen_general", scope, async () => jsonResult(await buildAdminOverview())),
+    guarded("resumen_general", ctx, async () => jsonResult(await buildAdminOverview())),
   );
 
   server.registerTool(
@@ -315,7 +315,7 @@ export function registerStatsTools(server: McpServer, scope: McpScope) {
       },
       annotations: READ,
     },
-    guarded("kpis_periodo", scope, async (args: PeriodInput & { comparar?: boolean }) => {
+    guarded("kpis_periodo", ctx, async (args: PeriodInput & { comparar?: boolean }) => {
       const period = resolvePeriod(args);
       const current = await computeKpis(period);
       if (args.comparar === false) {
@@ -356,7 +356,7 @@ export function registerStatsTools(server: McpServer, scope: McpScope) {
     },
     guarded(
       "serie_temporal",
-      scope,
+      ctx,
       async (args: PeriodInput & { metrica: string; agrupacion?: keyof typeof BUCKETS; tipoPerfil?: string }) => {
         const def = SERIES[args.metrica];
         const period = resolvePeriod(args);
@@ -421,7 +421,7 @@ export function registerStatsTools(server: McpServer, scope: McpScope) {
       },
       annotations: READ,
     },
-    guarded("analitica_trafico", scope, async (args: PeriodInput & { limite?: number }) => {
+    guarded("analitica_trafico", ctx, async (args: PeriodInput & { limite?: number }) => {
       const period = resolvePeriod(args);
       const take = args.limite ?? 20;
       const inRange = Prisma.sql`pv."createdAt" >= ${period.from} AND pv."createdAt" < ${period.to} AND ${realPageViewSql("pv")}`;

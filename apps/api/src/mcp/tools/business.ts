@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { prisma } from "../../db";
-import { guarded, type McpScope } from "../audit";
+import { guarded, type McpContext } from "../audit";
 import { compare, describePeriod, jsonResult, periodShape, resolvePeriod, type PeriodInput } from "../helpers";
 
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
@@ -121,7 +121,7 @@ async function revenue({ from, to }: Range) {
   };
 }
 
-export function registerBusinessTools(server: McpServer, scope: McpScope) {
+export function registerBusinessTools(server: McpServer, ctx: McpContext) {
   server.registerTool(
     "informe_ingresos",
     {
@@ -134,7 +134,7 @@ export function registerBusinessTools(server: McpServer, scope: McpScope) {
       },
       annotations: READ,
     },
-    guarded("informe_ingresos", scope, async (args: PeriodInput & { topPagadores?: number }) => {
+    guarded("informe_ingresos", ctx, async (args: PeriodInput & { topPagadores?: number }) => {
       const period = resolvePeriod(args);
       const [current, previous, topPayers] = await Promise.all([
         revenue(period),
@@ -200,7 +200,7 @@ export function registerBusinessTools(server: McpServer, scope: McpScope) {
     },
     guarded(
       "listar_pagos",
-      scope,
+      ctx,
       async (args: PeriodInput & { estado?: any; proposito?: any; metodo?: any; limite?: number }) => {
         const period = resolvePeriod(args);
         const where: any = { createdAt: { gte: period.from, lt: period.to } };
@@ -244,7 +244,7 @@ export function registerBusinessTools(server: McpServer, scope: McpScope) {
       },
       annotations: READ,
     },
-    guarded("pendientes", scope, async (args: { porCola?: number }) => {
+    guarded("pendientes", ctx, async (args: { porCola?: number }) => {
       const take = args.porCola ?? 5;
       const asc = { createdAt: "asc" } as const;
       const unverified = { isVerified: false, profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as any } };
@@ -414,7 +414,7 @@ export function registerBusinessTools(server: McpServer, scope: McpScope) {
       inputSchema: { ...periodShape, limite: z.number().int().min(1).max(50).optional() },
       annotations: READ,
     },
-    guarded("resumen_marketplace", scope, async (args: PeriodInput & { limite?: number }) => {
+    guarded("resumen_marketplace", ctx, async (args: PeriodInput & { limite?: number }) => {
       const period = resolvePeriod(args);
       const take = args.limite ?? 10;
       const created = { gte: period.from, lt: period.to };
@@ -475,7 +475,7 @@ export function registerBusinessTools(server: McpServer, scope: McpScope) {
       inputSchema: { ...periodShape, limite: z.number().int().min(1).max(50).optional() },
       annotations: READ,
     },
-    guarded("resumen_umate", scope, async (args: PeriodInput & { limite?: number }) => {
+    guarded("resumen_umate", ctx, async (args: PeriodInput & { limite?: number }) => {
       const period = resolvePeriod(args);
       const take = args.limite ?? 10;
       const created = { gte: period.from, lt: period.to };

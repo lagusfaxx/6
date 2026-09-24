@@ -13,7 +13,7 @@ import {
   visitorKeySql,
 } from "../../lib/statsFilters";
 import { localTs } from "../metrics";
-import { guarded, type McpScope } from "../audit";
+import { guarded, type McpContext } from "../audit";
 import {
   PROFILE_TYPES,
   TIERS,
@@ -128,7 +128,7 @@ async function profileActivity(id: string, username: string, since: Date) {
   };
 }
 
-export function registerUserTools(server: McpServer, scope: McpScope) {
+export function registerUserTools(server: McpServer, ctx: McpContext) {
   server.registerTool(
     "buscar_usuarios",
     {
@@ -151,7 +151,7 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
       },
       annotations: READ,
     },
-    guarded("buscar_usuarios", scope, async (args: SearchArgs) => {
+    guarded("buscar_usuarios", ctx, async (args: SearchArgs) => {
       const where: any = {};
       const and: any[] = [];
       if (args.texto) {
@@ -204,7 +204,7 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
       inputSchema: { usuario: z.string().describe("id (uuid), username o email") },
       annotations: READ,
     },
-    guarded("ver_usuario", scope, async ({ usuario }: { usuario: string }) => {
+    guarded("ver_usuario", ctx, async ({ usuario }: { usuario: string }) => {
       const id = await findUserRef(usuario);
       if (!id) return errorResult(`No encontré al usuario "${usuario}".`);
 
@@ -346,7 +346,7 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
       },
       annotations: READ,
     },
-    guarded("ranking_perfiles", scope, async (args: RankingArgs) => {
+    guarded("ranking_perfiles", ctx, async (args: RankingArgs) => {
       const period = resolvePeriod(args);
       const take = args.limite ?? 20;
       const profileType = args.tipoPerfil || "PROFESSIONAL";
@@ -504,7 +504,7 @@ export function registerUserTools(server: McpServer, scope: McpScope) {
     },
     guarded(
       "membresias",
-      scope,
+      ctx,
       async (args: { estado: "activas" | "por_vencer" | "vencidas" | "pruebas_vencidas"; dias?: number; limite?: number }) => {
         const now = new Date();
         const dias = args.dias ?? 7;

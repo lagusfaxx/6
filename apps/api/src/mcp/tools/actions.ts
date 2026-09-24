@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { prisma } from "../../db";
 import { missingProfileFields } from "../../lib/profileCompletion";
-import { guarded, type McpScope } from "../audit";
+import { guarded, type McpContext } from "../audit";
 import { TIERS, errorResult, findUserRef, jsonResult } from "../helpers";
 
 /**
@@ -28,8 +28,8 @@ const PROFILE_SELECT = {
 const usuarioField = z.string().describe("id (uuid), username o email del perfil");
 const motivoField = z.string().max(500).optional().describe("Motivo, queda en la bitácora.");
 
-export function registerActionTools(server: McpServer, scope: McpScope) {
-  if (scope !== "full") return;
+export function registerActionTools(server: McpServer, ctx: McpContext) {
+  if (ctx.scope !== "full") return;
 
   server.registerTool(
     "cambiar_estado_perfil",
@@ -42,15 +42,14 @@ export function registerActionTools(server: McpServer, scope: McpScope) {
     },
     guarded(
       "cambiar_estado_perfil",
-      scope,
+      ctx,
       async ({ usuario, activo }: { usuario: string; activo: boolean; motivo?: string }) => {
         const id = await findUserRef(usuario);
         if (!id) return errorResult(`No encontré al usuario "${usuario}".`);
         const before = await prisma.user.findUnique({ where: { id }, select: { isActive: true } });
         const updated = await prisma.user.update({ where: { id }, data: { isActive: activo }, select: PROFILE_SELECT });
         return jsonResult({ antes: before, perfil: updated });
-      },
-      { audit: true },
+      }
     ),
   );
 
@@ -69,7 +68,7 @@ export function registerActionTools(server: McpServer, scope: McpScope) {
     },
     guarded(
       "aprobar_verificacion",
-      scope,
+      ctx,
       async ({ usuario, verificadoPorTelefono }: { usuario: string; verificadoPorTelefono?: string; motivo?: string }) => {
         const id = await findUserRef(usuario);
         if (!id) return errorResult(`No encontré al usuario "${usuario}".`);
@@ -112,8 +111,7 @@ export function registerActionTools(server: McpServer, scope: McpScope) {
           select: PROFILE_SELECT,
         });
         return jsonResult({ perfil: updated, fichaIncompleta: missing });
-      },
-      { audit: true },
+      }
     ),
   );
 
@@ -128,14 +126,13 @@ export function registerActionTools(server: McpServer, scope: McpScope) {
     },
     guarded(
       "rechazar_verificacion",
-      scope,
+      ctx,
       async ({ usuario }: { usuario: string; motivo?: string }) => {
         const id = await findUserRef(usuario);
         if (!id) return errorResult(`No encontré al usuario "${usuario}".`);
         const updated = await prisma.user.update({ where: { id }, data: { isActive: false }, select: PROFILE_SELECT });
         return jsonResult({ perfil: updated });
-      },
-      { audit: true },
+      }
     ),
   );
 
@@ -149,7 +146,7 @@ export function registerActionTools(server: McpServer, scope: McpScope) {
     },
     guarded(
       "cambiar_tier",
-      scope,
+      ctx,
       async ({ usuario, tier }: { usuario: string; tier: (typeof TIERS)[number] | "NINGUNO"; motivo?: string }) => {
         const id = await findUserRef(usuario);
         if (!id) return errorResult(`No encontré al usuario "${usuario}".`);
@@ -160,8 +157,7 @@ export function registerActionTools(server: McpServer, scope: McpScope) {
           select: PROFILE_SELECT,
         });
         return jsonResult({ antes: before, perfil: updated });
-      },
-      { audit: true },
+      }
     ),
   );
 }

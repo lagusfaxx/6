@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { McpScope } from "./audit";
+import type { McpContext } from "./audit";
 import { registerStatsTools } from "./tools/stats";
 import { registerUserTools } from "./tools/users";
 import { registerBusinessTools } from "./tools/business";
@@ -23,17 +23,17 @@ function reportPrompt(title: string, body: string) {
   };
 }
 
-export function buildMcpServer(scope: McpScope): McpServer {
+export function buildMcpServer(ctx: McpContext): McpServer {
   const server = new McpServer(
     { name: "uzeed", title: "UZEED", version: "1.0.0" },
     { instructions: INSTRUCTIONS },
   );
 
-  registerStatsTools(server, scope);
-  registerUserTools(server, scope);
-  registerBusinessTools(server, scope);
-  registerDataTools(server, scope);
-  registerActionTools(server, scope);
+  registerStatsTools(server, ctx);
+  registerUserTools(server, ctx);
+  registerBusinessTools(server, ctx);
+  registerDataTools(server, ctx);
+  registerActionTools(server, ctx);
 
   server.registerPrompt(
     "informe_semanal",
