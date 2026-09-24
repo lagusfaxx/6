@@ -294,13 +294,25 @@ profileRouter.get(
         profiles: near.slice(0, limit).map(({ createdAt, ...row }) => row),
       });
     } else if (sort === "new") {
-      const sevenDaysAgo = Date.now() - 15 * 24 * 60 * 60 * 1000;
-      const recentOnly = enriched.filter(
-        (p) => new Date(p.createdAt).getTime() >= sevenDaysAgo,
+      // Ventana de 15 días; si en semanas flojas de registros quedan menos de
+      // MIN_NEW, se completa con las siguientes más recientes (hasta 60 días)
+      // para que "Novedades" no quede con una sola tarjeta.
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      const MIN_NEW = Math.min(limit, 8);
+      const byNewest = [...enriched].sort(
+        (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
       );
-      recentOnly.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+      const recentOnly = byNewest.filter(
+        (p) => new Date(p.createdAt).getTime() >= Date.now() - 15 * DAY_MS,
+      );
+      const selected =
+        recentOnly.length >= MIN_NEW
+          ? recentOnly
+          : byNewest
+              .filter((p) => new Date(p.createdAt).getTime() >= Date.now() - 60 * DAY_MS)
+              .slice(0, MIN_NEW);
       return res.json({
-        profiles: recentOnly
+        profiles: selected
           .slice(0, limit)
           .map(({ createdAt, ...row }) => row),
       });
