@@ -192,9 +192,48 @@ Trabajo del equipo (también sólo administrador y en la bitácora):
 | --- | --- |
 | `bandeja_admin` | Avisos del panel (eliminación de datos, contacto, contenido reportado, depósitos, retiros, verificaciones, alertas): listar pendientes y marcarlos atendidos para todo el equipo. Los correos de quien escribió salen enmascarados. Marcar atendido no aprueba ni rechaza nada. |
 | `notas_internas` | Notas del equipo sobre un usuario (el usuario no las ve). Salen también en `ver_usuario`. No se borran desde Claude. |
-| `enviar_aviso` | Notificación en la app (con push) y/o correo a un usuario o a un grupo por filtros de perfil o segmento. Siempre devuelve primero una vista previa con un código; sólo envía si se repite con ese código. Máximo 1.000 destinatarios por envío, 300 correos por envío y 2.000 avisos por día. El correo sólo va a quien acepta avisos por correo y lleva enlace de baja. El enlace sólo puede ser una ruta de uzeed.cl. | A propósito **no hay** herramientas que muevan dinero
+| `enviar_aviso` | Notificación en la app (con push) y/o correo a un usuario o a un grupo por filtros de perfil o segmento. Siempre devuelve primero una vista previa con un código; sólo envía si se repite con ese código. Máximo 1.000 destinatarios por envío, 300 correos por envío y 2.000 avisos por día. El correo sólo va a quien acepta avisos por correo y lleva enlace de baja. El enlace sólo puede ser una ruta de uzeed.cl. |
+
+A propósito **no hay** herramientas que muevan dinero
 (depósitos, retiros, reembolsos, saldos) ni que borren: eso sigue en el panel,
 con su 2FA.
+
+### Google Search Console (opcional)
+
+Claude consulta el SEO de uzeed.cl directo en Google, con una cuenta de
+servicio de sólo lectura:
+
+| Herramienta | Para qué |
+| --- | --- |
+| `search_console` | Clics, impresiones, CTR y posición media, totales o por consulta, página, país, dispositivo, fecha o apariencia, contra el periodo anterior. Filtros: consulta, página, ficha de un perfil (`usuario`), país, dispositivo y `sinMarca` (sin búsquedas de "uzeed"). |
+| `search_console_oportunidades` | Consultas en posición 4-20 con muchas impresiones, consultas en top 10 con CTR bajo lo esperado, páginas que más clics perdieron, canibalización (varias páginas por la misma consulta) y **demanda por zona**: búsquedas en Google que nombran una comuna contra perfiles publicados en esa ciudad. |
+| `search_console_indexacion` | Sitemaps (errores, advertencias, última lectura) e inspección de hasta 10 URLs o de la ficha de un perfil: indexada o no, último rastreo, canónica elegida por Google, móvil y datos estructurados. |
+
+Activarlo:
+
+1. Google Cloud Console → crea (o elige) un proyecto → **APIs y servicios** →
+   habilita **Google Search Console API**.
+2. **IAM → Cuentas de servicio** → crea una (sin roles) → **Claves** →
+   *Agregar clave* → JSON. Se descarga un archivo.
+3. Search Console → propiedad de uzeed.cl → **Configuración → Usuarios y
+   permisos** → *Agregar usuario* con el `client_email` de la cuenta de
+   servicio, permiso **Restringido** (basta para leer).
+4. En Coolify, app **API**:
+
+   ```
+   GSC_SERVICE_ACCOUNT_JSON=<contenido del JSON, o el JSON en base64>
+   GSC_SITE_URL=sc-domain:uzeed.cl   # o https://uzeed.cl/ si la propiedad es por prefijo
+   ```
+
+   Para base64: `base64 -w0 clave.json`. Redeploy.
+
+Sin `GSC_SERVICE_ACCOUNT_JSON` las tres herramientas no aparecen. La API pide
+el token con el scope `webmasters.readonly`: aunque la clave se filtrara no
+sirve para cambiar nada en Search Console. Si la cuenta no tiene acceso a la
+propiedad, la herramienta lo dice con el correo que hay que agregar.
+
+Google entrega los datos con 2-3 días de atraso y los días en hora del
+Pacífico; la inspección de URLs tiene un tope de 2.000 al día por propiedad.
 
 ## 4. Seguridad
 
