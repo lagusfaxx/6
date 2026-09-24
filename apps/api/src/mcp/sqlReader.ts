@@ -41,6 +41,9 @@ export function sqlReaderConfigured(): boolean {
 
 export function sqlReader(): PrismaClient {
   if (!readerUrl) throw new Error("consulta_sql no está habilitada");
-  if (!client) client = new PrismaClient({ datasources: { db: { url: readerUrl } }, log: ["error"] });
+  // Sin log de errores: los de esta conexión son de consultas que escribió
+  // Claude (columna mal escrita, valor de enum) y ya vuelven explicados en la
+  // respuesta y quedan en la bitácora; en el log de la API sólo eran ruido.
+  if (!client) client = new PrismaClient({ datasources: { db: { url: readerUrl } }, log: [] });
   return client;
 }

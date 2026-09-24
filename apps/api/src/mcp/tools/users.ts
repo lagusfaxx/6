@@ -102,10 +102,10 @@ function profilePathSql(alias: string, idCol: Prisma.Sql, usernameCol: Prisma.Sq
   return Prisma.sql`(${Prisma.raw(`"${alias}"`)}."path" LIKE '/profesional/%' AND (${seg} = ${idCol}::text OR ${seg} = ${usernameCol}))`;
 }
 
-/** Ficha 360: tendencia 30 días, exposición en listados, historial de tier, cambios de nombre/teléfono y reportes. */
+/** Ficha 360: tendencia 30 días, exposición en listados, historial de tier, cambios de nombre/teléfono, reportes y notas internas. */
 async function profile360(id: string) {
   const since30 = new Date(Date.now() - 30 * MS_DAY);
-  const [tendencia, exposicion, tierHistory, phoneChanges, nameChanges, reportes] = await Promise.all([
+  const [tendencia, exposicion, tierHistory, phoneChanges, nameChanges, reportes, notas] = await Promise.all([
     prisma.$queryRaw<{ dia: string; vistas: number; contactos: number }[]>`
       WITH days AS (SELECT generate_series(date_trunc('day', (now() AT TIME ZONE ${TZ}) - interval '29 days'), date_trunc('day', now() AT TIME ZONE ${TZ}), '1 day'::interval) AS d),
       v AS (SELECT date_trunc('day', ${localTs('pv."createdAt"')}) AS d, COUNT(*)::int AS n FROM "PageView" pv
@@ -122,6 +122,7 @@ async function profile360(id: string) {
     prisma.nameChangeRequest.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 10, select: { currentName: true, requestedName: true, status: true, createdAt: true, reviewedAt: true } }),
     prisma.$queryRaw<{ n: number; ultimo: Date | null }[]>`
       SELECT COUNT(*)::int AS n, MAX("createdAt") AS ultimo FROM "Notification" WHERE "type" = 'ADMIN_EVENT' AND "data"->>'type' = 'content_reported' AND "data"->>'targetId' = ${id}`,
+    prisma.adminUserNote.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 10, select: { text: true, source: true, createdAt: true } }),
   ]);
   const vistas30 = tendencia.reduce((a, r) => a + r.vistas, 0);
   const contactos30 = tendencia.reduce((a, r) => a + r.contactos, 0);
@@ -145,6 +146,7 @@ async function profile360(id: string) {
       cambiosTelefono: phoneChanges,
       cambiosNombre: nameChanges,
       reportes: { total: reportes[0]?.n ?? 0, ultimo: reportes[0]?.ultimo ?? null },
+      notasInternas: notas.map((n) => ({ texto: n.text, via: n.source, fecha: n.createdAt })),
     },
   };
 }
