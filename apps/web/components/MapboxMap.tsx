@@ -51,6 +51,11 @@ type MapboxMapProps = {
   /** Opacidad del relleno de las áreas por perfil (default 0.18). */
   areaFillOpacity?: number;
   renderHtmlMarkers?: boolean;
+  /**
+   * Pines por plan, como en el inicio: Diamond con foto grande y nombre, Gold
+   * con foto y aro dorado, Silver como un punto (verde si está conectada).
+   */
+  tieredMarkers?: boolean;
   onMarkerSelect?: (marker: MapMarker) => void;
   onMarkerDeselect?: () => void;
 };
@@ -121,6 +126,7 @@ function MapboxMapComponent({
   showMarkersForArea = true,
   areaFillOpacity = 0.18,
   renderHtmlMarkers = true,
+  tieredMarkers = false,
   onMarkerSelect,
   onMarkerDeselect,
 }: MapboxMapProps) {
@@ -293,12 +299,35 @@ function MapboxMapComponent({
       const chunk = markerQueue.splice(0, 24);
       chunk.forEach((marker) => {
       const el = document.createElement("div");
-      el.className = "uzeed-map-marker";
-      el.classList.add(resolveLevelMarkerClass(marker.level));
-
       const resolvedAvatar = marker.avatarUrl
         ? resolveMediaUrl(marker.avatarUrl)
         : null;
+      if (tieredMarkers) {
+        const lvl = String(marker.level || "").toUpperCase();
+        const kind = lvl === "DIAMOND" ? "diamond" : lvl === "GOLD" ? "gold" : "silver";
+        el.className = `uzeed-tier-pin uzeed-tier-pin--${kind}`;
+        if (marker.tier === "online") el.classList.add("uzeed-tier-pin--on");
+        if (kind !== "silver") {
+          const photo = document.createElement("i");
+          photo.className = "uzeed-tier-pin__photo";
+          if (resolvedAvatar) photo.style.backgroundImage = `url(${resolvedAvatar})`;
+          el.appendChild(photo);
+          if (marker.tier === "online") {
+            const dot = document.createElement("span");
+            dot.className = "uzeed-tier-pin__online";
+            el.appendChild(dot);
+          }
+          if (kind === "diamond") {
+            const label = document.createElement("b");
+            label.className = "uzeed-tier-pin__name";
+            label.textContent = marker.name;
+            el.appendChild(label);
+          }
+        }
+      } else {
+      el.className = "uzeed-map-marker";
+      el.classList.add(resolveLevelMarkerClass(marker.level));
+
       if (resolvedAvatar) {
         el.style.backgroundImage = `url(${resolvedAvatar})`;
         el.classList.add("uzeed-map-marker--avatar");
@@ -311,6 +340,7 @@ function MapboxMapComponent({
             <path d="M4 4l16 16" stroke="rgba(255,255,255,0.45)" stroke-width="1.7" stroke-linecap="round" />
           </svg>
         `;
+      }
       }
 
       const popupContent = document.createElement("div");
@@ -425,7 +455,7 @@ function MapboxMapComponent({
     return () => {
       cancelled = true;
     };
-  }, [displayMarkers, onMarkerFocus, renderHtmlMarkers, mapInitialized]);
+  }, [displayMarkers, onMarkerFocus, renderHtmlMarkers, tieredMarkers, mapInitialized]);
 
   useEffect(() => {
     const map = mapRef.current;

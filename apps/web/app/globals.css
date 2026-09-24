@@ -328,6 +328,70 @@ body::after {
   height: 70%;
 }
 
+/* Pines por plan del mapa del inicio (MapboxMap tieredMarkers). */
+.uzeed-tier-pin {
+  position: relative;
+  cursor: pointer;
+  z-index: 40;
+}
+.uzeed-tier-pin--silver {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #d946ef;
+  box-shadow: 0 0 0 2px #10131f;
+}
+.uzeed-tier-pin--silver.uzeed-tier-pin--on {
+  background: #34d399;
+}
+.uzeed-tier-pin--gold {
+  z-index: 45;
+}
+.uzeed-tier-pin--diamond {
+  z-index: 50;
+}
+.uzeed-tier-pin__photo {
+  display: block;
+  border-radius: 999px;
+  background: #1a1a2e center / cover no-repeat;
+}
+.uzeed-tier-pin--gold .uzeed-tier-pin__photo {
+  width: 30px;
+  height: 30px;
+  box-shadow: 0 0 0 2px #f5c451, 0 0 0 4px #10131f;
+}
+.uzeed-tier-pin--diamond .uzeed-tier-pin__photo {
+  width: 46px;
+  height: 46px;
+  box-shadow: 0 0 0 2.5px #a5b4fc, 0 0 18px rgba(165, 180, 252, 0.6);
+}
+.uzeed-tier-pin__online {
+  position: absolute;
+  right: -1px;
+  top: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #34d399;
+  box-shadow: 0 0 0 2px #10131f;
+}
+.uzeed-tier-pin__name {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-top: 5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-family: var(--font-display), "Arial Narrow", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .uzeed-map-marker--user {
   width: 18px;
   height: 18px;
