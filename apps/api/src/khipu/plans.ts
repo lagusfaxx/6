@@ -648,6 +648,7 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
             ...formData,
             galleryUrls: fileUrls,
             tier: "GOLD",
+            signupSource: "publicate_gold",
           });
 
           // Create PaymentIntent for audit trail

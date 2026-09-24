@@ -45,6 +45,54 @@ function getVisitorId(): string {
   return visitorId;
 }
 
+/** UTM de la URL actual (campañas). Sólo source/medium/campaign. */
+function readUtm(): { source?: string; medium?: string; campaign?: string } | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const p = new URLSearchParams(window.location.search);
+    const source = p.get("utm_source") || undefined;
+    const medium = p.get("utm_medium") || undefined;
+    const campaign = p.get("utm_campaign") || undefined;
+    return source || medium || campaign ? { source, medium, campaign } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** true si corre como app instalada (PWA), no en una pestaña del navegador. */
+function isStandalone(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return (
+      window.matchMedia?.("(display-mode: standalone)").matches ||
+      (navigator as unknown as { standalone?: boolean }).standalone === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Ids de visitante y sesión para adjuntar a otras llamadas (búsquedas). */
+export function analyticsIds(): { sid: string; vid: string } {
+  return { sid: getSessionId(), vid: getVisitorId() };
+}
+
+/**
+ * Impresiones en un listado: una llamada por página de resultados con los
+ * ids en el orden mostrado y la posición del primero. Se deduplica por
+ * sesión para no contar dos veces el mismo perfil al volver atrás.
+ */
+const impressed = new Set<string>();
+export function trackImpressions(ids: string[], start: number) {
+  const fresh = ids.filter((id) => !impressed.has(id));
+  if (!fresh.length) return;
+  for (const id of fresh) impressed.add(id);
+  apiFetch("/analytics/impressions", {
+    method: "POST",
+    body: JSON.stringify({ ids: fresh, start: start + (ids.length - fresh.length) }),
+  }).catch(() => {});
+}
+
 /** Automatically tracks page views on route changes */
 export function usePageViewTracker() {
   const pathname = usePathname();
@@ -61,6 +109,8 @@ export function usePageViewTracker() {
         referrer: document.referrer || null,
         sessionId: getSessionId(),
         visitorId: getVisitorId(),
+        utm: readUtm(),
+        standalone: isStandalone(),
       }),
     }).catch(() => {});
   }, [pathname]);

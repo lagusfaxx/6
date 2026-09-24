@@ -19,8 +19,53 @@ export const prisma = new PrismaClient({
 // because the first set the flag to true.
 let _pushMiddlewareDepth = 0;
 
+/**
+ * Campos que cuentan como "editar la ficha" para `lastEditedAt`. Las
+ * conexiones (`lastSeen`, `isOnline`) y lo que toca el sistema no cuentan.
+ */
+const PROFILE_EDIT_FIELDS = new Set([
+  "displayName", "bio", "city", "address", "latitude", "longitude", "baseRate", "minDurationMinutes",
+  "serviceDescription", "serviceCategory", "primaryCategory", "profileTags", "serviceTags", "serviceStyleTags",
+  "availabilityNote", "avatarUrl", "coverUrl", "heightCm", "weightKg", "measurements", "hairColor", "skinTone",
+  "languages", "acceptsIncalls", "acceptsOutcalls", "subscriptionPrice", "phone", "gender", "birthdate",
+  "undisclosedFields", "autoReplyEnabled", "autoReplyMessage",
+]);
+
 prisma.$use(async (params, next) => {
+  // Estadísticas: historial de tier y última edición de la ficha. Se resuelve
+  // antes de la escritura para leer el tier anterior.
+  let tierBefore: { id: string; tier: string | null }[] | null = null;
+  if (params.model === "User" && (params.action === "update" || params.action === "updateMany")) {
+    const data = params.args?.data;
+    if (data && typeof data === "object") {
+      if (Object.keys(data).some((k) => PROFILE_EDIT_FIELDS.has(k)) && data.lastEditedAt === undefined) {
+        data.lastEditedAt = new Date();
+      }
+      if ("tier" in data && params.args?.where) {
+        tierBefore = await prisma.user
+          .findMany({ where: params.args.where, select: { id: true, tier: true }, take: 500 })
+          .catch(() => null);
+      }
+    }
+  }
+
   const result = await next(params);
+
+  if (tierBefore) {
+    const toTier = typeof params.args.data.tier === "string" ? params.args.data.tier : params.args.data.tier?.set ?? null;
+    const changed = tierBefore.filter((u) => (u.tier ?? null) !== (toTier ?? null));
+    if (changed.length) {
+      prisma.profileTierHistory
+        .createMany({ data: changed.map((u) => ({ userId: u.id, fromTier: u.tier ?? null, toTier: toTier ?? null })) })
+        .catch((err) => console.error("[stats] tier history:", err?.message || err));
+    }
+  }
+  // Subir una foto también es editar la ficha.
+  if (params.model === "ProfileMedia" && params.action === "create" && params.args?.data?.ownerId) {
+    prisma.user
+      .update({ where: { id: params.args.data.ownerId }, data: { lastEditedAt: new Date() } })
+      .catch(() => {});
+  }
 
   // Invalidate user cache on any User update/delete
   if (params.model === "User" && (params.action === "update" || params.action === "delete")) {

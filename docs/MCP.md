@@ -72,24 +72,68 @@ Ejemplos:
 
 ### Herramientas de lectura
 
-| Herramienta           | Para qué                                                                                     |
-| --------------------- | -------------------------------------------------------------------------------------------- |
-| `resumen_general`     | Foto actual del negocio (la misma del dashboard admin).                                      |
-| `kpis_periodo`        | KPIs de un rango con comparación contra el periodo anterior.                                 |
-| `serie_temporal`      | Evolución diaria/semanal/mensual de 22 métricas, sin huecos (los días sin actividad van en 0). |
-| `analitica_trafico`   | Visitas, sesiones, páginas, secciones, referentes, ciudades, acciones.                       |
-| `buscar_usuarios`     | Buscar/filtrar usuarios por texto, tipo, ciudad, tier, estado, inactividad, registro.        |
-| `ver_usuario`         | Ficha completa de un usuario con actividad, pagos y pendientes.                              |
-| `ranking_perfiles`    | Top por visitas, WhatsApp, mensajes, favoritos, solicitudes, ganancias...                    |
-| `membresias`          | Activas, por vencer, vencidas y pruebas vencidas sin pago.                                   |
-| `informe_ingresos`    | Finanzas del periodo: por propósito, método, tokens, marketplace, U-Mate, top pagadores.     |
-| `listar_pagos`        | Pagos filtrados por estado, propósito, método y fecha.                                       |
-| `pendientes`          | Todas las colas que esperan al equipo, con los casos más antiguos.                           |
-| `resumen_marketplace` | Pedidos, ventas, comisión, top vendedoras y productos.                                       |
-| `resumen_umate`       | Creadoras, suscripciones, top creadoras y libro contable.                                    |
-| `describir_esquema`   | Tablas, columnas y enums de la base.                                                         |
-| `consulta_sql`        | SELECT libre de sólo lectura para cualquier cosa que falte.                                  |
-| `ver_bitacora`        | Qué acciones y consultas se hicieron por el MCP.                                             |
+**Filtros comunes** (casi todas los aceptan): `region`, `ciudad`, `comuna`
+(normalizadas a la geografía de Chile; las comunas del Gran Santiago cuentan
+como ciudad Santiago), `categoria`, `tipoPerfil`, `tier` (PREMIUM/GOLD/SILVER/
+NINGUNO), `verificado`, `estadoPerfil` (publicado/oculto/pendiente/rechazado),
+`dispositivo` (movil/desktop/tablet), `modo` (pwa/web), `fuente` (organico/
+directo/redes/referidos/ads/campana), `tipoUsuario` (nuevo/recurrente),
+`sesion` (registrado/anonimo) y `segmento` (un segmento guardado). Bots,
+equipo, `/admin` y perfiles de prueba se excluyen siempre.
+
+**Periodos**: `hoy`, `ayer`, `7d`, `30d`, `mes`, `mes_anterior`,
+`semana_actual`, `90d`, `365d`, `anio_actual` o `desde`/`hasta`
+(personalizado). Agrupación `hora`, `dia`, `semana` o `mes` en las series.
+
+| Herramienta | Para qué |
+| --- | --- |
+| `resumen_general` | Foto actual del negocio (la misma del dashboard admin). |
+| `kpis_periodo` | KPIs de un rango con comparación contra el periodo anterior. |
+| `tarjetas_kpi` | Cada KPI con valor, delta vs periodo anterior y mini-sparkline de 14 días. |
+| `comparar` | Periodos (anterior y mismo periodo del año anterior), entidades lado a lado (ciudades, categorías, tiers, perfiles), perfil vs promedio de su ciudad y tier, antes/después de una anotación. |
+| `serie_temporal` | 22 métricas por hora/día/semana/mes sin huecos, con filtros y serie del año anterior. |
+| `analitica_trafico` | Volumen (visitas, únicos, sesiones, páginas/sesión, duración, rebote), fuentes y campañas UTM, landing y salida, heatmap día × hora, búsquedas internas, dispositivos/PWA/navegadores, nuevos vs recurrentes, ubicación normalizada, acciones. |
+| `inventario_anuncios` | Publicados, pendientes, ocultos, rechazados; nuevos, editados y vencidos en el periodo. |
+| `exposicion_anuncios` | Impresiones, posición media, vistas, CTR listado→perfil, contactos por canal, tasa contacto/visitante, favoritos; ranking ordenable, embudo y dispersión. |
+| `calidad_anuncios` | Completitud, fotos, antigüedad y última actualización, con distribución. |
+| `alertas_anuncios` | Con vistas sin contactos, sin vistas, sin actualizar hace más de N días. |
+| `contactos_detalle` | Por perfil, ciudad, categoría, hora y fuente; únicos vs repetidos; tiempo al primer contacto; respuesta a mensajes internos y efecto de la respuesta automática. |
+| `profesionales` | Altas por día y origen (formulario, Google, Publícate Gold, admin, referidos), tiempo registro→publicado y colas, actividad (login, edición, historias), tiers (distribución, altas, bajas, vencen en 7 días). |
+| `ver_usuario` | Ficha 360: datos, actividad, tendencia 30 días, exposición, historial de tier, cambios de nombre/teléfono, reportes, pagos. |
+| `clientes` | Registrados vs anónimos, recurrencia y frecuencia; fichas por sesión y contactos por cliente; favoritos; cohortes semanales de retención (semana 1, 2, 4 y 8). |
+| `oferta_demanda` | Por zona y categoría: anuncios vs búsquedas, vistas y contactos, con semáforo oportunidad/saturada. |
+| `monetizacion` | Ingresos por tier, MRR, renovaciones, churn y conversión gratis→pago. |
+| `verticales` | ON/OFF de marketplace, U-Mate, videollamadas, tokens y live; métricas sólo de las que están ON. |
+| `buscar_usuarios`, `ranking_perfiles`, `membresias`, `informe_ingresos`, `listar_pagos`, `pendientes`, `resumen_marketplace`, `resumen_umate` | Igual que antes. |
+| `detalle_registros` | Drill-down: las filas detrás de cualquier número (visitas, sesiones, contactos, registros, perfiles, pagos, búsquedas, mensajes, favoritos, impresiones). |
+| `exportar_csv` | Lo mismo en CSV. |
+| `describir_esquema`, `consulta_sql` | Esquema y SELECT libre de sólo lectura. |
+| `ver_bitacora` | Qué se hizo por el MCP. |
+
+### Herramientas del panel (guardan configuración)
+
+| Herramienta | Para qué |
+| --- | --- |
+| `segmentos` | Guardar filtros con nombre ("GOLD Santiago sin contactos 7d") y usarlos con `segmento`. |
+| `anotaciones` | Marcar campañas, deploys, caídas y cambios de UI en el timeline; sirven para `comparar` antes/después. |
+| `alertas` | Alertas que el servidor evalúa cada hora (ej. "contactos −30% vs semana anterior", "perfil top sin actualizar"); avisan por notificación y correo con 24 h de enfriamiento. |
+| `informe_semanal_email` | Informe automático los lunes 09:00 (Chile) por correo; activar, destinatarios, enviar ahora. |
+
+Cada respuesta trae un campo `grafico` que dice cómo conviene dibujarla
+(línea, dona, heatmap, barras, embudo, dispersión, mapa/semáforo, tarjetas
+con sparkline): Claude lo dibuja con esos datos si se lo pides.
+
+### Qué se captura desde este cambio
+
+- **UTM** (`utm_source`, `utm_medium`, `utm_campaign`) de la URL de llegada.
+- **Dispositivo** (móvil/desktop/tablet, del user agent) y **PWA** (app instalada).
+- **Impresiones en listados** por perfil y día, con la posición (para CTR y posición media).
+- **Búsquedas internas** con término o filtros explícitos y cuántos resultados dieron.
+- **Origen del registro** (formulario, Google, Publícate Gold, admin) y **última edición de la ficha**.
+- **Historial de tier** (cada cambio queda registrado).
+
+Los periodos anteriores al deploy no tienen estos datos: las herramientas lo
+indican con `null` o con una nota.
 
 ### Cómo se cuenta (precisión)
 

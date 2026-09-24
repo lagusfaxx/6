@@ -71,7 +71,10 @@ export const PERIOD_PRESETS = [
   "hoy",
   "ayer",
   "7d",
+  "14d",
   "30d",
+  "mes",
+  "personalizado",
   "90d",
   "365d",
   "semana_actual",
@@ -85,7 +88,7 @@ export const periodShape = {
   periodo: z
     .enum(PERIOD_PRESETS)
     .optional()
-    .describe("Atajo de periodo. Se ignora si se envían desde/hasta. Por defecto: 30d."),
+    .describe("Atajo de periodo (hoy, ayer, 7d, 30d, mes = mes actual, mes_anterior, semana_actual, 90d, 365d, anio_actual, personalizado = usa desde/hasta). Se ignora si se envían desde/hasta. Por defecto: 30d."),
   desde: z.string().regex(DATE_RE).optional().describe("Fecha inicial YYYY-MM-DD (hora de Chile, inclusive)."),
   hasta: z.string().regex(DATE_RE).optional().describe("Fecha final YYYY-MM-DD (hora de Chile, inclusive). Por defecto hoy."),
 };
@@ -134,6 +137,9 @@ export function resolvePeriod(input: PeriodInput): Period {
       case "7d":
         fromYmd = addDaysYmd(today, -6);
         break;
+      case "14d":
+        fromYmd = addDaysYmd(today, -13);
+        break;
       case "90d":
         fromYmd = addDaysYmd(today, -89);
         break;
@@ -145,6 +151,7 @@ export function resolvePeriod(input: PeriodInput): Period {
         fromYmd = addDaysYmd(today, -((dow + 6) % 7));
         break;
       }
+      case "mes":
       case "mes_actual":
         fromYmd = `${today.slice(0, 7)}-01`;
         break;
@@ -172,7 +179,7 @@ export function resolvePeriod(input: PeriodInput): Period {
   const span = to.getTime() - from.getTime();
 
   const calendarMonth =
-    !input.desde && !input.hasta && (input.periodo === "mes_actual" || input.periodo === "mes_anterior");
+    !input.desde && !input.hasta && (input.periodo === "mes" || input.periodo === "mes_actual" || input.periodo === "mes_anterior");
   let prevFrom: Date;
   if (calendarMonth) {
     const [y, m] = fromYmd.split("-").map(Number);

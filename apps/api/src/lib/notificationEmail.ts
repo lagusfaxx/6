@@ -170,6 +170,16 @@ export async function sendInactiveProfileReminder(email: string, displayName: st
   await send(email, "Tu perfil está perdiendo visibilidad — UZEED", html);
 }
 
+/* ─── Correos del panel de estadísticas (informe semanal y alertas) ─── */
+
+export async function sendAdminStatsEmail(to: string, subject: string, title: string, rows: string[]) {
+  const html = wrapEmail(title, rows.map((r) => paragraph(r)).join(""));
+  await send(to, subject, html);
+}
+
+/** Escapa texto para meterlo en un correo. */
+export { esc as escapeHtml };
+
 /* ─── Reminder: videocall service added but not configured ─── */
 
 export async function sendVideocallConfigReminder(email: string, displayName: string | null) {

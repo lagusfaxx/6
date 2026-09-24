@@ -478,6 +478,12 @@ model User {
   /// marca que el perfil ya salió al aire alguna vez, y sirve para no volver a
   /// publicarlo solo si la profesional lo apagó a propósito.
   profileCompletedAt  DateTime?
+  /// Cómo se registró: "form", "google", "publicate_gold", "admin", "referral".
+  /// Sólo para estadísticas; las cuentas anteriores a la columna quedan en null.
+  signupSource        String?
+  /// Última vez que la profesional editó su ficha (datos, fotos o tarifas).
+  /// `updatedAt` no sirve: cambia con cada conexión por `lastSeen`.
+  lastEditedAt        DateTime?
   /// Datos de la ficha que la profesional marcó como "prefiero no decirlo".
   /// Sólo admite las claves de `OPTOUT_ELIGIBLE_FIELDS`: son datos personales
   /// que suman al anuncio pero que nadie está obligada a publicar. Un campo
@@ -1161,10 +1167,21 @@ model PageView {
   userAgent String?
   city      String?
   country   String?
+  /// Parámetros UTM de la URL con la que llegó (campañas). Se guardan en
+  /// cada vista; la fuente de la sesión se toma de la primera.
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  /// "mobile", "tablet" o "desktop", derivado del user agent en la API.
+  device      String?
+  /// "pwa" si la app está instalada (display-mode standalone), "browser" si no.
+  displayMode String?
   createdAt DateTime @default(now())
 
   @@index([createdAt])
   @@index([path, createdAt])
+  @@index([visitorId, createdAt])
+  @@index([sessionId, createdAt])
 }
 
 model UserAction {
@@ -2213,4 +2230,111 @@ model McpOAuthToken {
 
   @@index([familyId])
   @@index([userId, revokedAt])
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ██  ESTADÍSTICAS  —  captura y panel (ver docs/MCP.md)
+// ══════════════════════════════════════════════════════════════════════
+
+/// Búsquedas internas con término o filtros explícitos (los listados sin
+/// filtro no se registran). Sirve para términos, filtros más usados,
+/// búsquedas sin resultados y demanda por ciudad/categoría.
+model SearchLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  q            String?
+  categorySlug String?
+  city         String?
+  entityType   String?
+  filters      Json?
+  resultCount  Int      @default(0)
+  userId       String?  @db.Uuid
+  sessionId    String?
+  visitorId    String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([city, createdAt])
+  @@index([categorySlug, createdAt])
+}
+
+/// Impresiones en listados por perfil y día (agregado, no una fila por
+/// impresión): cuántas veces apareció en un listado y en qué posiciones.
+/// Con las vistas de la ficha da el CTR listado → perfil y la posición media.
+model ProfileDailyStats {
+  profileId   String   @db.Uuid
+  date        DateTime @db.Date
+  impressions Int      @default(0)
+  positionSum Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@id([profileId, date])
+  @@index([date])
+}
+
+/// Historial de cambios de tier (lo escribe un middleware de Prisma en cada
+/// update de User que toque `tier`). Sin esto no hay altas ni bajas de tier.
+model ProfileTierHistory {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  fromTier  String?
+  toTier    String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+/// Anotaciones en la línea de tiempo: campañas, deploys, caídas, cambios de
+/// UI. Sirven para el "antes/después" y para explicar saltos en las series.
+model StatsAnnotation {
+  id          String   @id @default(uuid()) @db.Uuid
+  date        DateTime
+  kind        String   // "campana", "deploy", "caida", "ui", "otro"
+  title       String
+  notes       String?
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+}
+
+/// Segmentos guardados: un nombre para un conjunto de filtros
+/// (ej. "GOLD Santiago sin contactos 7d") que cualquier herramienta acepta.
+model StatsSegment {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  filters     Json
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Alertas configurables que evalúa el worker cada hora. Al dispararse
+/// avisan a los administradores (notificación + correo opcional) con
+/// enfriamiento de 24 h para no repetir.
+model StatsAlert {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  /// "metrica" (una métrica contra umbral o variación),
+  /// "perfiles_sin_actualizar", "vistas_sin_contactos".
+  kind         String
+  metric       String?
+  /// "variacion_pct" o "valor".
+  comparison   String?
+  /// "menor" o "mayor".
+  direction    String?
+  threshold    Float?
+  /// Periodo evaluado: "hoy", "24h", "7d".
+  period       String    @default("7d")
+  filters      Json?
+  enabled      Boolean   @default(true)
+  notifyEmail  Boolean   @default(true)
+  lastCheckedAt DateTime?
+  lastFiredAt  DateTime?
+  lastValue    Float?
+  createdById  String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([enabled])
 }

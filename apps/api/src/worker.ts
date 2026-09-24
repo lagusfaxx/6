@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { runStatsAlerts } from "./mcp/stats/alerts";
+import { sendWeeklyReport, weeklyConfig } from "./mcp/stats/weekly";
 import cron from "node-cron";
 import { prisma } from "./db";
 import { sendExpiryEmail, smtpEnabled } from "./worker/email";
@@ -671,6 +673,20 @@ async function tickMarketAutoRelease() {
   if (released > 0) console.log(`[worker/market] ${released} pago(s) liberados automáticamente`);
 }
 
+/* ─── Estadísticas: alertas configurables e informe semanal ─── */
+
+async function tickStatsAlerts() {
+  const fired = await runStatsAlerts();
+  if (fired > 0) console.log(`[worker/stats] ${fired} alerta(s) disparada(s)`);
+}
+
+async function weeklyStatsReportTick() {
+  const cfg = await weeklyConfig();
+  if (!cfg.enabled) return;
+  const result = await sendWeeklyReport();
+  console.log(`[worker/stats] informe semanal enviado a ${result.enviados.length} destinatario(s)`);
+}
+
 /* ─── Main tick: runs all checks independently ─── */
 
 async function tick() {
@@ -696,6 +712,7 @@ async function tick() {
       { name: "referralValidation", fn: tickReferralValidation },
       { name: "referralCycles", fn: tickReferralCycles },
       { name: "marketAutoRelease", fn: tickMarketAutoRelease },
+      { name: "statsAlerts", fn: tickStatsAlerts },
     ];
 
     for (const task of tasks) {
@@ -729,6 +746,15 @@ export function startWorker() {
       console.error("[worker] unread message email tick error", e),
     );
   });
+
+  // Informe semanal de estadísticas: lunes 09:00 hora de Chile (si está activado).
+  cron.schedule(
+    "0 9 * * 1",
+    () => {
+      weeklyStatsReportTick().catch((e) => console.error("[worker] weekly stats report error", e));
+    },
+    { timezone: "America/Santiago" },
+  );
 
   // U-Mate: expire subscriptions and move pending→available every hour
   cron.schedule("15 * * * *", () => {

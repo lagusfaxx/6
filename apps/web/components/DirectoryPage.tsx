@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, Sparkles, Flame, Video, Crown, ShieldCheck } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
 import { apiFetch, isRateLimitError, resolveMediaUrl } from "../lib/api";
+import { analyticsIds, trackImpressions } from "../hooks/useAnalytics";
 import { filterUserTags, hasPremiumBadge, hasVerifiedBadge } from "../lib/systemBadges";
 import { cleanProfileHref } from "../lib/profileUrl";
 import StatusBadgeIcon from "./StatusBadgeIcon";
@@ -349,11 +350,15 @@ export default function DirectoryPage({
       if (availableNow) params.set("availableNow", "true");
       if (genderFilter) params.set("gender", genderFilter);
       if (urlQuery.trim()) params.set("q", urlQuery.trim().slice(0, 80));
+      const ids = analyticsIds();
+      if (ids.sid) params.set("sid", ids.sid);
+      if (ids.vid) params.set("vid", ids.vid);
 
       const data = await apiFetch<{ results: DirectoryResult[]; total: number }>(
         `/directory/search?${params.toString()}`,
       );
       if (myFetch !== fetchRef.current) return;
+      trackImpressions((data.results ?? []).map((r) => r.id), 0);
       setResults(data.results ?? []);
       setTotal(data.total ?? 0);
       setRateLimitMsg(null);

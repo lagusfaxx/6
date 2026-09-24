@@ -246,6 +246,7 @@ authRouter.post(
         data: {
           email,
           username,
+          signupSource: "form",
           phone,
           gender: gender || null,
           preferenceGender: preferenceGender || null,
