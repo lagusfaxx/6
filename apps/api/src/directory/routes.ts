@@ -1126,6 +1126,12 @@ directoryRouter.get(
      city         : comuna del chip — no filtra, prioriza en el orden
      limit        : default 48, max 120
      sort         : 'featured' | 'near' | 'new' | 'availableNow'
+     level        : 'DIAMOND' | 'GOLD' | 'SILVER' (lista con comas) — rango
+                    calculado, el mismo que muestran las tarjetas
+     onlyNew      : 'true' → publicados en los últimos 15 días
+     withVideo    : 'true' → con una historia en video vigente
+     withGallery  : 'true' → agrega galleryUrls (hasta 6 fotos públicas)
+     includeCounts: 'true' → agrega counts {total, availableNow, new, exams, video}
    ──────────────────────────────────────────────────────────── */
 directoryRouter.get(
   "/directory/search",
@@ -1155,6 +1161,18 @@ directoryRouter.get(
     /* Free-text search across displayName / username / city. Optional. */
     const qRaw = typeof req.query.q === "string" ? req.query.q : "";
     const q = qRaw.trim().slice(0, 80);
+
+    /* Filtros del inicio. `level` va contra el rango calculado y no contra el
+       tier que fija el admin: es el que se ve en la tarjeta, así que cada
+       sección del inicio (Diamond, Gold, Silver) muestra exactamente un plan. */
+    const levelFilter =
+      typeof req.query.level === "string"
+        ? req.query.level.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+        : [];
+    const onlyNew = req.query.onlyNew === "true";
+    const withVideo = req.query.withVideo === "true";
+    const withGallery = req.query.withGallery === "true";
+    const includeCounts = req.query.includeCounts === "true";
 
     /* ── normalise tag filters ── */
     function normTag(t: string) {
@@ -1255,6 +1273,16 @@ directoryRouter.get(
       primaryCategory: true, profileTags: true, serviceTags: true, profileType: true,
       avgResponseMinutes: true, adminQualityScore: true,
       services: { where: { isActive: true }, select: { latitude: true, longitude: true, category: true }, take: 1, orderBy: { createdAt: "desc" as const } },
+      ...(withGallery
+        ? {
+            profileMedia: {
+              where: { type: "IMAGE" as const, isLocked: false },
+              orderBy: { createdAt: "asc" as const },
+              take: 6,
+              select: { url: true },
+            },
+          }
+        : {}),
     };
     const fallbackSelect = {
       id: true, username: true, displayName: true, avatarUrl: true,
@@ -1263,6 +1291,16 @@ directoryRouter.get(
       completedServices: true, profileViews: true, tier: true, baseRate: true,
       gender: true, city: true, serviceCategory: true, createdAt: true, profileType: true,
       services: { where: { isActive: true }, select: { latitude: true, longitude: true, category: true }, take: 1, orderBy: { createdAt: "desc" as const } },
+      ...(withGallery
+        ? {
+            profileMedia: {
+              where: { type: "IMAGE" as const, isLocked: false },
+              orderBy: { createdAt: "asc" as const },
+              take: 6,
+              select: { url: true },
+            },
+          }
+        : {}),
     };
 
     /* When new columns don't exist, strip those filters from where */
@@ -1340,8 +1378,30 @@ directoryRouter.get(
       }
     }
 
+    /* Perfiles con una historia en video vigente: alimentan el filtro "Con
+       video" y su contador. Una sola consulta por lote. */
+    let videoUserIds = new Set<string>();
+    if (withVideo || includeCounts) {
+      try {
+        const rows = await prisma.story.findMany({
+          where: {
+            userId: { in: users.map((u) => u.id) },
+            mediaType: "VIDEO",
+            expiresAt: { gt: now },
+            isHidden: false,
+          },
+          select: { userId: true },
+          distinct: ["userId"],
+        });
+        videoUserIds = new Set(rows.map((r) => r.userId));
+      } catch (err) {
+        console.warn("[directory/search] video stories query failed:", (err as Error).message?.slice(0, 120));
+      }
+    }
+
     /* ── enrich + compute derived fields ── */
     const AVAIL_MS = 5 * 60 * 1000;
+    const NEW_MS = 15 * 24 * 60 * 60 * 1000;
     const enriched = users.map((u) => {
       const svcLoc = u.services[0];
       const userLat = svcLoc?.latitude ?? u.latitude;
@@ -1390,19 +1450,45 @@ directoryRouter.get(
         avgResponseMinutes: (u as any).avgResponseMinutes ?? null,
         adminQualityScore: (u as any).adminQualityScore ?? null,
         isMadura,
+        isNew: now.getTime() - u.createdAt.getTime() <= NEW_MS,
+        hasVideo: videoUserIds.has(u.id),
+        /* Sólo el nombre de la estación, calculado del punto real: igual que
+           en el detalle del perfil. */
+        nearestMetro: publicMetro(nearestMetroStation(userLat, userLng)),
+        galleryUrls: withGallery
+          ? ((u as any).profileMedia ?? []).map((m: { url: string }) => m.url)
+          : [],
         createdAt: u.createdAt.toISOString(),
       };
     });
 
     /* ── post-filter ── */
-    const filtered = enriched
+    const inRange = enriched.filter((u) =>
+      lat != null && lng != null && u.distance != null
+        ? u.distance <= radiusKm
+        : true,
+    );
+    const filtered = inRange
       .filter((u) => (maduras ? u.isMadura : true))
       .filter((u) => (availableNow ? u.availableNow : true))
-      .filter((u) =>
-        lat != null && lng != null && u.distance != null
-          ? u.distance <= radiusKm
-          : true,
-      );
+      .filter((u) => (onlyNew ? u.isNew : true))
+      .filter((u) => (withVideo ? u.hasVideo : true))
+      .filter((u) => (levelFilter.length ? levelFilter.includes(u.userLevel) : true));
+
+    /* Contadores de los filtros rápidos del inicio. Se calculan sobre el
+       listado sin esos filtros, para que cada número diga cuántos quedarían
+       al tocarlo. */
+    const isExams = (tags: string[]) =>
+      tags.some((t) => normTag(String(t || "")) === "profesional con examenes");
+    const counts = includeCounts
+      ? {
+          total: inRange.length,
+          availableNow: inRange.filter((u) => u.availableNow).length,
+          new: inRange.filter((u) => u.isNew).length,
+          exams: inRange.filter((u) => isExams(u.profileTags)).length,
+          video: inRange.filter((u) => u.hasVideo).length,
+        }
+      : undefined;
 
     /* ── sort ── */
     const LEVEL_ORDER: Record<string, number> = { DIAMOND: 0, GOLD: 1, SILVER: 2 };
@@ -1473,6 +1559,10 @@ directoryRouter.get(
           gender: null,
           profileType: entityType === "shop" ? "SHOP" : "ESTABLISHMENT",
           avgResponseMinutes: null,
+          isNew: false,
+          hasVideo: false,
+          nearestMetro: null,
+          galleryUrls: [] as string[],
           websiteUrl: ql.websiteUrl,
           externalOnly: true,
         };
@@ -1535,6 +1625,7 @@ directoryRouter.get(
       limit,
       hasMore,
       nextOffset: hasMore ? offset + allResults.length : null,
+      ...(counts ? { counts } : {}),
     });
   }),
 );

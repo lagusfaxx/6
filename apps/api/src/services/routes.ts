@@ -180,6 +180,7 @@ servicesRouter.get(
         latitude: true,
         longitude: true,
         serviceCategory: true,
+        primaryCategory: true,
         serviceDescription: true,
         profileType: true,
         isActive: true,
