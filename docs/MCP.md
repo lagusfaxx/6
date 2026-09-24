@@ -222,7 +222,7 @@ Activarlo:
 
    ```
    GSC_SERVICE_ACCOUNT_JSON=<contenido del JSON, o el JSON en base64>
-   GSC_SITE_URL=sc-domain:uzeed.cl   # o https://uzeed.cl/ si la propiedad es por prefijo
+   GSC_SITE_URL=https://uzeed.cl/   # o sc-domain:uzeed.cl si la propiedad es de dominio
    ```
 
    Para base64: `base64 -w0 clave.json`. Redeploy.

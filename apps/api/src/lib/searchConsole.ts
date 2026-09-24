@@ -1,4 +1,4 @@
-import { createSign } from "crypto";
+import { createPrivateKey, createSign } from "crypto";
 
 /**
  * Cliente mínimo de Google Search Console (sólo lectura) con una cuenta de
@@ -10,7 +10,8 @@ import { createSign } from "crypto";
  *    tal cual o en base64. La cuenta (client_email) se agrega como usuario
  *    en Search Console → Configuración → Usuarios y permisos.
  *  - GSC_SITE_URL: la propiedad, ej. "sc-domain:uzeed.cl" (dominio) o
- *    "https://uzeed.cl/" (prefijo de URL). Por defecto sc-domain:uzeed.cl.
+ *    "https://uzeed.cl/" (prefijo de URL). Por defecto https://uzeed.cl/, que es
+ *    la propiedad de UZEED.
  *
  * El scope es webmasters.readonly: aunque la clave se filtrara, no sirve para
  * cambiar nada de la propiedad.
@@ -26,22 +27,64 @@ type ServiceAccount = { client_email: string; private_key: string };
 let account: ServiceAccount | null | undefined;
 let token: { value: string; expiresAt: number } | null = null;
 
+/**
+ * Lee la clave tolerando cómo la dejan los paneles de variables (Coolify):
+ * en base64, entre comillas, con las comillas escapadas, o con los "\n" de
+ * la private_key convertidos en saltos de línea reales (eso último rompe el
+ * JSON, así que entonces se sacan los dos campos directo del texto).
+ */
+function parseAccount(raw: string): ServiceAccount | string {
+  let text = raw.trim();
+  if (/^['"]/.test(text) && text.endsWith(text[0])) text = text.slice(1, -1).trim();
+  if (!text.startsWith("{")) {
+    const decoded = Buffer.from(text, "base64").toString("utf8").trim();
+    if (!decoded.startsWith("{")) return "no parece JSON ni base64 de un JSON";
+    text = decoded;
+  }
+  // Todo el JSON escapado como string (\"client_email\": ...): se desescapa entero.
+  if (text.includes('\\"client_email\\"')) {
+    try {
+      text = JSON.parse(`"${text}"`);
+    } catch {
+      text = text.replace(/\\"/g, '"');
+    }
+  }
+
+  let email: unknown;
+  let key: unknown;
+  try {
+    const parsed = JSON.parse(text);
+    email = parsed.client_email;
+    key = parsed.private_key;
+  } catch {
+    email = text.match(/"client_email"\s*:\s*"([^"]+)"/)?.[1];
+    key = text.match(/"private_key"\s*:\s*"([\s\S]*?-----END PRIVATE KEY-----[^"]*)"/)?.[1];
+  }
+  if (typeof email !== "string" || typeof key !== "string") return "no trae client_email y private_key";
+
+  const pem = key.replace(/\\n/g, "\n").replace(/\r/g, "");
+  try {
+    createPrivateKey(pem);
+  } catch {
+    return "la private_key está incompleta o dañada (¿se cortó al pegarla?)";
+  }
+  return { client_email: email, private_key: pem };
+}
+
 function loadAccount(): ServiceAccount | null {
   if (account !== undefined) return account;
   const raw = (process.env.GSC_SERVICE_ACCOUNT_JSON || "").trim();
   account = null;
   if (!raw) return account;
-  try {
-    const text = raw.startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8");
-    const parsed = JSON.parse(text);
-    if (typeof parsed.client_email === "string" && typeof parsed.private_key === "string") {
-      account = { client_email: parsed.client_email, private_key: parsed.private_key.replace(/\\n/g, "\n") };
-    } else {
-      console.warn("[gsc] GSC_SERVICE_ACCOUNT_JSON no trae client_email y private_key; Search Console queda desactivado.");
-    }
-  } catch {
-    console.warn("[gsc] GSC_SERVICE_ACCOUNT_JSON no es un JSON válido (ni en base64); Search Console queda desactivado.");
+  const result = parseAccount(raw);
+  if (typeof result === "string") {
+    console.warn(
+      `[gsc] GSC_SERVICE_ACCOUNT_JSON: ${result} (${raw.length} caracteres). Search Console queda desactivado. Pégalo en base64: base64 -w0 clave.json`,
+    );
+    return account;
   }
+  account = result;
+  console.log(`[gsc] Search Console habilitado para ${searchConsoleSite()} con ${account.client_email}.`);
   return account;
 }
 
@@ -50,7 +93,7 @@ export function searchConsoleConfigured(): boolean {
 }
 
 export function searchConsoleSite(): string {
-  return (process.env.GSC_SITE_URL || "sc-domain:uzeed.cl").trim();
+  return (process.env.GSC_SITE_URL || "https://uzeed.cl/").trim();
 }
 
 /** Correo de la cuenta de servicio, para decir a quién dar acceso. */
