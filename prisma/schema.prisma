@@ -1153,6 +1153,10 @@ model PageView {
   path      String
   userId    String?  @db.Uuid
   sessionId String?
+  /// Visitante persistente (localStorage del navegador). `sessionId` es por
+  /// pestaña y contaba de más a quien abre varias; éste sirve para visitantes
+  /// únicos. Las filas antiguas lo tienen vacío.
+  visitorId String?
   referrer  String?
   userAgent String?
   city      String?
@@ -1167,6 +1171,10 @@ model UserAction {
   id        String   @id @default(uuid()) @db.Uuid
   action    String   // e.g. "view_profile", "send_message", "book_videocall", "favorite", "search"
   userId    String?  @db.Uuid
+  /// Mismos identificadores que PageView: permiten deduplicar los clicks de
+  /// un visitante anónimo (doble click, botón de arriba y el fijo de abajo).
+  sessionId String?
+  visitorId String?
   targetId  String?  @db.Uuid
   metadata  Json?
   createdAt DateTime @default(now())
@@ -2122,4 +2130,20 @@ model MarketReview {
   buyer   User          @relation("MarketReviews", fields: [buyerId], references: [id], onDelete: Cascade)
 
   @@index([productId, createdAt])
+}
+
+/// Bitácora del servidor MCP (Claude). Cada herramienta que cambia algo deja
+/// una fila; las consultas SQL libres también, para saber qué se miró.
+model McpAuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  tool      String
+  /// "full" (token con escritura) o "read" (token de sólo lectura).
+  scope     String
+  args      Json?
+  ok        Boolean  @default(true)
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([tool, createdAt])
 }

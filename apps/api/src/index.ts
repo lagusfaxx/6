@@ -59,6 +59,7 @@ import { analyticsRouter } from "./analytics/routes";
 import { umateRouter } from "./umate/routes";
 import { referralRouter } from "./referral/routes";
 import { adminReferralRouter } from "./referral/adminRoutes";
+import { mcpRouter } from "./mcp/routes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 import { startWorker } from "./worker";
@@ -75,6 +76,9 @@ app.use(
     crossOriginResourcePolicy: { policy: "cross-origin" }
   })
 );
+
+// Servidor MCP (Claude): autentica con su propio token, sin cookies ni CORS.
+app.use(mcpRouter);
 
 const corsOrigins = Array.from(
   new Set([

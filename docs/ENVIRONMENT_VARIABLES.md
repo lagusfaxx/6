@@ -98,6 +98,19 @@ VAPID_PUBLIC_KEY=<tu-clave-publica-vapid>
 VAPID_PRIVATE_KEY=<tu-clave-privada-vapid>
 ```
 
+## 🤖 Servidor MCP para Claude (OPCIONAL)
+
+Conecta Claude al panel para pedirle estadísticas, informes y acciones. Sin
+estas variables, `/mcp` responde 404. Detalle en [MCP.md](./MCP.md).
+
+Genera cada token con `openssl rand -hex 32` (mínimo 32 caracteres):
+```bash
+# Lecturas + acciones (activar/ocultar perfiles, verificar, cambiar tier)
+MCP_TOKEN=<token-largo-y-secreto>
+# Sólo lecturas (opcional, para compartir informes sin poder cambiar nada)
+MCP_READ_TOKEN=<otro-token-largo-y-secreto>
+```
+
 ## 🚀 Despliegue en Coolify
 
 ### Paso 1: Crear la aplicación API
