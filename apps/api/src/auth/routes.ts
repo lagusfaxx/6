@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getBillingSettingsSync } from "../lib/billingSettings";
+import { getBillingSettings, getBillingSettingsSync } from "../lib/billingSettings";
 import argon2 from "argon2";
 import crypto from "crypto";
 import multer from "multer";
@@ -565,11 +565,20 @@ authRouter.post(
       return res.status(400).json({ error: "INSUFFICIENT_PHOTOS", message });
     }
 
-    const isGold = selectedPlan === "gold";
+    // El Gold pagado al registrarse sólo existe con el cobro encendido; si está
+    // apagado el registro es libre, como siempre.
+    const billingOn = (await getBillingSettings()).enabled;
+    const goldProduct = billingOn
+      ? await prisma.promoProduct.findFirst({
+          where: { kind: "PLAN", code: "GOLD", isActive: true },
+          orderBy: { sortOrder: "asc" },
+        })
+      : null;
+    const isGold = selectedPlan === "gold" && Boolean(goldProduct);
 
     // ── GOLD PLAN: save to PendingGoldRegistration, redirect to Flow ──
-    if (isGold) {
-      const GOLD_PRICE = 14990;
+    if (isGold && goldProduct) {
+      const GOLD_PRICE = goldProduct.priceClp;
 
       const pending = await prisma.pendingGoldRegistration.create({
         data: {
@@ -589,7 +598,7 @@ authRouter.post(
 
         const payment = await createFlowPayment({
           commerceOrder: pending.id,
-          subject: "Plan Gold — Publícate en UZEED (7 días)",
+          subject: `Plan Gold — Publícate en UZEED (${goldProduct.duration} días)`,
           currency: "CLP",
           amount: GOLD_PRICE,
           email,

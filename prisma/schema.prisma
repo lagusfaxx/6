@@ -119,6 +119,7 @@ enum PaymentIntentPurpose {
   UMATE_PLAN
   PUBLICATE_GOLD
   MARKETPLACE_ORDER
+  PROMO_PURCHASE
 }
 
 enum PaymentIntentStatus {
@@ -131,6 +132,7 @@ enum PaymentIntentStatus {
 enum PaymentMethod {
   FLOW
   TRANSFER
+  TOKENS
 }
 
 // ── Token / Wallet System ──
@@ -152,6 +154,7 @@ enum TokenTxType {
   ADJUSTMENT
   TIP
   PRIVATE_SHOW
+  PROMO_PURCHASE
 }
 
 enum WithdrawalStatus {
@@ -445,6 +448,9 @@ model User {
   verifiedAt          DateTime?
   verifiedByPhone     String?
   tier                ProfessionalTier?
+  /// Vencimiento del plan pagado (Silver/Gold/Diamond). Null con `tier`
+  /// puesto = asignado a mano desde el admin, sin vencimiento.
+  tierExpiresAt       DateTime?
   isOnline            Boolean           @default(false)
   lastSeen            DateTime?
   avatarUrl           String?
@@ -528,6 +534,7 @@ model User {
   services                 ServiceItem[]
   profileMedia             ProfileMedia[]
   paymentIntents           PaymentIntent[]       @relation("SubscriberPaymentIntents")
+  profileBoosts            ProfileBoost[]
   profilePaymentIntents    PaymentIntent[]       @relation("ProfilePaymentIntents")
   sentMessages             Message[]             @relation("SentMessages")
   receivedMessages         Message[]             @relation("ReceivedMessages")
@@ -796,6 +803,66 @@ model Message {
   @@index([createdAt])
   // Barrido del worker de avisos por correo: mensajes sin leer por destinatario.
   @@index([toId, readAt, createdAt])
+}
+
+// ── Planes y boosts de perfiles ──
+
+enum PromoKind {
+  PLAN
+  BOOST
+}
+
+/// Qué hace cada producto. Los planes usan SILVER/GOLD/DIAMOND; los boosts:
+/// BUMP (primer lugar en búsquedas y listados) y SPOTLIGHT (lo anterior más
+/// la sección "Destacadas" del inicio y la insignia).
+enum PromoCode {
+  SILVER
+  GOLD
+  DIAMOND
+  BUMP
+  SPOTLIGHT
+}
+
+/// Catálogo de planes y boosts que venden las profesionales. Lo edita el
+/// admin en /admin/cobros; el precio del Silver es la tarifa de membresía.
+model PromoProduct {
+  id            String    @id @default(uuid()) @db.Uuid
+  kind          PromoKind
+  code          PromoCode
+  name          String
+  description   String?
+  /// Planes: días. Boosts: horas.
+  duration      Int
+  priceClp      Int
+  isActive      Boolean   @default(true)
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  boosts ProfileBoost[]
+
+  @@index([kind, isActive, sortOrder])
+}
+
+/// Boost comprado (o regalado) por un perfil, vigente entre startsAt y endsAt.
+model ProfileBoost {
+  id              String     @id @default(uuid()) @db.Uuid
+  userId          String     @db.Uuid
+  productId       String?    @db.Uuid
+  code            PromoCode
+  startsAt        DateTime
+  endsAt          DateTime
+  /// FLOW, TOKENS o ADMIN (regalo del equipo).
+  paidWith        String
+  amountClp       Int        @default(0)
+  paymentIntentId String?    @unique @db.Uuid
+  createdAt       DateTime   @default(now())
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product PromoProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([code, endsAt])
+  @@index([userId, endsAt])
 }
 
 /// "Eliminar chat" es por usuario: guarda desde cuándo `userId` dejó de ver

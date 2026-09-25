@@ -263,6 +263,20 @@ export default function AccountPage() {
           </div>
 
           {/* ── Subscription ── */}
+          {isProfessional && (
+            <Link
+              href="/planes"
+              className="group flex items-center gap-3 border-t border-white/[0.06] px-6 py-4 transition hover:bg-white/[0.03]"
+            >
+              <Sparkles className="h-4 w-4 shrink-0 text-amber-300" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-white/85">Planes y boosts</span>
+                <span className="block text-xs text-white/40">Gold, Diamond y boosts para destacar tu perfil</span>
+              </span>
+              <ChevronRight className="h-4 w-4 text-white/30 transition group-hover:translate-x-0.5" />
+            </Link>
+          )}
+
           {requiresPayment && !statusLoading && subscriptionStatus?.billingEnabled === false && (
             <div className="border-t border-white/[0.06] px-6 py-5">
               <div className="flex items-center gap-3">

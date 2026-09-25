@@ -307,6 +307,7 @@ export default function HomeClient() {
   const [bannersLoaded, setBannersLoaded] = useState(false);
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
   const [newProfiles, setNewProfiles] = useState<NewProfile[]>([]);
+  const [spotlight, setSpotlight] = useState<HomeProfile[]>([]);
   const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
   const locationCtx = useContext(LocationFilterContext);
   const location = locationCtx?.effectiveLocation ?? SANTIAGO_FALLBACK;
@@ -456,6 +457,18 @@ export default function HomeClient() {
     return () => {
       controller.abort();
     };
+  }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* "Destacadas": perfiles con ese boost pagado, los más cercanos primero. */
+  useEffect(() => {
+    const controller = new AbortController();
+    const qp = new URLSearchParams({ limit: "12", lat: String(location[0]), lng: String(location[1]) });
+    apiFetch<{ profiles: any[] }>(`/boosts/spotlight?${qp.toString()}`, { signal: controller.signal })
+      .then((res) => setSpotlight((res?.profiles ?? []).map((p) => toHomeProfile(p))))
+      .catch(() => {
+        /* sin datos, la sección no se muestra */
+      });
+    return () => controller.abort();
   }, [locationKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Perfiles recién publicados para la sección bajo el mapa. Es una sola
@@ -772,6 +785,7 @@ export default function HomeClient() {
 
         {/* ═══ DIAMOND (compacto) — sobre el mapa, en fila y pequeño, para que
              el mapa siga entrando en pantalla al abrir el home ═══ */}
+        {spotlight.length > 0 && <DestacadasGrid profiles={spotlight} title="Destacadas" compact />}
         {diamondCompact.length > 0 && (
           <DestacadasGrid profiles={diamondCompact} tier="DIAMOND" compact />
         )}
@@ -780,7 +794,7 @@ export default function HomeClient() {
              mostrar de qué van los planes — que es justo lo que estas
              secciones tienen que hacer visible. */
           <Link
-            href="/ayuda/tiers"
+            href="/planes"
             className="group mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 transition hover:border-white/20"
           >
             <div className="min-w-0">

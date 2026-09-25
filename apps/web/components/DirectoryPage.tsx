@@ -32,6 +32,8 @@ export type DirectoryResult = {
   availableNow: boolean;
   isActive: boolean;
   userLevel: string;
+  /** Boost pagado vigente: "Destacada" o "Subir al top". */
+  boost?: "SPOTLIGHT" | "BUMP" | null;
   completedServices: number;
   profileViews: number;
   lastSeen: string | null;
@@ -193,6 +195,9 @@ function ProfileCard({
               <span className="uzeed-badge-dot" />
               Online
             </span>
+          )}
+          {p.boost === "SPOTLIGHT" && (
+            <span className="uzeed-badge-pill bg-fuchsia-600/85 text-white">🔥 Destacada</span>
           )}
         </div>
 

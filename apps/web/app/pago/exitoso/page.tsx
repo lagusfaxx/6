@@ -11,6 +11,8 @@ const POLL_MAX = 60000; // stop after 60 seconds
 function ExitosoContent() {
   const params = useSearchParams();
   const ref = params.get("ref");
+  // Compras de planes y boosts vuelven con next=/planes.
+  const isPromo = params.get("next") === "/planes";
 
   const [status, setStatus] = useState<"loading" | "paid" | "pending" | "failed" | "error">("loading");
   const elapsed = useRef(0);
@@ -74,9 +76,18 @@ function ExitosoContent() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-emerald-300">Pago aprobado</h1>
-            <p className="mt-2 text-sm text-white/50">Tu suscripcion mensual esta activa. Ya puedes usar todas las funciones de tu perfil profesional.</p>
+            <p className="mt-2 text-sm text-white/50">
+              {isPromo
+                ? "Tu compra ya está activa. Puedes ver el detalle y cuánto le queda en Planes y boosts."
+                : "Tu suscripcion mensual esta activa. Ya puedes usar todas las funciones de tu perfil profesional."}
+            </p>
           </div>
           <div className="flex flex-col gap-2 pt-2">
+            {isPromo && (
+              <Link href="/planes" className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white transition">
+                Ver mis planes y boosts
+              </Link>
+            )}
             <Link href="/cuenta" className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white hover:shadow-[0_0_20px_rgba(168,85,247,0.35)] transition">
               Ir a mi cuenta
             </Link>
@@ -113,9 +124,13 @@ function ExitosoContent() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-red-300">Pago cancelado</h1>
-            <p className="mt-2 text-sm text-white/50">El pago fue cancelado o rechazado. Tu perfil no fue creado. Puedes intentarlo de nuevo.</p>
+            <p className="mt-2 text-sm text-white/50">
+              {isPromo
+                ? "El pago fue cancelado o rechazado. No se te cobró nada; puedes intentarlo de nuevo."
+                : "El pago fue cancelado o rechazado. Tu perfil no fue creado. Puedes intentarlo de nuevo."}
+            </p>
           </div>
-          <Link href="/publicate" className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white transition">
+          <Link href={isPromo ? "/planes" : "/publicate"} className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white transition">
             Intentar de nuevo
           </Link>
         </div>

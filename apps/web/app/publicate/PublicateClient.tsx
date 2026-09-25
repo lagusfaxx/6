@@ -104,6 +104,28 @@ export default function PublicateClient() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  // El Gold pagado sólo se ofrece con el cobro encendido; si no, el registro
+  // es libre y sin vencimiento.
+  const [billingOn, setBillingOn] = useState(false);
+  const [gold, setGold] = useState<{ priceClp: number; duration: number } | null>(null);
+
+  useEffect(() => {
+    apiFetch<{ billingEnabled: boolean; products: { kind: string; code: string; priceClp: number; duration: number }[] }>(
+      "/promo/catalog",
+    )
+      .then((r) => {
+        setBillingOn(r.billingEnabled);
+        const g = r.billingEnabled ? r.products.find((p) => p.kind === "PLAN" && p.code === "GOLD") : null;
+        setGold(g ? { priceClp: g.priceClp, duration: g.duration } : null);
+      })
+      .catch(() => setGold(null));
+  }, []);
+
+  useEffect(() => {
+    if (!gold && data.selectedPlan === "gold") setData((d) => ({ ...d, selectedPlan: "free" }));
+  }, [gold, data.selectedPlan]);
+
+  const goldPrice = gold ? `$${gold.priceClp.toLocaleString("es-CL")}` : "";
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -529,13 +551,14 @@ export default function PublicateClient() {
                   <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/50">SILVER</span>
                 </div>
                 <ul className="space-y-1.5 text-xs text-white/45">
-                  <li>• 90 días gratis</li>
+                  <li>• {billingOn ? "Periodo de prueba gratis" : "Gratis y sin vencimiento"}</li>
                   <li>• Visibilidad básica</li>
-                  <li>• Apareces debajo de perfiles Gold</li>
+                  <li>• Puedes pasarte a Gold o Diamond cuando quieras</li>
                 </ul>
               </button>
 
-              {/* Gold plan */}
+              {/* Gold plan (sólo con el cobro encendido) */}
+              {gold && (
               <button
                 type="button"
                 onClick={() => update({ selectedPlan: "gold" })}
@@ -555,14 +578,14 @@ export default function PublicateClient() {
                   <span className="text-sm font-bold text-white">Gold</span>
                   <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">RECOMENDADO</span>
                 </div>
-                <p className="mb-3 text-lg font-bold text-amber-400">$14.990 <span className="text-xs font-normal text-white/40">/ 7 días</span></p>
+                <p className="mb-3 text-lg font-bold text-amber-400">{goldPrice} <span className="text-xs font-normal text-white/40">/ {gold.duration} días</span></p>
                 <ul className="space-y-1.5 text-xs text-white/60">
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más visibilidad</li>
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> x5 más contactos</li>
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Badge Gold en tu perfil</li>
-                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Apareces primero en búsquedas</li>
+                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Sección Gold en el inicio</li>
+                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Apareces antes que Silver en búsquedas</li>
+                  <li className="flex items-center gap-1.5"><Zap className="h-3 w-3 text-amber-400" /> Insignia Gold en tu perfil</li>
                 </ul>
               </button>
+              )}
             </div>
           </div>
 
@@ -574,7 +597,7 @@ export default function PublicateClient() {
             <h2 className="text-base font-semibold text-white">Tus datos</h2>
             {data.selectedPlan === "gold" && (
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-xs text-amber-300/80">
-                Tu correo se usará para procesar el pago de <strong>$14.990</strong> con Flow.
+                Tu correo se usará para procesar el pago de <strong>{goldPrice}</strong> con Flow.
               </div>
             )}
 
@@ -671,7 +694,7 @@ export default function PublicateClient() {
             {submitting ? (
               <><Loader2 className="h-4 w-4 animate-spin" /> {data.selectedPlan === "gold" ? "Procesando..." : "Creando perfil..."}</>
             ) : data.selectedPlan === "gold" ? (
-              <><Crown className="h-4 w-4" /> Pagar y publicar — $14.990</>
+              <><Crown className="h-4 w-4" /> Pagar y publicar — {goldPrice}</>
             ) : (
               <><Sparkles className="h-4 w-4" /> Crear mi perfil</>
             )}

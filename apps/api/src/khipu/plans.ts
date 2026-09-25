@@ -5,6 +5,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
 import { prisma } from "../db";
 import { confirmOrderPaid, rejectOrderPayment } from "../market/orders";
+import { applyPromoPurchase, invalidateBoostCache } from "../lib/promo";
 import {
   createProfessionalUser,
   EmailInUseError,
@@ -658,7 +659,7 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
               purpose: "PUBLICATE_GOLD",
               method: "FLOW",
               status: "PAID",
-              amount: payment.amount || 14990,
+              amount: Number(payment.amount) || 0,
               providerPaymentId: token,
               paidAt: new Date(),
             },
@@ -668,7 +669,7 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
             data: {
               userId: user.id,
               type: "SUBSCRIPTION_RENEWED",
-              data: { source: "publicate_gold", plan: "GOLD", days: 7, flowOrder: payment.flowOrder, commerceOrder },
+              data: { title: "Plan Gold activado", body: "Tu perfil fue publicado con plan Gold.", url: "/planes", source: "publicate_gold", plan: "GOLD", flowOrder: payment.flowOrder, commerceOrder },
             },
           });
 
@@ -796,6 +797,40 @@ plansRouter.post("/webhooks/flow/payment", asyncHandler(async (req, res) => {
       await confirmOrderPaid(marketOrderId, { providerPaymentId: token, source: "flow" });
 
       console.log("[flow webhook] MARKETPLACE_ORDER paid", { intentId: intent.id, marketOrderId, token });
+    } else if (intent.purpose === "PROMO_PURCHASE") {
+      // ── Plan (Silver/Gold/Diamond) o boost de perfil ──
+      let productId = "";
+      try {
+        productId = String(JSON.parse(intent.notes || "{}").productId || "");
+      } catch {}
+      const product = productId ? await prisma.promoProduct.findUnique({ where: { id: productId } }) : null;
+      if (!product) {
+        await prisma.paymentIntent.update({
+          where: { id: intent.id },
+          data: { status: "PAID", paidAt: new Date(), providerPaymentId: token },
+        });
+        console.error("[flow webhook] PROMO_PURCHASE sin producto — revisar a mano", { intentId: intent.id, productId });
+        return res.status(200).send("OK");
+      }
+
+      await prisma.$transaction(async (tx) => {
+        // Marca pagado sólo si seguía pendiente: un reenvío del webhook no
+        // aplica la compra dos veces.
+        const marked = await tx.paymentIntent.updateMany({
+          where: { id: intent.id, status: { not: "PAID" } },
+          data: { status: "PAID", paidAt: new Date(), providerPaymentId: token },
+        });
+        if (marked.count !== 1) return;
+        await applyPromoPurchase(tx, {
+          userId: intent.subscriberId,
+          product,
+          paidWith: "FLOW",
+          amountClp: intent.amount,
+          paymentIntentId: intent.id,
+        });
+      });
+      invalidateBoostCache();
+      console.log("[flow webhook] PROMO_PURCHASE aplicado", { userId: intent.subscriberId, intentId: intent.id, code: product.code });
     } else if (intent.purpose === "UMATE_PLAN") {
       // ── U-Mate plan subscription ──
       const notes = JSON.parse(intent.notes || "{}");

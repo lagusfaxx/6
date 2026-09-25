@@ -13,6 +13,12 @@ import {
 } from "../lib/professionalLevel";
 import { isUUID } from "../lib/validators";
 import { userHasActivePlan, withActivePlan } from "../lib/billingSettings";
+import { boostRank, getActiveBoostSets } from "../lib/promo";
+
+function boostLabel(id: string, sets: { bump: Set<string>; spotlight: Set<string> }) {
+  const r = boostRank(id, sets);
+  return r === 0 ? ("SPOTLIGHT" as const) : r === 1 ? ("BUMP" as const) : null;
+}
 
 export const directoryRouter = Router();
 
@@ -420,6 +426,7 @@ directoryRouter.get(
       };
     });
 
+    const boostSets = await getActiveBoostSets();
     const filtered = mapped
       .filter((u) => {
         if (!categoryId && !categorySlug) return true;
@@ -444,7 +451,12 @@ directoryRouter.get(
       .filter((u) =>
         minRating != null && u.rating != null ? u.rating >= minRating : true,
       )
-      .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+      .sort(
+        (a, b) =>
+          boostRank(a.id, boostSets) - boostRank(b.id, boostSets) ||
+          (a.distance ?? 1e9) - (b.distance ?? 1e9),
+      )
+      .map((u) => ({ ...u, boost: boostLabel(u.id, boostSets) }));
 
     return res.json({
       professionals: filtered,
@@ -1461,6 +1473,9 @@ directoryRouter.get(
 
     /* ── sort ── */
     const LEVEL_ORDER: Record<string, number> = { DIAMOND: 0, GOLD: 1, SILVER: 2 };
+    // Boosts pagados: "Destacada" y "Subir al top" van primero (dentro de la
+    // comuna elegida) en el orden por defecto y en "disponibles ahora".
+    const boostSets = await getActiveBoostSets();
     /* La comuna elegida manda sobre cualquier criterio de orden: primero lo
        que está dentro de ella, después el resto. */
     const cityRank = (city: string | null | undefined) =>
@@ -1470,6 +1485,10 @@ directoryRouter.get(
       if (cityCmp !== 0) return cityCmp;
       if (sort === "near") {
         return (a.distance ?? 1e9) - (b.distance ?? 1e9);
+      }
+      if (sort !== "new") {
+        const boostCmp = boostRank(a.id, boostSets) - boostRank(b.id, boostSets);
+        if (boostCmp !== 0) return boostCmp;
       }
       if (sort === "new") {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -1541,7 +1560,10 @@ directoryRouter.get(
         );
     }
 
-    const merged = [...sorted.map(({ createdAt, isMadura, ...r }) => r), ...quickResults];
+    const merged = [
+      ...sorted.map(({ createdAt, isMadura, ...r }) => ({ ...r, boost: boostLabel(r.id, boostSets) })),
+      ...quickResults.map((r) => ({ ...r, boost: null as "SPOTLIGHT" | "BUMP" | null })),
+    ];
     if (sort === "near") {
       merged.sort((a, b) => {
         const cityCmp = cityRank(a.city) - cityRank(b.city);

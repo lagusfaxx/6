@@ -5,6 +5,7 @@ import {
   getTierFromScore,
   type ProfileMetrics,
 } from "./profileRanking";
+import { getBillingSettingsSync } from "./billingSettings";
 
 /** Maps admin-set ProfessionalTier (DB) to the display merit level. */
 const ADMIN_TIER_MAP: Record<string, ProfessionalMeritLevel> = {
@@ -36,6 +37,10 @@ export function resolveProfessionalLevel(
   if (metrics.adminTier && ADMIN_TIER_MAP[metrics.adminTier]) {
     return ADMIN_TIER_MAP[metrics.adminTier];
   }
+  // Con el cobro encendido, Gold y Diamond son planes pagados: sin plan (ni
+  // rango puesto a mano) el perfil es Silver. Apagado, el nivel se sigue
+  // calculando por puntaje como siempre.
+  if (getBillingSettingsSync().enabled) return "SILVER";
   return getTierFromScore(calculateProfileScore(metrics));
 }
 

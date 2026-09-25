@@ -513,19 +513,18 @@ export async function sendQualityReviewEmail(
 
 /* ─── Gold plan renewal reminder ─── */
 
-export async function sendGoldRenewalEmail(email: string, displayName: string | null) {
+export async function sendPlanRenewalEmail(email: string, displayName: string | null, planLabel: string, expiresAt: Date) {
   const name = esc(displayName || "profesional");
+  const when = expiresAt.toLocaleDateString("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" });
   const html = wrapEmail(
-    "Tu plan Gold expira pronto",
+    `Tu plan ${planLabel} vence pronto`,
     [
-      paragraph(`Hola ${name}, tu plan <strong>Gold</strong> en UZEED está por vencer.`),
-      paragraph("Si no renuevas, tu perfil bajará a visibilidad básica (Silver) y perderás el badge Gold, la prioridad en búsquedas y los contactos x5."),
-      row("Plan", "Gold — 7 días"),
-      row("Precio", "$14.990 CLP"),
-      ctaButton("Renovar plan Gold", `${config.appUrl}/publicate`),
+      paragraph(`Hola ${name}, tu plan <strong>${esc(planLabel)}</strong> en UZEED vence el ${esc(when)}.`),
+      paragraph("Si no lo renuevas, pierdes tu insignia y tu lugar destacado en el inicio y en las búsquedas."),
+      ctaButton("Renovar mi plan", `${config.appUrl.replace(/\/$/, "")}/planes`),
     ].join(""),
   );
-  await send(email, "Tu plan Gold expira pronto — Renueva por $14.990", html);
+  await send(email, `Tu plan ${planLabel} vence pronto`, html);
 }
 
 /* ─── Weekly Highlights email ─── */

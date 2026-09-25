@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, CircleDollarSign, Loader2, Powe
 import useMe from "../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
 import { isFullAdmin } from "../../../lib/adminAccess";
+import PromoAdmin from "./PromoAdmin";
 
 type Settings = {
   enabled: boolean;
@@ -41,7 +42,7 @@ export default function AdminCobrosPage() {
   const [data, setData] = useState<Resp | null>(null);
   const [flowConfigured, setFlowConfigured] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [form, setForm] = useState({ priceClp: "", graceDays: "", trialDays: "" });
+  const [form, setForm] = useState({ graceDays: "", trialDays: "" });
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirming, setConfirming] = useState<null | "on" | "off">(null);
@@ -50,18 +51,20 @@ export default function AdminCobrosPage() {
     setData(r);
     if (r.flowConfigured !== undefined) setFlowConfigured(r.flowConfigured);
     setForm({
-      priceClp: String(r.settings.priceClp),
       graceDays: String(r.settings.graceDays),
       trialDays: String(r.settings.trialDays),
     });
   };
 
-  useEffect(() => {
-    if (!allowed) return;
+  const reload = () =>
     apiFetch<Resp>("/admin/billing/settings")
       .then(apply)
       .catch((e) => setLoadError(friendlyErrorMessage(e)));
-  }, [allowed]);
+
+  useEffect(() => {
+    if (!allowed) return;
+    reload();
+  }, [allowed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async (patch: Record<string, unknown>, okText: string) => {
     setSaving(true);
@@ -82,10 +85,8 @@ export default function AdminCobrosPage() {
   const saveTarifa = () => {
     if (!data) return;
     const patch: Record<string, number> = {};
-    const price = Number(form.priceClp);
     const grace = Number(form.graceDays);
     const trial = Number(form.trialDays);
-    if (price !== data.settings.priceClp) patch.priceClp = price;
     if (grace !== data.settings.graceDays) patch.graceDays = grace;
     if (trial !== data.settings.trialDays) patch.trialDays = trial;
     if (!Object.keys(patch).length) {
@@ -111,8 +112,7 @@ export default function AdminCobrosPage() {
   const impact = data?.impact;
   const dirty =
     s &&
-    (Number(form.priceClp) !== s.priceClp ||
-      Number(form.graceDays) !== s.graceDays ||
+    (Number(form.graceDays) !== s.graceDays ||
       Number(form.trialDays) !== s.trialDays);
 
   return (
@@ -268,16 +268,12 @@ export default function AdminCobrosPage() {
           {/* Tarifa */}
           <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
             <h2 className="flex items-center gap-2 text-base font-semibold">
-              <CircleDollarSign className="h-4 w-4 text-emerald-300" /> Tarifa y plazos
+              <CircleDollarSign className="h-4 w-4 text-emerald-300" /> Plazos
             </h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <Field
-                label="Tarifa mensual (CLP)"
-                hint="Lo que paga cada perfil por 30 días."
-                value={form.priceClp}
-                onChange={(v) => setForm((f) => ({ ...f, priceClp: v }))}
-                prefix="$"
-              />
+            <p className="mt-1 text-xs text-white/45">
+              Tarifa de membresía actual: <b>{clp(s.priceClp)}</b> (precio del plan Silver, se edita abajo).
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field
                 label="Días de gracia"
                 hint="Al encender el cobro, para los que no tienen plan."
@@ -292,7 +288,7 @@ export default function AdminCobrosPage() {
               />
             </div>
             <p className="mt-3 text-xs text-white/40">
-              Cambiar la tarifa afecta a los pagos nuevos. Quien ya tiene pago automático en Flow sigue con el precio con el
+              Cambiar precios afecta a los pagos nuevos. Quien ya tiene pago automático en Flow sigue con el precio con el
               que se suscribió.
             </p>
             <div className="mt-4 flex justify-end">
@@ -307,6 +303,8 @@ export default function AdminCobrosPage() {
               </button>
             </div>
           </section>
+
+          <PromoAdmin billingEnabled={s.enabled} onSaved={reload} />
 
           {notice && (
             <div
