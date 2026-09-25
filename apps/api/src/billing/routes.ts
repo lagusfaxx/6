@@ -258,8 +258,12 @@ async function billingImpact(trialDays: number) {
     prisma.user.count({
       where: {
         ...base,
-        NOT: { membershipExpiresAt: { gt: now } },
-        OR: [{ shopTrialEndsAt: { gt: now } }, { createdAt: { gt: trialCutoff } }],
+        // Ojo con NULL: `NOT (x > now)` descarta las filas sin fecha, así que
+        // "sin membresía vigente" se escribe explícito.
+        AND: [
+          { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+          { OR: [{ shopTrialEndsAt: { gt: now } }, { createdAt: { gt: trialCutoff } }] },
+        ],
       },
     }),
     prisma.user.count({ where: { ...base, flowSubscriptionId: { not: null } } }),

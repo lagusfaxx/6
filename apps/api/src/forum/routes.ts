@@ -349,6 +349,11 @@ forumRouter.post(
     const { id } = req.params;
     const content = String(req.body?.content ?? "").trim();
     if (!content) return res.status(400).json({ error: "MISSING_CONTENT", message: "Escribe algo antes de enviar." });
+    // Un post que empieza así marca el hilo como "de perfil" y lo sacaría de
+    // las conversaciones.
+    if (content.startsWith(OFFICIAL_PREFIX)) {
+      return res.status(400).json({ error: "RESERVED_PREFIX", message: "Ese inicio de mensaje está reservado." });
+    }
     if (content.length > 10000) {
       return res.status(400).json({ error: "CONTENT_TOO_LONG", message: "Máximo 10.000 caracteres" });
     }

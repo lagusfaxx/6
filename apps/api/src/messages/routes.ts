@@ -158,9 +158,12 @@ messagesRouter.get("/messages/:userId", requireAuth, asyncHandler(async (req, re
       ],
       ...(cleared ? { createdAt: { gt: cleared.clearedAt } } : {})
     },
-    orderBy: { createdAt: "asc" },
+    // Los 200 más recientes (antes eran los 200 más antiguos: en chats largos
+    // no se veían los mensajes nuevos), devueltos en orden cronológico.
+    orderBy: { createdAt: "desc" },
     take: 200
   });
+  messages.reverse();
   await prisma.message.updateMany({
     where: { fromId: other, toId: me, readAt: null },
     data: { readAt: new Date() }
