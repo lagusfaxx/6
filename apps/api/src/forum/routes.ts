@@ -4,8 +4,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAdmin } from "../auth/middleware";
-import { broadcast } from "../realtime/sse";
 import { isUUID } from "../lib/validators";
+import { ForumError, authorSelect, createReply, createThread, excerpt, officialWhere } from "./service";
 
 export const forumRouter = Router();
 
@@ -24,30 +24,6 @@ const forumLikeLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-
-/**
- * Los hilos que se crean solos al registrarse una profesional
- * (ver `createProfessionalForumThread`) empiezan con este texto. Se separan
- * de las conversaciones de la comunidad: antes eran el 100% del foro y lo
- * hacían ver como un listado de perfiles vacío.
- */
-const OFFICIAL_PREFIX = "Hilo oficial de";
-const officialWhere: Prisma.ForumThreadWhereInput = {
-  posts: { some: { content: { startsWith: OFFICIAL_PREFIX } } },
-};
-
-const DEFAULT_CATEGORY_SLUG = "general";
-const authorSelect = { id: true, username: true, displayName: true, avatarUrl: true } as const;
-
-function excerpt(content: string, max = 220) {
-  const clean = content
-    .split("\n")
-    .filter((l) => !l.trim().startsWith(">"))
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
-}
 
 // ── GET /forum/categories ── list all categories with stats
 forumRouter.get(
@@ -291,53 +267,22 @@ forumRouter.post(
     if (!user?.id) return res.status(401).json({ error: "UNAUTHENTICATED" });
 
     const { categoryId } = req.body ?? {};
-    const title = String(req.body?.title ?? "").trim();
-    const content = String(req.body?.content ?? "").trim() || title;
-
-    if (title.length < 5) {
-      return res.status(400).json({ error: "TITLE_TOO_SHORT", message: "Escribe al menos 5 caracteres." });
-    }
-    if (title.length > 200) {
-      return res.status(400).json({ error: "TITLE_TOO_LONG", message: "El título puede tener hasta 200 caracteres." });
-    }
-    if (content.length > 10000) {
-      return res.status(400).json({ error: "CONTENT_TOO_LONG", message: "Máximo 10.000 caracteres" });
-    }
-    if (content.startsWith(OFFICIAL_PREFIX)) {
-      return res.status(400).json({ error: "RESERVED_PREFIX", message: "Ese inicio de mensaje está reservado." });
-    }
-
     if (categoryId && !isUUID(String(categoryId))) {
       return res.status(404).json({ error: "CATEGORY_NOT_FOUND", message: "Categoría no encontrada." });
     }
-    const category = categoryId
-      ? await prisma.forumCategory.findUnique({ where: { id: String(categoryId) } })
-      : (await prisma.forumCategory.findUnique({ where: { slug: DEFAULT_CATEGORY_SLUG } })) ??
-        (await prisma.forumCategory.findFirst({ orderBy: { sortOrder: "desc" } }));
-    if (!category) return res.status(404).json({ error: "CATEGORY_NOT_FOUND", message: "Categoría no encontrada." });
 
-    const thread = await prisma.forumThread.create({
-      data: {
-        categoryId: category.id,
+    let thread;
+    try {
+      thread = await createThread({
         authorId: user.id,
-        title,
-        posts: { create: { authorId: user.id, content } },
-      },
-      include: {
-        author: { select: authorSelect },
-        category: { select: { id: true, name: true, slug: true } },
-      },
-    });
-
-    // Broadcast to all connected users
-    broadcast("forum:newThread", {
-      id: thread.id,
-      title: thread.title,
-      excerpt: content === title ? "" : excerpt(content),
-      author: thread.author,
-      category: thread.category,
-      createdAt: thread.createdAt,
-    });
+        title: String(req.body?.title ?? ""),
+        content: String(req.body?.content ?? ""),
+        categoryId: categoryId ? String(categoryId) : null,
+      });
+    } catch (err) {
+      if (err instanceof ForumError) return res.status(err.status).json({ error: err.code, message: err.message });
+      throw err;
+    }
 
     return res.status(201).json({ thread });
   })
@@ -353,83 +298,12 @@ forumRouter.post(
 
     const { id } = req.params;
     if (!isUUID(id)) return res.status(404).json({ error: "THREAD_NOT_FOUND" });
-    const content = String(req.body?.content ?? "").trim();
-    if (!content) return res.status(400).json({ error: "MISSING_CONTENT", message: "Escribe algo antes de enviar." });
-    // Un post que empieza así marca el hilo como "de perfil" y lo sacaría de
-    // las conversaciones.
-    if (content.startsWith(OFFICIAL_PREFIX)) {
-      return res.status(400).json({ error: "RESERVED_PREFIX", message: "Ese inicio de mensaje está reservado." });
-    }
-    if (content.length > 10000) {
-      return res.status(400).json({ error: "CONTENT_TOO_LONG", message: "Máximo 10.000 caracteres" });
-    }
-
-    const thread = await prisma.forumThread.findUnique({
-      where: { id },
-      select: { id: true, isLocked: true, authorId: true, title: true },
-    });
-    if (!thread) return res.status(404).json({ error: "THREAD_NOT_FOUND" });
-    if (thread.isLocked) return res.status(403).json({ error: "THREAD_LOCKED", message: "Este tema está cerrado." });
-
-    const [post] = await Promise.all([
-      prisma.forumPost.create({
-        data: { threadId: id, authorId: user.id, content },
-        include: { author: { select: authorSelect } },
-      }),
-      prisma.forumThread.update({
-        where: { id },
-        data: { lastPostAt: new Date() },
-      }),
-    ]);
-
-    // Broadcast new post
-    broadcast("forum:newPost", {
-      threadId: id,
-      threadAuthorId: thread.authorId,
-      threadTitle: thread.title,
-      post: {
-        id: post.id,
-        content: post.content,
-        author: post.author,
-        createdAt: post.createdAt,
-        likeCount: 0,
-        likedByMe: false,
-      },
-    });
-
-    // Avisar al autor del tema y a quienes ya participaron: si sólo se avisa
-    // al autor, la conversación muere en la primera respuesta.
-    const participants = await prisma.forumPost.findMany({
-      where: { threadId: id, authorId: { not: user.id } },
-      distinct: ["authorId"],
-      select: { authorId: true },
-      take: 50,
-    });
-    const recipients = new Set(participants.map((p) => p.authorId));
-    if (thread.authorId !== user.id) recipients.add(thread.authorId);
-
-    if (recipients.size > 0) {
-      const name = post.author.displayName || post.author.username;
-      await prisma.notification
-        .createMany({
-          data: [...recipients].map((userId) => ({
-            userId,
-            type: "FORUM_REPLY" as const,
-            data: {
-              title: "Respuesta en el foro",
-              body:
-                userId === thread.authorId
-                  ? `${name} respondió en tu tema "${thread.title}"`
-                  : `${name} también respondió en "${thread.title}"`,
-              threadId: id,
-              postId: post.id,
-              url: `/foro/thread/${id}#post-${post.id}`,
-            },
-          })),
-        })
-        .catch((err) => {
-          console.error("[forum] Failed to notify participants:", err?.message || err);
-        });
+    let post;
+    try {
+      post = await createReply({ threadId: id, authorId: user.id, content: String(req.body?.content ?? "") });
+    } catch (err) {
+      if (err instanceof ForumError) return res.status(err.status).json({ error: err.code, message: err.message });
+      throw err;
     }
 
     return res.status(201).json({ post: { ...post, likeCount: 0, likedByMe: false } });
