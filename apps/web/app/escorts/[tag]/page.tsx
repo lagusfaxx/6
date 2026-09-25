@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import DirectoryPage from "../../../components/DirectoryPage";
-import DirectorySeoLinks from "../../../components/DirectorySeoLinks";
+import DirectorySeoLinks, { cityHasProfiles } from "../../../components/DirectorySeoLinks";
 import { getCity } from "../../../lib/cities";
 
 type Props = { params: Promise<{ tag: string }> };
@@ -12,8 +12,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // ── Landing de ciudad (/escorts/santiago, /escorts/las-condes …) ──
   const city = getCity(tag);
   if (city) {
-    const title = `Escorts en ${city.name} - Verificadas Hoy`;
-    const description = `Escorts y putas verificadas en ${city.name}${city.region ? `, ${city.region}` : ""}. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy en UZEED.`;
+    // Sin perfiles en la ciudad, el título no promete "verificadas hoy" en
+    // ella: la página muestra las más cercanas (ver DirectorySeoLinks).
+    const hasProfiles = await cityHasProfiles(city.lat, city.lng);
+    const title = hasProfiles
+      ? `Escorts en ${city.name} - Verificadas Hoy`
+      : `Escorts en ${city.name} y alrededores`;
+    const description = hasProfiles
+      ? `Escorts y putas verificadas en ${city.name}${city.region ? `, ${city.region}` : ""}. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy en UZEED.`
+      : `Escorts verificadas cerca de ${city.name}${city.region ? `, ${city.region}` : ""}: perfiles con fotos reales en las ciudades más cercanas y contacto directo en UZEED.`;
     return {
       title,
       description,
@@ -115,6 +122,7 @@ export default async function EscortsTagPage({ params }: Props) {
           heading={`Escorts Destacadas en ${city.name}`}
           lat={city.lat}
           lng={city.lng}
+          cityName={city.name}
         />
       </>
     );

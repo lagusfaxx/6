@@ -218,6 +218,7 @@ directoryRouter.get(
       avatarUrl: string | null;
       coverUrl: string | null;
       lastSeen: Date | null;
+      lastEditedAt?: Date | null;
       isActive: boolean;
       tier: string | null;
       gender: string | null;
@@ -253,6 +254,7 @@ directoryRouter.get(
           avatarUrl: true,
           coverUrl: true,
           lastSeen: true,
+          lastEditedAt: true,
           isActive: true,
           tier: true,
           gender: true,
@@ -411,6 +413,9 @@ directoryRouter.get(
           .filter(Boolean),
         isOnline: isOnline(u.lastSeen),
         lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
+        // Última edición real de la ficha (no cambia al conectarse): la usa el
+        // sitemap como <lastmod>.
+        lastEditedAt: u.lastEditedAt ? u.lastEditedAt.toISOString() : null,
       };
     });
 

@@ -16,6 +16,7 @@ type ProfessionalItem = {
     displayName?: string | null;
   } | null;
   lastSeen?: string | null;
+  lastEditedAt?: string | null;
 };
 
 type ProfessionalsResponse = {
@@ -67,13 +68,15 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
-async function getPublicProfessionalPaths(): Promise<string[]> {
+type ProfessionalPath = { path: string; lastModified?: Date };
+
+async function getPublicProfessionalPaths(): Promise<ProfessionalPath[]> {
   const data = await fetchJson<ProfessionalsResponse>(
     `${getApiBaseUrl()}/professionals`,
   );
   if (!data) return [];
   const items = Array.isArray(data.professionals) ? data.professionals : [];
-  const paths = new Map<string, string>();
+  const paths = new Map<string, ProfessionalPath>();
   for (const item of items) {
     const id = item.id?.trim();
     if (!id) continue;
@@ -83,7 +86,11 @@ async function getPublicProfessionalPaths(): Promise<string[]> {
     const username = item.profile?.username || item.username || null;
     // URL limpia por username (/escort/{username}); cae a /profesional/{id}/{slug}
     // si el username no es URL-safe.
-    paths.set(id, cleanProfileHref({ id, username, serviceCategory: item.serviceCategory, name, city }));
+    const edited = item.lastEditedAt ? new Date(item.lastEditedAt) : null;
+    paths.set(id, {
+      path: cleanProfileHref({ id, username, serviceCategory: item.serviceCategory, name, city }),
+      lastModified: edited && !Number.isNaN(edited.getTime()) ? edited : undefined,
+    });
   }
   return Array.from(paths.values());
 }
@@ -133,16 +140,19 @@ const ESCORT_TAGS = [
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getWebBaseUrl();
-  const now = new Date();
   const urls = new Map<string, MetadataRoute.Sitemap[number]>();
 
   const add = (
     path: string,
     changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"],
     priority: number,
+    lastModified?: Date,
   ) => {
     const url = toAbsoluteUrl(baseUrl, path);
-    urls.set(url, { url, lastModified: now, changeFrequency, priority });
+    // <lastmod> sólo cuando conocemos la fecha real de edición: Google lo usa
+    // únicamente si es "consistently and verifiably accurate", y antes se
+    // emitía la hora del request en todas las URLs (señal que Google ignora).
+    urls.set(url, { url, changeFrequency, priority, ...(lastModified ? { lastModified } : {}) });
   };
 
   // ── Página principal ──
@@ -193,7 +203,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // ── Registro (indexable para captar profesionales) ──
   add("/register", "weekly", 0.7);
-  add("/register?type=PROFESSIONAL", "weekly", 0.75);
+  // /register?type=PROFESSIONAL declara canonical /register: no va al sitemap.
 
   // ── Páginas informativas ──
   add("/contacto", "monthly", 0.5);
@@ -209,8 +219,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // URLs con slug semántico (/profesional/{id}/{nombre-ciudad}); ya vienen
   // codificadas desde profileHref.
-  for (const path of professionalPaths.slice(0, 5000)) {
-    add(path, "daily", 0.7);
+  for (const { path, lastModified } of professionalPaths.slice(0, 5000)) {
+    add(path, "daily", 0.7, lastModified);
   }
 
   // ── Categorías del foro ──

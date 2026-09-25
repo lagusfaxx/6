@@ -101,14 +101,32 @@ export async function fetchProfileById(id: string): Promise<ProfileRecord | null
 }
 
 /** Construye los metadatos SEO de un perfil dado su record y su URL canónica. */
+/**
+ * Nombre para el <title>: los nombres escritos TODO EN MAYÚSCULAS ("NICOL HOT")
+ * pasan a formato normal ("Nicol Hot"). El resto se deja tal cual.
+ */
+function titleName(name: string): string {
+  if (name !== name.toUpperCase() || name === name.toLowerCase()) return name;
+  return name.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
+}
+
+/** "Escorts" → "escort", "Masajistas" → "masajista": el perfil es de una persona. */
+function singularCategory(category: string): string {
+  const c = category.toLowerCase();
+  if (c === "escorts") return "escort";
+  if (c === "masajistas") return "masajista";
+  return c;
+}
+
 export function buildProfileMetadata(p: ProfileRecord, canonicalPath: string): Metadata {
-  const name = p.name || "Profesional";
+  const name = p.name ? titleName(p.name) : "Profesional";
   const city = p.city || "Chile";
   const category = (p.serviceCategory || "Escort").trim();
-  const title = `${name} — ${category} en ${city}`;
+  // "Nicol Hot, escort en Providencia": es como se busca ("nicol escort").
+  const title = `${name}, ${singularCategory(category)} en ${city}`;
   const brandedTitle = `${title} | UZEED`;
   const description = [
-    `Perfil verificado de ${name}, ${category.toLowerCase()} en ${city}.`,
+    `Perfil verificado de ${name}, ${singularCategory(category)} en ${city}.`,
     p.bio ? p.bio.slice(0, 120) : null,
     "Fotos reales, contacto directo y disponibilidad en UZEED.",
   ]
