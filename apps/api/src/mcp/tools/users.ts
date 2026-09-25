@@ -12,6 +12,7 @@ import {
   realUserWhere,
   staffIdsSql,
   visitorKeySql,
+  notForumPersonaWhere,
 } from "../../lib/statsFilters";
 import { localTs } from "../metrics";
 import { guarded, type McpContext } from "../audit";
@@ -204,7 +205,7 @@ export function registerUserTools(server: McpServer, ctx: McpContext) {
     },
     guarded("buscar_usuarios", ctx, async (args: SearchArgs) => {
       const where: any = {};
-      const and: any[] = [];
+      const and: any[] = [notForumPersonaWhere()];
       if (args.texto) {
         const q = args.texto.trim();
         and.push({

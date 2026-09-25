@@ -26,6 +26,18 @@ export const BOT_UA_PATTERN =
 
 export const TEST_EMAIL_SUFFIX = "@testseed.uzeed.cl";
 
+/**
+ * Personajes del foro que crea el MCP (`foro-…@testseed.uzeed.cl`). No son
+ * usuarios: no salen en los listados del panel ni en las búsquedas.
+ */
+export const FORUM_PERSONA_PREFIX = "foro-";
+export const forumPersonaEmail = { startsWith: FORUM_PERSONA_PREFIX, endsWith: TEST_EMAIL_SUFFIX };
+
+/** Filtro Prisma que deja fuera a los personajes del foro. */
+export function notForumPersonaWhere(): Prisma.UserWhereInput {
+  return { NOT: { email: forumPersonaEmail } };
+}
+
 /** Subconsulta con los ids del equipo (para excluir su tráfico). */
 export function staffIdsSql(): Prisma.Sql {
   return Prisma.sql`(SELECT "id" FROM "User" WHERE "role" IN ('ADMIN', 'MODERATOR') OR "email" = ${config.adminEmail})`;

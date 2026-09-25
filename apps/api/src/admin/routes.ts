@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db";
+import { notForumPersonaWhere } from "../lib/statsFilters";
 import { Prisma } from "@prisma/client";
 import {
   requireAdmin,
@@ -65,7 +66,7 @@ adminRouter.get(
   "/stats",
   asyncHandler(async (_req, res) => {
     const [users, posts, payments] = await Promise.all([
-      prisma.user.count(),
+      prisma.user.count({ where: notForumPersonaWhere() }),
       prisma.post.count(),
       prisma.payment.count(),
     ]);
@@ -356,7 +357,7 @@ adminRouter.get(
     const take = Math.min(parseInt(limit || "50", 10) || 50, 200);
     const skip = parseInt(offset || "0", 10) || 0;
 
-    const where: any = {};
+    const where: any = { AND: [notForumPersonaWhere()] };
     if (profileType) where.profileType = profileType;
     if (isActive !== undefined) where.isActive = isActive === "true";
     if (q) {

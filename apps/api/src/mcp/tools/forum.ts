@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { randomInt } from "crypto";
 import { z } from "zod";
 import { prisma } from "../../db";
-import { TEST_EMAIL_SUFFIX } from "../../lib/statsFilters";
+import { FORUM_PERSONA_PREFIX, TEST_EMAIL_SUFFIX, forumPersonaEmail } from "../../lib/statsFilters";
 import { isUUID } from "../../lib/validators";
 import { ForumError, createReply, createThread, excerpt, officialWhere } from "../../forum/service";
 import { guarded, type McpContext } from "../audit";
@@ -19,9 +19,9 @@ import { errorResult, jsonResult } from "../helpers";
 const READ = { readOnlyHint: true, openWorldHint: false } as const;
 const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 
-const PERSONA_PREFIX = "foro-";
+const PERSONA_PREFIX = FORUM_PERSONA_PREFIX;
 const ANON_NAME = "Anónimo";
-const personaEmailWhere = { startsWith: PERSONA_PREFIX, endsWith: TEST_EMAIL_SUFFIX };
+const personaEmailWhere = forumPersonaEmail;
 
 function slugify(text: string) {
   return text
