@@ -225,8 +225,9 @@ export default function TopHeader() {
     setDeleting(false);
   };
 
+  const hasCity = locationFilter?.state.mode === "city" && Boolean(locationFilter.state.selectedCity);
   const locationLabel =
-    locationFilter?.state.mode === "city" && locationFilter.state.selectedCity
+    hasCity && locationFilter?.state.selectedCity
       ? locationFilter.state.selectedCity.name
       : "Mi ubicación";
 
@@ -265,7 +266,7 @@ export default function TopHeader() {
                   <Menu className="h-5 w-5" />
                 </button>
 
-                <Link href="/" className="flex items-center gap-1.5 md:gap-2.5">
+                <Link href="/" className="flex shrink-0 items-center gap-1.5 md:gap-2.5">
                   <Image
                     src="/brand/isotipo-new.png"
                     alt="UZEED - Escorts y Acompañantes en Chile"
@@ -281,12 +282,12 @@ export default function TopHeader() {
               </div>
 
               {/* Center: Desktop category navigation (Inicio / Cerca tuyo / Foro se omiten: ya existen en el sidebar) */}
-              <nav className="hidden md:flex items-center gap-1">
+              <nav className="scrollbar-hide mx-3 hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto [mask-image:linear-gradient(to_right,black_80%,transparent)] md:flex xl:mx-4 xl:flex-none xl:[mask-image:none]">
                 {MEGA_MENU.map((item) => (
                   <Link
                     key={item.route}
                     href={item.route}
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${isCategoryActive(item.route) ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25" : "text-white/60 hover:bg-white/10 hover:text-white/90"}`}
+                    className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition ${isCategoryActive(item.route) ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/25" : "text-white/60 hover:bg-white/10 hover:text-white/90"}`}
                   >
                     {discreetLabel(item.route, item.label, discreet)}
                   </Link>
@@ -318,16 +319,26 @@ export default function TopHeader() {
                   <button
                     type="button"
                     onClick={() => setLocationOpen((prev) => !prev)}
-                    className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-fuchsia-600/20 to-violet-600/15 border border-fuchsia-500/30 px-2 py-1.5 text-[11px] font-semibold text-white transition hover:from-fuchsia-600/30 hover:to-violet-600/25 shadow-[0_0_12px_rgba(168,85,247,0.15)] md:gap-1.5 md:px-3 md:py-2 md:text-xs"
+                    aria-label={`Ubicación: ${locationLabel}`}
+                    aria-expanded={locationOpen}
+                    title={locationLabel}
+                    className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-fuchsia-500/30 bg-gradient-to-r from-fuchsia-600/20 to-violet-600/15 text-xs font-semibold text-white shadow-[0_0_12px_rgba(168,85,247,0.15)] transition hover:from-fuchsia-600/30 hover:to-violet-600/25 sm:w-auto sm:px-3 md:h-10"
                   >
-                    <MapPin className="h-3 w-3 shrink-0 text-fuchsia-400 md:h-3.5 md:w-3.5" />
-                    <span className="max-w-[72px] truncate md:max-w-[100px]">{locationLabel}</span>
+                    <MapPin className="h-4 w-4 shrink-0 text-fuchsia-400 sm:h-3.5 sm:w-3.5" />
+                    {/* En móvil no cabe el texto: sólo el pin, con un punto si hay ciudad elegida. */}
+                    <span className="hidden max-w-[120px] truncate sm:inline">{locationLabel}</span>
+                    {hasCity && (
+                      <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0d0e1a] bg-fuchsia-400 sm:hidden" />
+                    )}
                   </button>
 
                   {locationOpen && (
-                    <div className="absolute right-0 top-12 z-50 w-[280px] overflow-hidden rounded-2xl border border-white/15 bg-[#0a0b1de6] shadow-[0_18px_48px_rgba(0,0,0,0.45)] backdrop-blur-2xl md:w-[320px]">
-                      <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold">Ubicación</div>
-                      <div className="max-h-[380px] overflow-y-auto p-2">
+                    <div className="fixed inset-x-3 top-[60px] z-50 overflow-hidden rounded-2xl border border-white/15 bg-[#0d0e1a] shadow-[0_18px_48px_rgba(0,0,0,0.6)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[320px]">
+                      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+                        <span className="text-sm font-semibold">Ubicación</span>
+                        <span className="ml-auto max-w-[60%] truncate text-xs text-fuchsia-300">{locationLabel}</span>
+                      </div>
+                      <div className="max-h-[min(380px,calc(100dvh-140px))] overflow-y-auto overscroll-contain p-2">
                         <button
                           type="button"
                           onClick={() => { locationFilter?.useCurrentLocation(); setLocationOpen(false); }}
