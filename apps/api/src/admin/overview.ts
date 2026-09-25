@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getBillingSettingsSync } from "../lib/billingSettings";
+import { getBillingSettings, graceEndsAt, isBillingEnforced } from "../lib/billingSettings";
 import { prisma } from "../db";
 import { requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -322,35 +322,47 @@ adminOverviewRouter.get(
   "/expired-trials",
   asyncHandler(async (req, res) => {
     const now = new Date();
-    const monthlyPriceClp = getBillingSettingsSync().priceClp;
+    const billing = await getBillingSettings();
+    const monthlyPriceClp = billing.priceClp;
     const q = String(req.query.q || "").trim();
     const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    const trialMs = billing.trialDays * MS_PER_DAY;
 
+    /* Misma regla que decide quién se oculta con el cobro encendido
+       (isBusinessPlanActive / planActiveWhere): la prueba dura "Días de prueba"
+       desde el registro, o hasta shopTrialEndsAt si es más tarde. Antes esta
+       pantalla miraba sólo shopTrialEndsAt (fijado al registrarse) y mostraba
+       como caducados perfiles que seguían en prueba. Sólo perfiles aprobados,
+       como el panel de cobros. */
     const baseWhere = {
       profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as any },
-      shopTrialEndsAt: { lt: now },
-      OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lt: now } }],
-      ...(q
-        ? {
-            AND: [
-              {
-                OR: [
-                  { username: { contains: q, mode: "insensitive" as const } },
-                  { displayName: { contains: q, mode: "insensitive" as const } },
-                  { email: { contains: q, mode: "insensitive" as const } },
-                ],
-              },
-            ],
-          }
-        : {}),
-    };
+      isActive: true,
+      createdAt: { lte: new Date(now.getTime() - trialMs) },
+      AND: [
+        { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
+        { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+      ],
+    } as any;
+    if (q) {
+      baseWhere.AND.push({
+        OR: [
+          { username: { contains: q, mode: "insensitive" as const } },
+          { displayName: { contains: q, mode: "insensitive" as const } },
+          { email: { contains: q, mode: "insensitive" as const } },
+        ],
+      });
+    }
 
-    const [total, profiles] = await Promise.all([
+    const trialEnd = (p: { shopTrialEndsAt: Date | null; createdAt: Date }) =>
+      new Date(Math.max(p.shopTrialEndsAt?.getTime() ?? 0, p.createdAt.getTime() + trialMs));
+
+    const [total, allProfiles] = await Promise.all([
       prisma.user.count({ where: baseWhere }),
       prisma.user.findMany({
         where: baseWhere,
-        orderBy: { shopTrialEndsAt: "desc" },
-        take: limit,
+        orderBy: { createdAt: "desc" },
+        take: 2000,
         select: {
           id: true,
           username: true,
@@ -369,6 +381,11 @@ adminOverviewRouter.get(
         },
       }),
     ]);
+
+    // Caducadas más recientes primero, según el fin real de la prueba.
+    const profiles = allProfiles
+      .sort((a, b) => trialEnd(b).getTime() - trialEnd(a).getTime())
+      .slice(0, limit);
 
     const ids = profiles.map((p) => p.id);
     const [messagesByProfile, favoritesByProfile, whatsappByProfile] = ids.length
@@ -395,9 +412,8 @@ adminOverviewRouter.get(
     const favoritesMap = new Map(favoritesByProfile.map((r) => [r.professionalId, r._count.id]));
     const whatsappMap = new Map(whatsappByProfile.map((r) => [r.targetId, r._count.id]));
 
-    const MS_PER_DAY = 24 * 60 * 60 * 1000;
     const items = profiles.map((p) => {
-      const expiredAt = p.shopTrialEndsAt!;
+      const expiredAt = trialEnd(p);
       const daysExpired = Math.max(Math.floor((now.getTime() - expiredAt.getTime()) / MS_PER_DAY), 0);
       // Months elapsed since the trial ended (capped at 12 to keep the estimate sane)
       const monthsExpired = Math.min(Math.floor(daysExpired / 30), 12);
@@ -429,6 +445,12 @@ adminOverviewRouter.get(
     res.json({
       generatedAt: now.toISOString(),
       monthlyPriceClp,
+      billing: {
+        enabled: billing.enabled,
+        enforced: isBillingEnforced(billing, now),
+        graceEndsAt: graceEndsAt(billing)?.toISOString() ?? null,
+        trialDays: billing.trialDays,
+      },
       summary: {
         total,
         listed: items.length,
