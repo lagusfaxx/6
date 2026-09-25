@@ -5,6 +5,7 @@ import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAdmin } from "../auth/middleware";
 import { broadcast } from "../realtime/sse";
+import { isUUID } from "../lib/validators";
 
 export const forumRouter = Router();
 
@@ -215,6 +216,7 @@ forumRouter.get(
   "/forum/threads/:id",
   asyncHandler(async (req, res) => {
     const { id } = req.params;
+    if (!isUUID(id)) return res.status(404).json({ error: "THREAD_NOT_FOUND" });
     const viewerId: string | undefined = (req as any).user?.id;
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 30));
@@ -305,6 +307,9 @@ forumRouter.post(
       return res.status(400).json({ error: "RESERVED_PREFIX", message: "Ese inicio de mensaje está reservado." });
     }
 
+    if (categoryId && !isUUID(String(categoryId))) {
+      return res.status(404).json({ error: "CATEGORY_NOT_FOUND", message: "Categoría no encontrada." });
+    }
     const category = categoryId
       ? await prisma.forumCategory.findUnique({ where: { id: String(categoryId) } })
       : (await prisma.forumCategory.findUnique({ where: { slug: DEFAULT_CATEGORY_SLUG } })) ??
@@ -347,6 +352,7 @@ forumRouter.post(
     if (!user?.id) return res.status(401).json({ error: "UNAUTHENTICATED" });
 
     const { id } = req.params;
+    if (!isUUID(id)) return res.status(404).json({ error: "THREAD_NOT_FOUND" });
     const content = String(req.body?.content ?? "").trim();
     if (!content) return res.status(400).json({ error: "MISSING_CONTENT", message: "Escribe algo antes de enviar." });
     // Un post que empieza así marca el hilo como "de perfil" y lo sacaría de
@@ -439,6 +445,7 @@ forumRouter.post(
     if (!user?.id) return res.status(401).json({ error: "UNAUTHENTICATED" });
 
     const { id } = req.params;
+    if (!isUUID(id)) return res.status(404).json({ error: "POST_NOT_FOUND" });
     const post = await prisma.forumPost.findUnique({ where: { id }, select: { id: true } });
     if (!post) return res.status(404).json({ error: "POST_NOT_FOUND" });
 
@@ -489,6 +496,7 @@ forumRouter.delete(
     const user = (req as any).user;
     if (!user?.id) return res.status(401).json({ error: "UNAUTHENTICATED" });
 
+    if (!isUUID(req.params.id)) return res.status(404).json({ error: "POST_NOT_FOUND" });
     const post = await prisma.forumPost.findUnique({
       where: { id: req.params.id },
       select: { id: true, authorId: true, threadId: true },

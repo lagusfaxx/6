@@ -520,6 +520,62 @@ async function tickBillingNotices() {
   if (sent) console.log(`[worker] billing notices (${key}) sent: ${sent}`);
 }
 
+/* ─── Prueba gratis por terminar (cobro encendido) ───
+   Sin esto, un perfil en prueba dejaba de mostrarse el día que vencía sin
+   que nadie le avisara. Se avisa 3 días antes y el día que vence, en la app,
+   por push y por correo. El fin real es el mayor entre shopTrialEndsAt,
+   createdAt + días de prueba y el fin de la gracia general. */
+export async function tickTrialEnding() {
+  const s = await getBillingSettings();
+  if (!s.enabled) return;
+  const now = new Date();
+  const DAY = 24 * 60 * 60 * 1000;
+  const horizon = new Date(now.getTime() + 3 * DAY);
+  const trialMs = s.trialDays * DAY;
+  const grace = graceEndsAt(s);
+
+  const candidates = await prisma.user.findMany({
+    where: {
+      profileType: { in: [...PAID_PROFILE_TYPES] },
+      isActive: true,
+      OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }],
+      AND: [
+        {
+          OR: [
+            { shopTrialEndsAt: { gt: now, lte: horizon } },
+            { createdAt: { gt: new Date(now.getTime() - trialMs), lte: new Date(horizon.getTime() - trialMs) } },
+          ],
+        },
+      ],
+    },
+    select: { id: true, email: true, shopTrialEndsAt: true, createdAt: true },
+    take: 1000,
+  });
+
+  const price = `$${s.priceClp.toLocaleString("es-CL")}`;
+  for (const u of candidates) {
+    const end = new Date(
+      Math.max(u.shopTrialEndsAt?.getTime() ?? 0, u.createdAt.getTime() + trialMs, grace?.getTime() ?? 0),
+    );
+    const left = end.getTime() - now.getTime();
+    if (left <= 0 || left > 3 * DAY) continue;
+    const lastDay = left <= DAY;
+    const key = `trial_ending_${lastDay ? "last" : "3d"}_${end.toISOString().slice(0, 10)}`;
+    if (await wasReminderSent(u.id, key)) continue;
+    await markReminderSent(u.id, key);
+    const when = end.toLocaleDateString("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" });
+    const title = lastDay ? "Tu prueba gratis termina hoy" : "Tu prueba gratis termina pronto";
+    const body = `Tu perfil deja de mostrarse el ${when} si no activas tu plan (desde ${price} al mes).`;
+    await sendInAppAndPush(u.id, { type: "SUBSCRIPTION_RENEWED", title, body, url: "/planes", tag: key }).catch(() => undefined);
+    if (u.email) {
+      await sendBillingNoticeEmail(u.email, {
+        subject: title,
+        text: `${body}\n\nActívalo aquí: ${config.appUrl.replace(/\/$/, "")}/planes`,
+      }).catch(() => undefined);
+    }
+  }
+}
+
 /* ─── Planes pagados (Silver/Gold/Diamond) ───
    Sólo con el cobro encendido: apagado, nadie pierde su rango (como antes de
    que existieran los planes pagados). Aviso 48 h antes y al vencer. Los
@@ -785,6 +841,7 @@ async function tick() {
       { name: "membershipExpiry", fn: tickMembershipExpiry },
       { name: "billingNotices", fn: tickBillingNotices },
       { name: "paidPlans", fn: tickPaidPlans },
+      { name: "trialEnding", fn: tickTrialEnding },
       { name: "noPhotoReminder", fn: tickNoPhotoReminder },
       { name: "inactiveReminder", fn: tickInactiveReminder },
       { name: "videocallConfig", fn: tickVideocallConfigReminder },

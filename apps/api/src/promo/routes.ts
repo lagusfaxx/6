@@ -16,6 +16,7 @@ import {
   tokensFor,
 } from "../lib/promo";
 import { resolveProfessionalLevel } from "../lib/professionalLevel";
+import { isUUID } from "../lib/validators";
 
 export const promoRouter = Router();
 
@@ -110,7 +111,7 @@ promoRouter.post(
           membershipExpiresAt: true,
         },
       }),
-      productId ? prisma.promoProduct.findUnique({ where: { id: productId } }) : null,
+      isUUID(productId) ? prisma.promoProduct.findUnique({ where: { id: productId } }) : null,
       getBillingSettings(),
     ]);
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
@@ -368,7 +369,7 @@ promoRouter.put(
         return res.status(400).json({ error: "VALIDATION", message: `${where}: el precio debe estar entre $500 y $2.000.000.` });
       }
       clean.push({
-        id: p.id ? String(p.id) : null,
+        id: p.id && isUUID(String(p.id)) ? String(p.id) : null,
         data: {
           kind,
           code,
@@ -461,7 +462,7 @@ promoRouter.post(
         where: { username: { equals: username, mode: "insensitive" } },
         select: { id: true, username: true, profileType: true, tier: true, tierExpiresAt: true, membershipExpiresAt: true },
       }),
-      prisma.promoProduct.findUnique({ where: { id: productId } }),
+      isUUID(productId) ? prisma.promoProduct.findUnique({ where: { id: productId } }) : null,
     ]);
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND", message: "No existe ese usuario." });
     if (!product) return res.status(404).json({ error: "PRODUCT_NOT_FOUND", message: "Producto no encontrado." });
