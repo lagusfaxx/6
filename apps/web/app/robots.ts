@@ -21,7 +21,8 @@ export default function robots(): MetadataRoute.Robots {
         "/login",
         "/forgot-password",
         "/api/",
-        "/_next/",
+        // /_next/ NO se bloquea: ahí están el JS y el CSS que Google necesita
+        // para renderizar ("Google Search won't render JavaScript from blocked files").
         "/calificar",
         "/perfil",
         "/live/studio",
