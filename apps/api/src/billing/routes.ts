@@ -5,6 +5,8 @@ import { config } from "../config";
 import { asyncHandler } from "../lib/asyncHandler";
 import {
   getBillingSettings,
+  hasPlanConditions,
+  noPlanWhere,
   updateBillingSettings,
   graceEndsAt,
   isBillingEnforced,
@@ -254,14 +256,15 @@ async function billingImpact(trialDays: number) {
   const base = { profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as any }, isActive: true };
   const [total, paying, inTrial, pac] = await Promise.all([
     prisma.user.count({ where: base }),
-    prisma.user.count({ where: { ...base, membershipExpiresAt: { gt: now } } }),
+    // "Con plan": membresía vigente o Gold/Diamond asignado a mano.
+    prisma.user.count({ where: { ...base, OR: hasPlanConditions(now) } }),
     prisma.user.count({
       where: {
         ...base,
         // Ojo con NULL: `NOT (x > now)` descarta las filas sin fecha, así que
-        // "sin membresía vigente" se escribe explícito.
+        // "sin plan" se escribe explícito (noPlanWhere).
         AND: [
-          { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+          noPlanWhere(now),
           { OR: [{ shopTrialEndsAt: { gt: now } }, { createdAt: { gt: trialCutoff } }] },
         ],
       },
@@ -607,7 +610,9 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
     subscription = await createFlowSubscription({
       planId,
       customerId: user.flowCustomerId,
-      ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
+      // Siempre explícito (también 0): si no, Flow aplica la prueba propia del
+      // plan (el plan antiguo tenía días de prueba) y regalaría días.
+      trial_period_days: trialDays,
     });
   } catch (err: any) {
     // If "Customer not found" (7002), the stored customerId is stale
@@ -759,8 +764,10 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
   }
 
   const billing = await getBillingSettings();
-  if (!billing.enabled) {
-    // Cobro apagado desde el panel: nadie paga y todos los perfiles se ven.
+  // Cobro apagado desde el panel: nadie paga y todos los perfiles se ven. Si
+  // la persona tiene un pago automático (PAC) vivo en Flow, se sigue la ruta
+  // completa para que /pago le muestre la suscripción y pueda cancelarla.
+  if (!billing.enabled && !user.flowSubscriptionId) {
     return res.json({
       requiresPayment: false,
       billingEnabled: false,
@@ -779,7 +786,7 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
   const hasPaidPayment = await prisma.paymentIntent.count({
     where: {
       subscriberId: userId,
-      purpose: { in: ["MEMBERSHIP_PLAN", "SHOP_PLAN"] },
+      purpose: { in: ["MEMBERSHIP_PLAN", "SHOP_PLAN", "PROMO_PURCHASE", "PUBLICATE_GOLD"] },
       status: "PAID",
     },
   });
@@ -868,7 +875,7 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     shopTrialEndsAt: user.shopTrialEndsAt?.toISOString() || null,
     profileType: user.profileType,
     subscriptionPrice: billing.priceClp,
-    billingEnabled: true,
+    billingEnabled: billing.enabled,
     inGrace,
     graceEndsAt: inGrace && grace ? grace.toISOString() : null,
     recentPayments,

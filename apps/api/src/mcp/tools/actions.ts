@@ -153,7 +153,8 @@ export function registerActionTools(server: McpServer, ctx: McpContext) {
         const before = await prisma.user.findUnique({ where: { id }, select: { tier: true } });
         const updated = await prisma.user.update({
           where: { id },
-          data: { tier: tier === "NINGUNO" ? null : tier },
+          // Rango puesto a mano: sin vencimiento.
+          data: { tier: tier === "NINGUNO" ? null : tier, tierExpiresAt: null },
           select: PROFILE_SELECT,
         });
         return jsonResult({ antes: before, perfil: updated });

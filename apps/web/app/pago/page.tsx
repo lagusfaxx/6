@@ -92,7 +92,9 @@ export default function PagoPage() {
     }
   };
 
-  if (!subLoading && sub?.billingEnabled === false) {
+  // Gratis por ahora, salvo que tenga un pago automático vivo: ahí se muestra
+  // la página normal para que pueda cancelarlo.
+  if (!subLoading && sub?.billingEnabled === false && !sub?.flowSubscriptionId) {
     return (
       <div className="mx-auto max-w-lg px-4 py-6 pb-24">
         <Link href="/cuenta" className="mb-5 inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition">

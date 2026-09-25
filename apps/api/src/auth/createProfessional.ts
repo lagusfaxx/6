@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { getBillingSettingsSync } from "../lib/billingSettings";
+import { getBillingSettings } from "../lib/billingSettings";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { config } from "../config";
@@ -143,7 +143,7 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
   // Gold pagado al registrarse: dura lo que diga el catálogo (plan Gold).
   const isGold = input.tier === "GOLD";
   const goldDays = isGold ? await getGoldPlanDays() : 0;
-  const shopTrialEndsAt = isGold ? null : addDays(now, getBillingSettingsSync().trialDays);
+  const shopTrialEndsAt = isGold ? null : addDays(now, (await getBillingSettings()).trialDays);
   const membershipExpiresAt = isGold ? addDays(now, goldDays) : null;
   const tierExpiresAt = isGold ? addDays(now, goldDays) : null;
 

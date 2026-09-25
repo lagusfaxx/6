@@ -277,7 +277,7 @@ export default function AccountPage() {
             </Link>
           )}
 
-          {requiresPayment && !statusLoading && subscriptionStatus?.billingEnabled === false && (
+          {requiresPayment && !statusLoading && subscriptionStatus?.billingEnabled === false && !subscriptionStatus.flowSubscriptionId && (
             <div className="border-t border-white/[0.06] px-6 py-5">
               <div className="flex items-center gap-3">
                 <CreditCard className="h-4 w-4 text-white/30 shrink-0" />
@@ -291,7 +291,10 @@ export default function AccountPage() {
             </div>
           )}
 
-          {requiresPayment && !statusLoading && subscriptionStatus && subscriptionStatus.billingEnabled !== false && (
+          {requiresPayment &&
+            !statusLoading &&
+            subscriptionStatus &&
+            (subscriptionStatus.billingEnabled !== false || Boolean(subscriptionStatus.flowSubscriptionId)) && (
             <div className="border-t border-white/[0.06] px-6 py-5">
               <div className="flex items-center gap-3">
                 <CreditCard className="h-4 w-4 text-white/30 shrink-0" />

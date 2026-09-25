@@ -21,7 +21,12 @@ export async function ensureFlowPlanForPrice(priceClp: number): Promise<string> 
   for (const planId of candidates) {
     try {
       const plan = await getFlowPlan(planId);
-      if (plan && Number(plan.amount) === priceClp && Number(plan.status ?? 1) === 1) {
+      if (
+        plan &&
+        Number(plan.amount) === priceClp &&
+        Number(plan.status ?? 1) === 1 &&
+        !Number(plan.trial_period_days || 0)
+      ) {
         await updateBillingSettings({ flowPlanId: planId, flowPlanPriceClp: priceClp });
         return planId;
       }

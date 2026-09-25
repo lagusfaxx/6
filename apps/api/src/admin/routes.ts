@@ -627,7 +627,12 @@ adminRouter.put(
         });
       }
     }
-    if (tier !== undefined) data.tier = tier;
+    // Rango puesto a mano = sin vencimiento (si no, el worker lo quitaría
+    // cuando venza el plan pagado que tuviera antes).
+    if (tier !== undefined) {
+      data.tier = tier;
+      data.tierExpiresAt = null;
+    }
     if (role !== undefined) data.role = role;
     if (membershipExpiresAt !== undefined) {
       data.membershipExpiresAt = membershipExpiresAt
@@ -1743,7 +1748,10 @@ adminRouter.put(
     if (serviceCategory !== undefined) data.serviceCategory = serviceCategory ? String(serviceCategory) : null;
     if (profileTags !== undefined) data.profileTags = Array.isArray(profileTags) ? profileTags.map(String) : [];
     if (serviceTags !== undefined) data.serviceTags = Array.isArray(serviceTags) ? serviceTags.map(String) : [];
-    if (tier !== undefined) data.tier = tier || null;
+    if (tier !== undefined) {
+      data.tier = tier || null;
+      data.tierExpiresAt = null;
+    }
 
     const professional = await prisma.user.update({
       where: { id },

@@ -4,6 +4,8 @@ import { getBillingSettingsSync, isBillingEnforced } from "./billingSettings";
 
 type PlanUser = {
   profileType: string;
+  tier?: string | null;
+  tierExpiresAt?: Date | null;
   membershipExpiresAt: Date | null;
   shopTrialEndsAt: Date | null;
   createdAt?: Date;
@@ -28,6 +30,11 @@ export function isBusinessPlanActive(user: PlanUser): boolean {
 
   // Active paid membership
   if (user.membershipExpiresAt && user.membershipExpiresAt.getTime() > now) {
+    return true;
+  }
+
+  // Gold/Diamond asignado a mano por el equipo (sin vencimiento).
+  if ((user.tier === "GOLD" || user.tier === "PREMIUM") && !user.tierExpiresAt) {
     return true;
   }
 

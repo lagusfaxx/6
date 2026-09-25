@@ -4,7 +4,7 @@ import { sendWeeklyReport, weeklyConfig } from "./mcp/stats/weekly";
 import cron from "node-cron";
 import { prisma } from "./db";
 import { sendBillingNoticeEmail, sendExpiryEmail, smtpEnabled } from "./worker/email";
-import { PAID_PROFILE_TYPES, getBillingSettings, graceEndsAt } from "./lib/billingSettings";
+import { PAID_PROFILE_TYPES, getBillingSettings, graceEndsAt, noPlanWhere } from "./lib/billingSettings";
 import { getFlowSubscription } from "./khipu/client";
 import { config } from "./config";
 import {
@@ -463,11 +463,24 @@ async function tickSyncPacSubscriptions() {
 
 /* ─── 6. Gold plan renewal reminder (24h before expiry) ─── */
 
+/** Recorre una consulta paginada por id hasta el final. */
+async function findAllPaged<T extends { id: string }>(page: (cursor: string | null) => Promise<T[]>): Promise<T[]> {
+  const all: T[] = [];
+  let cursor: string | null = null;
+  for (let i = 0; i < 200; i++) {
+    const rows = await page(cursor);
+    all.push(...rows);
+    if (rows.length === 0) break;
+    cursor = rows[rows.length - 1].id;
+  }
+  return all;
+}
+
 /* ─── Cobro recién encendido: aviso a quienes no tienen plan ───
    Uno al encender (cuánta gracia tienen) y otro cuando faltan menos de 48 h.
    Las claves llevan la fecha de encendido: si se apaga y se vuelve a encender,
    se avisa de nuevo. */
-async function tickBillingNotices() {
+export async function tickBillingNotices() {
   const s = await getBillingSettings();
   const grace = graceEndsAt(s);
   if (!s.enabled || !s.enabledAt || !grace) return;
@@ -479,21 +492,27 @@ async function tickBillingNotices() {
   const graceText = grace.toLocaleDateString("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" });
   const price = `$${s.priceClp.toLocaleString("es-CL")}`;
 
-  const users = await prisma.user.findMany({
-    where: {
-      profileType: { in: [...PAID_PROFILE_TYPES] },
-      isActive: true,
-      // Sin plan vigente. No se usa NOT: con columnas NULL, `NOT (x > now)`
-      // descarta justo a quienes nunca pagaron.
-      AND: [
-        { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
-        { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
-        { createdAt: { lte: new Date(now.getTime() - s.trialDays * 24 * 60 * 60 * 1000) } },
-      ],
-    },
-    select: { id: true, email: true },
-    take: 1000,
-  });
+  // Todos los perfiles sin plan ni prueba, por páginas (sin tope): ninguno
+  // puede quedar oculto sin haber recibido el aviso.
+  const users = await findAllPaged((cursor) =>
+    prisma.user.findMany({
+      where: {
+        profileType: { in: [...PAID_PROFILE_TYPES] },
+        isActive: true,
+        // Sin plan vigente. No se usa NOT: con columnas NULL, `NOT (x > now)`
+        // descarta justo a quienes nunca pagaron.
+        AND: [
+          noPlanWhere(now),
+          { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
+          { createdAt: { lte: new Date(now.getTime() - s.trialDays * 24 * 60 * 60 * 1000) } },
+        ],
+      },
+      select: { id: true, email: true },
+      orderBy: { id: "asc" },
+      take: 500,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    }),
+  );
 
   const title = lastCall ? "Último aviso: activa tu plan" : "Comienza el cobro de membresías";
   const body = lastCall
@@ -534,23 +553,27 @@ export async function tickTrialEnding() {
   const trialMs = s.trialDays * DAY;
   const grace = graceEndsAt(s);
 
-  const candidates = await prisma.user.findMany({
-    where: {
-      profileType: { in: [...PAID_PROFILE_TYPES] },
-      isActive: true,
-      OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }],
-      AND: [
-        {
-          OR: [
-            { shopTrialEndsAt: { gt: now, lte: horizon } },
-            { createdAt: { gt: new Date(now.getTime() - trialMs), lte: new Date(horizon.getTime() - trialMs) } },
-          ],
-        },
-      ],
-    },
-    select: { id: true, email: true, shopTrialEndsAt: true, createdAt: true },
-    take: 1000,
-  });
+  const candidates = await findAllPaged((cursor) =>
+    prisma.user.findMany({
+      where: {
+        profileType: { in: [...PAID_PROFILE_TYPES] },
+        isActive: true,
+        AND: [
+          noPlanWhere(now),
+          {
+            OR: [
+              { shopTrialEndsAt: { gt: now, lte: horizon } },
+              { createdAt: { gt: new Date(now.getTime() - trialMs), lte: new Date(horizon.getTime() - trialMs) } },
+            ],
+          },
+        ],
+      },
+      select: { id: true, email: true, shopTrialEndsAt: true, createdAt: true },
+      orderBy: { id: "asc" },
+      take: 500,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    }),
+  );
 
   const price = `$${s.priceClp.toLocaleString("es-CL")}`;
   for (const u of candidates) {
@@ -580,7 +603,7 @@ export async function tickTrialEnding() {
    Sólo con el cobro encendido: apagado, nadie pierde su rango (como antes de
    que existieran los planes pagados). Aviso 48 h antes y al vencer. Los
    rangos puestos a mano (sin tierExpiresAt) no vencen nunca. */
-async function tickPaidPlans() {
+export async function tickPaidPlans() {
   if (!(await getBillingSettings()).enabled) return;
   const now = new Date();
   const label = (t: string | null) => (t === "PREMIUM" ? "Diamond" : t === "GOLD" ? "Gold" : "Silver");

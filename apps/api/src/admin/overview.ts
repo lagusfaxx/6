@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getBillingSettings, graceEndsAt, isBillingEnforced } from "../lib/billingSettings";
+import { getBillingSettings, graceEndsAt, isBillingEnforced, noPlanWhere } from "../lib/billingSettings";
 import { prisma } from "../db";
 import { requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -341,7 +341,7 @@ adminOverviewRouter.get(
       createdAt: { lte: new Date(now.getTime() - trialMs) },
       AND: [
         { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
-        { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+        noPlanWhere(now),
       ],
     } as any;
     if (q) {

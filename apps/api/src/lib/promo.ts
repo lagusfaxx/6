@@ -63,7 +63,11 @@ type PlanUser = {
 export function currentPlan(user: PlanUser, now = new Date()) {
   const code = tierToPlan(user.tier);
   if (!code) return null;
-  if (!user.tierExpiresAt) return { code, manual: true, expiresAt: null as Date | null };
+  if (!user.tierExpiresAt) {
+    // Silver "a mano" es el que se guarda al registrarse gratis, no un plan.
+    if (code === "SILVER") return null;
+    return { code, manual: true, expiresAt: null as Date | null };
+  }
   if (user.tierExpiresAt.getTime() <= now.getTime()) return null;
   return { code, manual: false, expiresAt: user.tierExpiresAt };
 }

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getBillingSettingsSync } from "../lib/billingSettings";
+import { getBillingSettings } from "../lib/billingSettings";
 import multer from "multer";
 import path from "path";
 import fs from "node:fs/promises";
@@ -214,6 +214,7 @@ profileRouter.get(
         serviceStyleTags: true,
         profileType: true,
         membershipExpiresAt: true,
+        tierExpiresAt: true,
         shopTrialEndsAt: true,
         createdAt: true,
         isActive: true,
@@ -391,6 +392,8 @@ profileRouter.get(
         profileType: true,
         subscriptionPrice: true,
         membershipExpiresAt: true,
+        tier: true,
+        tierExpiresAt: true,
         shopTrialEndsAt: true,
         latitude: true,
         longitude: true,
@@ -424,6 +427,8 @@ profileRouter.get(
         profileType: true,
         subscriptionPrice: true,
         membershipExpiresAt: true,
+        tier: true,
+        tierExpiresAt: true,
         shopTrialEndsAt: true,
         latitude: true,
         longitude: true,
@@ -1326,7 +1331,7 @@ profileRouter.post(
     }
 
     const now = new Date();
-    const trialEndsAt = addDays(now, getBillingSettingsSync().trialDays);
+    const trialEndsAt = addDays(now, (await getBillingSettings()).trialDays);
 
     const updated = await prisma.user.update({
       where: { id: me.id },

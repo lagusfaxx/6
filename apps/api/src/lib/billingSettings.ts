@@ -181,9 +181,32 @@ export function planActiveWhere(now = new Date()): Prisma.UserWhereInput {
   return {
     OR: [
       { profileType: { notIn: [...PAID_PROFILE_TYPES] } },
-      { membershipExpiresAt: { gt: now } },
+      ...hasPlanConditions(now),
       { shopTrialEndsAt: { gt: now } },
       { createdAt: { gt: new Date(now.getTime() - s.trialDays * DAY_MS) } },
+    ],
+  };
+}
+
+/**
+ * "Tiene plan" (además de la prueba): membresía vigente, o rango Gold/Diamond
+ * asignado a mano por el equipo (sin vencimiento), que es un regalo e incluye
+ * la visibilidad. El Silver "a mano" no cuenta: es el que se guarda al
+ * registrarse gratis, no un plan.
+ */
+export function hasPlanConditions(now = new Date()): Prisma.UserWhereInput[] {
+  return [
+    { membershipExpiresAt: { gt: now } },
+    { tier: { in: ["GOLD", "PREMIUM"] }, tierExpiresAt: null },
+  ];
+}
+
+/** Lo contrario de hasPlanConditions, sin NOT (NULL en Postgres). */
+export function noPlanWhere(now = new Date()): Prisma.UserWhereInput {
+  return {
+    AND: [
+      { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+      { OR: [{ tier: null }, { tier: "SILVER" }, { tierExpiresAt: { not: null } }] },
     ],
   };
 }

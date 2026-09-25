@@ -118,6 +118,8 @@ async function handleFeed(req: any, res: any, mediaType?: "IMAGE" | "VIDEO") {
           latitude: true,
           longitude: true,
           membershipExpiresAt: true,
+          tier: true,
+          tierExpiresAt: true,
           shopTrialEndsAt: true
         }
       }
