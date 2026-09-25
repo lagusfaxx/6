@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getBillingSettingsSync } from "../lib/billingSettings";
 import { prisma } from "../db";
 import { requireAdmin } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -321,7 +322,7 @@ adminOverviewRouter.get(
   "/expired-trials",
   asyncHandler(async (req, res) => {
     const now = new Date();
-    const monthlyPriceClp = config.membershipPriceClp;
+    const monthlyPriceClp = getBillingSettingsSync().priceClp;
     const q = String(req.query.q || "").trim();
     const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
 

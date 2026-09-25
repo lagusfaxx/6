@@ -263,7 +263,21 @@ export default function AccountPage() {
           </div>
 
           {/* ── Subscription ── */}
-          {requiresPayment && !statusLoading && subscriptionStatus && (
+          {requiresPayment && !statusLoading && subscriptionStatus?.billingEnabled === false && (
+            <div className="border-t border-white/[0.06] px-6 py-5">
+              <div className="flex items-center gap-3">
+                <CreditCard className="h-4 w-4 text-white/30 shrink-0" />
+                <span className="text-[11px] font-semibold text-white/30 uppercase tracking-wider">Suscripción</span>
+                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]">Gratis</Badge>
+              </div>
+              <p className="mt-3 text-xs text-white/50">
+                Por ahora publicar en UZEED es gratis: tu perfil está visible sin pagar nada. Te avisaremos antes de que
+                empiece el cobro.
+              </p>
+            </div>
+          )}
+
+          {requiresPayment && !statusLoading && subscriptionStatus && subscriptionStatus.billingEnabled !== false && (
             <div className="border-t border-white/[0.06] px-6 py-5">
               <div className="flex items-center gap-3">
                 <CreditCard className="h-4 w-4 text-white/30 shrink-0" />
@@ -291,9 +305,19 @@ export default function AccountPage() {
                   </div>
                 )}
 
+                {subscriptionStatus.inGrace && subscriptionStatus.graceEndsAt && !subscriptionStatus.membershipActive && (
+                  <p className="text-xs text-amber-300 bg-amber-500/10 rounded-lg px-3 py-2 border border-amber-500/20">
+                    Comenzó el cobro de membresías. Tu perfil sigue visible hasta el{" "}
+                    <span className="font-semibold">
+                      {new Date(subscriptionStatus.graceEndsAt).toLocaleDateString("es-CL", { day: "numeric", month: "long" })}
+                    </span>
+                    ; activa tu plan antes para no dejar de aparecer.
+                  </p>
+                )}
+
                 {!subscriptionStatus.isActive && (
                   <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2 border border-red-500/20">
-                    Suscripción expirada. Renuévala para seguir visible.
+                    Tu perfil está oculto porque no tienes un plan vigente. Actívalo para volver a aparecer.
                   </p>
                 )}
 

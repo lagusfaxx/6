@@ -5,6 +5,11 @@ import { apiFetch } from "../lib/api";
 
 type SubscriptionStatus = {
   requiresPayment: boolean;
+  /** Interruptor de cobro del panel. Apagado = publicar es gratis. */
+  billingEnabled?: boolean;
+  /** Cobro recién encendido: todos se ven hasta `graceEndsAt`. */
+  inGrace?: boolean;
+  graceEndsAt?: string | null;
   isActive: boolean;
   membershipActive?: boolean;
   trialActive?: boolean;

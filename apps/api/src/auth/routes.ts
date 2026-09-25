@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getBillingSettingsSync } from "../lib/billingSettings";
 import argon2 from "argon2";
 import crypto from "crypto";
 import multer from "multer";
@@ -167,7 +168,7 @@ authRouter.post(
     const requiresPayment = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(
       profileType,
     );
-    const trialDays = requiresPayment ? config.freeTrialDays : 90;
+    const trialDays = requiresPayment ? getBillingSettingsSync().trialDays : 90;
     const shopTrialEndsAt = requiresPayment
       ? addDays(new Date(), trialDays)
       : null;

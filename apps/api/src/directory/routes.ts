@@ -12,6 +12,7 @@ import {
   resolveProfessionalLevel,
 } from "../lib/professionalLevel";
 import { isUUID } from "../lib/validators";
+import { userHasActivePlan, withActivePlan } from "../lib/billingSettings";
 
 export const directoryRouter = Router();
 
@@ -246,7 +247,7 @@ directoryRouter.get(
     }> = [];
     try {
       users = await prisma.user.findMany({
-        where,
+        where: withActivePlan(where),
         select: {
           id: true,
           username: true,
@@ -294,7 +295,7 @@ directoryRouter.get(
         error instanceof Prisma.PrismaClientValidationError
       ) {
         users = await prisma.user.findMany({
-          where,
+          where: withActivePlan(where),
           select: {
             id: true,
             username: true,
@@ -605,13 +606,13 @@ directoryRouter.get(
        separado, para que ninguno dependa de ese corte. */
     const [tieredUsers, recentUsers] = await Promise.all([
       prisma.user.findMany({
-        where: { ...baseWhere, tier: { not: null } },
+        where: withActivePlan({ ...baseWhere, tier: { not: null } }),
         take: 500,
         orderBy: { createdAt: "desc" },
         select: recentSelect,
       }),
       prisma.user.findMany({
-        where: baseWhere,
+        where: withActivePlan(baseWhere),
         take: 200,
         orderBy: { createdAt: "desc" },
         select: recentSelect,
@@ -810,6 +811,11 @@ directoryRouter.get(
       }
     }
     if (!u) return res.status(404).json({ error: "not_found" });
+    // Con el cobro activo, un perfil sin plan vigente no se muestra (salvo a
+    // su dueña y al equipo, para que pueda ver su ficha y pagar).
+    if (!isAdminViewer && req.session.userId !== id && !(await userHasActivePlan(id))) {
+      return res.status(404).json({ error: "not_found", reason: "PLAN_INACTIVE" });
+    }
 
     const [reviews, forumThread, umateCreator] = await Promise.all([
       prisma.professionalReview.findMany({
@@ -1007,7 +1013,7 @@ directoryRouter.get(
     });
 
     const users = await prisma.user.findMany({
-      where,
+      where: withActivePlan(where),
       select: {
         id: true,
         username: true,
@@ -1339,7 +1345,7 @@ directoryRouter.get(
     let hasNewColumns = true;
     try {
       users = await prisma.user.findMany({
-        where, take: Math.max((offset + limit) * 4, 400), select: fullSelect,
+        where: withActivePlan(where), take: Math.max((offset + limit) * 4, 400), select: fullSelect,
       });
     } catch (err) {
       if (
@@ -1349,7 +1355,7 @@ directoryRouter.get(
         console.warn("[directory/search] new columns not available, falling back:", (err as Error).message?.slice(0, 120));
         hasNewColumns = false;
         users = await prisma.user.findMany({
-          where: fallbackWhere, take: Math.max((offset + limit) * 4, 400), select: fallbackSelect,
+          where: withActivePlan(fallbackWhere), take: Math.max((offset + limit) * 4, 400), select: fallbackSelect,
         });
       } else {
         throw err;
@@ -1363,10 +1369,10 @@ directoryRouter.get(
       const baseWhere = hasNewColumns ? where : fallbackWhere;
       try {
         const cityUsers = await prisma.user.findMany({
-          where: {
+          where: withActivePlan({
             ...baseWhere,
             city: { contains: selectedCity, mode: "insensitive" as const },
-          } as any,
+          }) as any,
           take: 200,
           select: (hasNewColumns ? fullSelect : fallbackSelect) as any,
         });
@@ -1682,6 +1688,12 @@ directoryRouter.get(
       },
     });
     if (!u) return res.status(404).json({ error: "NOT_FOUND" });
+    if (req.session.userId !== id && !(await userHasActivePlan(id))) {
+      const viewerRole = req.session.userId
+        ? (await prisma.user.findUnique({ where: { id: req.session.userId }, select: { role: true } }))?.role
+        : null;
+      if (viewerRole !== "ADMIN") return res.status(404).json({ error: "NOT_FOUND", reason: "PLAN_INACTIVE" });
+    }
 
     const reviews = await prisma.establishmentReview.findMany({
       where: { establishmentId: id },

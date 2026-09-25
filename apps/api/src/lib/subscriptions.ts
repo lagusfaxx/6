@@ -1,5 +1,6 @@
 import { addDays } from "@uzeed/shared";
 import { config } from "../config";
+import { getBillingSettingsSync, isBillingEnforced } from "./billingSettings";
 
 type PlanUser = {
   profileType: string;
@@ -19,6 +20,10 @@ export function isBusinessPlanActive(user: PlanUser): boolean {
   const requiresPayment = ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(user.profileType);
   if (!requiresPayment) return true;
 
+  // Cobro apagado desde el panel (o en su periodo de gracia): todos visibles.
+  const settings = getBillingSettingsSync();
+  if (!isBillingEnforced(settings)) return true;
+
   const now = Date.now();
 
   // Active paid membership
@@ -34,7 +39,7 @@ export function isBusinessPlanActive(user: PlanUser): boolean {
   // Grace period: all profiles get FREE_TRIAL_DAYS from their creation date,
   // regardless of whether shopTrialEndsAt or membershipExpiresAt are set.
   if (user.createdAt) {
-    const gracePeriodMs = config.freeTrialDays * 24 * 60 * 60 * 1000;
+    const gracePeriodMs = settings.trialDays * 24 * 60 * 60 * 1000;
     if (user.createdAt.getTime() + gracePeriodMs > now) {
       return true;
     }

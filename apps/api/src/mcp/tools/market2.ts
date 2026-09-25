@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { getBillingSettingsSync } from "../../lib/billingSettings";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db";
@@ -154,7 +155,7 @@ export function registerMarketTools(server: McpServer, ctx: McpContext) {
         filtros: describeFiltros(f),
         ingresosPorTier: porTier,
         ingresosPorProposito: porProposito,
-        mrr: { membresiasActivas: mrr[0].activas, precioMensualClp: config.membershipPriceClp, mrrClp: mrr[0].activas * config.membershipPriceClp, criterio: "Foto actual: membresías vigentes × precio mensual." },
+        mrr: { membresiasActivas: mrr[0].activas, precioMensualClp: getBillingSettingsSync().priceClp, mrrClp: mrr[0].activas * getBillingSettingsSync().priceClp, criterio: "Foto actual: membresías vigentes × precio mensual." },
         renovaciones: { primerasCompras: r.primeras, renovaciones: r.renovaciones, clpPrimeras: r.clpPrimeras, clpRenovaciones: r.clpRenovaciones, pctRenovaciones: r.primeras + r.renovaciones ? Math.round((r.renovaciones / (r.primeras + r.renovaciones)) * 1000) / 10 : null },
         churn: { membresiasVencidasEnPeriodo: c.vencidas, renovadas: c.renovadas, perdidas: c.perdidas, churnPct: c.vencidas ? Math.round((c.perdidas / c.vencidas) * 1000) / 10 : null, criterio: "Perdida = venció hace más de 14 días y no hubo pago alrededor del vencimiento." },
         conversionGratisAPago: { registrosEvaluados: v.registros, pagaronDentroDeVentana: v.pagaron, pct: v.registros ? Math.round((v.pagaron / v.registros) * 1000) / 10 : null, ventanaDias: window, criterio: "Sólo registros con al menos N días de antigüedad, para que la ventana sea justa." },

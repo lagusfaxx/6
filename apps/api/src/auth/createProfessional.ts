@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { getBillingSettingsSync } from "../lib/billingSettings";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { config } from "../config";
@@ -140,7 +141,7 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
 
   const now = new Date();
   const isGold = input.tier === "GOLD";
-  const shopTrialEndsAt = isGold ? null : addDays(now, config.freeTrialDays);
+  const shopTrialEndsAt = isGold ? null : addDays(now, getBillingSettingsSync().trialDays);
   const membershipExpiresAt = isGold ? addDays(now, 7) : null;
 
   const passwordSetToken = crypto.randomBytes(32).toString("hex");

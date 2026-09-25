@@ -92,6 +92,23 @@ export default function PagoPage() {
     }
   };
 
+  if (!subLoading && sub?.billingEnabled === false) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-6 pb-24">
+        <Link href="/cuenta" className="mb-5 inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition">
+          <ChevronLeft className="h-3.5 w-3.5" /> Volver a mi cuenta
+        </Link>
+        <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/[0.06] p-6 text-center">
+          <CheckCircle className="mx-auto mb-3 h-8 w-8 text-emerald-400" />
+          <h1 className="text-xl font-bold tracking-tight">Por ahora publicar es gratis</h1>
+          <p className="mt-2 text-sm text-white/55">
+            Tu perfil está visible sin pagar nada. Cuando empiece el cobro te avisaremos con tiempo para que actives tu plan.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-lg px-4 py-6 pb-24">
       {/* Back */}
@@ -114,6 +131,11 @@ export default function PagoPage() {
                 <CheckCircle className="h-3 w-3" />
                 Activa — vence en {sub.daysRemaining} días
                 {hasPAC && <span className="text-fuchsia-400 ml-1">(renovación automática)</span>}
+              </p>
+            ) : sub?.inGrace && sub?.graceEndsAt ? (
+              <p className="mt-1 text-xs text-amber-300">
+                Tu perfil sigue visible hasta el{" "}
+                {new Date(sub.graceEndsAt).toLocaleDateString("es-CL", { day: "numeric", month: "long" })}. Activa tu plan antes.
               </p>
             ) : (
               <p className="mt-1 text-xs text-white/40">Renueva tu suscripción mensual</p>

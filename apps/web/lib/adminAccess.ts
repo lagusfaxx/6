@@ -82,6 +82,8 @@ const ADMIN_ONLY_SECTIONS = [
   "/admin/2fa",
   /* Accesos de Claude (MCP) al panel: sólo el administrador los ve y corta. */
   "/admin/claude",
+  // Encender el cobro y fijar la tarifa: dinero de verdad.
+  "/admin/cobros",
 ];
 
 /** ¿Se le muestra esta sección del panel a esta cuenta? */

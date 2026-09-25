@@ -4,6 +4,14 @@ import { requireAuth, requireAdmin } from "../auth/middleware";
 import { config } from "../config";
 import { asyncHandler } from "../lib/asyncHandler";
 import {
+  getBillingSettings,
+  updateBillingSettings,
+  graceEndsAt,
+  isBillingEnforced,
+  remainingAccessDays,
+} from "../lib/billingSettings";
+import { ensureFlowPlanForPrice } from "../lib/flowPlan";
+import {
   createFlowCustomer,
   registerFlowCustomer,
   getFlowRegisterStatus,
@@ -16,6 +24,11 @@ import {
 } from "../khipu/client";
 
 export const billingRouter = Router();
+
+const BILLING_DISABLED = {
+  error: "BILLING_DISABLED",
+  message: "Por ahora publicar en UZEED es gratis. No necesitas pagar nada.",
+};
 
 // Public payment status by intent reference (used by /pago/exitoso after Flow return)
 billingRouter.get("/billing/status", asyncHandler(async (req, res) => {
@@ -82,6 +95,8 @@ billingRouter.get("/billing/status", asyncHandler(async (req, res) => {
 // ── Flow one-time payment ──────────────────────────────────────────────────────
 
 billingRouter.post("/billing/payment/flow", requireAuth, asyncHandler(async (req, res) => {
+  const billing = await getBillingSettings();
+  if (!billing.enabled) return res.status(409).json(BILLING_DISABLED);
   const userId = req.session.userId!;
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -142,7 +157,7 @@ billingRouter.post("/billing/payment/flow", requireAuth, asyncHandler(async (req
       purpose: "MEMBERSHIP_PLAN",
       method: "FLOW",
       status: "PENDING",
-      amount: config.membershipPriceClp
+      amount: billing.priceClp
     }
   });
 
@@ -154,7 +169,7 @@ billingRouter.post("/billing/payment/flow", requireAuth, asyncHandler(async (req
     commerceOrder: intent.id,
     subject: "Suscripción mensual profesional",
     currency: "CLP",
-    amount: config.membershipPriceClp,
+    amount: billing.priceClp,
     email,
     urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
     urlReturn: `${appUrl}/pago/exitoso?ref=${intent.id}`
@@ -176,6 +191,8 @@ billingRouter.post("/billing/payment/flow", requireAuth, asyncHandler(async (req
 // ── Bank transfer payment submission ──────────────────────────────────────────
 
 billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async (req, res) => {
+  const billing = await getBillingSettings();
+  if (!billing.enabled) return res.status(409).json(BILLING_DISABLED);
   const userId = req.session.userId!;
   const { folio, bank, notes } = req.body;
 
@@ -219,7 +236,7 @@ billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async 
       purpose: "MEMBERSHIP_PLAN",
       method: "TRANSFER",
       status: "PENDING",
-      amount: config.membershipPriceClp,
+      amount: billing.priceClp,
       providerPaymentId: String(folio).trim(),
       notes: notesParts.join(" | ").slice(0, 500)
     }
@@ -227,6 +244,96 @@ billingRouter.post("/billing/payment/transfer", requireAuth, asyncHandler(async 
 
   console.log("[billing] bank transfer submitted", { userId, intentId: intent.id, folio });
   return res.json({ ok: true, intentId: intent.id, message: "Tu comprobante fue enviado. El equipo lo revisará en 24 horas hábiles." });
+}));
+
+// ── Admin: interruptor de cobro y tarifa ─────────────────────────────────────
+
+async function billingImpact(trialDays: number) {
+  const now = new Date();
+  const trialCutoff = new Date(now.getTime() - trialDays * 24 * 60 * 60 * 1000);
+  const base = { profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as any }, isActive: true };
+  const [total, paying, inTrial, pac] = await Promise.all([
+    prisma.user.count({ where: base }),
+    prisma.user.count({ where: { ...base, membershipExpiresAt: { gt: now } } }),
+    prisma.user.count({
+      where: {
+        ...base,
+        NOT: { membershipExpiresAt: { gt: now } },
+        OR: [{ shopTrialEndsAt: { gt: now } }, { createdAt: { gt: trialCutoff } }],
+      },
+    }),
+    prisma.user.count({ where: { ...base, flowSubscriptionId: { not: null } } }),
+  ]);
+  return { total, paying, inTrial, withoutPlan: Math.max(0, total - paying - inTrial), pac };
+}
+
+function serializeSettings(s: Awaited<ReturnType<typeof getBillingSettings>>) {
+  const grace = graceEndsAt(s);
+  return {
+    enabled: s.enabled,
+    enabledAt: s.enabledAt?.toISOString() ?? null,
+    priceClp: s.priceClp,
+    graceDays: s.graceDays,
+    trialDays: s.trialDays,
+    graceEndsAt: grace?.toISOString() ?? null,
+    enforced: isBillingEnforced(s),
+    flowPlanId: s.flowPlanPriceClp === s.priceClp ? s.flowPlanId : null,
+  };
+}
+
+billingRouter.get("/admin/billing/settings", requireAdmin, asyncHandler(async (_req, res) => {
+  const s = await getBillingSettings(true);
+  return res.json({
+    settings: serializeSettings(s),
+    impact: await billingImpact(s.trialDays),
+    flowConfigured: Boolean(config.flowApiKey),
+  });
+}));
+
+billingRouter.put("/admin/billing/settings", requireAdmin, asyncHandler(async (req, res) => {
+  const body = req.body ?? {};
+  const patch: Parameters<typeof updateBillingSettings>[0] = {};
+  const bad = (message: string) => res.status(400).json({ error: "VALIDATION", message });
+
+  if (body.enabled !== undefined) patch.enabled = body.enabled === true;
+  if (body.priceClp !== undefined) {
+    const n = Number(body.priceClp);
+    if (!Number.isInteger(n) || n < 500 || n > 1_000_000) return bad("La tarifa debe ser un monto entero entre $500 y $1.000.000.");
+    patch.priceClp = n;
+  }
+  if (body.graceDays !== undefined) {
+    const n = Number(body.graceDays);
+    if (!Number.isInteger(n) || n < 0 || n > 90) return bad("Los días de gracia deben estar entre 0 y 90.");
+    patch.graceDays = n;
+  }
+  if (body.trialDays !== undefined) {
+    const n = Number(body.trialDays);
+    if (!Number.isInteger(n) || n < 0 || n > 365) return bad("Los días de prueba deben estar entre 0 y 365.");
+    patch.trialDays = n;
+  }
+
+  const before = await getBillingSettings(true);
+  const s = await updateBillingSettings(patch);
+  console.log("[billing] configuración de cobro actualizada", {
+    by: (req as any).user?.email,
+    before: serializeSettings(before),
+    after: serializeSettings(s),
+  });
+
+  // Con cobro activo, el plan de Flow para el PAC tiene que tener la tarifa
+  // nueva. Si Flow falla, se reintenta solo cuando alguien active el PAC.
+  let flowPlan: { ok: boolean; planId?: string; message?: string } | null = null;
+  if (s.enabled && config.flowApiKey && s.flowPlanPriceClp !== s.priceClp) {
+    try {
+      flowPlan = { ok: true, planId: await ensureFlowPlanForPrice(s.priceClp) };
+    } catch (err: any) {
+      console.error("[billing] no se pudo preparar el plan de Flow", err?.message || err);
+      flowPlan = { ok: false, message: "No se pudo crear el plan en Flow ahora; se reintentará cuando una profesional active el pago automático." };
+    }
+  }
+
+  const fresh = await getBillingSettings(true);
+  return res.json({ settings: serializeSettings(fresh), impact: await billingImpact(fresh.trialDays), flowPlan });
 }));
 
 // ── Admin: list pending transfers ──────────────────────────────────────────────
@@ -333,6 +440,8 @@ billingRouter.post("/admin/billing/transfers/:id/reject", requireAdmin, asyncHan
 // ── PAC Flow: Step 1 — Register card (creates customer + redirects to Flow card enrollment) ──
 
 billingRouter.post("/billing/subscription/register-card", requireAuth, asyncHandler(async (req, res) => {
+  const billing = await getBillingSettings();
+  if (!billing.enabled) return res.status(409).json(BILLING_DISABLED);
   const userId = req.session.userId!;
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -450,11 +559,14 @@ billingRouter.get("/billing/subscription/register-status", requireAuth, asyncHan
 // ── PAC Flow: Step 3 — Create subscription (only after card is registered) ───
 
 billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(async (req, res) => {
+  const billing = await getBillingSettings();
+  if (!billing.enabled) return res.status(409).json(BILLING_DISABLED);
   const userId = req.session.userId!;
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
-      id: true, profileType: true, flowCustomerId: true, flowSubscriptionId: true
+      id: true, profileType: true, flowCustomerId: true, flowSubscriptionId: true,
+      membershipExpiresAt: true, shopTrialEndsAt: true, createdAt: true
     }
   });
   if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
@@ -479,13 +591,19 @@ billingRouter.post("/billing/subscription/start", requireAuth, asyncHandler(asyn
     }
   }
 
-  const planId = config.flowPlanId;
+  // Plan de Flow con la tarifa vigente (se crea si cambió el precio).
+  const planId = await ensureFlowPlanForPrice(billing.priceClp);
+  // El primer cargo llega cuando se acaba el acceso que ya tiene (prueba,
+  // gracia o mes pagado): no se cobra dos veces el mismo periodo ni se regalan
+  // días de más.
+  const trialDays = remainingAccessDays(user);
 
   let subscription;
   try {
     subscription = await createFlowSubscription({
       planId,
       customerId: user.flowCustomerId,
+      ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
     });
   } catch (err: any) {
     // If "Customer not found" (7002), the stored customerId is stale
@@ -636,6 +754,18 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     });
   }
 
+  const billing = await getBillingSettings();
+  if (!billing.enabled) {
+    // Cobro apagado desde el panel: nadie paga y todos los perfiles se ven.
+    return res.json({
+      requiresPayment: false,
+      billingEnabled: false,
+      isActive: true,
+      profileType: user.profileType,
+      subscriptionPrice: billing.priceClp,
+    });
+  }
+
   const now = new Date();
   const membershipActive = user.membershipExpiresAt ? user.membershipExpiresAt.getTime() > now.getTime() : false;
   const trialActive = user.shopTrialEndsAt ? user.shopTrialEndsAt.getTime() > now.getTime() : false;
@@ -652,7 +782,12 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
   const isLegacyTrial = membershipActive && !trialActive && hasPaidPayment === 0;
   const effectiveTrialActive = trialActive || isLegacyTrial;
   const effectiveMembershipActive = isLegacyTrial ? false : membershipActive;
-  const isActive = effectiveMembershipActive || effectiveTrialActive;
+  // Además de membresía y prueba, cuenta la gracia general que se da al
+  // encender el cobro y los días de prueba desde que se creó el perfil.
+  const accessDays = remainingAccessDays(user, now);
+  const isActive = effectiveMembershipActive || effectiveTrialActive || accessDays > 0;
+  const grace = graceEndsAt(billing);
+  const inGrace = !isBillingEnforced(billing, now);
 
   // Calculate days remaining
   let daysRemaining = 0;
@@ -660,6 +795,8 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     daysRemaining = Math.ceil((user.membershipExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   } else if (trialActive && user.shopTrialEndsAt) {
     daysRemaining = Math.ceil((user.shopTrialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  } else {
+    daysRemaining = accessDays;
   }
 
   // Get recent payment intents
@@ -681,9 +818,9 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
 
   // If flowSubscriptionId is missing but flowCustomerId exists, try to find subscription in Flow
   let resolvedSubscriptionId = user.flowSubscriptionId;
-  if (!resolvedSubscriptionId && user.flowCustomerId && config.flowPlanId) {
+  if (!resolvedSubscriptionId && user.flowCustomerId && billing.flowPlanId) {
     try {
-      const subs = await listFlowSubscriptions({ planId: config.flowPlanId, status: 1 });
+      const subs = await listFlowSubscriptions({ planId: billing.flowPlanId, status: 1 });
       const activeSub = subs.data?.find((s) => s.customerId === user.flowCustomerId);
       if (activeSub) {
         console.log("[billing] found Flow subscription via list fallback", { userId, subscriptionId: activeSub.subscriptionId, customerId: user.flowCustomerId });
@@ -726,7 +863,10 @@ billingRouter.get("/billing/subscription/status", requireAuth, asyncHandler(asyn
     membershipExpiresAt: user.membershipExpiresAt?.toISOString() || null,
     shopTrialEndsAt: user.shopTrialEndsAt?.toISOString() || null,
     profileType: user.profileType,
-    subscriptionPrice: config.membershipPriceClp,
+    subscriptionPrice: billing.priceClp,
+    billingEnabled: true,
+    inGrace,
+    graceEndsAt: inGrace && grace ? grace.toISOString() : null,
     recentPayments,
     flowCustomerId: user.flowCustomerId || null,
     flowSubscriptionId: resolvedSubscriptionId || null,

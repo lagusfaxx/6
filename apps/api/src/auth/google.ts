@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getBillingSettingsSync } from "../lib/billingSettings";
 import crypto from "crypto";
 import path from "path";
 import multer from "multer";
@@ -570,7 +571,7 @@ googleAuthRouter.post(
     }
 
     const username = await pickUniqueUsername(data.displayName);
-    const shopTrialEndsAt = addDays(new Date(), config.freeTrialDays);
+    const shopTrialEndsAt = addDays(new Date(), getBillingSettingsSync().trialDays);
 
     let user;
     try {
