@@ -55,6 +55,7 @@ type ExpiredTrialItem = {
 type ExpiredTrialsResponse = {
   generatedAt: string;
   monthlyPriceClp: number;
+  billing?: { enabled: boolean; enforced: boolean; graceEndsAt: string | null; trialDays: number };
   summary: {
     total: number;
     listed: number;
@@ -242,6 +243,26 @@ export default function AdminExpiredTrials() {
 
             {data && (
               <>
+                {data.billing && (
+                  <div
+                    className={`rounded-xl border px-4 py-3 text-xs ${
+                      data.billing.enforced
+                        ? "border-red-500/20 bg-red-500/[0.06] text-red-200/80"
+                        : "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-200/80"
+                    }`}
+                  >
+                    {!data.billing.enabled
+                      ? "Cobro apagado: estos perfiles siguen visibles gratis. Se ocultarían sólo si enciendes el cobro y no pagan."
+                      : data.billing.enforced
+                        ? "Cobro activo: estos perfiles están ocultos hasta que paguen."
+                        : `Cobro activo en periodo de gracia: se ocultan el ${formatDate(data.billing.graceEndsAt!)} si no pagan.`}{" "}
+                    <span className="text-white/40">
+                      La prueba dura {data.billing.trialDays} días desde el registro (se cambia en{" "}
+                      <Link href="/admin/cobros" className="underline">Cobros</Link>).
+                    </span>
+                  </div>
+                )}
+
                 {/* ── KPI Strip ── */}
                 <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
                   <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.06] p-4">
