@@ -66,6 +66,7 @@ import { mcpAdminRouter } from "./mcp/adminRoutes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 import { startWorker } from "./worker";
+import { getBillingSettings } from "./lib/billingSettings";
 import { initBaileys } from "./notifications/whatsappBaileys";
 
 const app = express();
@@ -307,6 +308,7 @@ process.on("unhandledRejection", (err) => console.error("[api] unhandledRejectio
 process.on("uncaughtException", (err) => console.error("[api] uncaughtException", err));
 
 async function boot() {
+  await getBillingSettings(true).catch(() => undefined);
   await ensureAdminUser().catch((err) => console.error("[api] admin seed failed", err));
   await seedCategories().catch((err) => console.error("[api] category seed failed", err));
   await runStoriesTtlExtensionOnce().catch((err) => console.error("[api] stories ttl recovery failed", err));

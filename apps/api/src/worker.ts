@@ -3,7 +3,8 @@ import { runStatsAlerts } from "./mcp/stats/alerts";
 import { sendWeeklyReport, weeklyConfig } from "./mcp/stats/weekly";
 import cron from "node-cron";
 import { prisma } from "./db";
-import { sendExpiryEmail, smtpEnabled } from "./worker/email";
+import { sendBillingNoticeEmail, sendExpiryEmail, smtpEnabled } from "./worker/email";
+import { PAID_PROFILE_TYPES, getBillingSettings, graceEndsAt } from "./lib/billingSettings";
 import { getFlowSubscription } from "./khipu/client";
 import { config } from "./config";
 import {
@@ -84,6 +85,8 @@ async function safeSend(
 
 async function tickMembershipExpiry() {
   if (!smtpEnabled()) return;
+  // Con el cobro apagado no hay nada que renovar.
+  if (!(await getBillingSettings()).enabled) return;
 
   const now = new Date();
   const in3 = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
@@ -460,7 +463,63 @@ async function tickSyncPacSubscriptions() {
 
 /* ─── 6. Gold plan renewal reminder (24h before expiry) ─── */
 
+/* ─── Cobro recién encendido: aviso a quienes no tienen plan ───
+   Uno al encender (cuánta gracia tienen) y otro cuando faltan menos de 48 h.
+   Las claves llevan la fecha de encendido: si se apaga y se vuelve a encender,
+   se avisa de nuevo. */
+async function tickBillingNotices() {
+  const s = await getBillingSettings();
+  const grace = graceEndsAt(s);
+  if (!s.enabled || !s.enabledAt || !grace) return;
+  const now = new Date();
+  if (grace.getTime() <= now.getTime()) return;
+
+  const lastCall = grace.getTime() - now.getTime() < 48 * 60 * 60 * 1000;
+  const key = `${lastCall ? "billing_lastcall" : "billing_start"}_${s.enabledAt.toISOString().slice(0, 16)}`;
+  const graceText = grace.toLocaleDateString("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" });
+  const price = `$${s.priceClp.toLocaleString("es-CL")}`;
+
+  const users = await prisma.user.findMany({
+    where: {
+      profileType: { in: [...PAID_PROFILE_TYPES] },
+      isActive: true,
+      NOT: [
+        { membershipExpiresAt: { gt: now } },
+        { shopTrialEndsAt: { gt: now } },
+        { createdAt: { gt: new Date(now.getTime() - s.trialDays * 24 * 60 * 60 * 1000) } },
+      ],
+    },
+    select: { id: true, email: true },
+    take: 1000,
+  });
+
+  const title = lastCall ? "Último aviso: activa tu plan" : "Comienza el cobro de membresías";
+  const body = lastCall
+    ? `Tu perfil deja de mostrarse el ${graceText} si no activas tu plan (${price}/mes).`
+    : `Desde ahora publicar cuesta ${price} al mes. Tu perfil sigue visible hasta el ${graceText}: activa tu plan antes para no dejar de aparecer.`;
+
+  let sent = 0;
+  for (const u of users) {
+    if (await wasReminderSent(u.id, key)) continue;
+    await markReminderSent(u.id, key);
+    try {
+      await sendInAppAndPush(u.id, { type: "SUBSCRIPTION_STARTED", title, body, url: "/pago", tag: key });
+      if (u.email) {
+        await sendBillingNoticeEmail(u.email, {
+          subject: title,
+          text: `${body}\n\nActívalo aquí: ${config.appUrl.replace(/\/$/, "")}/pago`,
+        });
+      }
+      sent++;
+    } catch (err) {
+      console.error(`[worker] billing notice failed for ${u.id}`, err);
+    }
+  }
+  if (sent) console.log(`[worker] billing notices (${key}) sent: ${sent}`);
+}
+
 async function tickGoldRenewalReminder() {
+  if (!(await getBillingSettings()).enabled) return;
   const now = new Date();
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
@@ -701,6 +760,7 @@ async function tick() {
     // Each task runs independently — one failure doesn't block others
     const tasks = [
       { name: "membershipExpiry", fn: tickMembershipExpiry },
+      { name: "billingNotices", fn: tickBillingNotices },
       { name: "noPhotoReminder", fn: tickNoPhotoReminder },
       { name: "inactiveReminder", fn: tickInactiveReminder },
       { name: "videocallConfig", fn: tickVideocallConfigReminder },

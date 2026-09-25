@@ -1396,36 +1396,52 @@ export default function ProfileDetailView({
             )}
           </section>
 
-          {/* Comentarios del foro */}
-          {professional.forumThread && forumComments.length > 0 && (
+          {/* Comentarios del foro: siempre visible si hay hilo, para que haya
+              por dónde empezar a opinar aunque todavía no haya comentarios. */}
+          {professional.forumThread && (
             <section className="min-w-0 py-8">
               <div className="flex items-baseline justify-between gap-3">
                 <h2 className="text-lg font-semibold tracking-tight">
-                  Comentarios del foro
+                  Opiniones en el foro
                 </h2>
-                <Link
-                  href={professional.forumThread.url}
-                  className="text-[13px] font-medium text-white/45 underline underline-offset-4 transition hover:text-white/75"
-                >
-                  Ver hilo completo
-                </Link>
+                {forumComments.length > 0 && (
+                  <Link
+                    href={professional.forumThread.url}
+                    className="text-[13px] font-medium text-white/45 underline underline-offset-4 transition hover:text-white/75"
+                  >
+                    Ver todas
+                  </Link>
+                )}
               </div>
 
-              <div className="mt-3 divide-y divide-white/[0.06]">
-                {forumComments.map((comment) => (
-                  <article key={comment.id} className="py-3.5">
-                    <div className="mb-1.5 flex items-center justify-between gap-3">
-                      <p className="text-xs font-medium text-white/75">
-                        {comment.author?.displayName || comment.author?.username || "Usuario"}
+              {forumComments.length > 0 ? (
+                <div className="mt-3 divide-y divide-white/[0.06]">
+                  {forumComments.map((comment) => (
+                    <article key={comment.id} className="py-3.5">
+                      <div className="mb-1.5 flex items-center justify-between gap-3">
+                        <p className="text-xs font-medium text-white/75">
+                          {comment.author?.displayName || comment.author?.username || "Usuario"}
+                        </p>
+                        <p className="text-[11px] text-white/45">{timeAgo(comment.createdAt)}</p>
+                      </div>
+                      <p className="line-clamp-3 text-sm leading-relaxed text-white/68">
+                        {comment.content}
                       </p>
-                      <p className="text-[11px] text-white/45">{timeAgo(comment.createdAt)}</p>
-                    </div>
-                    <p className="line-clamp-3 text-sm leading-relaxed text-white/68">
-                      {comment.content}
-                    </p>
-                  </article>
-                ))}
-              </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-white/45">
+                  Aún nadie ha opinado. ¿La conoces? Cuéntale a la comunidad.
+                </p>
+              )}
+
+              <Link
+                href={professional.forumThread.url}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-white/85 transition hover:bg-white/[0.06]"
+              >
+                Dejar mi opinión
+              </Link>
             </section>
           )}
 

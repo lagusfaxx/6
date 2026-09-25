@@ -24,3 +24,20 @@ export async function sendExpiryEmail(to: string, expiresAt: Date) {
     console.error("[worker/email] expiry email failed", { to, err });
   }
 }
+
+/** Aviso de que empezó el cobro de membresías (o de que se acaba la gracia). */
+export async function sendBillingNoticeEmail(to: string, opts: { subject: string; text: string }) {
+  if (!smtpEnabled()) return;
+  try {
+    const transporter = nodemailer.createTransport({
+      host: config.smtp.host!,
+      port: config.smtp.port!,
+      secure: config.smtp.port === 465,
+      auth: { user: config.smtp.user!, pass: config.smtp.pass! },
+    });
+    await transporter.sendMail({ from: config.smtp.from!, to, subject: opts.subject, text: opts.text });
+    console.log(`[worker/email] billing notice sent to ${to}`);
+  } catch (err) {
+    console.error("[worker/email] billing notice failed", { to, err });
+  }
+}

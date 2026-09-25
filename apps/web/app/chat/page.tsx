@@ -12,9 +12,7 @@ import {
   MapPin,
   Filter,
   Circle,
-  Archive,
   Trash2,
-  BellOff,
   MoreHorizontal,
   CheckCheck,
 } from "lucide-react";
@@ -92,6 +90,7 @@ export default function ChatInboxPage() {
   const [filter, setFilter] = useState<FilterTab>("all");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [autoReplyOpen, setAutoReplyOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { me } = useMe();
   const router = useRouter();
   const pathname = usePathname() || "/chats";
@@ -178,6 +177,21 @@ export default function ChatInboxPage() {
     });
     return () => disconnect();
   }, []);
+
+  // Eliminar el chat sólo para mí: la otra persona conserva su historial.
+  const handleDeleteConversation = async (otherId: string, name: string) => {
+    if (!confirm(`¿Eliminar el chat con ${name}? Se borrará de tu bandeja; si te vuelve a escribir, verás solo los mensajes nuevos.`)) return;
+    setDeletingId(otherId);
+    try {
+      await apiFetch(`/messages/${otherId}`, { method: "DELETE" });
+      setConversations((prev) => prev.filter((c) => c.other.id !== otherId));
+      setActiveMenu(null);
+    } catch (e) {
+      alert(friendlyErrorMessage(e) || "No se pudo eliminar el chat");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   // Close context menu on outside click
   useEffect(() => {
@@ -477,7 +491,8 @@ export default function ChatInboxPage() {
                     e.stopPropagation();
                     setActiveMenu(activeMenu === c.other.id ? null : c.other.id);
                   }}
-                  className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-lg text-white/0 group-hover/row:text-white/30 hover:!text-white/60 hover:bg-white/[0.06] transition-all"
+                  aria-label="Opciones del chat"
+                  className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-lg text-white/30 sm:text-white/0 sm:group-hover/row:text-white/30 hover:!text-white/60 hover:bg-white/[0.06] transition-all"
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
@@ -487,28 +502,15 @@ export default function ChatInboxPage() {
                   <div className="absolute right-2 top-10 z-20 w-44 rounded-xl border border-white/[0.1] bg-[#12132a]/95 backdrop-blur-xl p-1 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-white/60 hover:bg-white/[0.06] hover:text-white transition-colors"
-                      onClick={() => setActiveMenu(null)}
-                    >
-                      <Archive className="h-3.5 w-3.5" />
-                      Archivar
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-white/60 hover:bg-white/[0.06] hover:text-white transition-colors"
-                      onClick={() => setActiveMenu(null)}
-                    >
-                      <BellOff className="h-3.5 w-3.5" />
-                      Silenciar
-                    </button>
-                    <div className="my-1 h-px bg-white/[0.06]" />
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-red-400/80 hover:bg-red-500/[0.08] hover:text-red-400 transition-colors"
-                      onClick={() => setActiveMenu(null)}
+                      disabled={deletingId === c.other.id}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-red-400/80 hover:bg-red-500/[0.08] hover:text-red-400 transition-colors disabled:opacity-50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteConversation(c.other.id, c.other.displayName || c.other.username);
+                      }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                      Eliminar
+                      {deletingId === c.other.id ? "Eliminando..." : "Eliminar chat"}
                     </button>
                   </div>
                 )}

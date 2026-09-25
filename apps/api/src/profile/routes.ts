@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getBillingSettingsSync } from "../lib/billingSettings";
 import multer from "multer";
 import path from "path";
 import fs from "node:fs/promises";
@@ -1325,7 +1326,7 @@ profileRouter.post(
     }
 
     const now = new Date();
-    const trialEndsAt = addDays(now, config.freeTrialDays);
+    const trialEndsAt = addDays(now, getBillingSettingsSync().trialDays);
 
     const updated = await prisma.user.update({
       where: { id: me.id },

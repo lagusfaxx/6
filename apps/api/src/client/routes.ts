@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db";
+import { withActivePlan } from "../lib/billingSettings";
 
 export const clientRouter = Router();
 
@@ -75,7 +76,7 @@ clientRouter.get("/popup-promotions", async (_req, res, next) => {
 
     const [pros, profileReviews] = await Promise.all([
       prisma.user.findMany({
-        where: { id: { in: professionalIds }, isActive: true, profileType: "PROFESSIONAL" },
+        where: withActivePlan({ id: { in: professionalIds }, isActive: true, profileType: "PROFESSIONAL" as const }),
         select: {
           id: true,
           username: true,

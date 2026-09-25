@@ -23,9 +23,9 @@ export default function AyudaForoPage() {
       <Section title="¿Qué es el foro?">
         <p>
           El foro es el lugar donde la comunidad de UZEED conversa. Puedes
-          abrir nuevos hilos, responder a los existentes, votar publicaciones
-          y seguir temas que te interesen. Es ideal para compartir
-          recomendaciones, hacer preguntas y conectar con otros usuarios.
+          hacer preguntas, responder, dar &ldquo;me gusta&rdquo; a los mensajes
+          útiles y dejar tu opinión sobre los perfiles de la plataforma. Solo
+          se muestra tu nickname.
         </p>
       </Section>
 
@@ -38,15 +38,15 @@ export default function AyudaForoPage() {
             },
             {
               title: "Explora los hilos",
-              body: "Verás los hilos ordenados por actividad. Puedes filtrar por categoría o buscar un tema específico.",
+              body: "Verás las conversaciones ordenadas por actividad. Filtra por categoría, busca un tema o cambia a “Opiniones de perfiles”.",
             },
             {
-              title: "Crea un hilo o responde",
-              body: "Pulsa “Nuevo hilo” para crear uno propio o entra a un hilo existente para responder.",
+              title: "Pregunta o responde",
+              body: "Escribe tu pregunta en el cuadro de arriba (los detalles son opcionales) o entra a un tema para responder. Si no has iniciado sesión, guardamos lo que escribiste mientras entras.",
             },
             {
-              title: "Vota y guarda",
-              body: "Con un clic puedes dar tu voto a un hilo o respuesta y mantener lo más útil en la cima.",
+              title: "Dale me gusta y cita",
+              body: "Marca con un corazón los mensajes útiles o usa “Citar” para responder a alguien en particular.",
             },
           ]}
         />
@@ -54,7 +54,7 @@ export default function AyudaForoPage() {
 
       <Section title="Notificaciones del foro">
         <p>
-          Cuando haya actividad nueva en hilos que sigues o donde hayas
+          Cuando alguien responda en temas que abriste o donde hayas
           comentado, verás un contador junto al icono de Foro. También recibes
           una notificación en el panel de campana del encabezado. Así no te
           pierdes respuestas importantes.

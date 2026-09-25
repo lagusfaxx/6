@@ -551,6 +551,8 @@ model User {
   storyLikes             StoryLike[]
   forumThreads           ForumThread[]
   forumPosts             ForumPost[]
+  forumPostLikes         ForumPostLike[]
+  chatClears             ChatClear[]       @relation("ChatClears")
   wallet                 Wallet?
   videocallConfig        VideocallConfig?
   clientVideocalls       VideocallBooking[] @relation("ClientVideocalls")
@@ -794,6 +796,20 @@ model Message {
   @@index([createdAt])
   // Barrido del worker de avisos por correo: mensajes sin leer por destinatario.
   @@index([toId, readAt, createdAt])
+}
+
+/// "Eliminar chat" es por usuario: guarda desde cuándo `userId` dejó de ver
+/// la conversación con `otherId`. Los mensajes no se borran (la otra persona
+/// conserva su historial y moderación puede revisarlos); si llega un mensaje
+/// nuevo, la conversación reaparece sólo con lo posterior a `clearedAt`.
+model ChatClear {
+  userId    String   @db.Uuid
+  otherId   String   @db.Uuid
+  clearedAt DateTime @default(now())
+
+  user User @relation("ChatClears", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, otherId])
 }
 
 /// Control de envío de la respuesta automática: una por conversación cada
@@ -1148,11 +1164,25 @@ model ForumPost {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  thread ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  thread ForumThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes  ForumPostLike[]
 
   @@index([threadId, createdAt])
   @@index([authorId])
+}
+
+/// "Me gusta" de un post del foro. Uno por usuario y post.
+model ForumPostLike {
+  postId    String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([userId])
 }
 
 // ── Analytics ──

@@ -3,6 +3,7 @@ import { prisma } from "../db";
 import { Prisma } from "@prisma/client";
 import { requireAuth } from "../auth/middleware";
 import { isBusinessPlanActive } from "../lib/subscriptions";
+import { planActiveWhere } from "../lib/billingSettings";
 import multer from "multer";
 import path from "path";
 import { config } from "../config";
@@ -509,7 +510,7 @@ servicesRouter.get(
       where: {
         isActive: true,
         owner: {
-          profileType: { in: ownerTypes as any },
+          AND: [{ profileType: { in: ownerTypes as any } }, planActiveWhere()],
         },
         ...(minPrice !== null ? { price: { gte: minPrice } } : {}),
         ...(maxPrice !== null ? { price: { lte: maxPrice } } : {}),

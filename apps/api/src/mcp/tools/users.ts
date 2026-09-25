@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { getBillingSettingsSync } from "../../lib/billingSettings";
 import { z } from "zod";
 import { prisma } from "../../db";
 import { Prisma } from "@prisma/client";
@@ -593,8 +594,8 @@ export function registerUserTools(server: McpServer, ctx: McpContext) {
           criterio: "Sin perfiles de prueba, cuentas del equipo ni perfiles cargados por admin (adminManaged).",
           ventanaDias: args.estado === "activas" || args.estado === "pruebas_vencidas" ? null : dias,
           total,
-          precioMembresiaClp: config.membershipPriceClp,
-          ingresoMensualAsociadoClp: total * config.membershipPriceClp,
+          precioMembresiaClp: getBillingSettingsSync().priceClp,
+          ingresoMensualAsociadoClp: total * getBillingSettingsSync().priceClp,
           perfiles,
         });
       },

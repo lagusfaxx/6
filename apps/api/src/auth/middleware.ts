@@ -176,6 +176,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
  *  - /admin/exports: baja la base completa en CSV, con teléfonos.
  *  - /plans: los planes de cobro de Khipu (dinero de verdad, no una solicitud).
  *  - /admin/mcp: accesos de Claude al panel y su bitácora.
+ *  - /admin/billing/settings: encender el cobro y fijar la tarifa.
  *
  * Además de esta lista, borrar perfiles queda fuera (ver más abajo) y todas
  * las acciones destructivas que ya pasan por `requireFresh2FA` siguen siendo
@@ -187,6 +188,7 @@ const MODERATOR_BLOCKED_PREFIXES = [
   "/admin/exports",
   "/plans",
   "/admin/mcp",
+  "/admin/billing/settings",
 ];
 
 /**
