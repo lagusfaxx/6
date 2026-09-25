@@ -71,9 +71,18 @@ messagesRouter.get("/messages/inbox", requireAuth, asyncHandler(async (req, res)
     take: 200
   });
 
+  // Conversaciones que el usuario eliminó: se ocultan hasta que llegue algo nuevo.
+  const clears = await prisma.chatClear.findMany({
+    where: { userId: me },
+    select: { otherId: true, clearedAt: true }
+  });
+  const clearedMap = new Map(clears.map((c) => [c.otherId, c.clearedAt.getTime()]));
+
   const conversationMap = new Map<string, typeof messages[number]>();
   for (const message of messages) {
     const otherId = message.fromId === me ? message.toId : message.fromId;
+    const clearedAt = clearedMap.get(otherId);
+    if (clearedAt !== undefined && message.createdAt.getTime() <= clearedAt) continue;
     if (!conversationMap.has(otherId)) {
       conversationMap.set(otherId, message);
     }
@@ -136,12 +145,18 @@ messagesRouter.get("/messages/:userId", requireAuth, asyncHandler(async (req, re
   });
   if (!otherUser) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
+  const cleared = await prisma.chatClear.findUnique({
+    where: { userId_otherId: { userId: me, otherId: other } },
+    select: { clearedAt: true }
+  });
+
   const messages = await prisma.message.findMany({
     where: {
       OR: [
         { fromId: me, toId: other },
         { fromId: other, toId: me }
-      ]
+      ],
+      ...(cleared ? { createdAt: { gt: cleared.clearedAt } } : {})
     },
     orderBy: { createdAt: "asc" },
     take: 200
@@ -151,6 +166,29 @@ messagesRouter.get("/messages/:userId", requireAuth, asyncHandler(async (req, re
     data: { readAt: new Date() }
   });
   return res.json({ messages, other: otherUser });
+}));
+
+// Eliminar el chat sólo para quien lo pide: se guarda la fecha y se dejan de
+// mostrar los mensajes anteriores. La otra persona conserva su historial.
+messagesRouter.delete("/messages/:userId", requireAuth, asyncHandler(async (req, res) => {
+  const me = req.session.userId;
+  if (!me) return res.status(401).json({ error: "UNAUTHENTICATED" });
+  if (!isUUID(me)) return res.status(400).json({ error: "INVALID_USER_ID" });
+  const other = req.params.userId;
+  if (!isUUID(other)) return res.status(400).json({ error: "INVALID_TARGET_ID" });
+
+  const now = new Date();
+  await prisma.chatClear.upsert({
+    where: { userId_otherId: { userId: me, otherId: other } },
+    create: { userId: me, otherId: other, clearedAt: now },
+    update: { clearedAt: now }
+  });
+  // Lo que quedó sin leer ya no se ve: que no siga sumando al contador.
+  await prisma.message.updateMany({
+    where: { fromId: other, toId: me, readAt: null, createdAt: { lte: now } },
+    data: { readAt: now }
+  });
+  return res.json({ ok: true });
 }));
 
 messagesRouter.post("/messages/:userId", requireAuth, messageLimiter, asyncHandler(async (req, res) => {
