@@ -483,10 +483,12 @@ async function tickBillingNotices() {
     where: {
       profileType: { in: [...PAID_PROFILE_TYPES] },
       isActive: true,
-      NOT: [
-        { membershipExpiresAt: { gt: now } },
-        { shopTrialEndsAt: { gt: now } },
-        { createdAt: { gt: new Date(now.getTime() - s.trialDays * 24 * 60 * 60 * 1000) } },
+      // Sin plan vigente. No se usa NOT: con columnas NULL, `NOT (x > now)`
+      // descarta justo a quienes nunca pagaron.
+      AND: [
+        { OR: [{ membershipExpiresAt: null }, { membershipExpiresAt: { lte: now } }] },
+        { OR: [{ shopTrialEndsAt: null }, { shopTrialEndsAt: { lte: now } }] },
+        { createdAt: { lte: new Date(now.getTime() - s.trialDays * 24 * 60 * 60 * 1000) } },
       ],
     },
     select: { id: true, email: true },
@@ -554,7 +556,13 @@ async function tickPaidPlans() {
     take: 500,
   });
   for (const u of expired) {
-    await prisma.user.update({ where: { id: u.id }, data: { tier: null, tierExpiresAt: null } });
+    // Se vuelve a exigir el vencimiento al borrar: si justo renovó entre la
+    // lectura y aquí, no se toca.
+    const cleared = await prisma.user.updateMany({
+      where: { id: u.id, tierExpiresAt: { lte: now } },
+      data: { tier: null, tierExpiresAt: null },
+    });
+    if (cleared.count !== 1) continue;
     await sendInAppAndPush(u.id, {
       type: "SUBSCRIPTION_RENEWED",
       title: `Tu plan ${label(u.tier)} terminó`,

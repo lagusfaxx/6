@@ -138,6 +138,13 @@ export function computePlanPurchase(
   if (plan?.manual && PLAN_RANK[plan.code] >= PLAN_RANK[bought.code]) {
     return { tier: planToTier(plan.code), tierExpiresAt: null, membershipExpiresAt, creditDays: 0 };
   }
+  // Plan pagado mayor vigente (sólo pasa si un pago de Flow llega después de
+  // que la persona ya subió de plan): no se le baja el rango; lo pagado se
+  // suma como días de visibilidad.
+  if (plan && !plan.manual && PLAN_RANK[plan.code] > PLAN_RANK[bought.code]) {
+    if (plan.expiresAt!.getTime() > membershipExpiresAt.getTime()) membershipExpiresAt = plan.expiresAt!;
+    return { tier: planToTier(plan.code), tierExpiresAt: plan.expiresAt, membershipExpiresAt, creditDays: 0 };
+  }
 
   let tierExpiresAt: Date;
   let creditDays = 0;
@@ -201,10 +208,13 @@ export async function applyPromoPurchase(tx: Tx, input: ApplyInput): Promise<{ s
     });
 
     const label = planLabel(product.code);
+    const kept = tierToPlan(r.tier);
     const until = r.tierExpiresAt ?? r.membershipExpiresAt;
     const summary =
-      `Plan ${label} activo hasta el ${fmtDate(until)}` +
-      (r.creditDays > 0 ? ` (incluye ${r.creditDays} días de tu plan anterior)` : "");
+      kept && kept !== product.code
+        ? `Mantienes tu plan ${planLabel(kept)}; sumamos ${product.duration} días de visibilidad (hasta el ${fmtDate(r.membershipExpiresAt)})`
+        : `Plan ${label} activo hasta el ${fmtDate(until)}` +
+          (r.creditDays > 0 ? ` (incluye ${r.creditDays} días de tu plan anterior)` : "");
     await tx.notification.create({
       data: {
         userId: input.userId,
