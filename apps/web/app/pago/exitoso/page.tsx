@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { safeRedirect } from "../../../lib/api";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
 
 const POLL_INTERVAL = 3000; // 3 seconds
@@ -11,8 +12,11 @@ const POLL_MAX = 60000; // stop after 60 seconds
 function ExitosoContent() {
   const params = useSearchParams();
   const ref = params.get("ref");
-  // Compras de planes y boosts vuelven con next=/planes.
-  const isPromo = params.get("next") === "/planes";
+  // Compras de planes y boosts vuelven con next: /planes, o el estudio si
+  // se compró al registrarse. Sólo rutas internas (safeRedirect).
+  const next = safeRedirect(params.get("next"), "");
+  const isPromo = next === "/planes" || next.startsWith("/dashboard/services");
+  const fromSignup = next.startsWith("/dashboard/services");
 
   const [status, setStatus] = useState<"loading" | "paid" | "pending" | "failed" | "error">("loading");
   const elapsed = useRef(0);
@@ -84,8 +88,8 @@ function ExitosoContent() {
           </div>
           <div className="flex flex-col gap-2 pt-2">
             {isPromo && (
-              <Link href="/planes" className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white transition">
-                Ver mis planes y boosts
+              <Link href={next} className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white transition">
+                {fromSignup ? "Continuar con mi perfil" : "Ver mis planes y boosts"}
               </Link>
             )}
             <Link href="/cuenta" className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white hover:shadow-[0_0_20px_rgba(168,85,247,0.35)] transition">
@@ -125,13 +129,15 @@ function ExitosoContent() {
           <div>
             <h1 className="text-xl font-bold text-red-300">Pago cancelado</h1>
             <p className="mt-2 text-sm text-white/50">
-              {isPromo
+              {fromSignup
+                ? "El pago fue cancelado o rechazado y no se te cobró nada. Tu perfil ya está creado con la prueba gratis; puedes activar el plan cuando quieras desde Planes y boosts."
+                : isPromo
                 ? "El pago fue cancelado o rechazado. No se te cobró nada; puedes intentarlo de nuevo."
                 : "El pago fue cancelado o rechazado. Tu perfil no fue creado. Puedes intentarlo de nuevo."}
             </p>
           </div>
-          <Link href={isPromo ? "/planes" : "/publicate"} className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white transition">
-            Intentar de nuevo
+          <Link href={fromSignup ? "/dashboard/services?bienvenida=1" : isPromo ? "/planes" : "/publicate"} className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white transition">
+            {fromSignup ? "Continuar con mi perfil" : "Intentar de nuevo"}
           </Link>
         </div>
       )}

@@ -82,6 +82,8 @@ promoRouter.get(
       })),
       tokenRate,
       billingEnabled: billing.enabled,
+      // Días de prueba gratis que recibe un perfil nuevo (los usa el registro).
+      trialDays: billing.trialDays,
       flowAvailable: Boolean(config.flowApiKey),
       me,
     });
@@ -98,6 +100,8 @@ promoRouter.post(
 
     const productId = String(req.body?.productId || "");
     const method = req.body?.method === "TOKENS" ? "TOKENS" : "FLOW";
+    // Desde el registro se vuelve al estudio; desde /planes, a /planes.
+    const returnTo = req.body?.returnTo === "studio" ? "/dashboard/services?bienvenida=1" : "/planes";
 
     const [user, product, billing] = await Promise.all([
       prisma.user.findUnique({
@@ -206,7 +210,7 @@ promoRouter.post(
       amount: product.priceClp,
       email,
       urlConfirmation: `${apiUrl}/webhooks/flow/payment`,
-      urlReturn: `${appUrl}/pago/exitoso?ref=${intent.id}&next=/planes`,
+      urlReturn: `${appUrl}/pago/exitoso?ref=${intent.id}&next=${encodeURIComponent(returnTo)}`,
     });
     await prisma.paymentIntent.update({
       where: { id: intent.id },

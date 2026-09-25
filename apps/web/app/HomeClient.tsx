@@ -12,6 +12,7 @@ import useMe from "../hooks/useMe";
 import { useDiscreet } from "../components/DiscreetProvider";
 import { DISCREET_BRAND, discreetLabel } from "../lib/discreet";
 import { toHomeProfile, type HomeProfile } from "../components/home/ProfileCard";
+import useBillingInfo, { promoText } from "../hooks/useBillingInfo";
 
 const Stories = dynamic(() => import("../components/Stories"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("../components/ProfilePreviewModal"), { ssr: false });
@@ -43,14 +44,6 @@ import {
   Zap,
 } from "lucide-react";
 
-/* ── Trial label ── */
-function trialLabel(days: number): string {
-  if (days >= 365) return `${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? "s" : ""}`;
-  if (days >= 30) return `${Math.floor(days / 30)} mes${Math.floor(days / 30) > 1 ? "es" : ""}`;
-  return `${days} días`;
-}
-const FREE_TRIAL_DAYS = Number(process.env.NEXT_PUBLIC_FREE_TRIAL_DAYS || 90);
-const TRIAL_TEXT = `${trialLabel(FREE_TRIAL_DAYS)} gratis`;
 
 /* ── Hero search: smart routing (categorías / tags / comunas) ── */
 const CATEGORY_ALIASES: Array<{ keywords: string[]; href: string }> = [
@@ -308,6 +301,8 @@ export default function HomeClient() {
   const [recentPros, setRecentPros] = useState<RecentProfessional[]>([]);
   const [newProfiles, setNewProfiles] = useState<NewProfile[]>([]);
   const [spotlight, setSpotlight] = useState<HomeProfile[]>([]);
+  // "Gratis" o "6 meses gratis" según el interruptor de cobro.
+  const TRIAL_TEXT = promoText(useBillingInfo());
   const [bannerProfiles, setBannerProfiles] = useState<Record<string, FeaturedBannerProfile>>({});
   const locationCtx = useContext(LocationFilterContext);
   const location = locationCtx?.effectiveLocation ?? SANTIAGO_FALLBACK;

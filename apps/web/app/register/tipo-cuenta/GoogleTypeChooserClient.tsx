@@ -14,6 +14,7 @@ import {
   Gift,
 } from "lucide-react";
 import { apiFetch, friendlyErrorMessage } from "../../../lib/api";
+import useBillingInfo, { promoText } from "../../../hooks/useBillingInfo";
 
 type ProfileType = "CLIENT" | "PROFESSIONAL";
 
@@ -34,16 +35,7 @@ type OptionConfig = {
   badge?: { text: string; tone: "promo" };
 };
 
-function trialLabel(days: number): string {
-  if (days >= 365)
-    return `${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? "s" : ""}`;
-  if (days >= 30)
-    return `${Math.floor(days / 30)} mes${Math.floor(days / 30) > 1 ? "es" : ""}`;
-  return `${days} días`;
-}
-
-const FREE_TRIAL_DAYS = Number(process.env.NEXT_PUBLIC_FREE_TRIAL_DAYS || 90);
-const TRIAL_TEXT = `${trialLabel(FREE_TRIAL_DAYS)} gratis`;
+const PROMO_BADGE = "__promo__";
 
 const clientOption: OptionConfig = {
   key: "CLIENT",
@@ -63,10 +55,12 @@ const professionalOption: OptionConfig = {
   accent: "from-fuchsia-500/15 via-pink-500/10 to-rose-500/10",
   iconGradient: "from-fuchsia-400 to-pink-500",
   ringColor: "ring-fuchsia-400/50 border-fuchsia-400/40",
-  badge: { text: TRIAL_TEXT, tone: "promo" },
+  badge: { text: PROMO_BADGE, tone: "promo" },
 };
 
 export default function GoogleTypeChooserClient() {
+  // Texto de la promo según el interruptor de cobro (del servidor).
+  const TRIAL_TEXT = promoText(useBillingInfo());
   const [pending, setPending] = useState<PendingProfile | null>(null);
   const [loadingPending, setLoadingPending] = useState(true);
   const [profileType, setProfileType] = useState<ProfileType | null>(null);
@@ -181,7 +175,7 @@ export default function GoogleTypeChooserClient() {
                 onSelect={() => setProfileType("CLIENT")}
               />
               <OptionCard
-                option={professionalOption}
+                option={{ ...professionalOption, badge: { text: TRIAL_TEXT, tone: "promo" } }}
                 selected={profileType === "PROFESSIONAL"}
                 onSelect={() => setProfileType("PROFESSIONAL")}
               />

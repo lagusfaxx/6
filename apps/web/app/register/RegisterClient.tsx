@@ -8,6 +8,8 @@ import TermsModal from "../../components/TermsModal";
 import EmailVerification from "../../components/EmailVerification";
 import Link from "next/link";
 import { apiFetch, getApiBase, friendlyErrorMessage } from "../../lib/api";
+import useBillingInfo, { promoText, trialLabel } from "../../hooks/useBillingInfo";
+import RegisterPlanStep from "./RegisterPlanStep";
 import {
   VenetianMask,
   Building2,
@@ -23,14 +25,9 @@ import {
   Check,
 } from "lucide-react";
 
-function trialLabel(days: number): string {
-  if (days >= 365) return `${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? "s" : ""}`;
-  if (days >= 30) return `${Math.floor(days / 30)} mes${Math.floor(days / 30) > 1 ? "es" : ""}`;
-  return `${days} días`;
-}
-
-const FREE_TRIAL_DAYS = Number(process.env.NEXT_PUBLIC_FREE_TRIAL_DAYS || 90);
-const TRIAL_TEXT = `${trialLabel(FREE_TRIAL_DAYS)} gratis`;
+/* El texto de la promo (badge "Gratis" / "6 meses gratis") sale del servidor
+   en cada render (useBillingInfo): depende del interruptor de cobro. */
+const PROMO_BADGE = "__promo__";
 
 type ProfileType = "CLIENT" | "PROFESSIONAL" | "ESTABLISHMENT" | "SHOP";
 
@@ -64,7 +61,7 @@ const businessOptions: OptionConfig[] = [
     accent: "from-fuchsia-500/15 via-pink-500/10 to-rose-500/10",
     iconGradient: "from-fuchsia-400 to-pink-500",
     ringColor: "ring-fuchsia-400/50 border-fuchsia-400/40",
-    badge: { text: TRIAL_TEXT, tone: "promo" },
+    badge: { text: PROMO_BADGE, tone: "promo" },
   },
   {
     key: "ESTABLISHMENT",
@@ -95,8 +92,11 @@ export default function RegisterClient() {
     (googleInitialType === "PROFESSIONAL" || googleInitialType === "CLIENT");
 
   const [step, setStep] = useState<
-    "choose" | "form" | "verify" | "photos-failed"
+    "choose" | "form" | "verify" | "photos-failed" | "plan"
   >(isGoogleFlow ? "form" : "choose");
+  // Interruptor de cobro, días de prueba y catálogo (del servidor).
+  const billing = useBillingInfo();
+  const TRIAL_TEXT = promoText(billing);
   const [profileType, setProfileType] = useState<ProfileType | null>(
     isGoogleFlow ? googleInitialType : null,
   );
@@ -184,6 +184,16 @@ export default function RegisterClient() {
     window.location.replace("/dashboard/services?bienvenida=1");
   };
   const isProfessional = profileType === "PROFESSIONAL";
+
+  /* Con el cobro encendido, una profesional recién creada pasa por "Elige tu
+     plan" antes del estudio. Apagado, va directo al estudio como siempre. */
+  const offersPlans = Boolean(
+    isProfessional && billing?.billingEnabled && billing.products.some((p) => p.kind === "PLAN"),
+  );
+  const finishBusiness = () => {
+    if (offersPlans) setStep("plan");
+    else goToStudio();
+  };
 
   const selected = useMemo<OptionConfig | null>(() => {
     if (profileType === null) return null;
@@ -347,7 +357,7 @@ export default function RegisterClient() {
 
     setAccountCreated(true);
     setRegistering(false);
-    goToStudio();
+    finishBusiness();
   }
 
   // After email verified, create the account (and upload photos for professionals)
@@ -390,7 +400,7 @@ export default function RegisterClient() {
 
     setRegistering(false);
     if (isBusinessProfile) {
-      goToStudio();
+      finishBusiness();
     } else {
       window.location.replace("/");
     }
@@ -405,7 +415,7 @@ export default function RegisterClient() {
       await uploadProfessionalPhotos();
       setRetryingUpload(false);
       if (isBusinessProfile) {
-        goToStudio();
+        finishBusiness();
       } else {
         window.location.replace("/");
       }
@@ -420,7 +430,7 @@ export default function RegisterClient() {
   function skipPhotoUpload() {
     if (!accountCreated) return;
     if (isBusinessProfile) {
-      goToStudio();
+      finishBusiness();
     } else {
       window.location.replace("/");
     }
@@ -473,7 +483,7 @@ export default function RegisterClient() {
     );
   }
 
-  const stepIndex = step === "choose" ? 0 : step === "form" ? 1 : 1;
+  const stepIndex = step === "choose" ? 0 : step === "plan" ? 2 : 1;
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-10">
@@ -569,7 +579,9 @@ export default function RegisterClient() {
                   {businessOptions.map((opt) => (
                     <OptionCard
                       key={opt.key}
-                      option={opt}
+                      option={
+                        opt.badge?.text === PROMO_BADGE ? { ...opt, badge: { ...opt.badge, text: TRIAL_TEXT } } : opt
+                      }
                       selected={profileType === opt.key}
                       onSelect={() => setProfileType(opt.key)}
                     />
@@ -591,7 +603,9 @@ export default function RegisterClient() {
                         <span className="text-sm font-bold text-white">{TRIAL_TEXT}</span>
                       </div>
                       <p className="mt-0.5 text-xs text-white/65 leading-relaxed">
-                        Sin tarjeta de crédito. Empieza a recibir clientes hoy.
+                        {billing?.billingEnabled
+                          ? "Sin tarjeta de crédito. Empieza a recibir clientes hoy."
+                          : "Publicar es gratis y sin vencimiento. Empieza a recibir clientes hoy."}
                       </p>
                     </div>
                   </div>
@@ -720,8 +734,11 @@ export default function RegisterClient() {
                         <span className="text-sm font-bold text-white">Promo: {TRIAL_TEXT}</span>
                       </div>
                       <p className="mt-0.5 text-xs text-white/60 leading-relaxed">
-                        Regístrate ahora y disfruta {trialLabel(FREE_TRIAL_DAYS)} de membresía sin
-                        costo.
+                        {billing?.billingEnabled && billing.trialDays > 0
+                          ? `Regístrate ahora y disfruta ${trialLabel(billing.trialDays)} de membresía sin costo.`
+                          : billing?.billingEnabled
+                            ? "Elige tu plan al terminar el registro."
+                            : "Publicar en UZEED es gratis y sin vencimiento."}
                       </p>
                     </div>
                   </div>
@@ -874,6 +891,8 @@ export default function RegisterClient() {
                 </button>
               </div>
             </div>
+          ) : step === "plan" && billing ? (
+            <RegisterPlanStep info={billing} onSkip={goToStudio} />
           ) : null}
         </div>
 
