@@ -140,9 +140,12 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
   }
 
   const now = new Date();
+  // Gold pagado al registrarse: dura lo que diga el catálogo (plan Gold).
   const isGold = input.tier === "GOLD";
+  const goldDays = isGold ? await getGoldPlanDays() : 0;
   const shopTrialEndsAt = isGold ? null : addDays(now, getBillingSettingsSync().trialDays);
-  const membershipExpiresAt = isGold ? addDays(now, 7) : null;
+  const membershipExpiresAt = isGold ? addDays(now, goldDays) : null;
+  const tierExpiresAt = isGold ? addDays(now, goldDays) : null;
 
   const passwordSetToken = crypto.randomBytes(32).toString("hex");
   const passwordSetTokenExpiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
@@ -177,6 +180,7 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
         shopTrialEndsAt,
         subscriptionPrice: 2500,
         tier: input.tier,
+        tierExpiresAt,
         membershipExpiresAt,
         isOnline: false,
         isActive: false,
@@ -229,4 +233,11 @@ export async function createProfessionalUser(input: CreateProfessionalInput) {
   });
 
   return { user, resolvedCategoryId, resolvedCategoryName, username };
+}
+
+async function getGoldPlanDays(): Promise<number> {
+  const gold = await prisma.promoProduct
+    .findFirst({ where: { kind: "PLAN", code: "GOLD" }, orderBy: { sortOrder: "asc" }, select: { duration: true } })
+    .catch(() => null);
+  return gold?.duration ?? 30;
 }

@@ -30,6 +30,8 @@ const PUBLIC_PREFIXES = [
   "/popup-promotions",  // ✅ popup promociones públicas home
   "/hot",               // ✅ trending content (Hot section)
   "/forum",             // ✅ forum public read (categories, threads, recent)
+  "/promo/catalog",     // ✅ planes y boosts (público; con sesión agrega el estado propio)
+  "/boosts/spotlight",  // ✅ perfiles "Destacadas" del inicio
   "/webhooks/flow",     // Flow subscription webhooks
   "/directory",         // ✅ búsqueda pública de directorio (escorts, moteles, etc.)
   "/shop/sexshops",     // ✅ listado público de sex shops y sus productos
@@ -189,6 +191,7 @@ const MODERATOR_BLOCKED_PREFIXES = [
   "/plans",
   "/admin/mcp",
   "/admin/billing/settings",
+  "/admin/promo",
 ];
 
 /**

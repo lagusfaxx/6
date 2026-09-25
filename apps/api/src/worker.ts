@@ -12,7 +12,7 @@ import {
   sendInactiveProfileReminder,
   sendVideocallConfigReminder,
   sendReferralCampaignEmail,
-  sendGoldRenewalEmail,
+  sendPlanRenewalEmail,
   sendUnreadMessagesEmail,
 } from "./lib/notificationEmail";
 import { buildUnsubscribeUrl } from "./lib/emailPrefsToken";
@@ -518,36 +518,51 @@ async function tickBillingNotices() {
   if (sent) console.log(`[worker] billing notices (${key}) sent: ${sent}`);
 }
 
-async function tickGoldRenewalReminder() {
+/* ─── Planes pagados (Silver/Gold/Diamond) ───
+   Sólo con el cobro encendido: apagado, nadie pierde su rango (como antes de
+   que existieran los planes pagados). Aviso 48 h antes y al vencer. Los
+   rangos puestos a mano (sin tierExpiresAt) no vencen nunca. */
+async function tickPaidPlans() {
   if (!(await getBillingSettings()).enabled) return;
   const now = new Date();
-  const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const label = (t: string | null) => (t === "PREMIUM" ? "Diamond" : t === "GOLD" ? "Gold" : "Silver");
 
-  // Find Gold users whose membership expires within the next 24 hours
-  const expiring = await prisma.user.findMany({
-    where: {
-      tier: "GOLD",
-      membershipExpiresAt: {
-        gte: now,
-        lte: in24h,
-      },
-    },
-    select: { id: true, email: true, displayName: true, membershipExpiresAt: true },
-    take: 200,
+  const soon = await prisma.user.findMany({
+    where: { tier: { not: null }, tierExpiresAt: { gt: now, lte: new Date(now.getTime() + 48 * 60 * 60 * 1000) } },
+    select: { id: true, tier: true, tierExpiresAt: true, email: true, displayName: true },
+    take: 500,
   });
-
-  for (const u of expiring) {
-    const reminderKey = `gold_renewal_${u.membershipExpiresAt!.toISOString().slice(0, 10)}`;
-    if (await wasReminderSent(u.id, reminderKey)) continue;
-
-    await markReminderSent(u.id, reminderKey);
-    try {
-      await sendGoldRenewalEmail(u.email, u.displayName);
-      console.log(`[worker] Gold renewal reminder sent to ${u.email}`);
-    } catch (err) {
-      console.error(`[worker] Gold renewal reminder failed for ${u.email}`, err);
+  for (const u of soon) {
+    const key = `plan_expiring_${u.tierExpiresAt!.toISOString().slice(0, 13)}`;
+    if (await wasReminderSent(u.id, key)) continue;
+    await markReminderSent(u.id, key);
+    await sendInAppAndPush(u.id, {
+      type: "SUBSCRIPTION_RENEWED",
+      title: `Tu plan ${label(u.tier)} vence pronto`,
+      body: "Renuévalo para mantener tu lugar en el inicio y en las búsquedas.",
+      url: "/planes",
+      tag: key,
+    }).catch(() => undefined);
+    if (u.email) {
+      await sendPlanRenewalEmail(u.email, u.displayName, label(u.tier), u.tierExpiresAt!).catch(() => undefined);
     }
   }
+
+  const expired = await prisma.user.findMany({
+    where: { tier: { not: null }, tierExpiresAt: { lte: now } },
+    select: { id: true, tier: true },
+    take: 500,
+  });
+  for (const u of expired) {
+    await prisma.user.update({ where: { id: u.id }, data: { tier: null, tierExpiresAt: null } });
+    await sendInAppAndPush(u.id, {
+      type: "SUBSCRIPTION_RENEWED",
+      title: `Tu plan ${label(u.tier)} terminó`,
+      body: "Actívalo de nuevo cuando quieras desde Planes y boosts.",
+      url: "/planes",
+    }).catch(() => undefined);
+  }
+  if (expired.length) console.log(`[worker] planes vencidos: ${expired.length}`);
 }
 
 /* ─── 7. Auto-send referral campaign email 2h after creator registration ─── */
@@ -761,13 +776,13 @@ async function tick() {
     const tasks = [
       { name: "membershipExpiry", fn: tickMembershipExpiry },
       { name: "billingNotices", fn: tickBillingNotices },
+      { name: "paidPlans", fn: tickPaidPlans },
       { name: "noPhotoReminder", fn: tickNoPhotoReminder },
       { name: "inactiveReminder", fn: tickInactiveReminder },
       { name: "videocallConfig", fn: tickVideocallConfigReminder },
       { name: "expireStalePendingIntents", fn: tickExpireStalePendingIntents },
       { name: "syncPacSubscriptions", fn: tickSyncPacSubscriptions },
       { name: "syncUmatePacSubscriptions", fn: tickSyncUmatePacSubscriptions },
-      { name: "goldRenewalReminder", fn: tickGoldRenewalReminder },
       { name: "referralWelcomeEmail", fn: tickReferralWelcomeEmail },
       { name: "referralValidation", fn: tickReferralValidation },
       { name: "referralCycles", fn: tickReferralCycles },

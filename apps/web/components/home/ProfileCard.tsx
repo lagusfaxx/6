@@ -39,6 +39,8 @@ export type HomeProfile = {
   serviceCategory: string | null;
   primaryCategory: string | null;
   isNew: boolean;
+  /** Boost "Destacada" vigente. */
+  spotlight?: boolean;
 };
 
 export type CardStoryMedia = {
@@ -67,6 +69,7 @@ export function toHomeProfile(r: any, overrides: Partial<HomeProfile> = {}): Hom
     serviceCategory: r.serviceCategory ?? null,
     primaryCategory: r.primaryCategory ?? null,
     isNew: Boolean(r.isNew),
+    spotlight: r?.boost === "SPOTLIGHT",
     ...overrides,
   };
 }
@@ -199,7 +202,9 @@ export default function ProfileCard({
   };
 
   const tag =
-    p.userLevel === "DIAMOND" ? (
+    p.spotlight ? (
+      <span className={`${TAG_CLASS} text-fuchsia-200`}>🔥 Destacada</span>
+    ) : p.userLevel === "DIAMOND" ? (
       <span className={`${TAG_CLASS} text-tier-diamond`}>◆ Diamond</span>
     ) : p.userLevel === "GOLD" ? (
       <span className={`${TAG_CLASS} text-tier-gold`}>★ Gold</span>

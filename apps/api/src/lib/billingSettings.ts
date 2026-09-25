@@ -63,9 +63,15 @@ function toInt(value: string | undefined, fallback: number, min = 0) {
 }
 
 async function readFromDb(): Promise<BillingSettings> {
-  const rows = await prisma.platformConfig.findMany({
-    where: { key: { in: Object.values(KEYS) } },
-  });
+  const [rows, silver] = await Promise.all([
+    prisma.platformConfig.findMany({
+      where: { key: { in: Object.values(KEYS) } },
+    }),
+    // La tarifa de membresía es el precio del plan Silver del catálogo.
+    prisma.promoProduct
+      .findFirst({ where: { kind: "PLAN", code: "SILVER", isActive: true }, orderBy: { sortOrder: "asc" }, select: { priceClp: true } })
+      .catch(() => null),
+  ]);
   const get = (k: string) => rows.find((r) => r.key === k)?.value;
   const d = defaults();
   const enabledAtRaw = get(KEYS.enabledAt);
@@ -73,7 +79,7 @@ async function readFromDb(): Promise<BillingSettings> {
   return {
     enabled: get(KEYS.enabled) === "true",
     enabledAt: enabledAt && !Number.isNaN(enabledAt.getTime()) ? enabledAt : null,
-    priceClp: toInt(get(KEYS.priceClp), d.priceClp, 1),
+    priceClp: silver?.priceClp ?? toInt(get(KEYS.priceClp), d.priceClp, 1),
     graceDays: toInt(get(KEYS.graceDays), d.graceDays),
     trialDays: toInt(get(KEYS.trialDays), d.trialDays),
     flowPlanId: get(KEYS.flowPlanId) || d.flowPlanId,
@@ -125,7 +131,12 @@ export async function updateBillingSettings(patch: BillingSettingsPatch): Promis
     // La gracia se cuenta desde que se enciende el cobro.
     if (patch.enabled) writes.push({ key: KEYS.enabledAt, value: new Date().toISOString() });
   }
-  if (patch.priceClp !== undefined) writes.push({ key: KEYS.priceClp, value: String(Math.round(patch.priceClp)) });
+  if (patch.priceClp !== undefined) {
+    writes.push({ key: KEYS.priceClp, value: String(Math.round(patch.priceClp)) });
+    await prisma.promoProduct
+      .updateMany({ where: { kind: "PLAN", code: "SILVER" }, data: { priceClp: Math.round(patch.priceClp) } })
+      .catch(() => undefined);
+  }
   if (patch.graceDays !== undefined) writes.push({ key: KEYS.graceDays, value: String(Math.round(patch.graceDays)) });
   if (patch.trialDays !== undefined) writes.push({ key: KEYS.trialDays, value: String(Math.round(patch.trialDays)) });
   if (patch.flowPlanId !== undefined) writes.push({ key: KEYS.flowPlanId, value: patch.flowPlanId });
