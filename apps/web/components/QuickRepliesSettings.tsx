@@ -19,8 +19,9 @@ type QuickRepliesResponse = {
  * Respuestas rápidas de la profesional: botones como "Tarifa" o "Servicios"
  * que el cliente toca en el chat para recibir la respuesta al instante.
  *
- * Si le faltan las obligatorias (cuentas anteriores a la función) se muestra
- * abierto y con aviso, para que las complete.
+ * Parte siempre cerrado para no empujar la lista de chats hacia abajo. Si le
+ * faltan las obligatorias (cuentas anteriores a la función) el botón cerrado
+ * se destaca con un aviso para que lo abra y las complete.
  */
 export default function QuickRepliesSettings({
   defaultOpen = false,
@@ -46,7 +47,6 @@ export default function QuickRepliesSettings({
         setSaved(replies);
         const isMissing = (r?.missing || []).length > 0;
         setMissing(isMissing);
-        if (isMissing) setOpen(true);
       })
       .catch(() => {
         if (alive) setError("No pudimos cargar tus respuestas rápidas.");
@@ -87,7 +87,7 @@ export default function QuickRepliesSettings({
   };
 
   if (loading) {
-    return <div className="h-16 animate-pulse rounded-xl bg-white/[0.04]" />;
+    return <div className="h-14 animate-pulse rounded-xl bg-white/[0.04]" />;
   }
 
   const dirty =
@@ -96,7 +96,9 @@ export default function QuickRepliesSettings({
   return (
     <div
       className={`rounded-xl border px-4 py-3 ${
-        missing ? "border-amber-400/30 bg-amber-400/[0.05]" : "border-white/[0.06] bg-white/[0.02]"
+        missing
+          ? "border-amber-400/40 bg-gradient-to-r from-amber-500/[0.12] via-fuchsia-500/[0.06] to-transparent shadow-[0_0_24px_-8px_rgba(251,191,36,0.45)]"
+          : "border-white/[0.06] bg-white/[0.02]"
       }`}
     >
       <button
@@ -106,21 +108,37 @@ export default function QuickRepliesSettings({
         aria-expanded={open}
       >
         {missing ? (
-          <AlertCircle className="h-4 w-4 shrink-0 text-amber-300" />
+          <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400/40" />
+            <AlertCircle className="relative h-4 w-4 text-amber-300" />
+          </span>
         ) : (
           <Zap className="h-4 w-4 shrink-0 text-white/30" />
         )}
         <span className="min-w-0 flex-1">
-          <span className="block text-[13px] font-medium">Respuestas rápidas</span>
+          <span className="flex items-center gap-2 text-[13px] font-medium">
+            Respuestas rápidas
+            {missing && (
+              <span className="rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                Pendiente
+              </span>
+            )}
+          </span>
           <span className="mt-0.5 block text-[11px] leading-tight text-white/40">
             {missing
-              ? "Completa tu tarifa y tus servicios: los clientes los preguntan al abrir tu chat."
+              ? "Los clientes preguntan tu tarifa y no reciben respuesta. Complétalas en 1 minuto."
               : "Tarifa, servicios y más: el cliente los toca en tu chat y los recibe al instante."}
           </span>
         </span>
-        <span className="shrink-0 text-[11px] text-fuchsia-300/80">
-          {open ? "Cerrar" : "Editar"}
-        </span>
+        {missing && !open ? (
+          <span className="shrink-0 rounded-lg bg-gradient-to-r from-amber-500 to-fuchsia-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow">
+            Completar
+          </span>
+        ) : (
+          <span className="shrink-0 text-[11px] text-fuchsia-300/80">
+            {open ? "Cerrar" : "Editar"}
+          </span>
+        )}
       </button>
 
       {open && (
