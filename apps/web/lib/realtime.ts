@@ -18,7 +18,7 @@ export function connectRealtime(handler: Handler) {
 
       // Single shared listener for all named event types (reduces listener count from 24+ to 1 per type)
       const knownEvents = [
-        "hello", "message", "service_request", "ping",
+        "hello", "message", "typing", "service_request", "ping",
         "notification",
         "forum:newThread", "forum:newPost",
         "videocall:booked", "videocall:started", "videocall:completed",

@@ -124,6 +124,10 @@ export default function ChatPage() {
   const [other, setOther] = useState<ChatUser | null>(null);
   const [quickTopics, setQuickTopics] = useState<QuickReplyTopic[]>([]);
   const [quickBusy, setQuickBusy] = useState<string | null>(null);
+  /* "Escribiendo…" de la otra persona: hasta cuándo mostrarlo. Llega por el
+     canal en tiempo real (y lo fija también la respuesta rápida pendiente). */
+  const [typingUntil, setTypingUntil] = useState(0);
+  const lastTypingSentRef = useRef(0);
   const [body, setBody] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(
@@ -256,8 +260,39 @@ export default function ChatPage() {
     }
   }
 
+  // Se apaga solo al vencer, o cuando llega un mensaje suyo.
+  useEffect(() => {
+    if (!typingUntil) return;
+    const t = setTimeout(() => setTypingUntil(0), Math.max(0, typingUntil - Date.now()));
+    return () => clearTimeout(t);
+  }, [typingUntil]);
+
+  const lastMessageFromId = messages[messages.length - 1]?.fromId;
+  const lastMessageId = messages[messages.length - 1]?.id;
+  useEffect(() => {
+    if (lastMessageFromId === userId) setTypingUntil(0);
+  }, [lastMessageId, lastMessageFromId, userId]);
+
+  const otherTyping = typingUntil > Date.now();
+
+  useEffect(() => {
+    if (otherTyping) scrollToBottom();
+  }, [otherTyping]);
+
+  /** Avisa al otro que estoy escribiendo (como mucho cada 3 segundos). */
+  function notifyTyping() {
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 3000) return;
+    lastTypingSentRef.current = now;
+    apiFetch(`/messages/${userId}/typing`, { method: "POST" }).catch(() => {});
+  }
+
   useEffect(() => {
     const disconnect = connectRealtime((event) => {
+      if (event.type === "typing" && event.data?.fromId === userId) {
+        setTypingUntil(Date.now() + Math.min(Number(event.data?.ms) || 5000, 10000));
+        return;
+      }
       if (
         ["connected", "hello", "ping", "message"].includes(
           event.type,
@@ -368,13 +403,14 @@ export default function ChatPage() {
     }
   }
 
-  // El cliente toca "Tarifa", "Servicios"...: queda su pregunta en el chat y
-  // enseguida la respuesta que la profesional dejó escrita.
+  // El cliente toca "Tarifa", "Servicios"...: queda su pregunta en el chat y,
+  // tras unos segundos de "escribiendo…", la respuesta que dejó la profesional.
   async function askQuick(topic: QuickReplyTopic) {
     if (quickBusy) return;
     setQuickBusy(topic.key);
+    let waitMs = 0;
     try {
-      const res = await apiFetch<{ messages: Message[] }>(
+      const res = await apiFetch<{ messages: Message[]; replyInMs?: number }>(
         `/messages/${userId}/quick-reply`,
         {
           method: "POST",
@@ -385,10 +421,17 @@ export default function ChatPage() {
         const known = new Set(prev.map((m) => m.id));
         return [...prev, ...res.messages.filter((m) => !known.has(m.id))];
       });
+      waitMs = Math.min(Number(res.replyInMs) || 0, 10000);
+      if (waitMs) setTypingUntil(Date.now() + waitMs + 1500);
     } catch (e: any) {
       setError(e?.body?.message || e?.message || "No se pudo enviar la pregunta");
     } finally {
-      setQuickBusy(null);
+      // Los botones quedan en pausa hasta que llega la respuesta; si el
+      // tiempo real no la trae, se recarga la conversación.
+      setTimeout(() => {
+        setQuickBusy(null);
+        if (waitMs) refreshConversationSilently();
+      }, waitMs ? waitMs + 700 : 0);
     }
   }
 
@@ -492,8 +535,12 @@ export default function ChatPage() {
             )}
           </div>
           <p className="truncate text-xs text-white/40">
-            @{other?.username}
-            {other?.city ? ` · ${other.city}` : ""}
+            {otherTyping ? (
+              <span className="font-medium text-fuchsia-300">escribiendo…</span>
+            ) : (
+              <>@{other?.username}</>
+            )}
+            {!otherTyping && other?.city ? ` · ${other.city}` : ""}
           </p>
         </div>
 
@@ -706,6 +753,20 @@ export default function ChatPage() {
             ))}
           </div>
         )}
+        {/* La otra persona está escribiendo */}
+        {otherTyping && (
+          <div className="mt-2 flex justify-start" aria-live="polite" aria-label="Escribiendo">
+            <div className="flex items-center gap-1 rounded-2xl rounded-bl-md border border-white/10 bg-white/10 px-3.5 py-3">
+              {[0, 160, 320].map((delay) => (
+                <span
+                  key={delay}
+                  className="h-2 w-2 animate-bounce rounded-full bg-white/60"
+                  style={{ animationDelay: `${delay}ms`, animationDuration: "1s" }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -758,7 +819,7 @@ export default function ChatPage() {
                 disabled={Boolean(quickBusy)}
                 className="shrink-0 rounded-full border border-fuchsia-400/25 bg-fuchsia-500/10 px-3.5 py-1.5 text-xs font-medium text-fuchsia-100 transition hover:bg-fuchsia-500/20 disabled:opacity-50"
               >
-                {quickBusy === t.key ? "..." : t.label}
+                {t.label}
               </button>
             ))}
           </div>
@@ -798,7 +859,10 @@ export default function ChatPage() {
           className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-base text-white placeholder-white/35 outline-none transition focus:border-white/20 focus:ring-1 focus:ring-fuchsia-500/20 md:text-sm"
           placeholder="Escribe un mensaje..."
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => {
+            setBody(e.target.value);
+            if (e.target.value.trim()) notifyTyping();
+          }}
         />
         <button
           type="submit"

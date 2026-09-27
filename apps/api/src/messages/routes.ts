@@ -203,6 +203,30 @@ messagesRouter.delete("/messages/:userId", requireAuth, asyncHandler(async (req,
   return res.json({ ok: true });
 }));
 
+/* "Escribiendo…": el navegador avisa mientras la persona tipea (como mucho
+   cada ~3 s) y se le reenvía al otro por el canal en tiempo real. No toca la
+   base de datos salvo para comprobar que puedan chatear, y eso se recuerda
+   un rato por conversación para no consultar en cada tecla. */
+const TYPING_MS = 5000;
+const typingAllowed = new Map<string, number>();
+
+messagesRouter.post("/messages/:userId/typing", requireAuth, asyncHandler(async (req, res) => {
+  const me = req.session.userId;
+  const other = req.params.userId;
+  if (!me || !isUUID(me) || !isUUID(other) || me === other) return res.status(204).end();
+  const key = `${me}:${other}`;
+  const now = Date.now();
+  if ((typingAllowed.get(key) ?? 0) < now) {
+    if (!(await canMessage(me, other))) return res.status(204).end();
+    typingAllowed.set(key, now + 10 * 60 * 1000);
+    if (typingAllowed.size > 5000) {
+      for (const [k, until] of typingAllowed) if (until < now) typingAllowed.delete(k);
+    }
+  }
+  sendToUser(other, "typing", { fromId: me, ms: TYPING_MS });
+  return res.status(204).end();
+}));
+
 messagesRouter.post("/messages/:userId", requireAuth, messageLimiter, asyncHandler(async (req, res) => {
   const me = req.session.userId;
   if (!me) return res.status(401).json({ error: "UNAUTHENTICATED" });

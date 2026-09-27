@@ -6,6 +6,7 @@ import { sendToUser } from "../realtime/sse";
 
 export const AUTO_REPLY_DELAY_MS = 20_000;
 export const AUTO_REPLY_MAX_LENGTH = 500;
+const AUTO_REPLY_TYPING_MS = 3000;
 
 // Una respuesta automática por conversación cada 24 horas: si el cliente
 // insiste durante el día no recibe el mismo texto una y otra vez (sería la
@@ -131,6 +132,10 @@ async function deliverAutoReply(professionalId: string, clientId: string, since:
     select: { sentAt: true },
   });
   if (previous && Date.now() - previous.sentAt.getTime() < AUTO_REPLY_COOLDOWN_MS) return;
+
+  // Unos segundos de "escribiendo…" antes del mensaje, como si lo tipeara.
+  sendToUser(clientId, "typing", { fromId: professionalId, ms: AUTO_REPLY_TYPING_MS });
+  await new Promise((resolve) => setTimeout(resolve, AUTO_REPLY_TYPING_MS));
 
   const message = await prisma.message.create({
     data: { fromId: professionalId, toId: clientId, body },
