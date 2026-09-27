@@ -486,7 +486,12 @@ export default function RegisterClient() {
        veía como un bloque angosto dentro de otro). En PC, dos columnas: a la
        izquierda por qué registrarse, a la derecha el formulario. */
     <div className="flex min-h-0 items-start justify-center py-0 sm:min-h-[80vh] sm:items-center sm:px-4 sm:py-10">
-      <div className="w-full max-w-xl lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-center lg:gap-14">
+      {/* Fondo en PC: la foto de la marca, oscurecida para que se lea todo. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 hidden lg:block">
+        <img src="/brand/age-gate-bg.jpg" alt="" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#070816]/80 via-[#070816]/60 to-[#070816]/85" />
+      </div>
+      <div className="relative z-10 w-full max-w-xl lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-center lg:gap-14">
         <RegisterAside professional={isProfessional} />
         <div className="w-full">
         {isProForm && (
