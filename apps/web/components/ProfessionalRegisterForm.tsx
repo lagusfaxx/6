@@ -66,13 +66,14 @@ const YEAR_OPTIONS = buildYearOptions();
 const GENDERS = [
   { value: "FEMALE", label: "Mujer" },
   { value: "MALE", label: "Hombre" },
-  { value: "OTHER", label: "Otro" },
+  /* "Trans" es el nombre que usa todo el sitio para OTHER (Explorar,
+     Publícate) y la API le suma la etiqueta "trans" del directorio. */
+  { value: "OTHER", label: "Trans" },
 ];
 
 const CATEGORIES = [
   { value: "escort", label: "Escort", hint: "Acompañante", emoji: "💋" },
   { value: "masajes", label: "Masajista", hint: "Masajes", emoji: "💆" },
-  { value: "trans", label: "Trans", hint: "Perfil trans", emoji: "✨" },
   { value: "despedidas", label: "Despedidas", hint: "De soltero", emoji: "🎉" },
   { value: "videollamadas", label: "Videollamadas", hint: "Solo online", emoji: "📱" },
 ];
@@ -165,7 +166,12 @@ export default function ProfessionalRegisterForm({
   // Cada paso parte arriba: en el teléfono el botón queda abajo y, sin esto,
   // el paso siguiente aparecía a media pantalla.
   useEffect(() => {
-    topRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    // Sólo la ventana: scrollIntoView también desplazaba el interior de la
+    // tarjeta (overflow-hidden en PC) y la dejaba cortada arriba.
+    const el = topRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - 16;
+    if (top < window.scrollY) window.scrollTo({ top, behavior: "smooth" });
   }, [subStep]);
 
   function validateStep(step: number): string | null {
@@ -175,6 +181,7 @@ export default function ProfessionalRegisterForm({
       if (displayName.trim().length > DISPLAY_NAME_MAX_LENGTH)
         return `El nombre público no puede superar los ${DISPLAY_NAME_MAX_LENGTH} caracteres.`;
       if (!email.trim()) return "Ingresa tu email.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return "Revisa tu email: no parece válido.";
       if (!phoneRegex.test(phone.trim()))
         return "Ingresa un número válido con código de país (+56, +57, +58 o +51).";
       if (!skipPassword && password.length < 8)
@@ -280,7 +287,11 @@ export default function ProfessionalRegisterForm({
   return (
     /* En el teléfono ocupa el alto de la pantalla (menos la cabecera) para
        que la barra de botones quede abajo aunque el paso sea corto. */
+    /* noValidate: los avisos los da validateStep, en español y junto al
+       botón. Con la validación del navegador salía su globo ("Please fill
+       out this field") en vez del mensaje de cada paso. */
     <form
+      noValidate
       onSubmit={handleSubmit}
       className="relative flex min-h-[calc(100svh-6rem)] flex-col sm:block sm:min-h-0"
     >
@@ -420,7 +431,7 @@ export default function ProfessionalRegisterForm({
             <>
               <div className="grid gap-2">
                 <span className="text-sm font-medium text-white/70">¿Cómo te defines?</span>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-2 gap-2">
                   {CATEGORIES.map((c) => {
                     const selected = primaryCategory === c.value;
                     return (

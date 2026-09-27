@@ -251,6 +251,12 @@ authRouter.post(
           signupSource: "form",
           phone,
           gender: gender || null,
+          // Trans no es una categoría (puede ser escort o masajista): se
+          // marca por el género "Otro/Trans" con la etiqueta que usan el
+          // directorio (/escorts?profileTags=trans) y las tarjetas.
+          ...(profileType === "PROFESSIONAL" && gender === "OTHER"
+            ? { profileTags: ["trans"] }
+            : {}),
           preferenceGender: preferenceGender || null,
           profileType,
           address: address || null,

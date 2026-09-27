@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import useMe from "../hooks/useMe";
 import { apiFetch } from "../lib/api";
+import InstallAppSheet, {
+  INSTALL_SHEET_OPEN_EVENT,
+  detectInstallPlatform,
+} from "./InstallAppSheet";
 
 const PUBLIC_VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
 const IOS_INSTALL_HINT_KEY = "uzeed:ios-install-hint-dismissed";
@@ -152,11 +156,16 @@ export default function PushNotificationsManager() {
       setShowInstallHint(false);
     }
 
+    // Si abren el panel desde "Descargar App", el automático sobra.
+    const hideHint = () => setShowInstallHint(false);
+    window.addEventListener(INSTALL_SHEET_OPEN_EVENT, hideHint);
+
     if (ios && standalone && Notification.permission !== "granted") {
       setShowIosEnablePush(true);
     } else {
       setShowIosEnablePush(false);
     }
+    return () => window.removeEventListener(INSTALL_SHEET_OPEN_EVENT, hideHint);
   }, []);
 
   useEffect(() => {
@@ -188,34 +197,17 @@ export default function PushNotificationsManager() {
   return (
     <>
       {showInstallHint ? (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-4 md:items-center">
-          <div className="w-full max-w-md rounded-2xl border border-white/20 bg-[#12021f] p-4 text-sm text-white shadow-2xl">
-            <h3 className="text-base font-semibold">Instala UZEED en iPhone</h3>
-            <p className="mt-2 text-white/80">Para habilitar notificaciones en iOS debes instalar la app PWA:</p>
-            <ol className="mt-2 list-decimal space-y-1 pl-5 text-white/80">
-              <li>Abre este sitio en Safari.</li>
-              <li>Toca el botón <strong>Compartir</strong>.</li>
-              <li>Selecciona <strong>Añadir a pantalla de inicio</strong>.</li>
-              <li>Abre la app instalada y activa notificaciones.</li>
-            </ol>
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                className="rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 hover:bg-white/20"
-                onClick={() => {
-                  try {
-                    window.localStorage.setItem(IOS_INSTALL_HINT_KEY, "1");
-                  } catch {
-                    // ignore
-                  }
-                  setShowInstallHint(false);
-                }}
-              >
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
+        <InstallAppSheet
+          platform={detectInstallPlatform()}
+          onClose={() => {
+            try {
+              window.localStorage.setItem(IOS_INSTALL_HINT_KEY, "1");
+            } catch {
+              // ignore
+            }
+            setShowInstallHint(false);
+          }}
+        />
       ) : null}
 
       {showIosEnablePush ? (

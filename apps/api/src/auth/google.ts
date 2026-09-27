@@ -601,6 +601,9 @@ googleAuthRouter.post(
           signupSource: "google",
           phone: data.phone,
           gender: data.gender,
+          // Trans se marca por género + etiqueta, no por categoría (igual
+          // que /auth/register).
+          ...(data.gender === "OTHER" ? { profileTags: ["trans"] } : {}),
           preferenceGender: data.preferenceGender || null,
           profileType: "PROFESSIONAL",
           address: data.address,

@@ -481,14 +481,19 @@ export default function RegisterClient() {
   const isProForm = step === "form" && isProfessional;
 
   return (
-    <div
-      className={`flex justify-center ${
-        isProForm ? "min-h-0 items-start py-0 sm:min-h-[80vh] sm:items-center sm:px-4 sm:py-10" : "min-h-[80vh] items-center px-4 py-10"
-      }`}
-    >
-      <div className="w-full max-w-xl">
+    /* En el teléfono todo va a pantalla completa (sin tarjeta envolvente: se
+       veía como un bloque angosto dentro de otro). En PC, dos columnas: a la
+       izquierda por qué registrarse, a la derecha el formulario. */
+    <div className="flex min-h-0 items-start justify-center py-0 sm:min-h-[80vh] sm:items-center sm:px-4 sm:py-10">
+      {/* Fondo en PC: la foto de la marca, oscurecida para que se lea todo. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 hidden lg:block">
+        <img src="/brand/age-gate-bg.jpg" alt="" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#070816]/80 via-[#070816]/60 to-[#070816]/85" />
+      </div>
+      <div className="relative z-10 w-full max-w-xl">
+        <div className="w-full">
         {isProForm && (
-          <div className="mb-5 flex items-center justify-between gap-3 sm:mb-6">
+          <div className="mb-5 flex items-center justify-between gap-3 sm:mb-6 lg:hidden">
             <div className="flex items-center gap-2.5">
               <img src="/brand/isotipo-new.png" alt="UZEED" className="h-9 w-9 rounded-xl" />
               <div className="leading-tight">
@@ -504,7 +509,7 @@ export default function RegisterClient() {
         )}
 
         {/* Hero header */}
-        <div className={`flex flex-col items-center mb-8 ${isProForm ? "hidden" : ""}`}>
+        <div className={`mb-6 flex flex-col items-center sm:mb-8 ${isProForm ? "hidden lg:flex" : ""}`}>
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/40 to-violet-500/40 blur-3xl scale-150 animate-pulse" />
             <div className="relative rounded-3xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 p-[2px] shadow-2xl">
@@ -556,23 +561,15 @@ export default function RegisterClient() {
         </div>
 
         {/* Card */}
-        <div
-          className={`relative ${
-            isProForm
-              ? /* Sin overflow-hidden en el teléfono: rompería la barra fija
-                   de botones (position: sticky) del formulario. */
-                "sm:overflow-hidden sm:rounded-[28px] sm:border sm:border-white/10 sm:bg-gradient-to-b sm:from-white/[0.07] sm:to-white/[0.03] sm:shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:backdrop-blur-2xl"
-              : "overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] shadow-[0_30px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
-          }`}
-        >
+        <div className="relative sm:overflow-hidden sm:rounded-[28px] sm:border sm:border-white/10 sm:bg-gradient-to-b sm:from-white/[0.07] sm:to-white/[0.03] sm:shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:backdrop-blur-2xl">
           {/* Top glow line */}
-          <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/60 to-transparent ${isProForm ? "hidden sm:block" : ""}`} />
+          <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/60 to-transparent hidden sm:block`} />
           {/* Ambient corner glows */}
-          <div className={`pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-3xl ${isProForm ? "hidden sm:block" : ""}`} />
-          <div className={`pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl ${isProForm ? "hidden sm:block" : ""}`} />
+          <div className={`pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-3xl hidden sm:block`} />
+          <div className={`pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl hidden sm:block`} />
 
           {step === "choose" ? (
-            <div className="relative p-6 sm:p-8">
+            <div className="relative p-0 sm:p-8">
               {/* Consumer section */}
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-3">
@@ -705,12 +702,13 @@ export default function RegisterClient() {
               </div>
             </div>
           ) : step === "form" ? (
-            <div className={`relative ${isProForm ? "p-0 sm:p-8" : "p-6 sm:p-8"}`}>
-              {/* Selected type chip (profesionales: su formulario ya lo dice) */}
-              {selected && !isProForm && (() => {
+            <div className="relative p-0 sm:p-8">
+              {/* Selected type chip (profesionales en el teléfono: su formulario
+                  ya lo dice) */}
+              {selected && (() => {
                 const SelectedIcon = selected.icon;
                 return (
-                  <div className="mb-5 flex items-center justify-between gap-3">
+                  <div className={`mb-5 items-center justify-between gap-3 ${isProForm ? "hidden lg:flex" : "flex"}`}>
                     <button
                       type="button"
                       onClick={() => {
@@ -738,9 +736,10 @@ export default function RegisterClient() {
                 );
               })()}
 
-              {/* Promo banner for professionals: va como píldora en la cabecera */}
-              {isProfessional && !isProForm && (
-                <div className="relative overflow-hidden rounded-2xl border border-fuchsia-400/30 bg-gradient-to-r from-fuchsia-600/20 via-violet-600/20 to-pink-600/20 p-5 mb-6">
+              {/* Promo banner for professionals (en el teléfono va como píldora
+                  en la cabecera) */}
+              {isProfessional && (
+                <div className={`relative overflow-hidden rounded-2xl border border-fuchsia-400/30 bg-gradient-to-r from-fuchsia-600/20 via-violet-600/20 to-pink-600/20 p-5 mb-6 ${isProForm ? "hidden lg:block" : ""}`}>
                   <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-fuchsia-500/10 blur-3xl" />
                   <div className="absolute bottom-0 left-0 h-16 w-16 rounded-full bg-violet-500/10 blur-2xl" />
                   <div className="relative flex items-center gap-4">
@@ -921,6 +920,7 @@ export default function RegisterClient() {
             Inicia sesión
           </Link>
         </p>
+        </div>
       </div>
 
       {/* Terms Modal */}
@@ -958,14 +958,6 @@ function OptionCard({
           : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06] hover:-translate-y-0.5"
       }`}
     >
-      {/* Badge */}
-      {option.badge && (
-        <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider">
-          <Sparkles className="h-2.5 w-2.5" />
-          {option.badge.text}
-        </span>
-      )}
-
       <div className="relative flex items-center gap-4">
         {/* Icon */}
         <div
@@ -986,13 +978,23 @@ function OptionCard({
         </div>
 
         {/* Text */}
-        <div className="min-w-0 flex-1 pr-16">
-          <div
-            className={`font-semibold transition-colors ${
-              selected ? "text-white" : "text-white/95"
-            }`}
-          >
-            {option.title}
+        <div className="min-w-0 flex-1">
+          {/* La etiqueta va en línea con el título: flotando en la esquina se
+              montaba sobre el nombre en pantallas angostas. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span
+              className={`font-semibold transition-colors ${
+                selected ? "text-white" : "text-white/95"
+              }`}
+            >
+              {option.title}
+            </span>
+            {option.badge && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-fuchsia-200">
+                <Sparkles className="h-2.5 w-2.5" />
+                {option.badge.text}
+              </span>
+            )}
           </div>
           <div className="text-xs sm:text-sm text-white/55 mt-0.5 leading-relaxed">
             {option.description}

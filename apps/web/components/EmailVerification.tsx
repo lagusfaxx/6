@@ -199,9 +199,11 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
           <div className="relative rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.4)] overflow-hidden">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/50 to-transparent" />
 
-            <div className="p-8">
+            <div className="p-5 sm:p-8">
               {/* Code inputs */}
-              <div className="flex justify-center gap-3" onPaste={handlePaste}>
+              {/* En el teléfono las casillas más angostas: con 48px cada una
+                  no cabían las seis y se cortaban la primera y la última. */}
+              <div className="flex justify-center gap-2 sm:gap-3" onPaste={handlePaste}>
                 {code.map((digit, i) => (
                   <input
                     key={i}
@@ -213,7 +215,7 @@ export default function EmailVerification({ email, onVerified, onBack }: EmailVe
                     onChange={(e) => handleChange(i, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(i, e)}
                     disabled={loading}
-                    className={`w-12 h-14 text-center text-xl font-bold rounded-xl border transition-all duration-200 outline-none bg-white/5 ${
+                    className={`h-12 w-10 sm:h-14 sm:w-12 text-center text-xl font-bold rounded-xl border transition-all duration-200 outline-none bg-white/5 ${
                       digit
                         ? "border-fuchsia-400/50 text-white shadow-[0_0_15px_rgba(232,121,249,0.15)]"
                         : "border-white/10 text-white/80"
