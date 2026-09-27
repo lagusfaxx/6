@@ -93,7 +93,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       >
         <ScrollToTop />
         <div
-          className={`mx-auto flex ${pathname === "/register" ? "max-w-md lg:max-w-5xl" : "max-w-md"} ${
+          className={`mx-auto flex ${pathname === "/register" ? "max-w-md lg:max-w-6xl" : "max-w-md"} ${
             pathname === "/register"
               ? "min-h-[calc(100svh-1rem)] items-start sm:min-h-[calc(100svh-5rem)] sm:items-center"
               : "min-h-[calc(100svh-5rem)] items-center"

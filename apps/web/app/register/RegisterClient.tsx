@@ -21,7 +21,6 @@ import {
   Lock,
   Heart,
   Check,
-  MessageCircle,
 } from "lucide-react";
 
 function trialLabel(days: number): string {
@@ -486,9 +485,9 @@ export default function RegisterClient() {
        veía como un bloque angosto dentro de otro). En PC, dos columnas: a la
        izquierda por qué registrarse, a la derecha el formulario. */
     <div className="flex min-h-0 items-start justify-center py-0 sm:min-h-[80vh] sm:items-center sm:px-4 sm:py-10">
-      <div className="w-full max-w-xl lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-center lg:gap-14">
+      <div className="w-full max-w-xl lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1.15fr)_28rem] lg:items-stretch lg:gap-10">
         <RegisterAside professional={isProfessional} />
-        <div className="w-full">
+        <div className="w-full lg:flex lg:flex-col lg:justify-center">
         {isProForm && (
           <div className="mb-5 flex items-center justify-between gap-3 sm:mb-6 lg:hidden">
             <div className="flex items-center gap-2.5">
@@ -1001,49 +1000,105 @@ function OptionCard({
 }
 
 /**
- * Columna izquierda en PC: por qué registrarse. En el teléfono no se muestra
- * (ahí cada pantalla ya tiene su título y el espacio es para el formulario).
+ * Columna izquierda en PC: panel con la foto de la marca, el mensaje y una
+ * vista previa del chat. En el teléfono no se muestra (ahí cada pantalla ya
+ * tiene su título y el espacio es para el formulario).
  */
 function RegisterAside({ professional }: { professional: boolean }) {
   const points = professional
     ? [
-        { icon: Gift, title: TRIAL_TEXT, text: "Publica sin tarjeta de crédito y empieza a recibir clientes hoy." },
-        { icon: MessageCircle, title: "Clientes por chat", text: "Respuestas rápidas con tu tarifa y servicios, aunque no estés conectada." },
-        { icon: Lock, title: "Tu privacidad primero", text: "Tu dirección exacta, correo y teléfono nunca se publican." },
-        { icon: ShieldCheck, title: "Perfil verificado", text: "Revisamos cada perfil para que los clientes confíen en ti." },
+        { icon: Gift, text: TRIAL_TEXT },
+        { icon: Lock, text: "Tu dirección nunca se publica" },
+        { icon: ShieldCheck, text: "Perfiles verificados" },
       ]
     : [
-        { icon: Heart, title: "Gratis para clientes", text: "Busca perfiles, guarda favoritos y conversa sin costo." },
-        { icon: ShieldCheck, title: "Perfiles verificados", text: "Cada profesional pasa por una revisión del equipo." },
-        { icon: Lock, title: "Discreto y privado", text: "Tus datos no se muestran a nadie." },
-        { icon: MessageCircle, title: "Todo por chat", text: "Pregunta tarifa y servicios y recibe respuesta al instante." },
+        { icon: Heart, text: "Gratis para clientes" },
+        { icon: ShieldCheck, text: "Perfiles verificados" },
+        { icon: Lock, text: "Discreto y privado" },
       ];
   return (
-    <aside className="relative hidden lg:block">
-      <div className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-fuchsia-600/15 blur-3xl" />
-      <div className="relative">
-        <img src="/brand/isotipo-new.png" alt="UZEED" className="h-14 w-14 rounded-2xl shadow-lg shadow-fuchsia-500/20" />
-        <h1 className="mt-6 bg-gradient-to-r from-white via-fuchsia-200 to-violet-200 bg-clip-text text-4xl font-extrabold leading-tight tracking-tight text-transparent xl:text-5xl">
-          {professional ? "Publica tu perfil y recibe clientes" : "Crea tu cuenta en UZEED"}
-        </h1>
-        <p className="mt-3 max-w-md text-base leading-relaxed text-white/55">
-          {professional
-            ? "Crea tu perfil en unos 3 minutos y empieza a recibir mensajes."
-            : "Elige el tipo de cuenta que mejor se ajuste a ti. Es rápido y gratis."}
-        </p>
-        <ul className="mt-8 grid gap-4">
-          {points.map(({ icon: Icon, title, text }) => (
-            <li key={title} className="flex items-start gap-3.5">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-fuchsia-400/20 bg-gradient-to-br from-fuchsia-500/20 to-violet-500/10">
-                <Icon className="h-[18px] w-[18px] text-fuchsia-200" />
+    <aside className="relative hidden min-h-[640px] overflow-hidden rounded-[32px] border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.5)] lg:block">
+      <img
+        src="/brand/age-gate-bg.jpg"
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover object-[30%_center]"
+      />
+      {/* Oscurece abajo para que el texto se lea sobre la foto */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#070816] via-[#070816]/35 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/15 via-transparent to-violet-900/30" />
+
+      <div className="relative flex h-full flex-col justify-between p-10">
+        <div className="flex items-center gap-2.5">
+          <img src="/brand/isotipo-new.png" alt="UZEED" className="h-10 w-10 rounded-xl" />
+          <span className="text-sm font-bold tracking-[0.25em] text-white/90">UZEED</span>
+        </div>
+
+        {/* Vista previa del chat: lo que el cliente ve con las respuestas rápidas */}
+        <div className="ml-auto w-80 rounded-3xl border border-white/15 bg-black/35 p-4 shadow-2xl backdrop-blur-xl">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="h-7 w-7 rounded-full bg-gradient-to-br from-fuchsia-400 to-violet-500" />
+            <span className="text-xs font-semibold text-white/85">Valentina</span>
+            <span className="ml-auto flex items-center gap-1 text-[10px] text-emerald-300/80">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> en línea
+            </span>
+          </div>
+          <div className="flex justify-end">
+            <span className="rounded-2xl rounded-br-md bg-gradient-to-br from-fuchsia-600/90 to-violet-600/90 px-3 py-1.5 text-[12px] text-white">
+              ¿Cuál es tu tarifa?
+            </span>
+          </div>
+          <div className="mt-1.5 flex">
+            <span className="rounded-2xl rounded-bl-md border border-white/10 bg-white/10 px-3 py-1.5 text-[12px] text-white/85">
+              1 hora $60.000 · 2 horas $110.000 💋
+            </span>
+          </div>
+          <div className="mt-3 flex gap-1.5">
+            {["Tarifa", "Servicios", "Horario"].map((t) => (
+              <span
+                key={t}
+                className="rounded-full border border-fuchsia-400/30 bg-fuchsia-500/15 px-2.5 py-1 text-[10px] font-medium text-fuchsia-100"
+              >
+                {t}
               </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-white/90">{title}</span>
-                <span className="mt-0.5 block text-sm leading-snug text-white/45">{text}</span>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h1 className="max-w-lg text-[2.6rem] font-extrabold leading-[1.05] tracking-tight text-white xl:text-5xl">
+            {professional ? (
+              <>
+                Publica tu perfil y{" "}
+                <span className="bg-gradient-to-r from-fuchsia-300 to-violet-300 bg-clip-text text-transparent">
+                  recibe clientes
+                </span>
+              </>
+            ) : (
+              <>
+                Encuentra a quien buscas,{" "}
+                <span className="bg-gradient-to-r from-fuchsia-300 to-violet-300 bg-clip-text text-transparent">
+                  con discreción
+                </span>
+              </>
+            )}
+          </h1>
+          <p className="mt-3 max-w-md text-[15px] leading-relaxed text-white/65">
+            {professional
+              ? "Crea tu perfil en unos 3 minutos. Tus clientes ven tu tarifa y servicios al instante, aunque no estés conectada."
+              : "Crea tu cuenta gratis y conversa con perfiles verificados."}
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {points.map(({ icon: Icon, text }) => (
+              <span
+                key={text}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85 backdrop-blur-md"
+              >
+                <Icon className="h-3.5 w-3.5 text-fuchsia-200" />
+                {text}
               </span>
-            </li>
-          ))}
-        </ul>
+            ))}
+          </div>
+        </div>
       </div>
     </aside>
   );
