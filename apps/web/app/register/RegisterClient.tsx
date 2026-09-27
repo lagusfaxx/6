@@ -21,6 +21,7 @@ import {
   Lock,
   Heart,
   Check,
+  MessageCircle,
 } from "lucide-react";
 
 function trialLabel(days: number): string {
@@ -481,14 +482,15 @@ export default function RegisterClient() {
   const isProForm = step === "form" && isProfessional;
 
   return (
-    <div
-      className={`flex justify-center ${
-        isProForm ? "min-h-0 items-start py-0 sm:min-h-[80vh] sm:items-center sm:px-4 sm:py-10" : "min-h-[80vh] items-center px-4 py-10"
-      }`}
-    >
-      <div className="w-full max-w-xl">
+    /* En el teléfono todo va a pantalla completa (sin tarjeta envolvente: se
+       veía como un bloque angosto dentro de otro). En PC, dos columnas: a la
+       izquierda por qué registrarse, a la derecha el formulario. */
+    <div className="flex min-h-0 items-start justify-center py-0 sm:min-h-[80vh] sm:items-center sm:px-4 sm:py-10">
+      <div className="w-full max-w-xl lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-center lg:gap-14">
+        <RegisterAside professional={isProfessional} />
+        <div className="w-full">
         {isProForm && (
-          <div className="mb-5 flex items-center justify-between gap-3 sm:mb-6">
+          <div className="mb-5 flex items-center justify-between gap-3 sm:mb-6 lg:hidden">
             <div className="flex items-center gap-2.5">
               <img src="/brand/isotipo-new.png" alt="UZEED" className="h-9 w-9 rounded-xl" />
               <div className="leading-tight">
@@ -504,7 +506,7 @@ export default function RegisterClient() {
         )}
 
         {/* Hero header */}
-        <div className={`flex flex-col items-center mb-8 ${isProForm ? "hidden" : ""}`}>
+        <div className={`mb-6 flex flex-col items-center sm:mb-8 ${isProForm ? "hidden" : "lg:hidden"}`}>
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/40 to-violet-500/40 blur-3xl scale-150 animate-pulse" />
             <div className="relative rounded-3xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 p-[2px] shadow-2xl">
@@ -556,23 +558,15 @@ export default function RegisterClient() {
         </div>
 
         {/* Card */}
-        <div
-          className={`relative ${
-            isProForm
-              ? /* Sin overflow-hidden en el teléfono: rompería la barra fija
-                   de botones (position: sticky) del formulario. */
-                "sm:overflow-hidden sm:rounded-[28px] sm:border sm:border-white/10 sm:bg-gradient-to-b sm:from-white/[0.07] sm:to-white/[0.03] sm:shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:backdrop-blur-2xl"
-              : "overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] shadow-[0_30px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
-          }`}
-        >
+        <div className="relative sm:overflow-hidden sm:rounded-[28px] sm:border sm:border-white/10 sm:bg-gradient-to-b sm:from-white/[0.07] sm:to-white/[0.03] sm:shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:backdrop-blur-2xl">
           {/* Top glow line */}
-          <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/60 to-transparent ${isProForm ? "hidden sm:block" : ""}`} />
+          <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/60 to-transparent hidden sm:block`} />
           {/* Ambient corner glows */}
-          <div className={`pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-3xl ${isProForm ? "hidden sm:block" : ""}`} />
-          <div className={`pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl ${isProForm ? "hidden sm:block" : ""}`} />
+          <div className={`pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-3xl hidden sm:block`} />
+          <div className={`pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl hidden sm:block`} />
 
           {step === "choose" ? (
-            <div className="relative p-6 sm:p-8">
+            <div className="relative p-0 sm:p-8">
               {/* Consumer section */}
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-3">
@@ -705,7 +699,7 @@ export default function RegisterClient() {
               </div>
             </div>
           ) : step === "form" ? (
-            <div className={`relative ${isProForm ? "p-0 sm:p-8" : "p-6 sm:p-8"}`}>
+            <div className="relative p-0 sm:p-8">
               {/* Selected type chip (profesionales: su formulario ya lo dice) */}
               {selected && !isProForm && (() => {
                 const SelectedIcon = selected.icon;
@@ -921,6 +915,7 @@ export default function RegisterClient() {
             Inicia sesión
           </Link>
         </p>
+        </div>
       </div>
 
       {/* Terms Modal */}
@@ -958,14 +953,6 @@ function OptionCard({
           : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06] hover:-translate-y-0.5"
       }`}
     >
-      {/* Badge */}
-      {option.badge && (
-        <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider">
-          <Sparkles className="h-2.5 w-2.5" />
-          {option.badge.text}
-        </span>
-      )}
-
       <div className="relative flex items-center gap-4">
         {/* Icon */}
         <div
@@ -986,13 +973,23 @@ function OptionCard({
         </div>
 
         {/* Text */}
-        <div className="min-w-0 flex-1 pr-16">
-          <div
-            className={`font-semibold transition-colors ${
-              selected ? "text-white" : "text-white/95"
-            }`}
-          >
-            {option.title}
+        <div className="min-w-0 flex-1">
+          {/* La etiqueta va en línea con el título: flotando en la esquina se
+              montaba sobre el nombre en pantallas angostas. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span
+              className={`font-semibold transition-colors ${
+                selected ? "text-white" : "text-white/95"
+              }`}
+            >
+              {option.title}
+            </span>
+            {option.badge && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-fuchsia-200">
+                <Sparkles className="h-2.5 w-2.5" />
+                {option.badge.text}
+              </span>
+            )}
           </div>
           <div className="text-xs sm:text-sm text-white/55 mt-0.5 leading-relaxed">
             {option.description}
@@ -1000,5 +997,54 @@ function OptionCard({
         </div>
       </div>
     </button>
+  );
+}
+
+/**
+ * Columna izquierda en PC: por qué registrarse. En el teléfono no se muestra
+ * (ahí cada pantalla ya tiene su título y el espacio es para el formulario).
+ */
+function RegisterAside({ professional }: { professional: boolean }) {
+  const points = professional
+    ? [
+        { icon: Gift, title: TRIAL_TEXT, text: "Publica sin tarjeta de crédito y empieza a recibir clientes hoy." },
+        { icon: MessageCircle, title: "Clientes por chat", text: "Respuestas rápidas con tu tarifa y servicios, aunque no estés conectada." },
+        { icon: Lock, title: "Tu privacidad primero", text: "Tu dirección exacta, correo y teléfono nunca se publican." },
+        { icon: ShieldCheck, title: "Perfil verificado", text: "Revisamos cada perfil para que los clientes confíen en ti." },
+      ]
+    : [
+        { icon: Heart, title: "Gratis para clientes", text: "Busca perfiles, guarda favoritos y conversa sin costo." },
+        { icon: ShieldCheck, title: "Perfiles verificados", text: "Cada profesional pasa por una revisión del equipo." },
+        { icon: Lock, title: "Discreto y privado", text: "Tus datos no se muestran a nadie." },
+        { icon: MessageCircle, title: "Todo por chat", text: "Pregunta tarifa y servicios y recibe respuesta al instante." },
+      ];
+  return (
+    <aside className="relative hidden lg:block">
+      <div className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-fuchsia-600/15 blur-3xl" />
+      <div className="relative">
+        <img src="/brand/isotipo-new.png" alt="UZEED" className="h-14 w-14 rounded-2xl shadow-lg shadow-fuchsia-500/20" />
+        <h1 className="mt-6 bg-gradient-to-r from-white via-fuchsia-200 to-violet-200 bg-clip-text text-4xl font-extrabold leading-tight tracking-tight text-transparent xl:text-5xl">
+          {professional ? "Publica tu perfil y recibe clientes" : "Crea tu cuenta en UZEED"}
+        </h1>
+        <p className="mt-3 max-w-md text-base leading-relaxed text-white/55">
+          {professional
+            ? "Crea tu perfil en unos 3 minutos y empieza a recibir mensajes."
+            : "Elige el tipo de cuenta que mejor se ajuste a ti. Es rápido y gratis."}
+        </p>
+        <ul className="mt-8 grid gap-4">
+          {points.map(({ icon: Icon, title, text }) => (
+            <li key={title} className="flex items-start gap-3.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-fuchsia-400/20 bg-gradient-to-br from-fuchsia-500/20 to-violet-500/10">
+                <Icon className="h-[18px] w-[18px] text-fuchsia-200" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-white/90">{title}</span>
+                <span className="mt-0.5 block text-sm leading-snug text-white/45">{text}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
   );
 }

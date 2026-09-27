@@ -66,13 +66,14 @@ const YEAR_OPTIONS = buildYearOptions();
 const GENDERS = [
   { value: "FEMALE", label: "Mujer" },
   { value: "MALE", label: "Hombre" },
-  { value: "OTHER", label: "Otro" },
+  /* "Trans" es el nombre que usa todo el sitio para OTHER (Explorar,
+     Publícate) y la API le suma la etiqueta "trans" del directorio. */
+  { value: "OTHER", label: "Trans" },
 ];
 
 const CATEGORIES = [
   { value: "escort", label: "Escort", hint: "Acompañante", emoji: "💋" },
   { value: "masajes", label: "Masajista", hint: "Masajes", emoji: "💆" },
-  { value: "trans", label: "Trans", hint: "Perfil trans", emoji: "✨" },
   { value: "despedidas", label: "Despedidas", hint: "De soltero", emoji: "🎉" },
   { value: "videollamadas", label: "Videollamadas", hint: "Solo online", emoji: "📱" },
 ];
@@ -420,7 +421,7 @@ export default function ProfessionalRegisterForm({
             <>
               <div className="grid gap-2">
                 <span className="text-sm font-medium text-white/70">¿Cómo te defines?</span>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-2 gap-2">
                   {CATEGORIES.map((c) => {
                     const selected = primaryCategory === c.value;
                     return (
