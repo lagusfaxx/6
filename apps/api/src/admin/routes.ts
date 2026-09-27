@@ -8,7 +8,11 @@ import {
 } from "../auth/middleware";
 import { requireFresh2FA } from "../auth/twoFactor";
 import { missingProfileFields } from "../lib/profileCompletion";
-import { CreatePostSchema } from "@uzeed/shared";
+import {
+  CreatePostSchema,
+  QUICK_REPLY_MIN_LENGTH,
+  normalizeQuickReplies,
+} from "@uzeed/shared";
 import multer from "multer";
 import path from "path";
 import { config } from "../config";
@@ -349,7 +353,7 @@ adminRouter.post(
 adminRouter.get(
   "/profiles",
   asyncHandler(async (req, res) => {
-    const { profileType, isActive, q, limit, offset } = req.query as Record<
+    const { profileType, isActive, q, limit, offset, quickReplies } = req.query as Record<
       string,
       string | undefined
     >;
@@ -365,6 +369,17 @@ adminRouter.get(
         { username: { contains: q, mode: "insensitive" } },
         { email: { contains: q, mode: "insensitive" } },
       ];
+    }
+    /* Profesionales sin tarifa o sin servicios en sus respuestas rápidas: las
+       cuentas anteriores a la función, que el equipo completa desde acá. */
+    if (quickReplies === "missing") {
+      const rows = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT "id" FROM "User"
+        WHERE "profileType" = 'PROFESSIONAL'
+          AND (COALESCE(length(btrim("quickReplies"->>'tarifa')), 0) < ${QUICK_REPLY_MIN_LENGTH}
+            OR COALESCE(length(btrim("quickReplies"->>'servicios')), 0) < ${QUICK_REPLY_MIN_LENGTH})`;
+      where.profileType = "PROFESSIONAL";
+      where.id = { in: rows.map((r) => r.id) };
     }
 
     const [profiles, total] = await Promise.all([
@@ -407,6 +422,7 @@ adminRouter.get(
           acceptsOutcalls: true,
           serviceStyleTags: true,
           serviceTags: true,
+          quickReplies: true,
           birthdate: true,
           createdAt: true,
           updatedAt: true,
@@ -528,6 +544,7 @@ adminRouter.put(
       serviceStyleTags,
       serviceTags,
       profileTags,
+      quickReplies,
     } = req.body ?? {};
 
     const data: any = {};
@@ -609,6 +626,14 @@ adminRouter.put(
         ),
       ).slice(0, 40);
       data.profileTags = [...badges, ...userTags];
+    }
+
+    /* Respuestas rápidas (tarifa, servicios...). Acá no se exigen las
+       obligatorias: el equipo carga lo que sabe de cada perfil antiguo, aunque
+       sea sólo la tarifa. Se reemplazan completas: lo vacío se borra. */
+    if (quickReplies !== undefined) {
+      const normalized = normalizeQuickReplies(quickReplies);
+      data.quickReplies = Object.keys(normalized).length ? normalized : Prisma.DbNull;
     }
 
     if (isActive !== undefined) data.isActive = Boolean(isActive);
@@ -722,6 +747,7 @@ adminRouter.put(
         serviceStyleTags: true,
         serviceTags: true,
         profileTags: true,
+        quickReplies: true,
       },
     });
     return res.json({ profile: updated });
