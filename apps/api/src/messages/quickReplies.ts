@@ -3,10 +3,9 @@ import rateLimit from "express-rate-limit";
 import {
   QUICK_REPLY_TOPICS,
   QUICK_REPLY_MAX_LENGTH,
-  missingQuickReplies,
   normalizeQuickReplies,
-  quickRepliesRequiredMessage,
 } from "@uzeed/shared";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { requireAuth } from "../auth/middleware";
 import { asyncHandler } from "../lib/asyncHandler";
@@ -51,7 +50,6 @@ quickRepliesRouter.get(
     const quickReplies = normalizeQuickReplies(user.quickReplies);
     return res.json({
       quickReplies,
-      missing: missingQuickReplies(quickReplies),
       available: user.profileType === "PROFESSIONAL",
       maxLength: QUICK_REPLY_MAX_LENGTH,
     });
@@ -65,7 +63,7 @@ quickRepliesRouter.patch(
     const userId = req.session.userId!;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { profileType: true, quickReplies: true },
+      select: { profileType: true },
     });
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
     if (user.profileType !== "PROFESSIONAL") {
@@ -83,24 +81,13 @@ quickRepliesRouter.patch(
         }
       }
     }
+    // Todas son opcionales: se guarda lo que haya (vacío borra la respuesta).
     const quickReplies = normalizeQuickReplies(raw);
-    const missing = missingQuickReplies(quickReplies);
-
-    /* Se guarda aunque falte una obligatoria (quien completaba sólo la tarifa
-       perdía lo escrito); queda pendiente y se responde qué falta. Lo que no
-       se permite es borrar una obligatoria que ya estaba completa. */
-    const before = missingQuickReplies(normalizeQuickReplies(user.quickReplies));
-    const cleared = missing.filter((key) => !before.includes(key));
-    if (cleared.length) {
-      return res.status(400).json({
-        error: "QUICK_REPLIES_REQUIRED",
-        message: quickRepliesRequiredMessage(cleared),
-        missing: cleared,
-      });
-    }
-
-    await prisma.user.update({ where: { id: userId }, data: { quickReplies } });
-    return res.json({ quickReplies, missing });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { quickReplies: Object.keys(quickReplies).length ? quickReplies : Prisma.DbNull },
+    });
+    return res.json({ quickReplies });
   }),
 );
 

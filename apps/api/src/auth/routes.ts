@@ -290,7 +290,7 @@ authRouter.post(
           ...(profileType === "PROFESSIONAL"
             ? {
                 ...autoReplyFields(autoReplyEnabled, autoReplyMessage),
-                // Obligatorias en el registro (lo valida registerInputSchema).
+                // Respuestas rápidas: opcionales.
                 quickReplies: normalizeQuickReplies(quickReplies),
               }
             : {}),

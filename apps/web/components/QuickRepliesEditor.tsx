@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Check, Zap } from "lucide-react";
 import {
   QUICK_REPLY_MAX_LENGTH,
-  QUICK_REPLY_MIN_LENGTH,
   QUICK_REPLY_TOPICS,
   type QuickReplies,
   type QuickReplyKey,
@@ -14,59 +13,30 @@ import {
  * Editor de respuestas rápidas en formato "pestañas": una pregunta a la vez,
  * con una vista previa de cómo lo ve el cliente en el chat. Cabe en la
  * pantalla del teléfono sin importar cuántas preguntas haya.
- *
- * `focusKey` permite abrir una pregunta desde afuera (ej. la primera que
- * falta cuando la validación falla).
  */
 export default function QuickRepliesEditor({
   value,
   onChange,
-  focusKey,
 }: {
   value: QuickReplies;
   onChange: (next: QuickReplies) => void;
-  focusKey?: QuickReplyKey | null;
 }) {
   const [active, setActive] = useState<QuickReplyKey>(QUICK_REPLY_TOPICS[0].key);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (focusKey) {
-      setActive(focusKey);
-      textareaRef.current?.focus();
-    }
-  }, [focusKey]);
 
   const topic = QUICK_REPLY_TOPICS.find((t) => t.key === active) ?? QUICK_REPLY_TOPICS[0];
   const text = value[active] || "";
   const isDone = (key: QuickReplyKey) =>
-    (value[key] || "").trim().length >= QUICK_REPLY_MIN_LENGTH;
+    (value[key] || "").trim().length > 0;
 
   const index = QUICK_REPLY_TOPICS.findIndex((t) => t.key === active);
   const next = QUICK_REPLY_TOPICS[index + 1];
-  // Obligatorias que faltan: se nombran arriba y el botón de abajo lleva a
-  // la siguiente. "Siguiente: Servicios" a secas parecía opcional y muchas
-  // dejaban sólo la tarifa.
-  const missingRequired = QUICK_REPLY_TOPICS.filter((t) => t.required && !isDone(t.key));
-  const nextRequired = missingRequired.find((t) => t.key !== active);
 
   return (
     <div className="grid gap-3">
-      {/* Qué falta para completar */}
-      {missingRequired.length ? (
-        <p className="rounded-xl border border-amber-400/25 bg-amber-400/[0.07] px-3 py-2 text-[12px] leading-snug text-amber-100">
-          Te falta:{" "}
-          <strong className="font-semibold text-white">
-            {missingRequired.map((t) => t.label).join(" y ")}
-          </strong>{" "}
-          (obligatorio). Las demás son opcionales.
-        </p>
-      ) : (
-        <p className="flex items-center gap-1.5 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-2 text-[12px] text-emerald-100">
-          <Check className="h-3.5 w-3.5 text-emerald-300" />
-          Tarifa y servicios listos. Puedes sumar horario, ubicación y formas de pago.
-        </p>
-      )}
+      {/* Todas son opcionales: se explica para qué sirven */}
+      <p className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[12px] leading-snug text-white/60">
+        Opcional. Completa las que quieras: el cliente solo verá los botones que respondas.
+      </p>
 
       {/* Preguntas: se tocan para editarlas */}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -87,11 +57,7 @@ export default function QuickRepliesEditor({
                     : "border-white/10 bg-white/[0.04] text-white/60"
               }`}
             >
-              {done ? (
-                <Check className="h-3 w-3 text-emerald-300" />
-              ) : t.required ? (
-                <span className="h-1.5 w-1.5 rounded-full bg-fuchsia-400" />
-              ) : null}
+              {done && <Check className="h-3 w-3 text-emerald-300" />}
               {t.label}
             </button>
           );
@@ -126,22 +92,12 @@ export default function QuickRepliesEditor({
           htmlFor="quick-reply-editor"
           className="flex items-center justify-between text-sm font-medium text-white/75"
         >
-          <span className="flex items-center gap-2">
-            {topic.label}
-            {topic.required ? (
-              <span className="rounded-full bg-fuchsia-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-fuchsia-300">
-                Obligatorio
-              </span>
-            ) : (
-              <span className="text-[10px] font-normal text-white/35">Opcional</span>
-            )}
-          </span>
+          <span>{topic.label}</span>
           <span className="text-[10px] font-normal text-white/30">
             {text.length}/{QUICK_REPLY_MAX_LENGTH}
           </span>
         </label>
         <textarea
-          ref={textareaRef}
           id="quick-reply-editor"
           className="input min-h-[84px]"
           value={text}
@@ -151,21 +107,13 @@ export default function QuickRepliesEditor({
           placeholder={topic.placeholder}
           maxLength={QUICK_REPLY_MAX_LENGTH}
         />
-        {nextRequired ? (
-          <button
-            type="button"
-            onClick={() => setActive(nextRequired.key)}
-            className="justify-self-end rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-3 py-1.5 text-[12px] font-semibold text-fuchsia-100 transition hover:bg-fuchsia-500/25"
-          >
-            Ahora completa {nextRequired.label} (obligatorio) →
-          </button>
-        ) : next && (
+        {next && (
           <button
             type="button"
             onClick={() => setActive(next.key)}
             className="justify-self-end text-[11px] font-medium text-fuchsia-300/80 transition hover:text-fuchsia-200"
           >
-            Siguiente (opcional): {next.label} →
+            Siguiente: {next.label} →
           </button>
         )}
       </div>

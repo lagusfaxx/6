@@ -35,44 +35,38 @@ export type PreferenceGender = z.infer<typeof PreferenceGenders>;
 
 /**
  * Respuestas rápidas de la profesional: preguntas típicas que el cliente toca
- * en el chat y que responden al instante con el texto que ella dejó.
- * Tarifa y servicios son obligatorias en el registro: son justo lo que los
- * clientes preguntan y lo que se queda sin responder.
+ * en el chat y que responden al instante con el texto que ella dejó. Todas
+ * son opcionales: el cliente sólo ve las que ella respondió.
  */
 export const QUICK_REPLY_TOPICS = [
   {
     key: "tarifa",
     label: "Tarifa",
     question: "¿Cuál es tu tarifa?",
-    required: true,
     placeholder: "Ej: 1 hora $60.000 · 2 horas $110.000 · Noche $250.000",
   },
   {
     key: "servicios",
     label: "Servicios",
     question: "¿Qué servicios ofreces?",
-    required: true,
     placeholder: "Ej: Masajes, trato de polola, despedidas...",
   },
   {
     key: "horario",
     label: "Horario",
     question: "¿Qué horario tienes?",
-    required: false,
     placeholder: "Ej: Lunes a sábado de 11:00 a 23:00",
   },
   {
     key: "ubicacion",
     label: "Ubicación",
     question: "¿Dónde atiendes?",
-    required: false,
     placeholder: "Ej: Depto propio en Providencia, también voy a hoteles",
   },
   {
     key: "pago",
     label: "Formas de pago",
     question: "¿Qué formas de pago aceptas?",
-    required: false,
     placeholder: "Ej: Efectivo o transferencia",
   },
 ] as const;
@@ -81,7 +75,6 @@ export type QuickReplyKey = (typeof QUICK_REPLY_TOPICS)[number]["key"];
 export type QuickReplies = Partial<Record<QuickReplyKey, string>>;
 
 export const QUICK_REPLY_MAX_LENGTH = 500;
-export const QUICK_REPLY_MIN_LENGTH = 3;
 
 /**
  * Deja sólo las claves conocidas, con el texto recortado y sin vacíos.
@@ -106,20 +99,6 @@ export function normalizeQuickReplies(input: unknown): QuickReplies {
     if (text) out[topic.key] = text;
   }
   return out;
-}
-
-/** Obligatorias que faltan (o que son demasiado cortas para decir algo). */
-export function missingQuickReplies(replies: QuickReplies): QuickReplyKey[] {
-  return QUICK_REPLY_TOPICS.filter(
-    (t) => t.required && (replies[t.key]?.length ?? 0) < QUICK_REPLY_MIN_LENGTH,
-  ).map((t) => t.key);
-}
-
-export function quickRepliesRequiredMessage(missing: QuickReplyKey[]): string {
-  const labels = QUICK_REPLY_TOPICS.filter((t) => missing.includes(t.key)).map((t) =>
-    t.label.toLowerCase(),
-  );
-  return `Completa tus respuestas rápidas: ${labels.join(" y ")}.`;
 }
 
 export const registerInputSchema = z
@@ -174,14 +153,6 @@ export const registerInputSchema = z
         });
       }
       // Bio is optional at registration; professionals complete it later
-      const missing = missingQuickReplies(normalizeQuickReplies(data.quickReplies));
-      if (missing.length) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["quickReplies"],
-          message: quickRepliesRequiredMessage(missing),
-        });
-      }
     }
 
     // Address/geolocation required for all business profiles (used for distance search)
