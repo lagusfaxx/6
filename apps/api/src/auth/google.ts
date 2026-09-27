@@ -9,7 +9,13 @@ import { Prisma, ProfileType } from "@prisma/client";
 import { config } from "../config";
 import { asyncHandler } from "../lib/asyncHandler";
 import { emitAdminEvent } from "../lib/adminEvents";
-import { Genders, PreferenceGenders } from "@uzeed/shared";
+import {
+  Genders,
+  PreferenceGenders,
+  missingQuickReplies,
+  normalizeQuickReplies,
+  quickRepliesRequiredMessage,
+} from "@uzeed/shared";
 import { createProfessionalForumThread } from "./registerHelpers";
 import { redeemReferralCode } from "../referral/redeem";
 import { LocalStorageProvider } from "../storage/localStorageProvider";
@@ -288,6 +294,8 @@ const professionalCompleteSchema = z.object({
   referralCode: z.string().max(20).optional(),
   autoReplyEnabled: z.boolean().optional(),
   autoReplyMessage: z.string().max(500).optional(),
+  // Llega como JSON en el multipart; se normaliza y valida después.
+  quickReplies: z.unknown().optional(),
   acceptTerms: z.literal(true, {
     errorMap: () => ({ message: "Terms must be accepted" }),
   }),
@@ -482,6 +490,17 @@ googleAuthRouter.post(
     }
     const data = parsed.data;
 
+    // Respuestas rápidas: tarifa y servicios son obligatorias (igual que en
+    // /auth/register).
+    const quickReplies = normalizeQuickReplies(data.quickReplies);
+    const missingReplies = missingQuickReplies(quickReplies);
+    if (missingReplies.length) {
+      return res.status(400).json({
+        error: "QUICK_REPLIES_REQUIRED",
+        message: quickRepliesRequiredMessage(missingReplies),
+      });
+    }
+
     // Age check (same rules as /auth/register)
     const parsedBirthdate = new Date(data.birthdate);
     if (Number.isNaN(parsedBirthdate.getTime())) {
@@ -602,6 +621,7 @@ googleAuthRouter.post(
           role: "USER",
           isVerified: false,
           ...autoReplyFields(data.autoReplyEnabled, data.autoReplyMessage),
+          quickReplies,
           // First validated gallery photo — never the Google avatar.
           avatarUrl: galleryUrls[0],
         },

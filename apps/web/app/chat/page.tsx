@@ -20,6 +20,7 @@ import { apiFetch, friendlyErrorMessage, isAuthError } from "../../lib/api";
 import { connectRealtime } from "../../lib/realtime";
 import Avatar from "../../components/Avatar";
 import AutoReplySettings from "../../components/AutoReplySettings";
+import QuickRepliesSettings from "../../components/QuickRepliesSettings";
 import useMe from "../../hooks/useMe";
 
 type Conversation = {
@@ -287,7 +288,8 @@ export default function ChatInboxPage() {
 
       {/* Mensaje automático — solo para profesionales, aquí mismo donde chatean */}
       {isProfessionalAccount && (
-        <div className="mb-3">
+        <div className="mb-3 space-y-2">
+          <QuickRepliesSettings />
           {autoReplyOpen ? (
             <AutoReplySettings />
           ) : (

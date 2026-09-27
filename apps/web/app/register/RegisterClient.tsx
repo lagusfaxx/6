@@ -328,6 +328,7 @@ export default function RegisterClient() {
       form.append("autoReplyEnabled", "true");
       form.append("autoReplyMessage", data.autoReplyMessage);
     }
+    if (data.quickReplies) form.append("quickReplies", JSON.stringify(data.quickReplies));
     for (const file of galleryFiles) form.append("gallery", file);
 
     try {

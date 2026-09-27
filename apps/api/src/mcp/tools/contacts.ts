@@ -82,6 +82,7 @@ export function registerContactTools(server: McpServer, ctx: McpContext) {
         ), replies AS (
           SELECT f.client, f.pro, f.first_at,
             (SELECT MIN(r."createdAt") FROM "Message" r WHERE r."fromId" = f.pro AND r."toId" = f.client AND r."createdAt" > f.first_at
+               AND NOT EXISTS (SELECT 1 FROM "QuickReplyAnswer" qa WHERE qa."messageId" = r."id")
                AND NOT EXISTS (SELECT 1 FROM "AutoReplyLog" al WHERE al."professionalId" = f.pro AND al."clientId" = f.client AND abs(EXTRACT(EPOCH FROM (al."sentAt" - r."createdAt"))) < 5)) AS reply_at,
             EXISTS (SELECT 1 FROM "AutoReplyLog" al WHERE al."professionalId" = f.pro AND al."clientId" = f.client AND al."sentAt" >= f.first_at AND al."sentAt" < f.first_at + interval '1 hour') AS auto
           FROM firsts f

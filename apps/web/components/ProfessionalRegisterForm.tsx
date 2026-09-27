@@ -3,6 +3,12 @@
 import { Fragment, useState } from "react";
 import { type RegisterFormData } from "./AuthForm";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
+import QuickRepliesFields from "./QuickRepliesFields";
+import {
+  cleanQuickReplies,
+  quickRepliesError,
+  type QuickReplies,
+} from "../lib/quickReplies";
 import {
   ArrowLeft,
   ArrowRight,
@@ -117,6 +123,7 @@ export default function ProfessionalRegisterForm({
   const [referralCode, setReferralCode] = useState("");
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
   const [autoReplyMessage, setAutoReplyMessage] = useState("");
+  const [quickReplies, setQuickReplies] = useState<QuickReplies>({});
   const [acceptTerms, setAcceptTerms] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +164,8 @@ export default function ProfessionalRegisterForm({
         !longitude
       )
         return "Debes seleccionar una dirección válida desde el buscador de Mapbox.";
+      const quickError = quickRepliesError(quickReplies);
+      if (quickError) return quickError;
       if (autoReplyEnabled && autoReplyMessage.trim().length < 5)
         return "Escribe el mensaje automático que quieres enviar (mínimo 5 caracteres).";
       if (!finalTermsAccepted)
@@ -214,6 +223,7 @@ export default function ProfessionalRegisterForm({
       referralCode: referralCode.trim() || undefined,
       autoReplyEnabled: autoReplyEnabled && autoReplyMessage.trim().length > 0,
       autoReplyMessage: autoReplyMessage.trim() || undefined,
+      quickReplies: cleanQuickReplies(quickReplies),
     };
     onCollectData(formData);
   }
@@ -571,6 +581,20 @@ export default function ProfessionalRegisterForm({
             <p className="text-xs text-white/40">
               Si alguien te invitó, ingresa su código aquí.
             </p>
+          </div>
+
+          {/* Respuestas rápidas (obligatorias) */}
+          <div className="rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/[0.04] p-4">
+            <p className="flex items-center gap-2 text-sm font-medium text-white/85">
+              <MessageSquare className="h-4 w-4 text-fuchsia-300" />
+              Respuestas rápidas
+            </p>
+            <p className="mt-1 mb-3 text-xs leading-relaxed text-white/45">
+              Cuando un cliente abra tu chat verá botones como “Tarifa” o
+              “Servicios”. Al tocarlos recibe al instante lo que escribas aquí,
+              aunque no estés conectada. Tarifa y servicios son obligatorias.
+            </p>
+            <QuickRepliesFields value={quickReplies} onChange={setQuickReplies} />
           </div>
 
           {/* Mensaje automático */}

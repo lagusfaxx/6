@@ -25,6 +25,7 @@ import {
   AlertCircle,
   Hotel,
   DollarSign,
+  Zap,
 } from "lucide-react";
 
 type Message = {
@@ -43,6 +44,19 @@ type ChatUser = {
   profileType: string;
   city: string | null;
   phone?: string | null;
+};
+
+/** Pregunta rápida de la profesional (la respuesta llega como mensaje). */
+type QuickReplyTopic = {
+  key: string;
+  label: string;
+  question: string;
+};
+
+type ConversationResponse = {
+  messages: Message[];
+  other: ChatUser;
+  quickReplies?: QuickReplyTopic[];
 };
 
 type MotelBooking = {
@@ -108,6 +122,8 @@ export default function ChatPage() {
   const [me, setMe] = useState<MeResponse["user"] | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [other, setOther] = useState<ChatUser | null>(null);
+  const [quickTopics, setQuickTopics] = useState<QuickReplyTopic[]>([]);
+  const [quickBusy, setQuickBusy] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(
@@ -166,11 +182,12 @@ export default function ChatPage() {
   async function load() {
     const [meResp, msgResp] = await Promise.all([
       apiFetch<MeResponse>("/auth/me"),
-      apiFetch<{ messages: Message[]; other: ChatUser }>(`/messages/${userId}`),
+      apiFetch<ConversationResponse>(`/messages/${userId}`),
     ]);
     setMe(meResp.user);
     setMessages(msgResp.messages);
     setOther(msgResp.other);
+    setQuickTopics(msgResp.quickReplies || []);
     await loadBookingState(meResp.user);
   }
 
@@ -200,11 +217,12 @@ export default function ChatPage() {
 
   async function refreshConversationSilently() {
     try {
-      const msgResp = await apiFetch<{ messages: Message[]; other: ChatUser }>(
+      const msgResp = await apiFetch<ConversationResponse>(
         `/messages/${userId}`,
       );
       setMessages(msgResp.messages);
       setOther(msgResp.other);
+      setQuickTopics(msgResp.quickReplies || []);
       await loadBookingState(me);
     } catch {
       // silent polling
@@ -347,6 +365,30 @@ export default function ChatPage() {
       }
     } catch (e: any) {
       setError(e?.message || "No se pudo enviar el mensaje");
+    }
+  }
+
+  // El cliente toca "Tarifa", "Servicios"...: queda su pregunta en el chat y
+  // enseguida la respuesta que la profesional dejó escrita.
+  async function askQuick(topic: QuickReplyTopic) {
+    if (quickBusy) return;
+    setQuickBusy(topic.key);
+    try {
+      const res = await apiFetch<{ messages: Message[] }>(
+        `/messages/${userId}/quick-reply`,
+        {
+          method: "POST",
+          body: JSON.stringify({ topic: topic.key }),
+        },
+      );
+      setMessages((prev) => {
+        const known = new Set(prev.map((m) => m.id));
+        return [...prev, ...res.messages.filter((m) => !known.has(m.id))];
+      });
+    } catch (e: any) {
+      setError(e?.body?.message || e?.message || "No se pudo enviar la pregunta");
+    } finally {
+      setQuickBusy(null);
     }
   }
 
@@ -601,7 +643,11 @@ export default function ChatPage() {
             <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-gradient-to-br from-fuchsia-500/10 to-violet-500/10">
               <Send className="h-5 w-5 text-white/30" />
             </div>
-            <p className="text-xs text-white/40">Inicia la conversación</p>
+            <p className="text-xs text-white/40">
+              {quickTopics.length
+                ? "Toca una pregunta para ver la respuesta al instante, o escribe tu mensaje."
+                : "Inicia la conversación"}
+            </p>
           </div>
         ) : (
           <div className="space-y-1">
@@ -692,6 +738,29 @@ export default function ChatPage() {
             >
               <X className="h-3.5 w-3.5" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Preguntas rápidas (tarifa, servicios...) ── */}
+      {quickTopics.length > 0 && other && me?.id !== other.id && (
+        <div className="shrink-0 border-t border-white/10 bg-white/[0.03] px-3 pt-2.5">
+          <p className="mb-1.5 flex items-center gap-1 px-1 text-[10px] uppercase tracking-wide text-white/35">
+            <Zap className="h-3 w-3 text-fuchsia-300/70" />
+            Pregunta rápida
+          </p>
+          <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {quickTopics.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => askQuick(t)}
+                disabled={Boolean(quickBusy)}
+                className="shrink-0 rounded-full border border-fuchsia-400/25 bg-fuchsia-500/10 px-3.5 py-1.5 text-xs font-medium text-fuchsia-100 transition hover:bg-fuchsia-500/20 disabled:opacity-50"
+              >
+                {quickBusy === t.key ? "..." : t.label}
+              </button>
+            ))}
           </div>
         </div>
       )}

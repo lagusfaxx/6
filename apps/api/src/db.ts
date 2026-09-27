@@ -28,7 +28,7 @@ const PROFILE_EDIT_FIELDS = new Set([
   "serviceDescription", "serviceCategory", "primaryCategory", "profileTags", "serviceTags", "serviceStyleTags",
   "availabilityNote", "avatarUrl", "coverUrl", "heightCm", "weightKg", "measurements", "hairColor", "skinTone",
   "languages", "acceptsIncalls", "acceptsOutcalls", "subscriptionPrice", "phone", "gender", "birthdate",
-  "undisclosedFields", "autoReplyEnabled", "autoReplyMessage",
+  "undisclosedFields", "autoReplyEnabled", "autoReplyMessage", "quickReplies",
 ]);
 
 prisma.$use(async (params, next) => {
