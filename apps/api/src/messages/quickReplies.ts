@@ -101,8 +101,8 @@ quickRepliesRouter.patch(
 
 /**
  * El cliente toca una pregunta: queda su pregunta en el chat (y le llega el
- * aviso a la profesional, como cualquier mensaje) y enseguida la respuesta que
- * ella dejó escrita.
+ * aviso a la profesional, como cualquier mensaje) y unos segundos después,
+ * con "escribiendo…" de por medio, la respuesta que ella dejó escrita.
  */
 quickRepliesRouter.post(
   "/messages/:userId/quick-reply",
@@ -140,19 +140,6 @@ quickRepliesRouter.post(
     const question = await prisma.message.create({
       data: { fromId: me, toId: other, body: topic.question },
     });
-    // Un milisegundo después para que el orden en el chat sea siempre
-    // pregunta → respuesta, aunque ambas se creen en la misma petición.
-    const reply = await prisma.message.create({
-      data: {
-        fromId: other,
-        toId: me,
-        body: answer,
-        createdAt: new Date(question.createdAt.getTime() + 1),
-      },
-    });
-    await prisma.quickReplyAnswer.create({
-      data: { messageId: reply.id, professionalId: other, clientId: me, topic: topic.key },
-    });
 
     // La pregunta del cliente es un contacto real: la profesional recibe el
     // aviso igual que con un mensaje escrito a mano.
@@ -179,18 +166,57 @@ quickRepliesRouter.post(
       select: { id: true, displayName: true, username: true, avatarUrl: true, profileType: true, city: true },
     });
     sendToUser(other, "message", { message: question, from: sender ?? undefined });
-    sendToUser(me, "message", {
-      message: reply,
-      from: {
-        id: professional.id,
-        displayName: professional.displayName,
-        username: professional.username,
-        avatarUrl: professional.avatarUrl,
-        profileType: professional.profileType,
-        city: professional.city,
-      },
-    });
 
-    return res.json({ messages: [question, reply] });
+    // La respuesta no sale al instante: llegaba antes de que el cliente
+    // terminara de ver su pregunta y se notaba automática. Se muestra
+    // "escribiendo…" y llega después de una pausa acorde a su largo.
+    const replyInMs = quickReplyDelayMs(answer);
+    sendToUser(me, "typing", { fromId: other, ms: replyInMs });
+    const timer = setTimeout(() => {
+      deliverQuickReply(professional, me, answer, topic.key).catch((err) => {
+        console.error("[quick-reply] delivery failed:", err?.message || err);
+      });
+    }, replyInMs);
+    if (typeof timer.unref === "function") timer.unref();
+
+    return res.json({ messages: [question], replyInMs });
   }),
 );
+
+/** Pausa antes de la respuesta: "leer" la pregunta y "escribir" el texto. */
+function quickReplyDelayMs(answer: string): number {
+  const typing = Math.min(answer.length * 35, 4500);
+  return Math.round(1500 + typing + Math.random() * 800);
+}
+
+async function deliverQuickReply(
+  professional: {
+    id: string;
+    displayName: string | null;
+    username: string;
+    avatarUrl: string | null;
+    profileType: string;
+    city: string | null;
+  },
+  clientId: string,
+  answer: string,
+  topic: string,
+) {
+  const reply = await prisma.message.create({
+    data: { fromId: professional.id, toId: clientId, body: answer },
+  });
+  await prisma.quickReplyAnswer.create({
+    data: { messageId: reply.id, professionalId: professional.id, clientId, topic },
+  });
+  sendToUser(clientId, "message", {
+    message: reply,
+    from: {
+      id: professional.id,
+      displayName: professional.displayName,
+      username: professional.username,
+      avatarUrl: professional.avatarUrl,
+      profileType: professional.profileType,
+      city: professional.city,
+    },
+  });
+}
