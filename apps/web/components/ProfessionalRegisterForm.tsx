@@ -181,6 +181,7 @@ export default function ProfessionalRegisterForm({
       if (displayName.trim().length > DISPLAY_NAME_MAX_LENGTH)
         return `El nombre público no puede superar los ${DISPLAY_NAME_MAX_LENGTH} caracteres.`;
       if (!email.trim()) return "Ingresa tu email.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return "Revisa tu email: no parece válido.";
       if (!phoneRegex.test(phone.trim()))
         return "Ingresa un número válido con código de país (+56, +57, +58 o +51).";
       if (!skipPassword && password.length < 8)
@@ -286,7 +287,11 @@ export default function ProfessionalRegisterForm({
   return (
     /* En el teléfono ocupa el alto de la pantalla (menos la cabecera) para
        que la barra de botones quede abajo aunque el paso sea corto. */
+    /* noValidate: los avisos los da validateStep, en español y junto al
+       botón. Con la validación del navegador salía su globo ("Please fill
+       out this field") en vez del mensaje de cada paso. */
     <form
+      noValidate
       onSubmit={handleSubmit}
       className="relative flex min-h-[calc(100svh-6rem)] flex-col sm:block sm:min-h-0"
     >
