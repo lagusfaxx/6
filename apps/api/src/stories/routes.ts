@@ -42,31 +42,6 @@ const uploadMedia = multer({
 
 export const STORY_TTL_HOURS = 24 * 20; // 20 days
 
-/** Fecha con la que la historia se muestra y se ordena: la renovación manda
- *  sobre la creación para que una historia vieja renovada figure como nueva. */
-function effectiveDate(story: { createdAt: Date; renewedAt?: Date | null }): Date {
-  return story.renewedAt ?? story.createdAt;
-}
-
-/** Orden cronológico por fecha efectiva; si dos historias comparten fecha
- *  (una renovación masiva les pone el mismo renewedAt) se respeta el orden
- *  en que se publicaron originalmente. */
-function compareByEffectiveDate(
-  a: { createdAt: Date; renewedAt?: Date | null },
-  b: { createdAt: Date; renewedAt?: Date | null },
-): number {
-  return (
-    effectiveDate(a).getTime() - effectiveDate(b).getTime() ||
-    a.createdAt.getTime() - b.createdAt.getTime()
-  );
-}
-
-/** Reordena las filas según la lista de ids que devolvió la consulta SQL. */
-function orderByIds<T extends { id: string }>(rows: T[], ids: string[]): T[] {
-  const pos = new Map(ids.map((id, i) => [id, i]));
-  return rows.sort((a, b) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0));
-}
-
 /* ─── GET /stories/active ─────────────────────────────────────
    Returns active stories (not expired) for a city/area.
    Query: lat, lng, radiusKm (optional — defaults to 100 km)
@@ -113,19 +88,13 @@ storiesRouter.get(
     // Fetch active stories — gracefully handle missing Story table
     let stories: any[] = [];
     try {
-    // Una historia renovada desde el admin se ordena por su fecha de
-    // renovación y una sin renovar por su creación, todas en la misma línea
-    // de tiempo (Prisma no permite ordenar por COALESCE, de ahí el SQL).
-    // Las historias ocultadas por el admin salen del feed sin borrarse.
-    const ordered = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT "id" FROM "Story"
-      WHERE "expiresAt" > ${now.toISOString()}::timestamp AND "isHidden" = false
-      ORDER BY COALESCE("renewedAt", "createdAt") DESC, "createdAt" DESC
-      LIMIT 100
-    `;
-    const orderedIds = ordered.map((r) => r.id);
-    stories = orderedIds.length === 0 ? [] : await prisma.story.findMany({
-      where: { id: { in: orderedIds } },
+    stories = await prisma.story.findMany({
+      // Las historias ocultadas por el admin salen del feed sin borrarse.
+      where: { expiresAt: { gt: now }, isHidden: false },
+      // Se ordena por la fecha de publicación original: renovar desde el
+      // admin solo alarga la vigencia, no adelanta la historia.
+      orderBy: { createdAt: "desc" },
+      take: 100,
       select: {
         id: true,
         mediaUrl: true,
@@ -149,7 +118,6 @@ storiesRouter.get(
         },
       },
     });
-    stories = orderByIds(stories, orderedIds);
     } catch (err) {
       // Story table might not exist yet (migration pending)
       if (
@@ -205,13 +173,13 @@ storiesRouter.get(
       avatarUrl: user.avatarUrl,
       profileHref: user.profileType === "ESTABLISHMENT" ? `/hospedaje/${user.id}` : `/profesional/${user.id}`,
       stories: userStories
-        .sort(compareByEffectiveDate)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
         .map((s) => ({
           id: s.id,
           mediaUrl: s.mediaUrl,
           mediaType: s.mediaType,
           expiresAt: s.expiresAt.toISOString(),
-          createdAt: effectiveDate(s).toISOString(),
+          createdAt: s.createdAt.toISOString(),
           publishedAt: s.createdAt.toISOString(),
           renewed: Boolean(s.renewedAt),
           likeCount: s.likeCount ?? 0,
@@ -451,24 +419,16 @@ storiesRouter.post(
 
     let rows: any[] = [];
     try {
-      // Mismo orden que el feed: fecha efectiva (renovación o creación).
-      const ordered = await prisma.$queryRaw<{ id: string }[]>`
-        SELECT "id" FROM "Story"
-        WHERE "userId"::text IN (${Prisma.join(userIds)})
-          AND "showInHome" = true AND "isHidden" = false
-        ORDER BY COALESCE("renewedAt", "createdAt") DESC, "createdAt" DESC
-        LIMIT 200
-      `;
-      const orderedIds = ordered.map((r) => r.id);
-      if (orderedIds.length > 0) {
-        rows = orderByIds(
-          await prisma.story.findMany({
-            where: { id: { in: orderedIds } },
-            select: { id: true, userId: true, mediaUrl: true, mediaType: true },
-          }),
-          orderedIds,
-        );
-      }
+      rows = await prisma.story.findMany({
+        where: {
+          userId: { in: userIds },
+          showInHome: true,
+          isHidden: false,
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, userId: true, mediaUrl: true, mediaType: true },
+        take: 200,
+      });
     } catch (err) {
       // Column/table not migrated yet — degrade gracefully.
       if (
