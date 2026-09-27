@@ -44,9 +44,30 @@ export default function QuickRepliesEditor({
 
   const index = QUICK_REPLY_TOPICS.findIndex((t) => t.key === active);
   const next = QUICK_REPLY_TOPICS[index + 1];
+  // Obligatorias que faltan: se nombran arriba y el botón de abajo lleva a
+  // la siguiente. "Siguiente: Servicios" a secas parecía opcional y muchas
+  // dejaban sólo la tarifa.
+  const missingRequired = QUICK_REPLY_TOPICS.filter((t) => t.required && !isDone(t.key));
+  const nextRequired = missingRequired.find((t) => t.key !== active);
 
   return (
     <div className="grid gap-3">
+      {/* Qué falta para completar */}
+      {missingRequired.length ? (
+        <p className="rounded-xl border border-amber-400/25 bg-amber-400/[0.07] px-3 py-2 text-[12px] leading-snug text-amber-100">
+          Te falta:{" "}
+          <strong className="font-semibold text-white">
+            {missingRequired.map((t) => t.label).join(" y ")}
+          </strong>{" "}
+          (obligatorio). Las demás son opcionales.
+        </p>
+      ) : (
+        <p className="flex items-center gap-1.5 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-2 text-[12px] text-emerald-100">
+          <Check className="h-3.5 w-3.5 text-emerald-300" />
+          Tarifa y servicios listos. Puedes sumar horario, ubicación y formas de pago.
+        </p>
+      )}
+
       {/* Preguntas: se tocan para editarlas */}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {QUICK_REPLY_TOPICS.map((t) => {
@@ -130,13 +151,21 @@ export default function QuickRepliesEditor({
           placeholder={topic.placeholder}
           maxLength={QUICK_REPLY_MAX_LENGTH}
         />
-        {next && (
+        {nextRequired ? (
+          <button
+            type="button"
+            onClick={() => setActive(nextRequired.key)}
+            className="justify-self-end rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-3 py-1.5 text-[12px] font-semibold text-fuchsia-100 transition hover:bg-fuchsia-500/25"
+          >
+            Ahora completa {nextRequired.label} (obligatorio) →
+          </button>
+        ) : next && (
           <button
             type="button"
             onClick={() => setActive(next.key)}
             className="justify-self-end text-[11px] font-medium text-fuchsia-300/80 transition hover:text-fuchsia-200"
           >
-            Siguiente: {next.label} →
+            Siguiente (opcional): {next.label} →
           </button>
         )}
       </div>

@@ -65,7 +65,7 @@ quickRepliesRouter.patch(
     const userId = req.session.userId!;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { profileType: true },
+      select: { profileType: true, quickReplies: true },
     });
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
     if (user.profileType !== "PROFESSIONAL") {
@@ -84,18 +84,23 @@ quickRepliesRouter.patch(
       }
     }
     const quickReplies = normalizeQuickReplies(raw);
-    // Tarifa y servicios son obligatorias: no se pueden dejar vacías.
     const missing = missingQuickReplies(quickReplies);
-    if (missing.length) {
+
+    /* Se guarda aunque falte una obligatoria (quien completaba sólo la tarifa
+       perdía lo escrito); queda pendiente y se responde qué falta. Lo que no
+       se permite es borrar una obligatoria que ya estaba completa. */
+    const before = missingQuickReplies(normalizeQuickReplies(user.quickReplies));
+    const cleared = missing.filter((key) => !before.includes(key));
+    if (cleared.length) {
       return res.status(400).json({
         error: "QUICK_REPLIES_REQUIRED",
-        message: quickRepliesRequiredMessage(missing),
-        missing,
+        message: quickRepliesRequiredMessage(cleared),
+        missing: cleared,
       });
     }
 
     await prisma.user.update({ where: { id: userId }, data: { quickReplies } });
-    return res.json({ quickReplies, missing: [] });
+    return res.json({ quickReplies, missing });
   }),
 );
 

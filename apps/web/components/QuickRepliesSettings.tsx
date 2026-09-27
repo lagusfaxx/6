@@ -5,9 +5,10 @@ import { AlertCircle, Zap } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import QuickRepliesEditor from "./QuickRepliesEditor";
 import {
+  QUICK_REPLY_TOPICS,
   cleanQuickReplies,
-  quickRepliesError,
   type QuickReplies,
+  type QuickReplyKey,
 } from "../lib/quickReplies";
 
 type QuickRepliesResponse = {
@@ -36,6 +37,8 @@ export default function QuickRepliesSettings({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [focusKey, setFocusKey] = useState<QuickReplyKey | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -59,15 +62,18 @@ export default function QuickRepliesSettings({
     };
   }, []);
 
+  /* Se guarda lo que haya aunque falte una obligatoria: antes, quien
+     completaba sólo la tarifa perdía lo escrito. Sigue "Pendiente" y se le
+     dice qué le falta. */
   const save = async () => {
     if (saving) return;
-    const validation = quickRepliesError(value);
-    if (validation) {
-      setError(validation);
+    if (!Object.keys(cleanQuickReplies(value)).length) {
+      setError("Escribe al menos tu tarifa para guardar.");
       return;
     }
     setSaving(true);
     setError(null);
+    setNotice(null);
     try {
       const r = await apiFetch<QuickRepliesResponse>("/messages/quick-replies", {
         method: "PATCH",
@@ -76,9 +82,20 @@ export default function QuickRepliesSettings({
       const replies = r?.quickReplies || {};
       setValue(replies);
       setSaved(replies);
-      setMissing(false);
-      setJustSaved(true);
-      setTimeout(() => setJustSaved(false), 2000);
+      const stillMissing = QUICK_REPLY_TOPICS.filter((t) =>
+        (r?.missing || []).includes(t.key),
+      );
+      setMissing(stillMissing.length > 0);
+      if (stillMissing.length) {
+        setNotice(
+          `Guardado. Te falta ${stillMissing.map((t) => t.label).join(" y ")} para completarlas.`,
+        );
+        setFocusKey(null);
+        setTimeout(() => setFocusKey(stillMissing[0].key), 0);
+      } else {
+        setJustSaved(true);
+        setTimeout(() => setJustSaved(false), 2000);
+      }
     } catch (err: any) {
       setError(err?.body?.message || "No pudimos guardar. Inténtalo de nuevo.");
     } finally {
@@ -143,7 +160,15 @@ export default function QuickRepliesSettings({
 
       {open && (
         <div className="mt-3 grid gap-3">
-          <QuickRepliesEditor value={value} onChange={setValue} />
+          <QuickRepliesEditor
+            value={value}
+            onChange={(next) => {
+              setValue(next);
+              setNotice(null);
+              setError(null);
+            }}
+            focusKey={focusKey}
+          />
           <div className="flex justify-end">
             <button
               type="button"
@@ -157,6 +182,7 @@ export default function QuickRepliesSettings({
         </div>
       )}
 
+      {notice && <p className="mt-2 text-[12px] font-medium text-amber-200">{notice}</p>}
       {error && <p className="mt-2 text-[11px] text-red-300">{error}</p>}
     </div>
   );
