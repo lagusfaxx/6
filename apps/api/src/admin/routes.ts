@@ -9,6 +9,11 @@ import {
 import { requireFresh2FA } from "../auth/twoFactor";
 import { missingProfileFields } from "../lib/profileCompletion";
 import {
+  REJECT_REASON_MAX_LENGTH,
+  REJECT_REASON_MIN_LENGTH,
+  rejectVerification,
+} from "../lib/verificationReject";
+import {
   CreatePostSchema,
   QUICK_REPLY_MIN_LENGTH,
   normalizeQuickReplies,
@@ -104,6 +109,7 @@ adminRouter.get(
       prisma.user.count({
         where: {
           isVerified: false,
+          verificationRejectedAt: null,
           profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
         },
       }),
@@ -831,8 +837,12 @@ adminRouter.get(
     const take = Math.min(parseInt(limit || "50", 10) || 50, 200);
     const skip = parseInt(offset || "0", 10) || 0;
 
+    /* status=rejected muestra las rechazadas (para revisar o aprobar
+       después); por defecto sólo las pendientes. */
+    const rejected = req.query.status === "rejected";
     const where: any = {
       isVerified: false,
+      verificationRejectedAt: rejected ? { not: null } : null,
       profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
     };
     if (q) {
@@ -861,6 +871,8 @@ adminRouter.get(
           address: true,
           bio: true,
           createdAt: true,
+          verificationRejectedAt: true,
+          verificationRejectReason: true,
         },
         orderBy: { createdAt: "desc" },
         take,
@@ -922,6 +934,7 @@ adminRouter.put(
         verifiedAt: new Date(),
         verifiedByPhone: verifiedByPhone ? String(verifiedByPhone) : null,
         isActive: true,
+        verificationRejectedAt: null,
         /* Deja marcado que ya se publicó una vez. Sin esto, una profesional
            que después apaga su perfil lo vería reaparecer solo con la
            siguiente edición que guardara. */
@@ -940,28 +953,34 @@ adminRouter.put(
   }),
 );
 
+/* Rechazar pide motivo: se le envía por correo a la profesional para que
+   sepa qué corregir. Antes sólo desactivaba el perfil y lo dejaba en la cola
+   de pendientes, así que el botón parecía no hacer nada. */
 adminRouter.put(
   "/verification/:id/reject",
   asyncHandler(async (req, res) => {
     const { id } = req.params;
+    const reason = String(req.body?.reason ?? "").trim();
+    if (reason.length < REJECT_REASON_MIN_LENGTH) {
+      return res.status(400).json({
+        error: "REASON_REQUIRED",
+        message: "Escribe el motivo del rechazo: se le envía por correo.",
+      });
+    }
+    if (reason.length > REJECT_REASON_MAX_LENGTH) {
+      return res.status(400).json({
+        error: "REASON_TOO_LONG",
+        message: `El motivo puede tener hasta ${REJECT_REASON_MAX_LENGTH} caracteres.`,
+      });
+    }
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { isVerified: true },
+      select: { id: true },
     });
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
 
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { isActive: false },
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        isVerified: true,
-        isActive: true,
-      },
-    });
-    return res.json({ profile: updated });
+    const result = await rejectVerification(id, reason);
+    return res.json(result);
   }),
 );
 

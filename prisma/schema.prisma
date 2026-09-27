@@ -447,6 +447,12 @@ model User {
   isVerified          Boolean           @default(false)
   verifiedAt          DateTime?
   verifiedByPhone     String?
+  /// Rechazo de la verificación desde el panel: saca el perfil de la cola de
+  /// pendientes. Se limpia cuando la profesional edita su ficha o sube fotos
+  /// (vuelve a la cola) y al aprobarla. El motivo se conserva para que quien
+  /// revise de nuevo vea por qué se rechazó antes.
+  verificationRejectedAt   DateTime?
+  verificationRejectReason   String?
   tier                ProfessionalTier?
   /// Vencimiento del plan pagado (Silver/Gold/Diamond). Null con `tier`
   /// puesto = asignado a mano desde el admin, sin vencimiento.

@@ -41,7 +41,18 @@ type PendingProfile = {
   address: string | null;
   bio: string | null;
   createdAt: string;
+  verificationRejectedAt: string | null;
+  verificationRejectReason: string | null;
 };
+
+/* Motivos frecuentes: se tocan para rellenar el texto y se ajusta a mano. */
+const REJECT_PRESETS = [
+  "Las fotos no cumplen las normas (deben ser tuyas, nítidas y sin datos de contacto).",
+  "No pudimos verificar tu identidad por teléfono.",
+  "Tu perfil está incompleto: faltan fotos o datos de la ficha.",
+  "Ya tienes otra cuenta registrada en UZEED.",
+  "El contenido del perfil no está permitido en la plataforma.",
+];
 
 type FaceShot = { id: string; url: string; pose: string };
 
@@ -97,7 +108,10 @@ export default function AdminVerificationPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Verificación facial: enlaces enviados y fotos recibidas.
-  const [tab, setTab] = useState<"pending" | "face">("pending");
+  const [tab, setTab] = useState<"pending" | "rejected" | "face">("pending");
+  // Rechazo con motivo: el texto se le envía por correo a la profesional.
+  const [rejectTarget, setRejectTarget] = useState<PendingProfile | null>(null);
+  const [rejectText, setRejectText] = useState("");
   const [faceItems, setFaceItems] = useState<FaceVerification[]>([]);
   const [loadingFace, setLoadingFace] = useState(false);
   const [faceStatus, setFaceStatus] = useState<"SUBMITTED" | "PENDING" | "APPROVED" | "REJECTED">("SUBMITTED");
@@ -115,6 +129,7 @@ export default function AdminVerificationPage() {
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String(page * PAGE_SIZE));
       if (searchQuery) params.set("q", searchQuery);
+      if (tab === "rejected") params.set("status", "rejected");
 
       const res = await apiFetch<{ profiles: PendingProfile[]; total: number }>(`/admin/verification/pending?${params}`);
       setProfiles(res?.profiles ?? []);
@@ -124,11 +139,11 @@ export default function AdminVerificationPage() {
     } finally {
       setLoadingProfiles(false);
     }
-  }, [page, searchQuery]);
+  }, [page, searchQuery, tab]);
 
   useEffect(() => {
-    if (!loading && isAdmin) loadProfiles();
-  }, [loading, isAdmin, loadProfiles]);
+    if (!loading && isAdmin && tab !== "face") loadProfiles();
+  }, [loading, isAdmin, tab, loadProfiles]);
 
   useEffect(() => {
     if (success) {
@@ -246,15 +261,37 @@ export default function AdminVerificationPage() {
     }
   }
 
-  async function rejectProfile(p: PendingProfile) {
+  function openReject(p: PendingProfile) {
+    setRejectTarget(p);
+    setRejectText("");
+    setError(null);
+  }
+
+  async function confirmReject() {
+    const p = rejectTarget;
+    if (!p) return;
+    const reason = rejectText.trim();
+    if (reason.length < 5) {
+      setError("Escribe el motivo del rechazo: se le envía por correo.");
+      return;
+    }
     setBusy(p.id);
     setError(null);
     try {
-      await apiFetch(`/admin/verification/${p.id}/reject`, { method: "PUT" });
-      setSuccess(`${p.displayName || p.username} ha sido rechazado.`);
+      const res = await apiFetch<{ emailSent: boolean }>(`/admin/verification/${p.id}/reject`, {
+        method: "PUT",
+        body: JSON.stringify({ reason }),
+      });
+      setSuccess(
+        res?.emailSent
+          ? `${p.displayName || p.username} fue rechazada. Le enviamos el motivo a ${p.email}.`
+          : `${p.displayName || p.username} fue rechazada (no tiene correo para avisarle).`,
+      );
+      setRejectTarget(null);
+      setRejectText("");
       await loadProfiles();
-    } catch {
-      setError("No se pudo rechazar el perfil.");
+    } catch (err: any) {
+      setError(err?.body?.message || "No se pudo rechazar el perfil.");
     } finally {
       setBusy(null);
     }
@@ -276,7 +313,11 @@ export default function AdminVerificationPage() {
           </Link>
           <div>
             <h1 className="text-xl font-bold">Solicitudes de Verificacion</h1>
-            <p className="text-xs text-white/40">{total} perfil{total !== 1 ? "es" : ""} pendiente{total !== 1 ? "s" : ""} de verificacion</p>
+            <p className="text-xs text-white/40">
+              {tab === "rejected"
+                ? `${total} perfil${total !== 1 ? "es" : ""} rechazado${total !== 1 ? "s" : ""}`
+                : `${total} perfil${total !== 1 ? "es" : ""} pendiente${total !== 1 ? "s" : ""} de verificacion`}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
@@ -288,7 +329,7 @@ export default function AdminVerificationPage() {
       {/* Pestañas: la cola de perfiles y las fotos que llegaron por el enlace */}
       <div className="mt-4 flex gap-2">
         <button
-          onClick={() => setTab("pending")}
+          onClick={() => { setTab("pending"); setPage(0); }}
           className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
             tab === "pending"
               ? "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200"
@@ -297,6 +338,17 @@ export default function AdminVerificationPage() {
         >
           <Users className="h-3.5 w-3.5" />
           Perfiles pendientes
+        </button>
+        <button
+          onClick={() => { setTab("rejected"); setPage(0); }}
+          className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
+            tab === "rejected"
+              ? "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200"
+              : "border-white/10 bg-white/[0.03] text-white/60 hover:bg-white/[0.06]"
+          }`}
+        >
+          <XCircle className="h-3.5 w-3.5" />
+          Rechazados
         </button>
         <button
           onClick={() => setTab("face")}
@@ -325,7 +377,7 @@ export default function AdminVerificationPage() {
         </div>
       )}
 
-      {tab === "pending" && (
+      {tab !== "face" && (
         <>
         {/* Search */}
         <div className="mt-4">
@@ -354,7 +406,9 @@ export default function AdminVerificationPage() {
           ) : profiles.length === 0 ? (
             <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center">
               <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400/50 mb-3" />
-              <div className="text-sm text-white/50">No hay perfiles pendientes de verificacion.</div>
+              <div className="text-sm text-white/50">
+                {tab === "rejected" ? "No hay perfiles rechazados." : "No hay perfiles pendientes de verificacion."}
+              </div>
             </div>
           ) : (
             profiles.map((p) => (
@@ -370,9 +424,18 @@ export default function AdminVerificationPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold truncate">{p.displayName || p.username}</span>
-                        <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300 flex items-center gap-0.5">
-                          <Clock className="h-2.5 w-2.5" /> Pendiente
-                        </span>
+                        {tab === "rejected" ? (
+                          <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-medium text-red-300 flex items-center gap-0.5">
+                            <XCircle className="h-2.5 w-2.5" /> Rechazado
+                            {p.verificationRejectedAt
+                              ? ` ${new Date(p.verificationRejectedAt).toLocaleDateString("es-CL")}`
+                              : ""}
+                          </span>
+                        ) : (
+                          <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300 flex items-center gap-0.5">
+                            <Clock className="h-2.5 w-2.5" /> Pendiente
+                          </span>
+                        )}
                         <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px]">{p.profileType}</span>
                       </div>
                       <div className="mt-0.5 flex items-center gap-2 text-xs text-white/40 flex-wrap">
@@ -405,10 +468,10 @@ export default function AdminVerificationPage() {
                         <span className="hidden sm:inline">Aprobar</span>
                       </button>
                       )}
-                      {canEdit && (
+                      {canEdit && tab !== "rejected" && (
                       <button
                         disabled={busy === p.id}
-                        onClick={() => rejectProfile(p)}
+                        onClick={() => openReject(p)}
                         className="flex h-8 items-center gap-1 rounded-lg px-3 border border-red-500/20 bg-red-500/10 text-red-300 text-xs font-medium hover:bg-red-500/20 transition disabled:opacity-50"
                         title="Rechazar"
                       >
@@ -418,6 +481,11 @@ export default function AdminVerificationPage() {
                       )}
                     </div>
                   </div>
+                  {p.verificationRejectReason && (
+                    <p className="mt-2 rounded-lg border border-red-500/15 bg-red-500/[0.06] px-3 py-2 text-[11px] text-red-200/80">
+                      {tab === "rejected" ? "Motivo" : "Rechazada antes, corrigió su perfil. Motivo"}: “{p.verificationRejectReason}”
+                    </p>
+                  )}
                 </div>
 
                 {/* Expanded details */}
@@ -733,6 +801,90 @@ export default function AdminVerificationPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Rechazo con motivo: se le envía por correo a la profesional */}
+      {rejectTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center"
+          onClick={() => busy !== rejectTarget.id && setRejectTarget(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0f1020] p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold">
+                  Rechazar a {rejectTarget.displayName || rejectTarget.username}
+                </h2>
+                <p className="mt-1 text-xs text-white/45">
+                  Le enviaremos este motivo a <span className="text-white/70">{rejectTarget.email}</span>.
+                  Si corrige su perfil, vuelve sola a pendientes.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectTarget(null)}
+                className="text-white/40 hover:text-white/70"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {REJECT_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setRejectText(preset)}
+                  className={`rounded-full border px-2.5 py-1 text-left text-[11px] transition ${
+                    rejectText === preset
+                      ? "border-red-400/40 bg-red-500/15 text-red-200"
+                      : "border-white/10 bg-white/[0.03] text-white/60 hover:bg-white/[0.06]"
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              className="mt-3 min-h-[110px] w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none transition placeholder:text-white/30 focus:border-red-500/30"
+              placeholder="Escribe el motivo del rechazo..."
+              value={rejectText}
+              maxLength={1000}
+              onChange={(e) => setRejectText(e.target.value)}
+              autoFocus
+            />
+            {error && <p className="mt-2 text-[11px] text-red-300">{error}</p>}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRejectTarget(null)}
+                disabled={busy === rejectTarget.id}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 transition hover:bg-white/10 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmReject}
+                disabled={busy === rejectTarget.id || rejectText.trim().length < 5}
+                className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/30 disabled:opacity-50"
+              >
+                {busy === rejectTarget.id ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+                Rechazar y enviar correo
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
