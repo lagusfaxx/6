@@ -5,14 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { type RegisterFormData } from "./AuthForm";
 import MapboxAddressAutocomplete from "./MapboxAddressAutocomplete";
 import QuickRepliesEditor from "./QuickRepliesEditor";
-import {
-  QUICK_REPLY_MIN_LENGTH,
-  QUICK_REPLY_TOPICS,
-  cleanQuickReplies,
-  quickRepliesError,
-  type QuickReplies,
-  type QuickReplyKey,
-} from "../lib/quickReplies";
+import { cleanQuickReplies, type QuickReplies } from "../lib/quickReplies";
 import {
   ArrowLeft,
   ArrowRight,
@@ -84,7 +77,7 @@ const STEPS = [
   { label: "Cuenta", title: "Crea tu cuenta", subtitle: "Tus datos de acceso. Tu correo y teléfono no se publican." },
   { label: "Sobre ti", title: "Cuéntanos de ti", subtitle: "Así te encuentran los clientes que buscan lo que ofreces." },
   { label: "Fotos", title: "Tus fotos", subtitle: "Los perfiles con buenas fotos reciben muchos más mensajes." },
-  { label: "Tu chat", title: "Respuestas rápidas", subtitle: "Los clientes tocan “Tarifa” o “Servicios” en tu chat y reciben tu respuesta al instante, aunque no estés conectada." },
+  { label: "Tu chat", title: "Respuestas rápidas (opcional)", subtitle: "Los clientes tocan “Tarifa” o “Servicios” en tu chat y reciben tu respuesta al instante, aunque no estés conectada. Puedes completarlas después." },
   { label: "Ubicación", title: "¿Dónde atiendes?", subtitle: "Último paso. Tu dirección exacta nunca se muestra." },
 ] as const;
 
@@ -144,7 +137,6 @@ export default function ProfessionalRegisterForm({
 
   // Paso 4
   const [quickReplies, setQuickReplies] = useState<QuickReplies>({});
-  const [quickFocus, setQuickFocus] = useState<QuickReplyKey | null>(null);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
   const [autoReplyMessage, setAutoReplyMessage] = useState("");
 
@@ -203,15 +195,8 @@ export default function ProfessionalRegisterForm({
         return `Sube al menos ${minPhotos} fotos para continuar.`;
     }
     if (step === 4) {
-      const quickError = quickRepliesError(quickReplies);
-      if (quickError) {
-        // Abre la primera obligatoria que falta para que la vea sin buscar.
-        const firstMissing = QUICK_REPLY_TOPICS.find(
-          (t) => t.required && (quickReplies[t.key] || "").trim().length < QUICK_REPLY_MIN_LENGTH,
-        );
-        if (firstMissing) setQuickFocus(firstMissing.key);
-        return quickError;
-      }
+      // Las respuestas rápidas son opcionales; sólo se revisa el mensaje
+      // automático si lo activó.
       if (autoReplyEnabled && autoReplyMessage.trim().length < 5)
         return "Escribe el mensaje automático que quieres enviar (mínimo 5 caracteres).";
     }
@@ -612,7 +597,6 @@ export default function ProfessionalRegisterForm({
                   setQuickReplies(next);
                   setError(null);
                 }}
-                focusKey={quickFocus}
               />
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
@@ -791,7 +775,13 @@ export default function ProfessionalRegisterForm({
           >
             {subStep < TOTAL_STEPS ? (
               <>
-                Continuar
+                {/* En el paso opcional, si no escribió nada, se nota que
+                    puede saltarlo. */}
+                {subStep === 4 &&
+                !Object.keys(cleanQuickReplies(quickReplies)).length &&
+                !autoReplyEnabled
+                  ? "Omitir por ahora"
+                  : "Continuar"}
                 <ArrowRight className="h-4 w-4" />
               </>
             ) : (

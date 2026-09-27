@@ -12,9 +12,7 @@ import { emitAdminEvent } from "../lib/adminEvents";
 import {
   Genders,
   PreferenceGenders,
-  missingQuickReplies,
   normalizeQuickReplies,
-  quickRepliesRequiredMessage,
 } from "@uzeed/shared";
 import { createProfessionalForumThread } from "./registerHelpers";
 import { redeemReferralCode } from "../referral/redeem";
@@ -490,16 +488,8 @@ googleAuthRouter.post(
     }
     const data = parsed.data;
 
-    // Respuestas rápidas: tarifa y servicios son obligatorias (igual que en
-    // /auth/register).
+    // Respuestas rápidas: opcionales (el cliente sólo ve las que respondió).
     const quickReplies = normalizeQuickReplies(data.quickReplies);
-    const missingReplies = missingQuickReplies(quickReplies);
-    if (missingReplies.length) {
-      return res.status(400).json({
-        error: "QUICK_REPLIES_REQUIRED",
-        message: quickRepliesRequiredMessage(missingReplies),
-      });
-    }
 
     // Age check (same rules as /auth/register)
     const parsedBirthdate = new Date(data.birthdate);

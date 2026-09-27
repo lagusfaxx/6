@@ -14,7 +14,6 @@ import Avatar from "../../../components/Avatar";
 import MfaConfirmDialog from "../../../components/MfaConfirmDialog";
 import {
   QUICK_REPLY_MAX_LENGTH,
-  QUICK_REPLY_MIN_LENGTH,
   QUICK_REPLY_TOPICS,
   cleanQuickReplies,
   type QuickReplies,
@@ -132,11 +131,8 @@ function sheetSummary(p: Profile): string {
 /** Estado de las respuestas rápidas en una línea. */
 function quickRepliesSummary(p: Profile): string {
   const replies = p.quickReplies ?? {};
-  const missing = QUICK_REPLY_TOPICS.filter(
-    (t) => t.required && (replies[t.key] || "").trim().length < QUICK_REPLY_MIN_LENGTH,
-  ).map((t) => t.label.toLowerCase());
   const filled = QUICK_REPLY_TOPICS.filter((t) => (replies[t.key] || "").trim()).length;
-  if (missing.length) return `Respuestas rápidas: falta ${missing.join(" y ")}`;
+  if (!filled) return "Respuestas rápidas: sin configurar";
   return `Respuestas rápidas: ${filled} de ${QUICK_REPLY_TOPICS.length}`;
 }
 
@@ -1347,7 +1343,6 @@ export default function AdminProfilesPage() {
                           <label key={t.key} className="block">
                             <span className="mb-1 block text-[10px] uppercase tracking-wide text-white/40">
                               {t.label}
-                              {t.required ? " *" : ""}
                             </span>
                             <textarea
                               value={quickForm[t.key] ?? ""}

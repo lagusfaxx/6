@@ -15,7 +15,6 @@ import {
 } from "../lib/verificationReject";
 import {
   CreatePostSchema,
-  QUICK_REPLY_MIN_LENGTH,
   normalizeQuickReplies,
 } from "@uzeed/shared";
 import multer from "multer";
@@ -382,8 +381,8 @@ adminRouter.get(
       const rows = await prisma.$queryRaw<{ id: string }[]>`
         SELECT "id" FROM "User"
         WHERE "profileType" = 'PROFESSIONAL'
-          AND (COALESCE(length(btrim("quickReplies"->>'tarifa')), 0) < ${QUICK_REPLY_MIN_LENGTH}
-            OR COALESCE(length(btrim("quickReplies"->>'servicios')), 0) < ${QUICK_REPLY_MIN_LENGTH})`;
+          AND (COALESCE(btrim("quickReplies"->>'tarifa'), '') = ''
+            OR COALESCE(btrim("quickReplies"->>'servicios'), '') = '')`;
       where.profileType = "PROFESSIONAL";
       where.id = { in: rows.map((r) => r.id) };
     }
