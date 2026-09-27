@@ -158,7 +158,6 @@ export default function AccountPage() {
     quickActions.push(
       { label: "Subir historia", description: "Foto o video de 20 días", href: "/dashboard/stories?nueva=1", icon: Camera, tone: "pink" },
       { label: "Ver mi perfil", description: "Como lo ven los clientes", href: publicProfileUrl, icon: Eye, tone: "violet" },
-      { label: "Marketplace", description: "Vende tus artículos", href: "/marketplace/vender", icon: ShoppingBag, tone: "emerald" },
       { label: "Acreditar exámenes", description: "Sube documentos profesionales", href: "/cuenta/acreditacion", icon: ShieldCheck, tone: "blue" },
     );
   }
@@ -170,10 +169,14 @@ export default function AccountPage() {
       { label: "Favoritos", description: "Perfiles guardados", href: "/favoritos", icon: Heart, tone: "rose" },
     );
   }
-  quickActions.push(
-    { label: "Billetera", description: "Tokens y saldo", href: "/wallet", icon: Wallet, tone: "amber" },
-    { label: "UMate", description: umateDescription, href: umateHref, icon: Sparkles, tone: "violet" },
-  );
+  /* A las profesionales no se les muestran: en el teléfono empujaban hacia
+     abajo las notificaciones y las respuestas rápidas, que es lo que usan. */
+  if (!isProfessional) {
+    quickActions.push(
+      { label: "Billetera", description: "Tokens y saldo", href: "/wallet", icon: Wallet, tone: "amber" },
+      { label: "UMate", description: umateDescription, href: umateHref, icon: Sparkles, tone: "violet" },
+    );
+  }
 
   const coverSrc = resolveMediaUrl(user?.coverUrl);
 
@@ -332,9 +335,25 @@ export default function AccountPage() {
         </motion.div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      {/* En el teléfono va primero Notificaciones (respuestas rápidas y
+          mensaje automático); en escritorio sigue en la columna lateral. La
+          fila 1fr absorbe el alto de la columna principal para que las dos
+          tarjetas laterales queden juntas arriba. */}
+      <div className="grid gap-4 lg:grid-cols-3 lg:grid-rows-[auto_auto_1fr]">
+        {/* ── Columna lateral: notificaciones ── */}
+        <motion.div {...fadeUp(0.06)} className="lg:col-start-3 lg:row-start-1">
+          <Card title="Notificaciones" icon={<Bell className="h-4 w-4" />}>
+            <div className="space-y-2">
+              <EmailNotificationsToggle />
+              {/* Solo las profesionales reciben clientes por chat. */}
+              {isProfessional && <QuickRepliesSettings />}
+              {isProfessional && <AutoReplySettings />}
+            </div>
+          </Card>
+        </motion.div>
+
         {/* ── Columna principal ── */}
-        <motion.div {...fadeUp(0.08)} className="space-y-4 lg:col-span-2">
+        <motion.div {...fadeUp(0.08)} className="space-y-4 lg:col-span-2 lg:col-start-1 lg:row-span-3 lg:row-start-1">
           <Card title="Accesos rápidos" icon={<Zap className="h-4 w-4" />}>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
               {quickActions.map((action) => {
@@ -499,17 +518,8 @@ export default function AccountPage() {
           )}
         </motion.div>
 
-        {/* ── Columna lateral ── */}
-        <motion.div {...fadeUp(0.12)} className="space-y-4">
-
-          <Card title="Notificaciones" icon={<Bell className="h-4 w-4" />}>
-            <div className="space-y-2">
-              <EmailNotificationsToggle />
-              {/* Solo las profesionales reciben clientes por chat. */}
-              {isProfessional && <QuickRepliesSettings />}
-              {isProfessional && <AutoReplySettings />}
-            </div>
-          </Card>
+        {/* ── Columna lateral: cuenta ── */}
+        <motion.div {...fadeUp(0.12)} className="space-y-4 lg:col-start-3 lg:row-start-2">
 
           <Card title="Cuenta" icon={<Settings className="h-4 w-4" />} className="!p-2 [&>header]:px-3 [&>header]:pt-3">
             <div className="flex flex-col">
