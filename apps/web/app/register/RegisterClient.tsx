@@ -475,12 +475,36 @@ export default function RegisterClient() {
   }
 
   const stepIndex = step === "choose" ? 0 : step === "form" ? 1 : 1;
+  /* Formulario de profesionales: tiene sus propios pasos y título, así que
+     la cabecera grande sobra, y en el teléfono va sin la tarjeta envolvente
+     (se veía como un bloque angosto dentro de otro). */
+  const isProForm = step === "form" && isProfessional;
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-10">
+    <div
+      className={`flex justify-center ${
+        isProForm ? "min-h-0 items-start py-0 sm:min-h-[80vh] sm:items-center sm:px-4 sm:py-10" : "min-h-[80vh] items-center px-4 py-10"
+      }`}
+    >
       <div className="w-full max-w-xl">
+        {isProForm && (
+          <div className="mb-5 flex items-center justify-between gap-3 sm:mb-6">
+            <div className="flex items-center gap-2.5">
+              <img src="/brand/isotipo-new.png" alt="UZEED" className="h-9 w-9 rounded-xl" />
+              <div className="leading-tight">
+                <p className="text-sm font-bold text-white">Registro profesional</p>
+                <p className="text-[11px] text-white/45">Toma unos 3 minutos</p>
+              </div>
+            </div>
+            <span className="flex items-center gap-1 rounded-full border border-fuchsia-400/30 bg-fuchsia-500/15 px-2.5 py-1 text-[11px] font-semibold text-fuchsia-100">
+              <Sparkles className="h-3 w-3 text-amber-300" />
+              {TRIAL_TEXT}
+            </span>
+          </div>
+        )}
+
         {/* Hero header */}
-        <div className="flex flex-col items-center mb-8">
+        <div className={`flex flex-col items-center mb-8 ${isProForm ? "hidden" : ""}`}>
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-fuchsia-500/40 to-violet-500/40 blur-3xl scale-150 animate-pulse" />
             <div className="relative rounded-3xl bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 p-[2px] shadow-2xl">
@@ -532,12 +556,20 @@ export default function RegisterClient() {
         </div>
 
         {/* Card */}
-        <div className="relative rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] backdrop-blur-2xl shadow-[0_30px_80px_rgba(0,0,0,0.5)] overflow-hidden">
+        <div
+          className={`relative ${
+            isProForm
+              ? /* Sin overflow-hidden en el teléfono: rompería la barra fija
+                   de botones (position: sticky) del formulario. */
+                "sm:overflow-hidden sm:rounded-[28px] sm:border sm:border-white/10 sm:bg-gradient-to-b sm:from-white/[0.07] sm:to-white/[0.03] sm:shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:backdrop-blur-2xl"
+              : "overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] shadow-[0_30px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
+          }`}
+        >
           {/* Top glow line */}
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/60 to-transparent" />
+          <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/60 to-transparent ${isProForm ? "hidden sm:block" : ""}`} />
           {/* Ambient corner glows */}
-          <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl" />
+          <div className={`pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-3xl ${isProForm ? "hidden sm:block" : ""}`} />
+          <div className={`pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl ${isProForm ? "hidden sm:block" : ""}`} />
 
           {step === "choose" ? (
             <div className="relative p-6 sm:p-8">
@@ -673,9 +705,9 @@ export default function RegisterClient() {
               </div>
             </div>
           ) : step === "form" ? (
-            <div className="relative p-6 sm:p-8">
-              {/* Selected type chip */}
-              {selected && (() => {
+            <div className={`relative ${isProForm ? "p-0 sm:p-8" : "p-6 sm:p-8"}`}>
+              {/* Selected type chip (profesionales: su formulario ya lo dice) */}
+              {selected && !isProForm && (() => {
                 const SelectedIcon = selected.icon;
                 return (
                   <div className="mb-5 flex items-center justify-between gap-3">
@@ -706,8 +738,8 @@ export default function RegisterClient() {
                 );
               })()}
 
-              {/* Promo banner for professionals */}
-              {isProfessional && (
+              {/* Promo banner for professionals: va como píldora en la cabecera */}
+              {isProfessional && !isProForm && (
                 <div className="relative overflow-hidden rounded-2xl border border-fuchsia-400/30 bg-gradient-to-r from-fuchsia-600/20 via-violet-600/20 to-pink-600/20 p-5 mb-6">
                   <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-fuchsia-500/10 blur-3xl" />
                   <div className="absolute bottom-0 left-0 h-16 w-16 rounded-full bg-violet-500/10 blur-2xl" />
@@ -878,8 +910,9 @@ export default function RegisterClient() {
           ) : null}
         </div>
 
-        {/* Footer link */}
-        <p className="mt-6 text-center text-sm text-white/45">
+        {/* Footer link (en el formulario de profesionales quedaba bajo la
+            barra fija de botones en el teléfono) */}
+        <p className={`mt-6 text-center text-sm text-white/45 ${isProForm ? "hidden sm:block" : ""}`}>
           ¿Ya tienes cuenta?{" "}
           <Link
             href="/login"

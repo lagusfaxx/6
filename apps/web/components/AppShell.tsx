@@ -86,10 +86,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div
         style={iosTextSizeFix}
-        className="min-h-[100svh] w-full px-4 py-10"
+        /* /register: en el teléfono arriba y con poco margen; el registro de
+           profesionales tiene varios pasos y centrado verticalmente saltaba
+           de posición en cada uno. */
+        className={`min-h-[100svh] w-full px-4 ${pathname === "/register" ? "pt-4 pb-0 sm:py-10" : "py-10"}`}
       >
         <ScrollToTop />
-        <div className="mx-auto flex min-h-[calc(100svh-5rem)] max-w-md items-center">
+        <div
+          className={`mx-auto flex max-w-md ${
+            pathname === "/register"
+              ? "min-h-[calc(100svh-1rem)] items-start sm:min-h-[calc(100svh-5rem)] sm:items-center"
+              : "min-h-[calc(100svh-5rem)] items-center"
+          }`}
+        >
           <div className="w-full">{children}</div>
         </div>
       </div>

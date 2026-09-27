@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, Zap } from "lucide-react";
 import { apiFetch } from "../lib/api";
-import QuickRepliesFields from "./QuickRepliesFields";
+import QuickRepliesEditor from "./QuickRepliesEditor";
 import {
   cleanQuickReplies,
   quickRepliesError,
@@ -143,7 +143,7 @@ export default function QuickRepliesSettings({
 
       {open && (
         <div className="mt-3 grid gap-3">
-          <QuickRepliesFields value={value} onChange={setValue} compact />
+          <QuickRepliesEditor value={value} onChange={setValue} />
           <div className="flex justify-end">
             <button
               type="button"
