@@ -111,6 +111,7 @@ export async function buildAdminOverview() {
     prisma.user.count(
       users({
         isVerified: false,
+        verificationRejectedAt: null,
         profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] },
       }),
     ),

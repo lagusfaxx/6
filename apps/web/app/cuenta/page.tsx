@@ -10,6 +10,7 @@ import { apiFetch, resolveMediaUrl } from "../../lib/api";
 import Avatar from "../../components/Avatar";
 import EmailNotificationsToggle from "../../components/EmailNotificationsToggle";
 import AutoReplySettings from "../../components/AutoReplySettings";
+import QuickRepliesSettings from "../../components/QuickRepliesSettings";
 import { canOpenAdmin, isTeamStaff } from "../../lib/adminAccess";
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import {
@@ -507,6 +508,7 @@ export default function AccountPage() {
             <div className="space-y-2">
               <EmailNotificationsToggle />
               {/* Solo las profesionales reciben clientes por chat. */}
+              {isProfessional && <QuickRepliesSettings />}
               {isProfessional && <AutoReplySettings />}
             </div>
           </Card>

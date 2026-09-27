@@ -9,7 +9,7 @@ import { prisma } from "../db";
 import { missingProfileFields } from "../lib/profileCompletion";
 import { nearestMetroStation, publicMetro } from "../lib/metroStations";
 import { Prisma } from "@prisma/client";
-import { loginInputSchema, registerInputSchema, quickRegisterSchema } from "@uzeed/shared";
+import { loginInputSchema, registerInputSchema, quickRegisterSchema, normalizeQuickReplies } from "@uzeed/shared";
 import { autoReplyFields } from "../messages/autoReply";
 import { asyncHandler } from "../lib/asyncHandler";
 import { config } from "../config";
@@ -130,6 +130,7 @@ authRouter.post(
       referralCode,
       autoReplyEnabled,
       autoReplyMessage,
+      quickReplies,
     } = parsed.data;
     const email = rawEmail.toLowerCase().trim();
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -281,7 +282,11 @@ authRouter.post(
           // Respuesta automática configurada durante el registro (solo aplica
           // a profesionales, que son las únicas que ven la pregunta).
           ...(profileType === "PROFESSIONAL"
-            ? autoReplyFields(autoReplyEnabled, autoReplyMessage)
+            ? {
+                ...autoReplyFields(autoReplyEnabled, autoReplyMessage),
+                // Obligatorias en el registro (lo valida registerInputSchema).
+                quickReplies: normalizeQuickReplies(quickReplies),
+              }
             : {}),
         },
         select: {

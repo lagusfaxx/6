@@ -632,3 +632,28 @@ export async function sendCampaignEmail(
 ) {
   await send(to, subject, html);
 }
+
+/* ─── Registro rechazado en la verificación ─── */
+
+/**
+ * Aviso a la profesional de que su registro no fue aprobado, con el motivo que
+ * escribió el equipo. El motivo viene del panel: se escapa.
+ */
+export async function sendVerificationRejectedEmail(
+  email: string,
+  displayName: string | null,
+  reason: string,
+) {
+  const name = esc(displayName || "");
+  const html = wrapEmail(
+    "Tu perfil no fue aprobado",
+    [
+      paragraph(name ? `Hola ${name},` : "Hola,"),
+      paragraph("Revisamos tu registro en UZEED y por ahora no pudimos aprobarlo."),
+      paragraph(`<strong style="color:#ffffff;">Motivo:</strong><br/>${esc(reason).replace(/\n/g, "<br/>")}`),
+      paragraph("Corrige lo indicado desde tu panel y tu perfil volverá a revisión automáticamente."),
+      ctaButton("Corregir mi perfil", `${config.appUrl}/dashboard`),
+    ].join(""),
+  );
+  await send(email, "Tu perfil no fue aprobado — UZEED", html);
+}

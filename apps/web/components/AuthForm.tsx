@@ -67,6 +67,8 @@ export type RegisterFormData = {
   referralCode?: string;
   autoReplyEnabled?: boolean;
   autoReplyMessage?: string;
+  /** Respuestas rápidas de la profesional: { tarifa, servicios, ... }. */
+  quickReplies?: Record<string, string>;
 };
 
 export default function AuthForm({

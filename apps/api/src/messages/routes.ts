@@ -12,6 +12,7 @@ import { validateUploadedFile } from "../lib/uploads";
 import { isUUID } from "../lib/validators";
 import { sendToUser, broadcast } from "../realtime/sse";
 import { scheduleAutoReply } from "./autoReply";
+import { quickReplyTopicsFor } from "./quickReplies";
 
 export const messagesRouter = Router();
 
@@ -140,7 +141,8 @@ messagesRouter.get("/messages/:userId", requireAuth, asyncHandler(async (req, re
       username: true,
       avatarUrl: true,
       profileType: true,
-      city: true
+      city: true,
+      quickReplies: true
     }
   });
   if (!otherUser) return res.status(404).json({ error: "USER_NOT_FOUND" });
@@ -168,7 +170,14 @@ messagesRouter.get("/messages/:userId", requireAuth, asyncHandler(async (req, re
     where: { fromId: other, toId: me, readAt: null },
     data: { readAt: new Date() }
   });
-  return res.json({ messages, other: otherUser });
+  // Preguntas rápidas que el cliente puede tocar (sólo las que la
+  // profesional respondió; las respuestas llegan como mensajes al tocarlas).
+  const { quickReplies, ...otherPublic } = otherUser;
+  return res.json({
+    messages,
+    other: otherPublic,
+    quickReplies: otherUser.profileType === "PROFESSIONAL" ? quickReplyTopicsFor(quickReplies) : []
+  });
 }));
 
 // Eliminar el chat sólo para quien lo pide: se guarda la fecha y se dejan de

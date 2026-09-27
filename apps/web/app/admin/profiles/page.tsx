@@ -13,6 +13,13 @@ import {
 import Avatar from "../../../components/Avatar";
 import MfaConfirmDialog from "../../../components/MfaConfirmDialog";
 import {
+  QUICK_REPLY_MAX_LENGTH,
+  QUICK_REPLY_MIN_LENGTH,
+  QUICK_REPLY_TOPICS,
+  cleanQuickReplies,
+  type QuickReplies,
+} from "../../../lib/quickReplies";
+import {
   ArrowLeft,
   Search,
   ToggleLeft,
@@ -68,6 +75,7 @@ type Profile = {
   acceptsOutcalls: boolean | null;
   serviceStyleTags: string | null;
   serviceTags: string[] | null;
+  quickReplies: QuickReplies | null;
   birthdate: string | null;
   createdAt: string;
   updatedAt: string;
@@ -119,6 +127,17 @@ function sheetSummary(p: Profile): string {
   if (!(p.serviceTags ?? []).length) missing.push("servicios");
   if (!missing.length) return "Ficha completa";
   return `Falta: ${missing.join(", ")}`;
+}
+
+/** Estado de las respuestas rápidas en una línea. */
+function quickRepliesSummary(p: Profile): string {
+  const replies = p.quickReplies ?? {};
+  const missing = QUICK_REPLY_TOPICS.filter(
+    (t) => t.required && (replies[t.key] || "").trim().length < QUICK_REPLY_MIN_LENGTH,
+  ).map((t) => t.label.toLowerCase());
+  const filled = QUICK_REPLY_TOPICS.filter((t) => (replies[t.key] || "").trim()).length;
+  if (missing.length) return `Respuestas rápidas: falta ${missing.join(" y ")}`;
+  return `Respuestas rápidas: ${filled} de ${QUICK_REPLY_TOPICS.length}`;
 }
 
 function sheetFormFrom(p: Profile): SheetForm {
@@ -209,6 +228,7 @@ export default function AdminProfilesPage() {
   const [searchInput, setSearchInput] = useState("");
   const [profileTypeFilter, setProfileTypeFilter] = useState("");
   const [activeFilter, setActiveFilter] = useState<"" | "true" | "false">("");
+  const [quickFilter, setQuickFilter] = useState<"" | "missing">("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
@@ -224,6 +244,9 @@ export default function AdminProfilesPage() {
      formularios a medio llenar en la misma pantalla. */
   const [sheetEditing, setSheetEditing] = useState<string | null>(null);
   const [sheetForm, setSheetForm] = useState<SheetForm | null>(null);
+  /* Respuestas rápidas abiertas para editar (una a la vez, como la ficha). */
+  const [quickEditing, setQuickEditing] = useState<string | null>(null);
+  const [quickForm, setQuickForm] = useState<QuickReplies>({});
   const [mediaModal, setMediaModal] = useState<{ profileId: string; displayName: string } | null>(null);
   const [mediaPhotos, setMediaPhotos] = useState<ProfilePhoto[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -238,6 +261,7 @@ export default function AdminProfilesPage() {
       if (searchQuery) params.set("q", searchQuery);
       if (profileTypeFilter) params.set("profileType", profileTypeFilter);
       if (activeFilter) params.set("isActive", activeFilter);
+      if (quickFilter) params.set("quickReplies", quickFilter);
 
       const res = await apiFetch<{ profiles: Profile[]; total: number }>(`/admin/profiles?${params}`);
       setProfiles(res?.profiles ?? []);
@@ -247,7 +271,7 @@ export default function AdminProfilesPage() {
     } finally {
       setLoadingProfiles(false);
     }
-  }, [page, searchQuery, profileTypeFilter, activeFilter]);
+  }, [page, searchQuery, profileTypeFilter, activeFilter, quickFilter]);
 
   async function loadProfilePhotos(profileId: string) {
     setLoadingMedia(true);
@@ -391,6 +415,38 @@ export default function AdminProfilesPage() {
       await loadProfiles();
     } catch (err: any) {
       setError(err?.body?.message || "No se pudo guardar la ficha.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function openQuick(profile: Profile) {
+    setQuickEditing(profile.id);
+    setQuickForm({ ...(profile.quickReplies ?? {}) });
+  }
+
+  function closeQuick() {
+    setQuickEditing(null);
+    setQuickForm({});
+  }
+
+  /* Guarda las respuestas rápidas completas: lo que quede vacío se borra. No
+     se exigen tarifa y servicios, para poder cargar lo que se sepa. */
+  async function saveQuick(profile: Profile) {
+    setBusy(profile.id);
+    setError(null);
+    try {
+      await apiFetch(`/admin/profiles/${profile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ quickReplies: cleanQuickReplies(quickForm) }),
+      });
+      setSuccess(
+        `Respuestas rápidas de ${profile.displayName || profile.username} actualizadas.`,
+      );
+      closeQuick();
+      await loadProfiles();
+    } catch (err: any) {
+      setError(err?.body?.message || "No se pudieron guardar las respuestas rápidas.");
     } finally {
       setBusy(null);
     }
@@ -661,6 +717,14 @@ export default function AdminProfilesPage() {
             <option value="">Estado: Todos</option>
             <option value="true">Activos</option>
             <option value="false">Desactivados</option>
+          </select>
+          <select
+            className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm outline-none focus:border-fuchsia-500/30 transition"
+            value={quickFilter}
+            onChange={(e) => { setQuickFilter(e.target.value as any); setPage(0); }}
+          >
+            <option value="">Respuestas rápidas: Todas</option>
+            <option value="missing">Sin tarifa o servicios</option>
           </select>
         </div>
       </div>
@@ -1265,6 +1329,79 @@ export default function AdminProfilesPage() {
                   </div>
                 )}
               </div>
+
+              {/* Respuestas rápidas del chat (tarifa, servicios...). Las
+                  cuentas antiguas no las tienen y el equipo las carga acá. */}
+              {p.profileType === "PROFESSIONAL" && (
+                <div className="mt-3 border-t border-white/10 pt-3">
+                  {quickEditing === p.id ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        saveQuick(p);
+                      }}
+                      className="space-y-2"
+                    >
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {QUICK_REPLY_TOPICS.map((t) => (
+                          <label key={t.key} className="block">
+                            <span className="mb-1 block text-[10px] uppercase tracking-wide text-white/40">
+                              {t.label}
+                              {t.required ? " *" : ""}
+                            </span>
+                            <textarea
+                              value={quickForm[t.key] ?? ""}
+                              placeholder={t.placeholder}
+                              maxLength={QUICK_REPLY_MAX_LENGTH}
+                              rows={2}
+                              onChange={(e) =>
+                                setQuickForm((prev) => ({ ...prev, [t.key]: e.target.value }))
+                              }
+                              className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-[11px] outline-none transition focus:border-fuchsia-500/30"
+                            />
+                          </label>
+                        ))}
+                      </div>
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          type="submit"
+                          disabled={busy === p.id}
+                          className="flex h-7 items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2.5 text-[11px] font-medium text-emerald-200 transition hover:bg-emerald-500/25 disabled:opacity-50"
+                        >
+                          {busy === p.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Check className="h-3 w-3" />
+                          )}
+                          Guardar respuestas
+                        </button>
+                        <button
+                          type="button"
+                          onClick={closeQuick}
+                          disabled={busy === p.id}
+                          className="flex h-7 items-center rounded-lg border border-white/10 bg-white/5 px-2.5 text-[11px] text-white/60 transition hover:bg-white/10 disabled:opacity-50"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] text-white/40">
+                        {quickRepliesSummary(p)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openQuick(p)}
+                        className="ml-auto flex h-7 items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 text-[11px] text-white/70 transition hover:bg-white/10"
+                      >
+                        <MessageCircle className="h-3 w-3" />
+                        Editar respuestas
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               </>)}
 
             </div>

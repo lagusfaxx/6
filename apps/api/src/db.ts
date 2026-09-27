@@ -28,7 +28,7 @@ const PROFILE_EDIT_FIELDS = new Set([
   "serviceDescription", "serviceCategory", "primaryCategory", "profileTags", "serviceTags", "serviceStyleTags",
   "availabilityNote", "avatarUrl", "coverUrl", "heightCm", "weightKg", "measurements", "hairColor", "skinTone",
   "languages", "acceptsIncalls", "acceptsOutcalls", "subscriptionPrice", "phone", "gender", "birthdate",
-  "undisclosedFields", "autoReplyEnabled", "autoReplyMessage",
+  "undisclosedFields", "autoReplyEnabled", "autoReplyMessage", "quickReplies",
 ]);
 
 prisma.$use(async (params, next) => {
@@ -40,6 +40,9 @@ prisma.$use(async (params, next) => {
     if (data && typeof data === "object") {
       if (Object.keys(data).some((k) => PROFILE_EDIT_FIELDS.has(k)) && data.lastEditedAt === undefined) {
         data.lastEditedAt = new Date();
+        // Si le habían rechazado la verificación, corregir la ficha la
+        // devuelve a la cola de pendientes (el motivo anterior se conserva).
+        if (data.verificationRejectedAt === undefined) data.verificationRejectedAt = null;
       }
       if ("tier" in data && params.args?.where) {
         tierBefore = await prisma.user
@@ -63,7 +66,10 @@ prisma.$use(async (params, next) => {
   // Subir una foto también es editar la ficha.
   if (params.model === "ProfileMedia" && params.action === "create" && params.args?.data?.ownerId) {
     prisma.user
-      .update({ where: { id: params.args.data.ownerId }, data: { lastEditedAt: new Date() } })
+      .update({
+        where: { id: params.args.data.ownerId },
+        data: { lastEditedAt: new Date(), verificationRejectedAt: null },
+      })
       .catch(() => {});
   }
 

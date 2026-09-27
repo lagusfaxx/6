@@ -247,7 +247,7 @@ export function registerBusinessTools(server: McpServer, ctx: McpContext) {
     guarded("pendientes", ctx, async (args: { porCola?: number }) => {
       const take = args.porCola ?? 5;
       const asc = { createdAt: "asc" } as const;
-      const unverified = { isVerified: false, profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as any } };
+      const unverified = { isVerified: false, verificationRejectedAt: null, profileType: { in: ["PROFESSIONAL", "ESTABLISHMENT", "SHOP"] as any } };
       const q = <T>(count: Promise<number>, items: Promise<T>) => Promise.all([count, items]);
 
       const [

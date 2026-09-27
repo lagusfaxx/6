@@ -447,6 +447,12 @@ model User {
   isVerified          Boolean           @default(false)
   verifiedAt          DateTime?
   verifiedByPhone     String?
+  /// Rechazo de la verificación desde el panel: saca el perfil de la cola de
+  /// pendientes. Se limpia cuando la profesional edita su ficha o sube fotos
+  /// (vuelve a la cola) y al aprobarla. El motivo se conserva para que quien
+  /// revise de nuevo vea por qué se rechazó antes.
+  verificationRejectedAt   DateTime?
+  verificationRejectReason   String?
   tier                ProfessionalTier?
   /// Vencimiento del plan pagado (Silver/Gold/Diamond). Null con `tier`
   /// puesto = asignado a mano desde el admin, sin vencimiento.
@@ -503,6 +509,10 @@ model User {
   /// y para la profesional el mensaje del cliente sigue sin leer.
   autoReplyEnabled    Boolean           @default(false)
   autoReplyMessage    String?
+  /// Respuestas rápidas: { tarifa, servicios, horario, ubicacion, pago }.
+  /// El cliente las toca en el chat y recibe la respuesta al instante. Las
+  /// claves válidas están en `QUICK_REPLY_TOPICS` (@uzeed/shared).
+  quickReplies        Json?
   /// Aviso por correo de mensajes sin leer. Se puede desactivar desde la
   /// cuenta o con el enlace de baja que va en cada correo.
   emailOnNewMessage   Boolean           @default(true)
@@ -891,6 +901,19 @@ model AutoReplyLog {
 
   @@unique([professionalId, clientId])
   @@index([sentAt])
+}
+
+/// Respuestas rápidas entregadas: marca los mensajes que la plataforma envió en
+/// nombre de la profesional cuando el cliente tocó una pregunta, para que las
+/// estadísticas de respuesta no los cuenten como respuestas escritas por ella.
+model QuickReplyAnswer {
+  messageId      String   @id @db.Uuid
+  professionalId String   @db.Uuid
+  clientId       String   @db.Uuid
+  topic          String
+  createdAt      DateTime @default(now())
+
+  @@index([professionalId, createdAt])
 }
 
 model ServiceRating {

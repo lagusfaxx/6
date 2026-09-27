@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { prisma } from "../../db";
 import { missingProfileFields } from "../../lib/profileCompletion";
+import { REJECT_REASON_MIN_LENGTH, rejectVerification } from "../../lib/verificationReject";
 import { guarded, type McpContext } from "../audit";
 import { TIERS, errorResult, findUserRef, jsonResult } from "../helpers";
 
@@ -106,6 +107,7 @@ export function registerActionTools(server: McpServer, ctx: McpContext) {
             verifiedAt: new Date(),
             verifiedByPhone: verificadoPorTelefono || null,
             isActive: true,
+            verificationRejectedAt: null,
             profileCompletedAt: user.profileCompletedAt ?? new Date(),
           },
           select: PROFILE_SELECT,
@@ -120,18 +122,26 @@ export function registerActionTools(server: McpServer, ctx: McpContext) {
     {
       title: "Rechazar verificación de perfil",
       description:
-        "Rechaza la verificación de un perfil: queda sin verificar y oculto (igual que 'Rechazar' en Verificaciones del panel). Confirma con el usuario antes de ejecutar.",
-      inputSchema: { usuario: usuarioField, motivo: motivoField },
+        "Rechaza la verificación de un perfil: queda sin verificar, oculto y fuera de la cola de pendientes, y la profesional recibe por correo el texto de 'motivo' (obligatorio). Si corrige su ficha vuelve a la cola. Igual que 'Rechazar' en Verificaciones del panel. Confirma con el usuario antes de ejecutar.",
+      inputSchema: {
+        usuario: usuarioField,
+        motivo: z.string().max(1000).describe("Motivo del rechazo: se le envía por correo a la profesional y queda en la bitácora."),
+      },
       annotations: WRITE,
     },
     guarded(
       "rechazar_verificacion",
       ctx,
-      async ({ usuario }: { usuario: string; motivo?: string }) => {
+      async ({ usuario, motivo }: { usuario: string; motivo?: string }) => {
         const id = await findUserRef(usuario);
         if (!id) return errorResult(`No encontré al usuario "${usuario}".`);
-        const updated = await prisma.user.update({ where: { id }, data: { isActive: false }, select: PROFILE_SELECT });
-        return jsonResult({ perfil: updated });
+        const reason = (motivo || "").trim();
+        if (reason.length < REJECT_REASON_MIN_LENGTH) {
+          return errorResult("Indica el motivo del rechazo en 'motivo': se le envía por correo a la profesional.");
+        }
+        const { emailSent } = await rejectVerification(id, reason);
+        const updated = await prisma.user.findUnique({ where: { id }, select: PROFILE_SELECT });
+        return jsonResult({ perfil: updated, correoEnviado: emailSent });
       }
     ),
   );
