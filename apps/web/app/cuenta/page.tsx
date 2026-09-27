@@ -12,13 +12,13 @@ import EmailNotificationsToggle from "../../components/EmailNotificationsToggle"
 import AutoReplySettings from "../../components/AutoReplySettings";
 import QuickRepliesSettings from "../../components/QuickRepliesSettings";
 import { canOpenAdmin, isTeamStaff } from "../../lib/adminAccess";
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import {
   User, MessageSquare, Heart,
   CreditCard, LogOut, ExternalLink, Palette, ShoppingBag,
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
   TrendingUp, Zap, Shield, ShieldCheck, Wallet, RefreshCw,
-  Gift, Copy, Check, VenetianMask, ArrowRight, Bell, BadgeCheck,
+  VenetianMask, ArrowRight, Bell, BadgeCheck,
   Settings,
 } from "lucide-react";
 
@@ -175,7 +175,6 @@ export default function AccountPage() {
     { label: "UMate", description: umateDescription, href: umateHref, icon: Sparkles, tone: "violet" },
   );
 
-  const showVisibility = isProfessional || profileType === "CREATOR";
   const coverSrc = resolveMediaUrl(user?.coverUrl);
 
   /* Resumen del plan en una píldora del hero, para no tener que bajar a verlo. */
@@ -502,7 +501,6 @@ export default function AccountPage() {
 
         {/* ── Columna lateral ── */}
         <motion.div {...fadeUp(0.12)} className="space-y-4">
-          {showVisibility && <ReferralSection />}
 
           <Card title="Notificaciones" icon={<Bell className="h-4 w-4" />}>
             <div className="space-y-2">
@@ -534,85 +532,5 @@ export default function AccountPage() {
         </motion.div>
       </div>
     </div>
-  );
-}
-
-/* ─── Referral Program Section ─── */
-
-function ReferralSection() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const [generating, setGenerating] = useState(false);
-
-  const fetchStats = useCallback(async () => {
-    try {
-      const res = await apiFetch<any>("/referrals/stats");
-      if (res && typeof res === "object") setData(res);
-    } catch {}
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchStats(); }, [fetchStats]);
-
-  const generateCode = async () => {
-    setGenerating(true);
-    try {
-      await apiFetch<any>("/referrals/code", { method: "POST" });
-      await fetchStats();
-    } catch {}
-    setGenerating(false);
-  };
-
-  const copyCode = () => {
-    if (!data?.code) return;
-    navigator.clipboard.writeText(data.code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  if (loading) {
-    return <div className="h-32 rounded-2xl bg-white/5 animate-pulse" />;
-  }
-
-  return (
-    <section className="relative overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-600/[0.14] via-fuchsia-600/[0.06] to-transparent p-5">
-      <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-violet-500/20 blur-3xl" />
-      <div className="relative">
-        <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-500/20 ring-1 ring-violet-400/25">
-            <Gift className="h-4 w-4 text-violet-300" />
-          </span>
-          <h2 className="text-sm font-semibold text-white/90">Invita y gana</h2>
-        </div>
-
-        {!data?.hasCode ? (
-          <>
-            <p className="mt-3 text-xs leading-relaxed text-white/55">Invita amigas y gana por cada referida.</p>
-            <button
-              onClick={generateCode}
-              disabled={generating}
-              className="btn-primary mt-4 w-full py-2 text-xs disabled:opacity-50"
-            >
-              {generating ? "Generando..." : "Obtener mi código"}
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="mt-3 text-[10px] uppercase tracking-widest text-white/40">Tu código de amigo</p>
-            <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-dashed border-violet-400/30 bg-black/20 py-2 pl-4 pr-2">
-              <span className="min-w-0 flex-1 truncate font-mono text-lg font-bold tracking-wider text-violet-200">{data.code}</span>
-              <button
-                onClick={copyCode}
-                className="flex shrink-0 items-center gap-1 rounded-lg bg-white/[0.08] px-3 py-1.5 text-xs text-white/70 transition hover:bg-white/15"
-              >
-                {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? "Copiado" : "Copiar"}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </section>
   );
 }
