@@ -166,7 +166,12 @@ export default function ProfessionalRegisterForm({
   // Cada paso parte arriba: en el teléfono el botón queda abajo y, sin esto,
   // el paso siguiente aparecía a media pantalla.
   useEffect(() => {
-    topRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    // Sólo la ventana: scrollIntoView también desplazaba el interior de la
+    // tarjeta (overflow-hidden en PC) y la dejaba cortada arriba.
+    const el = topRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - 16;
+    if (top < window.scrollY) window.scrollTo({ top, behavior: "smooth" });
   }, [subStep]);
 
   function validateStep(step: number): string | null {
