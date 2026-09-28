@@ -5,6 +5,7 @@ import "./globals.css";
 import AppShell from '../components/AppShell';
 import AgeGate from '../components/AgeGate';
 import DiscreetProvider from '../components/DiscreetProvider';
+import { TranslateLoader } from '../components/LanguageSwitcher';
 
 export const metadata: Metadata = {
   title: {
@@ -177,6 +178,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <DiscreetProvider>
           <AppShell>{children}</AppShell>
         </DiscreetProvider>
+        <TranslateLoader />
         {/* Google tag (gtag.js) — deferred with afterInteractive to avoid blocking FCP/LCP */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=AW-18052031619"

@@ -24,6 +24,7 @@ import { canOpenAdmin, isTeamStaff } from "../lib/adminAccess";
 import { useForumNotifications } from "./ForumNotifications";
 import { useChatNotifications } from "./ChatNotifications";
 import { LiveCountBadge } from "./navigation/LiveCountBadge";
+import { LanguagePills } from "./LanguageSwitcher";
 
 type NavItem = {
   href: string;
@@ -250,6 +251,14 @@ export default function Nav() {
               />
               Ayuda
             </Link>
+          </div>
+
+          {/* Idioma */}
+          <div className="pt-3 mt-3 border-t border-white/[0.06] px-2">
+            <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/25">
+              Idioma
+            </p>
+            <LanguagePills short />
           </div>
         </nav>
 

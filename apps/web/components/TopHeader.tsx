@@ -37,6 +37,7 @@ import useMe from "../hooks/useMe";
 import { canOpenAdmin, isTeamStaff } from "../lib/adminAccess";
 import { useDiscreet } from "./DiscreetProvider";
 import QuickExitBar from "./QuickExitBar";
+import { LanguageMenu, LanguagePills } from "./LanguageSwitcher";
 import { DISCREET_BRAND, discreetLabel } from "../lib/discreet";
 import { apiFetch } from "../lib/api";
 import { connectRealtime } from "../lib/realtime";
@@ -275,7 +276,7 @@ export default function TopHeader() {
                     priority
                     className="h-8 w-8 shrink-0 object-contain drop-shadow-[0_4px_12px_rgba(168,85,247,0.4)] md:h-12 md:w-12"
                   />
-                  <span className="text-xl font-bold leading-none tracking-tight text-white drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)] md:text-3xl">
+                  <span translate="no" className="notranslate text-xl font-bold leading-none tracking-tight text-white drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)] md:text-3xl">
                     {discreet ? DISCREET_BRAND.name : "Uzeed"}
                   </span>
                 </Link>
@@ -311,6 +312,9 @@ export default function TopHeader() {
                   {discreet ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   <span className="hidden sm:inline">Discreto</span>
                 </button>
+                {/* Idioma: en móvil vive en el menú hamburguesa y desde md en la
+                    barra lateral; acá sólo en tablet, donde no hay ninguna de las dos. */}
+                <LanguageMenu className="hidden sm:block md:hidden" />
                 {/* Salida rápida: vive dentro de la cabecera fija, así cumple
                     "siempre visible al hacer scroll" sin tapar nada. */}
                 <QuickExitBar />
@@ -487,7 +491,7 @@ export default function TopHeader() {
             <div className="relative flex items-center justify-between border-b border-white/[0.08] px-4 py-4">
               <div className="flex items-center gap-2">
                 <Image src="/brand/isotipo-new.png" alt="" width={40} height={40} className="h-10 w-10 object-contain drop-shadow-[0_2px_8px_rgba(168,85,247,0.3)]" />
-                <span className="text-xl font-bold text-white tracking-tight">{discreet ? DISCREET_BRAND.name : "Uzeed"}</span>
+                <span translate="no" className="notranslate text-xl font-bold text-white tracking-tight">{discreet ? DISCREET_BRAND.name : "Uzeed"}</span>
               </div>
               <button
                 type="button"
@@ -637,6 +641,11 @@ export default function TopHeader() {
                 <button onClick={() => handleNavLink("/ayuda")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
                   <HelpCircle className="h-4 w-4 text-fuchsia-400/70" /> Centro de Ayuda
                 </button>
+              </div>
+              {/* Idioma */}
+              <div className="px-4 pt-3 pb-1">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/25">Idioma</p>
+                <LanguagePills />
               </div>
               {/* Hamburger footer */}
               <div className="relative mt-4 border-t border-white/[0.05] px-5 py-4">

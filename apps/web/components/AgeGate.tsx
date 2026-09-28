@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LanguagePills } from "./LanguageSwitcher";
 
 /**
  * Verificación de mayoría de edad para usuarios nuevos.
@@ -98,6 +99,9 @@ export default function AgeGate() {
           >
             Soy menor de 18 años
           </button>
+        </div>
+        <div className="mt-6">
+          <LanguagePills />
         </div>
       </div>
     </div>

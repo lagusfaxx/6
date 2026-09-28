@@ -1378,3 +1378,21 @@ html.discreet .animate-ping {
 .umate-protected * {
   -webkit-touch-callout: none;
 }
+
+/* Traducción automática (LanguageSwitcher): se ocultan la barra, el tooltip
+   y el resaltado que Google Translate inyecta, y se anula el desplazamiento
+   que aplica al <body>. */
+body > .skiptranslate,
+iframe.goog-te-banner-frame,
+#goog-gt-tt,
+.goog-te-balloon-frame,
+.goog-tooltip {
+  display: none !important;
+}
+body {
+  top: 0 !important;
+}
+.goog-text-highlight {
+  background: none !important;
+  box-shadow: none !important;
+}
