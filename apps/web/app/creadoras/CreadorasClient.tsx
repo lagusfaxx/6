@@ -156,9 +156,6 @@ export default function CreadorasClient({
             </span>
 
             <div className="mt-5 flex flex-wrap items-end justify-center gap-3">
-              <span className="text-lg font-medium text-white/40 line-through sm:text-xl">
-                $70.000 / mes
-              </span>
               <span className="text-4xl font-extrabold tracking-tight text-emerald-300 sm:text-5xl">
                 Gratis
               </span>
