@@ -88,10 +88,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   minimumScale: 1,
-  // Permitir zoom por accesibilidad/UX móvil (antes bloqueado con
-  // maximumScale:1 / userScalable:false).
-  maximumScale: 5,
-  userScalable: true,
+  // Zoom bloqueado: evita el zoom automático de iOS al enfocar campos de
+  // texto (que después no vuelve a la escala original).
+  maximumScale: 1,
+  userScalable: false,
   // Con el teclado abierto el viewport se encoge en vez de quedar tapado: es
   // lo que mantiene fijo el campo de escritura del chat en el teléfono.
   interactiveWidget: 'resizes-content',
