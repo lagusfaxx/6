@@ -69,6 +69,7 @@ export default async function EscortsPage() {
           defaultGender="FEMALE"
           alsoCategorySlug="masajes"
           alsoCategoryTitle="Masajistas"
+          alsoCategoryHref="/masajistas"
         />
       </Suspense>
       <SeoContent variant="escorts" />

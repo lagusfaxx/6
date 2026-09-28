@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, Sparkles, Flame, Video, Crown, ShieldCheck } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
@@ -107,6 +108,7 @@ type Props = {
    */
   alsoCategorySlug?: string;
   alsoCategoryTitle?: string;
+  alsoCategoryHref?: string;
 };
 
 const GENDER_OPTIONS = [
@@ -284,6 +286,7 @@ export default function DirectoryPage({
   defaultGender,
   alsoCategorySlug,
   alsoCategoryTitle,
+  alsoCategoryHref,
 }: Props) {
   const searchParams = useSearchParams();
   const locationCtx = useContext(LocationFilterContext);
@@ -790,9 +793,18 @@ export default function DirectoryPage({
               <Fragment key={p.id}>
                 {/* Separador antes de la primera de la categoría de relleno. */}
                 {p.secondaryCategory && !displayed[i - 1]?.secondaryCategory && (
-                  <h2 className="col-span-full mt-4 border-t border-white/10 pt-5 text-base font-bold text-white/80">
-                    {alsoCategoryTitle || "También te puede interesar"}
-                  </h2>
+                  <div className="col-span-full mt-4 flex items-baseline justify-between gap-3 border-t border-white/10 pt-5">
+                    <h2 className="text-base font-bold text-white/80">
+                      {alsoCategoryTitle || "También te puede interesar"}
+                    </h2>
+                    {/* Enlace interno a la sección propia: le pasa relevancia
+                        a /masajistas en vez de competir con ella. */}
+                    {alsoCategoryHref && (
+                      <Link href={alsoCategoryHref} className="text-sm text-fuchsia-400 hover:text-fuchsia-300">
+                        Ver todas
+                      </Link>
+                    )}
+                  </div>
                 )}
                 <ProfileCard p={p} entityType={entityType} categorySlug={categorySlug} onOpenModal={setPreviewProfile} />
               </Fragment>
