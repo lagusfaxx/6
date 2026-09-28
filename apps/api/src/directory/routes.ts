@@ -1496,8 +1496,17 @@ directoryRouter.get(
       if (cityCmp !== 0) return cityCmp;
       const bandCmp = bandRank(a.distance) - bandRank(b.distance);
       if (bandCmp !== 0) return bandCmp;
-      // Fuera del radio manda la cercanía: primero la región vecina.
-      if (bandRank(a.distance) === 1 && sort !== "new") {
+      // Fuera del radio también mandan los boosts y el plan (Diamond, Gold):
+      // pagan por visibilidad en todo el listado, no sólo en su zona. Entre
+      // perfiles del mismo plan, la región más cercana va primero.
+      if (bandRank(a.distance) === 1 && sort !== "new" && sort !== "near") {
+        const boostCmp = boostRank(a.id, boostSets) - boostRank(b.id, boostSets);
+        if (boostCmp !== 0) return boostCmp;
+        if (sort === "availableNow" && a.availableNow !== b.availableNow)
+          return Number(b.availableNow) - Number(a.availableNow);
+        const lvlCmp =
+          (LEVEL_ORDER[a.userLevel] ?? 3) - (LEVEL_ORDER[b.userLevel] ?? 3);
+        if (lvlCmp !== 0) return lvlCmp;
         const distCmp = (a.distance ?? 1e9) - (b.distance ?? 1e9);
         if (distCmp !== 0) return distCmp;
       }
