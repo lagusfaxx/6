@@ -1271,7 +1271,16 @@ directoryRouter.get(
       // DEV: subscription filter removed during development
     };
 
-    if (genderFilter) where.gender = genderFilter;
+    /* Perfiles sin género cargado: casi todos son mujeres que se saltaron el
+       campo. Con "FEMALE" (el filtro por defecto de /escorts y del inicio)
+       se incluyen; si no, no aparecían en ninguna sección. Se agrega al AND
+       más abajo, después del bloque de búsqueda que reescribe where.AND. */
+    const genderCond =
+      genderFilter === "FEMALE"
+        ? { OR: [{ gender: "FEMALE" }, { gender: null }] }
+        : genderFilter
+          ? { gender: genderFilter }
+          : null;
     if (tierFilter) where.tier = tierFilter;
 
     /* category filter: match primaryCategory OR serviceCategory
@@ -1340,7 +1349,6 @@ directoryRouter.get(
       isActive: true,
       OR: where.OR,
     };
-    if (genderFilter) fallbackWhere.gender = genderFilter;
     if (tierFilter) fallbackWhere.tier = tierFilter;
     // Remove profileTags/serviceTags/primaryCategory filters for fallback
     if (categoryVariantsList.length) {
@@ -1356,6 +1364,12 @@ directoryRouter.get(
         delete fallbackWhere.OR;
       } else {
         fallbackWhere.AND = [textOr];
+      }
+    }
+
+    if (genderCond) {
+      for (const w of [where, fallbackWhere]) {
+        w.AND = [...((w.AND as unknown[]) ?? []), genderCond];
       }
     }
 
