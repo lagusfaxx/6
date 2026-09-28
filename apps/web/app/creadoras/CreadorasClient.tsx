@@ -167,8 +167,7 @@ export default function CreadorasClient({
             <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-white/60">
               Registra tu perfil hoy y accede a todas las funciones sin pagar
               nada. Sin letra chica, sin pruebas limitadas y sin cobros
-              automáticos. Las creadoras que se sumen ahora quedan como
-              fundadoras y conservan beneficios preferentes.
+              automáticos.
             </p>
 
             <ul className="mx-auto mt-5 grid max-w-xl grid-cols-1 gap-2 text-left text-sm text-white/70 sm:grid-cols-2">
