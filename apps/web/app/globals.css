@@ -73,6 +73,20 @@ body::after {
   }
 }
 
+/* iOS hace zoom automático al enfocar un campo con letra < 16px y, como el
+   pinch-zoom está permitido, no vuelve solo al cerrar el teclado. Con 16px
+   mínimo en iOS no hay zoom al escribir y se mantiene el zoom manual.
+   (-webkit-touch-callout sólo existe en iOS/iPadOS.) Se excluyen los campos
+   que ya usan letra más grande para no achicarlos. */
+@supports (-webkit-touch-callout: none) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([class*="text-lg"]):not([class*="text-xl"]):not([class*="text-2xl"]):not([class*="text-3xl"]),
+  textarea:not([class*="text-lg"]):not([class*="text-xl"]):not([class*="text-2xl"]),
+  select:not([class*="text-lg"]):not([class*="text-xl"]),
+  [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+}
+
 /* Make tap highlights less ugly on mobile */
 * {
   -webkit-tap-highlight-color: transparent;
