@@ -1185,6 +1185,9 @@ directoryRouter.get(
      gender       : 'MALE' | 'FEMALE' | 'OTHER'
      lat / lng / radiusKm
      city         : comuna del chip — no filtra, prioriza en el orden
+     expand       : 'true' → el radio no filtra: los de dentro del radio van
+                    primero y después el resto del país, del más cercano al
+                    más lejano
      limit        : default 48, max 120
      sort         : 'featured' | 'near' | 'new' | 'availableNow'
    ──────────────────────────────────────────────────────────── */
@@ -1205,6 +1208,9 @@ directoryRouter.get(
     const lat = req.query.lat ? Number(req.query.lat) : null;
     const lng = req.query.lng ? Number(req.query.lng) : null;
     const radiusKm = parseRangeKm(req.query.radiusKm, 50);
+    /* Con expand el radio sólo ordena: una sección como /escorts tiene que
+       mostrar a todas, no sólo a las que caen a menos de N km. */
+    const expand = req.query.expand === "true";
     const limit = Math.min(Number(req.query.limit) || 48, 120);
     const offset = Math.max(0, Math.min(Number(req.query.offset) || 0, 600));
     const sort = (req.query.sort as string) || "featured";
@@ -1466,7 +1472,7 @@ directoryRouter.get(
       .filter((u) => (maduras ? u.isMadura : true))
       .filter((u) => (availableNow ? u.availableNow : true))
       .filter((u) =>
-        lat != null && lng != null && u.distance != null
+        !expand && lat != null && lng != null && u.distance != null
           ? u.distance <= radiusKm
           : true,
       );
@@ -1480,9 +1486,30 @@ directoryRouter.get(
        que está dentro de ella, después el resto. */
     const cityRank = (city: string | null | undefined) =>
       selectedCity ? (matchesSelectedCity(city, selectedCity) ? 0 : 1) : 0;
+    /* Con expand: 0 = dentro del radio, 1 = fuera (o sin ubicación). Los de
+       fuera no compiten por nivel ni boost con los cercanos. */
+    const hasOrigin = lat != null && lng != null;
+    const bandRank = (distance: number | null) =>
+      expand && hasOrigin ? (distance != null && distance <= radiusKm ? 0 : 1) : 0;
     const sorted = [...filtered].sort((a, b) => {
       const cityCmp = cityRank(a.city) - cityRank(b.city);
       if (cityCmp !== 0) return cityCmp;
+      const bandCmp = bandRank(a.distance) - bandRank(b.distance);
+      if (bandCmp !== 0) return bandCmp;
+      // Fuera del radio también mandan los boosts y el plan (Diamond, Gold):
+      // pagan por visibilidad en todo el listado, no sólo en su zona. Entre
+      // perfiles del mismo plan, la región más cercana va primero.
+      if (bandRank(a.distance) === 1 && sort !== "new" && sort !== "near") {
+        const boostCmp = boostRank(a.id, boostSets) - boostRank(b.id, boostSets);
+        if (boostCmp !== 0) return boostCmp;
+        if (sort === "availableNow" && a.availableNow !== b.availableNow)
+          return Number(b.availableNow) - Number(a.availableNow);
+        const lvlCmp =
+          (LEVEL_ORDER[a.userLevel] ?? 3) - (LEVEL_ORDER[b.userLevel] ?? 3);
+        if (lvlCmp !== 0) return lvlCmp;
+        const distCmp = (a.distance ?? 1e9) - (b.distance ?? 1e9);
+        if (distCmp !== 0) return distCmp;
+      }
       if (sort === "near") {
         return (a.distance ?? 1e9) - (b.distance ?? 1e9);
       }
@@ -1554,7 +1581,7 @@ directoryRouter.get(
         };
       })
         .filter((ql) =>
-          lat != null && lng != null && ql.distance != null
+          !expand && lat != null && lng != null && ql.distance != null
             ? ql.distance <= radiusKm
             : true,
         );

@@ -75,6 +75,11 @@ export const SERVICE_TAGS_CATALOG = [
 ] as const;
 
 /* ─── Props ──────────────────────────────────────────────── */
+type SearchResponse = { results: DirectoryResult[]; total: number; hasMore?: boolean };
+
+/* Perfiles por página; "Ver más" trae la siguiente. */
+const PAGE_SIZE = 60;
+
 type Props = {
   entityType?: "professional" | "establishment" | "shop";
   categorySlug: string;    // 'escort' | 'masajes' | 'motel' | 'sexshop' | …
@@ -306,6 +311,8 @@ export default function DirectoryPage({
   const [results, setResults] = useState<DirectoryResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [rateLimitMsg, setRateLimitMsg] = useState<string | null>(null);
 
   /* ── location: a `city` landing prop wins over the user's stored context
@@ -329,21 +336,25 @@ export default function DirectoryPage({
       : null;
 
   /* ── fetch from real API ── */
+  const isCityLanding = Boolean(city);
   const fetchRef = useRef(0);
-  const fetchResults = useCallback(async () => {
-    const myFetch = ++fetchRef.current;
-    setLoading(true);
-    try {
+  const buildParams = useCallback((offset: number) => {
       const params = new URLSearchParams({
         entityType,
         categorySlug,
         sort,
-        limit: "60",
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
       });
       if (effectiveLoc) {
         params.set("lat", String(effectiveLoc[0]));
         params.set("lng", String(effectiveLoc[1]));
         params.set("radiusKm", "100");
+        // Fuera de un landing de comuna el radio no deja a nadie fuera: la
+        // sección muestra a todas, primero las que están a menos de 100 km y
+        // después el resto del país por cercanía. Antes /escorts sólo
+        // mostraba las del radio y parecía que había muy pocas.
+        if (!isCityLanding) params.set("expand", "true");
       }
       // Con comuna elegida, la API pone primero los perfiles de esa comuna y
       // después el resto por cercanía: medir contra el centro de la comuna
@@ -358,14 +369,21 @@ export default function DirectoryPage({
       const ids = analyticsIds();
       if (ids.sid) params.set("sid", ids.sid);
       if (ids.vid) params.set("vid", ids.vid);
+      return params;
+  }, [entityType, categorySlug, effectiveLoc, isCityLanding, profileTagsFilter, serviceTagsFilter, maduras, availableNow, sort, genderFilter, urlQuery, selectedCityName]);
 
-      const data = await apiFetch<{ results: DirectoryResult[]; total: number }>(
-        `/directory/search?${params.toString()}`,
+  const fetchResults = useCallback(async () => {
+    const myFetch = ++fetchRef.current;
+    setLoading(true);
+    try {
+      const data = await apiFetch<SearchResponse>(
+        `/directory/search?${buildParams(0).toString()}`,
       );
       if (myFetch !== fetchRef.current) return;
       trackImpressions((data.results ?? []).map((r) => r.id), 0);
       setResults(data.results ?? []);
       setTotal(data.total ?? 0);
+      setHasMore(Boolean(data.hasMore));
       setRateLimitMsg(null);
     } catch (err: any) {
       if (myFetch !== fetchRef.current) return;
@@ -373,13 +391,42 @@ export default function DirectoryPage({
         setRateLimitMsg("Demasiadas solicitudes, intenta en unos segundos.");
       } else {
         setResults([]);
+        setHasMore(false);
       }
     } finally {
       if (myFetch === fetchRef.current) setLoading(false);
     }
-  }, [entityType, categorySlug, effectiveLoc, profileTagsFilter, serviceTagsFilter, maduras, availableNow, sort, genderFilter, urlQuery, selectedCityName]);
+  }, [buildParams]);
 
   useEffect(() => { fetchResults(); }, [fetchResults]);
+
+  /* ── siguiente página: se suma a lo ya mostrado ── */
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    const myFetch = fetchRef.current;
+    const offset = results.length;
+    setLoadingMore(true);
+    try {
+      const data = await apiFetch<SearchResponse>(
+        `/directory/search?${buildParams(offset).toString()}`,
+      );
+      if (myFetch !== fetchRef.current) return;
+      const incoming = data.results ?? [];
+      trackImpressions(incoming.map((r) => r.id), offset);
+      setResults((prev) => {
+        const known = new Set(prev.map((r) => r.id));
+        return [...prev, ...incoming.filter((r) => !known.has(r.id))];
+      });
+      setTotal(data.total ?? 0);
+      setHasMore(Boolean(data.hasMore) && incoming.length > 0);
+      setRateLimitMsg(null);
+    } catch (err: any) {
+      if (myFetch !== fetchRef.current) return;
+      if (isRateLimitError(err)) setRateLimitMsg("Demasiadas solicitudes, intenta en unos segundos.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [buildParams, hasMore, loadingMore, results.length]);
 
   /* ── client-side name search (filter on rendered results) ── */
   const displayed = useMemo(() => {
@@ -730,6 +777,17 @@ export default function DirectoryPage({
             {displayed.map((p) => (
               <ProfileCard key={p.id} p={p} entityType={entityType} categorySlug={categorySlug} onOpenModal={setPreviewProfile} />
             ))}
+          </div>
+        )}
+        {!loading && hasMore && displayed.length > 0 && (
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="rounded-xl border border-white/10 bg-white/[0.04] px-6 py-2.5 text-sm font-medium text-white/80 hover:border-fuchsia-500/40 hover:text-fuchsia-300 disabled:opacity-50 transition"
+            >
+              {loadingMore ? "Cargando…" : "Ver más"}
+            </button>
           </div>
         )}
       </div>
