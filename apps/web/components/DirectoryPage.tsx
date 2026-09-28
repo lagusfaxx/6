@@ -80,8 +80,9 @@ export const SERVICE_TAGS_CATALOG = [
 /* ─── Props ──────────────────────────────────────────────── */
 type SearchResponse = { results: DirectoryResult[]; total: number; hasMore?: boolean };
 
-/* Perfiles por página; "Ver más" trae la siguiente. */
-const PAGE_SIZE = 60;
+/* Perfiles por página: el máximo de la API, así hoy llegan todas de una. Si
+   hay más, la siguiente página se carga sola al llegar al final. */
+const PAGE_SIZE = 120;
 
 type Props = {
   entityType?: "professional" | "establishment" | "shop";
@@ -442,6 +443,19 @@ export default function DirectoryPage({
       setLoadingMore(false);
     }
   }, [buildParams, hasMore, loadingMore, results.length]);
+
+  /* Scroll infinito: carga la siguiente página antes de llegar al final. */
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore || loading) return;
+    const io = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) loadMore(); },
+      { rootMargin: "800px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, loading, loadMore]);
 
   /* ── client-side name search (filter on rendered results) ── */
   const displayed = useMemo(() => {
@@ -812,7 +826,8 @@ export default function DirectoryPage({
           </div>
         )}
         {!loading && hasMore && displayed.length > 0 && (
-          <div className="mt-6 flex justify-center">
+          <div ref={sentinelRef} className="mt-6 flex justify-center">
+            {/* El botón queda de respaldo si el scroll no dispara la carga. */}
             <button
               onClick={loadMore}
               disabled={loadingMore}
