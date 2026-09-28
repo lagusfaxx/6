@@ -1188,6 +1188,8 @@ directoryRouter.get(
      expand       : 'true' → el radio no filtra: los de dentro del radio van
                     primero y después el resto del país, del más cercano al
                     más lejano
+     alsoCategory : categorías de relleno (ej. 'masajes' en /escorts): se
+                    suman al final, después de todos los de categorySlug
      limit        : default 48, max 120
      sort         : 'featured' | 'near' | 'new' | 'availableNow'
    ──────────────────────────────────────────────────────────── */
@@ -1252,6 +1254,22 @@ directoryRouter.get(
     const categoryVariantsList = categorySlugList.flatMap(
       (slug) => SLUG_TO_PRIMARY[slug] || [slug],
     );
+    /* Categorías de relleno: en /escorts se muestran también las masajistas,
+       pero siempre debajo de todas las escorts. Casi nadie entra a
+       /masajistas y sus perfiles quedaban sin visitas. */
+    const alsoVariantsList = (typeof req.query.alsoCategory === "string" ? req.query.alsoCategory : "")
+      .split(",")
+      .map((s) => normTag(s))
+      .filter((s) => s && !categorySlugList.includes(s))
+      .flatMap((slug) => SLUG_TO_PRIMARY[slug] || [slug]);
+    const allCategoryVariants = [...categoryVariantsList, ...alsoVariantsList];
+    /* ¿El perfil es de la categoría principal? Mismo criterio que el where. */
+    const isPrimaryCategory = (u: { primaryCategory?: string | null; serviceCategory?: string | null }) =>
+      categoryVariantsList.some(
+        (v) =>
+          (u.primaryCategory ?? "").toLowerCase() === v.toLowerCase() ||
+          (u.serviceCategory ?? "").toLowerCase().includes(v.toLowerCase()),
+      );
 
     /* ── determine profileType filter ── */
     let profileTypeFilter: string[] = ["PROFESSIONAL"];
@@ -1271,13 +1289,22 @@ directoryRouter.get(
       // DEV: subscription filter removed during development
     };
 
-    if (genderFilter) where.gender = genderFilter;
+    /* Perfiles sin género cargado: casi todos son mujeres que se saltaron el
+       campo. Con "FEMALE" (el filtro por defecto de /escorts y del inicio)
+       se incluyen; si no, no aparecían en ninguna sección. Se agrega al AND
+       más abajo, después del bloque de búsqueda que reescribe where.AND. */
+    const genderCond =
+      genderFilter === "FEMALE"
+        ? { OR: [{ gender: "FEMALE" }, { gender: null }] }
+        : genderFilter
+          ? { gender: genderFilter }
+          : null;
     if (tierFilter) where.tier = tierFilter;
 
     /* category filter: match primaryCategory OR serviceCategory
        Skip for ESTABLISHMENT/SHOP — profileType alone is enough */
     if (categoryVariantsList.length && profileTypeFilter[0] === "PROFESSIONAL") {
-      const catConditions = categoryVariantsList.flatMap((v) => [
+      const catConditions = allCategoryVariants.flatMap((v) => [
         { primaryCategory: { equals: v, mode: "insensitive" as const } },
         { serviceCategory: { contains: v, mode: "insensitive" as const } },
       ]);
@@ -1340,11 +1367,10 @@ directoryRouter.get(
       isActive: true,
       OR: where.OR,
     };
-    if (genderFilter) fallbackWhere.gender = genderFilter;
     if (tierFilter) fallbackWhere.tier = tierFilter;
     // Remove profileTags/serviceTags/primaryCategory filters for fallback
     if (categoryVariantsList.length) {
-      fallbackWhere.OR = categoryVariantsList.map((v) => ({
+      fallbackWhere.OR = allCategoryVariants.map((v) => ({
         serviceCategory: { contains: v, mode: "insensitive" as const },
       }));
     }
@@ -1356,6 +1382,12 @@ directoryRouter.get(
         delete fallbackWhere.OR;
       } else {
         fallbackWhere.AND = [textOr];
+      }
+    }
+
+    if (genderCond) {
+      for (const w of [where, fallbackWhere]) {
+        w.AND = [...((w.AND as unknown[]) ?? []), genderCond];
       }
     }
 
@@ -1460,6 +1492,8 @@ directoryRouter.get(
         adminQualityScore: (u as any).adminQualityScore ?? null,
         isMadura,
         isNew: now.getTime() - u.createdAt.getTime() <= 15 * 24 * 60 * 60 * 1000,
+        /* true = viene de alsoCategory: va al final y el front lo separa. */
+        secondaryCategory: alsoVariantsList.length > 0 && !isPrimaryCategory(u),
         /* Sólo el nombre de la estación, calculado del punto real: igual que
            en el detalle del perfil. */
         nearestMetro: publicMetro(nearestMetroStation(userLat, userLng)),
@@ -1492,6 +1526,9 @@ directoryRouter.get(
     const bandRank = (distance: number | null) =>
       expand && hasOrigin ? (distance != null && distance <= radiusKm ? 0 : 1) : 0;
     const sorted = [...filtered].sort((a, b) => {
+      // La categoría de relleno va siempre después de toda la principal.
+      const catCmp = Number(a.secondaryCategory) - Number(b.secondaryCategory);
+      if (catCmp !== 0) return catCmp;
       const cityCmp = cityRank(a.city) - cityRank(b.city);
       if (cityCmp !== 0) return cityCmp;
       const bandCmp = bandRank(a.distance) - bandRank(b.distance);
@@ -1593,6 +1630,8 @@ directoryRouter.get(
     ];
     if (sort === "near") {
       merged.sort((a, b) => {
+        const catCmp = Number(Boolean((a as any).secondaryCategory)) - Number(Boolean((b as any).secondaryCategory));
+        if (catCmp !== 0) return catCmp;
         const cityCmp = cityRank(a.city) - cityRank(b.city);
         if (cityCmp !== 0) return cityCmp;
         return (a.distance ?? 1e9) - (b.distance ?? 1e9);

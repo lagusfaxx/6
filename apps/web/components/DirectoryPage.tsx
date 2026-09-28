@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { MapPin, SlidersHorizontal, X, ChevronDown, Search, Map as MapIcon, Sparkles, Flame, Video, Crown, ShieldCheck } from "lucide-react";
 import { LocationFilterContext } from "../hooks/useLocationFilter";
@@ -48,6 +49,8 @@ export type DirectoryResult = {
   websiteUrl?: string | null;
   externalOnly?: boolean;
   adminQualityScore?: number | null;
+  /** Viene de `alsoCategorySlug` (ej. masajista en /escorts): va al final. */
+  secondaryCategory?: boolean;
 };
 
 /* Catalog constants (also used by TopHeader chips/mega menu) */
@@ -98,6 +101,14 @@ type Props = {
    * mezclaba todo y obligaba a filtrar en cada visita.
    */
   defaultGender?: GenderValue;
+  /**
+   * Categoría que se muestra debajo de la principal, con su propio título.
+   * En /escorts van las masajistas: casi nadie entra a /masajistas y esos
+   * perfiles no tenían visitas.
+   */
+  alsoCategorySlug?: string;
+  alsoCategoryTitle?: string;
+  alsoCategoryHref?: string;
 };
 
 const GENDER_OPTIONS = [
@@ -273,6 +284,9 @@ export default function DirectoryPage({
   city,
   withMap = true,
   defaultGender,
+  alsoCategorySlug,
+  alsoCategoryTitle,
+  alsoCategoryHref,
 }: Props) {
   const searchParams = useSearchParams();
   const locationCtx = useContext(LocationFilterContext);
@@ -346,6 +360,7 @@ export default function DirectoryPage({
         limit: String(PAGE_SIZE),
         offset: String(offset),
       });
+      if (alsoCategorySlug) params.set("alsoCategory", alsoCategorySlug);
       if (effectiveLoc) {
         params.set("lat", String(effectiveLoc[0]));
         params.set("lng", String(effectiveLoc[1]));
@@ -370,7 +385,7 @@ export default function DirectoryPage({
       if (ids.sid) params.set("sid", ids.sid);
       if (ids.vid) params.set("vid", ids.vid);
       return params;
-  }, [entityType, categorySlug, effectiveLoc, isCityLanding, profileTagsFilter, serviceTagsFilter, maduras, availableNow, sort, genderFilter, urlQuery, selectedCityName]);
+  }, [entityType, categorySlug, alsoCategorySlug, effectiveLoc, isCityLanding, profileTagsFilter, serviceTagsFilter, maduras, availableNow, sort, genderFilter, urlQuery, selectedCityName]);
 
   const fetchResults = useCallback(async () => {
     const myFetch = ++fetchRef.current;
@@ -774,8 +789,25 @@ export default function DirectoryPage({
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {displayed.map((p) => (
-              <ProfileCard key={p.id} p={p} entityType={entityType} categorySlug={categorySlug} onOpenModal={setPreviewProfile} />
+            {displayed.map((p, i) => (
+              <Fragment key={p.id}>
+                {/* Separador antes de la primera de la categoría de relleno. */}
+                {p.secondaryCategory && !displayed[i - 1]?.secondaryCategory && (
+                  <div className="col-span-full mt-4 flex items-baseline justify-between gap-3 border-t border-white/10 pt-5">
+                    <h2 className="text-base font-bold text-white/80">
+                      {alsoCategoryTitle || "También te puede interesar"}
+                    </h2>
+                    {/* Enlace interno a la sección propia: le pasa relevancia
+                        a /masajistas en vez de competir con ella. */}
+                    {alsoCategoryHref && (
+                      <Link href={alsoCategoryHref} className="text-sm text-fuchsia-400 hover:text-fuchsia-300">
+                        Ver todas
+                      </Link>
+                    )}
+                  </div>
+                )}
+                <ProfileCard p={p} entityType={entityType} categorySlug={categorySlug} onOpenModal={setPreviewProfile} />
+              </Fragment>
             ))}
           </div>
         )}
