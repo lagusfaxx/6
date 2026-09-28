@@ -1,9 +1,14 @@
-"use client";
-
 import Link from "next/link";
-import Image from "next/image";
+import type { ReactNode } from "react";
 import { CITY_LANDINGS } from "../../lib/cities";
 import type { EscortLanding } from "../../lib/escortLandings";
+
+/*
+ * Landing del lado oferta (/creadoras, /trabajar-de-escort, /vender-contenido,
+ * /publicar-anuncio-escort). Sin estado ni hooks: se renderiza entero en el
+ * servidor para que todo el texto (H1, bloque SEO, FAQ, enlaces internos)
+ * llegue en el HTML inicial.
+ */
 
 export type RelatedLanding = { slug: string; eyebrow: string; h1: string };
 
@@ -15,63 +20,93 @@ export type PublicProfile = {
   isVerified: boolean;
 };
 
-const benefits = [
+type IconName =
+  | "shield"
+  | "sliders"
+  | "percent"
+  | "grid"
+  | "megaphone"
+  | "chart"
+  | "chat"
+  | "badge"
+  | "lock"
+  | "check"
+  | "arrow"
+  | "pin"
+  | "phone"
+  | "support";
+
+const benefits: { title: string; description: string; icon: IconName }[] = [
   {
     title: "Seguridad",
     description: "Verificación de identidad y moderación activa contra perfiles falsos.",
+    icon: "shield",
   },
   {
     title: "Control total",
     description: "Decides qué publicar, a quién responder y cuándo pausar tu perfil.",
+    icon: "sliders",
   },
   {
     title: "Tarifa baja",
     description: "La comisión más baja del mercado chileno. Te quedas con casi todo.",
+    icon: "percent",
   },
   {
     title: "Feed completo",
     description: "Publicaciones, historias, mensajes directos. Tu mini red social.",
+    icon: "grid",
   },
   {
     title: "Anuncios en la plataforma",
     description: "Apareces en el inicio, feed y búsquedas frente a clientes que pagan.",
+    icon: "megaphone",
   },
   {
     title: "Campañas de marketing",
     description: "Tráfico recurrente desde nuestras redes y campañas hacia tu perfil.",
+    icon: "chart",
   },
   {
     title: "Contacto directo",
     description: "Chat interno o WhatsApp desde tu perfil. Sin intermediarios.",
+    icon: "chat",
   },
   {
     title: "Perfil verificado",
     description: "La insignia Verificada multiplica hasta 5 veces tus contactos.",
+    icon: "badge",
   },
 ];
 
-const advantages = [
+const advantages: { title: string; text: string; icon: IconName }[] = [
   {
-    number: "01",
     title: "Registro simple",
     text: "Creas tu perfil en pocos minutos con tus fotos, tarifas y zona de trabajo. Sin papeleos innecesarios.",
+    icon: "check",
   },
   {
-    number: "02",
     title: "Panel de creadora",
     text: "Administras fotos, horarios, servicios y estadísticas desde un panel pensado para que puedas trabajar desde el celular.",
+    icon: "phone",
   },
   {
-    number: "03",
     title: "Soporte humano",
     text: "Un equipo chileno te ayuda por WhatsApp cuando necesites apoyo con tu perfil, pagos o verificación.",
+    icon: "support",
   },
 ];
 
 const steps = [
-  "Regístrate con tu correo y crea tu contraseña.",
-  "Sube tus fotos, describe tus servicios y fija tus tarifas.",
-  "Envía tu verificación y publica tu perfil para recibir contactos.",
+  { title: "Crea tu cuenta", text: "Regístrate con tu correo y crea tu contraseña." },
+  { title: "Arma tu perfil", text: "Sube tus fotos, describe tus servicios y fija tus tarifas." },
+  { title: "Publica", text: "Envía tu verificación y publica tu perfil para recibir contactos." },
+];
+
+const promoItems = [
+  "Todas las funciones activas sin costo",
+  "Publicaciones y feed ilimitados",
+  "Campañas y promoción incluidas",
 ];
 
 export default function CreadorasClient({
@@ -84,457 +119,570 @@ export default function CreadorasClient({
   landing: EscortLanding;
   related?: RelatedLanding[];
 }) {
-  return (
-    <div className="relative mx-auto w-full max-w-5xl px-4 py-10 sm:py-14">
-      {/* Ambient glow */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 flex justify-center">
-        <div className="h-64 w-[32rem] rounded-full bg-fuchsia-500/[0.08] blur-3xl" />
-      </div>
+  const heroProfiles = profiles.filter((p) => p.avatarUrl).slice(0, 3);
+  const communityProfiles = profiles.slice(0, 12);
 
-      {/* Logo */}
-      <div className="mb-10 flex items-center justify-center">
-        <Image
-          src="/brand/logo.png"
-          alt="UZEED"
-          width={320}
-          height={90}
-          priority
-          className="h-20 w-auto sm:h-24"
+  return (
+    <div className="relative w-full overflow-x-clip">
+      {/* Fondo del hero */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[720px]" aria-hidden="true">
+        <div className="absolute left-1/2 top-[-160px] h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-fuchsia-600/[0.13] blur-[120px]" />
+        <div className="absolute right-[-120px] top-40 h-72 w-72 rounded-full bg-violet-500/[0.12] blur-[100px]" />
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
+            backgroundSize: "56px 56px",
+            maskImage: "radial-gradient(ellipse at 50% 0%, black 20%, transparent 70%)",
+            WebkitMaskImage: "radial-gradient(ellipse at 50% 0%, black 20%, transparent 70%)",
+          }}
         />
       </div>
 
-      {/* Hero */}
-      <section className="text-center">
-        <span className="inline-block rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-fuchsia-300">
-          {landing.eyebrow}
-        </span>
-        <h1 className="mt-5 text-3xl font-bold tracking-tight text-white sm:text-5xl">
-          {landing.h1}
-        </h1>
-        <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/60 sm:text-base">
-          {landing.intro}
-        </p>
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+        {/* ── Hero ─────────────────────────────────────────── */}
+        <section className="grid items-center gap-12 pb-12 pt-10 sm:pt-16 lg:grid-cols-[1.1fr_0.9fr] lg:gap-10 lg:pb-20">
+          <div>
+            <nav aria-label="Ruta" className="mb-5 text-xs text-white/40">
+              <Link href="/" className="transition-colors hover:text-white/70">
+                Inicio
+              </Link>
+              <span className="mx-2">/</span>
+              <span className="text-white/60">{landing.eyebrow}</span>
+            </nav>
 
-        {/* Primary CTAs */}
-        <div className="mx-auto mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
-          <Link
-            href="/empezar"
-            className="inline-flex flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_0_24px_rgba(217,70,239,0.25)] transition-transform hover:scale-[1.02]"
-          >
-            Registrarse
-          </Link>
-          <Link
-            href="/login"
-            className="inline-flex flex-1 items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/[0.08]"
-          >
-            Ingresar
-          </Link>
-        </div>
-
-        <div className="mt-3 flex justify-center">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-xs font-medium text-white/50 transition-colors hover:text-fuchsia-300"
-          >
-            Ir a la app
-            <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <path d="M7 5l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-        </div>
-      </section>
-
-      {/* Pricing promo */}
-      <section className="mt-12">
-        <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.08] via-white/[0.03] to-fuchsia-500/[0.05] p-6 text-center sm:p-8">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-emerald-400/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-fuchsia-400/10 blur-3xl" />
-
-          <div className="relative">
-            <span className="inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
-              Promoción de lanzamiento
-            </span>
-
-            <div className="mt-5 flex flex-wrap items-end justify-center gap-3">
-              <span className="text-4xl font-extrabold tracking-tight text-emerald-300 sm:text-5xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/25 bg-fuchsia-500/10 py-1 pl-1.5 pr-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-fuchsia-200">
+              <span className="rounded-full bg-fuchsia-500 px-2 py-0.5 text-[10px] tracking-wider text-white">
                 Gratis
               </span>
-            </div>
+              {landing.eyebrow}
+            </span>
 
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-white/60">
-              Registra tu perfil hoy y accede a todas las funciones sin pagar
-              nada. Sin letra chica, sin pruebas limitadas y sin cobros
-              automáticos.
+            <h1 className="mt-5 font-display text-[2.6rem] font-extrabold uppercase leading-[0.95] tracking-tight text-white sm:text-6xl lg:text-[4.25rem]">
+              {landing.h1}
+            </h1>
+
+            <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-white/65 sm:text-base">
+              {landing.intro}
             </p>
 
-            <ul className="mx-auto mt-5 grid max-w-xl grid-cols-1 gap-2 text-left text-sm text-white/70 sm:grid-cols-2">
-              <li className="flex items-start gap-2">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
-                Todas las funciones activas sin costo
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
-                Publicaciones y feed ilimitados
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
-                Campañas y promoción incluidas
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
-                Beneficios de creadora fundadora
-              </li>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <PrimaryCta />
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/[0.04] px-7 py-4 text-sm font-semibold text-white transition-colors hover:bg-white/[0.08]"
+              >
+                Ya tengo cuenta
+              </Link>
+            </div>
+
+            <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/55">
+              {["Sin tarjeta", "Verificación el mismo día", "Soporte por WhatsApp"].map((t) => (
+                <li key={t} className="inline-flex items-center gap-1.5">
+                  <Icon name="check" className="h-3.5 w-3.5 text-emerald-400" />
+                  {t}
+                </li>
+              ))}
             </ul>
           </div>
-        </div>
-      </section>
 
-      {/* Stats strip */}
-      <section className="mt-8 grid grid-cols-3 divide-x divide-white/[0.06] rounded-2xl border border-white/[0.08] bg-white/[0.03] py-5 text-center backdrop-blur">
-        <div>
-          <div className="text-lg font-bold text-white sm:text-2xl">+300</div>
-          <div className="mt-0.5 text-[11px] text-white/50 sm:text-xs">Ciudades en Chile</div>
-        </div>
-        <div>
-          <div className="text-lg font-bold text-white sm:text-2xl">Gratis</div>
-          <div className="mt-0.5 text-[11px] text-white/50 sm:text-xs">Membresía mensual</div>
-        </div>
-        <div>
-          <div className="text-lg font-bold text-white sm:text-2xl">24/7</div>
-          <div className="mt-0.5 text-[11px] text-white/50 sm:text-xs">Tu perfil visible</div>
-        </div>
-      </section>
+          <HeroVisual profiles={heroProfiles} />
+        </section>
 
-      {/* Benefits — carrusel horizontal */}
-      <section className="mt-14">
-        <header className="mb-6 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            Beneficios al publicar en UZEED
-          </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-white/55">
-            Hecho para que tengas más clientes y menos complicaciones.
-          </p>
-        </header>
-
-        <div
-          className="group relative -mx-4 overflow-hidden sm:-mx-6"
-          style={{
-            maskImage:
-              "linear-gradient(to right, transparent, black 6%, black 94%, transparent)",
-            WebkitMaskImage:
-              "linear-gradient(to right, transparent, black 6%, black 94%, transparent)",
-          }}
+        {/* ── Cifras ───────────────────────────────────────── */}
+        <section
+          aria-label="UZEED en cifras"
+          className="grid grid-cols-3 overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.025]"
         >
-          <div className="flex w-max gap-3 animate-marquee-left py-1 [animation-duration:55s] group-hover:[animation-play-state:paused]">
-            {[...benefits, ...benefits].map((b, i) => (
-              <article
-                key={`${b.title}-${i}`}
-                className="flex w-[260px] shrink-0 flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 transition-colors hover:border-fuchsia-500/25 hover:bg-white/[0.05] sm:w-[280px]"
-              >
-                <h3 className="text-sm font-semibold text-white">{b.title}</h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-white/55 sm:text-sm">
-                  {b.description}
+          {[
+            { value: "+300", label: "Ciudades en Chile" },
+            { value: "Gratis", label: "Membresía mensual" },
+            { value: "24/7", label: "Tu perfil visible" },
+          ].map((s, i) => (
+            <div
+              key={s.label}
+              className={`px-3 py-6 text-center sm:py-8 ${i > 0 ? "border-l border-white/[0.06]" : ""}`}
+            >
+              <div className="font-display text-3xl font-bold text-white sm:text-5xl">{s.value}</div>
+              <div className="mt-1 text-[11px] uppercase tracking-wider text-white/45 sm:text-xs">
+                {s.label}
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* ── Promoción ────────────────────────────────────── */}
+        <section className="mt-6">
+          <div className="relative overflow-hidden rounded-3xl border border-emerald-400/25 bg-[linear-gradient(120deg,rgba(16,185,129,0.12),rgba(255,255,255,0.02)_45%,rgba(217,70,239,0.08))] p-6 sm:p-8">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-400/15 blur-3xl" aria-hidden="true" />
+            <div className="relative grid gap-6 md:grid-cols-[auto_1fr] md:items-center md:gap-10">
+              <div>
+                <span className="inline-block rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                  Promoción de lanzamiento
+                </span>
+                <div className="mt-3 font-display text-6xl font-extrabold uppercase leading-none text-emerald-300 sm:text-7xl">
+                  Gratis
+                </div>
+              </div>
+              <div>
+                <p className="max-w-xl text-sm leading-relaxed text-white/65">
+                  Registra tu perfil hoy y accede a todas las funciones sin pagar
+                  nada. Sin letra chica, sin pruebas limitadas y sin cobros
+                  automáticos.
                 </p>
+                <ul className="mt-4 grid gap-2 text-sm text-white/75 sm:grid-cols-3">
+                  {promoItems.map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <Icon name="check" className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Beneficios ───────────────────────────────────── */}
+        <section className="mt-24">
+          <SectionHeader
+            kicker="Beneficios"
+            title="Beneficios al publicar en UZEED"
+            text="Hecho para que tengas más clientes y menos complicaciones."
+          />
+          <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {benefits.map((b) => (
+              <article
+                key={b.title}
+                className="group relative overflow-hidden rounded-3xl border border-white/[0.07] bg-white/[0.025] p-5 transition-colors hover:border-fuchsia-400/25 hover:bg-white/[0.045]"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-fuchsia-400/20 bg-fuchsia-500/10 text-fuchsia-300">
+                  <Icon name={b.icon} className="h-5 w-5" />
+                </div>
+                <h3 className="mt-4 text-base font-semibold text-white">{b.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-white/55">{b.description}</p>
               </article>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Advantages */}
-      <section className="mt-14">
-        <header className="mb-6 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            Ventajas frente a otras plataformas
-          </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-white/55">
-            Una herramienta chilena, pensada para ti y sin letra chica.
-          </p>
-        </header>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {advantages.map((a) => (
-            <article
-              key={a.number}
-              className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5"
-            >
-              <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-fuchsia-600/30 to-violet-600/30 text-xs font-bold text-fuchsia-200">
-                {a.number}
-              </div>
-              <h3 className="text-sm font-semibold text-white sm:text-base">{a.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/55">{a.text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* Community — marquee de creadoras ya registradas */}
-      {profiles.length > 0 && (
-        <section className="mt-14">
-          <header className="mb-6 text-center">
-            <span className="inline-block rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-white/60">
-              Comunidad UZEED
-            </span>
-            <h2 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              Creadoras ya en la plataforma
-            </h2>
-            <p className="mx-auto mt-2 max-w-xl text-sm text-white/55">
-              Un vistazo a perfiles activos hoy. Todas verificadas por el equipo
-              de UZEED.
-            </p>
-          </header>
-
-          <div
-            className="relative -mx-4 overflow-hidden sm:-mx-6"
-            style={{
-              maskImage:
-                "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
-              WebkitMaskImage:
-                "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
-            }}
-          >
-            {/* Row 1 */}
-            <div className="flex w-max animate-marquee-left gap-4 py-3">
-              {[...profiles, ...profiles].map((p, i) => (
-                <ProfileChip key={`r1-${p.id}-${i}`} profile={p} />
-              ))}
-            </div>
-            {/* Row 2 — sentido contrario */}
-            <div className="mt-2 flex w-max animate-marquee-right gap-4 py-3">
-              {[...profiles.slice().reverse(), ...profiles.slice().reverse()].map((p, i) => (
-                <ProfileChip key={`r2-${p.id}-${i}`} profile={p} />
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-6 flex justify-center">
-            <Link
-              href="/escorts"
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-5 py-2.5 text-xs font-semibold text-white/70 transition-colors hover:border-fuchsia-500/30 hover:text-white"
-            >
-              Ver más perfiles en UZEED
-              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <path d="M7 5l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </Link>
+        {/* ── Cómo empezar ─────────────────────────────────── */}
+        <section className="mt-24">
+          <SectionHeader
+            kicker="Paso a paso"
+            title="Cómo empezar"
+            text="En tres pasos ya estarás recibiendo contactos."
+          />
+          <ol className="relative mt-10 grid gap-4 md:grid-cols-3">
+            <div
+              className="pointer-events-none absolute left-[16%] right-[16%] top-7 hidden h-px bg-gradient-to-r from-fuchsia-500/0 via-fuchsia-500/40 to-fuchsia-500/0 md:block"
+              aria-hidden="true"
+            />
+            {steps.map((s, i) => (
+              <li
+                key={s.title}
+                className="relative rounded-3xl border border-white/[0.07] bg-[#0b0b14]/80 p-6 text-center backdrop-blur"
+              >
+                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-600 to-violet-600 font-display text-2xl font-bold text-white shadow-[0_0_30px_rgba(217,70,239,0.35)]">
+                  {i + 1}
+                </span>
+                <h3 className="mt-4 text-base font-semibold text-white">{s.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-white/55">{s.text}</p>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-8 flex justify-center">
+            <PrimaryCta />
           </div>
         </section>
-      )}
 
-      {/* How it works */}
-      <section className="mt-14 rounded-3xl border border-white/[0.08] bg-white/[0.03] p-6 sm:p-8">
-        <header className="mb-5 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            Cómo empezar
-          </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-white/55">
-            En tres pasos ya estarás recibiendo contactos.
-          </p>
-        </header>
-
-        <ol className="mx-auto max-w-2xl space-y-3">
-          {steps.map((s, i) => (
-            <li
-              key={s}
-              className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3"
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-fuchsia-500/15 text-xs font-bold text-fuchsia-300">
-                {i + 1}
-              </span>
-              <p className="pt-0.5 text-sm leading-relaxed text-white/70">{s}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      {/* Bloque SEO largo — texto indexable con la intención de la variante */}
-      <section className="mt-14">
-        <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-          {landing.seoSection.heading}
-        </h2>
-        <div className="mt-4 space-y-4 text-sm leading-relaxed text-white/60 sm:text-base">
-          {landing.seoSection.paragraphs.map((text, i) => (
-            <p key={i}>{text}</p>
-          ))}
-        </div>
-      </section>
-
-      {/* FAQ — mismo contenido que el JSON-LD FAQPage de la página */}
-      <section className="mt-14">
-        <header className="mb-6 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            Preguntas frecuentes
-          </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-white/55">
-            Lo que más nos preguntan antes de publicar el primer perfil.
-          </p>
-        </header>
-
-        <div className="space-y-2">
-          {landing.faq.map((item) => (
-            <details
-              key={item.question}
-              className="group rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 open:border-fuchsia-500/20"
-            >
-              <summary className="cursor-pointer list-none text-sm font-semibold text-white/85 marker:hidden">
-                <span className="flex items-start justify-between gap-3">
-                  {item.question}
-                  <svg
-                    className="mt-0.5 h-4 w-4 shrink-0 text-white/40 transition-transform group-open:rotate-180"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    aria-hidden="true"
-                  >
-                    <path d="M5 8l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-              </summary>
-              <p className="mt-2 text-sm leading-relaxed text-white/60">{item.answer}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      {/* Enlaces internos: otras landings del lado oferta */}
-      {related.length > 0 && (
-        <section className="mt-14">
-          <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
-            También te puede interesar
-          </h2>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {related.map((r) => (
-              <Link
-                key={r.slug}
-                href={`/${r.slug}`}
-                className="group rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 transition-colors hover:border-fuchsia-500/25 hover:bg-white/[0.05]"
-              >
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-fuchsia-300/80">
-                  {r.eyebrow}
-                </span>
-                <p className="mt-1.5 text-sm font-medium leading-snug text-white/75 group-hover:text-white">
-                  {r.h1}
-                </p>
-              </Link>
+        {/* ── Ventajas ─────────────────────────────────────── */}
+        <section className="mt-24 grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:gap-14">
+          <SectionHeader
+            align="left"
+            kicker="Por qué UZEED"
+            title="Ventajas frente a otras plataformas"
+            text="Una herramienta chilena, pensada para ti y sin letra chica."
+          />
+          <div className="divide-y divide-white/[0.06] rounded-3xl border border-white/[0.07] bg-white/[0.02]">
+            {advantages.map((a) => (
+              <article key={a.title} className="flex gap-4 p-5 sm:p-6">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-fuchsia-300">
+                  <Icon name={a.icon} className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">{a.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-white/55">{a.text}</p>
+                </div>
+              </article>
             ))}
           </div>
         </section>
-      )}
 
-      {/* Enlaces internos por ciudad — reparte autoridad a las landings geo */}
-      <section className="mt-10">
-        <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
-          Publica tu perfil en tu ciudad
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm text-white/55">
-          UZEED recibe clientes en más de 300 ciudades y comunas de Chile. Mira
-          los perfiles activos en tu zona antes de publicar el tuyo.
-        </p>
-        <ul className="mt-4 flex flex-wrap gap-2">
-          {CITY_LANDINGS.slice(0, 18).map((city) => (
-            <li key={city.slug}>
+        {/* ── Comunidad ────────────────────────────────────── */}
+        {communityProfiles.length > 0 && (
+          <section className="mt-24">
+            <SectionHeader
+              kicker="Comunidad UZEED"
+              title="Creadoras ya en la plataforma"
+              text="Un vistazo a perfiles activos hoy. Todas verificadas por el equipo de UZEED."
+            />
+            <ul className="mt-10 grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-6">
+              {communityProfiles.map((p, i) => (
+                <li key={p.id} className={i >= 6 ? "hidden sm:block" : undefined}>
+                  <ProfileTile profile={p} />
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 flex justify-center">
               <Link
-                href={`/escorts/${city.slug}`}
-                className="inline-flex rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-xs text-white/55 transition-colors hover:border-fuchsia-500/25 hover:text-white/85"
+                href="/escorts"
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-5 py-2.5 text-xs font-semibold text-white/70 transition-colors hover:border-fuchsia-400/30 hover:text-white"
               >
-                Escorts en {city.name}
+                Ver más perfiles en UZEED
+                <Icon name="arrow" className="h-3.5 w-3.5" />
               </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+            </div>
+          </section>
+        )}
 
-      {/* Privacy note */}
-      <section className="mt-10 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 text-center">
-        <h3 className="text-sm font-semibold text-white">Tu privacidad está protegida</h3>
-        <p className="mx-auto mt-1.5 max-w-2xl text-sm leading-relaxed text-white/55">
-          No publicamos tu número, tu dirección ni datos personales sin tu
-          autorización. Puedes pausar, ocultar o eliminar tu perfil en
-          cualquier momento desde tu panel.
-        </p>
-      </section>
+        {/* ── Bloque SEO largo: texto indexable de la variante ── */}
+        <section className="mt-24 grid gap-6 border-t border-white/[0.06] pt-16 lg:grid-cols-[0.8fr_1.2fr] lg:gap-14">
+          <div>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-300/80">
+              Guía
+            </span>
+            <h2 className="mt-3 font-display text-3xl font-bold uppercase leading-[1.02] tracking-tight text-white sm:text-4xl lg:sticky lg:top-24">
+              {landing.seoSection.heading}
+            </h2>
+          </div>
+          <div className="space-y-5 text-[15px] leading-[1.75] text-white/65 sm:text-base">
+            {landing.seoSection.paragraphs.map((text, i) => (
+              <p key={i} className={i === 0 ? "text-white/80" : undefined}>
+                {text}
+              </p>
+            ))}
+          </div>
+        </section>
 
-      {/* Final CTA */}
-      <section className="mt-12 text-center">
-        <h2 className="text-xl font-bold text-white sm:text-2xl">
-          Todo listo para tu perfil
-        </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-white/55">
-          Únete hoy y empieza a recibir contactos en las próximas horas.
-        </p>
+        {/* ── FAQ: mismo contenido que el JSON-LD FAQPage ──── */}
+        <section className="mt-24 grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:gap-14">
+          <SectionHeader
+            align="left"
+            kicker="FAQ"
+            title="Preguntas frecuentes"
+            text="Lo que más nos preguntan antes de publicar el primer perfil."
+          />
+          <div className="divide-y divide-white/[0.07] border-y border-white/[0.07]">
+            {landing.faq.map((item) => (
+              <details key={item.question} className="group py-1">
+                <summary className="flex cursor-pointer list-none items-start justify-between gap-4 py-4 text-[15px] font-semibold text-white/90 marker:hidden [&::-webkit-details-marker]:hidden">
+                  {item.question}
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/60 transition-transform group-open:rotate-45 group-open:border-fuchsia-400/40 group-open:text-fuchsia-300">
+                    <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                </summary>
+                <p className="pb-5 pr-10 text-sm leading-relaxed text-white/60">{item.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
 
-        <div className="mx-auto mt-6 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
+        {/* ── Enlaces internos: otras landings del lado oferta ── */}
+        {related.length > 0 && (
+          <section className="mt-24">
+            <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
+              También te puede interesar
+            </h2>
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {related.map((r) => (
+                <Link
+                  key={r.slug}
+                  href={`/${r.slug}`}
+                  className="group flex flex-col justify-between rounded-3xl border border-white/[0.07] bg-white/[0.025] p-5 transition-colors hover:border-fuchsia-400/25 hover:bg-white/[0.045]"
+                >
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-fuchsia-300/80">
+                      {r.eyebrow}
+                    </span>
+                    <p className="mt-2 text-sm font-medium leading-snug text-white/75 group-hover:text-white">
+                      {r.h1}
+                    </p>
+                  </div>
+                  <Icon
+                    name="arrow"
+                    className="mt-4 h-4 w-4 text-white/35 transition-transform group-hover:translate-x-1 group-hover:text-fuchsia-300"
+                  />
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Enlaces internos por ciudad ───────────────────── */}
+        <section className="mt-16">
+          <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-white sm:text-3xl">
+            Publica tu perfil en tu ciudad
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-white/55">
+            UZEED recibe clientes en más de 300 ciudades y comunas de Chile. Mira
+            los perfiles activos en tu zona antes de publicar el tuyo.
+          </p>
+          <ul className="mt-5 flex flex-wrap gap-2">
+            {CITY_LANDINGS.slice(0, 18).map((city) => (
+              <li key={city.slug}>
+                <Link
+                  href={`/escorts/${city.slug}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-3.5 py-2 text-xs text-white/60 transition-colors hover:border-fuchsia-400/30 hover:text-white"
+                >
+                  <Icon name="pin" className="h-3 w-3 text-white/35" />
+                  Escorts en {city.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* ── CTA final + privacidad ───────────────────────── */}
+        <section className="relative mt-24 overflow-hidden rounded-[2rem] border border-fuchsia-400/20 bg-[radial-gradient(ellipse_at_top,rgba(217,70,239,0.22),rgba(124,58,237,0.08)_45%,rgba(11,11,20,0.9)_75%)] px-6 py-12 text-center sm:px-12 sm:py-16">
+          <h2 className="mx-auto max-w-2xl font-display text-4xl font-extrabold uppercase leading-[0.95] tracking-tight text-white sm:text-6xl">
+            Todo listo para tu perfil
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-sm text-white/65 sm:text-base">
+            Únete hoy y empieza a recibir contactos en las próximas horas.
+          </p>
+          <div className="mx-auto mt-8 flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
+            <PrimaryCta />
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/[0.05] px-7 py-4 text-sm font-semibold text-white transition-colors hover:bg-white/[0.1]"
+            >
+              Ingresar
+            </Link>
+          </div>
           <Link
-            href="/empezar"
-            className="inline-flex flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_0_24px_rgba(217,70,239,0.25)] transition-transform hover:scale-[1.02]"
+            href="/"
+            className="mt-5 inline-flex items-center gap-2 text-xs font-medium text-white/50 transition-colors hover:text-fuchsia-300"
           >
-            Registrarse
+            Ir a la app
+            <Icon name="arrow" className="h-3.5 w-3.5" />
           </Link>
-          <Link
-            href="/login"
-            className="inline-flex flex-1 items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/[0.08]"
-          >
-            Ingresar
-          </Link>
-        </div>
 
-        <Link
-          href="/"
-          className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-white/50 transition-colors hover:text-fuchsia-300"
-        >
-          Ir a la app
-          <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <path d="M7 5l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </Link>
-      </section>
+          <div className="mx-auto mt-10 flex max-w-2xl items-start gap-3 rounded-2xl border border-white/[0.08] bg-black/20 p-4 text-left">
+            <Icon name="lock" className="mt-0.5 h-5 w-5 shrink-0 text-fuchsia-300" />
+            <div>
+              <h3 className="text-sm font-semibold text-white">Tu privacidad está protegida</h3>
+              <p className="mt-1 text-sm leading-relaxed text-white/55">
+                No publicamos tu número, tu dirección ni datos personales sin tu
+                autorización. Puedes pausar, ocultar o eliminar tu perfil en
+                cualquier momento desde tu panel.
+              </p>
+            </div>
+          </div>
+        </section>
 
-      {/* Footer note */}
-      <p className="mt-12 text-center text-[11px] text-white/35">
-        Al registrarte aceptas los términos y condiciones de UZEED. Plataforma
-        exclusiva para mayores de 18 años.
-      </p>
+        <p className="mb-10 mt-8 text-center text-[11px] text-white/35">
+          Al registrarte aceptas los términos y condiciones de UZEED. Plataforma
+          exclusiva para mayores de 18 años.
+        </p>
+      </div>
     </div>
   );
 }
 
-function ProfileChip({ profile }: { profile: PublicProfile }) {
+function PrimaryCta() {
+  return (
+    <Link
+      href="/empezar"
+      className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-7 py-4 text-sm font-bold text-white shadow-[0_10px_40px_-8px_rgba(217,70,239,0.55)] transition-transform hover:scale-[1.02]"
+    >
+      Crear mi perfil gratis
+      <Icon name="arrow" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+    </Link>
+  );
+}
+
+function SectionHeader({
+  kicker,
+  title,
+  text,
+  align = "center",
+}: {
+  kicker: string;
+  title: string;
+  text: string;
+  align?: "center" | "left";
+}) {
+  const centered = align === "center";
+  return (
+    <header className={centered ? "mx-auto max-w-2xl text-center" : "max-w-md"}>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-fuchsia-300/80">
+        {kicker}
+      </span>
+      <h2 className="mt-3 font-display text-3xl font-bold uppercase leading-[1.02] tracking-tight text-white sm:text-5xl">
+        {title}
+      </h2>
+      <p className="mt-3 text-sm leading-relaxed text-white/55 sm:text-base">{text}</p>
+    </header>
+  );
+}
+
+/**
+ * Collage de perfiles reales en el hero. Sin fotos disponibles muestra una
+ * maqueta de anuncio con los campos que la creadora va a completar.
+ */
+function HeroVisual({ profiles }: { profiles: PublicProfile[] }) {
+  if (profiles.length < 3) {
+    return (
+      <div className="relative mx-auto w-full max-w-sm">
+        <div className="absolute -inset-6 rounded-[2.5rem] bg-fuchsia-500/10 blur-3xl" aria-hidden="true" />
+        <div className="relative rounded-[2rem] border border-white/10 bg-[#0e0e18]/90 p-5 shadow-card-premium backdrop-blur">
+          <div className="aspect-[4/3] rounded-2xl bg-gradient-to-br from-fuchsia-600/40 via-violet-600/25 to-transparent" />
+          <div className="mt-4 flex items-center justify-between">
+            <span className="font-display text-2xl font-bold uppercase text-white">Tu anuncio</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-2.5 py-1 text-[11px] font-semibold text-fuchsia-200">
+              <Icon name="badge" className="h-3.5 w-3.5" />
+              Verificada
+            </span>
+          </div>
+          <ul className="mt-4 space-y-2 text-sm text-white/60">
+            {["Fotos y descripción", "Servicios y tarifas", "Zona y horarios", "Chat y WhatsApp"].map((f) => (
+              <li key={f} className="flex items-center gap-2">
+                <Icon name="check" className="h-4 w-4 text-emerald-400" />
+                {f}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
+  const [a, b, c] = profiles;
+  return (
+    <div className="relative mx-auto h-[320px] w-full max-w-[420px] sm:h-[380px]">
+      <div className="absolute inset-8 rounded-full bg-fuchsia-500/15 blur-3xl" aria-hidden="true" />
+      <HeroCard profile={b} className="left-0 top-10 w-[46%] -rotate-6" />
+      <HeroCard profile={c} className="right-0 top-14 w-[46%] rotate-6" />
+      <HeroCard profile={a} className="left-1/2 top-0 z-10 w-[54%] -translate-x-1/2" priority />
+      <div className="absolute bottom-0 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-white/10 bg-[#0b0b14]/90 px-4 py-2 text-xs font-medium text-white/80 shadow-studio-card backdrop-blur">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+        </span>
+        Perfiles activos hoy en UZEED
+      </div>
+    </div>
+  );
+}
+
+function HeroCard({
+  profile,
+  className,
+  priority = false,
+}: {
+  profile: PublicProfile;
+  className: string;
+  priority?: boolean;
+}) {
   return (
     <Link
       href={`/profesional/${profile.id}`}
-      className="group flex shrink-0 items-center gap-3 rounded-full border border-white/[0.06] bg-white/[0.03] px-3 py-2 pr-5 backdrop-blur-sm transition-all duration-200 hover:border-fuchsia-500/25 hover:bg-white/[0.06]"
+      className={`absolute block aspect-[3/4] overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] shadow-studio-card transition-transform duration-300 hover:scale-[1.03] ${className}`}
     >
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/[0.08] bg-white/[0.04]">
-        {profile.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={profile.avatarUrl}
-            alt={profile.displayName}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-white/40">
-            {profile.displayName.charAt(0).toUpperCase()}
-          </div>
-        )}
-        {profile.isVerified && (
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-[#08080d] bg-fuchsia-500">
-            <svg className="h-2 w-2 text-white" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <path d="M5 10l3.5 3.5L15 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={profile.avatarUrl!}
+        alt={profile.displayName}
+        loading={priority ? "eager" : "lazy"}
+        className="h-full w-full object-cover"
+      />
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-3 pt-10">
+        <div className="flex items-center gap-1.5">
+          <span className="line-clamp-1 font-display text-lg font-bold uppercase leading-none text-white">
+            {profile.displayName}
           </span>
-        )}
-      </div>
-      <div className="flex flex-col">
-        <span className="line-clamp-1 text-xs font-semibold text-white/85">
-          {profile.displayName}
-        </span>
-        {profile.city && (
-          <span className="line-clamp-1 text-[10px] text-white/40">
-            {profile.city}
-          </span>
-        )}
+          {profile.isVerified && <VerifiedDot />}
+        </div>
+        {profile.city && <span className="mt-0.5 block text-[11px] text-white/60">{profile.city}</span>}
       </div>
     </Link>
+  );
+}
+
+function ProfileTile({ profile }: { profile: PublicProfile }) {
+  return (
+    <Link
+      href={`/profesional/${profile.id}`}
+      className="group relative block aspect-[3/4] overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.04]"
+    >
+      {profile.avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={profile.avatarUrl}
+          alt={profile.displayName}
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center font-display text-3xl font-bold text-white/30">
+          {profile.displayName.charAt(0).toUpperCase()}
+        </div>
+      )}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-2.5 pt-8">
+        <div className="flex items-center gap-1">
+          <span className="line-clamp-1 text-xs font-semibold text-white">{profile.displayName}</span>
+          {profile.isVerified && <VerifiedDot />}
+        </div>
+        {profile.city && <span className="line-clamp-1 text-[10px] text-white/55">{profile.city}</span>}
+      </div>
+    </Link>
+  );
+}
+
+function VerifiedDot() {
+  return (
+    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-fuchsia-500" title="Verificada">
+      <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M5 10l3.5 3.5L15 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
+
+const ICON_PATHS: Record<IconName, ReactNode> = {
+  shield: <path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3zM9 12l2 2 4-4" />,
+  sliders: <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M16 4v4M10 10v4M18 16v4" />,
+  percent: <path d="M19 5L5 19M7 9a2 2 0 100-4 2 2 0 000 4zM17 19a2 2 0 100-4 2 2 0 000 4z" />,
+  grid: <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />,
+  megaphone: <path d="M4 10v4h3l6 4V6L7 10H4zM17 9a4 4 0 010 6" />,
+  chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
+  chat: <path d="M4 5h16v11H9l-5 4V5z" />,
+  badge: <path d="M12 2l2.4 2.2 3.2-.4.6 3.2 2.8 1.6-1.4 2.9 1.4 2.9-2.8 1.6-.6 3.2-3.2-.4L12 22l-2.4-2.2-3.2.4-.6-3.2-2.8-1.6 1.4-2.9-1.4-2.9 2.8-1.6.6-3.2 3.2.4L12 2zM8.5 12l2.3 2.3 4.7-4.6" />,
+  lock: <path d="M6 11h12v9H6zM8 11V8a4 4 0 118 0v3" />,
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+  pin: <path d="M12 21s-6-5.6-6-11a6 6 0 1112 0c0 5.4-6 11-6 11zM12 12a2 2 0 100-4 2 2 0 000 4z" />,
+  phone: <path d="M8 3h8a1 1 0 011 1v16a1 1 0 01-1 1H8a1 1 0 01-1-1V4a1 1 0 011-1zM11 18h2" />,
+  support: <path d="M4 14v-2a8 8 0 0116 0v2M4 14a2 2 0 002 2h1v-5H6a2 2 0 00-2 2zM20 14a2 2 0 01-2 2h-1v-5h1a2 2 0 012 2zM17 16v1a3 3 0 01-3 3h-2" />,
+};
+
+function Icon({ name, className }: { name: IconName; className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {ICON_PATHS[name]}
+    </svg>
   );
 }
