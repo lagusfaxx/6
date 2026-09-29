@@ -253,13 +253,10 @@ export default function LoginClient() {
               )}
             </button>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="px-4 text-xs text-white/40 bg-[#0d0e1a]">o con correo</span>
-              </div>
+            <div className="my-6 flex items-center gap-4">
+              <div className="h-px flex-1 bg-white/10" />
+              <span className="text-xs text-white/40">o con correo</span>
+              <div className="h-px flex-1 bg-white/10" />
             </div>
           </div>
 
@@ -337,13 +334,10 @@ export default function LoginClient() {
 
           {/* Divider */}
           <div className="px-8 pb-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="px-4 text-xs text-white/40 bg-[#0d0e1a]">¿No tienes cuenta?</span>
-              </div>
+            <div className="flex items-center gap-4">
+              <div className="h-px flex-1 bg-white/10" />
+              <span className="text-xs text-white/40">¿No tienes cuenta?</span>
+              <div className="h-px flex-1 bg-white/10" />
             </div>
             <Link
               href="/register"
