@@ -652,15 +652,10 @@ export default function RegisterClient() {
                     )}
                   </button>
 
-                  <div className="relative my-5">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-white/10" />
-                    </div>
-                    <div className="relative flex justify-center">
-                      <span className="px-4 text-xs text-white/40 bg-gradient-to-r from-transparent via-[#0d0e1a] to-transparent">
-                        o con correo
-                      </span>
-                    </div>
+                  <div className="my-5 flex items-center gap-4">
+                    <div className="h-px flex-1 bg-white/10" />
+                    <span className="text-xs text-white/40">o con correo</span>
+                    <div className="h-px flex-1 bg-white/10" />
                   </div>
                 </>
               )}
