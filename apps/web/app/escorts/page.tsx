@@ -4,6 +4,8 @@ import Link from "next/link";
 import DirectoryPage from "../../components/DirectoryPage";
 import SeoContent from "../../components/SeoContent";
 import { cleanProfileHref } from "../../lib/profileUrl";
+import { CITY_LANDINGS } from "../../lib/cities";
+import { TAG_LANDINGS } from "../../lib/escortSearchLandings";
 
 const DEFAULT_API = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://api.uzeed.cl";
 
@@ -73,6 +75,29 @@ export default async function EscortsPage() {
         />
       </Suspense>
       <SeoContent variant="escorts" />
+
+      {/* Enlaces internos a las landings con copy propio: sin enlaces desde
+          /escorts Google tarda en descubrirlas y les da poca autoridad. */}
+      <nav className="max-w-5xl mx-auto px-4 pb-8" aria-label="Buscar escorts por tipo y zona">
+        <h2 className="text-lg font-bold text-white/70 mb-3">Buscar por tipo y zona</h2>
+        <ul className="flex flex-wrap gap-2">
+          {[
+            ...TAG_LANDINGS.map((l) => ({ href: `/escorts/${l.slug}`, label: l.name })),
+            // Todas las ciudades: Las Condes, Ñuñoa o Maipú tenían un solo
+            // enlace interno (Semrush "Pages with only one internal link").
+            ...CITY_LANDINGS.map((c) => ({ href: `/escorts/${c.slug}`, label: `Escorts en ${c.name}` })),
+          ].map((l) => (
+            <li key={l.href}>
+              <Link
+                href={l.href}
+                className="inline-block rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm text-white/60 hover:text-fuchsia-300 hover:border-fuchsia-500/30 transition"
+              >
+                {l.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
       {/* Server-rendered profile links for Google crawlability */}
       {profiles.length > 0 && (

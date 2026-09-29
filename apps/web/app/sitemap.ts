@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { CITY_LANDINGS } from "../lib/cities";
 import { ESCORT_LANDINGS } from "../lib/escortLandings";
+import { TAG_LANDINGS } from "../lib/escortSearchLandings";
 import { cleanProfileHref } from "../lib/profileUrl";
 import { COMUNAS } from "../lib/comunas";
 import { fetchMotelDirectory, motelHref, motelsForComuna } from "../lib/motels";
@@ -138,7 +139,8 @@ const ESCORT_TAGS = [
   "masaje-erotico", "despedidas", "discapacitados", "fetiches",
   "bdsm", "sexo-oral", "lluvia-dorada", "rol", "nuru", "tantra",
   // Disponibilidad
-  "disponible-hoy", "24-horas", "domicilio",
+  "disponible-hoy", "24-horas",
+  // /escorts/domicilio redirige a /escorts/a-domicilio (landing curada).
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -176,6 +178,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const tag of ESCORT_TAGS) {
     add(`/escorts/${encodeURIComponent(tag)}`, "daily", 0.8);
   }
+  // Landings con copy propio (keywords de Semrush): a domicilio, hombres,
+  // trans, maduras… Van con más prioridad que las de plantilla.
+  for (const landing of TAG_LANDINGS) {
+    add(`/escorts/${landing.slug}`, "daily", 0.85);
+  }
 
   // ── Landing pages por ciudad (geo-targeting SEO) ──
   // URLs LIMPIAS e indexables (/escorts/{ciudad}) con canonical propio y
@@ -191,7 +198,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Se mantienen solo las landing pages por tag y por ciudad por separado.
 
   // ── Contenido dinámico ──
-  add("/live", "always", 0.85);
+  // /live es un redirect temporal a live.uzeed.cl: no va al sitemap.
   add("/foro", "hourly", 0.85);
   // /hot y /premium redirigen al inicio — fuera del sitemap
 

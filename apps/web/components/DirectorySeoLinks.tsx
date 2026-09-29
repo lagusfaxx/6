@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cleanProfileHref } from "../lib/profileUrl";
+import { tagFilterParams, type TagFilter } from "../lib/escortSearchLandings";
 
 /**
  * Lista de perfiles renderizada en el SERVIDOR para que Google indexe contenido
@@ -37,6 +38,8 @@ type Props = {
   lng?: number;
   /** Tag de perfil/servicio para landing de atributo. */
   tag?: string;
+  /** Filtro completo de una landing de atributo (gana sobre `tag`). */
+  filter?: TagFilter;
   categorySlug?: string;
   entityType?: "professional" | "establishment" | "shop";
   /**
@@ -86,11 +89,13 @@ export async function cityHasProfiles(lat: number, lng: number): Promise<boolean
   return profiles === null || profiles.length > 0;
 }
 
+
 export default async function DirectorySeoLinks({
   heading,
   lat,
   lng,
   tag,
+  filter,
   categorySlug = "escort",
   entityType = "professional",
   cityName,
@@ -106,7 +111,8 @@ export default async function DirectorySeoLinks({
     params.lng = String(lng);
     params.radiusKm = String(CITY_RADIUS_KM);
   }
-  if (tag) params.profileTags = tag;
+  if (filter) Object.assign(params, tagFilterParams(filter));
+  else if (tag) params.profileTags = tag;
 
   const profiles = await fetchProfiles(params);
   if (profiles === null) return null;

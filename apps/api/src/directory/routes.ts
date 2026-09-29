@@ -1208,6 +1208,10 @@ directoryRouter.get(
     const rawServiceTags = (req.query.serviceTags as string) || "";
     const maduras = req.query.maduras === "true";
     const availableNow = req.query.availableNow === "true";
+    /* 'true' → sólo quienes atienden a domicilio u hotel (acceptsOutcalls).
+       Es un campo de la ficha, no un tag: /escorts/domicilio filtraba por un
+       tag "domicilio" que nadie tiene y la landing salía vacía. */
+    const outcalls = req.query.outcalls === "true";
     const tierFilter = (req.query.tier as string) || "";
     const genderFilter = (req.query.gender as string) || "";
     const lat = req.query.lat ? Number(req.query.lat) : null;
@@ -1231,8 +1235,10 @@ directoryRouter.get(
     const withGallery = req.query.withGallery === "true";
 
     /* ── normalise tag filters ── */
+    /* Los tags se guardan con espacios ("sexo oral") y las URLs los traen con
+       guion (/escorts/sexo-oral): sin pasar el guion a espacio no coincidían. */
     function normTag(t: string) {
-      return t.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return t.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/-/g, " ");
     }
     const profileTagFilter = rawProfileTags
       .split(",").map(normTag).filter(Boolean);
@@ -1305,6 +1311,7 @@ directoryRouter.get(
           ? { gender: genderFilter }
           : null;
     if (tierFilter) where.tier = tierFilter;
+    if (outcalls) where.acceptsOutcalls = true;
 
     /* category filter: match primaryCategory OR serviceCategory
        Skip for ESTABLISHMENT/SHOP — profileType alone is enough */
