@@ -50,8 +50,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const description = seo?.description && hasProfiles
       ? seo.description
       : hasProfiles
-        ? `Escorts y putas verificadas en ${city.name}${city.region ? `, ${city.region}` : ""}. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy en UZEED.`
-        : `Escorts verificadas cerca de ${city.name}${city.region ? `, ${city.region}` : ""}: perfiles con fotos reales en las ciudades más cercanas y contacto directo en UZEED.`;
+        ? `Escorts, acompañantes y putas verificadas en ${city.name}${city.region ? `, ${city.region}` : ""}. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy en UZEED.`
+        : `Escorts y acompañantes verificadas cerca de ${city.name}${city.region ? `, ${city.region}` : ""}: perfiles con fotos reales en las ciudades más cercanas y contacto directo en UZEED.`;
     return buildMetadata(`/escorts/${city.slug}`, title, description, `UZEED Escorts ${city.name}`,
       seo ? { keywords: seo.keywords } : {});
   }

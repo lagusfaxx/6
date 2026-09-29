@@ -88,7 +88,7 @@ export const TAG_LANDINGS: TagLanding[] = [
       {
         question: "¿Atienden en hoteles y moteles?",
         answer:
-          "Sí, la mayoría atiende en hoteles y moteles. Algunas prefieren hoteles sin conserje o con acceso directo; en UZEED también puedes ver el directorio de moteles por comuna.",
+          "Las que marcan \"se desplaza\" van a domicilio y a hoteles o moteles. Algunas prefieren hoteles sin conserje o con acceso directo: confírmalo al escribirle. En UZEED también puedes ver el directorio de moteles por comuna.",
       },
       {
         question: "¿Es seguro pedir una escort a domicilio por UZEED?",
@@ -120,7 +120,7 @@ export const TAG_LANDINGS: TagLanding[] = [
     h1: "Escorts hombres y acompañantes masculinos",
     paragraphs: [
       "Perfiles de escorts hombres verificados en Chile: acompañantes masculinos que atienden a hombres (escort gay), a mujeres y a parejas. Cada ficha indica a quién atiende, sus servicios, tarifa y si recibe en su lugar o va a domicilio.",
-      "La mayoría está en Santiago, pero también hay escorts gay en Viña del Mar y Valparaíso. Filtra por ubicación para ver primero a los que están más cerca y escríbeles directo por WhatsApp o por el chat de UZEED.",
+      "Activa tu ubicación para ver primero a los que están más cerca, en Santiago, Viña del Mar o regiones, y escríbeles directo por WhatsApp o por el chat de UZEED.",
     ],
     faq: [
       {
@@ -161,7 +161,7 @@ export const TAG_LANDINGS: TagLanding[] = [
     h1: "Escorts trans y travestis",
     paragraphs: [
       "Perfiles de escorts trans verificadas en Chile, con fotos reales, servicios, tarifa y horario. Cada ficha indica si recibe en su departamento o atiende a domicilio y en hoteles.",
-      "La mayoría atiende en Santiago. Si buscas en otra ciudad, activa el filtro de ubicación: la lista se ordena por cercanía.",
+      "Si buscas en una ciudad o comuna específica, activa el filtro de ubicación: la lista se ordena por cercanía.",
     ],
     faq: [
       {
@@ -197,7 +197,7 @@ export const TAG_LANDINGS: TagLanding[] = [
     h1: "Escorts maduras y MILF",
     paragraphs: [
       "Escorts maduras de 40 años o más, calculado según la fecha de nacimiento verificada de cada perfil (no es una etiqueta que se ponga cada una). Mujeres con experiencia, trato cercano y discreción.",
-      "La mayoría atiende en Santiago. Revisa en cada ficha si recibe en su lugar o va a domicilio, su tarifa y horario.",
+      "Revisa en cada ficha si recibe en su lugar o va a domicilio, su tarifa y horario. Activa tu ubicación para verlas ordenadas por cercanía.",
     ],
     faq: [
       {
@@ -208,7 +208,7 @@ export const TAG_LANDINGS: TagLanding[] = [
       {
         question: "¿Hay escorts maduras en Santiago?",
         answer:
-          "Sí, la mayoría de las escorts maduras de UZEED atiende en Santiago. Activa tu ubicación para verlas ordenadas por cercanía.",
+          "En esta página están todas las escorts maduras publicadas en UZEED. Activa tu ubicación para ver primero las de Santiago o la comuna donde estés.",
       },
     ],
     related: [
@@ -305,14 +305,14 @@ export const CITY_SEO: Record<string, CitySeoCopy> = {
     h1: "Escorts en Santiago de Chile",
     paragraphs: [
       "Directorio de escorts verificadas en Santiago con fotos reales, tarifa, horario y contacto directo por WhatsApp. Las que están conectadas o disponibles hoy aparecen primero.",
-      "Las zonas con más perfiles son Santiago Centro (Plaza de Armas, metro Santa Lucía, Toesca y Baquedano), Providencia (Los Leones, Tobalaba, Parque Bustamante) y Las Condes (Manquehue, El Golf). Cada ficha dice si recibe en su departamento o atiende a domicilio y en hoteles.",
+      "Las comunas con más perfiles publicados son Santiago Centro, Las Condes y Providencia. Si buscas cerca de un metro en particular (Plaza de Armas, Santa Lucía, Baquedano, Los Leones, Tobalaba, Manquehue), activa tu ubicación y la lista se ordena por distancia. Cada ficha dice si recibe en su departamento o atiende a domicilio y en hoteles.",
       "¿Buscas algo específico? Revisa las escorts a domicilio, maduras o las que atienden en tu comuna desde los enlaces de abajo.",
     ],
     faq: [
       {
         question: "¿Dónde hay más escorts en Santiago?",
         answer:
-          "En Santiago Centro, Providencia y Las Condes, cerca de las estaciones de metro Santa Lucía, Baquedano, Los Leones, Tobalaba y Manquehue.",
+          "Las comunas con más perfiles publicados son Santiago Centro, Las Condes y Providencia. También hay escorts en Estación Central, Ñuñoa, La Florida, Maipú y otras comunas, y varias se desplazan a domicilio.",
       },
       {
         question: "¿Hay escorts en Santiago disponibles hoy?",
@@ -341,13 +341,13 @@ export const CITY_SEO: Record<string, CitySeoCopy> = {
     h1: "Escorts en Santiago Centro",
     paragraphs: [
       "Escorts verificadas en Santiago Centro, ordenadas por cercanía: primero las del centro y después las de comunas vecinas. Cada perfil muestra fotos reales, tarifa y si recibe en su departamento.",
-      "Muchas atienden a pasos del metro: Plaza de Armas, Santa Lucía, Universidad de Chile, Toesca y Baquedano. Pregúntale la dirección exacta al contactarla por WhatsApp.",
+      "Si buscas cerca de un metro del centro (Plaza de Armas, Santa Lucía, Universidad de Chile, Toesca o Baquedano), activa tu ubicación y la lista se ordena por distancia. La dirección exacta la entrega cada escort al contactarla por WhatsApp.",
     ],
     faq: [
       {
         question: "¿Hay escorts cerca de Plaza de Armas?",
         answer:
-          "Sí, varias escorts de Santiago Centro reciben cerca de Plaza de Armas y metro Santa Lucía. La dirección exacta la entrega ella al contactarla.",
+          "Santiago Centro es la comuna con más escorts publicadas en UZEED. Activa tu ubicación para ver primero las más cercanas a Plaza de Armas; la dirección exacta la entrega cada una al contactarla.",
       },
       {
         question: "¿Y cerca de metro Baquedano o Toesca?",
@@ -365,19 +365,19 @@ export const CITY_SEO: Record<string, CitySeoCopy> = {
     keywords: ["escort las condes", "escort manquehue", "putas las condes", "escort metro manquehue"],
     h1: "Escorts en Las Condes",
     paragraphs: [
-      "Escorts verificadas en Las Condes, con fotos reales, tarifa y horario. Muchas reciben en departamentos privados cerca de metro Manquehue, El Golf, Alcántara y Tobalaba; otras atienden a domicilio y en hoteles del sector.",
+      "Escorts verificadas en Las Condes, con fotos reales, tarifa y horario. Algunas reciben en departamento privado y la mayoría de las publicadas en la comuna se desplaza a domicilio y a hoteles del sector (Manquehue, El Golf, Alcántara, Tobalaba).",
       "La lista se ordena por cercanía: primero Las Condes y después Providencia, Vitacura y Ñuñoa.",
     ],
     faq: [
       {
         question: "¿Hay escorts cerca de metro Manquehue?",
         answer:
-          "Sí, es una de las zonas de Las Condes con más perfiles. La dirección exacta la entrega cada escort al contactarla.",
+          "Activa tu ubicación y la lista se ordena por distancia a donde estás. La dirección exacta la entrega cada escort al contactarla.",
       },
       {
         question: "¿Atienden en hoteles de Las Condes?",
         answer:
-          "Muchas sí. Revisa en el perfil si atiende a domicilio u hotel, o entra a la sección de escorts a domicilio.",
+          "Sí, la mayoría de las escorts publicadas en Las Condes marca que se desplaza. Revisa en el perfil si atiende a domicilio u hotel, o entra a la sección de escorts a domicilio.",
       },
     ],
     related: [
@@ -390,14 +390,14 @@ export const CITY_SEO: Record<string, CitySeoCopy> = {
     keywords: ["escort providencia", "escort tobalaba", "escort metro tobalaba", "escort metro los leones", "escort parque bustamante"],
     h1: "Escorts en Providencia",
     paragraphs: [
-      "Escorts verificadas en Providencia, con fotos reales, tarifa y horario. Las zonas con más perfiles están cerca de metro Tobalaba, Los Leones, Pedro de Valdivia y Parque Bustamante.",
+      "Escorts verificadas en Providencia, con fotos reales, tarifa y horario. Si buscas cerca de metro Tobalaba, Los Leones, Pedro de Valdivia o Parque Bustamante, activa tu ubicación y la lista se ordena por distancia.",
       "La lista se ordena por cercanía: primero Providencia y después Santiago Centro, Ñuñoa y Las Condes. En cada ficha verás si recibe en su lugar o va a domicilio.",
     ],
     faq: [
       {
         question: "¿Hay escorts cerca de metro Tobalaba o Los Leones?",
         answer:
-          "Sí, son de las zonas de Providencia con más perfiles. La dirección exacta la entrega la escort al contactarla.",
+          "Providencia es una de las comunas con más escorts publicadas en UZEED. Activa tu ubicación para ver primero las más cercanas; la dirección exacta la entrega cada una al contactarla.",
       },
     ],
     related: [
@@ -406,4 +406,207 @@ export const CITY_SEO: Record<string, CitySeoCopy> = {
       { href: "/escorts/nunoa", label: "Escorts en Ñuñoa" },
     ],
   },
+
+  /* ── Comunas del Gran Santiago con más tráfico (San Bernardo, Puente Alto
+     y Maipú son las tres landings con más clics del sitio) y regiones. El
+     texto no promete cantidades: la oferta cambia y en varias ciudades aún
+     hay pocas o ninguna, y la página muestra entonces las más cercanas. ── */
+  "san-bernardo": localCopy({
+    name: "San Bernardo",
+    keywords: ["escort san bernardo", "escorts en san bernardo", "putas san bernardo"],
+    local:
+      "Si estás en San Bernardo, en el centro, cerca de la Plaza de Armas, por Avenida Eyzaguirre o en Nos, la forma más rápida es buscar escorts que se desplazan: van a tu casa, departamento o motel. También verás perfiles de comunas vecinas como El Bosque, La Cisterna, Buin y Calera de Tango, ordenados por distancia.",
+    near: [["puente-alto", "Puente Alto"], ["maipu", "Maipú"], ["santiago", "Santiago"]],
+  }),
+  "puente-alto": localCopy({
+    name: "Puente Alto",
+    keywords: ["escort puente alto", "escorts en puente alto", "putas puente alto"],
+    local:
+      "En Puente Alto la lista incluye escorts de la comuna y de las vecinas, como La Florida, La Pintana y San José de Maipo, ordenadas por distancia. Si estás cerca de la Plaza de Puente Alto o de la Línea 4 del metro (Hospital Sótero del Río, Elisa Correa, Las Mercedes), activa tu ubicación para ver primero a las más cercanas, o busca a las que se desplazan hasta tu casa u hotel.",
+    near: [["san-bernardo", "San Bernardo"], ["nunoa", "Ñuñoa"], ["santiago", "Santiago"]],
+  }),
+  maipu: localCopy({
+    name: "Maipú",
+    keywords: ["escort maipu", "escorts en maipu", "putas maipu", "escort en maipú"],
+    local:
+      "En Maipú la lista suma escorts de la comuna y de las vecinas, como Estación Central, Cerrillos, Pudahuel y Padre Hurtado, ordenadas por distancia. Si estás cerca de la Plaza de Maipú o de la Línea 5 del metro (Santiago Bueras, Del Sol, Monte Tabor, Las Parcelas), activa tu ubicación; también puedes buscar a las que se desplazan a tu casa u hotel.",
+    near: [["santiago", "Santiago"], ["san-bernardo", "San Bernardo"], ["santiago-centro", "Santiago Centro"]],
+  }),
+  nunoa: localCopy({
+    name: "Ñuñoa",
+    keywords: ["escort ñuñoa", "escorts ñuñoa", "escort nunoa"],
+    local:
+      "Ñuñoa limita con Providencia, Macul, Peñalolén y La Reina, así que la lista mezcla escorts de la comuna y de esas vecinas, ordenadas por distancia. Si estás cerca de Plaza Ñuñoa, Irarrázaval o de las líneas 3 y 6 del metro (Chile España, Ñuñoa, Estadio Nacional), activa tu ubicación para ver primero a las más cercanas.",
+    near: [["providencia", "Providencia"], ["las-condes", "Las Condes"], ["santiago-centro", "Santiago Centro"]],
+  }),
+  temuco: localCopy({
+    name: "Temuco",
+    keywords: ["escort temuco", "escorts en temuco", "acompañantes temuco"],
+    local:
+      "Escorts y acompañantes en Temuco y alrededores, como Padre Las Casas y Labranza. Hay perfiles en el centro y en otros sectores de la ciudad; cada ficha dice si recibe en su departamento o se desplaza a tu casa, hotel o motel.",
+    near: [["los-angeles", "Los Ángeles"], ["osorno", "Osorno"], ["puerto-montt", "Puerto Montt"]],
+  }),
+  "los-angeles": localCopy({
+    name: "Los Ángeles",
+    keywords: ["escort los angeles", "acompañantes los angeles", "escorts en los angeles"],
+    local:
+      "Escorts y acompañantes en Los Ángeles, Región del Biobío, y comunas cercanas como Nacimiento, Mulchén y Cabrero. Si todavía no hay perfiles publicados en la ciudad, la página muestra los más cercanos, con su ciudad y distancia reales, en vez de dejarte una lista vacía.",
+    near: [["concepcion", "Concepción"], ["chillan", "Chillán"], ["temuco", "Temuco"]],
+  }),
+  "vina-del-mar": localCopy({
+    name: "Viña del Mar",
+    keywords: ["escort viña del mar", "escorts viña del mar", "escort viña"],
+    local:
+      "Escorts y acompañantes en Viña del Mar y el Gran Valparaíso: el centro de Viña, Reñaca, Recreo, Valparaíso, Concón, Quilpué y Villa Alemana. La lista se ordena por distancia y cada ficha dice si recibe en su departamento o se desplaza a tu hotel en la costa.",
+    near: [["valparaiso", "Valparaíso"], ["santiago", "Santiago"], ["hombres", "Escorts hombres"]],
+  }),
+  valparaiso: localCopy({
+    name: "Valparaíso",
+    keywords: ["escort valparaiso", "acompañantes valparaíso", "escorts en valparaiso"],
+    local:
+      "Escorts y acompañantes en Valparaíso, en el plan y los cerros, y en las comunas vecinas de Viña del Mar, Quilpué y Villa Alemana. La lista se ordena por distancia: primero Valparaíso y después el resto del Gran Valparaíso.",
+    near: [["vina-del-mar", "Viña del Mar"], ["santiago", "Santiago"]],
+  }),
+  concepcion: localCopy({
+    name: "Concepción",
+    keywords: ["escort concepcion", "escort conce", "escorts en concepcion"],
+    local:
+      "Escorts y acompañantes en Concepción (Conce) y el Gran Concepción: Talcahuano, San Pedro de la Paz, Chiguayante y Hualpén. Hay perfiles en el centro de la ciudad; cada ficha dice si recibe en su departamento o se desplaza a tu casa u hotel.",
+    near: [["los-angeles", "Los Ángeles"], ["chillan", "Chillán"], ["temuco", "Temuco"]],
+  }),
+  osorno: localCopy({
+    name: "Osorno",
+    keywords: ["escort osorno", "escorts osorno"],
+    local:
+      "Escorts y acompañantes en Osorno y la Región de Los Lagos. Si todavía no hay perfiles publicados en la ciudad, la página muestra los más cercanos (como Puerto Montt), con su ciudad y distancia reales.",
+    near: [["puerto-montt", "Puerto Montt"], ["temuco", "Temuco"]],
+  }),
+  calama: localCopy({
+    name: "Calama",
+    keywords: ["escort calama", "escorts calama", "acompañantes calama"],
+    local:
+      "Escorts y acompañantes en Calama, Región de Antofagasta. Si todavía no hay perfiles publicados en la ciudad, la página muestra los más cercanos, como Antofagasta, con su distancia real.",
+    near: [["antofagasta", "Antofagasta"], ["iquique", "Iquique"]],
+  }),
+  antofagasta: localCopy({
+    name: "Antofagasta",
+    keywords: ["escort antofagasta", "escorts en antofagasta"],
+    local:
+      "Escorts y acompañantes en Antofagasta, en el centro y a lo largo de la costanera. Cada ficha dice si recibe en su departamento o se desplaza a tu casa u hotel.",
+    near: [["calama", "Calama"], ["iquique", "Iquique"]],
+  }),
+  rancagua: localCopy({
+    name: "Rancagua",
+    keywords: ["escort rancagua", "escorts rancagua", "acompañantes rancagua"],
+    local:
+      "Escorts y acompañantes en Rancagua y alrededores, como Machalí y Graneros. La lista se ordena por distancia: primero Rancagua y después las comunas vecinas de O'Higgins.",
+    near: [["santiago", "Santiago"], ["talca", "Talca"]],
+  }),
+  talca: localCopy({
+    name: "Talca",
+    keywords: ["escort talca", "acompañantes en talca"],
+    local:
+      "Escorts y acompañantes en Talca, Región del Maule. Si hay pocos perfiles publicados en la ciudad, la lista suma los más cercanos, como Curicó, con su distancia real.",
+    near: [["curico", "Curicó"], ["rancagua", "Rancagua"]],
+  }),
+  chillan: localCopy({
+    name: "Chillán",
+    keywords: ["escort chillan", "escorts chillan"],
+    local:
+      "Escorts y acompañantes en Chillán y Chillán Viejo, Región de Ñuble. Si hay pocos perfiles publicados en la ciudad, la lista suma los más cercanos, como Concepción, con su distancia real.",
+    near: [["concepcion", "Concepción"], ["los-angeles", "Los Ángeles"]],
+  }),
+  iquique: localCopy({
+    name: "Iquique",
+    keywords: ["escort iquique", "acompañantes en iquique"],
+    local:
+      "Escorts y acompañantes en Iquique y Alto Hospicio, Región de Tarapacá. Si todavía no hay perfiles publicados en la ciudad, la página muestra los más cercanos con su distancia real.",
+    near: [["arica", "Arica"], ["antofagasta", "Antofagasta"]],
+  }),
+  "puerto-montt": localCopy({
+    name: "Puerto Montt",
+    keywords: ["escort puerto montt", "escorts en puerto montt"],
+    local:
+      "Escorts y acompañantes en Puerto Montt y Puerto Varas, Región de Los Lagos. Cada ficha dice si recibe en su departamento o se desplaza a tu casa u hotel.",
+    near: [["osorno", "Osorno"], ["temuco", "Temuco"]],
+  }),
+  curico: localCopy({
+    name: "Curicó",
+    keywords: ["escort curico", "escort en curico"],
+    local:
+      "Escorts y acompañantes en Curicó, Región del Maule. Si todavía no hay perfiles publicados en la ciudad, la página muestra los más cercanos, como Talca, con su distancia real.",
+    near: [["talca", "Talca"], ["rancagua", "Rancagua"]],
+  }),
+  copiapo: localCopy({
+    name: "Copiapó",
+    keywords: ["escort copiapo", "escort copiapó"],
+    local:
+      "Escorts y acompañantes en Copiapó, Región de Atacama. Si todavía no hay perfiles publicados en la ciudad, la página muestra los más cercanos con su distancia real.",
+    near: [["la-serena", "La Serena"], ["antofagasta", "Antofagasta"]],
+  }),
+  "la-serena": localCopy({
+    name: "La Serena",
+    keywords: ["escort la serena", "escort coquimbo"],
+    local:
+      "Escorts y acompañantes en La Serena y Coquimbo, Región de Coquimbo. La lista se ordena por distancia y cada ficha dice si recibe en su departamento o se desplaza a tu hotel.",
+    near: [["copiapo", "Copiapó"], ["santiago", "Santiago"]],
+  }),
+  "punta-arenas": localCopy({
+    name: "Punta Arenas",
+    keywords: ["escort punta arenas", "acompañante punta arenas"],
+    local:
+      "Escorts y acompañantes en Punta Arenas, Región de Magallanes. Cada ficha dice si recibe en su departamento o se desplaza a tu casa u hotel.",
+    near: [["puerto-montt", "Puerto Montt"]],
+  }),
+  arica: localCopy({
+    name: "Arica",
+    keywords: ["escort arica", "escorts en arica"],
+    local:
+      "Escorts y acompañantes en Arica, Región de Arica y Parinacota. Si todavía no hay perfiles publicados en la ciudad, la página muestra los más cercanos, como Iquique, con su distancia real.",
+    near: [["iquique", "Iquique"]],
+  }),
 };
+
+/**
+ * Copy de una comuna o ciudad: un párrafo local propio (sectores, comunas
+ * vecinas, metro) y la parte común. Así cada landing tiene texto distinto sin
+ * inventar datos que la página no puede respaldar.
+ */
+function localCopy({
+  name,
+  keywords,
+  local,
+  near,
+}: {
+  name: string;
+  keywords: string[];
+  local: string;
+  near: [string, string][];
+}): CitySeoCopy {
+  return {
+    keywords,
+    h1: `Dónde encontrar escorts en ${name}`,
+    paragraphs: [
+      local,
+      `Todas las escorts de UZEED están verificadas: identidad y fotos reales. En cada perfil verás tarifa, horario, servicios y el botón para escribirle directo por WhatsApp o por el chat de UZEED.`,
+    ],
+    faq: [
+      {
+        question: `¿Hay escorts que se desplacen en ${name}?`,
+        answer: `Las escorts que marcan "se desplaza" en su perfil van a tu casa, departamento, hotel o motel. Entra a la sección de escorts a domicilio y activa tu ubicación en ${name} para ver primero a las más cercanas.`,
+      },
+      {
+        question: `¿Cómo contacto a una escort en ${name}?`,
+        answer:
+          "Desde su perfil, por WhatsApp o por el chat de UZEED. Cuéntale en qué sector estás y a qué hora: ella te confirma si llega y la tarifa final.",
+      },
+    ],
+    related: [
+      ...near.map(([slug, label]) => ({
+        href: `/escorts/${slug}`,
+        label: slug === "hombres" ? label : `Escorts en ${label}`,
+      })),
+      { href: "/escorts/a-domicilio", label: "Escorts a domicilio" },
+    ],
+  };
+}
