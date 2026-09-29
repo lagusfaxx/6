@@ -97,8 +97,14 @@ export default function RegisterClient() {
   const [step, setStep] = useState<
     "choose" | "form" | "verify" | "photos-failed"
   >(isGoogleFlow ? "form" : "choose");
+  /* ?type= deja el tipo de cuenta ya marcado: las landings para moteles y
+     tiendas llegan con ?type=ESTABLISHMENT y no tiene sentido que el dueño
+     vuelva a buscar su opción entre cuatro. */
+  const linkedType = ["CLIENT", "PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(googleInitialType)
+    ? googleInitialType
+    : null;
   const [profileType, setProfileType] = useState<ProfileType | null>(
-    isGoogleFlow ? googleInitialType : null,
+    isGoogleFlow ? googleInitialType : linkedType,
   );
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);

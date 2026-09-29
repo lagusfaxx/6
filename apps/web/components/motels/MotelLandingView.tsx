@@ -105,7 +105,7 @@ export default function MotelLandingView({
           <p className="mt-1 text-sm text-white/45">Mira todos los moteles del directorio o publica el tuyo.</p>
           <div className="mt-4 flex justify-center gap-2">
             <Link href="/moteles" className="btn-secondary px-4 py-2 text-sm">Ver todos</Link>
-            <Link href="/register?type=ESTABLISHMENT" className="btn-primary px-4 py-2 text-sm">Publicar mi motel</Link>
+            <Link href="/publicar-motel" className="btn-primary px-4 py-2 text-sm">Publicar mi motel</Link>
           </div>
         </div>
       )}
@@ -119,7 +119,7 @@ export default function MotelLandingView({
               Publícalo en UZEED: tu ficha con fotos y tarifas, reservas por chat y promociones para llenar las horas bajas.
             </p>
           </div>
-          <Link href="/register?type=ESTABLISHMENT" className="btn-primary shrink-0 px-5 py-2.5 text-sm">Publicar mi motel</Link>
+          <Link href="/publicar-motel" className="btn-primary shrink-0 px-5 py-2.5 text-sm">Publicar mi motel</Link>
         </div>
       </section>
 

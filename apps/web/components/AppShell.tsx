@@ -72,7 +72,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/escorts/") ||
     /* Moteles: las landings por comuna y las fichas traen su ruta de migas. */
     pathname.startsWith("/moteles/") ||
-    pathname.startsWith("/motel/");
+    pathname.startsWith("/motel/") ||
+    /* Landings para dueños de moteles: la flecha flotante tapaba la etiqueta. */
+    ["/publicar-motel", "/reservas-online-motel", "/publicidad-para-moteles"].includes(pathname);
 
   // Dashboard routes: hide main header/nav so the Creator Studio has its own layout
   const isDashboardRoute = pathname.startsWith("/dashboard");

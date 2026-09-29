@@ -28,7 +28,8 @@ const footerLinks = {
     { label: "Trabajar de escort en Chile", href: "/trabajar-de-escort" },
     { label: "Vender contenido +18", href: "/vender-contenido" },
     { label: "Publicar anuncio de escort", href: "/publicar-anuncio-escort" },
-    { label: "Publicar mi motel", href: "/register?type=ESTABLISHMENT" },
+    { label: "Publicar mi motel", href: "/publicar-motel" },
+    { label: "Reservas online para moteles", href: "/reservas-online-motel" },
   ],
   "Cuenta": [
     { label: "Iniciar sesión", href: "/login" },

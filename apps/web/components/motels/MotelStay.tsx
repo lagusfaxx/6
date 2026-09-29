@@ -440,7 +440,7 @@ function ListingCard({ motel }: { motel: MotelDetail }) {
       <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[13px] text-white/60">
         <p className="flex items-center gap-1.5 font-medium text-white/80"><Store className="h-4 w-4" /> ¿Es tu motel?</p>
         <p className="mt-1">Crea tu cuenta y maneja la ficha: fotos, habitaciones, tarifas y reservas por chat.</p>
-        <Link href="/register?type=ESTABLISHMENT" className="mt-2 inline-block font-semibold text-fuchsia-300 hover:text-fuchsia-200">Publicar mi motel →</Link>
+        <Link href="/publicar-motel" className="mt-2 inline-block font-semibold text-fuchsia-300 hover:text-fuchsia-200">Publicar mi motel →</Link>
       </div>
     </div>
   );

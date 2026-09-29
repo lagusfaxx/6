@@ -4,6 +4,7 @@ import { ESCORT_LANDINGS } from "../lib/escortLandings";
 import { cleanProfileHref } from "../lib/profileUrl";
 import { COMUNAS } from "../lib/comunas";
 import { fetchMotelDirectory, motelHref, motelsForComuna } from "../lib/motels";
+import { MOTEL_OWNER_LANDINGS } from "../lib/motelOwnerLandings";
 
 type ProfessionalItem = {
   id?: string | null;
@@ -199,6 +200,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // cubren la intención contraria ("trabajar de escort", "vender packs",
   // "publicar anuncio gratis"). /creadoras iba con noindex hasta ahora.
   for (const landing of ESCORT_LANDINGS) {
+    add(`/${landing.slug}`, "weekly", 0.85);
+  }
+  // Dueños de moteles: publicar, reservas online, publicidad.
+  for (const landing of MOTEL_OWNER_LANDINGS) {
     add(`/${landing.slug}`, "weekly", 0.85);
   }
 
