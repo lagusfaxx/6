@@ -3,6 +3,7 @@ import { Router } from "express";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sendToUser } from "../realtime/sse";
+import { displayNameError, normalizeDisplayName } from "../profile/nameChange";
 
 export const motelRouter = Router();
 
@@ -157,6 +158,45 @@ async function findRoomForBooking(establishmentId: string, roomId?: string | nul
   return fallback[0] || null;
 }
 
+const DURATION_TYPES = ["3H", "6H", "NIGHT"] as const;
+
+/** Precio de la habitación para la duración pedida; 0 si el motel no la ofrece. */
+function roomPriceFor(room: any, durationType: string) {
+  if (durationType === "6H") return Number(room?.price6h || 0);
+  if (durationType === "NIGHT") return Number(room?.priceNight || 0);
+  return Number(room?.price3h || room?.price || 0);
+}
+
+/** Entero >= 0 o null. Evita guardar NaN cuando el formulario manda texto. */
+function toPrice(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/** Perfil completo del dueño: `req.user` sólo trae id, rol y tipo de perfil. */
+async function loadOwnerProfile(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true, username: true, displayName: true, address: true, phone: true, city: true,
+      latitude: true, longitude: true, coverUrl: true, avatarUrl: true, bio: true,
+      serviceDescription: true, isVerified: true, isActive: true,
+      businessOpen: true, businessPublished: true,
+    },
+  });
+}
+
+function serializeOwnerProfile(u: NonNullable<Awaited<ReturnType<typeof loadOwnerProfile>>>) {
+  return {
+    id: u.id, username: u.username, displayName: u.displayName, address: u.address,
+    phone: u.phone, city: u.city, latitude: u.latitude, longitude: u.longitude,
+    coverUrl: u.coverUrl, avatarUrl: u.avatarUrl, rules: u.bio, schedule: u.serviceDescription,
+    isVerified: u.isVerified, isActive: u.isActive,
+    isOpen: u.businessOpen, isPublished: u.businessPublished,
+  };
+}
+
 function randomConfirmationCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
@@ -168,7 +208,11 @@ function mapsLinkFrom(address?: string | null, city?: string | null, fallback?: 
 
 async function resolveBookingPrice(establishmentId: string, roomId: string, durationType: string, basePriceClp: number) {
   const promos = await listPromotions(establishmentId, true).catch(() => [] as any[]);
-  const promo = promos.find((p: any) => p.roomId === roomId || (Array.isArray(p.roomIds) && p.roomIds.includes(roomId)));
+  const now = Date.now();
+  const promo = promos.find((p: any) =>
+    (!p.startsAt || new Date(p.startsAt).getTime() <= now) &&
+    (p.roomId === roomId || (Array.isArray(p.roomIds) && p.roomIds.includes(roomId)))
+  );
   if (!promo) return { basePriceClp, discountClp: 0, finalPriceClp: basePriceClp };
   const discount = promo.discountPercent
     ? Math.round(basePriceClp * (Number(promo.discountPercent) / 100))
@@ -207,6 +251,7 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
   const users = await prisma.user.findMany({
     where: {
       isActive: true,
+      businessPublished: true,
       OR: [
         { profileType: "ESTABLISHMENT" },
         { serviceCategory: { contains: "motel", mode: "insensitive" } },
@@ -215,7 +260,7 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
     },
     select: {
       id: true, username: true, displayName: true, city: true, address: true,
-      latitude: true, longitude: true, coverUrl: true,
+      latitude: true, longitude: true, coverUrl: true, businessOpen: true,
       category: { select: { slug: true, displayName: true, name: true } },
       profileMedia: { where: { type: "IMAGE" }, take: 4, orderBy: { createdAt: "desc" }, select: { url: true } }
     },
@@ -267,8 +312,8 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
     const distance = lat != null && lng != null ? toDistance(lat, lng, safeLat, safeLng) : null;
     const motelRooms = roomMap.get(u.id) || [];
     const motelPromotionsCount = promoMap.get(u.id) || 0;
-    const firstRoom = motelRooms[0] as any;
-    const fromPrice = duration === "6H" ? Number(firstRoom?.price6h || firstRoom?.price || 0) : duration === "NIGHT" ? Number(firstRoom?.priceNight || firstRoom?.price || 0) : Number(firstRoom?.price3h || firstRoom?.price || 0);
+    const roomPrices = motelRooms.map((r: any) => roomPriceFor(r, duration)).filter((p) => p > 0);
+    const fromPrice = roomPrices.length ? Math.min(...roomPrices) : 0;
 
     const tags = new Set<string>();
     motelRooms.forEach((r: any) => {
@@ -292,7 +337,7 @@ motelRouter.get("/motels", asyncHandler(async (req, res) => {
       tags: Array.from(tags).slice(0, 5),
       hasPromo: motelPromotionsCount > 0,
       category: isHotel ? "HOTEL" : "MOTEL",
-      isOpen: true
+      isOpen: u.businessOpen
     };
   })
   .filter((u) => (category === "hotel" ? u.category === "HOTEL" : category === "motel" ? u.category === "MOTEL" : true))
@@ -364,6 +409,7 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
       select: {
         id: true, username: true, displayName: true, address: true, city: true, phone: true,
         bio: true, serviceDescription: true, coverUrl: true, avatarUrl: true, latitude: true, longitude: true,
+        isActive: true, businessOpen: true, businessPublished: true,
         profileMedia: { where: { type: "IMAGE" }, take: 16, orderBy: { createdAt: "desc" }, select: { url: true } }
       }
     })
@@ -381,10 +427,16 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
     select: {
       id: true, username: true, displayName: true, address: true, city: true, phone: true,
       bio: true, serviceDescription: true, coverUrl: true, avatarUrl: true, latitude: true, longitude: true,
+      isActive: true, businessOpen: true, businessPublished: true,
       profileMedia: { where: { type: "IMAGE" }, take: 16, orderBy: { createdAt: "desc" }, select: { url: true } }
     }
   });
   if (!u) return res.status(404).json({ error: "NOT_FOUND" });
+  /* El dueño ve su ficha aunque esté oculta: es la vista previa del panel. */
+  const isOwnerViewing = req.session.userId === u.id;
+  if (!isOwnerViewing && (!u.isActive || !u.businessPublished)) {
+    return res.status(404).json({ error: "NOT_FOUND", reason: "UNPUBLISHED" });
+  }
 
   const id = u.id;
   const [rooms, promotions] = await Promise.all([
@@ -397,7 +449,7 @@ motelRouter.get("/motels/:id", asyncHandler(async (req, res) => {
   const latitude = u.latitude ?? -33.4489;
   const longitude = u.longitude ?? -70.6693;
 
-  return res.json({ establishment: { id: u.id, name: u.displayName || u.username, address: u.address, city: u.city, phone: u.phone, rules: u.bio, schedule: u.serviceDescription, coverUrl: u.coverUrl, avatarUrl: u.avatarUrl, latitude, longitude, rating, reviewsCount: reviews[0]?._count._all || 0, gallery: u.profileMedia.map((m) => m.url), rooms, promotions } });
+  return res.json({ establishment: { id: u.id, name: u.displayName || u.username, address: u.address, city: u.city, phone: u.phone, rules: u.bio, schedule: u.serviceDescription, isOpen: u.businessOpen, isPublished: u.businessPublished, coverUrl: u.coverUrl, avatarUrl: u.avatarUrl, latitude, longitude, rating, reviewsCount: reviews[0]?._count._all || 0, gallery: u.profileMedia.map((m) => m.url), rooms, promotions } });
 }));
 
 motelRouter.post("/motels/:id/bookings", asyncHandler(async (req, res) => {
@@ -406,22 +458,43 @@ motelRouter.post("/motels/:id/bookings", asyncHandler(async (req, res) => {
   if (!clientId) return res.status(401).json({ error: "UNAUTHENTICATED" });
 
   const establishmentId = String(req.params.id);
+  if (!isUuid(establishmentId)) return res.status(404).json({ error: "NOT_FOUND" });
+  if (establishmentId === clientId) {
+    return res.status(400).json({ error: "OWN_ESTABLISHMENT", message: "No puedes reservar en tu propio local." });
+  }
   const roomId = req.body?.roomId ? String(req.body.roomId) : null;
   const durationType = String(req.body?.durationType || "3H").toUpperCase();
+  if (!(DURATION_TYPES as readonly string[]).includes(durationType)) {
+    return res.status(400).json({ error: "INVALID_DURATION" });
+  }
   const startAt = req.body?.startAt ? new Date(req.body.startAt) : null;
+  if (startAt && Number.isNaN(startAt.getTime())) return res.status(400).json({ error: "INVALID_DATE" });
   const note = req.body?.note ? String(req.body.note).slice(0, 500) : null;
+
+  const establishment = await prisma.user.findUnique({
+    where: { id: establishmentId },
+    select: { isActive: true, businessOpen: true, businessPublished: true },
+  });
+  if (!establishment || !establishment.isActive || !establishment.businessPublished) {
+    return res.status(404).json({ error: "NOT_FOUND" });
+  }
+  if (!establishment.businessOpen) {
+    return res.status(409).json({ error: "CLOSED", message: "El local está cerrado en este momento y no recibe reservas." });
+  }
 
   const fallbackRoom = await findRoomForBooking(establishmentId, roomId);
   if (!fallbackRoom) return res.status(400).json({ error: "NO_ROOMS" });
 
-  const fallbackAny = fallbackRoom as any;
-  const basePriceClp = durationType === "6H" ? Number(fallbackAny.price6h || fallbackRoom.price) : durationType === "NIGHT" ? Number(fallbackAny.priceNight || fallbackRoom.price) : Number(fallbackAny.price3h || fallbackRoom.price);
+  const basePriceClp = roomPriceFor(fallbackRoom, durationType);
+  if (basePriceClp <= 0) {
+    return res.status(400).json({ error: "DURATION_UNAVAILABLE", message: "Esta habitación no tiene tarifa para esa duración." });
+  }
   const priced = await resolveBookingPrice(establishmentId, fallbackRoom.id, durationType, basePriceClp);
 
   const bookingId = randomUUID();
   const rows = await prisma.$queryRawUnsafe<any[]>(`INSERT INTO "MotelBooking" ("id", "establishmentId", "roomId", "clientId", "status", "durationType", "priceClp", "basePriceClp", "discountClp", "startAt", "note") VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'PENDIENTE', $5, $6, $7, $8, $9, $10) RETURNING *`, bookingId, establishmentId, fallbackRoom.id, clientId, durationType, priced.finalPriceClp, priced.basePriceClp, priced.discountClp, startAt, note);
   const booking = rows[0];
-  await prisma.notification.create({ data: { userId: establishmentId, type: "BOOKING_UPDATE", data: { title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}`, durationType, bookingId: booking.id, url: `/dashboard/motel` } } }).catch((err) => {
+  await prisma.notification.create({ data: { userId: establishmentId, type: "BOOKING_UPDATE", data: { title: "Nueva reserva pendiente", body: `Tienes una solicitud ${durationType}`, durationType, bookingId: booking.id, url: `/dashboard/motel?tab=bookings` } } }).catch((err) => {
     console.error("[motel] Failed to create booking notification:", err?.message || err);
   });
   sendToUser(establishmentId, "booking:new", { bookingId: booking.id });
@@ -536,7 +609,10 @@ motelRouter.post("/motel/bookings/:id/action", asyncHandler(async (req, res) => 
   );
   const updated = updatedRows[0];
   const notifyUserId = isOwner ? booking.clientId : booking.establishmentId;
-  await prisma.notification.create({ data: { userId: notifyUserId, type: "BOOKING_UPDATE", data: { title: "Actualización de reserva", body: `Estado: ${nextStatus}`, status: nextStatus, bookingId: updated.id, url: `/dashboard/motel` } } }).catch((err) => {
+  /* Al cliente lo llevamos al chat con el local, donde confirma o cancela;
+     el panel del motel le daría 403. */
+  const notifyUrl = isOwner ? `/chat/${booking.establishmentId}` : `/dashboard/motel?tab=bookings`;
+  await prisma.notification.create({ data: { userId: notifyUserId, type: "BOOKING_UPDATE", data: { title: "Actualización de reserva", body: `Estado: ${nextStatus}`, status: nextStatus, bookingId: updated.id, url: notifyUrl } } }).catch((err) => {
     console.error("[motel] Failed to create booking action notification:", err?.message || err);
   });
   sendToUser(notifyUserId, "booking:update", { bookingId: updated.id, status: nextStatus, rejectReason: updated.rejectReason, rejectNote: updated.rejectNote });
@@ -587,6 +663,8 @@ motelRouter.get("/motel/dashboard", asyncHandler(async (req, res) => {
   const user = (req as any).user;
   if (!isMotelOwner(user)) return res.status(403).json({ error: "FORBIDDEN" });
   const userId = req.session.userId!;
+  const owner = await loadOwnerProfile(userId);
+  if (!owner) return res.status(404).json({ error: "NOT_FOUND" });
 
   const [rooms, promotions, bookings] = await Promise.all([
     listRooms(userId),
@@ -594,7 +672,7 @@ motelRouter.get("/motel/dashboard", asyncHandler(async (req, res) => {
     prisma.$queryRawUnsafe<any[]>(`SELECT b.*, u."displayName" as "clientName", u."username" as "clientUsername", r."name" as "roomName" FROM "MotelBooking" b LEFT JOIN "User" u ON u.id = b."clientId" LEFT JOIN "MotelRoom" r ON r.id = b."roomId" WHERE b."establishmentId" = $1::uuid ORDER BY b."createdAt" DESC LIMIT 200`, userId)
   ]);
 
-  return res.json({ profile: { id: user.id, username: user.username, displayName: user.displayName, address: user.address, phone: user.phone, city: user.city, latitude: user.latitude, longitude: user.longitude, coverUrl: user.coverUrl, avatarUrl: user.avatarUrl, rules: user.bio, schedule: user.serviceDescription }, rooms, promotions, bookings });
+  return res.json({ profile: serializeOwnerProfile(owner), rooms, promotions, bookings });
 }));
 
 motelRouter.put("/motel/dashboard/profile", asyncHandler(async (req, res) => {
@@ -602,134 +680,156 @@ motelRouter.put("/motel/dashboard/profile", asyncHandler(async (req, res) => {
   const user = (req as any).user;
   if (!isMotelOwner(user)) return res.status(403).json({ error: "FORBIDDEN" });
 
-  const updated = await prisma.user.update({
-    where: { id: req.session.userId! },
-    data: {
-      displayName: req.body?.displayName != null ? String(req.body.displayName) : user.displayName,
-      address: req.body?.address != null ? String(req.body.address) : user.address,
-      city: req.body?.city != null ? String(req.body.city) : user.city,
-      phone: req.body?.phone != null ? String(req.body.phone) : user.phone,
-      latitude: req.body?.latitude != null ? Number(req.body.latitude) : user.latitude,
-      longitude: req.body?.longitude != null ? Number(req.body.longitude) : user.longitude,
-      coverUrl: req.body?.coverUrl !== undefined ? (req.body.coverUrl ? String(req.body.coverUrl) : null) : user.coverUrl,
-      avatarUrl: req.body?.avatarUrl !== undefined ? (req.body.avatarUrl ? String(req.body.avatarUrl) : null) : user.avatarUrl,
-      bio: req.body?.rules != null ? String(req.body.rules) : user.bio,
-      serviceDescription: req.body?.schedule != null ? String(req.body.schedule) : user.serviceDescription
-    },
-    select: {
-      id: true, displayName: true, username: true, avatarUrl: true, coverUrl: true,
-      address: true, city: true, phone: true, latitude: true, longitude: true,
-      bio: true, serviceDescription: true, profileType: true,
-    },
-  });
+  /* Sólo se tocan los campos que vienen en el body. Antes se completaba con
+     `user.<campo>`, pero `req.user` no trae esos datos. */
+  const body = req.body ?? {};
+  const text = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
+  const data: Record<string, unknown> = {};
 
-  return res.json({ profile: updated });
+  if (body.displayName !== undefined) {
+    const name = normalizeDisplayName(String(body.displayName ?? ""));
+    const invalid = displayNameError(name);
+    if (invalid) return res.status(400).json({ error: "NAME_INVALID", message: invalid });
+    data.displayName = name;
+  }
+  if (body.address !== undefined) data.address = text(body.address, 200) || null;
+  if (body.city !== undefined) data.city = text(body.city, 80) || null;
+  if (body.phone !== undefined) data.phone = text(body.phone, 30) || null;
+  if (body.rules !== undefined) data.bio = text(body.rules, 2000) || null;
+  if (body.schedule !== undefined) data.serviceDescription = text(body.schedule, 500) || null;
+  if (body.latitude !== undefined || body.longitude !== undefined) {
+    const lat = body.latitude === null || body.latitude === "" ? null : Number(body.latitude);
+    const lng = body.longitude === null || body.longitude === "" ? null : Number(body.longitude);
+    const bothNull = lat === null && lng === null;
+    const valid = lat !== null && lng !== null && Number.isFinite(lat) && Number.isFinite(lng)
+      && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+    if (!bothNull && !valid) {
+      return res.status(400).json({ error: "INVALID_COORDINATES", message: "Busca la dirección en el mapa para fijar la ubicación." });
+    }
+    data.latitude = lat;
+    data.longitude = lng;
+  }
+  if (typeof body.isOpen === "boolean") data.businessOpen = body.isOpen;
+  if (typeof body.isPublished === "boolean") data.businessPublished = body.isPublished;
+
+  if (Object.keys(data).length) {
+    await prisma.user.update({ where: { id: req.session.userId! }, data: { ...data, lastEditedAt: new Date() } });
+  }
+  const owner = await loadOwnerProfile(req.session.userId!);
+  return res.json({ profile: owner ? serializeOwnerProfile(owner) : null });
 }));
+
+/** Valida y normaliza el body de una habitación. `partial` para el PUT. */
+function parseRoomBody(body: any, partial: boolean): { data?: Record<string, any>; error?: string; message?: string } {
+  const data: Record<string, any> = {};
+  if (body?.name !== undefined || !partial) {
+    const name = String(body?.name ?? "").trim().slice(0, 80);
+    if (name.length < 2) return { error: "NAME_REQUIRED", message: "Ponle un nombre a la habitación." };
+    data.name = name;
+  }
+  if (body?.description !== undefined) data.description = String(body.description || "").trim().slice(0, 1000) || null;
+  if (body?.roomType !== undefined) data.roomType = String(body.roomType || "").trim().slice(0, 40) || null;
+  if (body?.location !== undefined) data.location = String(body.location || "").trim().slice(0, 80) || null;
+  if (body?.amenities !== undefined) data.amenities = parseStringArray(body.amenities).slice(0, 20);
+  if (body?.photoUrls !== undefined) data.photoUrls = parseStringArray(body.photoUrls).slice(0, 12);
+  for (const key of ["price3h", "price6h", "priceNight"] as const) {
+    if (body?.[key] !== undefined) data[key] = toPrice(body[key]) ?? 0;
+  }
+  if (!partial || ["price3h", "price6h", "priceNight"].some((k) => k in data)) {
+    const prices = ["price3h", "price6h", "priceNight"].map((k) => Number(data[k] ?? 0));
+    const allPricesSent = ["price3h", "price6h", "priceNight"].every((k) => k in data);
+    if ((!partial || allPricesSent) && prices.every((p) => p <= 0)) {
+      return { error: "PRICE_REQUIRED", message: "Ingresa al menos una tarifa (3 horas, 6 horas o noche)." };
+    }
+    /* `price` es la columna vieja: queda con la tarifa más barata disponible. */
+    const available = prices.filter((p) => p > 0);
+    if (available.length) data.price = Math.min(...available);
+  }
+  if (body?.isActive !== undefined) data.isActive = Boolean(body.isActive);
+  return { data };
+}
+
+/** Valida y normaliza el body de una promoción. */
+function parsePromoBody(body: any, partial: boolean): { data?: Record<string, any>; error?: string; message?: string } {
+  const data: Record<string, any> = {};
+  if (body?.title !== undefined || !partial) {
+    const title = String(body?.title ?? "").trim().slice(0, 80);
+    if (title.length < 2) return { error: "TITLE_REQUIRED", message: "Ponle un título a la promoción." };
+    data.title = title;
+  }
+  if (body?.description !== undefined) data.description = String(body.description || "").trim().slice(0, 500) || null;
+  if (body?.discountPercent !== undefined || body?.discountClp !== undefined || !partial) {
+    const pct = toPrice(body?.discountPercent);
+    const clp = toPrice(body?.discountClp);
+    if (pct != null && (pct < 1 || pct > 90)) return { error: "INVALID_DISCOUNT", message: "El porcentaje debe estar entre 1 y 90." };
+    if (!pct && !clp) return { error: "DISCOUNT_REQUIRED", message: "Indica un descuento en porcentaje o en pesos." };
+    /* Uno u otro: si vienen ambos, manda el porcentaje. */
+    data.discountPercent = pct || null;
+    data.discountClp = pct ? null : clp;
+  }
+  const parseDate = (value: unknown) => {
+    if (value === undefined) return undefined;
+    if (value === null || value === "") return null;
+    const d = new Date(String(value));
+    return Number.isNaN(d.getTime()) ? "invalid" : d;
+  };
+  const startsAt = parseDate(body?.startsAt);
+  const endsAt = parseDate(body?.endsAt);
+  if (startsAt === "invalid" || endsAt === "invalid") return { error: "INVALID_DATE", message: "Revisa las fechas de la promoción." };
+  if (startsAt instanceof Date && endsAt instanceof Date && endsAt <= startsAt) {
+    return { error: "INVALID_DATE_RANGE", message: "La fecha de término debe ser posterior al inicio." };
+  }
+  if (startsAt !== undefined) data.startsAt = startsAt;
+  if (endsAt !== undefined) data.endsAt = endsAt;
+  if (body?.roomIds !== undefined) {
+    data.roomIds = Array.isArray(body.roomIds) ? body.roomIds.map((id: any) => String(id)).filter(isUuid) : [];
+    data.roomId = data.roomIds[0] || null;
+  }
+  if (body?.isActive !== undefined) data.isActive = Boolean(body.isActive);
+  return { data };
+}
 
 motelRouter.post("/motel/dashboard/rooms", asyncHandler(async (req, res) => {
   await ensureMotelSchema();
   const user = (req as any).user;
   if (!isMotelOwner(user)) return res.status(403).json({ error: "FORBIDDEN" });
 
-  const data = {
-    establishmentId: req.session.userId!,
-    name: String(req.body?.name || "Suite"),
-    description: req.body?.description ? String(req.body.description) : null,
-    price: Number(req.body?.price3h || req.body?.price || 0),
-    roomType: req.body?.roomType ? String(req.body.roomType) : null,
-    amenities: parseStringArray(req.body?.amenities),
-    photoUrls: parseStringArray(req.body?.photoUrls),
-    price3h: Number(req.body?.price3h || 0),
-    price6h: Number(req.body?.price6h || 0),
-    priceNight: Number(req.body?.priceNight || 0),
-    location: req.body?.location ? String(req.body.location) : null
-  } as any;
-
-  const delegate = motelRoomDelegate();
-  if (delegate?.create) {
-    const room = await delegate.create({ data });
-    return res.json({ room });
-  }
-
-  const rows = await prisma.$queryRawUnsafe<any[]>(
-    `INSERT INTO "MotelRoom" ("id", "establishmentId", "name", "description", "price", "roomType", "amenities", "photoUrls", "price3h", "price6h", "priceNight", "location", "isActive", "createdAt", "updatedAt") VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::text[], $8::text[], $9, $10, $11, $12, true, NOW(), NOW()) RETURNING *`,
-    randomUUID(),
-    data.establishmentId,
-    data.name,
-    data.description,
-    data.price,
-    data.roomType,
-    data.amenities,
-    data.photoUrls,
-    data.price3h,
-    data.price6h,
-    data.priceNight,
-    data.location
-  );
-
-  return res.json({ room: rows[0] });
+  const parsed = parseRoomBody(req.body, false);
+  if (!parsed.data) return res.status(400).json({ error: parsed.error, message: parsed.message });
+  const room = await prisma.motelRoom.create({
+    data: {
+      establishmentId: req.session.userId!,
+      name: parsed.data.name,
+      price: parsed.data.price ?? 0,
+      description: parsed.data.description ?? null,
+      roomType: parsed.data.roomType ?? null,
+      location: parsed.data.location ?? null,
+      amenities: parsed.data.amenities ?? [],
+      photoUrls: parsed.data.photoUrls ?? [],
+      price3h: parsed.data.price3h ?? 0,
+      price6h: parsed.data.price6h ?? 0,
+      priceNight: parsed.data.priceNight ?? 0,
+      isActive: parsed.data.isActive ?? true,
+    },
+  });
+  return res.json({ room });
 }));
 
 motelRouter.put("/motel/dashboard/rooms/:id", asyncHandler(async (req, res) => {
   await ensureMotelSchema();
   const user = (req as any).user;
   if (!isMotelOwner(user)) return res.status(403).json({ error: "FORBIDDEN" });
+  const id = String(req.params.id);
+  if (!isUuid(id)) return res.status(404).json({ error: "NOT_FOUND" });
 
-  const data = {
-    name: req.body?.name != null ? String(req.body.name) : undefined,
-    description: req.body?.description != null ? String(req.body.description) : undefined,
-    roomType: req.body?.roomType != null ? String(req.body.roomType) : undefined,
-    amenities: req.body?.amenities ? parseStringArray(req.body.amenities) : undefined,
-    photoUrls: req.body?.photoUrls ? parseStringArray(req.body.photoUrls) : undefined,
-    price: req.body?.price3h != null ? Number(req.body.price3h) : undefined,
-    price3h: req.body?.price3h != null ? Number(req.body.price3h) : undefined,
-    price6h: req.body?.price6h != null ? Number(req.body.price6h) : undefined,
-    priceNight: req.body?.priceNight != null ? Number(req.body.priceNight) : undefined,
-    location: req.body?.location != null ? String(req.body.location) : undefined,
-    isActive: req.body?.isActive != null ? Boolean(req.body.isActive) : undefined
-  } as any;
-
-  const delegate = motelRoomDelegate();
-  if (delegate?.updateMany) {
-    const updated = await delegate.updateMany({
-      where: { id: String(req.params.id), establishmentId: req.session.userId! },
-      data
-    });
-    return res.json({ ok: true, updated: updated.count });
-  }
-
-  const rows = await prisma.$queryRawUnsafe<any[]>(
-    `UPDATE "MotelRoom" SET
-      "name" = COALESCE($3, "name"),
-      "description" = COALESCE($4, "description"),
-      "roomType" = COALESCE($5, "roomType"),
-      "amenities" = COALESCE($6::text[], "amenities"),
-      "photoUrls" = COALESCE($7::text[], "photoUrls"),
-      "price" = COALESCE($8, "price"),
-      "price3h" = COALESCE($9, "price3h"),
-      "price6h" = COALESCE($10, "price6h"),
-      "priceNight" = COALESCE($11, "priceNight"),
-      "location" = COALESCE($12, "location"),
-      "isActive" = COALESCE($13, "isActive"),
-      "updatedAt" = NOW()
-    WHERE id = $1::uuid AND "establishmentId" = $2::uuid
-    RETURNING id`,
-    String(req.params.id),
-    req.session.userId!,
-    data.name ?? null,
-    data.description ?? null,
-    data.roomType ?? null,
-    data.amenities ?? null,
-    data.photoUrls ?? null,
-    data.price ?? null,
-    data.price3h ?? null,
-    data.price6h ?? null,
-    data.priceNight ?? null,
-    data.location ?? null,
-    data.isActive ?? null
-  );
-
-  return res.json({ ok: true, updated: rows.length });
+  const parsed = parseRoomBody(req.body, true);
+  if (!parsed.data) return res.status(400).json({ error: parsed.error, message: parsed.message });
+  const updated = await prisma.motelRoom.updateMany({
+    where: { id, establishmentId: req.session.userId! },
+    data: parsed.data,
+  });
+  if (!updated.count) return res.status(404).json({ error: "NOT_FOUND" });
+  return res.json({ ok: true, updated: updated.count });
 }));
 
 motelRouter.post("/motel/dashboard/promotions", asyncHandler(async (req, res) => {
@@ -737,97 +837,40 @@ motelRouter.post("/motel/dashboard/promotions", asyncHandler(async (req, res) =>
   const user = (req as any).user;
   if (!isMotelOwner(user)) return res.status(403).json({ error: "FORBIDDEN" });
 
-  const data = {
-    establishmentId: req.session.userId!,
-    title: String(req.body?.title || "Promo"),
-    description: req.body?.description ? String(req.body.description) : null,
-    discountPercent: req.body?.discountPercent != null ? Number(req.body.discountPercent) : null,
-    discountClp: req.body?.discountClp != null ? Number(req.body.discountClp) : null,
-    startsAt: req.body?.startsAt ? new Date(req.body.startsAt) : null,
-    endsAt: req.body?.endsAt ? new Date(req.body.endsAt) : null,
-    isActive: req.body?.isActive != null ? Boolean(req.body.isActive) : true,
-    roomId: req.body?.roomId ? String(req.body.roomId) : null,
-    roomIds: Array.isArray(req.body?.roomIds) ? req.body.roomIds.map((id: any) => String(id)).filter(Boolean) : []
-  } as any;
-
-  const delegate = motelPromotionDelegate();
-  if (delegate?.create) {
-    const promotion = await delegate.create({ data });
-    return res.json({ promotion });
-  }
-
-  const rows = await prisma.$queryRawUnsafe<any[]>(
-    `INSERT INTO "MotelPromotion" ("id", "establishmentId", "title", "description", "discountPercent", "discountClp", "startsAt", "endsAt", "isActive", "roomId", "roomIds", "createdAt", "updatedAt") VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10::uuid, $11::uuid[], NOW(), NOW()) RETURNING *`,
-    randomUUID(),
-    data.establishmentId,
-    data.title,
-    data.description,
-    data.discountPercent,
-    data.discountClp,
-    data.startsAt,
-    data.endsAt,
-    data.isActive,
-    data.roomId,
-    data.roomIds
-  );
-
-  return res.json({ promotion: rows[0] });
+  const parsed = parsePromoBody(req.body, false);
+  if (!parsed.data) return res.status(400).json({ error: parsed.error, message: parsed.message });
+  const promotion = await prisma.motelPromotion.create({
+    data: {
+      establishmentId: req.session.userId!,
+      title: parsed.data.title,
+      description: parsed.data.description ?? null,
+      discountPercent: parsed.data.discountPercent ?? null,
+      discountClp: parsed.data.discountClp ?? null,
+      startsAt: parsed.data.startsAt ?? null,
+      endsAt: parsed.data.endsAt ?? null,
+      roomIds: parsed.data.roomIds ?? [],
+      roomId: parsed.data.roomId ?? null,
+      isActive: parsed.data.isActive ?? true,
+    },
+  });
+  return res.json({ promotion });
 }));
 
 motelRouter.put("/motel/dashboard/promotions/:id", asyncHandler(async (req, res) => {
   await ensureMotelSchema();
   const user = (req as any).user;
   if (!isMotelOwner(user)) return res.status(403).json({ error: "FORBIDDEN" });
+  const id = String(req.params.id);
+  if (!isUuid(id)) return res.status(404).json({ error: "NOT_FOUND" });
 
-  const data = {
-    title: req.body?.title != null ? String(req.body.title) : undefined,
-    description: req.body?.description != null ? String(req.body.description) : undefined,
-    discountPercent: req.body?.discountPercent != null ? Number(req.body.discountPercent) : undefined,
-    discountClp: req.body?.discountClp != null ? Number(req.body.discountClp) : undefined,
-    startsAt: req.body?.startsAt ? new Date(req.body.startsAt) : undefined,
-    endsAt: req.body?.endsAt ? new Date(req.body.endsAt) : undefined,
-    isActive: req.body?.isActive != null ? Boolean(req.body.isActive) : undefined,
-    roomId: req.body?.roomId != null ? String(req.body.roomId) : undefined,
-    roomIds: Array.isArray(req.body?.roomIds) ? req.body.roomIds.map((id: any) => String(id)).filter(Boolean) : undefined
-  } as any;
-
-  const delegate = motelPromotionDelegate();
-  if (delegate?.updateMany) {
-    const updated = await delegate.updateMany({
-      where: { id: String(req.params.id), establishmentId: req.session.userId! },
-      data
-    });
-    return res.json({ ok: true, updated: updated.count });
-  }
-
-  const rows = await prisma.$queryRawUnsafe<any[]>(
-    `UPDATE "MotelPromotion" SET
-      "title" = COALESCE($3, "title"),
-      "description" = COALESCE($4, "description"),
-      "discountPercent" = COALESCE($5, "discountPercent"),
-      "discountClp" = COALESCE($6, "discountClp"),
-      "startsAt" = COALESCE($7, "startsAt"),
-      "endsAt" = COALESCE($8, "endsAt"),
-      "isActive" = COALESCE($9, "isActive"),
-      "roomId" = COALESCE($10, "roomId"),
-      "roomIds" = COALESCE($11::uuid[], "roomIds"),
-      "updatedAt" = NOW()
-    WHERE id = $1::uuid AND "establishmentId" = $2::uuid
-    RETURNING id`,
-    String(req.params.id),
-    req.session.userId!,
-    data.title ?? null,
-    data.description ?? null,
-    data.discountPercent ?? null,
-    data.discountClp ?? null,
-    data.startsAt ?? null,
-    data.endsAt ?? null,
-    data.isActive ?? null,
-    data.roomId ?? null,
-    data.roomIds ?? null
-  );
-
-  return res.json({ ok: true, updated: rows.length });
+  const parsed = parsePromoBody(req.body, true);
+  if (!parsed.data) return res.status(400).json({ error: parsed.error, message: parsed.message });
+  const updated = await prisma.motelPromotion.updateMany({
+    where: { id, establishmentId: req.session.userId! },
+    data: parsed.data,
+  });
+  if (!updated.count) return res.status(404).json({ error: "NOT_FOUND" });
+  return res.json({ ok: true, updated: updated.count });
 }));
 
 motelRouter.delete("/motel/dashboard/rooms/:id", asyncHandler(async (req, res) => {

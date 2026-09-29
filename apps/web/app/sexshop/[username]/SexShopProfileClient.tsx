@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import { apiFetch, friendlyErrorMessage, resolveMediaUrl } from "../../../lib/api";
 
 /* ── Types ── */
 type Product = {
@@ -25,6 +25,8 @@ type Profile = {
   city: string | null;
   address: string | null;
   bio: string | null;
+  /** Lo marca la tienda desde su panel. */
+  isOpen: boolean;
 };
 
 type CartItem = { id: string; name: string; price: number; qty: number; category: string };
@@ -124,6 +126,7 @@ export default function SexShopProfileClient() {
           city: p.city || null,
           address: p.address || null,
           bio: p.bio || null,
+          isOpen: p.businessOpen !== false,
         });
         const prod = await apiFetch<{ products: Product[] }>(`/shop/sexshops/${p.id}/products`);
         setProducts(prod.products || []);
@@ -238,15 +241,19 @@ export default function SexShopProfileClient() {
       setOrderResult(res.order ?? res);
       setCheckoutStep("confirm");
       setCart([]);
-    } catch {
-      setOrderError("No pudimos crear tu pedido. Inicia sesión e intenta de nuevo.");
+    } catch (e: any) {
+      setOrderError(
+        e?.status === 401
+          ? "Inicia sesión para enviar tu pedido."
+          : friendlyErrorMessage(e) || "No pudimos crear tu pedido. Intenta de nuevo.",
+      );
     } finally {
       setOrderBusy(false);
     }
   }
 
-  const currentHour = new Date().getHours();
-  const isOpenNow = currentHour >= 10 && currentHour < 23;
+  /* Antes se calculaba con un horario fijo (10 a 23 h) que no era el de la tienda. */
+  const isOpenNow = profile?.isOpen !== false;
 
   /* Cart item count for specific product */
   function cartQty(productId: string) {
@@ -864,9 +871,15 @@ export default function SexShopProfileClient() {
               </div>
             </div>
 
+            {!isOpenNow && (
+              <div className="mb-2 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-center text-xs text-amber-100">
+                La tienda está cerrada ahora y no recibe pedidos. Puedes escribirle por chat.
+              </div>
+            )}
             <button
               onClick={() => setCheckoutStep("form")}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-4 text-base font-semibold text-white shadow-lg shadow-fuchsia-500/20 transition-all hover:from-fuchsia-600 hover:to-violet-700 active:scale-[0.98]"
+              disabled={!isOpenNow}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-4 text-base font-semibold text-white shadow-lg shadow-fuchsia-500/20 transition-all hover:from-fuchsia-600 hover:to-violet-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -987,7 +1000,7 @@ export default function SexShopProfileClient() {
             </div>
             <div>
               <h3 className="text-xl font-bold">Pedido creado</h3>
-              <p className="mt-1 text-sm text-white/50">Tu pedido fue enviado a la tienda</p>
+              <p className="mt-1 text-sm text-white/50">Le enviamos el pedido a la tienda por chat. Ahí te confirman la entrega y el pago.</p>
             </div>
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 text-left space-y-2">
               <div className="flex justify-between text-sm">
@@ -996,18 +1009,18 @@ export default function SexShopProfileClient() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-white/50">Total</span>
-                <span className="font-semibold">${Number(orderResult.totalclp || orderResult.totalClp || 0).toLocaleString("es-CL")}</span>
+                <span className="font-semibold">${Number(orderResult.totalClp || 0).toLocaleString("es-CL")}</span>
               </div>
-              {orderResult.paymentmethod && (
+              {orderResult.paymentMethod && (
                 <div className="flex justify-between text-sm">
                   <span className="text-white/50">Pago</span>
-                  <span className="text-white/70">{orderResult.paymentmethod === "TRANSFER" ? "Transferencia" : "Efectivo"}</span>
+                  <span className="text-white/70">{orderResult.paymentMethod === "TRANSFER" ? "Transferencia" : "Efectivo"}</span>
                 </div>
               )}
               {orderResult.id && (
                 <div className="flex justify-between text-sm">
                   <span className="text-white/50">Referencia</span>
-                  <span className="font-mono text-xs text-white/40">{String(orderResult.id).slice(0, 8)}</span>
+                  <span className="font-mono text-xs text-white/40">#{String(orderResult.id).slice(0, 8).toUpperCase()}</span>
                 </div>
               )}
             </div>

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import { extractMapboxLocation } from "../../../lib/mapboxFeature";
+import { connectRealtime } from "../../../lib/realtime";
 import {
   AlertTriangle,
   Camera,
@@ -35,7 +36,7 @@ type TabKey = "overview" | "profile" | "location" | "rooms" | "promos" | "bookin
    armada a la rápida. */
 const tabsMeta: Array<{ key: TabKey; label: string; Icon: typeof BarChart3 }> = [
   { key: "overview", label: "Resumen", Icon: BarChart3 },
-  { key: "profile", label: "Branding", Icon: Palette },
+  { key: "profile", label: "Datos del local", Icon: Palette },
   { key: "location", label: "Ubicación", Icon: MapPin },
   { key: "rooms", label: "Habitaciones", Icon: BedDouble },
   { key: "promos", label: "Promociones", Icon: Tag },
@@ -55,6 +56,45 @@ function formatDateTime(iso?: string | null) {
 function formatMoney(value?: number | null) {
   return `$${Number(value || 0).toLocaleString("es-CL")}`;
 }
+
+/* Tarifa en la tarjeta de la habitación: sin tarifa no es "$0". */
+function priceOrDash(value?: number | null) {
+  return Number(value || 0) > 0 ? formatMoney(value) : "—";
+}
+
+/* Fecha local (YYYY-MM-DD). `toISOString()` da la fecha en UTC: en Chile,
+   una reserva de las 22:00 caía en la agenda del día siguiente. */
+function localDateKey(value: Date | string) {
+  const d = typeof value === "string" ? new Date(value) : value;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/* Valor para <input type="datetime-local"> en hora local. */
+function toLocalInput(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${localDateKey(d)}T${hh}:${mm}`;
+}
+
+/* Sólo dígitos: los precios se escriben "15.000" o "15000". */
+function digitsOnly(value: string) {
+  return value.replace(/[^0-9]/g, "");
+}
+
+const EMPTY_ROOM = { name: "", roomType: "Normal", location: "", description: "", amenities: "", photoUrls: [] as string[], price3h: "", price6h: "", priceNight: "" };
+const EMPTY_PROMO = { title: "", description: "", discountPercent: "", discountClp: "", startsAt: "", endsAt: "", roomIds: [] as string[] };
+
+const REJECT_REASONS: Array<{ key: "CERRADO" | "SIN_HABITACIONES" | "OTRO"; label: string }> = [
+  { key: "SIN_HABITACIONES", label: "Sin habitaciones" },
+  { key: "CERRADO", label: "Local cerrado" },
+  { key: "OTRO", label: "Otro motivo" },
+];
 
 function durationLabel(duration?: string | null) {
   const normalized = String(duration || "3H").toUpperCase();
@@ -122,12 +162,19 @@ export default function MotelDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>("overview");
   const [msg, setMsg] = useState<string | null>(null);
+  const [msgTone, setMsgTone] = useState<"ok" | "error">("ok");
+  const [saving, setSaving] = useState(false);
+  const [rejecting, setRejecting] = useState<{ id: string; reason: "CERRADO" | "SIN_HABITACIONES" | "OTRO"; note: string } | null>(null);
   const [bookingBusyId, setBookingBusyId] = useState<string | null>(null);
-  const [agendaDate, setAgendaDate] = useState(new Date().toISOString().slice(0, 10));
+  const [agendaDate, setAgendaDate] = useState(() => localDateKey(new Date()));
   const [geocodeBusy, setGeocodeBusy] = useState(false);
   const [uploadingAsset, setUploadingAsset] = useState<"cover" | "avatar" | "room" | null>(null);
 
   const [profileDraft, setProfileDraft] = useState({
+    displayName: "",
+    city: "",
+    rules: "",
+    schedule: "",
     phone: "",
     coverUrl: "",
     avatarUrl: "",
@@ -138,8 +185,13 @@ export default function MotelDashboardPage() {
     longitude: "",
   });
 
-  const [roomForm, setRoomForm] = useState<any>({ name: "", roomType: "Normal", location: "", description: "", amenities: "", photoUrls: [], price3h: "", price6h: "", priceNight: "" });
-  const [promoForm, setPromoForm] = useState<any>({ title: "", description: "", discountPercent: "", discountClp: "", startsAt: "", endsAt: "", roomIds: [] });
+  const [roomForm, setRoomForm] = useState<any>(EMPTY_ROOM);
+  const [promoForm, setPromoForm] = useState<any>(EMPTY_PROMO);
+
+  function notify(text: string, tone: "ok" | "error" = "ok") {
+    setMsgTone(tone);
+    setMsg(text);
+  }
 
   useEffect(() => {
     const requested = String(searchParams.get("tab") || "").toLowerCase();
@@ -153,6 +205,10 @@ export default function MotelDashboardPage() {
       const next = await apiFetch<Dashboard>("/motel/dashboard");
       setData(next);
       setProfileDraft({
+        displayName: next.profile?.displayName || "",
+        city: next.profile?.city || "",
+        rules: next.profile?.rules || "",
+        schedule: next.profile?.schedule || "",
         phone: next.profile?.phone || "",
         coverUrl: next.profile?.coverUrl || "",
         avatarUrl: next.profile?.avatarUrl || "",
@@ -172,12 +228,24 @@ export default function MotelDashboardPage() {
 
   useEffect(() => { load(); }, []);
 
+  /* Reservas en vivo: una solicitud nueva aparece sin recargar la página. */
+  useEffect(() => {
+    return connectRealtime((event) => {
+      if (event.type === "booking:new") {
+        notify("Llegó una nueva solicitud de reserva.");
+        load();
+      } else if (event.type === "booking:update") {
+        load();
+      }
+    });
+  }, []);
+
   // Auto-dismiss toast
   useEffect(() => {
     if (!msg) return;
-    const t = setTimeout(() => setMsg(null), 4000);
+    const t = setTimeout(() => setMsg(null), msgTone === "error" ? 7000 : 4000);
     return () => clearTimeout(t);
-  }, [msg]);
+  }, [msg, msgTone]);
 
   async function logout() {
     await apiFetch("/auth/logout", { method: "POST" });
@@ -185,24 +253,76 @@ export default function MotelDashboardPage() {
   }
 
   async function saveProfile() {
-    await apiFetch("/motel/dashboard/profile", {
-      method: "PUT",
-      body: JSON.stringify({ phone: profileDraft.phone, isOpen: profileDraft.isOpen, isPublished: profileDraft.isPublished }),
-    });
-    setMsg("Publicación y contacto actualizados.");
-    await load();
-  }
-
-  async function saveLocation() {
+    if (profileDraft.displayName.trim().length < 2) {
+      notify("Escribe el nombre del local.", "error");
+      return;
+    }
+    setSaving(true);
     try {
       await apiFetch("/motel/dashboard/profile", {
         method: "PUT",
-        body: JSON.stringify({ address: profileDraft.address, latitude: Number(profileDraft.latitude), longitude: Number(profileDraft.longitude) }),
+        body: JSON.stringify({
+          displayName: profileDraft.displayName,
+          phone: profileDraft.phone,
+          city: profileDraft.city,
+          rules: profileDraft.rules,
+          schedule: profileDraft.schedule,
+        }),
       });
-      setMsg("Ubicación actualizada.");
+      notify("Datos del local guardados.");
       await load();
     } catch (e: any) {
-      setMsg(friendlyErrorMessage(e));
+      notify(friendlyErrorMessage(e), "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /* Abierto / publicado se guardan al tocar el interruptor. Si falla, vuelve
+     a como estaba: antes el interruptor se movía pero la API no lo guardaba. */
+  async function toggleStatus(key: "isOpen" | "isPublished") {
+    const nextValue = !profileDraft[key];
+    setProfileDraft((p) => ({ ...p, [key]: nextValue }));
+    try {
+      await apiFetch("/motel/dashboard/profile", { method: "PUT", body: JSON.stringify({ [key]: nextValue }) });
+      notify(
+        key === "isOpen"
+          ? (nextValue ? "Local abierto: ya recibes reservas." : "Local cerrado: no recibirás reservas nuevas.")
+          : (nextValue ? "Tu local vuelve a aparecer en el directorio." : "Tu local quedó oculto del directorio."),
+      );
+    } catch (e: any) {
+      setProfileDraft((p) => ({ ...p, [key]: !nextValue }));
+      notify(friendlyErrorMessage(e), "error");
+    }
+  }
+
+  async function saveLocation() {
+    const hasDraftCoords = profileDraft.latitude.trim() !== "" && profileDraft.longitude.trim() !== "";
+    if (!profileDraft.address.trim()) {
+      notify("Escribe la dirección del local.", "error");
+      return;
+    }
+    if (!hasDraftCoords) {
+      notify("Toca \"Buscar en mapa\" para ubicar la dirección antes de guardar.", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiFetch("/motel/dashboard/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          address: profileDraft.address,
+          city: profileDraft.city,
+          latitude: Number(profileDraft.latitude),
+          longitude: Number(profileDraft.longitude),
+        }),
+      });
+      notify("Ubicación guardada.");
+      await load();
+    } catch (e: any) {
+      notify(friendlyErrorMessage(e), "error");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -211,14 +331,22 @@ export default function MotelDashboardPage() {
     if (!token || !profileDraft.address.trim()) return;
     setGeocodeBusy(true);
     try {
-      const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(profileDraft.address)}.json?access_token=${token}&limit=1&language=es`);
+      const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(profileDraft.address)}.json?access_token=${token}&limit=1&language=es&country=cl`);
       const first = (await res.json())?.features?.[0];
-      if (first?.center?.length) {
-        const loc = extractMapboxLocation(first);
-        if (loc.latitude != null && loc.longitude != null) {
-          setProfileDraft((prev) => ({ ...prev, longitude: String(loc.longitude), latitude: String(loc.latitude), address: first.place_name || prev.address }));
-        }
+      const loc = first?.center?.length ? extractMapboxLocation(first) : null;
+      if (loc && loc.latitude != null && loc.longitude != null) {
+        setProfileDraft((prev) => ({
+          ...prev,
+          longitude: String(loc.longitude),
+          latitude: String(loc.latitude),
+          address: first.place_name || prev.address,
+          city: loc.city || prev.city,
+        }));
+      } else {
+        notify("No encontramos esa dirección. Prueba con calle, número y comuna.", "error");
       }
+    } catch {
+      notify("No pudimos buscar la dirección. Intenta de nuevo.", "error");
     } finally {
       setGeocodeBusy(false);
     }
@@ -230,8 +358,15 @@ export default function MotelDashboardPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      await fetch(`${getApiBase()}/profile/${kind}`, { method: "POST", credentials: "include", body: fd });
+      const res = await fetch(`${getApiBase()}/profile/${kind}`, { method: "POST", credentials: "include", body: fd });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.message || "No se pudo subir la imagen.");
+      }
+      notify(kind === "cover" ? "Portada actualizada." : "Logo actualizado.");
       await load();
+    } catch (err: any) {
+      notify(err?.message || "No se pudo subir la imagen.", "error");
     } finally {
       setUploadingAsset(null);
     }
@@ -256,20 +391,30 @@ export default function MotelDashboardPage() {
       const failures = Array.isArray(payload?.failures) ? payload.failures : [];
       if (failures.length) {
         const first = failures[0]?.message || "Algunas fotos no se pudieron procesar.";
-        setError(
+        notify(
           failures.length === 1
             ? first
             : `${failures.length} fotos no se pudieron procesar. ${first}`,
+          "error",
         );
       }
     } catch (err: any) {
-      setError(err?.message || "No se pudieron subir las fotos.");
+      notify(err?.message || "No se pudieron subir las fotos.", "error");
     } finally {
       setUploadingAsset(null);
     }
   }
 
   async function saveRoom() {
+    if (String(roomForm.name || "").trim().length < 2) {
+      notify("Ponle un nombre a la habitación.", "error");
+      return;
+    }
+    if (![roomForm.price3h, roomForm.price6h, roomForm.priceNight].some((v) => Number(v || 0) > 0)) {
+      notify("Ingresa al menos una tarifa (3 horas, 6 horas o noche).", "error");
+      return;
+    }
+    setSaving(true);
     try {
       const payload = {
         name: roomForm.name,
@@ -285,15 +430,70 @@ export default function MotelDashboardPage() {
       };
       if (roomForm.id) await apiFetch(`/motel/dashboard/rooms/${roomForm.id}`, { method: "PUT", body: JSON.stringify(payload) });
       else await apiFetch("/motel/dashboard/rooms", { method: "POST", body: JSON.stringify(payload) });
-      setRoomForm({ name: "", roomType: "Normal", location: "", description: "", amenities: "", photoUrls: [], price3h: "", price6h: "", priceNight: "" });
-      setMsg(roomForm.id ? "Habitación actualizada." : "Habitación creada.");
+      setRoomForm(EMPTY_ROOM);
+      notify(roomForm.id ? "Habitación actualizada." : "Habitación creada.");
       await load();
     } catch (e: any) {
-      setMsg(friendlyErrorMessage(e));
+      notify(friendlyErrorMessage(e), "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateRoom(id: string, body: Record<string, unknown>, okText: string) {
+    try {
+      await apiFetch(`/motel/dashboard/rooms/${id}`, { method: "PUT", body: JSON.stringify(body) });
+      notify(okText);
+      await load();
+    } catch (e: any) {
+      notify(friendlyErrorMessage(e), "error");
+    }
+  }
+
+  async function deleteRoom(room: any) {
+    if (!window.confirm(`¿Eliminar "${room.name}"? También se quitan las promociones de esta habitación.`)) return;
+    try {
+      await apiFetch(`/motel/dashboard/rooms/${room.id}`, { method: "DELETE" });
+      if (roomForm.id === room.id) setRoomForm(EMPTY_ROOM);
+      notify("Habitación eliminada.");
+      await load();
+    } catch (e: any) {
+      notify(friendlyErrorMessage(e), "error");
+    }
+  }
+
+  async function updatePromo(id: string, body: Record<string, unknown>, okText: string) {
+    try {
+      await apiFetch(`/motel/dashboard/promotions/${id}`, { method: "PUT", body: JSON.stringify(body) });
+      notify(okText);
+      await load();
+    } catch (e: any) {
+      notify(friendlyErrorMessage(e), "error");
+    }
+  }
+
+  async function deletePromo(promo: any) {
+    if (!window.confirm(`¿Eliminar la promoción "${promo.title}"?`)) return;
+    try {
+      await apiFetch(`/motel/dashboard/promotions/${promo.id}`, { method: "DELETE" });
+      if (promoForm.id === promo.id) setPromoForm(EMPTY_PROMO);
+      notify("Promoción eliminada.");
+      await load();
+    } catch (e: any) {
+      notify(friendlyErrorMessage(e), "error");
     }
   }
 
   async function savePromo() {
+    if (String(promoForm.title || "").trim().length < 2) {
+      notify("Ponle un título a la promoción.", "error");
+      return;
+    }
+    if (!Number(promoForm.discountPercent || 0) && !Number(promoForm.discountClp || 0)) {
+      notify("Indica el descuento en porcentaje o en pesos.", "error");
+      return;
+    }
+    setSaving(true);
     try {
       const payload = {
         title: promoForm.title,
@@ -308,32 +508,47 @@ export default function MotelDashboardPage() {
       };
       if (promoForm.id) await apiFetch(`/motel/dashboard/promotions/${promoForm.id}`, { method: "PUT", body: JSON.stringify(payload) });
       else await apiFetch("/motel/dashboard/promotions", { method: "POST", body: JSON.stringify(payload) });
-      setPromoForm({ title: "", description: "", discountPercent: "", discountClp: "", startsAt: "", endsAt: "", roomIds: [] });
-      setMsg(promoForm.id ? "Promoción actualizada." : "Promoción creada.");
+      setPromoForm(EMPTY_PROMO);
+      notify(promoForm.id ? "Promoción actualizada." : "Promoción creada.");
       await load();
     } catch (e: any) {
-      setMsg(friendlyErrorMessage(e));
+      notify(friendlyErrorMessage(e), "error");
+    } finally {
+      setSaving(false);
     }
   }
 
   async function applyBookingAction(bookingId: string, action: "ACCEPT" | "REJECT" | "FINISH" | "DELETE") {
+    if (action === "DELETE" && !window.confirm("¿Eliminar esta reserva del historial? El cliente también deja de verla.")) return;
+    if (action === "REJECT") {
+      if (!rejecting || rejecting.id !== bookingId) return;
+      if (rejecting.reason === "OTRO" && !rejecting.note.trim()) {
+        notify("Cuéntale al cliente el motivo del rechazo.", "error");
+        return;
+      }
+    }
     setBookingBusyId(bookingId);
     try {
       if (action === "DELETE") {
         await apiFetch(`/motel/bookings/${bookingId}`, { method: "DELETE" });
-        setMsg("Reserva eliminada.");
+        notify("Reserva eliminada.");
       } else {
         const payload: Record<string, any> = { action };
-        if (action === "REJECT") {
-          payload.rejectReason = "OTRO";
-          payload.rejectNote = "No disponible";
+        if (action === "REJECT" && rejecting) {
+          payload.rejectReason = rejecting.reason;
+          if (rejecting.reason === "OTRO") payload.rejectNote = rejecting.note.trim();
         }
         await apiFetch(`/motel/bookings/${bookingId}/action`, { method: "POST", body: JSON.stringify(payload) });
-        setMsg(action === "ACCEPT" ? "Reserva aceptada." : action === "REJECT" ? "Reserva rechazada." : "Reserva finalizada.");
+        if (action === "REJECT") setRejecting(null);
+        notify(
+          action === "ACCEPT" ? "Reserva aceptada. El cliente debe confirmarla desde el chat."
+          : action === "REJECT" ? "Reserva rechazada. Le avisamos al cliente por chat."
+          : "Reserva finalizada.",
+        );
       }
       await load();
     } catch (e: any) {
-      setMsg(friendlyErrorMessage(e));
+      notify(friendlyErrorMessage(e), "error");
     } finally {
       setBookingBusyId(null);
     }
@@ -373,23 +588,41 @@ export default function MotelDashboardPage() {
 
   const draftLat = Number(profileDraft.latitude);
   const draftLng = Number(profileDraft.longitude);
-  const hasCoords = Number.isFinite(draftLat) && Number.isFinite(draftLng);
+  const hasCoords =
+    profileDraft.latitude.trim() !== "" && profileDraft.longitude.trim() !== "" &&
+    Number.isFinite(draftLat) && Number.isFinite(draftLng);
   const pendingBookings = data.bookings.filter((b: any) => b.status === "PENDIENTE").length;
   const confirmedBookings = data.bookings.filter((b: any) => b.status === "CONFIRMADA").length;
   const totalRevenue = data.bookings
     .filter((b: any) => ["CONFIRMADA", "FINALIZADA"].includes(String(b.status).toUpperCase()))
     .reduce((acc: number, b: any) => acc + Number(b.priceClp || 0), 0);
   const agendaItems = data.bookings
-    .filter((b: any) => (b.startAt ? new Date(b.startAt).toISOString().slice(0, 10) === agendaDate : false))
+    .filter((b: any) => (b.startAt ? localDateKey(b.startAt) === agendaDate : false))
     .sort((a: any, b: any) => new Date(a.startAt || 0).getTime() - new Date(b.startAt || 0).getTime());
+
+  /* Lo mínimo para que un cliente reserve. Guía al local nuevo paso a paso. */
+  const activeRoomsWithPrice = data.rooms.filter((r: any) => r.isActive && (Number(r.price3h) > 0 || Number(r.price6h) > 0 || Number(r.priceNight) > 0));
+  const setupSteps: Array<{ done: boolean; label: string; tab: TabKey }> = [
+    { done: Boolean(data.profile?.displayName && data.profile?.phone), label: "Nombre y teléfono del local", tab: "profile" },
+    { done: Boolean(data.profile?.coverUrl), label: "Foto de portada", tab: "profile" },
+    { done: Boolean(data.profile?.address && data.profile?.latitude != null), label: "Dirección en el mapa", tab: "location" },
+    { done: activeRoomsWithPrice.length > 0, label: "Al menos una habitación con tarifa", tab: "rooms" },
+    { done: data.rooms.some((r: any) => (r.photoUrls || []).length > 0), label: "Fotos de las habitaciones", tab: "rooms" },
+  ];
+  const setupPending = setupSteps.filter((step) => !step.done);
+  const inReview = data.profile?.isVerified === false;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-20">
       {/* ── Toast notification ── */}
       {msg && (
-        <div className="fixed left-1/2 top-4 z-50 -translate-x-1/2 animate-[slideDown_0.3s_ease-out]">
+        <div role="status" className="fixed left-1/2 top-4 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 animate-[slideDown_0.3s_ease-out]">
           <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-black/90 px-5 py-3 shadow-2xl backdrop-blur-xl">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20"><Check className="h-3.5 w-3.5 text-emerald-300" /></div>
+            {msgTone === "error" ? (
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-500/20"><AlertTriangle className="h-3.5 w-3.5 text-red-300" /></div>
+            ) : (
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20"><Check className="h-3.5 w-3.5 text-emerald-300" /></div>
+            )}
             <span className="text-sm text-white/90">{msg}</span>
             <button onClick={() => setMsg(null)} className="ml-2 text-white/40 transition hover:text-white/70" aria-label="Cerrar"><X className="h-4 w-4" /></button>
           </div>
@@ -442,7 +675,7 @@ export default function MotelDashboardPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Link
-                href={`/hospedaje/${data.profile.username || data.profile.id}?preview=true`}
+                href={`/hospedaje/${data.profile.id}`}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-white/80 transition-all hover:border-white/20 hover:bg-white/[0.08]"
               >
                 <Eye className="h-4 w-4" /> Ver perfil
@@ -487,14 +720,61 @@ export default function MotelDashboardPage() {
          ═══════════════════════════════════ */}
       {tab === "overview" && (
         <div className="space-y-6">
+          {inReview && (
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+              <div className="text-sm">
+                <div className="font-semibold text-amber-100">Tu local está en revisión</div>
+                <p className="mt-0.5 text-amber-100/70">
+                  El equipo de UZEED revisa cada local antes de mostrarlo en el directorio de moteles. Mientras tanto, deja lista tu ficha: datos, fotos, ubicación y habitaciones.
+                </p>
+              </div>
+            </div>
+          )}
+          {!profileDraft.isPublished && (
+            <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm">
+              <Eye className="mt-0.5 h-5 w-5 shrink-0 text-white/50" />
+              <div className="flex-1">
+                <div className="font-semibold">Tu local está oculto</div>
+                <p className="mt-0.5 text-white/55">Nadie lo ve en el directorio ni puede reservar. Actívalo cuando quieras volver a aparecer.</p>
+              </div>
+              <button onClick={() => toggleStatus("isPublished")} className="shrink-0 rounded-xl bg-white/10 px-3 py-2 text-xs font-medium transition hover:bg-white/15">Publicar</button>
+            </div>
+          )}
+          {setupPending.length > 0 && (
+            <div className="rounded-2xl border border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-500/[0.07] to-transparent p-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold">Deja tu local listo para recibir reservas</h3>
+                  <p className="mt-0.5 text-xs text-white/50">{setupSteps.length - setupPending.length} de {setupSteps.length} pasos completos</p>
+                </div>
+                <div className="h-2 w-24 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500" style={{ width: `${((setupSteps.length - setupPending.length) / setupSteps.length) * 100}%` }} />
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {setupSteps.map((step) => (
+                  <button
+                    key={step.label}
+                    onClick={() => setTab(step.tab)}
+                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm transition ${step.done ? "border-white/[0.05] text-white/40" : "border-white/10 bg-white/[0.03] text-white/85 hover:bg-white/[0.06]"}`}
+                  >
+                    {step.done ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" /> : <span className="h-4 w-4 shrink-0 rounded-full border border-white/30" />}
+                    <span className={step.done ? "line-through" : ""}>{step.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* KPI Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 transition-all hover:border-fuchsia-500/20">
               <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
               <div className="relative">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-fuchsia-500/10"><BedDouble className="h-5 w-5 text-fuchsia-300" /></div>
                 <div className="text-xs font-medium text-white/40">Habitaciones</div>
-                <div className="mt-1 text-3xl font-bold">{data.rooms.length}</div>
+                <div className="mt-1 text-2xl font-bold sm:text-3xl">{data.rooms.length}</div>
                 <div className="mt-1 text-xs text-white/40">{data.rooms.filter((r: any) => r.isActive).length} activas</div>
               </div>
             </div>
@@ -503,7 +783,7 @@ export default function MotelDashboardPage() {
               <div className="relative">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10"><ClipboardList className="h-5 w-5 text-amber-300" /></div>
                 <div className="text-xs font-medium text-white/40">Reservas pendientes</div>
-                <div className="mt-1 text-3xl font-bold text-amber-300">{pendingBookings}</div>
+                <div className="mt-1 text-2xl font-bold sm:text-3xl text-amber-300">{pendingBookings}</div>
                 <div className="mt-1 text-xs text-white/40">{data.bookings.length} total</div>
               </div>
             </div>
@@ -512,7 +792,7 @@ export default function MotelDashboardPage() {
               <div className="relative">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10"><CheckCircle2 className="h-5 w-5 text-emerald-300" /></div>
                 <div className="text-xs font-medium text-white/40">Confirmadas</div>
-                <div className="mt-1 text-3xl font-bold text-emerald-300">{confirmedBookings}</div>
+                <div className="mt-1 text-2xl font-bold sm:text-3xl text-emerald-300">{confirmedBookings}</div>
                 <div className="mt-1 text-xs text-white/40">activas ahora</div>
               </div>
             </div>
@@ -521,7 +801,7 @@ export default function MotelDashboardPage() {
               <div className="relative">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10"><Wallet className="h-5 w-5 text-violet-300" /></div>
                 <div className="text-xs font-medium text-white/40">Ingresos estimados</div>
-                <div className="mt-1 text-3xl font-bold text-violet-300">{formatMoney(totalRevenue)}</div>
+                <div className="mt-1 text-2xl font-bold sm:text-3xl text-violet-300">{formatMoney(totalRevenue)}</div>
                 <div className="mt-1 text-xs text-white/40">confirmadas + finalizadas</div>
               </div>
             </div>
@@ -533,14 +813,14 @@ export default function MotelDashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm font-semibold">Estado operativo</div>
-                  <div className="mt-0.5 text-xs text-white/40">Controla si tu motel aparece como disponible</div>
+                  <div className="mt-0.5 text-xs text-white/40">{profileDraft.isOpen ? "Abierto: recibes reservas" : "Cerrado: no recibes reservas nuevas"}</div>
                 </div>
                 <button
-                  onClick={() => {
-                    setProfileDraft((p) => ({ ...p, isOpen: !p.isOpen }));
-                    apiFetch("/motel/dashboard/profile", { method: "PUT", body: JSON.stringify({ isOpen: !profileDraft.isOpen }) }).then(load);
-                  }}
-                  className={`relative h-8 w-14 rounded-full transition-all ${profileDraft.isOpen ? "bg-emerald-500" : "bg-white/10"}`}
+                  role="switch"
+                  aria-checked={profileDraft.isOpen}
+                  aria-label="Local abierto"
+                  onClick={() => toggleStatus("isOpen")}
+                  className={`relative h-8 w-14 shrink-0 rounded-full transition-all ${profileDraft.isOpen ? "bg-emerald-500" : "bg-white/10"}`}
                 >
                   <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-md transition-all ${profileDraft.isOpen ? "left-7" : "left-1"}`} />
                 </button>
@@ -550,14 +830,14 @@ export default function MotelDashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm font-semibold">Publicación</div>
-                  <div className="mt-0.5 text-xs text-white/40">Mostrar en el directorio de hospedajes</div>
+                  <div className="mt-0.5 text-xs text-white/40">{profileDraft.isPublished ? "Visible en el directorio de moteles" : "Oculto del directorio"}</div>
                 </div>
                 <button
-                  onClick={() => {
-                    setProfileDraft((p) => ({ ...p, isPublished: !p.isPublished }));
-                    apiFetch("/motel/dashboard/profile", { method: "PUT", body: JSON.stringify({ isPublished: !profileDraft.isPublished }) }).then(load);
-                  }}
-                  className={`relative h-8 w-14 rounded-full transition-all ${profileDraft.isPublished ? "bg-violet-500" : "bg-white/10"}`}
+                  role="switch"
+                  aria-checked={profileDraft.isPublished}
+                  aria-label="Local publicado"
+                  onClick={() => toggleStatus("isPublished")}
+                  className={`relative h-8 w-14 shrink-0 rounded-full transition-all ${profileDraft.isPublished ? "bg-violet-500" : "bg-white/10"}`}
                 >
                   <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-md transition-all ${profileDraft.isPublished ? "left-7" : "left-1"}`} />
                 </button>
@@ -667,40 +947,25 @@ export default function MotelDashboardPage() {
             </div>
           </div>
 
-          {/* Settings form */}
+          {/* Datos del local */}
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 sm:p-6">
-            <h3 className="mb-5 text-lg font-semibold">Configuración de contacto</h3>
+            <h3 className="mb-1 text-lg font-semibold">Datos del local</h3>
+            <p className="mb-5 text-xs text-white/40">Es lo que ven los clientes en tu ficha y en el directorio.</p>
             <div className="space-y-4">
-              <GlassInput label="Teléfono de contacto" placeholder="+56 9 1234 5678" value={profileDraft.phone} onChange={(e) => setProfileDraft((p) => ({ ...p, phone: e.target.value }))} />
-
+              <GlassInput label="Nombre del local" placeholder="Motel Las Palmas" maxLength={60} value={profileDraft.displayName} onChange={(e) => setProfileDraft((p) => ({ ...p, displayName: e.target.value }))} />
               <div className="grid gap-4 sm:grid-cols-2">
-                <button
-                  onClick={() => setProfileDraft((p) => ({ ...p, isPublished: !p.isPublished }))}
-                  className={`flex items-center justify-between rounded-xl border p-4 transition-all ${profileDraft.isPublished ? "border-violet-400/30 bg-violet-500/10" : "border-white/10 bg-white/[0.03]"}`}
-                >
-                  <div className="text-left">
-                    <div className="text-sm font-medium">Publicación</div>
-                    <div className="text-xs text-white/40">Visible en directorio</div>
-                  </div>
-                  <div className={`h-3 w-3 rounded-full ${profileDraft.isPublished ? "bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.6)]" : "bg-white/20"}`} />
-                </button>
-                <button
-                  onClick={() => setProfileDraft((p) => ({ ...p, isOpen: !p.isOpen }))}
-                  className={`flex items-center justify-between rounded-xl border p-4 transition-all ${profileDraft.isOpen ? "border-emerald-400/30 bg-emerald-500/10" : "border-white/10 bg-white/[0.03]"}`}
-                >
-                  <div className="text-left">
-                    <div className="text-sm font-medium">Estado</div>
-                    <div className="text-xs text-white/40">{profileDraft.isOpen ? "Abierto ahora" : "Cerrado"}</div>
-                  </div>
-                  <div className={`h-3 w-3 rounded-full ${profileDraft.isOpen ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" : "bg-white/20"}`} />
-                </button>
+                <GlassInput label="Teléfono de contacto" type="tel" inputMode="tel" placeholder="+56 9 1234 5678" value={profileDraft.phone} onChange={(e) => setProfileDraft((p) => ({ ...p, phone: e.target.value }))} />
+                <GlassInput label="Comuna / ciudad" placeholder="Santiago Centro" value={profileDraft.city} onChange={(e) => setProfileDraft((p) => ({ ...p, city: e.target.value }))} />
               </div>
+              <GlassInput label="Horario de atención" placeholder="Abierto 24 horas · Recepción 24/7" maxLength={200} value={profileDraft.schedule} onChange={(e) => setProfileDraft((p) => ({ ...p, schedule: e.target.value }))} />
+              <GlassTextarea label="Descripción y reglas del local" placeholder="Estacionamiento privado, ingreso discreto, check-in con carnet, no se permiten mascotas..." maxLength={2000} value={profileDraft.rules} onChange={(e) => setProfileDraft((p) => ({ ...p, rules: e.target.value }))} className="min-h-[110px]" />
 
               <button
                 onClick={saveProfile}
-                className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3.5 text-sm font-semibold shadow-[0_8px_30px_rgba(168,85,247,0.2)] transition-all hover:shadow-[0_12px_40px_rgba(168,85,247,0.3)] active:scale-[0.98] sm:w-auto"
+                disabled={saving}
+                className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3.5 text-sm font-semibold shadow-[0_8px_30px_rgba(168,85,247,0.2)] transition-all hover:shadow-[0_12px_40px_rgba(168,85,247,0.3)] active:scale-[0.98] disabled:opacity-50 sm:w-auto"
               >
-                Guardar cambios
+                {saving ? "Guardando..." : "Guardar datos"}
               </button>
             </div>
           </div>
@@ -715,11 +980,17 @@ export default function MotelDashboardPage() {
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 sm:p-6">
             <h3 className="mb-5 text-lg font-semibold">Dirección del establecimiento</h3>
             <div className="space-y-4">
-              <GlassInput label="Dirección completa" value={profileDraft.address} onChange={(e) => setProfileDraft((p) => ({ ...p, address: e.target.value }))} placeholder="Av. Libertador Bernardo O'Higgins 1234" />
-              <div className="grid grid-cols-2 gap-3">
-                <GlassInput label="Latitud" value={profileDraft.latitude} onChange={(e) => setProfileDraft((p) => ({ ...p, latitude: e.target.value }))} placeholder="-33.45" />
-                <GlassInput label="Longitud" value={profileDraft.longitude} onChange={(e) => setProfileDraft((p) => ({ ...p, longitude: e.target.value }))} placeholder="-70.66" />
-              </div>
+              <GlassInput
+                label="Dirección completa"
+                value={profileDraft.address}
+                onChange={(e) => setProfileDraft((p) => ({ ...p, address: e.target.value, latitude: "", longitude: "" }))}
+                onKeyDown={(e) => { if (e.key === "Enter") geocodeProfileAddress(); }}
+                placeholder="Av. Libertador Bernardo O'Higgins 1234, Santiago"
+              />
+              <GlassInput label="Comuna / ciudad" value={profileDraft.city} onChange={(e) => setProfileDraft((p) => ({ ...p, city: e.target.value }))} placeholder="Santiago Centro" />
+              <p className="text-xs text-white/40">
+                {hasCoords ? "Ubicación encontrada. Revisa el mapa y guarda." : "Escribe la dirección y toca \"Buscar en mapa\" para fijar el punto."}
+              </p>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={geocodeProfileAddress}
@@ -734,9 +1005,10 @@ export default function MotelDashboardPage() {
                 </button>
                 <button
                   onClick={saveLocation}
-                  className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-semibold shadow-lg transition-all hover:shadow-xl active:scale-[0.98]"
+                  disabled={saving || !hasCoords}
+                  className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-2.5 text-sm font-semibold shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50"
                 >
-                  Guardar ubicación
+                  {saving ? "Guardando..." : "Guardar ubicación"}
                 </button>
               </div>
             </div>
@@ -784,19 +1056,19 @@ export default function MotelDashboardPage() {
               <GlassInput label="Amenidades (separadas por coma)" placeholder="WiFi, Jacuzzi, TV, Minibar..." value={roomForm.amenities} onChange={(e) => setRoomForm((f: any) => ({ ...f, amenities: e.target.value }))} />
 
               <div>
-                <span className="mb-1.5 block text-xs font-medium text-white/50">Tarifas (CLP)</span>
+                <span className="mb-1.5 block text-xs font-medium text-white/50">Tarifas (CLP) · deja en blanco la que no ofreces</span>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-center">
                     <div className="mb-1 text-[10px] font-medium text-white/40">3 HORAS</div>
-                    <input className="w-full bg-transparent text-center text-lg font-bold text-white outline-none" placeholder="0" value={roomForm.price3h} onChange={(e) => setRoomForm((f: any) => ({ ...f, price3h: e.target.value }))} />
+                    <input className="w-full bg-transparent text-center text-lg font-bold text-white outline-none" inputMode="numeric" placeholder="0" value={roomForm.price3h} onChange={(e) => setRoomForm((f: any) => ({ ...f, price3h: digitsOnly(e.target.value) }))} />
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-center">
                     <div className="mb-1 text-[10px] font-medium text-white/40">6 HORAS</div>
-                    <input className="w-full bg-transparent text-center text-lg font-bold text-white outline-none" placeholder="0" value={roomForm.price6h} onChange={(e) => setRoomForm((f: any) => ({ ...f, price6h: e.target.value }))} />
+                    <input className="w-full bg-transparent text-center text-lg font-bold text-white outline-none" inputMode="numeric" placeholder="0" value={roomForm.price6h} onChange={(e) => setRoomForm((f: any) => ({ ...f, price6h: digitsOnly(e.target.value) }))} />
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-center">
                     <div className="mb-1 text-[10px] font-medium text-white/40">NOCHE</div>
-                    <input className="w-full bg-transparent text-center text-lg font-bold text-white outline-none" placeholder="0" value={roomForm.priceNight} onChange={(e) => setRoomForm((f: any) => ({ ...f, priceNight: e.target.value }))} />
+                    <input className="w-full bg-transparent text-center text-lg font-bold text-white outline-none" inputMode="numeric" placeholder="0" value={roomForm.priceNight} onChange={(e) => setRoomForm((f: any) => ({ ...f, priceNight: digitsOnly(e.target.value) }))} />
                   </div>
                 </div>
               </div>
@@ -844,13 +1116,14 @@ export default function MotelDashboardPage() {
               <div className="flex gap-2">
                 <button
                   onClick={saveRoom}
-                  className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-3 text-sm font-semibold shadow-lg transition-all hover:shadow-xl active:scale-[0.98]"
+                  disabled={saving || uploadingAsset === "room"}
+                  className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-3 text-sm font-semibold shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50"
                 >
-                  {roomForm.id ? "Guardar cambios" : "Crear habitación"}
+                  {saving ? "Guardando..." : roomForm.id ? "Guardar cambios" : "Crear habitación"}
                 </button>
                 {roomForm.id && (
                   <button
-                    onClick={() => setRoomForm({ name: "", roomType: "Normal", location: "", description: "", amenities: "", photoUrls: [], price3h: "", price6h: "", priceNight: "" })}
+                    onClick={() => setRoomForm(EMPTY_ROOM)}
                     className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm transition hover:bg-white/[0.08]"
                   >
                     Cancelar
@@ -890,31 +1163,34 @@ export default function MotelDashboardPage() {
                       {/* Pricing pills */}
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs">
-                          3h: <strong>{formatMoney(r.price3h)}</strong>
+                          3h: <strong>{priceOrDash(r.price3h)}</strong>
                         </span>
                         <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs">
-                          6h: <strong>{formatMoney(r.price6h)}</strong>
+                          6h: <strong>{priceOrDash(r.price6h)}</strong>
                         </span>
                         <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs">
-                          Noche: <strong>{formatMoney(r.priceNight)}</strong>
+                          Noche: <strong>{priceOrDash(r.priceNight)}</strong>
                         </span>
                       </div>
                       {/* Actions */}
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         <button
-                          onClick={() => setRoomForm({ id: r.id, name: r.name || "", roomType: r.roomType || "Normal", location: r.location || "", description: r.description || "", amenities: (r.amenities || []).join(","), photoUrls: r.photoUrls || [], price3h: String(r.price3h || ""), price6h: String(r.price6h || ""), priceNight: String(r.priceNight || "") })}
+                          onClick={() => {
+                            setRoomForm({ id: r.id, isActive: r.isActive, name: r.name || "", roomType: r.roomType || "Normal", location: r.location || "", description: r.description || "", amenities: (r.amenities || []).join(", "), photoUrls: r.photoUrls || [], price3h: String(r.price3h || ""), price6h: String(r.price6h || ""), priceNight: String(r.priceNight || "") });
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
                           className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium transition hover:bg-white/[0.08]"
                         >
                           Editar
                         </button>
                         <button
-                          onClick={() => apiFetch(`/motel/dashboard/rooms/${r.id}`, { method: "PUT", body: JSON.stringify({ isActive: !r.isActive }) }).then(load)}
+                          onClick={() => updateRoom(r.id, { isActive: !r.isActive }, r.isActive ? "Habitación desactivada: ya no se puede reservar." : "Habitación activada.")}
                           className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium transition hover:bg-white/[0.08]"
                         >
                           {r.isActive ? "Desactivar" : "Activar"}
                         </button>
                         <button
-                          onClick={() => apiFetch(`/motel/dashboard/rooms/${r.id}`, { method: "DELETE" }).then(load)}
+                          onClick={() => deleteRoom(r)}
                           className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/10"
                         >
                           Eliminar
@@ -942,15 +1218,15 @@ export default function MotelDashboardPage() {
               <GlassTextarea label="Descripción" placeholder="Describe la promoción..." value={promoForm.description} onChange={(e) => setPromoForm((f: any) => ({ ...f, description: e.target.value }))} className="min-h-[80px]" />
 
               <div>
-                <span className="mb-1.5 block text-xs font-medium text-white/50">Descuento</span>
+                <span className="mb-1.5 block text-xs font-medium text-white/50">Descuento (uno de los dos)</span>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                     <div className="mb-1 text-[10px] font-medium text-white/40">PORCENTAJE (%)</div>
-                    <input className="w-full bg-transparent text-lg font-bold text-white outline-none" placeholder="0" value={promoForm.discountPercent} onChange={(e) => setPromoForm((f: any) => ({ ...f, discountPercent: e.target.value }))} />
+                    <input className="w-full bg-transparent text-lg font-bold text-white outline-none" inputMode="numeric" placeholder="0" value={promoForm.discountPercent} onChange={(e) => setPromoForm((f: any) => ({ ...f, discountPercent: digitsOnly(e.target.value).slice(0, 2), discountClp: "" }))} />
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                     <div className="mb-1 text-[10px] font-medium text-white/40">MONTO FIJO (CLP)</div>
-                    <input className="w-full bg-transparent text-lg font-bold text-white outline-none" placeholder="0" value={promoForm.discountClp} onChange={(e) => setPromoForm((f: any) => ({ ...f, discountClp: e.target.value }))} />
+                    <input className="w-full bg-transparent text-lg font-bold text-white outline-none" inputMode="numeric" placeholder="0" value={promoForm.discountClp} onChange={(e) => setPromoForm((f: any) => ({ ...f, discountClp: digitsOnly(e.target.value), discountPercent: "" }))} />
                   </div>
                 </div>
               </div>
@@ -963,7 +1239,7 @@ export default function MotelDashboardPage() {
               {/* Room selector */}
               {data.rooms.length > 0 && (
                 <div>
-                  <span className="mb-2 block text-xs font-medium text-white/50">Habitaciones aplicables</span>
+                  <span className="mb-2 block text-xs font-medium text-white/50">Habitaciones con la promo · el descuento se aplica al reservar</span>
                   <div className="space-y-1.5">
                     {data.rooms.map((r: any) => (
                       <label key={r.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${promoForm.roomIds.includes(r.id) ? "border-fuchsia-500/30 bg-fuchsia-500/5" : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"}`}>
@@ -984,11 +1260,11 @@ export default function MotelDashboardPage() {
               )}
 
               <div className="flex gap-2">
-                <button onClick={savePromo} className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-3 text-sm font-semibold shadow-lg transition-all hover:shadow-xl active:scale-[0.98]">
-                  {promoForm.id ? "Guardar cambios" : "Crear promoción"}
+                <button onClick={savePromo} disabled={saving} className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-3 text-sm font-semibold shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50">
+                  {saving ? "Guardando..." : promoForm.id ? "Guardar cambios" : "Crear promoción"}
                 </button>
                 {promoForm.id && (
-                  <button onClick={() => setPromoForm({ title: "", description: "", discountPercent: "", discountClp: "", startsAt: "", endsAt: "", roomIds: [] })} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm transition hover:bg-white/[0.08]">
+                  <button onClick={() => setPromoForm(EMPTY_PROMO)} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm transition hover:bg-white/[0.08]">
                     Cancelar
                   </button>
                 )}
@@ -1017,8 +1293,8 @@ export default function MotelDashboardPage() {
                       </div>
                       {p.description && <div className="mt-1 text-xs text-white/50">{p.description}</div>}
                       <div className="mt-2 flex flex-wrap gap-2 text-xs text-white/60">
-                        {p.discountPercent && <span className="rounded-lg bg-fuchsia-500/10 px-2 py-1 text-fuchsia-300">-{p.discountPercent}%</span>}
-                        {p.discountClp && <span className="rounded-lg bg-fuchsia-500/10 px-2 py-1 text-fuchsia-300">-{formatMoney(p.discountClp)}</span>}
+                        {Number(p.discountPercent) > 0 && <span className="rounded-lg bg-fuchsia-500/10 px-2 py-1 text-fuchsia-300">-{p.discountPercent}%</span>}
+                        {Number(p.discountClp) > 0 && <span className="rounded-lg bg-fuchsia-500/10 px-2 py-1 text-fuchsia-300">-{formatMoney(p.discountClp)}</span>}
                         {p.startsAt && <span>Desde: {formatDate(p.startsAt)}</span>}
                         {p.endsAt && <span>Hasta: {formatDate(p.endsAt)}</span>}
                       </div>
@@ -1026,19 +1302,19 @@ export default function MotelDashboardPage() {
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     <button
-                      onClick={() => setPromoForm({ id: p.id, title: p.title || "", description: p.description || "", discountPercent: p.discountPercent ? String(p.discountPercent) : "", discountClp: p.discountClp ? String(p.discountClp) : "", startsAt: p.startsAt ? new Date(p.startsAt).toISOString().slice(0, 16) : "", endsAt: p.endsAt ? new Date(p.endsAt).toISOString().slice(0, 16) : "", roomIds: p.roomIds?.length ? p.roomIds : p.roomId ? [p.roomId] : [] })}
+                      onClick={() => setPromoForm({ id: p.id, title: p.title || "", description: p.description || "", discountPercent: p.discountPercent ? String(p.discountPercent) : "", discountClp: p.discountClp ? String(p.discountClp) : "", startsAt: toLocalInput(p.startsAt), endsAt: toLocalInput(p.endsAt), roomIds: p.roomIds?.length ? p.roomIds : p.roomId ? [p.roomId] : [] })}
                       className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium transition hover:bg-white/[0.08]"
                     >
                       Editar
                     </button>
                     <button
-                      onClick={() => apiFetch(`/motel/dashboard/promotions/${p.id}`, { method: "PUT", body: JSON.stringify({ isActive: !p.isActive }) }).then(load)}
+                      onClick={() => updatePromo(p.id, { isActive: !p.isActive }, p.isActive ? "Promoción pausada." : "Promoción activada.")}
                       className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium transition hover:bg-white/[0.08]"
                     >
                       {p.isActive ? "Pausar" : "Activar"}
                     </button>
                     <button
-                      onClick={() => apiFetch(`/motel/dashboard/promotions/${p.id}`, { method: "DELETE" }).then(load)}
+                      onClick={() => deletePromo(p)}
                       className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/10"
                     >
                       Eliminar
@@ -1132,12 +1408,15 @@ export default function MotelDashboardPage() {
                             </button>
                             <button
                               disabled={isBusy}
-                              onClick={() => applyBookingAction(b.id, "REJECT")}
+                              onClick={() => setRejecting(rejecting?.id === b.id ? null : { id: b.id, reason: "SIN_HABITACIONES", note: "" })}
                               className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
                             >
-                              {isBusy ? "..." : "Rechazar"}
+                              Rechazar
                             </button>
                           </>
+                        )}
+                        {b.status === "ACEPTADA" && (
+                          <span className="self-center text-xs text-white/45">Esperando que el cliente confirme en el chat</span>
                         )}
                         {b.status === "CONFIRMADA" && (
                           <button
@@ -1149,8 +1428,8 @@ export default function MotelDashboardPage() {
                           </button>
                         )}
                         <Link
-                          href={`/chat/${b.clientId || b.clientUsername}`}
-                          className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium transition hover:bg-white/[0.08]"
+                          href={`/chat/${b.clientId}`}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium transition hover:bg-white/[0.08]"
                         >
                           <MessageCircle className="h-3.5 w-3.5" /> Chat
                         </Link>
@@ -1162,6 +1441,45 @@ export default function MotelDashboardPage() {
                           Eliminar
                         </button>
                       </div>
+
+                      {rejecting && rejecting.id === b.id && (
+                        <div className="mt-3 space-y-3 rounded-xl border border-red-500/20 bg-red-500/[0.04] p-3">
+                          <div className="text-xs font-medium text-white/70">¿Por qué rechazas la reserva? Se lo contamos al cliente.</div>
+                          <div className="flex flex-wrap gap-2">
+                            {REJECT_REASONS.map((r) => (
+                              <button
+                                key={r.key}
+                                onClick={() => setRejecting((prev) => (prev ? { ...prev, reason: r.key } : prev))}
+                                className={`rounded-lg border px-3 py-1.5 text-xs transition ${rejecting.reason === r.key ? "border-red-400/40 bg-red-500/15 text-red-200" : "border-white/10 text-white/60 hover:bg-white/[0.05]"}`}
+                              >
+                                {r.label}
+                              </button>
+                            ))}
+                          </div>
+                          {rejecting.reason === "OTRO" && (
+                            <input
+                              autoFocus
+                              maxLength={300}
+                              value={rejecting.note}
+                              onChange={(e) => setRejecting((prev) => (prev ? { ...prev, note: e.target.value } : prev))}
+                              placeholder="Ej: la habitación está en mantención"
+                              className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-red-400/40"
+                            />
+                          )}
+                          <div className="flex gap-2">
+                            <button
+                              disabled={isBusy}
+                              onClick={() => applyBookingAction(b.id, "REJECT")}
+                              className="rounded-xl bg-red-500/80 px-4 py-2 text-xs font-semibold transition hover:bg-red-500 disabled:opacity-50"
+                            >
+                              {isBusy ? "..." : "Confirmar rechazo"}
+                            </button>
+                            <button onClick={() => setRejecting(null)} className="rounded-xl border border-white/10 px-4 py-2 text-xs text-white/60 transition hover:bg-white/[0.05]">
+                              Volver
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

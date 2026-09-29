@@ -46,7 +46,7 @@ const clientItems: NavItem[] = [
 ];
 
 const motelItems: NavItem[] = [
-  { href: "/dashboard/motel", label: "Dashboard", icon: Hotel, protected: true },
+  { href: "/dashboard/motel", label: "Mi local", icon: Hotel, protected: true },
   { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
   { href: "/cuenta", label: "Cuenta", icon: User, protected: true },
 ];
@@ -58,6 +58,14 @@ const mobileClientItems: NavItem[] = [
   { href: "/cerca", label: "Cerca", icon: MapPin, protected: false },
   { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
   { href: "/cuenta", label: "Cuenta", icon: User, protected: false },
+];
+
+/* Tiendas: el panel (productos y pedidos) tiene que estar a un toque. */
+const mobileShopItems: NavItem[] = [
+  { href: "/", label: "Inicio", icon: Home, protected: false },
+  { href: "/dashboard/shop", label: "Mi tienda", icon: LayoutDashboard, protected: true },
+  { href: "/chats", label: "Chat", icon: MessageCircle, protected: true },
+  { href: "/cuenta", label: "Cuenta", icon: User, protected: true },
 ];
 
 export default function Nav() {
@@ -91,7 +99,12 @@ export default function Nav() {
   const adminPanelLabel = isTeamStaff(me?.user) ? "Panel de equipo" : "Administración";
 
   /* Professional extra items for sidebar */
-  const profileItems: NavItem[] = hasProfile
+  const profileItems: NavItem[] = isShop
+    ? [
+        { href: "/dashboard/shop", label: "Mi tienda", icon: LayoutDashboard, protected: true },
+        { href: "/wallet", label: "Billetera", icon: Wallet, protected: true },
+      ]
+    : hasProfile
     ? [
         { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, protected: true },
         { href: "/dashboard/services", label: "Editar perfil", icon: Edit3, protected: true },
@@ -105,7 +118,7 @@ export default function Nav() {
       : [];
 
   /* Mobile bottom items */
-  const mobileItems: NavItem[] = isMotelProfile ? motelItems : mobileClientItems;
+  const mobileItems: NavItem[] = isMotelProfile ? motelItems : isShop ? mobileShopItems : mobileClientItems;
 
   return (
     <>

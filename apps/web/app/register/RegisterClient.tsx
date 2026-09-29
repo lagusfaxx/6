@@ -181,7 +181,12 @@ export default function RegisterClient() {
      sin nada que se lo recordara. El estudio recibe con la bienvenida y la
      lista de lo que falta, que es donde se resuelve. */
   const goToStudio = () => {
-    window.location.replace("/dashboard/services?bienvenida=1");
+    /* Locales y tiendas arrancan en su propio panel. */
+    const target =
+      profileType === "ESTABLISHMENT" ? "/dashboard/motel?bienvenida=1"
+      : profileType === "SHOP" ? "/dashboard/shop?bienvenida=1"
+      : "/dashboard/services?bienvenida=1";
+    window.location.replace(target);
   };
   const isProfessional = profileType === "PROFESSIONAL";
 

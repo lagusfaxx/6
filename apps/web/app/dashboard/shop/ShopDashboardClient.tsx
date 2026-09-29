@@ -2,12 +2,18 @@
 
 import Link from "next/link";
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import useMe from "../../../hooks/useMe";
 import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import { extractMapboxLocation } from "../../../lib/mapboxFeature";
+import { connectRealtime } from "../../../lib/realtime";
 import {
+  AlertTriangle,
+  ClipboardList,
+  Eye,
+  EyeOff,
+  MessageCircle,
   BarChart3,
   Palette,
   FolderTree,
@@ -34,12 +40,29 @@ type Product = {
   shopCategory?: ShopCategory | null;
 };
 
-type TabKey = "overview" | "branding" | "categories" | "products" | "location";
+type ShopOrderItem = { id: string; productId: string; productName: string; unitPrice: number; quantity: number };
+type ShopOrder = {
+  id: string;
+  status: "PENDING" | "ACCEPTED" | "SHIPPED" | "DELIVERED" | "REJECTED" | "CANCELLED";
+  totalClp: number;
+  clientId: string;
+  clientName?: string | null;
+  clientUsername?: string | null;
+  deliveryAddress?: string | null;
+  deliveryPhone?: string | null;
+  deliveryNote?: string | null;
+  paymentMethod?: string | null;
+  createdAt: string;
+  items: ShopOrderItem[];
+};
+
+type TabKey = "overview" | "orders" | "branding" | "categories" | "products" | "location";
 
 /* Iconos y no emojis: el emoji se dibuja distinto en cada sistema y no toma el
    color del texto. */
 const tabsMeta: Array<{ key: TabKey; label: string; Icon: typeof BarChart3 }> = [
   { key: "overview", label: "Resumen", Icon: BarChart3 },
+  { key: "orders", label: "Pedidos", Icon: ClipboardList },
   { key: "branding", label: "Branding", Icon: Palette },
   { key: "categories", label: "Categorías", Icon: FolderTree },
   { key: "products", label: "Productos", Icon: Package },
@@ -50,6 +73,25 @@ const tabsMeta: Array<{ key: TabKey; label: string; Icon: typeof BarChart3 }> = 
 function formatMoney(value?: number | null) {
   return `$${Number(value || 0).toLocaleString("es-CL")}`;
 }
+
+function digitsOnly(value: string) {
+  return value.replace(/[^0-9]/g, "");
+}
+
+const ORDER_STATUS: Record<ShopOrder["status"], { label: string; className: string }> = {
+  PENDING: { label: "Pendiente", className: "border-amber-400/30 bg-amber-500/15 text-amber-200" },
+  ACCEPTED: { label: "Aceptado", className: "border-sky-400/30 bg-sky-500/15 text-sky-200" },
+  SHIPPED: { label: "En camino", className: "border-violet-400/30 bg-violet-500/15 text-violet-200" },
+  DELIVERED: { label: "Entregado", className: "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" },
+  REJECTED: { label: "Rechazado", className: "border-red-400/30 bg-red-500/15 text-red-200" },
+  CANCELLED: { label: "Cancelado", className: "border-white/10 bg-white/5 text-white/45" },
+};
+
+const ORDER_FILTERS: Array<{ key: "active" | "done" | "all"; label: string }> = [
+  { key: "active", label: "Por atender" },
+  { key: "done", label: "Cerrados" },
+  { key: "all", label: "Todos" },
+];
 
 /* ── Glass input ── */
 function GlassInput({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
@@ -77,6 +119,7 @@ function GlassTextarea({ label, ...props }: { label: string } & React.TextareaHT
 
 export default function ShopDashboardClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { me, loading: meLoading } = useMe();
   const user = me?.user ?? null;
 
@@ -85,9 +128,23 @@ export default function ShopDashboardClient() {
   const productFilesRef = useRef<HTMLInputElement>(null);
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<ShopOrder[]>([]);
+  const [orderFilter, setOrderFilter] = useState<"active" | "done" | "all">("active");
+  const [orderBusyId, setOrderBusyId] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<{ id: string; reason: string } | null>(null);
+  /* Datos frescos de /auth/me: `useMe` queda en caché y no refleja el logo o
+     la portada recién subidos. */
+  const [profileUser, setProfileUser] = useState<any>(null);
+  const [isOpen, setIsOpen] = useState(true);
+  const [isPublished, setIsPublished] = useState(true);
   const [shopCategories, setShopCategories] = useState<ShopCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("overview");
+
+  useEffect(() => {
+    const requested = String(searchParams.get("tab") || "").toLowerCase();
+    if (tabsMeta.some((t) => t.key === requested)) setTab(requested as TabKey);
+  }, [searchParams]);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -111,7 +168,7 @@ export default function ShopDashboardClient() {
   const [productName, setProductName] = useState("");
   const [productDescription, setProductDescription] = useState("");
   const [productPrice, setProductPrice] = useState("");
-  const [productStock, setProductStock] = useState("");
+  const [productStock, setProductStock] = useState("1");
   const [productCategoryId, setProductCategoryId] = useState("");
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [uploadingProductId, setUploadingProductId] = useState<string | null>(null);
@@ -120,13 +177,17 @@ export default function ShopDashboardClient() {
   async function loadData() {
     setError(null);
     try {
-      const [meRes, prodsRes, catsRes] = await Promise.all([
+      const [meRes, prodsRes, catsRes, ordersRes] = await Promise.all([
         apiFetch<{ user: any }>("/auth/me"),
         apiFetch<{ products: Product[] }>("/shop/products"),
         apiFetch<{ categories: ShopCategory[] }>("/shop/categories"),
+        apiFetch<{ orders: ShopOrder[] }>("/shop/orders/shop").catch(() => ({ orders: [] as ShopOrder[] })),
       ]);
       const u = meRes?.user;
       if (u) {
+        setProfileUser(u);
+        setIsOpen(u.businessOpen !== false);
+        setIsPublished(u.businessPublished !== false);
         setDisplayName(u.displayName || "");
         setBio(u.bio || "");
         setServiceDescription(u.serviceDescription || "");
@@ -138,6 +199,7 @@ export default function ShopDashboardClient() {
       }
       setProducts(prodsRes?.products ?? []);
       setShopCategories(catsRes?.categories ?? []);
+      setOrders(ordersRes?.orders ?? []);
     } catch {
       setError("No se pudieron cargar los datos.");
     } finally {
@@ -148,6 +210,26 @@ export default function ShopDashboardClient() {
   useEffect(() => {
     if (!meLoading && user?.id) loadData();
   }, [meLoading, user?.id]);
+
+  async function loadOrders() {
+    try {
+      const res = await apiFetch<{ orders: ShopOrder[] }>("/shop/orders/shop");
+      setOrders(res?.orders ?? []);
+    } catch {
+      /* Sin pedidos visibles no se bloquea el resto del panel. */
+    }
+  }
+
+  /* Pedidos en vivo: llegan sin recargar. */
+  useEffect(() => {
+    if (!user?.id) return;
+    return connectRealtime((event) => {
+      if (event.type === "shop:order") {
+        loadOrders();
+        loadData();
+      }
+    });
+  }, [user?.id]);
 
   /* Toast auto-dismiss */
   useEffect(() => {
@@ -164,6 +246,14 @@ export default function ShopDashboardClient() {
   const inventoryValue = useMemo(() => products.reduce((sum, p) => sum + p.price * p.stock, 0), [products]);
   const totalStock = useMemo(() => products.reduce((sum, p) => sum + p.stock, 0), [products]);
   const productsWithMedia = products.filter((p) => p.media && p.media.length > 0).length;
+  const pendingOrders = orders.filter((o) => o.status === "PENDING").length;
+  const activeOrders = orders.filter((o) => ["PENDING", "ACCEPTED", "SHIPPED"].includes(o.status)).length;
+  const soldClp = orders.filter((o) => o.status === "DELIVERED").reduce((sum, o) => sum + Number(o.totalClp || 0), 0);
+  const visibleOrders = orders.filter((o) =>
+    orderFilter === "all" ? true
+    : orderFilter === "active" ? ["PENDING", "ACCEPTED", "SHIPPED"].includes(o.status)
+    : ["DELIVERED", "REJECTED", "CANCELLED"].includes(o.status),
+  );
 
   /* Products grouped by category */
   const grouped = useMemo(() => {
@@ -200,6 +290,47 @@ export default function ShopDashboardClient() {
     }
   }
 
+  /* Abierto / publicado: se guardan al tocar el interruptor. */
+  async function toggleStatus(key: "businessOpen" | "businessPublished") {
+    const current = key === "businessOpen" ? isOpen : isPublished;
+    const setter = key === "businessOpen" ? setIsOpen : setIsPublished;
+    setter(!current);
+    try {
+      await apiFetch("/profile", { method: "PATCH", body: JSON.stringify({ [key]: !current }) });
+      setMsg(
+        key === "businessOpen"
+          ? (!current ? "Tienda abierta: ya recibes pedidos." : "Tienda cerrada: no recibirás pedidos nuevos.")
+          : (!current ? "Tu tienda vuelve a aparecer en el directorio." : "Tu tienda quedó oculta del directorio."),
+      );
+    } catch (err: any) {
+      setter(current);
+      setError(friendlyErrorMessage(err));
+    }
+  }
+
+  async function orderAction(order: ShopOrder, action: "ACCEPT" | "REJECT" | "SHIP" | "DELIVER") {
+    setOrderBusyId(order.id);
+    try {
+      const body: Record<string, string> = { action };
+      if (action === "REJECT" && rejecting?.id === order.id && rejecting.reason.trim()) body.reason = rejecting.reason.trim();
+      await apiFetch(`/shop/orders/${order.id}/action`, { method: "POST", body: JSON.stringify(body) });
+      if (action === "REJECT") setRejecting(null);
+      setMsg(
+        action === "ACCEPT" ? "Pedido aceptado. Coordina entrega y pago por chat."
+        : action === "SHIP" ? "Pedido marcado en camino."
+        : action === "DELIVER" ? "Pedido entregado."
+        : "Pedido rechazado. El stock volvió a tu inventario.",
+      );
+      await loadOrders();
+      if (action === "REJECT") await loadData();
+    } catch (err: any) {
+      setError(friendlyErrorMessage(err));
+      await loadOrders();
+    } finally {
+      setOrderBusyId(null);
+    }
+  }
+
   /* ── Image uploads ── */
   async function uploadImage(type: "avatar" | "cover", event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -213,12 +344,16 @@ export default function ShopDashboardClient() {
         credentials: "include",
         body: formData,
       });
-      if (!res.ok) throw new Error("UPLOAD_FAILED");
-      setMsg(`${type === "avatar" ? "Avatar" : "Portada"} actualizado.`);
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.message || "UPLOAD_FAILED");
+      }
+      setMsg(`${type === "avatar" ? "Logo" : "Portada"} actualizado.`);
       await loadData();
-    } catch {
-      setError("No se pudo actualizar la imagen.");
+    } catch (err: any) {
+      setError(err?.message && err.message !== "UPLOAD_FAILED" ? err.message : "No se pudo actualizar la imagen.");
     } finally {
+      event.target.value = "";
       setBusy(false);
     }
   }
@@ -265,6 +400,11 @@ export default function ShopDashboardClient() {
   }
 
   async function removeCategory(id: string) {
+    const cat = shopCategories.find((c) => c.id === id);
+    const count = products.filter((p) => p.shopCategory?.id === id).length;
+    if (!window.confirm(count
+      ? `¿Eliminar "${cat?.name}"? Sus ${count} productos quedan sin categoría.`
+      : `¿Eliminar "${cat?.name}"?`)) return;
     try {
       await apiFetch(`/shop/categories/${id}`, { method: "DELETE" });
       setMsg("Categoría eliminada.");
@@ -279,7 +419,7 @@ export default function ShopDashboardClient() {
     setProductName("");
     setProductDescription("");
     setProductPrice("");
-    setProductStock("");
+    setProductStock("1");
     setProductCategoryId("");
     setEditingProductId(null);
   }
@@ -288,23 +428,32 @@ export default function ShopDashboardClient() {
     setProductName(p.name);
     setProductDescription(p.description || "");
     setProductPrice(String(p.price || ""));
-    setProductStock(String(p.stock || ""));
+    setProductStock(String(p.stock ?? 0));
     setProductCategoryId(p.shopCategory?.id || "");
     setEditingProductId(p.id);
     setTab("products");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function saveProduct() {
+    if (!productCategoryId) {
+      setError("Elige una categoría para el producto.");
+      return;
+    }
+    if (!Number(productPrice || 0)) {
+      setError("Ingresa el precio del producto.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
+      /* Editar no reactiva un producto pausado: eso se hace con su botón. */
       const payload = {
         name: productName,
         description: productDescription,
         price: productPrice ? Number(productPrice) : 0,
         stock: productStock ? Number(productStock) : 0,
         shopCategoryId: productCategoryId || undefined,
-        isActive: true,
       };
       if (editingProductId) {
         await apiFetch(`/shop/products/${editingProductId}`, { method: "PATCH", body: JSON.stringify(payload) });
@@ -322,7 +471,19 @@ export default function ShopDashboardClient() {
     }
   }
 
+  async function toggleProduct(p: Product) {
+    try {
+      await apiFetch(`/shop/products/${p.id}`, { method: "PATCH", body: JSON.stringify({ isActive: !p.isActive }) });
+      setMsg(p.isActive ? "Producto pausado: ya no aparece en tu tienda." : "Producto publicado.");
+      await loadData();
+    } catch (err: any) {
+      setError(friendlyErrorMessage(err));
+    }
+  }
+
   async function removeProduct(id: string) {
+    const product = products.find((p) => p.id === id);
+    if (!window.confirm(`¿Eliminar "${product?.name || "este producto"}"? Si sólo quieres ocultarlo, usa "Pausar".`)) return;
     setBusy(true);
     try {
       await apiFetch(`/shop/products/${id}`, { method: "DELETE" });
@@ -347,12 +508,16 @@ export default function ShopDashboardClient() {
         credentials: "include",
         body: formData,
       });
-      if (!res.ok) throw new Error("UPLOAD_FAILED");
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.message || "UPLOAD_FAILED");
+      }
       setMsg("Fotos actualizadas.");
       await loadData();
-    } catch {
-      setError("No se pudieron subir las fotos.");
+    } catch (err: any) {
+      setError(err?.message && err.message !== "UPLOAD_FAILED" ? err.message : "No se pudieron subir las fotos.");
     } finally {
+      event.target.value = "";
       setUploadingProductId(null);
     }
   }
@@ -380,8 +545,9 @@ export default function ShopDashboardClient() {
   }
   if (!user) return <div className="p-6 text-white/70">Debes iniciar sesión.</div>;
 
-  const coverUrl = resolveMediaUrl(user.coverUrl);
-  const avatarUrl = resolveMediaUrl(user.avatarUrl);
+  const coverUrl = resolveMediaUrl(profileUser?.coverUrl ?? user.coverUrl);
+  const avatarUrl = resolveMediaUrl(profileUser?.avatarUrl ?? user.avatarUrl);
+  const inReview = profileUser ? profileUser.isVerified === false : false;
 
   /* ════════════════════════ RENDER ════════════════════════ */
   return (
@@ -423,7 +589,18 @@ export default function ShopDashboardClient() {
 
             <div className="min-w-0 flex-1 pb-1">
               <h1 className="truncate text-2xl font-bold sm:text-3xl">{displayName || user.username}</h1>
-              <p className="mt-0.5 text-sm text-white/60">Panel de administración · Tienda</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${isOpen ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-300" : "border-red-400/30 bg-red-500/15 text-red-300"}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${isOpen ? "bg-emerald-400" : "bg-red-400"}`} />
+                  {isOpen ? "Abierta" : "Cerrada"}
+                </span>
+                {!isPublished && <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs text-white/50">Oculta</span>}
+                {pendingOrders > 0 && (
+                  <button onClick={() => setTab("orders")} className="rounded-full border border-amber-400/30 bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-200">
+                    {pendingOrders} pedido{pendingOrders !== 1 ? "s" : ""} por aceptar
+                  </button>
+                )}
+              </div>
             </div>
 
             <button
@@ -454,6 +631,9 @@ export default function ShopDashboardClient() {
               >
                 <t.Icon className="mr-1.5 inline h-4 w-4 align-[-3px]" />
                 {t.label}
+                {t.key === "orders" && pendingOrders > 0 && (
+                  <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-black">{pendingOrders}</span>
+                )}
                 {tab === t.key && (
                   <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500" />
                 )}
@@ -469,13 +649,47 @@ export default function ShopDashboardClient() {
         {/* ════ Overview ════ */}
         {tab === "overview" && (
           <>
+            {inReview && (
+              <div className="flex items-start gap-3 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+                <div className="text-sm">
+                  <div className="font-semibold text-amber-100">Tu tienda está en revisión</div>
+                  <p className="mt-0.5 text-amber-100/70">El equipo de UZEED revisa cada tienda antes de mostrarla en el directorio. Mientras tanto, carga tu logo, categorías y productos.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Estado de la tienda */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                { key: "businessOpen" as const, on: isOpen, title: "Tienda abierta", desc: isOpen ? "Recibes pedidos" : "Cerrada: no recibes pedidos nuevos", tone: "bg-emerald-500" },
+                { key: "businessPublished" as const, on: isPublished, title: "Publicada", desc: isPublished ? "Visible en el directorio" : "Oculta del directorio", tone: "bg-violet-500" },
+              ].map((item) => (
+                <div key={item.key} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div>
+                    <div className="text-sm font-semibold">{item.title}</div>
+                    <div className="mt-0.5 text-xs text-white/45">{item.desc}</div>
+                  </div>
+                  <button
+                    role="switch"
+                    aria-checked={item.on}
+                    aria-label={item.title}
+                    onClick={() => toggleStatus(item.key)}
+                    className={`relative h-8 w-14 shrink-0 rounded-full transition-all ${item.on ? item.tone : "bg-white/10"}`}
+                  >
+                    <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-md transition-all ${item.on ? "left-7" : "left-1"}`} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
             {/* KPIs */}
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {[
-                { label: "Productos", value: String(totalProducts), sub: `${activeProducts} activos`, color: "border-fuchsia-500/30" },
-                { label: "Categorías", value: String(totalCategories), sub: "organizando", color: "border-violet-500/30" },
-                { label: "Stock total", value: String(totalStock), sub: "unidades", color: "border-emerald-500/30" },
-                { label: "Valor inventario", value: formatMoney(inventoryValue), sub: "referencial", color: "border-amber-500/30" },
+                { label: "Pedidos por atender", value: String(activeOrders), sub: `${pendingOrders} sin aceptar`, color: "border-amber-500/30" },
+                { label: "Vendido", value: formatMoney(soldClp), sub: "pedidos entregados", color: "border-emerald-500/30" },
+                { label: "Productos", value: String(totalProducts), sub: `${activeProducts} publicado${activeProducts === 1 ? "" : "s"}`, color: "border-fuchsia-500/30" },
+                { label: "Stock total", value: String(totalStock), sub: `${formatMoney(inventoryValue)} en inventario`, color: "border-violet-500/30" },
               ].map((kpi) => (
                 <div
                   key={kpi.label}
@@ -497,7 +711,8 @@ export default function ShopDashboardClient() {
                   { done: !!avatarUrl, text: "Logo / avatar subido" },
                   { done: !!coverUrl, text: "Imagen de portada" },
                   { done: shopCategories.length > 0, text: "Al menos 1 categoría creada" },
-                  { done: products.length > 0, text: "Al menos 1 producto publicado" },
+                  { done: activeProducts > 0, text: "Al menos 1 producto publicado" },
+                  { done: products.some((p) => p.isActive && p.stock > 0), text: "Productos con stock disponible" },
                   { done: productsWithMedia > 0, text: "Productos con fotos" },
                   { done: locationVerified, text: "Ubicación verificada" },
                 ].map((item) => (
@@ -590,6 +805,129 @@ export default function ShopDashboardClient() {
                 Ver mi tienda →
               </Link>
             </div>
+          </>
+        )}
+
+        {/* ════ Pedidos ════ */}
+        {tab === "orders" && (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+                {ORDER_FILTERS.map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setOrderFilter(f.key)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${orderFilter === f.key ? "bg-white/10 text-white" : "text-white/50 hover:text-white/75"}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <button onClick={loadOrders} className="text-xs text-fuchsia-400 hover:text-fuchsia-300">Actualizar</button>
+            </div>
+
+            {visibleOrders.length === 0 ? (
+              <div className="flex flex-col items-center rounded-2xl border border-dashed border-white/10 bg-white/[0.01] py-12 text-center">
+                <ClipboardList className="mb-3 h-9 w-9 text-white/20" />
+                <p className="text-sm text-white/50">{orderFilter === "active" ? "No tienes pedidos por atender" : "No hay pedidos aquí"}</p>
+                <p className="mt-1 max-w-xs text-xs text-white/30">Cuando un cliente compre en tu tienda, el pedido aparece aquí y te llega un mensaje al chat.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {visibleOrders.map((o) => {
+                  const st = ORDER_STATUS[o.status] || ORDER_STATUS.PENDING;
+                  const busyOrder = orderBusyId === o.id;
+                  return (
+                    <div key={o.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold">{o.clientName || o.clientUsername || "Cliente"}</span>
+                            <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${st.className}`}>{st.label}</span>
+                          </div>
+                          <div className="mt-1 text-xs text-white/40">
+                            #{String(o.id).slice(0, 8).toUpperCase()} · {new Date(o.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} · {o.paymentMethod === "TRANSFER" ? "Transferencia" : "Efectivo"}
+                          </div>
+                        </div>
+                        <div className="text-lg font-bold">{formatMoney(o.totalClp)}</div>
+                      </div>
+
+                      <ul className="mt-3 space-y-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-sm">
+                        {o.items.map((it) => (
+                          <li key={it.id} className="flex justify-between gap-3">
+                            <span className="min-w-0 truncate text-white/80">{it.productName} <span className="text-white/40">x{it.quantity}</span></span>
+                            <span className="shrink-0 text-white/60">{formatMoney(it.unitPrice * it.quantity)}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {(o.deliveryAddress || o.deliveryPhone || o.deliveryNote) && (
+                        <div className="mt-3 space-y-0.5 text-xs text-white/55">
+                          {o.deliveryAddress && <div><span className="text-white/35">Entrega:</span> {o.deliveryAddress}</div>}
+                          {o.deliveryPhone && <div><span className="text-white/35">Teléfono:</span> {o.deliveryPhone}</div>}
+                          {o.deliveryNote && <div><span className="text-white/35">Nota:</span> {o.deliveryNote}</div>}
+                        </div>
+                      )}
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {o.status === "PENDING" && (
+                          <button disabled={busyOrder} onClick={() => orderAction(o, "ACCEPT")} className="rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2 text-xs font-semibold disabled:opacity-50">
+                            {busyOrder ? "..." : "Aceptar"}
+                          </button>
+                        )}
+                        {o.status === "ACCEPTED" && (
+                          <>
+                            <button disabled={busyOrder} onClick={() => orderAction(o, "SHIP")} className="rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2 text-xs font-semibold disabled:opacity-50">
+                              {busyOrder ? "..." : "Marcar en camino"}
+                            </button>
+                            <button disabled={busyOrder} onClick={() => orderAction(o, "DELIVER")} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium disabled:opacity-50">
+                              Entregado en mano
+                            </button>
+                          </>
+                        )}
+                        {o.status === "SHIPPED" && (
+                          <button disabled={busyOrder} onClick={() => orderAction(o, "DELIVER")} className="rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2 text-xs font-semibold disabled:opacity-50">
+                            {busyOrder ? "..." : "Marcar entregado"}
+                          </button>
+                        )}
+                        {(o.status === "PENDING" || o.status === "ACCEPTED") && (
+                          <button
+                            disabled={busyOrder}
+                            onClick={() => setRejecting(rejecting?.id === o.id ? null : { id: o.id, reason: "" })}
+                            className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-2 text-xs font-medium text-red-300 disabled:opacity-50"
+                          >
+                            Rechazar
+                          </button>
+                        )}
+                        <Link href={`/chat/${o.clientId}`} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium hover:bg-white/[0.08]">
+                          <MessageCircle className="h-3.5 w-3.5" /> Chat
+                        </Link>
+                      </div>
+
+                      {rejecting && rejecting.id === o.id && (
+                        <div className="mt-3 space-y-2 rounded-xl border border-red-500/20 bg-red-500/[0.04] p-3">
+                          <div className="text-xs text-white/70">Motivo (opcional, se lo enviamos al cliente). El stock vuelve a tu inventario.</div>
+                          <input
+                            autoFocus
+                            maxLength={300}
+                            value={rejecting.reason}
+                            onChange={(e) => setRejecting({ id: o.id, reason: e.target.value })}
+                            placeholder="Ej: no tenemos despacho a esa comuna"
+                            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-red-400/40"
+                          />
+                          <div className="flex gap-2">
+                            <button disabled={busyOrder} onClick={() => orderAction(o, "REJECT")} className="rounded-xl bg-red-500/80 px-4 py-2 text-xs font-semibold hover:bg-red-500 disabled:opacity-50">
+                              {busyOrder ? "..." : "Confirmar rechazo"}
+                            </button>
+                            <button onClick={() => setRejecting(null)} className="rounded-xl border border-white/10 px-4 py-2 text-xs text-white/60">Volver</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
 
@@ -712,7 +1050,13 @@ export default function ShopDashboardClient() {
               <h3 className="mb-1 text-sm font-semibold text-white/80">
                 {editingProductId ? "Editar producto" : "Nuevo producto"}
               </h3>
-              <p className="mb-4 text-xs text-white/40">Completa los datos y publica tu producto.</p>
+              <p className="mb-4 text-xs text-white/40">Completa los datos y publica tu producto. Con stock 0 aparece como agotado.</p>
+              {shopCategories.length === 0 && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-sm text-amber-100">
+                  <span>Antes de tu primer producto, crea una categoría (ej: Juguetes, Lencería).</span>
+                  <button onClick={() => setTab("categories")} className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/15">Crear categoría</button>
+                </div>
+              )}
               <div className="grid gap-4">
                 <GlassInput label="Nombre del producto" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Ej: Aceite de masaje premium" />
                 <GlassTextarea label="Descripción" value={productDescription} onChange={(e) => setProductDescription(e.target.value)} placeholder="Describe el producto..." rows={3} />
@@ -730,13 +1074,13 @@ export default function ShopDashboardClient() {
                       ))}
                     </select>
                   </div>
-                  <GlassInput label="Precio (CLP)" type="number" min="0" value={productPrice} onChange={(e) => setProductPrice(e.target.value)} placeholder="0" />
-                  <GlassInput label="Stock" type="number" min="0" value={productStock} onChange={(e) => setProductStock(e.target.value)} placeholder="0" />
+                  <GlassInput label="Precio (CLP)" inputMode="numeric" value={productPrice} onChange={(e) => setProductPrice(digitsOnly(e.target.value))} placeholder="9990" />
+                  <GlassInput label="Stock" inputMode="numeric" value={productStock} onChange={(e) => setProductStock(digitsOnly(e.target.value))} placeholder="1" />
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <button
                     onClick={saveProduct}
-                    disabled={busy || !productName.trim()}
+                    disabled={busy || !productName.trim() || shopCategories.length === 0}
                     className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-6 py-3 text-sm font-semibold shadow-lg shadow-fuchsia-500/10 transition-all hover:brightness-110 disabled:opacity-40"
                   >
                     {busy ? "Guardando..." : editingProductId ? "Guardar cambios" : "Publicar producto"}
@@ -781,7 +1125,7 @@ export default function ShopDashboardClient() {
                                 <p className="mt-0.5 text-xs text-white/40 line-clamp-1">{p.description || "Sin descripción"}</p>
                               </div>
                               <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium ${p.isActive ? "border border-emerald-400/30 bg-emerald-500/15 text-emerald-300" : "border border-white/10 bg-white/5 text-white/40"}`}>
-                                {p.isActive ? "Activo" : "Inactivo"}
+                                {p.isActive ? (p.stock > 0 ? "Publicado" : "Agotado") : "Pausado"}
                               </span>
                             </div>
                             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/50">
@@ -837,6 +1181,13 @@ export default function ShopDashboardClient() {
                               >
                                 <Pencil className="mr-1.5 inline h-3.5 w-3.5 align-[-2px]" />
                                 Editar
+                              </button>
+                              <button
+                                onClick={() => toggleProduct(p)}
+                                className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-white/60 transition-all hover:bg-white/[0.06]"
+                              >
+                                {p.isActive ? <EyeOff className="mr-1.5 inline h-3.5 w-3.5 align-[-2px]" /> : <Eye className="mr-1.5 inline h-3.5 w-3.5 align-[-2px]" />}
+                                {p.isActive ? "Pausar" : "Publicar"}
                               </button>
                               <button
                                 onClick={() => removeProduct(p.id)}

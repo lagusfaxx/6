@@ -2,7 +2,8 @@
 
 import { type ChangeEvent, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { businessPanelHref } from "../../../lib/businessPanel";
 import useMe from "../../../hooks/useMe";
 import { apiFetch, friendlyErrorMessage, getApiBase } from "../../../lib/api";
 import { Building2, Store } from "lucide-react";
@@ -86,8 +87,16 @@ function resolveCategoryForPublication(params: {
 
 export default function DashboardServicesClient() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { me, loading } = useMe();
   const user = me?.user ?? null;
+
+  /* Locales y tiendas tienen su propio panel. Antes caían en una tarjeta con
+     un botón "Ir al panel": un paso de más, también justo al registrarse. */
+  const businessPanel = businessPanelHref(user);
+  useEffect(() => {
+    if (businessPanel) router.replace(businessPanel);
+  }, [businessPanel, router]);
 
   const form = useDashboardFormReducer();
   const {

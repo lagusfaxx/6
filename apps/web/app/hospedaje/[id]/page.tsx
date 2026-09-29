@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import MapboxMap from "../../../components/MapboxMap";
-import { apiFetch, resolveMediaUrl } from "../../../lib/api";
+import { apiFetch, friendlyErrorMessage, resolveMediaUrl } from "../../../lib/api";
 import {
   Building2,
   Camera,
@@ -57,6 +57,7 @@ type Detail = {
   rating?: number | null;
   reviewsCount?: number;
   isOpen?: boolean;
+  isPublished?: boolean;
   operationalStatusUpdatedAt?: string | null;
   coverUrl?: string | null;
   avatarUrl?: string | null;
@@ -133,11 +134,14 @@ export default function HospedajeDetailPage() {
     return activePromos.find((p) => p.roomId === selectedRoom.id || (p.roomIds || []).includes(selectedRoom.id)) || null;
   }, [activePromos, selectedRoom]);
 
+  /* Igual que la API: si la habitación no tiene tarifa para esa duración, no
+     se ofrece (antes se mostraba el precio de 3 horas y la API cobraba otro). */
   const basePrice = durationType === "6H"
-    ? Number((selectedRoom as any)?.price6h || selectedRoom?.price || 0)
+    ? Number((selectedRoom as any)?.price6h || 0)
     : durationType === "NIGHT"
-      ? Number((selectedRoom as any)?.priceNight || selectedRoom?.price || 0)
+      ? Number((selectedRoom as any)?.priceNight || 0)
       : Number((selectedRoom as any)?.price3h || selectedRoom?.price || 0);
+  const isClosed = data?.isOpen === false;
 
   const discountedPrice = useMemo(() => {
     if (!promoForRoom) return basePrice;
@@ -155,6 +159,14 @@ export default function HospedajeDetailPage() {
 
   const reserve = async () => {
     if (!data || !selectedRoom) return;
+    if (isClosed) {
+      setMsg("El local está cerrado en este momento. Escríbele por chat para coordinar.");
+      return;
+    }
+    if (basePrice <= 0) {
+      setMsg("Esta habitación no tiene tarifa para esa duración. Elige otra duración u otra habitación.");
+      return;
+    }
     const startAt = startDate && startTime ? `${startDate}T${startTime}` : null;
     if (startAt) {
       const selectedStart = new Date(startAt);
@@ -172,8 +184,12 @@ export default function HospedajeDetailPage() {
       });
       setBookingResult(result.booking ?? result);
       setShowConfirmation(true);
-    } catch {
-      setMsg("No pudimos crear la reserva. Inicia sesión y vuelve a intentar.");
+    } catch (e: any) {
+      setMsg(
+        e?.status === 401
+          ? "Inicia sesión para reservar."
+          : friendlyErrorMessage(e) || "No pudimos crear la reserva. Intenta de nuevo.",
+      );
     } finally {
       setBusy(false);
     }
@@ -563,7 +579,7 @@ export default function HospedajeDetailPage() {
               </div>
 
               <button
-                disabled={busy || !data.rooms.length}
+                disabled={busy || !data.rooms.length || isClosed || basePrice <= 0}
                 onClick={reserve}
                 className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-4 text-sm font-semibold shadow-[0_8px_30px_rgba(168,85,247,0.25)] transition-all hover:shadow-[0_12px_40px_rgba(168,85,247,0.35)] active:scale-[0.98] disabled:opacity-50"
               >
@@ -572,6 +588,10 @@ export default function HospedajeDetailPage() {
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
                     Procesando...
                   </span>
+                ) : isClosed ? (
+                  "Local cerrado ahora"
+                ) : basePrice <= 0 ? (
+                  "Sin tarifa para esta duración"
                 ) : (
                   "Confirmar reserva"
                 )}
