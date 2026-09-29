@@ -137,7 +137,7 @@ function ProfileCard({
   if (isExternal) {
     href = p.websiteUrl!;
   } else if (entityType === "establishment") {
-    href = categorySlug === "motel" ? `/hospedaje/${p.id}` : `/establecimiento/${p.id}`;
+    href = categorySlug === "motel" ? `/motel/${p.username || p.id}` : `/establecimiento/${p.id}`;
   } else if (entityType === "shop") {
     href = `/sexshop/${p.username || p.id}`;
   } else {
@@ -504,7 +504,7 @@ export default function DirectoryPage({
           href: p.externalOnly && p.websiteUrl
             ? p.websiteUrl
             : entityType === "establishment"
-              ? (categorySlug === "motel" ? `/hospedaje/${p.id}` : `/establecimiento/${p.id}`)
+              ? (categorySlug === "motel" ? `/motel/${p.username || p.id}` : `/establecimiento/${p.id}`)
               : entityType === "shop"
                 ? `/sexshop/${p.username || p.id}`
                 : cleanProfileHref({ id: p.id, username: p.username, serviceCategory: p.serviceCategory, name: p.displayName || p.username, city: p.city }),

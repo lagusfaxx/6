@@ -19,12 +19,16 @@ const footerLinks = {
     { label: "Escorts en Concepción", href: "/escorts/concepcion" },
     { label: "Escorts en Antofagasta", href: "/escorts/antofagasta" },
     { label: "Escorts en Temuco", href: "/escorts/temuco" },
+    { label: "Moteles en Santiago", href: "/moteles/santiago" },
+    { label: "Moteles en Providencia", href: "/moteles/providencia" },
+    { label: "Moteles en Viña del Mar", href: "/moteles/vina-del-mar" },
   ],
   "Trabaja con UZEED": [
     { label: "Publica tu perfil gratis", href: "/creadoras" },
     { label: "Trabajar de escort en Chile", href: "/trabajar-de-escort" },
     { label: "Vender contenido +18", href: "/vender-contenido" },
     { label: "Publicar anuncio de escort", href: "/publicar-anuncio-escort" },
+    { label: "Publicar mi motel", href: "/register?type=ESTABLISHMENT" },
   ],
   "Cuenta": [
     { label: "Iniciar sesión", href: "/login" },

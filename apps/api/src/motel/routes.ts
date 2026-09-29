@@ -3,7 +3,39 @@ import { Router } from "express";
 import { prisma } from "../db";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sendToUser } from "../realtime/sse";
-import { displayNameError, normalizeDisplayName } from "../profile/nameChange";
+import { normalizeDisplayName } from "../profile/nameChange";
+import multer from "multer";
+import path from "path";
+import { unlink } from "node:fs/promises";
+import { config } from "../config";
+import { LocalStorageProvider } from "../storage/localStorageProvider";
+import { validateUploadedFile } from "../lib/uploads";
+import { optimizeUploadedImage } from "../lib/imageOptimizer";
+import { cleanMotelAmenities, cleanRoomAmenities } from "@uzeed/shared/motel";
+import { loadMotelDetail, loadMotelDirectory } from "./directory";
+
+/* Fotos de habitaciones: se guardan como archivo suelto, sin pasar por la
+   galería del perfil (antes cada foto de habitación aparecía repetida en la
+   galería del local). */
+const storageProvider = new LocalStorageProvider({
+  baseDir: config.storageDir,
+  publicPathPrefix: `${config.apiUrl.replace(/\/$/, "")}/uploads`,
+});
+const roomPhotoUpload = multer({
+  storage: multer.diskStorage({
+    destination: async (_req, _file, cb) => {
+      await storageProvider.ensureBaseDir();
+      cb(null, config.storageDir);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || "";
+      const safeBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
+      cb(null, `${Date.now()}-room-${safeBase}${ext}`);
+    },
+  }),
+  limits: { fileSize: 15 * 1024 * 1024, files: 10 },
+  fileFilter: (_req, file, cb) => cb(null, (file.mimetype || "").toLowerCase().startsWith("image/")),
+});
 
 export const motelRouter = Router();
 
@@ -182,7 +214,8 @@ async function loadOwnerProfile(userId: string) {
       id: true, username: true, displayName: true, address: true, phone: true, city: true,
       latitude: true, longitude: true, coverUrl: true, avatarUrl: true, bio: true,
       serviceDescription: true, isVerified: true, isActive: true,
-      businessOpen: true, businessPublished: true,
+      businessOpen: true, businessPublished: true, profileTags: true,
+      profileMedia: { where: { type: "IMAGE" }, orderBy: { createdAt: "desc" }, select: { id: true, url: true } },
     },
   });
 }
@@ -194,7 +227,20 @@ function serializeOwnerProfile(u: NonNullable<Awaited<ReturnType<typeof loadOwne
     coverUrl: u.coverUrl, avatarUrl: u.avatarUrl, rules: u.bio, schedule: u.serviceDescription,
     isVerified: u.isVerified, isActive: u.isActive,
     isOpen: u.businessOpen, isPublished: u.businessPublished,
+    amenities: cleanMotelAmenities(u.profileTags),
+    gallery: u.profileMedia,
+    publicSlug: motelPublicSlug(u.username, u.id),
   };
+}
+
+function motelPublicSlug(username: string | null, id: string) {
+  const u = String(username || "").toLowerCase();
+  return /^[a-z0-9][a-z0-9-]{1,60}$/.test(u) ? u : id;
+}
+
+/* Fecha de última edición de la ficha pública (va al sitemap). */
+function touchEdited(userId: string) {
+  return prisma.user.update({ where: { id: userId }, data: { lastEditedAt: new Date() } }).catch(() => {});
 }
 
 function randomConfirmationCode() {
@@ -211,7 +257,10 @@ async function resolveBookingPrice(establishmentId: string, roomId: string, dura
   const now = Date.now();
   const promo = promos.find((p: any) =>
     (!p.startsAt || new Date(p.startsAt).getTime() <= now) &&
-    (p.roomId === roomId || (Array.isArray(p.roomIds) && p.roomIds.includes(roomId)))
+    /* Sin habitaciones elegidas, la promo vale para todas. */
+    (p.roomId === roomId ||
+      (Array.isArray(p.roomIds) && p.roomIds.includes(roomId)) ||
+      (!p.roomId && (!Array.isArray(p.roomIds) || p.roomIds.length === 0)))
   );
   if (!promo) return { basePriceClp, discountClp: 0, finalPriceClp: basePriceClp };
   const discount = promo.discountPercent
@@ -235,6 +284,65 @@ async function getBookingWithDetails(bookingId: string) {
   );
   return rows[0] || null;
 }
+
+/* Directorio público: la web lo pide al renderizar /moteles y sus landings
+   por comuna (se cachea un minuto en el navegador y en la CDN). */
+motelRouter.get("/motels/directory", asyncHandler(async (_req, res) => {
+  await ensureMotelSchema();
+  const motels = await loadMotelDirectory();
+  res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60");
+  return res.json({ motels });
+}));
+
+/* Ficha pública (/motel/{slug}): por username, id de cuenta o id de ficha del equipo. */
+motelRouter.get("/motels/page/:ref", asyncHandler(async (req, res) => {
+  await ensureMotelSchema();
+  const motel = await loadMotelDetail(String(req.params.ref || ""), req.session.userId || null);
+  if (!motel) return res.status(404).json({ error: "NOT_FOUND" });
+  return res.json({ motel });
+}));
+
+/* Reseña de un motel. Sólo quien reservó por UZEED y el motel aceptó
+   (confirmada o finalizada) puede dejarla: así no hay reseñas falsas de la
+   competencia. Una por cliente y motel; volver a enviar la actualiza. La tabla
+   tiene "clientId" aunque el modelo de Prisma no lo declara: va por SQL. */
+motelRouter.post("/motels/:id/reviews", asyncHandler(async (req, res) => {
+  await ensureMotelSchema();
+  const clientId = req.session.userId;
+  if (!clientId) return res.status(401).json({ error: "UNAUTHENTICATED" });
+  const establishmentId = String(req.params.id || "");
+  if (!isUuid(establishmentId)) return res.status(404).json({ error: "NOT_FOUND" });
+  if (establishmentId === clientId) return res.status(400).json({ error: "OWN_ESTABLISHMENT", message: "No puedes reseñar tu propio motel." });
+
+  const stars = Math.round(Number(req.body?.stars));
+  if (!Number.isFinite(stars) || stars < 1 || stars > 5) {
+    return res.status(400).json({ error: "INVALID_STARS", message: "Elige de 1 a 5 estrellas." });
+  }
+  const comment = req.body?.comment ? String(req.body.comment).trim().slice(0, 600) || null : null;
+
+  const motel = await prisma.user.findFirst({ where: { id: establishmentId, profileType: "ESTABLISHMENT" }, select: { id: true } });
+  if (!motel) return res.status(404).json({ error: "NOT_FOUND" });
+
+  const stays = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT id FROM "MotelBooking" WHERE "establishmentId" = $1::uuid AND "clientId" = $2::uuid AND "status" IN ('CONFIRMADA','FINALIZADA') LIMIT 1`,
+    establishmentId,
+    clientId
+  );
+  if (!stays.length) {
+    return res.status(403).json({ error: "NO_STAY", message: "Sólo pueden dejar reseña quienes reservaron este motel por UZEED." });
+  }
+
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO "EstablishmentReview" ("establishmentId", "clientId", "stars", "comment")
+     VALUES ($1::uuid, $2::uuid, $3, $4)
+     ON CONFLICT ("establishmentId", "clientId") DO UPDATE SET "stars" = EXCLUDED."stars", "comment" = EXCLUDED."comment", "createdAt" = NOW()`,
+    establishmentId,
+    clientId,
+    stars,
+    comment
+  );
+  return res.json({ ok: true });
+}));
 
 motelRouter.get("/motels", asyncHandler(async (req, res) => {
   await ensureMotelSchema();
@@ -687,9 +795,12 @@ motelRouter.put("/motel/dashboard/profile", asyncHandler(async (req, res) => {
   const data: Record<string, unknown> = {};
 
   if (body.displayName !== undefined) {
+    /* Los moteles usan su nombre comercial ("Intimo Hotel Barrio Brasil"):
+       su tarjeta tiene espacio para 40 letras, no las 20 de un perfil. */
     const name = normalizeDisplayName(String(body.displayName ?? ""));
-    const invalid = displayNameError(name);
-    if (invalid) return res.status(400).json({ error: "NAME_INVALID", message: invalid });
+    if (name.length < 2 || name.length > 40) {
+      return res.status(400).json({ error: "NAME_INVALID", message: "El nombre debe tener entre 2 y 40 caracteres." });
+    }
     data.displayName = name;
   }
   if (body.address !== undefined) data.address = text(body.address, 200) || null;
@@ -709,6 +820,7 @@ motelRouter.put("/motel/dashboard/profile", asyncHandler(async (req, res) => {
     data.latitude = lat;
     data.longitude = lng;
   }
+  if (body.amenities !== undefined) data.profileTags = cleanMotelAmenities(body.amenities);
   if (typeof body.isOpen === "boolean") data.businessOpen = body.isOpen;
   if (typeof body.isPublished === "boolean") data.businessPublished = body.isPublished;
 
@@ -730,7 +842,7 @@ function parseRoomBody(body: any, partial: boolean): { data?: Record<string, any
   if (body?.description !== undefined) data.description = String(body.description || "").trim().slice(0, 1000) || null;
   if (body?.roomType !== undefined) data.roomType = String(body.roomType || "").trim().slice(0, 40) || null;
   if (body?.location !== undefined) data.location = String(body.location || "").trim().slice(0, 80) || null;
-  if (body?.amenities !== undefined) data.amenities = parseStringArray(body.amenities).slice(0, 20);
+  if (body?.amenities !== undefined) data.amenities = cleanRoomAmenities(body.amenities);
   if (body?.photoUrls !== undefined) data.photoUrls = parseStringArray(body.photoUrls).slice(0, 12);
   for (const key of ["price3h", "price6h", "priceNight"] as const) {
     if (body?.[key] !== undefined) data[key] = toPrice(body[key]) ?? 0;
@@ -812,6 +924,7 @@ motelRouter.post("/motel/dashboard/rooms", asyncHandler(async (req, res) => {
       isActive: parsed.data.isActive ?? true,
     },
   });
+  await touchEdited(req.session.userId!);
   return res.json({ room });
 }));
 
@@ -829,7 +942,34 @@ motelRouter.put("/motel/dashboard/rooms/:id", asyncHandler(async (req, res) => {
     data: parsed.data,
   });
   if (!updated.count) return res.status(404).json({ error: "NOT_FOUND" });
+  await touchEdited(req.session.userId!);
   return res.json({ ok: true, updated: updated.count });
+}));
+
+motelRouter.post("/motel/dashboard/room-photos", roomPhotoUpload.array("files", 10), asyncHandler(async (req, res) => {
+  const user = (req as any).user;
+  const files = (req.files as Express.Multer.File[]) ?? [];
+  if (!isMotelOwner(user)) {
+    await Promise.all(files.map((f) => unlink(f.path).catch(() => {})));
+    return res.status(403).json({ error: "FORBIDDEN" });
+  }
+  if (!files.length) return res.status(400).json({ error: "NO_FILES", message: "Elige al menos una foto." });
+  const urls: string[] = [];
+  const failures: string[] = [];
+  for (const file of files) {
+    try {
+      await validateUploadedFile(file, "image");
+      const finalName = await optimizeUploadedImage(file, "gallery");
+      urls.push(storageProvider.publicUrl(finalName));
+    } catch {
+      await unlink(file.path).catch(() => {});
+      failures.push(file.originalname);
+    }
+  }
+  if (!urls.length) {
+    return res.status(400).json({ error: "UPLOAD_FAILED", message: "No pudimos procesar las fotos. Prueba con JPG o PNG." });
+  }
+  return res.json({ urls, failures });
 }));
 
 motelRouter.post("/motel/dashboard/promotions", asyncHandler(async (req, res) => {
@@ -853,6 +993,7 @@ motelRouter.post("/motel/dashboard/promotions", asyncHandler(async (req, res) =>
       isActive: parsed.data.isActive ?? true,
     },
   });
+  await touchEdited(req.session.userId!);
   return res.json({ promotion });
 }));
 
@@ -870,6 +1011,7 @@ motelRouter.put("/motel/dashboard/promotions/:id", asyncHandler(async (req, res)
     data: parsed.data,
   });
   if (!updated.count) return res.status(404).json({ error: "NOT_FOUND" });
+  await touchEdited(req.session.userId!);
   return res.json({ ok: true, updated: updated.count });
 }));
 
@@ -880,6 +1022,7 @@ motelRouter.delete("/motel/dashboard/rooms/:id", asyncHandler(async (req, res) =
   const id = String(req.params.id);
   await prisma.$executeRawUnsafe(`DELETE FROM "MotelPromotion" WHERE "establishmentId" = $1::uuid AND ("roomId" = $2::uuid OR $2::uuid = ANY("roomIds"))`, req.session.userId!, id);
   const rows = await prisma.$queryRawUnsafe<any[]>(`DELETE FROM "MotelRoom" WHERE id = $1::uuid AND "establishmentId" = $2::uuid RETURNING id`, id, req.session.userId!);
+  if (rows.length) await touchEdited(req.session.userId!);
   return res.json({ ok: true, deleted: rows.length });
 }));
 
@@ -888,5 +1031,6 @@ motelRouter.delete("/motel/dashboard/promotions/:id", asyncHandler(async (req, r
   const user = (req as any).user;
   if (!isMotelOwner(user)) return res.status(403).json({ error: "FORBIDDEN" });
   const rows = await prisma.$queryRawUnsafe<any[]>(`DELETE FROM "MotelPromotion" WHERE id = $1::uuid AND "establishmentId" = $2::uuid RETURNING id`, String(req.params.id), req.session.userId!);
+  if (rows.length) await touchEdited(req.session.userId!);
   return res.json({ ok: true, deleted: rows.length });
 }));

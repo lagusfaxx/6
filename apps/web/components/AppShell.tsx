@@ -69,7 +69,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     /* /escorts/<etiqueta> es el mismo directorio con un filtro; el resto de
        las subrutas (una tienda, un perfil) son páginas de detalle y siguen con
        la flecha flotante. */
-    pathname.startsWith("/escorts/");
+    pathname.startsWith("/escorts/") ||
+    /* Moteles: las landings por comuna y las fichas traen su ruta de migas. */
+    pathname.startsWith("/moteles/") ||
+    pathname.startsWith("/motel/");
 
   // Dashboard routes: hide main header/nav so the Creator Studio has its own layout
   const isDashboardRoute = pathname.startsWith("/dashboard");

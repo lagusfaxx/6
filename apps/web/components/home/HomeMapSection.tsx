@@ -74,7 +74,7 @@ function distanceKm(a: [number, number], b: [number, number]): number {
 
 function ownerHref(p: NearbyProfile) {
   if (p.externalOnly && p.websiteUrl) return p.websiteUrl;
-  if (p.profileType === "ESTABLISHMENT") return `/hospedaje/${p.id}`;
+  if (p.profileType === "ESTABLISHMENT") return `/motel/${p.username || p.id}`;
   if (p.profileType === "SHOP") return `/sexshop/${p.username}`;
   return `/profesional/${p.id}`;
 }

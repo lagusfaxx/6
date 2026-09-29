@@ -142,7 +142,7 @@ export default function AccountPage() {
 
   const publicProfileUrl = user
     ? isProfessional ? `/profesional/${user.id}`
-    : profileType === "ESTABLISHMENT" ? `/establecimiento/${user.id}`
+    : profileType === "ESTABLISHMENT" ? `/motel/${user.username || user.id}`
     : isShop ? `/sexshop/${user.username}`
     : "/"
     : "/";

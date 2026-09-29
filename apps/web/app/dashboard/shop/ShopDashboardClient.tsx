@@ -8,9 +8,13 @@ import MapboxMap from "../../../components/MapboxMap";
 import { apiFetch, friendlyErrorMessage, getApiBase, resolveMediaUrl } from "../../../lib/api";
 import { extractMapboxLocation } from "../../../lib/mapboxFeature";
 import { connectRealtime } from "../../../lib/realtime";
+import BusinessShell, { type ShellTab } from "../../../components/business/BusinessShell";
+import { Switch, Toast } from "../../../components/business/ui";
 import {
   AlertTriangle,
   ClipboardList,
+  Home,
+  Store,
   Eye,
   EyeOff,
   MessageCircle,
@@ -56,18 +60,21 @@ type ShopOrder = {
   items: ShopOrderItem[];
 };
 
-type TabKey = "overview" | "orders" | "branding" | "categories" | "products" | "location";
+type TabKey = "overview" | "orders" | "products" | "categories" | "branding";
 
 /* Iconos y no emojis: el emoji se dibuja distinto en cada sistema y no toma el
    color del texto. */
-const tabsMeta: Array<{ key: TabKey; label: string; Icon: typeof BarChart3 }> = [
-  { key: "overview", label: "Resumen", Icon: BarChart3 },
-  { key: "orders", label: "Pedidos", Icon: ClipboardList },
-  { key: "branding", label: "Branding", Icon: Palette },
-  { key: "categories", label: "Categorías", Icon: FolderTree },
-  { key: "products", label: "Productos", Icon: Package },
-  { key: "location", label: "Ubicación", Icon: MapPin },
-];
+const TAB_KEYS: TabKey[] = ["overview", "orders", "products", "categories", "branding"];
+/* "location" y "branding" eran dos pestañas; ahora son una ("Mi tienda"). */
+const TAB_ALIASES: Record<string, TabKey> = { location: "branding", ubicacion: "branding", tienda: "branding", pedidos: "orders", productos: "products" };
+
+const TAB_HEADINGS: Record<TabKey, { title: string; text: string }> = {
+  overview: { title: "Inicio", text: "Así va tu tienda hoy." },
+  orders: { title: "Pedidos", text: "Acepta, despacha y entrega. Cada pedido también te llega al chat." },
+  products: { title: "Productos", text: "Precio, stock y fotos de lo que vendes." },
+  categories: { title: "Categorías", text: "Ordenan tu catálogo en la página de la tienda." },
+  branding: { title: "Mi tienda", text: "Logo, portada, descripción y ubicación." },
+};
 
 /* ── Helpers ── */
 function formatMoney(value?: number | null) {
@@ -143,7 +150,8 @@ export default function ShopDashboardClient() {
 
   useEffect(() => {
     const requested = String(searchParams.get("tab") || "").toLowerCase();
-    if (tabsMeta.some((t) => t.key === requested)) setTab(requested as TabKey);
+    const key = (TAB_KEYS as string[]).includes(requested) ? (requested as TabKey) : TAB_ALIASES[requested];
+    if (key) setTab(key);
   }, [searchParams]);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -549,102 +557,50 @@ export default function ShopDashboardClient() {
   const avatarUrl = resolveMediaUrl(profileUser?.avatarUrl ?? user.avatarUrl);
   const inReview = profileUser ? profileUser.isVerified === false : false;
 
+  const shellTabs: ShellTab<TabKey>[] = [
+    { key: "overview", label: "Inicio", Icon: Home },
+    { key: "orders", label: "Pedidos", Icon: ClipboardList, badge: pendingOrders },
+    { key: "products", label: "Productos", Icon: Package },
+    { key: "categories", label: "Categorías", Icon: FolderTree },
+    { key: "branding", label: "Mi tienda", Icon: Store },
+  ];
+
+  const statusSlot = (
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
+      <div className="flex items-center gap-2 text-sm">
+        <span className={`h-2 w-2 rounded-full ${isOpen ? "bg-emerald-400" : "bg-white/30"}`} />
+        {isOpen ? "Abierta ahora" : "Cerrada"}
+      </div>
+      <Switch checked={isOpen} onChange={() => toggleStatus("businessOpen")} label="Tienda abierta" tone="emerald" />
+    </div>
+  );
+
+  async function logout() {
+    await apiFetch("/auth/logout", { method: "POST" }).catch(() => {});
+    router.replace("/login");
+  }
+
   /* ════════════════════════ RENDER ════════════════════════ */
   return (
-    <div className="relative min-h-screen bg-[#070816] pb-12 text-white -mx-4 -mt-2">
-      {/* Background glow */}
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(168,85,247,0.06),transparent_50%)]" />
-
-      {/* ── Hero ── */}
-      <header className="relative h-52 overflow-hidden sm:h-64">
-        {coverUrl ? (
-          <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/20 via-violet-600/15 to-transparent" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#070816] via-[#070816]/70 to-transparent" />
-
-        <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8">
-          <div className="mx-auto flex max-w-5xl items-end gap-4">
-            {/* Avatar */}
-            <button
-              onClick={() => avatarInputRef.current?.click()}
-              className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-2 border-white/20 bg-black/40 shadow-2xl transition-all hover:border-fuchsia-400/50 sm:h-24 sm:w-24"
-            >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-fuchsia-500/20 to-violet-500/20 text-2xl font-bold text-white/60">
-                  {displayName?.charAt(0) || "T"}
-                </div>
-              )}
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadImage("avatar", e)} />
-            </button>
-
-            <div className="min-w-0 flex-1 pb-1">
-              <h1 className="truncate text-2xl font-bold sm:text-3xl">{displayName || user.username}</h1>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${isOpen ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-300" : "border-red-400/30 bg-red-500/15 text-red-300"}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${isOpen ? "bg-emerald-400" : "bg-red-400"}`} />
-                  {isOpen ? "Abierta" : "Cerrada"}
-                </span>
-                {!isPublished && <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs text-white/50">Oculta</span>}
-                {pendingOrders > 0 && (
-                  <button onClick={() => setTab("orders")} className="rounded-full border border-amber-400/30 bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-200">
-                    {pendingOrders} pedido{pendingOrders !== 1 ? "s" : ""} por aceptar
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <button
-              onClick={() => coverInputRef.current?.click()}
-              className="hidden shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-medium text-white/70 transition-all hover:bg-white/[0.08] sm:flex"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              Cambiar portada
-            </button>
-            <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadImage("cover", e)} />
-          </div>
+    <>
+    <BusinessShell
+      name={displayName || user.username}
+      avatarUrl={profileUser?.avatarUrl ?? user.avatarUrl}
+      kindLabel="Panel de la tienda"
+      tabs={shellTabs}
+      tab={tab}
+      onTab={(k) => { setTab(k); window.scrollTo({ top: 0 }); }}
+      publicHref={`/sexshop/${user.username}`}
+      statusSlot={statusSlot}
+      onLogout={logout}
+    >
+      <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadImage("avatar", e)} />
+      <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadImage("cover", e)} />
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-xl font-bold">{tab === "overview" ? `Hola, ${displayName || user.username}` : TAB_HEADINGS[tab].title}</h1>
+          <p className="text-[13px] text-white/45">{TAB_HEADINGS[tab].text}</p>
         </div>
-      </header>
-
-      {/* ── Tabs ── */}
-      <nav className="sticky top-0 z-30 border-b border-white/10 bg-[#070816]/95 backdrop-blur-xl">
-        <div className="mx-auto max-w-5xl overflow-x-auto">
-          <div className="flex min-w-max px-5 sm:px-8">
-            {tabsMeta.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`relative whitespace-nowrap px-4 py-4 text-sm font-medium transition-colors ${
-                  tab === t.key ? "text-white" : "text-white/50 hover:text-white/70"
-                }`}
-              >
-                <t.Icon className="mr-1.5 inline h-4 w-4 align-[-3px]" />
-                {t.label}
-                {t.key === "orders" && pendingOrders > 0 && (
-                  <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-black">{pendingOrders}</span>
-                )}
-                {tab === t.key && (
-                  <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500" />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      </nav>
-
-      {/* ── Content ── */}
-      <main className="mx-auto max-w-5xl space-y-6 px-5 pt-6 sm:px-8">
 
         {/* ════ Overview ════ */}
         {tab === "overview" && (
@@ -665,7 +621,7 @@ export default function ShopDashboardClient() {
                 { key: "businessOpen" as const, on: isOpen, title: "Tienda abierta", desc: isOpen ? "Recibes pedidos" : "Cerrada: no recibes pedidos nuevos", tone: "bg-emerald-500" },
                 { key: "businessPublished" as const, on: isPublished, title: "Publicada", desc: isPublished ? "Visible en el directorio" : "Oculta del directorio", tone: "bg-violet-500" },
               ].map((item) => (
-                <div key={item.key} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div key={item.key} className="flex items-center justify-between gap-3 editor-card p-4">
                   <div>
                     <div className="text-sm font-semibold">{item.title}</div>
                     <div className="mt-0.5 text-xs text-white/45">{item.desc}</div>
@@ -703,7 +659,7 @@ export default function ShopDashboardClient() {
             </div>
 
             {/* Completeness hints */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="editor-card p-5">
               <h3 className="mb-3 text-sm font-semibold text-white/80">Estado de tu tienda</h3>
               <div className="space-y-2">
                 {[
@@ -732,7 +688,7 @@ export default function ShopDashboardClient() {
 
             {/* Recent products */}
             {products.length > 0 && (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="editor-card p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-white/80">Últimos productos</h3>
                   <button onClick={() => setTab("products")} className="text-xs text-fuchsia-400 hover:text-fuchsia-300 transition-colors">
@@ -774,7 +730,7 @@ export default function ShopDashboardClient() {
 
             {/* Category breakdown */}
             {grouped.length > 0 && (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+              <div className="editor-card p-5">
                 <h3 className="mb-4 text-sm font-semibold text-white/80">Productos por categoría</h3>
                 <div className="space-y-2.5">
                   {grouped.map(([catName, items]) => (
@@ -838,7 +794,7 @@ export default function ShopDashboardClient() {
                   const st = ORDER_STATUS[o.status] || ORDER_STATUS.PENDING;
                   const busyOrder = orderBusyId === o.id;
                   return (
-                    <div key={o.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+                    <div key={o.id} className="editor-card p-4 sm:p-5">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
@@ -935,7 +891,7 @@ export default function ShopDashboardClient() {
         {tab === "branding" && (
           <>
             {/* Cover & avatar */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="editor-card p-5">
               <h3 className="mb-4 text-sm font-semibold text-white/80">Imágenes de marca</h3>
               <div className="grid gap-4 sm:grid-cols-2">
                 <button
@@ -969,7 +925,7 @@ export default function ShopDashboardClient() {
             </div>
 
             {/* Profile info */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="editor-card p-5">
               <h3 className="mb-4 text-sm font-semibold text-white/80">Información de la tienda</h3>
               <div className="grid gap-4">
                 <GlassInput label="Nombre de la tienda" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Nombre visible para clientes" />
@@ -991,7 +947,7 @@ export default function ShopDashboardClient() {
         {tab === "categories" && (
           <>
             {/* Create category */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="editor-card p-5">
               <h3 className="mb-1 text-sm font-semibold text-white/80">Nueva categoría</h3>
               <p className="mb-4 text-xs text-white/40">Organiza tus productos en categorías para que los clientes naveguen fácilmente.</p>
               <div className="flex gap-3">
@@ -1007,7 +963,7 @@ export default function ShopDashboardClient() {
             </div>
 
             {/* Existing categories */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="editor-card p-5">
               <h3 className="mb-4 text-sm font-semibold text-white/80">Categorías existentes ({shopCategories.length})</h3>
               {shopCategories.length ? (
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -1046,7 +1002,7 @@ export default function ShopDashboardClient() {
         {tab === "products" && (
           <>
             {/* Product form */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="editor-card p-5">
               <h3 className="mb-1 text-sm font-semibold text-white/80">
                 {editingProductId ? "Editar producto" : "Nuevo producto"}
               </h3>
@@ -1095,7 +1051,7 @@ export default function ShopDashboardClient() {
             </div>
 
             {/* Product list */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="editor-card p-5">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-white/80">Todos los productos ({products.length})</h3>
               </div>
@@ -1217,9 +1173,9 @@ export default function ShopDashboardClient() {
         )}
 
         {/* ════ Location ════ */}
-        {tab === "location" && (
+        {tab === "branding" && (
           <>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="editor-card p-5">
               <h3 className="mb-1 text-sm font-semibold text-white/80">Dirección de la tienda</h3>
               <p className="mb-4 text-xs text-white/40">Los clientes verán tu ubicación en el mapa de tiendas cercanas.</p>
               <div className="grid gap-4">
@@ -1272,24 +1228,12 @@ export default function ShopDashboardClient() {
             </div>
           </>
         )}
-      </main>
-
-      {/* ── Toast ── */}
-      {msg && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-5 py-3 text-sm text-emerald-200 shadow-2xl backdrop-blur-xl">
-          {msg}
-        </div>
-      )}
-
-      {/* ── Error ── */}
-      {error && (
-        <div className="fixed top-4 right-4 z-50 max-w-sm rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-start justify-between gap-2">
-            <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-red-300 hover:text-white" aria-label="Cerrar"><X className="h-4 w-4" /></button>
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
+    </BusinessShell>
+    <Toast
+      toast={error ? { text: error, tone: "error" } : msg ? { text: msg, tone: "ok" } : null}
+      onClose={() => { setError(null); setMsg(null); }}
+    />
+    </>
   );
 }

@@ -50,7 +50,10 @@ export default function MapboxAddressAutocomplete({
         setLoading(true);
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
           value.trim(),
-        )}.json?access_token=${token}&language=es&autocomplete=true&limit=5&country=CL`;
+        )}.json?access_token=${token}&language=es&autocomplete=true&limit=5&country=CL&proximity=-70.6506,-33.4372`;
+        /* proximity: con la misma calle en varias ciudades ("Providencia 032"
+           existe en Quilpué), primero salen las de Santiago, donde está la
+           mayoría de los perfiles y locales. Sigue mostrando las demás. */
         const res = await fetch(url, { signal: ctrl.signal });
         if (!res.ok) throw new Error("GEOCODE_FAILED");
         const data = await res.json();
