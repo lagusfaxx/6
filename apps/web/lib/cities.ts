@@ -34,6 +34,8 @@ export const CITY_LANDINGS: CityGeo[] = [
   { slug: "calama", name: "Calama", lat: -22.46, lng: -68.93, region: "Antofagasta" },
   { slug: "los-angeles", name: "Los Ángeles", lat: -37.47, lng: -72.35, region: "Biobío" },
   { slug: "curico", name: "Curicó", lat: -34.98, lng: -71.24, region: "Maule" },
+  // Plaza de Armas: "escort santiago centro" busca el centro, no la ciudad.
+  { slug: "santiago-centro", name: "Santiago Centro", lat: -33.4378, lng: -70.6505, region: "Región Metropolitana" },
   { slug: "providencia", name: "Providencia", lat: -33.43, lng: -70.61, region: "Región Metropolitana" },
   { slug: "las-condes", name: "Las Condes", lat: -33.41, lng: -70.57, region: "Región Metropolitana" },
   { slug: "nunoa", name: "Ñuñoa", lat: -33.46, lng: -70.6, region: "Región Metropolitana" },

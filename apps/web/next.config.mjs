@@ -124,6 +124,12 @@ const nextConfig = {
             value: 'nosniff',
           },
           {
+            // HSTS: el navegador pasa directo a https (Semrush "No HSTS
+            // support"). Sin includeSubDomains para no forzar subdominios.
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000',
+          },
+          {
             key: 'X-Frame-Options',
             value: 'SAMEORIGIN',
           },
@@ -175,6 +181,8 @@ const nextConfig = {
       },
       // ── Consolidate duplicate routes → single canonical URL ──
       { source: "/servicios", destination: "/services", permanent: true },
+      // "a domicilio" es la keyword (8,1k búsquedas); la landing curada vive ahí.
+      { source: "/escorts/domicilio", destination: "/escorts/a-domicilio", permanent: true },
       { source: "/chats", destination: "/chat", permanent: true },
       { source: "/chats/:userId", destination: "/chat/:userId", permanent: true },
       { source: "/perfil/:username", destination: "/profile/:username", permanent: true },

@@ -24,12 +24,10 @@ export const metadata: Metadata = {
   ],
   manifest: '/manifest.webmanifest',
   metadataBase: new URL('https://uzeed.cl'),
-  alternates: {
-    canonical: '/',
-    languages: {
-      'es-CL': 'https://uzeed.cl',
-    },
-  },
+  // Sin alternates acá: lo heredan las páginas que no declaran el suyo, y
+  // /contacto, /foro, /terminos y /privacidad salían con canonical al inicio
+  // y un hreflang es-CL apuntando al home (Semrush: "Canonical to other
+  // page" + "Hreflang conflicts"). El home declara su canonical en app/page.
   openGraph: {
     type: 'website',
     locale: 'es_CL',

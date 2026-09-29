@@ -15,6 +15,7 @@ import BackButton from "./BackButton";
 import VerifiedBand from "./VerifiedBand";
 import UserLevelBadge from "./UserLevelBadge";
 import type { MapMarker } from "./MapboxMap";
+import type { TagFilter } from "../lib/escortSearchLandings";
 const MapboxMap = dynamic(() => import("./MapboxMap"), { ssr: false });
 const ProfilePreviewModal = dynamic(() => import("./ProfilePreviewModal"), { ssr: false });
 const Stories = dynamic(() => import("./Stories"), { ssr: false });
@@ -89,6 +90,8 @@ type Props = {
   categorySlug: string;    // 'escort' | 'masajes' | 'motel' | 'sexshop' | …
   title: string;
   tag?: string;            // tag from [tag] route param → added to profileTags filter
+  /** Filtro de una landing /escorts/[tag] (tags, género, a domicilio, maduras). */
+  filter?: TagFilter;
   city?: { name: string; lat: number; lng: number }; // city landing → filters results by location
   /**
    * Mapa sobre la grilla. Los listados de personas viven de la foto y del
@@ -282,6 +285,7 @@ export default function DirectoryPage({
   categorySlug,
   title,
   tag,
+  filter,
   city,
   withMap = true,
   defaultGender,
@@ -294,12 +298,14 @@ export default function DirectoryPage({
 
   /* ── local filter state ── */
   const [profileTagsFilter, setProfileTagsFilter] = useState<string[]>(
-    tag ? [tag] : searchParams.get("profileTags")?.split(",").filter(Boolean) ?? [],
+    filter?.profileTags ?? (tag ? [tag] : searchParams.get("profileTags")?.split(",").filter(Boolean) ?? []),
   );
   const [serviceTagsFilter, setServiceTagsFilter] = useState<string[]>(
-    searchParams.get("serviceTags")?.split(",").filter(Boolean) ?? [],
+    filter?.serviceTags ?? searchParams.get("serviceTags")?.split(",").filter(Boolean) ?? [],
   );
-  const [maduras, setMaduras] = useState(searchParams.get("maduras") === "true");
+  const [maduras, setMaduras] = useState(filter?.maduras || searchParams.get("maduras") === "true");
+  /* Fijo de la landing (/escorts/a-domicilio): no hay chip para quitarlo. */
+  const outcalls = Boolean(filter?.outcalls);
   const [availableNow, setAvailableNow] = useState(searchParams.get("availableNow") === "true");
   /* El orden se toma de la URL. Antes solo se miraba availableNow, así que un
      enlace como /escorts?sort=new caía en "featured" sin avisar: el filtro
@@ -380,13 +386,14 @@ export default function DirectoryPage({
       if (serviceTagsFilter.length) params.set("serviceTags", serviceTagsFilter.join(","));
       if (maduras) params.set("maduras", "true");
       if (availableNow) params.set("availableNow", "true");
+      if (outcalls) params.set("outcalls", "true");
       if (genderFilter) params.set("gender", genderFilter);
       if (urlQuery.trim()) params.set("q", urlQuery.trim().slice(0, 80));
       const ids = analyticsIds();
       if (ids.sid) params.set("sid", ids.sid);
       if (ids.vid) params.set("vid", ids.vid);
       return params;
-  }, [entityType, categorySlug, alsoCategorySlug, effectiveLoc, isCityLanding, profileTagsFilter, serviceTagsFilter, maduras, availableNow, sort, genderFilter, urlQuery, selectedCityName]);
+  }, [entityType, categorySlug, alsoCategorySlug, effectiveLoc, isCityLanding, profileTagsFilter, serviceTagsFilter, maduras, outcalls, availableNow, sort, genderFilter, urlQuery, selectedCityName]);
 
   const fetchResults = useCallback(async () => {
     const myFetch = ++fetchRef.current;
