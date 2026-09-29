@@ -28,7 +28,7 @@ export function connectRealtime(handler: Handler) {
         "live:private_show_started", "live:private_show_ended",
         "live:tip_option_added", "live:tip_option_removed", "live:config_updated",
         "signal:offer", "signal:answer", "signal:ice",
-        "admin_event", "booking:new", "booking:update",
+        "admin_event", "booking:new", "booking:update", "shop:order",
         "social_proof",
       ] as const;
 

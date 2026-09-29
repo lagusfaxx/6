@@ -427,10 +427,17 @@ profileRouter.get(
         shopTrialEndsAt: true,
         latitude: true,
         longitude: true,
+        businessOpen: true,
+        businessPublished: true,
       },
     });
     if (!profile) return res.status(404).json({ error: "NOT_FOUND" });
     const isOwner = viewerId === profile.id;
+    /* Local o tienda que el dueño sacó del directorio: sólo lo ve él. */
+    const isBusiness = profile.profileType === "SHOP" || profile.profileType === "ESTABLISHMENT";
+    if (isBusiness && !profile.businessPublished && !isOwner) {
+      return res.status(404).json({ error: "NOT_FOUND", reason: "UNPUBLISHED" });
+    }
     if (!isOwner && !isBusinessPlanActive(profile)) {
       return res.status(403).json({ error: "PLAN_EXPIRED" });
     }
@@ -612,6 +619,8 @@ async function updateProfile(req: any, res: any) {
     coverPositionY,
     isOnline,
     undisclosedFields,
+    businessOpen,
+    businessPublished,
   } = req.body as Record<string, string | boolean | string[] | number | null>;
   const allowedGenders = new Set(["MALE", "FEMALE", "OTHER"]);
   const allowedPrefs = new Set(["MALE", "FEMALE", "ALL", "OTHER"]);
@@ -812,7 +821,11 @@ async function updateProfile(req: any, res: any) {
     displayNameUpdate = nextName;
   }
 
+  /* Abierto ahora / publicado: sólo para locales y tiendas. */
+  const isBusinessProfile = me.profileType === "SHOP" || me.profileType === "ESTABLISHMENT";
   const baseData: Record<string, unknown> = {
+    businessOpen: isBusinessProfile && typeof businessOpen === "boolean" ? businessOpen : undefined,
+    businessPublished: isBusinessProfile && typeof businessPublished === "boolean" ? businessPublished : undefined,
     displayName: displayNameUpdate,
     bio: bio ?? undefined,
     address: address ?? undefined,
@@ -914,6 +927,8 @@ async function updateProfile(req: any, res: any) {
       delete baseData.coverPositionX;
       delete baseData.coverPositionY;
       delete baseData.profileCompletedAt;
+      delete baseData.businessOpen;
+      delete baseData.businessPublished;
       user = await prisma.user.update({
         where: { id: req.session.userId! },
         data: baseData,

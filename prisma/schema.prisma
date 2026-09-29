@@ -516,7 +516,15 @@ model User {
   /// Aviso por correo de mensajes sin leer. Se puede desactivar desde la
   /// cuenta o con el enlace de baja que va en cada correo.
   emailOnNewMessage   Boolean           @default(true)
-  role                Role              @default(USER)
+  /// Locales y tiendas (ESTABLISHMENT / SHOP): el dueño marca desde su panel
+  /// si atiende ahora. Cerrado sigue apareciendo en el directorio, con el
+  /// cartel de cerrado, y no recibe reservas ni pedidos nuevos.
+  businessOpen        Boolean           @default(true)
+  /// Locales y tiendas: el dueño puede sacar su ficha del directorio sin
+  /// darse de baja (temporada, remodelación). Distinto de `isActive`, que
+  /// maneja el equipo.
+  businessPublished   Boolean           @default(true)
+  role               Role              @default(USER)
   membershipExpiresAt DateTime?
   flowCustomerId      String?           @unique
   flowSubscriptionId  String?           @unique

@@ -63,7 +63,7 @@ const MAX_CARDS = 40;
 
 function ownerHref(profile: ProfileResult) {
   if (profile.externalOnly && profile.websiteUrl) return profile.websiteUrl;
-  if (profile.profileType === "ESTABLISHMENT") return `/hospedaje/${profile.id}`;
+  if (profile.profileType === "ESTABLISHMENT") return `/motel/${profile.username || profile.id}`;
   if (profile.profileType === "SHOP") return `/sexshop/${profile.username}`;
   return `/profesional/${profile.id}`;
 }

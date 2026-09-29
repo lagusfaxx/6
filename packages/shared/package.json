@@ -7,15 +7,21 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "require": "./dist/index.js"
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./motel": {
+      "types": "./dist/motel.d.ts",
+      "require": "./dist/motel.js",
+      "default": "./dist/motel.js"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs --dts --clean --sourcemap",
-    "dev": "tsup src/index.ts --format cjs --dts --watch",
+    "build": "tsup src/index.ts src/motel.ts --format cjs --dts --clean --sourcemap",
+    "dev": "tsup src/index.ts src/motel.ts --format cjs --dts --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "format": "prettier -w ."

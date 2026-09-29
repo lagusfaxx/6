@@ -179,7 +179,10 @@ const nextConfig = {
       { source: "/chats/:userId", destination: "/chat/:userId", permanent: true },
       { source: "/perfil/:username", destination: "/profile/:username", permanent: true },
       { source: "/sexshops", destination: "/sexshop", permanent: true },
-      { source: "/hospedajes", destination: "/hospedaje", permanent: true },
+      { source: "/hospedajes", destination: "/moteles", permanent: true },
+      /* El listado viejo de moteles. Como redirect de la página estática
+         respondía 308 sin cabecera Location. */
+      { source: "/hospedaje", destination: "/moteles", permanent: true },
       { source: "/hot", destination: "/premium", permanent: true },
       // Live section now lives on the live.uzeed.cl whitelabel
       { source: "/live", destination: "https://live.uzeed.cl/south-american-cams/female/", permanent: false },

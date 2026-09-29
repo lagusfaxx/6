@@ -148,7 +148,7 @@ export default function ProfilePreviewModal({ profile, onClose }: Props) {
   const isProfessional = !isEstablishment && !isShop;
 
   const profileHref = isEstablishment
-    ? `/hospedaje/${profile.id}`
+    ? `/motel/${profile.username || profile.id}`
     : isShop
       ? `/sexshop/${profile.username}`
       : cleanProfileHref({ id: profile.id, username: profile.username, serviceCategory: fullProfile?.serviceCategory || profile.serviceCategory, name: profile.displayName || profile.username, city: fullProfile?.city });

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Star, MessageSquare, Send } from "lucide-react";
-import { apiFetch } from "../../../../lib/api";
+import { apiFetch, friendlyErrorMessage } from "../../../../lib/api";
 
 const STAR_VALUES = [1, 2, 3, 4, 5];
 
@@ -17,18 +17,28 @@ export default function RateEstablishmentPage() {
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (rating === 0) return;
     setSaving(true);
+    setError(null);
     try {
-      await apiFetch(`/establishments/${id}/reviews`, {
+      /* Antes apuntaba a /establishments/:id/reviews, que no existía: ninguna
+         calificación se guardaba. */
+      await apiFetch(`/motels/${id}/reviews`, {
         method: "POST",
         body: JSON.stringify({ stars: rating, comment }),
       });
       setSubmitted(true);
-      setTimeout(() => router.push(`/establecimiento/${id}`), 1500);
+      setTimeout(() => router.push(`/motel/${id}`), 1500);
+    } catch (err: any) {
+      if (err?.status === 401) {
+        router.push(`/login?next=${encodeURIComponent(`/calificar/establecimiento/${id}`)}`);
+        return;
+      }
+      setError(friendlyErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -129,6 +139,10 @@ export default function RateEstablishmentPage() {
             placeholder="Describe tu visita, el ambiente, la limpieza..."
           />
         </div>
+
+        {error && (
+          <p className="rounded-xl border border-red-400/25 bg-red-500/10 p-3 text-sm text-red-100">{error}</p>
+        )}
 
         {/* Submit */}
         <button

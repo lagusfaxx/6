@@ -97,8 +97,14 @@ export default function RegisterClient() {
   const [step, setStep] = useState<
     "choose" | "form" | "verify" | "photos-failed"
   >(isGoogleFlow ? "form" : "choose");
+  /* ?type= deja el tipo de cuenta ya marcado: las landings para moteles y
+     tiendas llegan con ?type=ESTABLISHMENT y no tiene sentido que el dueño
+     vuelva a buscar su opción entre cuatro. */
+  const linkedType = ["CLIENT", "PROFESSIONAL", "ESTABLISHMENT", "SHOP"].includes(googleInitialType)
+    ? googleInitialType
+    : null;
   const [profileType, setProfileType] = useState<ProfileType | null>(
-    isGoogleFlow ? googleInitialType : null,
+    isGoogleFlow ? googleInitialType : linkedType,
   );
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -181,7 +187,12 @@ export default function RegisterClient() {
      sin nada que se lo recordara. El estudio recibe con la bienvenida y la
      lista de lo que falta, que es donde se resuelve. */
   const goToStudio = () => {
-    window.location.replace("/dashboard/services?bienvenida=1");
+    /* Locales y tiendas arrancan en su propio panel. */
+    const target =
+      profileType === "ESTABLISHMENT" ? "/dashboard/motel?bienvenida=1"
+      : profileType === "SHOP" ? "/dashboard/shop?bienvenida=1"
+      : "/dashboard/services?bienvenida=1";
+    window.location.replace(target);
   };
   const isProfessional = profileType === "PROFESSIONAL";
 

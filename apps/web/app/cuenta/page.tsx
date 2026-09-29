@@ -19,7 +19,7 @@ import {
   Building, Sparkles, ChevronRight, Camera, Eye, Edit3,
   TrendingUp, Zap, Shield, ShieldCheck, Wallet, RefreshCw,
   VenetianMask, ArrowRight, Bell, BadgeCheck,
-  Settings,
+  Settings, BedDouble, CalendarDays, Package, ClipboardList,
 } from "lucide-react";
 
 type Tone = "fuchsia" | "blue" | "pink" | "violet" | "emerald" | "amber" | "rose";
@@ -142,15 +142,32 @@ export default function AccountPage() {
 
   const publicProfileUrl = user
     ? isProfessional ? `/profesional/${user.id}`
-    : profileType === "ESTABLISHMENT" ? `/establecimiento/${user.id}`
+    : profileType === "ESTABLISHMENT" ? `/motel/${user.username || user.id}`
     : isShop ? `/sexshop/${user.username}`
     : "/"
     : "/";
 
   const quickActions: QuickAction[] = [];
-  if (isProfessional || isShop) {
+  if (isProfessional) {
     quickActions.push(
       { label: "Editar perfil", description: "Fotos, bio, servicios", href: "/dashboard/services", icon: Edit3, tone: "fuchsia" },
+      { label: "Mis mensajes", description: "Chat con clientes", href: "/chats", icon: MessageSquare, tone: "blue" },
+    );
+  }
+  /* Locales y tiendas: accesos directos a lo que usan todos los días. */
+  if (isMotelProfile) {
+    quickActions.push(
+      { label: "Panel del local", description: "Datos, fotos y estado", href: "/dashboard/motel", icon: Building, tone: "fuchsia" },
+      { label: "Reservas", description: "Aceptar y agendar", href: "/dashboard/motel?tab=bookings", icon: CalendarDays, tone: "emerald" },
+      { label: "Habitaciones", description: "Tarifas y fotos", href: "/dashboard/motel?tab=rooms", icon: BedDouble, tone: "violet" },
+      { label: "Mis mensajes", description: "Chat con clientes", href: "/chats", icon: MessageSquare, tone: "blue" },
+    );
+  }
+  if (isShop) {
+    quickActions.push(
+      { label: "Panel de la tienda", description: "Datos, logo y estado", href: "/dashboard/shop", icon: ShoppingBag, tone: "fuchsia" },
+      { label: "Pedidos", description: "Aceptar y despachar", href: "/dashboard/shop?tab=orders", icon: ClipboardList, tone: "emerald" },
+      { label: "Productos", description: "Precios, stock y fotos", href: "/dashboard/shop?tab=products", icon: Package, tone: "violet" },
       { label: "Mis mensajes", description: "Chat con clientes", href: "/chats", icon: MessageSquare, tone: "blue" },
     );
   }
@@ -284,7 +301,12 @@ export default function AccountPage() {
                   Ver perfil
                 </Link>
               )}
-              {canManageProfile && !isMotelProfile ? (
+              {isMotelProfile || isShop ? (
+                <Link href={isShop ? "/dashboard/shop" : "/dashboard/motel"} className="btn-primary flex items-center gap-1.5 px-4 py-2 text-xs">
+                  <Settings className="h-3.5 w-3.5" />
+                  {isShop ? "Panel de la tienda" : "Panel del local"}
+                </Link>
+              ) : canManageProfile ? (
                 <Link href="/dashboard/services" className="btn-primary flex items-center gap-1.5 px-4 py-2 text-xs">
                   <Palette className="h-3.5 w-3.5" />
                   Creator Studio

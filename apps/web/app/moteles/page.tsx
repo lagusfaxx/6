@@ -1,35 +1,26 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
-import DirectoryPage from "../../components/DirectoryPage";
-import SeoContent from "../../components/SeoContent";
+import MotelLandingView from "../../components/motels/MotelLandingView";
+import { fetchMotelDirectory } from "../../lib/motels";
+
+/* El directorio se regenera cada 5 minutos: Google recibe HTML con los moteles. */
+export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "Moteles y Hoteles por Hora en Chile",
+  title: "Moteles en Santiago y Chile: precios, fotos y reservas",
   description:
-    "Encuentra los mejores moteles y hoteles por hora en Santiago, Las Condes y Viña del Mar. Precios, fotos reales y disponibilidad inmediata en UZEED.",
-  keywords: ["moteles chile", "moteles santiago", "hoteles por hora santiago", "moteles las condes"],
+    "Directorio de moteles en Santiago y todo Chile: fotos reales, tarifas por 3 horas, 6 horas y noche, moteles con jacuzzi y estacionamiento privado. Reserva por chat en UZEED.",
+  keywords: ["moteles santiago", "moteles en santiago", "moteles chile", "hoteles por hora santiago", "motel con jacuzzi santiago"],
   alternates: { canonical: "/moteles" },
   openGraph: {
-    title: "Moteles y Hoteles por Hora en Chile | UZEED",
-    description: "Los mejores moteles y hoteles por hora en Santiago y todo Chile. Precios y disponibilidad.",
+    title: "Moteles en Santiago y Chile | UZEED",
+    description: "Fotos, tarifas y reservas de moteles en Santiago y todo Chile.",
     url: "https://uzeed.cl/moteles",
     type: "website",
-    images: [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "UZEED Moteles Chile" }],
+    images: [{ url: "https://uzeed.cl/brand/isotipo-new.png", width: 720, height: 720, alt: "Moteles en UZEED" }],
   },
 };
 
-export default function MotelPage() {
-  return (
-    <>
-      <Suspense>
-        <DirectoryPage
-          key="motel"
-          entityType="establishment"
-          categorySlug="motel"
-          title="Moteles y Hoteles"
-        />
-      </Suspense>
-      <SeoContent variant="moteles" />
-    </>
-  );
+export default async function MotelesPage() {
+  const all = await fetchMotelDirectory();
+  return <MotelLandingView all={all} comuna={null} motels={all} />;
 }

@@ -1016,6 +1016,7 @@ directoryRouter.get(
       profileType: "ESTABLISHMENT",
       isActive: true,
       isVerified: true,
+      businessPublished: true,
       // DEV: subscription filter removed during development
     };
     const categoryRef = await findCategoryByRef(prisma, {
@@ -1036,6 +1037,7 @@ directoryRouter.get(
         bio: true,
         latitude: true,
         longitude: true,
+        businessOpen: true,
         profileMedia: {
           where: { type: "IMAGE" },
           orderBy: { createdAt: "desc" },
@@ -1082,6 +1084,7 @@ directoryRouter.get(
         address: u.address,
         phone: u.phone,
         description: u.bio,
+        isOpen: u.businessOpen,
         rating: rating ? Number(rating.toFixed(2)) : null,
         distance,
         latitude: u.latitude,
@@ -1286,6 +1289,8 @@ directoryRouter.get(
       // cuando pasa la verificación, no antes.
       isActive: true,
       isVerified: true,
+      /* Locales y tiendas pueden ocultarse desde su panel. */
+      ...(entityType === "establishment" || entityType === "shop" ? { businessPublished: true } : {}),
       // DEV: subscription filter removed during development
     };
 
@@ -1755,6 +1760,12 @@ directoryRouter.get(
         bio: true,
         avatarUrl: true,
         coverUrl: true,
+        serviceDescription: true,
+        latitude: true,
+        longitude: true,
+        isActive: true,
+        businessOpen: true,
+        businessPublished: true,
         profileMedia: {
           where: { type: "IMAGE" },
           orderBy: { createdAt: "desc" },
@@ -1776,6 +1787,10 @@ directoryRouter.get(
       },
     });
     if (!u) return res.status(404).json({ error: "NOT_FOUND" });
+    /* Oculto por el dueño o por el equipo: sólo lo ve el dueño (vista previa). */
+    if (req.session.userId !== id && (!u.isActive || !u.businessPublished)) {
+      return res.status(404).json({ error: "NOT_FOUND", reason: "UNPUBLISHED" });
+    }
     if (req.session.userId !== id && !(await userHasActivePlan(id))) {
       const viewerRole = req.session.userId
         ? (await prisma.user.findUnique({ where: { id: req.session.userId }, select: { role: true } }))?.role
@@ -1808,6 +1823,10 @@ directoryRouter.get(
         address: u.address,
         phone: u.phone,
         description: u.bio,
+        schedule: u.serviceDescription,
+        latitude: u.latitude,
+        longitude: u.longitude,
+        isOpen: u.businessOpen,
         avatarUrl: u.avatarUrl,
         coverUrl: u.coverUrl,
         gallery: u.profileMedia.map((m) => m.url),

@@ -2,6 +2,9 @@ import type { MetadataRoute } from "next";
 import { CITY_LANDINGS } from "../lib/cities";
 import { ESCORT_LANDINGS } from "../lib/escortLandings";
 import { cleanProfileHref } from "../lib/profileUrl";
+import { COMUNAS } from "../lib/comunas";
+import { fetchMotelDirectory, motelHref, motelsForComuna } from "../lib/motels";
+import { MOTEL_OWNER_LANDINGS } from "../lib/motelOwnerLandings";
 
 type ProfessionalItem = {
   id?: string | null;
@@ -164,7 +167,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   add("/escorts", "daily", 0.9);
   add("/masajistas", "daily", 0.9);
   add("/moteles", "daily", 0.9);
-  add("/hospedaje", "daily", 0.85);
   add("/establecimientos", "daily", 0.85);
   add("/profesionales", "daily", 0.85);
   add("/sexshop", "daily", 0.8);
@@ -200,6 +202,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const landing of ESCORT_LANDINGS) {
     add(`/${landing.slug}`, "weekly", 0.85);
   }
+  // Dueños de moteles: publicar, reservas online, publicidad.
+  for (const landing of MOTEL_OWNER_LANDINGS) {
+    add(`/${landing.slug}`, "weekly", 0.85);
+  }
 
   // ── Registro (indexable para captar profesionales) ──
   add("/register", "weekly", 0.7);
@@ -211,11 +217,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   add("/privacidad", "yearly", 0.3);
 
   // ── Perfiles públicos dinámicos ──
-  const [professionalPaths, forumSlugs, establishmentIds] = await Promise.all([
+  const [professionalPaths, forumSlugs, establishmentIds, motels] = await Promise.all([
     getPublicProfessionalPaths(),
     getForumCategorySlugs(),
     getEstablishmentIds(),
+    fetchMotelDirectory(),
   ]);
+
+  // ── Moteles: landing por comuna + ficha de cada motel ──
+  // Sólo las comunas con moteles propios o cercanos: las demás son noindex.
+  for (const comuna of COMUNAS) {
+    const { inside, nearby } = motelsForComuna(motels, comuna);
+    if (comuna.isMetro || inside.length || nearby.length) {
+      add(`/moteles/${comuna.slug}`, "daily", inside.length ? 0.85 : 0.6);
+    }
+  }
+  for (const motel of motels) {
+    const edited = new Date(motel.updatedAt);
+    add(motelHref(motel), "weekly", motel.kind === "profile" ? 0.8 : 0.65, Number.isNaN(edited.getTime()) ? undefined : edited);
+  }
 
   // URLs con slug semántico (/profesional/{id}/{nombre-ciudad}); ya vienen
   // codificadas desde profileHref.

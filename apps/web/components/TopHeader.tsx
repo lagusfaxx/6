@@ -581,12 +581,20 @@ export default function TopHeader() {
                   <div className="mx-4 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
                   <div className="px-3 pt-3 pb-1 space-y-0.5">
                     <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-white/25">Mi perfil</p>
-                    <button onClick={() => handleNavLink("/dashboard")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
-                      <LayoutDashboard className="h-4 w-4 text-white/40" /> Dashboard
-                    </button>
-                    <button onClick={() => handleNavLink("/dashboard/services")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
-                      <Settings className="h-4 w-4 text-white/40" /> Editar perfil
-                    </button>
+                    {isEstablishment || isShop ? (
+                      <button onClick={() => handleNavLink(isShop ? "/dashboard/shop" : "/dashboard/motel")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                        <LayoutDashboard className="h-4 w-4 text-white/40" /> {isShop ? "Panel de mi tienda" : "Panel de mi local"}
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={() => handleNavLink("/dashboard")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                          <LayoutDashboard className="h-4 w-4 text-white/40" /> Dashboard
+                        </button>
+                        <button onClick={() => handleNavLink("/dashboard/services")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
+                          <Settings className="h-4 w-4 text-white/40" /> Editar perfil
+                        </button>
+                      </>
+                    )}
                     {isProfessional && (
                       <button onClick={() => handleNavLink("/dashboard/stories?nueva=1")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.06] transition">
                         <Camera className="h-4 w-4 text-white/40" /> Subir story

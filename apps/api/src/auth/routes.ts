@@ -840,6 +840,8 @@ authRouter.get(
       serviceTags: true,
       profileCompletedAt: true,
       undisclosedFields: true,
+      businessOpen: true,
+      businessPublished: true,
     };
     let user: any;
     try {
