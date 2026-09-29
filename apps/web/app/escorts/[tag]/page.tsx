@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import DirectoryPage from "../../../components/DirectoryPage";
-import DirectorySeoLinks, { cityHasProfiles, filterHasProfiles } from "../../../components/DirectorySeoLinks";
+import DirectorySeoLinks, { cityHasProfiles } from "../../../components/DirectorySeoLinks";
 import { getCity } from "../../../lib/cities";
 import { CITY_SEO, getTagLanding, tagFilter, type SeoCopy } from "../../../lib/escortSearchLandings";
 
@@ -42,12 +42,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // Sin perfiles en la ciudad, el título no promete "verificadas hoy" en
     // ella: la página muestra las más cercanas (ver DirectorySeoLinks).
     const hasProfiles = await cityHasProfiles(city.lat, city.lng);
-    const title = seo && hasProfiles
+    const title = seo?.title && hasProfiles
       ? seo.title
       : hasProfiles
         ? `Escorts en ${city.name} - Verificadas Hoy`
         : `Escorts en ${city.name} y alrededores`;
-    const description = seo && hasProfiles
+    const description = seo?.description && hasProfiles
       ? seo.description
       : hasProfiles
         ? `Escorts y putas verificadas en ${city.name}${city.region ? `, ${city.region}` : ""}. Fotos reales, contacto directo por WhatsApp y disponibilidad hoy en UZEED.`
@@ -56,15 +56,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       seo ? { keywords: seo.keywords } : {});
   }
 
-  // Sin perfiles la landing es contenido delgado: noindex hasta que haya.
-  const hasProfiles = await filterHasProfiles(tagFilter(tag));
-  const robots = hasProfiles ? undefined : { index: false, follow: true };
-
   // ── Landing curada (a-domicilio, hombres, trans, maduras …) ──
   const landing = getTagLanding(tag);
   if (landing) {
     return buildMetadata(`/escorts/${landing.slug}`, landing.title, landing.description, `UZEED ${landing.name}`,
-      { keywords: landing.keywords, ...(robots ? { robots } : {}) });
+      { keywords: landing.keywords });
   }
 
   // ── Landing por atributo/servicio (tetona, anal, colombiana …) ──
@@ -74,7 +70,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     `Escorts ${label} en Chile - Verificadas Hoy`,
     `Escorts y putas ${label.toLowerCase()} verificadas en Santiago, Viña del Mar y todo Chile. Fotos reales, contacto directo y disponibilidad hoy en UZEED.`,
     `UZEED Escorts ${label}`,
-    robots ? { robots } : {},
   );
 }
 
@@ -91,7 +86,7 @@ function breadcrumbJsonLd(name: string) {
 }
 
 /** Texto, FAQ y enlaces relacionados de una landing con copy propio. */
-function SeoCopySection({ seo }: { seo: SeoCopy }) {
+function SeoCopySection({ seo }: { seo: Pick<SeoCopy, "h1" | "paragraphs" | "faq" | "related"> }) {
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -173,26 +168,25 @@ export default async function EscortsTagPage({ params }: Props) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd(`Escorts en ${city.name}`)) }}
         />
-        {seo ? (
-          <SeoCopySection seo={seo} />
-        ) : (
-          <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
-            <h2 className="text-xl font-bold text-white/80 mb-3">
-              Escorts y Acompañantes en {city.name}
-            </h2>
-            <p className="mb-4">
-              Directorio de escorts y acompañantes verificadas en {city.name}
-              {city.region ? `, ${city.region}` : ""}. Encuentra perfiles con fotos
-              reales, contacto directo por WhatsApp y disponibilidad hoy. Filtra por
-              servicios, disponibilidad inmediata y atención a domicilio.
-            </p>
-            <p>
-              Todos los perfiles publicados en {city.name} son verificados. Explora
-              también escorts en otras ciudades de Chile como Santiago, Viña del Mar,
-              Valparaíso y Concepción desde UZEED.
-            </p>
-          </section>
-        )}
+        {/* El texto de plantilla se mantiene siempre: las ciudades que ya
+            rankean lo hacen con él. El copy propio se suma debajo. */}
+        <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
+          <h2 className="text-xl font-bold text-white/80 mb-3">
+            Escorts y Acompañantes en {city.name}
+          </h2>
+          <p className="mb-4">
+            Directorio de escorts y acompañantes verificadas en {city.name}
+            {city.region ? `, ${city.region}` : ""}. Encuentra perfiles con fotos
+            reales, contacto directo por WhatsApp y disponibilidad hoy. Filtra por
+            servicios, disponibilidad inmediata y atención a domicilio.
+          </p>
+          <p>
+            Todos los perfiles publicados en {city.name} son verificados. Explora
+            también escorts en otras ciudades de Chile como Santiago, Viña del Mar,
+            Valparaíso y Concepción desde UZEED.
+          </p>
+        </section>
+        {seo && <SeoCopySection seo={seo} />}
         {/* Perfiles renderizados en servidor para indexación */}
         <DirectorySeoLinks
           heading={`Escorts Destacadas en ${city.name}`}

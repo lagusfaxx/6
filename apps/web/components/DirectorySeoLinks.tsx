@@ -89,24 +89,6 @@ export async function cityHasProfiles(lat: number, lng: number): Promise<boolean
   return profiles === null || profiles.length > 0;
 }
 
-function filterParams(filter: TagFilter): Record<string, string> {
-  return {
-    entityType: "professional",
-    categorySlug: "escort",
-    sort: "featured",
-    limit: "30",
-    ...tagFilterParams(filter),
-  };
-}
-
-/**
- * ¿La landing de atributo tiene perfiles? Sin ninguno la página es contenido
- * delgado (soft 404): se marca noindex hasta que alguien publique con ese tag.
- */
-export async function filterHasProfiles(filter: TagFilter): Promise<boolean> {
-  const profiles = await fetchProfiles(filterParams(filter));
-  return profiles === null || profiles.length > 0;
-}
 
 export default async function DirectorySeoLinks({
   heading,

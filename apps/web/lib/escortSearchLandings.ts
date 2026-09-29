@@ -220,7 +220,7 @@ export const TAG_LANDINGS: TagLanding[] = [
   {
     slug: "culona",
     name: "Escorts culonas",
-    filter: { profileTags: ["culona"], gender: "FEMALE" },
+    filter: { profileTags: ["culona"] },
     title: "Escort Culona en Santiago - Fotos Reales",
     description:
       "Escorts culonas y voluptuosas verificadas en Santiago y Chile. Fotos reales, medidas, servicios y tarifa en cada perfil. Contacto directo por WhatsApp.",
@@ -287,11 +287,20 @@ export function tagFilterParams(filter: TagFilter): Record<string, string> {
    que el texto los menciona. Las demás ciudades siguen con la plantilla.
    ──────────────────────────────────────────────────────────────────────── */
 
-export const CITY_SEO: Record<string, SeoCopy> = {
+/**
+ * `title` y `description` son opcionales: Santiago, Las Condes y Providencia
+ * ya rankean con los de plantilla ("Escorts en X - Verificadas Hoy"; sus
+ * clics vienen de "escort verificada(s)" y "escort las condes"), así que se
+ * conservan tal cual y sólo se suma texto. Cambiar un título que ya funciona
+ * puede mover la posición para cualquier lado.
+ */
+export type CitySeoCopy = Omit<SeoCopy, "title" | "description"> & {
+  title?: string;
+  description?: string;
+};
+
+export const CITY_SEO: Record<string, CitySeoCopy> = {
   santiago: {
-    title: "Escort Santiago: Escorts y Putas Verificadas Hoy",
-    description:
-      "Escorts en Santiago verificadas hoy: Santiago Centro, Las Condes, Providencia y Ñuñoa. Fotos reales, tarifas y contacto directo por WhatsApp en UZEED.",
     keywords: ["escort santiago", "escorts santiago", "putas santiago", "escort santiago centro", "escorts en santiago de chile"],
     h1: "Escorts en Santiago de Chile",
     paragraphs: [
@@ -353,9 +362,6 @@ export const CITY_SEO: Record<string, SeoCopy> = {
     ],
   },
   "las-condes": {
-    title: "Escort Las Condes y Manquehue - Verificadas",
-    description:
-      "Escorts en Las Condes verificadas: metro Manquehue, El Golf y Tobalaba. Fotos reales, departamentos privados y contacto directo por WhatsApp en UZEED.",
     keywords: ["escort las condes", "escort manquehue", "putas las condes", "escort metro manquehue"],
     h1: "Escorts en Las Condes",
     paragraphs: [
@@ -381,9 +387,6 @@ export const CITY_SEO: Record<string, SeoCopy> = {
     ],
   },
   providencia: {
-    title: "Escort Providencia, Tobalaba y Los Leones",
-    description:
-      "Escorts en Providencia verificadas: metro Tobalaba, Los Leones, Pedro de Valdivia y Parque Bustamante. Fotos reales y contacto directo por WhatsApp.",
     keywords: ["escort providencia", "escort tobalaba", "escort metro tobalaba", "escort metro los leones", "escort parque bustamante"],
     h1: "Escorts en Providencia",
     paragraphs: [
