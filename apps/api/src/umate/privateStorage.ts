@@ -4,6 +4,7 @@ import fsp from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import type { Request, Response } from "express";
 import { config } from "../config";
+import { serveFromS3, S3_PRIVATE_PREFIX } from "../storage/s3Serve";
 
 export const PRIVATE_PREFIX = "private://";
 
@@ -80,13 +81,17 @@ export async function streamPrivateFile(relPath: string, req: Request, res: Resp
     res.status(400).end();
     return;
   }
-  let stat: fs.Stats;
-  try { stat = await fsp.stat(abs); } catch {
-    res.status(404).end();
-    return;
-  }
-  if (!stat.isFile()) {
-    res.status(404).end();
+  let stat: fs.Stats | null = null;
+  try { stat = await fsp.stat(abs); } catch { /* no está en disco */ }
+  if (!stat || !stat.isFile()) {
+    // Con STORAGE_DRIVER=mirror se intenta la copia en S3 antes de dar 404.
+    const served = await serveFromS3(S3_PRIVATE_PREFIX + path.relative(PRIVATE_DIR, abs).split(path.sep).join("/"), req, res, {
+      "Cache-Control": "private, max-age=300",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Disposition": "inline",
+      "Content-Security-Policy": "default-src 'none'; media-src 'self'; img-src 'self'",
+    }).catch(() => false);
+    if (!served && !res.headersSent) res.status(404).end();
     return;
   }
 

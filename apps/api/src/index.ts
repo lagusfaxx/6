@@ -68,6 +68,8 @@ import { mcpAdminRouter } from "./mcp/adminRoutes";
 import { prisma } from "./db";
 import { requireAuth } from "./auth/middleware";
 import { startWorker } from "./worker";
+import { uploadsS3Fallback } from "./storage/s3Serve";
+import { startS3Mirror } from "./storage/s3Mirror";
 import { getBillingSettings } from "./lib/billingSettings";
 import { initBaileys } from "./notifications/whatsappBaileys";
 
@@ -233,7 +235,13 @@ app.use(
         res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
       }
     },
-  })
+  }),
+  // Si el archivo no está en disco y STORAGE_DRIVER=mirror, se lee desde S3.
+  uploadsS3Fallback({
+    "Cache-Control": "public, max-age=2592000, immutable",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; media-src 'self'",
+  }),
 );
 
 app.use("/auth", authRouter);
@@ -322,6 +330,7 @@ async function boot() {
     console.log(`[api] listening on :${config.port}`);
     startWorker();
     initBaileys();
+    startS3Mirror();
   });
 }
 

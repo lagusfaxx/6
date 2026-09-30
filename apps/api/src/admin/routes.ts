@@ -24,6 +24,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { asyncHandler } from "../lib/asyncHandler";
 import { optimizeImage, optimizeUploadedImage } from "../lib/imageOptimizer";
 import { isUUID } from "../lib/validators";
+import { getS3MirrorStatus } from "../storage/s3Mirror";
 import {
   PROFESSIONAL_PHONE_REGEX,
   samePhone,
@@ -68,6 +69,11 @@ const upload = multer({
 });
 
 adminRouter.use(requireAdmin);
+
+/** Estado del espejo de archivos en S3 (STORAGE_DRIVER=mirror). */
+adminRouter.get("/storage/s3-status", (_req, res) => {
+  res.json(getS3MirrorStatus());
+});
 
 adminRouter.get(
   "/stats",

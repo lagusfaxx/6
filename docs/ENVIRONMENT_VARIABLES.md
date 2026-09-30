@@ -27,6 +27,26 @@ API_BASE_URL=https://api.uzeed.cl
 UPLOADS_DIR=uploads
 ```
 
+#### Copia en Amazon S3 (opcional)
+```bash
+STORAGE_DRIVER=local          # local (por defecto, sin S3) | mirror
+S3_BUCKET=uzeed-media-prod
+AWS_REGION=sa-east-1          # São Paulo: la región donde se creó el bucket
+AWS_ACCESS_KEY_ID=<clave del usuario IAM uzeed-api>
+AWS_SECRET_ACCESS_KEY=<secreto del usuario IAM uzeed-api>
+# S3_MIRROR_INTERVAL_SECONDS=120   # cada cuánto busca archivos nuevos (mín. 30)
+# S3_MIRROR_CONCURRENCY=3          # subidas en paralelo
+```
+
+Con `STORAGE_DRIVER=mirror` el disco sigue siendo la fuente de verdad y la API
+copia a S3 todo lo que haya en `UPLOADS_DIR` (prefijo `uploads/`) y en el
+almacenamiento privado de U-Mate (prefijo `umate-private/`). La primera vez sube
+todo lo existente; después, sólo lo nuevo o modificado. Nunca borra nada en S3.
+Si un archivo falta en disco, `/uploads/...` y los medios privados se leen desde
+S3, así que las URLs guardadas en la base siguen funcionando.
+
+Estado del espejo (admin): `GET /admin/storage/s3-status`.
+
 ### Admin
 ```bash
 ADMIN_EMAIL=admin@uzeed.cl
