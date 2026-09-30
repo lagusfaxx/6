@@ -1557,15 +1557,6 @@ servicesRouter.post(
     if (serviceRequest.clientId !== userId) {
       return res.status(403).json({ error: "FORBIDDEN", message: "Solo el cliente puede dejar una reseña" });
     }
-    // Sólo se reseña un servicio que la profesional aceptó. Antes bastaba
-    // crear una solicitud (que el cliente hace solo) para dejar una reseña
-    // falsa y además marcarla como finalizada.
-    if (!["ACTIVO", "PENDIENTE_EVALUACION", "FINALIZADO"].includes(serviceRequest.status)) {
-      return res.status(400).json({
-        error: "INVALID_STATE",
-        message: "Podrás dejar tu reseña cuando la profesional acepte el servicio.",
-      });
-    }
 
     const review = await prisma.professionalReview.create({
       data: {

@@ -1880,48 +1880,6 @@ directoryRouter.post(
       return res.status(400).json({ error: "SELF_REVIEW", message: "No puedes calificarte a ti mismo." });
     }
 
-    /* Sólo califica un cliente que tuvo contacto real con el perfil: la
-       profesional le respondió por chat o le aprobó una solicitud de
-       servicio. Así una cuenta recién creada (o de la competencia) no
-       puede hundir a nadie con notas falsas. */
-    const reviewer = await prisma.user.findUnique({
-      where: { id: reviewerId },
-      select: { profileType: true },
-    });
-    if (reviewer?.profileType !== "CLIENT") {
-      return res.status(403).json({ error: "CLIENTS_ONLY", message: "Solo los clientes pueden calificar perfiles." });
-    }
-    const autoReply = await prisma.user.findUnique({
-      where: { id: profileId },
-      select: { autoReplyMessage: true },
-    });
-    const autoText = (autoReply?.autoReplyMessage || "").trim();
-    const [humanReplies, serviceRequest] = await Promise.all([
-      // La respuesta automática no cuenta como conversación: hace falta al
-      // menos un mensaje escrito por ella.
-      prisma.message.count({
-        where: {
-          fromId: profileId,
-          toId: reviewerId,
-          ...(autoText ? { NOT: { body: autoText } } : {}),
-        },
-      }),
-      prisma.serviceRequest.findFirst({
-        where: {
-          clientId: reviewerId,
-          professionalId: profileId,
-          status: { in: ["APROBADO", "ACTIVO", "PENDIENTE_EVALUACION", "FINALIZADO"] },
-        },
-        select: { id: true },
-      }),
-    ]);
-    if (humanReplies < 1 && !serviceRequest) {
-      return res.status(403).json({
-        error: "NO_INTERACTION",
-        message: "Podrás calificar este perfil después de conversar con ella por el chat de UZEED.",
-      });
-    }
-
     const overallScore = (Number(ratingBody) + Number(ratingFace) + Number(ratingPhotos) + Number(ratingService) + Number(ratingVibe)) / 5;
 
     const review = await prisma.profileReviewSurvey.upsert({

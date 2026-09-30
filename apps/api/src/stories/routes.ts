@@ -1,6 +1,5 @@
 import { Router } from "express";
 import multer from "multer";
-import rateLimit from "express-rate-limit";
 import path from "path";
 import crypto from "crypto";
 import { prisma } from "../db";
@@ -257,20 +256,8 @@ storiesRouter.post(
    The story owner gets a single aggregated notification that
    increments its count instead of creating one per like.
    ─────────────────────────────────────────────────────────── */
-/* Tope de likes por IP: los anónimos se identifican sólo por una cookie que
-   basta con borrar, así que sin esto un script inflaba (o regalaba) likes
-   sin límite. 40 cada 10 minutos sobra para una persona real. */
-const storyLikeLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  limit: 40,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "TOO_MANY_LIKES", message: "Demasiados likes seguidos. Intenta en unos minutos." },
-});
-
 storiesRouter.post(
   "/stories/:id/like",
-  storyLikeLimiter,
   asyncHandler(async (req, res) => {
     const storyId = req.params.id;
     const viewerUser = (req as any).user;
