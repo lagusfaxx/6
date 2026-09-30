@@ -71,7 +71,8 @@ function roots(): Root[] {
   );
   return [
     // Si el directorio privado o el caché quedaran dentro de uploads, no se copian bajo el prefijo público.
-    { dir: uploads, prefix: S3_PUBLIC_PREFIX, exclude: [PRIVATE_DIR, blurCache] },
+    // Tampoco los documentos de acreditación antiguos: pasan a PRIVATE_DIR al arrancar.
+    { dir: uploads, prefix: S3_PUBLIC_PREFIX, exclude: [PRIVATE_DIR, blurCache, path.join(uploads, "professional-docs")] },
     { dir: PRIVATE_DIR, prefix: S3_PRIVATE_PREFIX, exclude: [blurCache] },
   ];
 }

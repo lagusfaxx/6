@@ -69,6 +69,9 @@ function contentTypeFor(relPath: string): string {
     case ".png":  return "image/png";
     case ".webp": return "image/webp";
     case ".gif":  return "image/gif";
+    case ".heic": return "image/heic";
+    case ".heif": return "image/heif";
+    case ".pdf":  return "application/pdf";
     default:      return "application/octet-stream";
   }
 }

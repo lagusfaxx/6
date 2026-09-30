@@ -25,7 +25,7 @@ import { adminOverviewRouter } from "./admin/overview";
 import { adminTeamRouter } from "./admin/team";
 import { plansRouter } from "./khipu/plans";
 import { profileRouter } from "./profile/routes";
-import { professionalDocsRouter } from "./profile/professionalDocuments";
+import { DOCS_SUBFOLDER, migrateLegacyProfessionalDocs, professionalDocsRouter } from "./profile/professionalDocuments";
 import { phoneChangeRouter } from "./profile/phoneChange";
 import { nameChangeRouter } from "./profile/nameChange";
 import { faceVerificationRouter } from "./verification/faceVerification";
@@ -220,6 +220,15 @@ app.use(
     res.setHeader("Access-Control-Expose-Headers", "Accept-Ranges, Content-Range, Content-Length");
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     if (req.method === "OPTIONS") return res.sendStatus(204);
+    // Documentos de acreditación (datos de salud): sólo por las rutas autenticadas
+    // de professionalDocuments, nunca por el /uploads público.
+    let rel: string;
+    try {
+      rel = path.posix.normalize(decodeURIComponent(req.path)).replace(/^\/+/, "");
+    } catch {
+      return res.sendStatus(400);
+    }
+    if (rel.split("/")[0].toLowerCase() === DOCS_SUBFOLDER) return res.sendStatus(404);
     next();
   },
   express.static(path.resolve(config.storageDir), {
@@ -331,6 +340,9 @@ async function boot() {
     startWorker();
     initBaileys();
     startS3Mirror();
+    migrateLegacyProfessionalDocs().catch((err) =>
+      console.error("[professional-docs] migration error", (err as Error)?.message),
+    );
   });
 }
 

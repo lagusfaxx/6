@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -8,21 +8,31 @@ import { prisma } from "../db";
 import { requireAuth, requireAdmin } from "../auth/middleware";
 import { config } from "../config";
 import { asyncHandler } from "../lib/asyncHandler";
+import { PRIVATE_DIR, PRIVATE_PREFIX, isPrivateRef, privateRefToRelPath, streamPrivateFile } from "../umate/privateStorage";
+import { serveFromS3, S3_PUBLIC_PREFIX } from "../storage/s3Serve";
 
 /**
  * Professional accreditation documents.
  *
  * Creators upload PDFs or images of their exams / certificates here so an
- * admin can grant them the "profesional con examenes" tag. Files are stored
- * under the persistent uploads volume (${storageDir}/professional-docs/...)
- * so they survive redeploys.
+ * admin can grant them the "profesional con examenes" tag. They are health
+ * data (datos sensibles), so files live in the private storage dir — never
+ * under the public /uploads mount — and are only streamed through
+ * authenticated routes: the owner via /profile/documents/:id/file and admins
+ * via /admin/professional-documents/:id/file.
+ *
+ * Rows store a "private://professional-docs/<file>" ref. Older rows still hold
+ * a public /uploads/professional-docs/... URL; `migrateLegacyProfessionalDocs`
+ * moves those files into private storage at boot.
  */
 
 export const professionalDocsRouter = Router();
 
 // ── Storage ──────────────────────────────────────────────────────────────
-const DOCS_SUBFOLDER = "professional-docs";
-const DOCS_DIR = path.join(path.resolve(config.storageDir), DOCS_SUBFOLDER);
+export const DOCS_SUBFOLDER = "professional-docs";
+const DOCS_DIR = path.join(PRIVATE_DIR, DOCS_SUBFOLDER);
+/** Where documents were stored before they moved to private storage (served publicly). */
+export const LEGACY_DOCS_DIR = path.join(path.resolve(config.storageDir), DOCS_SUBFOLDER);
 
 async function ensureDocsDir() {
   await fs.mkdir(DOCS_DIR, { recursive: true });
@@ -75,9 +85,136 @@ const upload = multer({
   },
 });
 
-function publicUrlFor(filename: string): string {
+function privateRefFor(filename: string): string {
+  return `${PRIVATE_PREFIX}${DOCS_SUBFOLDER}/${filename}`;
+}
+
+/** Filename of a legacy public URL (".../uploads/professional-docs/<file>"), or null. */
+function legacyFilename(fileUrl: string): string | null {
+  let pathname = fileUrl;
+  try {
+    pathname = new URL(fileUrl).pathname;
+  } catch {
+    // relative path
+  }
+  let name: string;
+  try {
+    name = path.posix.basename(decodeURIComponent(pathname));
+  } catch {
+    return null;
+  }
+  if (!name || name.startsWith(".") || name.includes("\\") || name.includes("\0")) return null;
+  return name;
+}
+
+/** The URL clients get instead of the storage ref: an authenticated API route. */
+function fileRouteFor(scope: "owner" | "admin", id: string): string {
   const base = config.apiUrl.replace(/\/$/, "");
-  return `${base}/uploads/${DOCS_SUBFOLDER}/${encodeURIComponent(filename)}`;
+  return scope === "owner"
+    ? `${base}/profile/documents/${id}/file`
+    : `${base}/admin/professional-documents/${id}/file`;
+}
+
+function withFileRoute<T extends { id: string; fileUrl: string }>(scope: "owner" | "admin", doc: T): T {
+  return { ...doc, fileUrl: fileRouteFor(scope, doc.id) };
+}
+
+async function isFile(abs: string): Promise<boolean> {
+  try {
+    return (await fs.stat(abs)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** Absolute path on disk of a stored document, or null if it can't be resolved safely. */
+function localPathFor(fileUrl: string): string | null {
+  if (isPrivateRef(fileUrl)) {
+    const rel = privateRefToRelPath(fileUrl);
+    if (!rel) return null;
+    const abs = path.resolve(PRIVATE_DIR, rel);
+    return abs.startsWith(DOCS_DIR + path.sep) ? abs : null;
+  }
+  const name = legacyFilename(fileUrl);
+  return name ? path.join(LEGACY_DOCS_DIR, name) : null;
+}
+
+const LEGACY_HEADERS = {
+  "Cache-Control": "private, no-store",
+  "X-Content-Type-Options": "nosniff",
+  "Content-Disposition": "inline",
+  "Content-Security-Policy": "default-src 'none'; img-src 'self'",
+};
+
+async function sendLegacyFromDisk(name: string, res: Response): Promise<boolean> {
+  const abs = path.join(LEGACY_DOCS_DIR, name);
+  if (!(await isFile(abs))) return false;
+  for (const [k, v] of Object.entries(LEGACY_HEADERS)) res.setHeader(k, v);
+  res.sendFile(abs);
+  return true;
+}
+
+async function streamDocument(fileUrl: string, req: Request, res: Response): Promise<void> {
+  res.setHeader("Referrer-Policy", "no-referrer");
+  if (isPrivateRef(fileUrl)) {
+    const rel = privateRefToRelPath(fileUrl);
+    const abs = localPathFor(fileUrl);
+    if (!rel || !abs) {
+      res.status(404).json({ error: "NOT_FOUND" });
+      return;
+    }
+    // Migrated rows keep their original copy; use it if the private one is missing.
+    if (!(await isFile(abs)) && (await sendLegacyFromDisk(path.basename(abs), res))) return;
+    await streamPrivateFile(rel, req, res);
+    return;
+  }
+  // Legacy row whose file could not be migrated at boot (e.g. only in S3).
+  const name = legacyFilename(fileUrl);
+  if (!name) {
+    res.status(404).json({ error: "NOT_FOUND" });
+    return;
+  }
+  if (await sendLegacyFromDisk(name, res)) return;
+  const served = await serveFromS3(`${S3_PUBLIC_PREFIX}${DOCS_SUBFOLDER}/${name}`, req, res, LEGACY_HEADERS).catch(() => false);
+  if (!served && !res.headersSent) res.status(404).json({ error: "NOT_FOUND" });
+}
+
+/**
+ * Copies documents uploaded before the switch to private storage into
+ * PRIVATE_DIR and repoints their rows. The public copy is kept as a backup
+ * (it is no longer reachable: /uploads blocks this folder and the S3 mirror
+ * skips it) and is removed together with the document. Idempotent; runs on
+ * every boot. Rows whose file is not on local disk are left as-is and are
+ * still served (from S3) through the authenticated routes.
+ */
+export async function migrateLegacyProfessionalDocs(): Promise<void> {
+  const legacy = await prisma.professionalDocument.findMany({
+    where: { NOT: { fileUrl: { startsWith: PRIVATE_PREFIX } } },
+    select: { id: true, fileUrl: true },
+  });
+  if (!legacy.length) return;
+  await ensureDocsDir();
+  let moved = 0;
+  for (const doc of legacy) {
+    const name = legacyFilename(doc.fileUrl);
+    if (!name) continue;
+    const from = path.join(LEGACY_DOCS_DIR, name);
+    const to = path.join(DOCS_DIR, name);
+    try {
+      if (!(await isFile(to))) {
+        if (!(await isFile(from))) continue;
+        await fs.copyFile(from, to);
+      }
+      await prisma.professionalDocument.update({
+        where: { id: doc.id },
+        data: { fileUrl: privateRefFor(name) },
+      });
+      moved++;
+    } catch (err) {
+      console.error("[professional-docs] migration failed", doc.id, (err as Error)?.message);
+    }
+  }
+  console.log(`[professional-docs] copied ${moved}/${legacy.length} legacy documents to private storage`);
 }
 
 async function cleanupFile(absPath: string) {
@@ -110,7 +247,21 @@ professionalDocsRouter.get(
         createdAt: true,
       },
     });
-    return res.json({ documents: docs });
+    return res.json({ documents: docs.map((d) => withFileRoute("owner", d)) });
+  }),
+);
+
+professionalDocsRouter.get(
+  "/profile/documents/:id/file",
+  asyncHandler(async (req, res) => {
+    const doc = await prisma.professionalDocument.findUnique({
+      where: { id: req.params.id },
+      select: { userId: true, fileUrl: true },
+    });
+    if (!doc || doc.userId !== req.session.userId!) {
+      return res.status(404).json({ error: "NOT_FOUND" });
+    }
+    await streamDocument(doc.fileUrl, req, res);
   }),
 );
 
@@ -135,7 +286,7 @@ professionalDocsRouter.post(
 
     const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 500) : null;
 
-    const fileUrl = publicUrlFor(file.filename);
+    const fileUrl = privateRefFor(file.filename);
 
     const doc = await prisma.professionalDocument.create({
       data: {
@@ -160,7 +311,7 @@ professionalDocsRouter.post(
       },
     });
 
-    return res.json({ document: doc });
+    return res.json({ document: withFileRoute("owner", doc) });
   }),
 );
 
@@ -176,14 +327,11 @@ professionalDocsRouter.delete(
 
     // Try to remove the underlying file. Best-effort: DB row is still removed
     // even if the file is already missing from disk.
-    try {
-      const url = new URL(doc.fileUrl);
-      const filename = path.basename(decodeURIComponent(url.pathname));
-      if (filename) {
-        await cleanupFile(path.join(DOCS_DIR, filename));
-      }
-    } catch {
-      // Legacy rows without a parseable URL — skip filesystem cleanup.
+    const abs = localPathFor(doc.fileUrl);
+    if (abs) {
+      await cleanupFile(abs);
+      // Migrated rows also left their original copy in the old public folder.
+      await cleanupFile(path.join(LEGACY_DOCS_DIR, path.basename(abs)));
     }
 
     await prisma.professionalDocument.delete({ where: { id: doc.id } });
@@ -237,7 +385,19 @@ professionalDocsRouter.get(
       },
     });
 
-    return res.json({ documents: docs });
+    return res.json({ documents: docs.map((d) => withFileRoute("admin", d)) });
+  }),
+);
+
+professionalDocsRouter.get(
+  "/admin/professional-documents/:id/file",
+  asyncHandler(async (req, res) => {
+    const doc = await prisma.professionalDocument.findUnique({
+      where: { id: req.params.id },
+      select: { fileUrl: true },
+    });
+    if (!doc) return res.status(404).json({ error: "NOT_FOUND" });
+    await streamDocument(doc.fileUrl, req, res);
   }),
 );
 
