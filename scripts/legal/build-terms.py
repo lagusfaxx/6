@@ -30,8 +30,7 @@ DATOS_EMPRESA = {
     # Debe coincidir EXACTO con la escritura/SII de la sociedad del RUT.
     "RAZON_SOCIAL": "APLICATIVOS MOVILES Y SERVICIOS PUBLICITARIOS SpA",
     "RUT": "78.374.984-K",
-    "DOMICILIO": "",  # ej: "Av. Apoquindo 1234, oficina 56, Las Condes, Santiago"
-    "FECHA_VIGENCIA": "",  # ej: "1 de noviembre de 2026"
+    "FECHA_VIGENCIA": "30 de septiembre de 2026",
 }
 
 DOCS = [

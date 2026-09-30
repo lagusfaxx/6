@@ -11,7 +11,7 @@ enlazan esas rutas, así que al reemplazar los PDF no hay que tocar código.
 ## Cómo publicar una versión nueva
 
 1. Pedir a un abogado que revise los `.md` (los PDF `*-BORRADOR.pdf` de esta carpeta sirven para enviárselos).
-2. Completar `DATOS_EMPRESA` en `scripts/legal/build-terms.py` (razón social exacta según SII, domicilio y fecha de vigencia).
+2. Completar `DATOS_EMPRESA` en `scripts/legal/build-terms.py` (razón social exacta según SII y fecha de vigencia).
 3. Generar los PDF:
    ```bash
    python3 scripts/legal/build-terms.py

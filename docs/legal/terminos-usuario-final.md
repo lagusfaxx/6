@@ -4,7 +4,7 @@
 
 ## 1. IDENTIFICACIÓN Y ACEPTACIÓN
 
-El sitio web https://www.uzeed.cl, sus subdominios y aplicaciones (en adelante, la "Plataforma") son operados por **{{RAZON_SOCIAL}}**, RUT {{RUT}}, con domicilio en {{DOMICILIO}} (en adelante, "UZEED").
+El sitio web https://www.uzeed.cl, sus subdominios y aplicaciones (en adelante, la "Plataforma") son operados por **{{RAZON_SOCIAL}}**, RUT {{RUT}} (en adelante, "UZEED").
 
 Estos Términos y Condiciones (los "Términos"), junto con la Política de Privacidad, las Reglas de Publicación y los términos particulares de cada servicio (por ejemplo, U-Mate, Marketplace o Tokens), forman un solo contrato entre usted y UZEED. Los términos particulares prevalecen sobre estos en lo que regulen específicamente.
 
