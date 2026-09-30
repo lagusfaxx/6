@@ -31,7 +31,7 @@ UPLOADS_DIR=uploads
 ```bash
 STORAGE_DRIVER=local          # local (por defecto, sin S3) | mirror
 S3_BUCKET=uzeed-media-prod
-AWS_REGION=eu-north-1         # la región donde se creó el bucket
+AWS_REGION=sa-east-1          # São Paulo: la región donde se creó el bucket
 AWS_ACCESS_KEY_ID=<clave del usuario IAM uzeed-api>
 AWS_SECRET_ACCESS_KEY=<secreto del usuario IAM uzeed-api>
 # S3_MIRROR_INTERVAL_SECONDS=120   # cada cuánto busca archivos nuevos (mín. 30)
