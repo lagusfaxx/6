@@ -3,9 +3,9 @@
 // The version is stored alongside the acceptance record so historical
 // bindings can be reconstructed.
 
-export const TERMS_VERSION = "2026-04-18";
+export const TERMS_VERSION = "2026-09-30";
 export const RULES_VERSION = "2026-04-18";
-export const CONTRACT_VERSION = "2026-04-18";
+export const CONTRACT_VERSION = "2026-09-30";
 
 type Section = { title: string; paragraphs: string[] };
 
@@ -31,7 +31,7 @@ export const TERMS_SECTIONS: Section[] = [
     title: "3. Licencia sobre el Contenido",
     paragraphs: [
       "La Creadora mantiene la titularidad de los derechos de autor sobre el Contenido que publica.",
-      "Al publicar, la Creadora otorga a UZEED SpA una licencia mundial, no exclusiva, sublicenciable, libre de regalías y por todo el plazo de vigencia de la cuenta para reproducir, adaptar, mostrar, distribuir y comunicar públicamente el Contenido dentro de la plataforma y en material promocional asociado (miniaturas, previas, redes sociales oficiales).",
+      "Al publicar, la Creadora otorga a UZEED una licencia mundial, no exclusiva, sublicenciable, libre de regalías y por todo el plazo de vigencia de la cuenta para reproducir, adaptar, mostrar, distribuir y comunicar públicamente el Contenido dentro de la plataforma y en material promocional asociado (miniaturas, previas, redes sociales oficiales).",
       "La licencia subsiste hasta por 180 días después de la eliminación del Contenido, exclusivamente para fines de respaldo, auditoría legal y cumplimiento de requerimientos de autoridad.",
     ],
   },
@@ -62,14 +62,14 @@ export const TERMS_SECTIONS: Section[] = [
     title: "7. Responsabilidad y limitación",
     paragraphs: [
       "U-Mate actúa como intermediario tecnológico entre Creadoras y Suscriptores. No es editor ni productor del Contenido.",
-      "En la máxima medida permitida por ley, UZEED SpA no será responsable por daños indirectos, incidentales, lucro cesante, pérdida de datos o reputación derivados del uso o imposibilidad de uso del servicio.",
-      "La responsabilidad total acumulada de UZEED SpA frente a la Creadora o un Suscriptor, por cualquier causa, no excederá los montos efectivamente pagados por el reclamante a UZEED SpA en los 3 meses anteriores al hecho.",
+      "En la máxima medida permitida por ley, UZEED no será responsable por daños indirectos, incidentales, lucro cesante, pérdida de datos o reputación derivados del uso o imposibilidad de uso del servicio.",
+      "La responsabilidad total acumulada de UZEED frente a la Creadora o un Suscriptor, por cualquier causa, no excederá los montos efectivamente pagados por el reclamante a UZEED en los 3 meses anteriores al hecho.",
     ],
   },
   {
     title: "8. Indemnidad",
     paragraphs: [
-      "La Creadora mantendrá indemne a UZEED SpA, sus socios, directores, empleados y aliados comerciales, y los defenderá frente a cualquier reclamo, demanda, costo o sanción (incluyendo honorarios legales razonables) derivado de: (a) su Contenido; (b) la violación de sus declaraciones en la cláusula 4; (c) la infracción de leyes aplicables; (d) conductas atribuibles a ella frente a Suscriptores u otros terceros.",
+      "La Creadora mantendrá indemne a UZEED, sus socios, directores, empleados y aliados comerciales, y los defenderá frente a cualquier reclamo, demanda, costo o sanción (incluyendo honorarios legales razonables) derivado de: (a) su Contenido; (b) la violación de sus declaraciones en la cláusula 4; (c) la infracción de leyes aplicables; (d) conductas atribuibles a ella frente a Suscriptores u otros terceros.",
     ],
   },
   {
@@ -155,7 +155,7 @@ export const CONTRACT_SECTIONS: Section[] = [
   {
     title: "Comparecientes",
     paragraphs: [
-      "De una parte, UZEED SpA, RUT 77.xxx.xxx-x, en adelante \"UZEED\" o \"la Plataforma\".",
+      "De una parte, APLICATIVOS MOVILES Y SERVICIOS PUBLICITARIOS SpA, RUT 78.374.984-K, que opera la plataforma bajo la marca UZEED, en adelante \"UZEED\" o \"la Plataforma\".",
       "De la otra parte, la persona natural mayor de edad que acepta este contrato mediante su cuenta U-Mate, en adelante \"la Creadora\".",
     ],
   },
