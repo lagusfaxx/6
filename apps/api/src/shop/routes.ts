@@ -10,6 +10,7 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { validateUploadedFile } from "../lib/uploads";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { sendToUser } from "../realtime/sse";
+import { safeUploadFilename } from "../lib/uploadFilename";
 
 export const shopRouter = Router();
 
@@ -25,10 +26,7 @@ const upload = multer({
       cb(null, config.storageDir);
     },
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || "";
-      const safeBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, "");
-      const name = `${Date.now()}-${safeBase}${ext}`;
-      cb(null, name);
+      cb(null, safeUploadFilename(file));
     }
   }),
   limits: { fileSize: 100 * 1024 * 1024 }

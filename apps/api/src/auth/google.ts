@@ -21,6 +21,8 @@ import { validateUploadedFile } from "../lib/uploads";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { MIN_PROFESSIONAL_GALLERY_PHOTOS } from "./createProfessional";
 import { autoReplyFields } from "../messages/autoReply";
+import { isPanelStaff } from "./twoFactor";
+import { safeUploadFilename } from "../lib/uploadFilename";
 
 export const googleAuthRouter = Router();
 
@@ -231,9 +233,7 @@ googleAuthRouter.get(
       where: { id: user.id },
       select: { role: true, email: true, twoFactorEnabled: true },
     });
-    const isAdmin =
-      (fullUser?.role || "").toUpperCase() === "ADMIN" ||
-      fullUser?.email === config.adminEmail;
+    const isAdmin = Boolean(fullUser && isPanelStaff(fullUser));
     const requires2FA = Boolean(isAdmin && fullUser?.twoFactorEnabled);
 
     // Regenerate session to prevent session fixation, then attach userId.
@@ -346,6 +346,12 @@ async function finalizeGoogleSession(
   });
   req.session.userId = user.id;
   req.session.role = user.role as "USER" | "ADMIN";
+  // Si la cuenta ya existía y es del panel, igual debe resolver el 2FA.
+  const staff = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { email: true, role: true, twoFactorEnabled: true },
+  });
+  req.session.twoFactorPending = Boolean(staff && isPanelStaff(staff) && staff.twoFactorEnabled);
   await persistSession(req);
 }
 
@@ -365,11 +371,7 @@ const googleGalleryDisk = multer.diskStorage({
     cb(null, config.storageDir);
   },
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || "";
-    const safeBase = path
-      .basename(file.originalname, ext)
-      .replace(/[^a-zA-Z0-9_-]/g, "");
-    cb(null, `${Date.now()}-${safeBase}${ext}`);
+    cb(null, safeUploadFilename(file));
   },
 });
 

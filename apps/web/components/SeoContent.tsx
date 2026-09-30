@@ -1,3 +1,5 @@
+import { jsonLdString } from "../lib/jsonLd";
+
 /**
  * Server-rendered SEO content blocks for directory pages.
  * These provide crawlable text for Google while the client-side
@@ -138,12 +140,12 @@ export default function SeoContent({ variant }: SeoContentProps) {
       {faqJsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdString(faqJsonLd) }}
         />
       )}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd) }}
       />
       {/* Visually hidden but crawlable SEO text at bottom of page */}
       <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">

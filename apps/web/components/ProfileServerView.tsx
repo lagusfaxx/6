@@ -1,5 +1,6 @@
 import ProfileDetailView from "../app/profesional/_components/ProfileDetailView";
 import type { ProfileRecord } from "../lib/profileServer";
+import { jsonLdString } from "../lib/jsonLd";
 
 /**
  * Vista server-side de un perfil, compartida por las rutas limpias
@@ -35,7 +36,7 @@ export default function ProfileServerView({
 
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }}
       />
 
       {/* Contenido SEO server-side (visible para Google, oculto visualmente) */}

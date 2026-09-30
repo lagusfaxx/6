@@ -22,11 +22,12 @@ import { sendSetPasswordEmail, consumeVerifiedEmail } from "./verification";
 import { createFlowPayment } from "../khipu/client";
 import { createProfessionalUser, InsufficientGalleryPhotosError } from "./createProfessional";
 import { googleAuthRouter } from "./google";
-import { twoFactorRouter } from "./twoFactor";
+import { twoFactorRouter, isPanelStaff } from "./twoFactor";
 import {
   createProfessionalForumThread,
   geocodeAddress,
 } from "./registerHelpers";
+import { safeUploadFilename } from "../lib/uploadFilename";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -416,11 +417,7 @@ const quickRegisterDisk = multer.diskStorage({
     cb(null, config.storageDir);
   },
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || "";
-    const safeBase = path
-      .basename(file.originalname, ext)
-      .replace(/[^a-zA-Z0-9_-]/g, "");
-    cb(null, `${Date.now()}-${safeBase}${ext}`);
+    cb(null, safeUploadFilename(file));
   },
 });
 
@@ -716,8 +713,9 @@ authRouter.post(
     // configured admin email) and has TOTP enrolled, hold the session in a
     // "pending" state. requireAdmin will refuse to authorize admin routes
     // until POST /auth/2fa/verify clears the flag.
-    const isAdmin =
-      (user.role || "").toUpperCase() === "ADMIN" || user.email === config.adminEmail;
+    // Administración y equipo (MODERATOR) por igual: quien entra al panel
+    // pasa por el doble factor.
+    const isAdmin = isPanelStaff(user);
     const requires2FA = isAdmin && (user as any).twoFactorEnabled === true;
     const requires2FASetup = isAdmin && !((user as any).twoFactorEnabled === true);
     (req.session as any).twoFactorPending = requires2FA;

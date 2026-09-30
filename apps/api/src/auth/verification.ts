@@ -284,6 +284,32 @@ interface ResetToken {
 }
 const pendingResetTokens = new Map<string, ResetToken>();
 
+/* Topes diarios por correo, además de los de IP. Con códigos de 6 dígitos,
+   pedir uno nuevo cada 2 minutos y rotar IPs permitía ir probando miles de
+   códigos por día contra una cuenta puntual hasta adivinar uno. Con esto,
+   cada correo tiene como máximo RESET_MAX_FAILS_PER_DAY intentos fallidos. */
+const RESET_WINDOW_MS = 24 * 60 * 60 * 1000;
+const RESET_MAX_SENDS_PER_DAY = 5;
+const RESET_MAX_FAILS_PER_DAY = 10;
+type DailyCounter = { count: number; windowStart: number };
+const resetSendsByEmail = new Map<string, DailyCounter>();
+const resetFailsByEmail = new Map<string, DailyCounter>();
+
+function dailyCount(map: Map<string, DailyCounter>, key: string): number {
+  const entry = map.get(key);
+  if (!entry || Date.now() - entry.windowStart > RESET_WINDOW_MS) return 0;
+  return entry.count;
+}
+
+function bumpDaily(map: Map<string, DailyCounter>, key: string) {
+  const entry = map.get(key);
+  if (!entry || Date.now() - entry.windowStart > RESET_WINDOW_MS) {
+    map.set(key, { count: 1, windowStart: Date.now() });
+  } else {
+    entry.count++;
+  }
+}
+
 // Cleanup expired reset codes and tokens every 5 minutes
 setInterval(() => {
   const now = Date.now();
@@ -292,6 +318,11 @@ setInterval(() => {
   }
   for (const [key, entry] of pendingResetTokens) {
     if (entry.expiresAt < now) pendingResetTokens.delete(key);
+  }
+  for (const map of [resetSendsByEmail, resetFailsByEmail]) {
+    for (const [key, entry] of map) {
+      if (now - entry.windowStart > RESET_WINDOW_MS) map.delete(key);
+    }
   }
 }, 5 * 60 * 1000);
 
@@ -376,6 +407,17 @@ verificationRouter.post(
       });
     }
 
+    if (
+      dailyCount(resetSendsByEmail, normalizedEmail) >= RESET_MAX_SENDS_PER_DAY ||
+      dailyCount(resetFailsByEmail, normalizedEmail) >= RESET_MAX_FAILS_PER_DAY
+    ) {
+      return res.status(429).json({
+        error: "TOO_MANY_ATTEMPTS",
+        message: "Se pidieron demasiados códigos para este correo. Intenta mañana o escríbenos a soporte.",
+      });
+    }
+    bumpDaily(resetSendsByEmail, normalizedEmail);
+
     const code = generateCode();
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
@@ -421,7 +463,14 @@ verificationRouter.post(
       return res.status(400).json({ error: "MISSING_FIELDS" });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = String(email).trim().toLowerCase();
+    if (dailyCount(resetFailsByEmail, normalizedEmail) >= RESET_MAX_FAILS_PER_DAY) {
+      pendingResetCodes.delete(normalizedEmail);
+      return res.status(429).json({
+        error: "TOO_MANY_ATTEMPTS",
+        message: "Demasiados intentos fallidos para este correo. Intenta mañana.",
+      });
+    }
     const entry = pendingResetCodes.get(normalizedEmail);
 
     if (!entry) {
@@ -440,6 +489,7 @@ verificationRouter.post(
     const submittedResetCode = String(code).trim();
     if (!safeCompare(entry.code, submittedResetCode)) {
       entry.attempts++;
+      bumpDaily(resetFailsByEmail, normalizedEmail);
       if (entry.attempts >= MAX_VERIFY_ATTEMPTS) {
         pendingResetCodes.delete(normalizedEmail);
         return res

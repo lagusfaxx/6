@@ -72,6 +72,7 @@ import { uploadsS3Fallback } from "./storage/s3Serve";
 import { startS3Mirror } from "./storage/s3Mirror";
 import { getBillingSettings } from "./lib/billingSettings";
 import { initBaileys } from "./notifications/whatsappBaileys";
+import { cleanupUploadsOnError, isServableUploadExt } from "./lib/uploadFilename";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -178,6 +179,9 @@ app.use((req, res, next) => {
 
 app.use(sessionMiddleware);
 
+// Archivos subidos en una petición que termina en error se borran del disco.
+app.use(cleanupUploadsOnError);
+
 // ── CSRF protection: validate Origin header on state-changing requests ──
 app.use((req, res, next) => {
   if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
@@ -226,6 +230,13 @@ app.use(
     maxAge: "30d",
     immutable: true,
     setHeaders: (res, filePath) => {
+      // Lo que no sea imagen, video o PDF se descarga, nunca se muestra: un
+      // .html o .svg que alguien haya colado antes no se abre como página.
+      const ext = path.extname(filePath).toLowerCase();
+      if (!isServableUploadExt(ext) && ext !== ".pdf") {
+        res.setHeader("Content-Type", "application/octet-stream");
+        res.setHeader("Content-Disposition", "attachment");
+      }
       res.setHeader("Accept-Ranges", "bytes");
       res.setHeader("X-Content-Type-Options", "nosniff");
       // Prevent any uploaded file from being rendered as HTML

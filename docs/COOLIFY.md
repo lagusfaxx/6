@@ -43,7 +43,7 @@
    - `UPLOADS_DIR=uploads`
    
    **Variables de Khipu (Pagos Automáticos):**
-   - `KHIPU_API_KEY=5c24de64-13fd-4f64-bdd4-acabe2c46bbb`
+   - `KHIPU_API_KEY=<tu KHIPU_API_KEY>`
    - `KHIPU_BASE_URL=https://payment-api.khipu.com`
    - `KHIPU_SUBSCRIPTION_NOTIFY_URL=https://api.uzeed.cl/webhooks/khipu/subscription`
    - `KHIPU_CHARGE_NOTIFY_URL=https://api.uzeed.cl/webhooks/khipu/charge`
@@ -119,7 +119,7 @@
 - El usuario admin se crea automáticamente al iniciar la API.
 - Credenciales por defecto:
   - Email: `admin@uzeed.cl`
-  - Clave: `Automazdabxzx94`
+  - Clave: `<la de ADMIN_PASSWORD en Coolify>`
 - Puedes sobrescribir con `ADMIN_EMAIL` y `ADMIN_PASSWORD`.
 
 ### Solución rápida a error de proxy "Host(``) ... empty args"
@@ -223,7 +223,7 @@ MEMBERSHIP_PRICE_CLP=4990          # Precio unificado
 SHOP_MONTHLY_PRICE_CLP=4990        # Mismo precio
 FREE_TRIAL_DAYS=7                   # Periodo de prueba
 MEMBERSHIP_DAYS=30                  # Duración de cada pago
-KHIPU_API_KEY=5c24de64-13fd-4f64-bdd4-acabe2c46bbb
+KHIPU_API_KEY=<tu KHIPU_API_KEY>
 KHIPU_SUBSCRIPTION_NOTIFY_URL=https://api.uzeed.cl/webhooks/khipu/subscription
 KHIPU_CHARGE_NOTIFY_URL=https://api.uzeed.cl/webhooks/khipu/charge
 ```

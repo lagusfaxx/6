@@ -4,6 +4,7 @@ import {
   ESCORT_LANDINGS,
   type EscortLanding,
 } from "../lib/escortLandings";
+import { jsonLdString } from "../lib/jsonLd";
 
 const SITE_URL = "https://uzeed.cl";
 const OG_IMAGE = `${SITE_URL}/brand/isotipo-new.png`;
@@ -147,7 +148,7 @@ export default async function EscortLandingPage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(landing)) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd(landing)) }}
       />
       <CreadorasClient
         profiles={profiles}

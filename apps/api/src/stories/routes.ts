@@ -1,5 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
+import rateLimit from "express-rate-limit";
 import path from "path";
 import crypto from "crypto";
 import { prisma } from "../db";
@@ -10,6 +11,8 @@ import { LocalStorageProvider } from "../storage/localStorageProvider";
 import { asyncHandler } from "../lib/asyncHandler";
 import { optimizeUploadedImage } from "../lib/imageOptimizer";
 import { obfuscateLocation } from "../lib/locationPrivacy";
+import { safeUploadFilename } from "../lib/uploadFilename";
+import { validateUploadedFile } from "../lib/uploads";
 
 export const storiesRouter = Router();
 
@@ -25,9 +28,7 @@ const uploadMedia = multer({
       cb(null, config.storageDir);
     },
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || "";
-      const name = `story-${Date.now()}${ext}`;
-      cb(null, name);
+      cb(null, safeUploadFilename(file, "story-"));
     },
   }),
   limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB for video
@@ -205,9 +206,13 @@ storiesRouter.post(
 
     if (!req.file) return res.status(400).json({ error: "NO_FILE" });
 
-    const mediaType = (req.file.mimetype || "").toLowerCase().startsWith("video/")
-      ? "VIDEO"
-      : "IMAGE";
+    // El tipo lo deciden los bytes del archivo, no lo que declara el navegador.
+    let mediaType: "IMAGE" | "VIDEO";
+    try {
+      mediaType = (await validateUploadedFile(req.file, "image-or-video")).type as "IMAGE" | "VIDEO";
+    } catch {
+      return res.status(400).json({ error: "INVALID_FILE_TYPE", message: "Sube una foto o un video (MP4/MOV)." });
+    }
 
     const finalFilename = mediaType === "IMAGE" ? await optimizeUploadedImage(req.file, "cover") : req.file.filename;
     const publicUrl = `${config.apiUrl.replace(/\/$/, "")}/uploads/${finalFilename}`;
@@ -252,8 +257,20 @@ storiesRouter.post(
    The story owner gets a single aggregated notification that
    increments its count instead of creating one per like.
    ─────────────────────────────────────────────────────────── */
+/* Tope de likes por IP: los anónimos se identifican sólo por una cookie que
+   basta con borrar, así que sin esto un script inflaba (o regalaba) likes
+   sin límite. 40 cada 10 minutos sobra para una persona real. */
+const storyLikeLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "TOO_MANY_LIKES", message: "Demasiados likes seguidos. Intenta en unos minutos." },
+});
+
 storiesRouter.post(
   "/stories/:id/like",
+  storyLikeLimiter,
   asyncHandler(async (req, res) => {
     const storyId = req.params.id;
     const viewerUser = (req as any).user;

@@ -39,6 +39,7 @@ import {
   signOrderAssets,
 } from "./orders";
 import { notifyMarket, orderUrl, formatClp } from "./notify";
+import { FFMPEG_SAFE_INPUT_ARGS, looksLikePlainVideo, safeUploadExt } from "../lib/uploadFilename";
 
 const execFileAsync = promisify(execFile);
 
@@ -130,8 +131,9 @@ async function saveThumbnail(buffer: Buffer, privateAsset: boolean): Promise<str
 async function renderVideoFrame(videoBuffer: Buffer, originalFilename: string): Promise<Buffer | null> {
   let tmpDir: string | null = null;
   try {
+    if (!looksLikePlainVideo(videoBuffer)) return null;
     tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), "market-thumb-"));
-    const tmpVideo = path.join(tmpDir, "input" + path.extname(originalFilename));
+    const tmpVideo = path.join(tmpDir, "input" + safeUploadExt(originalFilename, "video/mp4"));
     await fsp.writeFile(tmpVideo, videoBuffer);
 
     const attempts: string[][] = [
@@ -142,7 +144,7 @@ async function renderVideoFrame(videoBuffer: Buffer, originalFilename: string): 
     for (let i = 0; i < attempts.length; i++) {
       const tmpThumb = path.join(tmpDir, `thumb-${i}.jpg`);
       try {
-        await execFileAsync("ffmpeg", ["-y", ...attempts[i], tmpThumb], { timeout: 20000 });
+        await execFileAsync("ffmpeg", ["-y", ...FFMPEG_SAFE_INPUT_ARGS, ...attempts[i], tmpThumb], { timeout: 20000 });
         const thumbBuffer = await fsp.readFile(tmpThumb);
         if (thumbBuffer.length > 0) return thumbBuffer;
       } catch {

@@ -13,6 +13,7 @@ import { isUUID } from "../lib/validators";
 import { sendToUser, broadcast } from "../realtime/sse";
 import { scheduleAutoReply } from "./autoReply";
 import { quickReplyTopicsFor } from "./quickReplies";
+import { safeUploadFilename } from "../lib/uploadFilename";
 
 export const messagesRouter = Router();
 
@@ -36,10 +37,7 @@ const upload = multer({
       cb(null, config.storageDir);
     },
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || "";
-      const safeBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, "");
-      const name = `${Date.now()}-${safeBase}${ext}`;
-      cb(null, name);
+      cb(null, safeUploadFilename(file));
     }
   }),
   limits: { fileSize: 25 * 1024 * 1024 }

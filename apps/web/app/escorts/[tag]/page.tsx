@@ -5,6 +5,7 @@ import DirectoryPage from "../../../components/DirectoryPage";
 import DirectorySeoLinks, { cityHasProfiles } from "../../../components/DirectorySeoLinks";
 import { getCity } from "../../../lib/cities";
 import { CITY_SEO, getTagLanding, tagFilter, type SeoCopy } from "../../../lib/escortSearchLandings";
+import { jsonLdString } from "../../../lib/jsonLd";
 
 type Props = { params: Promise<{ tag: string }> };
 
@@ -99,7 +100,7 @@ function SeoCopySection({ seo }: { seo: Pick<SeoCopy, "h1" | "paragraphs" | "faq
   return (
     <section className="max-w-4xl mx-auto px-4 pb-12 pt-8 text-white/60 text-sm leading-relaxed">
       {seo.faq.length > 0 && (
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(faqJsonLd) }} />
       )}
       <h2 className="text-xl font-bold text-white/80 mb-3">{seo.h1}</h2>
       {seo.paragraphs.map((p, i) => (
@@ -166,7 +167,7 @@ export default async function EscortsTagPage({ params }: Props) {
         </Suspense>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd(`Escorts en ${city.name}`)) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd(`Escorts en ${city.name}`)) }}
         />
         {/* El texto de plantilla se mantiene siempre: las ciudades que ya
             rankean lo hacen con él. El copy propio se suma debajo. */}
@@ -224,7 +225,7 @@ export default async function EscortsTagPage({ params }: Props) {
       </Suspense>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd(name)) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd(name)) }}
       />
       {landing ? (
         <SeoCopySection seo={landing} />
