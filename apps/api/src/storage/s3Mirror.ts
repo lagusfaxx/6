@@ -204,6 +204,16 @@ class Mirror {
   }
 }
 
+function missingS3Env(): string[] {
+  const has = (...names: string[]) => names.some((n) => (process.env[n] || "").trim());
+  const out: string[] = [];
+  if (!has("S3_BUCKET")) out.push("S3_BUCKET");
+  if (!has("AWS_REGION", "AWS_DEFAULT_REGION")) out.push("AWS_REGION");
+  if (!has("AWS_ACCESS_KEY_ID")) out.push("AWS_ACCESS_KEY_ID");
+  if (!has("AWS_SECRET_ACCESS_KEY")) out.push("AWS_SECRET_ACCESS_KEY");
+  return out;
+}
+
 let started = false;
 
 export function startS3Mirror(): void {
@@ -214,8 +224,13 @@ export function startS3Mirror(): void {
 
   const cfg = activeS3Config();
   if (!cfg) {
-    setError("STORAGE_DRIVER=mirror pero faltan S3_BUCKET, AWS_REGION, AWS_ACCESS_KEY_ID o AWS_SECRET_ACCESS_KEY");
-    console.error(`[s3-mirror] ${status.lastError}. El espejo NO está activo; la app sigue usando sólo el disco.`);
+    setError(`STORAGE_DRIVER=mirror pero faltan o están vacías: ${missingS3Env().join(", ")}`);
+    // Sólo nombres, nunca valores: ayuda a ver errores de tipeo (ej. AWS_SECRET_ACCESS sin _KEY).
+    const similar = Object.keys(process.env).filter((k) => /^\s*(AWS|S3)/i.test(k)).sort();
+    console.error(
+      `[s3-mirror] ${status.lastError}. Variables AWS/S3 que sí existen: ${similar.map((k) => JSON.stringify(k)).join(", ") || "(ninguna)"}. ` +
+        "El espejo NO está activo; la app sigue usando sólo el disco.",
+    );
     return;
   }
   status.bucket = cfg.bucket;
