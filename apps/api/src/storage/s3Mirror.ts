@@ -86,7 +86,9 @@ async function* walk(dir: string, exclude: string[]): AsyncGenerator<string> {
     handle = await fsp.opendir(dir);
   } catch (err: any) {
     if (err?.code === "ENOENT") return;
-    throw err;
+    // Una carpeta ilegible no debe frenar el resto: se registra y se sigue.
+    setError(`no se pudo leer ${dir}: ${err?.code || err?.message || err}`);
+    return;
   }
   for await (const entry of handle) {
     const abs = path.join(dir, entry.name);
@@ -113,8 +115,8 @@ class Mirror {
   constructor(private cfg: S3Config) {}
 
   async selfTest(): Promise<void> {
-    const key = `_healthcheck/${os.hostname() || "api"}.txt`;
-    const body = `uzeed s3 ok ${new Date().toISOString()}`;
+    const key = "_healthcheck/api.txt";
+    const body = `uzeed s3 ok ${os.hostname()} ${new Date().toISOString()}`;
     await putObjectBuffer(this.cfg, key, Buffer.from(body), "text/plain; charset=utf-8");
     const read = await getObjectText(this.cfg, key);
     if (read !== body) throw new Error("SELFTEST_MISMATCH: lo leído no coincide con lo escrito");
@@ -172,9 +174,11 @@ class Mirror {
         const item = queue[i++];
         try {
           // Re-stat justo antes de subir: el tamaño firmado debe ser el real.
+          const uploadStartedAt = Date.now();
           const st = await fsp.stat(item.abs);
           await putObjectFromFile(this.cfg, item.key, item.abs, st.size, contentTypeForKey(item.key));
-          this.remote.set(item.key, { size: st.size, lastModified: Math.max(Date.now(), st.mtimeMs, st.ctimeMs) });
+          // Se guarda la hora de inicio: si el archivo cambió durante la subida, la próxima pasada lo re-sube.
+          this.remote.set(item.key, { size: st.size, lastModified: Math.max(uploadStartedAt, st.mtimeMs, st.ctimeMs) });
           stats.uploaded++;
           stats.bytesUploaded += st.size;
           status.totalUploaded++;
