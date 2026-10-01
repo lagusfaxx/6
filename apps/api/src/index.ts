@@ -70,6 +70,7 @@ import { requireAuth } from "./auth/middleware";
 import { startWorker } from "./worker";
 import { uploadsS3Fallback } from "./storage/s3Serve";
 import { startS3Mirror } from "./storage/s3Mirror";
+import { dbBackupAdminRouter, startDbBackups } from "./storage/dbBackup";
 import { getBillingSettings } from "./lib/billingSettings";
 import { initBaileys } from "./notifications/whatsappBaileys";
 import { cleanupUploadsOnError, isServableUploadExt } from "./lib/uploadFilename";
@@ -299,6 +300,7 @@ app.use("/", umateRouter);
 app.use("/", referralRouter);
 app.use("/", adminReferralRouter);
 app.use("/", mcpAdminRouter);
+app.use("/", dbBackupAdminRouter);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const requestId = (req as any).requestId;
@@ -342,6 +344,7 @@ async function boot() {
     startWorker();
     initBaileys();
     startS3Mirror();
+    startDbBackups();
   });
 }
 
